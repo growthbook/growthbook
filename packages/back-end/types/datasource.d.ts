@@ -37,14 +37,39 @@ export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 export type SchemaFormat =
   | "segment"
   | "snowplow"
+  | "jitsu"
+  | "freshpaint"
   | "ga4"
+  | "gaua"
+  | "matomo"
+  | "heap"
   | "rudderstack"
   | "amplitude"
+  | "mparticle"
+  | "mixpanel"
+  | "firebase"
+  | "keen"
+  | "clevertap"
   | "custom";
 
+export type SchemaOption = {
+  name: string;
+  type: string;
+  label: string;
+  defaultValue: string | number;
+  helpText?: string;
+};
+
 export interface SchemaInterface {
-  getExperimentSQL(tablePrefix: string, userId: string): string;
-  getIdentitySQL(tablePrefix: string): IdentityJoinQuery[];
+  getExperimentSQL(
+    tablePrefix: string,
+    userId: string,
+    options?: Record<string, string | number>
+  ): string;
+  getIdentitySQL(
+    tablePrefix: string,
+    options?: Record<string, string | number>
+  ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];
   getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
@@ -95,6 +120,7 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   schemaFormat?: SchemaFormat;
+  schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];
   queries?: {
     // @deprecated

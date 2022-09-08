@@ -28,7 +28,7 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
-    const features = await getFeatureDefinitions(
+    const { features, dateUpdated } = await getFeatureDefinitions(
       webhook.organization,
       webhook.environment === undefined ? "production" : webhook.environment,
       webhook.project || ""
@@ -38,6 +38,7 @@ export default function (ag: Agenda) {
     const body: any = {
       timestamp: Math.floor(Date.now() / 1000),
       features,
+      dateUpdated,
     };
 
     if (!webhook.featuresOnly) {

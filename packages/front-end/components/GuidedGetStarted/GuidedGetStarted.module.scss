@@ -1,0 +1,41 @@
+@import "../../styles/colors.scss";
+
+.playerWrapper {
+  width: 100%;
+  height: 100%;
+}
+
+.blackTitle {
+  color: $gray-900;
+  font-weight: bold;
+}
+
+.purpleTitle {
+  color: $highlight-purple;
+  font-weight: bold;
+}
+
+.nextStepWrapper {
+  color: $dark-blue;
+}
+
+.nextStepLink {
+  border: 2px solid $dark-blue;
+  border-radius: 5px;
+  color: $dark-blue;
+  background-color: white;
+}
+
+.nextStepLink:hover {
+  background-color: $highlight-purple;
+  color: $white;
+  border-color: $highlight-purple;
+}
+
+.nextStepWrapper:hover {
+  text-decoration: none;
+}
+
+.videoPreview {
+  box-shadow: $gray-500 4px 4px 12px 0px;
+}

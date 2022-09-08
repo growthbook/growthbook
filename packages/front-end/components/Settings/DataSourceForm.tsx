@@ -6,147 +6,39 @@ import {
   ReactElement,
 } from "react";
 import { useAuth } from "../../services/auth";
-import {
-  DataSourceInterfaceWithParams,
-  DataSourceType,
-  DataSourceParams,
-} from "back-end/types/datasource";
-import AthenaForm from "./AthenaForm";
-import PostgresForm from "./PostgresForm";
-import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
-import SnowflakeForm from "./SnowflakeForm";
-import BigQueryForm from "./BigQueryForm";
-import ClickHouseForm from "./ClickHouseForm";
-import MixpanelForm from "./MixpanelForm";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import track from "../../services/track";
 import Modal from "../Modal";
-import PrestoForm from "./PrestoForm";
-import MysqlForm from "./MysqlForm";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
 import { DocLink, DocSection } from "../DocLink";
+import ConnectionSettings from "./ConnectionSettings";
+import { dataSourceConnections } from "../../services/eventSchema";
 
-const typeOptions: {
-  type: DataSourceType;
-  display: string;
-  default: Partial<DataSourceParams>;
-}[] = [
-  {
-    type: "redshift",
-    display: "Redshift",
-    default: {
-      host: "",
-      port: 5439,
-      database: "",
-      user: "",
-      password: "",
-    },
-  },
-  {
-    type: "google_analytics",
-    display: "Google Analytics",
-    default: {
-      viewId: "",
-      customDimension: "1",
-      refreshToken: "",
-    },
-  },
-  {
-    type: "athena",
-    display: "AWS Athena",
-    default: {
-      bucketUri: "s3://",
-      region: "us-east-1",
-      database: "",
-      accessKeyId: "",
-      secretAccessKey: "",
-      workGroup: "primary",
-    },
-  },
-  {
-    type: "presto",
-    display: "PrestoDB or Trino",
-    default: {
-      engine: "presto",
-      host: "",
-      port: 8080,
-      username: "",
-      password: "",
-      catalog: "",
-      schema: "",
-    },
-  },
-  {
-    type: "snowflake",
-    display: "Snowflake",
-    default: {
-      account: "",
-      username: "",
-      password: "",
-    },
-  },
-  {
-    type: "postgres",
-    display: "Postgres",
-    default: {
-      host: "",
-      port: 5432,
-      database: "",
-      user: "",
-      password: "",
-    },
-  },
-  {
-    type: "mysql",
-    display: "MySQL or MariaDB",
-    default: {
-      host: "",
-      port: 3306,
-      database: "",
-      user: "",
-      password: "",
-    },
-  },
-  {
-    type: "bigquery",
-    display: "BigQuery",
-    default: {
-      privateKey: "",
-      clientEmail: "",
-      projectId: "",
-    },
-  },
-  {
-    type: "clickhouse",
-    display: "ClickHouse",
-    default: {
-      url: "",
-      port: 8123,
-      username: "",
-      password: "",
-      database: "",
-    },
-  },
-  {
-    type: "mixpanel",
-    display: "Mixpanel",
-    default: {
-      username: "",
-      secret: "",
-      projectId: "",
-    },
-  },
-];
+const typeOptions = dataSourceConnections;
 
 const DataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   existing: boolean;
   source: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
   importSampleData?: () => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
+  inline?: boolean;
+  cta?: string;
+  secondaryCTA?: ReactElement;
+}> = ({
+  data,
+  onSuccess,
+  onCancel,
+  source,
+  existing,
+  importSampleData,
+  inline,
+  cta = "Save",
+  secondaryCTA,
+}) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -236,118 +128,17 @@ const DataSourceForm: FC<{
     });
     setDirty(true);
   };
-  const setParams = (params: { [key: string]: string }) => {
-    const newVal = {
-      ...datasource,
-      params: {
-        ...datasource.params,
-        ...params,
-      },
-    };
-
-    setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
-    setDirty(true);
-  };
-  const onParamChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setParams({ [e.target.name]: e.target.value });
-  };
-  let connSettings: ReactElement | null = null;
-  if (datasource.type === "athena") {
-    connSettings = (
-      <AthenaForm
-        existing={existing}
-        onParamChange={onParamChange}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "presto") {
-    connSettings = (
-      <PrestoForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "redshift") {
-    connSettings = (
-      <PostgresForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "postgres") {
-    connSettings = (
-      <PostgresForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "mysql") {
-    connSettings = (
-      <MysqlForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "google_analytics") {
-    connSettings = (
-      <GoogleAnalyticsForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-        error={hasError}
-      />
-    );
-  } else if (datasource.type === "snowflake") {
-    connSettings = (
-      <SnowflakeForm
-        existing={existing}
-        onParamChange={onParamChange}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "clickhouse") {
-    connSettings = (
-      <ClickHouseForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "bigquery") {
-    connSettings = (
-      <BigQueryForm
-        setParams={setParams}
-        params={datasource.params}
-        onParamChange={onParamChange}
-      />
-    );
-  } else if (datasource.type === "mixpanel") {
-    connSettings = (
-      <MixpanelForm
-        existing={existing}
-        onParamChange={onParamChange}
-        params={datasource.params}
-      />
-    );
-  }
 
   return (
     <Modal
+      inline={inline}
       open={true}
       submit={handleSubmit}
       close={onCancel}
       header={existing ? "Edit Data Source" : "Add Data Source"}
-      cta="Save"
+      cta={cta}
+      size="lg"
+      secondaryCTA={secondaryCTA}
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">
@@ -420,7 +211,13 @@ const DataSourceForm: FC<{
           value={datasource.name}
         />
       </div>
-      {connSettings}
+      <ConnectionSettings
+        datasource={datasource}
+        existing={existing}
+        hasError={hasError}
+        setDatasource={setDatasource}
+        setDirty={setDirty}
+      />
     </Modal>
   );
 };

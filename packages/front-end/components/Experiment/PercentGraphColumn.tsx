@@ -1,7 +1,7 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
-import { hasEnoughData, isSuspiciousUplift } from "../../services/experiments";
+import { hasEnoughData } from "../../services/experiments";
 import AlignedGraph from "./AlignedGraph";
 
 export default function PercentGraphColumn({
@@ -18,11 +18,10 @@ export default function PercentGraphColumn({
   id: string;
 }) {
   const enoughData = hasEnoughData(baseline, stats, metric);
-  const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
   const { ciUpper, ciLower } = useConfidenceLevels();
   const barType = stats.uplift?.dist ? "violin" : "pill";
 
-  const showGraph = metric && enoughData && !suspiciousChange;
+  const showGraph = metric && enoughData;
   return (
     <td className="compact-graph pb-0 align-middle">
       <AlignedGraph

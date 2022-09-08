@@ -241,7 +241,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   Returns a record of which experiment variation was assigned to
                   each user.
                 </p>
-                {d.settings.queries?.exposure?.map((e) => (
+                {d.settings?.queries?.exposure?.map((e) => (
                   <div className="bg-white border mb-3 ml-3" key={e.id}>
                     <div className="px-3 pt-3">
                       <h4>{e.name}</h4>
