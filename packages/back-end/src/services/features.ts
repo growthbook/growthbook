@@ -255,7 +255,7 @@ export async function createFeatureService(feature: Partial<FeatureInterface>) {
     project,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    valueType: valueType ?? "boolean",
+    valueType: valueType,
     defaultValue: parseDefaultValue(defaultValue, valueType),
     tags,
     environmentSettings,
