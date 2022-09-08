@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { FaCheck } from "react-icons/fa";
-import styles from "./GuidedGetStarted.module.scss";
+import styles from "./SuccessCard.module.scss";
 
 type Props = {
   feature: string;
@@ -10,17 +10,17 @@ type Props = {
   nextStep: string;
 };
 
-export default function SuccessMessage({
+export default function SuccessCard({
   feature,
   href,
   onClick,
   nextStep,
 }: Props) {
   return (
-    <div className="col-10 p-2">
+    <div className={clsx("col-12 p-4", styles.wrapper)}>
       <div className="d-flex flex-column align-content-center text-center">
         <FaCheck
-          className={clsx("align-self-center m-4 p-3", styles.successBubble)}
+          className={clsx("align-self-center mb-4 p-3", styles.successBubble)}
         />
         <h1>Great job!</h1>
         <p>

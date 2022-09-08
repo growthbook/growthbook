@@ -19,7 +19,7 @@ import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { hasFileConfig } from "../../services/env";
 import track from "../../services/track";
 import { DocLink, DocSection } from "../DocLink";
-import SuccessMessage from "./SuccessMessage";
+import SuccessCard from "./SuccessCard";
 
 export type Task = {
   blackTitle: string;
@@ -188,7 +188,7 @@ export default function GuidedGetStarted({
       render: (
         <>
           {features.length > 0 ? (
-            <SuccessMessage
+            <SuccessCard
               feature="feature flag"
               href="/features"
               onClick={async () => setCurrentStep(currentStep + 1)}
@@ -228,7 +228,7 @@ export default function GuidedGetStarted({
       render: (
         <>
           {datasources.length > 0 ? (
-            <SuccessMessage
+            <SuccessCard
               feature="data source"
               href="/datasources"
               onClick={async () => setCurrentStep(currentStep + 1)}
@@ -279,7 +279,7 @@ export default function GuidedGetStarted({
       render: (
         <>
           {metrics.length > 0 ? (
-            <SuccessMessage
+            <SuccessCard
               feature="metric"
               href="/metrics"
               onClick={async () => setCurrentStep(currentStep + 1)}
@@ -373,17 +373,17 @@ export default function GuidedGetStarted({
         steps={steps}
       />
       <div className="d-flex flex-column">
-        {(!steps[currentStep].completed ||
-          steps[currentStep].alwaysShowHelperText) && (
-          <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
-            <h1 className="text-center">
-              <span className={styles.blackTitle}>
-                {steps[currentStep].blackTitle}
-              </span>
-              <span className={styles.purpleTitle}>
-                {steps[currentStep].purpleTitle}
-              </span>
-            </h1>
+        <div className="d-flex flex-column align-items-center pl-4 pr-4 pt-2 pb-2">
+          <h1 className="text-center">
+            <span className={styles.blackTitle}>
+              {steps[currentStep].blackTitle}
+            </span>
+            <span className={styles.purpleTitle}>
+              {steps[currentStep].purpleTitle}
+            </span>
+          </h1>
+          {(!steps[currentStep].completed ||
+            steps[currentStep].alwaysShowHelperText) && (
             <p className="text-center col-10">
               {`${steps[currentStep].text} `}
               {steps[currentStep].learnMoreLink &&
@@ -395,9 +395,9 @@ export default function GuidedGetStarted({
                   </span>
                 )}
             </p>
-            {steps[currentStep].additionalCta}
-          </div>
-        )}
+          )}
+          {steps[currentStep].additionalCta}
+        </div>
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}
         </div>
