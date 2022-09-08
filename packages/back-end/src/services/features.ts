@@ -190,6 +190,26 @@ export function verifyDraftsAreEqual(
   }
 }
 
+function parseDefaultValue(
+  defaultValue: string,
+  valueType: FeatureValueType
+): string {
+  if (valueType === "boolean") {
+    return defaultValue === "true" ? "true" : "false";
+  }
+  if (valueType === "number") {
+    return parseFloat(defaultValue) + "";
+  }
+  if (valueType === "string") {
+    return defaultValue;
+  }
+  try {
+    return JSON.stringify(JSON.parse(defaultValue), null, 2);
+  } catch (e) {
+    throw new Error(`JSON parse error for default value`);
+  }
+}
+
 export async function createFeatureService(feature: Partial<FeatureInterface>) {
   const {
     id,
@@ -217,21 +237,30 @@ export async function createFeatureService(feature: Partial<FeatureInterface>) {
 
   if (!owner) throw new Error("Owner must be specified");
 
+  if (!valueType) throw new Error("Value type must be specified");
+  if (!["boolean", "number", "string", "json"].includes(valueType)) {
+    throw new Error(
+      "Value type must be one of boolean, number, string, or json"
+    );
+  }
+
+  if (!defaultValue) throw new Error("Default value must be specified");
+
   const resultFeature: FeatureInterface = {
     id: id.toLowerCase(),
     archived: archived ?? false,
-    description: description ?? "",
+    description,
     organization,
     owner,
-    project: project ?? "",
+    project,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     valueType: valueType ?? "boolean",
-    defaultValue: defaultValue ?? "",
-    tags: tags ?? [],
-    environmentSettings: environmentSettings ?? {},
-    draft: draft ?? undefined,
-    revision: revision ?? undefined,
+    defaultValue: parseDefaultValue(defaultValue, valueType),
+    tags,
+    environmentSettings,
+    draft,
+    revision,
   };
 
   addIdsToRules(resultFeature.environmentSettings, resultFeature.id);
