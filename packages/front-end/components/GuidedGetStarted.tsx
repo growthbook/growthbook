@@ -85,7 +85,10 @@ export default function GuidedGetStarted({
       purpleTitle: "GrowthBook!",
       text:
         "GrowthBook is a modular platform that enables teams to create feature flags and analyze experiment results. These features can be used together, or on their own - the choice is yours.",
-      completed: settings?.videoInstructionsViewed || false,
+      completed:
+        settings?.videoInstructionsViewed ||
+        datasources.length > 0 ||
+        features.length > 0,
       additionalCta: (
         <Link href="/settings/team">
           <a className="font-weight-bold">
