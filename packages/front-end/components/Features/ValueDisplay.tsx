@@ -58,7 +58,7 @@ export default function ValueDisplay({
   }
 
   return (
-    <div style={{ maxHeight: 150, overflowY: "auto" }}>
+    <div style={{ maxHeight: 150, overflowY: "auto", maxWidth: "1080px" }}>
       <Code
         language="json"
         code={formatted}
