@@ -222,9 +222,8 @@ app.post(
   slackController.postIdeas
 );
 
-// increase max payload size to 10mb
-app.use(bodyParser.json({ limit: "10mb" }));
-app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
+// increase max payload json size to 1mb
+app.use(bodyParser.json({ limit: "1mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
