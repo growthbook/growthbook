@@ -166,6 +166,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
+                    { label: "is in the group", value: "$inGroup" },
+                    { label: "is not in the group", value: "$notInGroup" },
                   ]
                 : attribute.datatype === "number"
                 ? [
@@ -179,6 +181,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
+                    { label: "is in the group", value: "$inGroup" },
+                    { label: "is not in the group", value: "$notInGroup" },
                   ]
                 : [];
 
@@ -237,6 +241,20 @@ export default function ConditionInput(props: Props) {
                     "$notEmpty",
                   ].includes(operator) ? (
                     ""
+                  ) : ["$inGroup", "$notInGroup"].includes(operator) ? (
+                    <SelectField
+                      options={attribute.enum.map((v) => ({
+                        label: v,
+                        value: v,
+                      }))}
+                      value={value}
+                      onChange={(v) => {
+                        onSelectFieldChange(v, "value");
+                      }}
+                      name="value"
+                      initialOption="Choose group..."
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <Field
                       textarea

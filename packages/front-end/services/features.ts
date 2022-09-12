@@ -495,10 +495,22 @@ export function jsonToConds(
           });
         }
 
+        if (operator === ("$inGroup" || "$notInGroup")) {
+          console.log("found the right spot");
+          return conds.push({
+            field,
+            operator,
+            value: stringify(v).replace(/(^"|"$)/g, ""),
+          });
+          //TODO: Figure out what needs to be one here to make this work as expected. Aka, get a list of groups to display as options
+          // return true;
+        }
         valid = false;
       });
     });
-    if (!valid) return null;
+    if (!valid) {
+      return null;
+    }
     return conds;
   } catch (e) {
     return null;

@@ -64,6 +64,11 @@ const navlinks: SidebarLinkProps[] = [
         path: /^datasources/,
         permissions: ["editDatasourceSettings"],
       },
+      {
+        name: "Groups",
+        href: "/groups",
+        path: /^groups/,
+      },
     ],
   },
   {

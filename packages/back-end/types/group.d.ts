@@ -1,4 +1,7 @@
 export interface GroupInterface {
   organization: string;
-  groups: string[];
+  groupName: string;
+  owner: string;
+  attributeKey: string;
+  csv: string;
 }
