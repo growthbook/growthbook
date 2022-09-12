@@ -39,27 +39,6 @@ export async function getHasOrganizations(req: Request, res: Response) {
 }
 
 const auth = getAuthConnection();
-async function successResponse(
-  req: Request,
-  res: Response,
-  user: UserInterface
-) {
-  const { idToken, refreshToken } = await auth.processCallback(req, res, user);
-  if (!idToken) {
-    return res.status(400).json({
-      status: 400,
-      message: "Unable to create id token for user",
-    });
-  }
-
-  IdTokenCookie.setValue(idToken, req, res);
-  RefreshTokenCookie.setValue(refreshToken, req, res);
-
-  res.status(200).json({
-    status: 200,
-    token: idToken,
-  });
-}
 
 export async function postRefresh(req: Request, res: Response) {
   // First try getting the idToken from cookies
@@ -77,13 +56,17 @@ export async function postRefresh(req: Request, res: Response) {
     if (!refreshToken) {
       throw new Error("Missing refresh token");
     }
-    const { idToken, refreshToken: newRefreshToken } = await auth.refresh(
-      req,
-      res,
-      refreshToken
-    );
-    IdTokenCookie.setValue(idToken, req, res);
-    RefreshTokenCookie.setValue(newRefreshToken, req, res);
+    const {
+      idToken,
+      refreshToken: newRefreshToken,
+      expiresIn,
+    } = await auth.refresh(req, res, refreshToken);
+
+    IdTokenCookie.setValue(idToken, req, res, expiresIn);
+    if (newRefreshToken) {
+      RefreshTokenCookie.setValue(newRefreshToken, req, res);
+    }
+
     return res.json({
       status: 200,
       token: idToken,
@@ -99,19 +82,49 @@ export async function postRefresh(req: Request, res: Response) {
 }
 
 export async function postOAuthCallback(req: Request, res: Response) {
-  const { idToken, refreshToken } = await auth.processCallback(req, res, null);
+  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+    req,
+    res,
+    null
+  );
 
   if (!idToken) {
     throw new Error("Could not authenticate");
   }
 
   RefreshTokenCookie.setValue(refreshToken, req, res);
-  IdTokenCookie.setValue(idToken, req, res);
+  IdTokenCookie.setValue(idToken, req, res, expiresIn);
 
   // TODO: better redirect location?
   return res.status(200).json({
     status: 200,
     redirectURI: "/",
+  });
+}
+
+async function getLocalSuccessResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface
+) {
+  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+    req,
+    res,
+    user
+  );
+  if (!idToken) {
+    return res.status(400).json({
+      status: 400,
+      message: "Unable to create id token for user",
+    });
+  }
+
+  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
+  RefreshTokenCookie.setValue(refreshToken, req, res);
+
+  res.status(200).json({
+    status: 200,
+    token: idToken,
   });
 }
 
@@ -153,7 +166,7 @@ export async function postLogin(
     });
   }
 
-  successResponse(req, res, user);
+  getLocalSuccessResponse(req, res, user);
 }
 
 export async function postRegister(
@@ -178,12 +191,12 @@ export async function postRegister(
       });
     }
 
-    return successResponse(req, res, existingUser);
+    return getLocalSuccessResponse(req, res, existingUser);
   }
 
   // Create new account
   const user = await createUser(name, email, password);
-  successResponse(req, res, user);
+  getLocalSuccessResponse(req, res, user);
 }
 
 export async function postFirstTimeRegister(
@@ -228,7 +241,7 @@ export async function postFirstTimeRegister(
   await createOrganization(email, user.id, companyname, "");
   markInstalled();
 
-  successResponse(req, res, user);
+  getLocalSuccessResponse(req, res, user);
 }
 
 export async function postForgotPassword(

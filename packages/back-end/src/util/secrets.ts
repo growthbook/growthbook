@@ -112,7 +112,7 @@ export const LICENCE_KEY = process.env.LICENCE_KEY || "";
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
 
-  if (!LICENCE_KEY) {
+  if (!IS_CLOUD && !LICENCE_KEY) {
     throw new Error(
       "Must have an Enterprise Licence Key to use self-hosted SSO"
     );
@@ -139,6 +139,14 @@ function getSSOConfig() {
       "SSO_CONFIG missing required metadata fields: " +
         missingMetadata.join(", ")
     );
+  }
+
+  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
+  if (
+    IS_CLOUD &&
+    config?.metadata?.issuer !== "https://growthbook.auth0.com/"
+  ) {
+    throw new Error("Invalid SSO configuration for GrowthBook Cloud");
   }
 
   config.id = "";

@@ -5,6 +5,7 @@ export interface SSOConnectionInterface {
   dateCreated?: Date;
   organization?: string;
   emailDomain?: string;
+  additionalScope?: string;
   idpType?: string;
   clientId: string;
   clientSecret?: string;

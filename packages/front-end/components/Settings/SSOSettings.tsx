@@ -11,6 +11,10 @@ export interface Props {
 export default function SSOSettings({ ssoConnection }: Props) {
   const [expanded, setExpanded] = useState(false);
 
+  // No custom enterprise SSO configured on GrowthBook Cloud
+  if (isCloud() && !ssoConnection) return null;
+
+  // No SSO configured for self-hosted deployment
   if (!usingSSO()) return null;
 
   return (

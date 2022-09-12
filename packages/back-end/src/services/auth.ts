@@ -57,17 +57,17 @@ class Cookie {
     this.expires = expires;
   }
 
-  setValue(value: string, req: Request, res: Response) {
+  setValue(value: string, req: Request, res: Response, maxAge: number = 0) {
     if (!value) {
       res.clearCookie(this.key, {
         httpOnly: true,
-        maxAge: this.expires,
+        maxAge: maxAge || this.expires,
         secure: req.secure,
       });
     } else {
       res.cookie(this.key, value, {
         httpOnly: true,
-        maxAge: this.expires,
+        maxAge: maxAge || this.expires,
         secure: req.secure,
       });
     }
@@ -86,6 +86,7 @@ export const CodeVerifierCookie = new Cookie("CODE_VERIFIER", minutes(10));
 type TokensResponse = {
   idToken: string;
   refreshToken: string;
+  expiresIn: number;
 };
 
 export interface AuthConnection {
@@ -131,7 +132,7 @@ export class LocalAuth implements AuthConnection {
   ): Promise<TokensResponse> {
     const idToken = this.generateJWT(user);
     const refreshToken = await createRefreshToken(req, user);
-    return { idToken, refreshToken };
+    return { idToken, refreshToken, expiresIn: 1800 };
   }
   async logout(req: Request): Promise<string> {
     const refreshToken = RefreshTokenCookie.getValue(req);
@@ -167,6 +168,7 @@ export class LocalAuth implements AuthConnection {
     return {
       idToken: this.generateJWT(user),
       refreshToken,
+      expiresIn: 1800,
     };
   }
   private generateJWT(user: UserInterface) {
@@ -226,6 +228,7 @@ export class OpenIdAuth implements AuthConnection {
     return {
       idToken: tokenSet.id_token,
       refreshToken: tokenSet.refresh_token || "",
+      expiresIn: tokenSet.expires_in || 0,
     };
   }
   async middleware(
@@ -293,6 +296,7 @@ export class OpenIdAuth implements AuthConnection {
     return {
       idToken: tokenSet?.id_token || "",
       refreshToken: tokenSet?.refresh_token || "",
+      expiresIn: tokenSet?.expires_in || 0,
     };
   }
   async logout(req: Request, res: Response): Promise<string> {
@@ -319,13 +323,23 @@ export class OpenIdAuth implements AuthConnection {
 
     CodeVerifierCookie.setValue(code_verifier, req, res);
 
-    return client.authorizationUrl({
-      scope: "openid email profile",
+    let url = client.authorizationUrl({
+      scope: `openid email profile ${
+        ssoConnection.additionalScope || ""
+      }`.trim(),
       code_challenge,
       code_challenge_method: "S256",
       audience: (ssoConnection.metadata?.audience ||
         ssoConnection.clientId) as string,
     });
+
+    if (ssoConnection.extraQueryParams) {
+      for (const [k, v] of Object.entries(ssoConnection.extraQueryParams)) {
+        url += `&${k}=${v}`;
+      }
+    }
+
+    return url;
   }
 
   private getOpenIdClient(connection: SSOConnectionInterface) {
@@ -350,28 +364,10 @@ export class OpenIdAuth implements AuthConnection {
   }
 }
 function getDefaultSSOConnection(): SSOConnectionInterface {
-  if (!IS_CLOUD) {
-    if (usingOpenId() && SSO_CONFIG) {
-      return SSO_CONFIG;
-    }
+  if (!SSO_CONFIG) {
     throw new Error("No SSO connection configured");
   }
-
-  return {
-    id: "",
-    clientId: "5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
-    metadata: {
-      issuer: "https://growthbook.auth0.com/",
-      authorization_endpoint: "https://growthbook.auth0.com/authorize",
-      end_session_endpoint:
-        "https://growthbook.auth0.com/v2/logout?client_id=5xji4zoOExGgygEFlNXTwAUs3y68zU4D",
-      id_token_signing_alg_values_supported: ["HS256", "RS256"],
-      jwks_uri: "https://growthbook.auth0.com/.well-known/jwks.json",
-      token_endpoint: "https://growthbook.auth0.com/oauth/token",
-      code_challenge_methods_supported: ["S256", "plain"],
-      audience: "https://api.growthbook.io",
-    },
-  };
+  return SSO_CONFIG;
 }
 async function getConnectionFromRequest(
   req: Request

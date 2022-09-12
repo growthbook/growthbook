@@ -93,8 +93,6 @@ export async function getUser(req: AuthRequest, res: Response) {
     }
   }
 
-  console.log(orgs);
-
   // Filter out orgs that the user can't log in to
   const validOrgs = orgs.filter(
     (org) =>

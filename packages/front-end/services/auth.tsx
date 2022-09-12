@@ -80,25 +80,73 @@ export const AuthContext = React.createContext<AuthContextValue>({
 });
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
+// Only run one refresh operation at a time
+let _currentRefreshOperation: null | Promise<
+  UnauthenticatedResponse | IdTokenResponse | { error: Error }
+> = null;
 async function refreshToken() {
-  const res = await fetch(getApiHost() + "/auth/refresh", {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) {
-    // try parsing json to get an error message
-    return res
-      .json()
-      .then(async (data) => {
-        console.log(data);
-        throw new Error(data?.message || "Error connecting to the API");
+  if (!_currentRefreshOperation) {
+    console.log("Making refresh request");
+    _currentRefreshOperation = fetch(getApiHost() + "/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((res) => {
+        if (!res.ok) {
+          // try parsing json to get an error message
+          return res
+            .json()
+            .then(async (data) => {
+              throw new Error(data?.message || "Error connecting to the API");
+            })
+            .catch((e) => {
+              throw new Error(e.message);
+            });
+        }
+        return res.json();
       })
       .catch((e) => {
-        throw new Error(e.message);
+        return { error: e };
       });
+    _currentRefreshOperation.finally(() => {
+      _currentRefreshOperation = null;
+    });
   }
-  const data: UnauthenticatedResponse | IdTokenResponse = await res.json();
+
+  const data = await _currentRefreshOperation;
+
+  if ("error" in data) {
+    throw data.error;
+  }
+
   return data;
+}
+
+const isLocal = (url: string) => url.includes("localhost");
+
+function getDetailedError(error: string): string | ReactElement {
+  const curUrl = window.location.origin;
+  if (!isCloud()) {
+    // Using a custom domain to access the app, but env variables are still localhost
+    if (
+      !isLocal(curUrl) &&
+      (isLocal(getApiHost()) || isLocal(getAppOrigin()))
+    ) {
+      return (
+        <div>
+          <div>
+            <strong>{error}.</strong>
+          </div>{" "}
+          It looks like you are using a custom domain. Make sure to set the
+          environment variables{" "}
+          <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
+          <code className="font-weight-bold">API_HOST</code>.{" "}
+          <DocLink docSection="config_domains_and_ports">View docs</DocLink>
+        </div>
+      );
+    }
+  }
+  return error;
 }
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
@@ -152,33 +200,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     });
   }, []);
 
-  const isLocal = (url: string) => url.includes("localhost");
-
-  function getDetailedError(error: string): string | ReactElement {
-    const curUrl = window.location.origin;
-    if (!isCloud()) {
-      // Using a custom domain to access the app, but env variables are still localhost
-      if (
-        !isLocal(curUrl) &&
-        (isLocal(getApiHost()) || isLocal(getAppOrigin()))
-      ) {
-        return (
-          <div>
-            <div>
-              <strong>{error}.</strong>
-            </div>{" "}
-            It looks like you are using a custom domain. Make sure to set the
-            environment variables{" "}
-            <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
-            <code className="font-weight-bold">API_HOST</code>.{" "}
-            <DocLink docSection="config_domains_and_ports">View docs</DocLink>
-          </div>
-        );
-      }
-    }
-    return error;
-  }
-
   const orgList = [...organizations];
   if (specialOrg && !orgList.map((o) => o.id).includes(specialOrg.id)) {
     orgList.push({
@@ -213,7 +234,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     );
   }
 
-  const apiCall = async (url: string, options: RequestInit = {}) => {
+  const _makeApiCall = async (
+    url: string,
+    token: string,
+    options: RequestInit = {}
+  ) => {
     const init = { ...options };
     init.headers = init.headers || {};
     init.headers["Authorization"] = `Bearer ${token}`;
@@ -230,8 +255,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     const response = await fetch(getApiHost() + url, init);
 
     const responseData = await response.json();
+    return responseData;
+  };
+
+  const apiCall = async (url: string, options: RequestInit = {}) => {
+    let responseData = await _makeApiCall(url, token, options);
 
     if (responseData.status && responseData.status >= 400) {
+      // Id token expired, try silently refreshing and doing the API call again
+      if (responseData.message === "jwt expired") {
+        const resp = await refreshToken();
+        if ("token" in resp) {
+          setToken(resp.token);
+          responseData = await _makeApiCall(url, resp.token, options);
+          // Still failing
+          if (responseData.status && responseData.status >= 400) {
+            throw new Error(responseData.message || "There was an error");
+          }
+          return responseData;
+        }
+        // TODO: Handle cases where the token couldn't be refreshed automatically
+      }
+
       throw new Error(responseData.message || "There was an error");
     }
 
@@ -295,8 +340,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setSpecialOrg,
       }}
     >
-      {children}
-      {AuthComponent && <AuthComponent />}
+      <>
+        {children}
+        {AuthComponent}
+      </>
     </AuthContext.Provider>
   );
 };
