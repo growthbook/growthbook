@@ -9,6 +9,7 @@ const env: EnvironmentInitValue = {
   config: "db",
   defaultConversionWindowHours: 72,
   sentryDSN: "",
+  usingSSO: false,
 };
 
 export async function initEnv() {
@@ -47,4 +48,7 @@ export function getDefaultConversionWindowHours() {
 }
 export function getGrowthBookBuild(): { sha: string; date: string } {
   return env.build || { sha: "", date: "" };
+}
+export function usingSSO() {
+  return env.usingSSO;
 }

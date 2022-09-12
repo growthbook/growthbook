@@ -18,7 +18,7 @@ import clsx from "clsx";
 import styles from "./TopNav.module.scss";
 import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import { getSelfHostedSSOConnection, isCloud } from "../../services/env";
+import { usingSSO } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
@@ -338,7 +338,7 @@ const TopNav: FC<{
               Edit Profile
             </button>
             <div className="dropdown-divider"></div>
-            {!isCloud() && !getSelfHostedSSOConnection() && (
+            {!usingSSO() && (
               <>
                 <button
                   className="dropdown-item"

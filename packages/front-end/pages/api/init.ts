@@ -14,6 +14,7 @@ export interface EnvironmentInitValue {
     date: string;
   };
   sentryDSN: string;
+  usingSSO: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -25,6 +26,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
+    SSO_CONFIG,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -63,6 +65,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         ? "disable"
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
+    usingSSO: !!(SSO_CONFIG || IS_CLOUD),
   };
 
   res.status(200).json(body);

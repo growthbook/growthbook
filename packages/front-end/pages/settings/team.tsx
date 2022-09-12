@@ -9,7 +9,6 @@ import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
 import { OrganizationInterface } from "back-end/types/organization";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
-import { getSelfHostedSSOConnection } from "../../services/env";
 import SSOSettings from "../../components/Settings/SSOSettings";
 
 const TeamPage: FC = () => {
@@ -58,7 +57,7 @@ const TeamPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  const ssoConnection = data?.ssoConnection || getSelfHostedSSOConnection();
+  const ssoConnection = data?.ssoConnection;
 
   return (
     <div className="container-fluid pagecontents">

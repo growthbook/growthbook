@@ -1,6 +1,7 @@
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useState } from "react";
 import { isCloud } from "../../services/env";
+import { usingSSO } from "../../services/env";
 import Code from "../Code";
 
 export interface Props {
@@ -10,14 +11,14 @@ export interface Props {
 export default function SSOSettings({ ssoConnection }: Props) {
   const [expanded, setExpanded] = useState(false);
 
-  if (!ssoConnection) return null;
+  if (!usingSSO()) return null;
 
   return (
     <div className="alert alert-info">
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
-          {ssoConnection.emailDomain && (
+          {ssoConnection?.emailDomain && (
             <div>
               Users can auto-join your account when signing in through your
               Identity Provider with an email matching{" "}
@@ -32,19 +33,21 @@ export default function SSOSettings({ ssoConnection }: Props) {
             </div>
           )}
         </div>
-        <div className="ml-auto pl-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-          >
-            {expanded ? "hide" : "view"} details
-          </a>
-        </div>
+        {ssoConnection && (
+          <div className="ml-auto pl-3">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setExpanded(!expanded);
+              }}
+            >
+              {expanded ? "hide" : "view"} details
+            </a>
+          </div>
+        )}
       </div>
-      {expanded && (
+      {expanded && ssoConnection && (
         <Code
           className="mt-2"
           language="json"

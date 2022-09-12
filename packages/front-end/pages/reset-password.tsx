@@ -3,11 +3,7 @@ import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import Modal from "../components/Modal";
-import {
-  getApiHost,
-  getSelfHostedSSOConnection,
-  isCloud,
-} from "../services/env";
+import { getApiHost, usingSSO } from "../services/env";
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();
@@ -41,7 +37,7 @@ export default function ResetPasswordPage(): ReactElement {
       });
   }, [token, router.isReady]);
 
-  if (isCloud() || getSelfHostedSSOConnection()) {
+  if (usingSSO()) {
     return (
       <div className="container">
         <div className="alert alert-danger">

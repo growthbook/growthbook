@@ -6,7 +6,7 @@ import DeleteButton from "../DeleteButton";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
-import { getSelfHostedSSOConnection, isCloud } from "../../services/env";
+import { usingSSO } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal, { ChangeRoleInfo } from "./ChangeRoleModal";
 
@@ -92,7 +92,7 @@ const MemberList: FC<{
                       >
                         Edit Role
                       </button>
-                      {!isCloud() && !getSelfHostedSSOConnection() && (
+                      {!usingSSO() && (
                         <button
                           className="dropdown-item"
                           onClick={(e) => {
