@@ -43,6 +43,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { updateSubscriptionInStripe } from "./stripe";
 import { markInstalled } from "./auth";
+import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -680,6 +681,17 @@ export async function getExperimentOverrides(
   });
 
   return { overrides, expIdMapping };
+}
+
+export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
+  if (!connection) return false;
+  // When self-hosting, SSO is always enterprise
+  if (!IS_CLOUD) return true;
+
+  // On cloud, the default SSO (Auth0) does not have a connection id
+  if (!connection.id) return false;
+
+  return true;
 }
 
 // Auto-add user to an organization if using Enterprise SSO

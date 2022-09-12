@@ -12,6 +12,7 @@ import {
   getPermissionsByRole,
   updateRole,
   addMemberFromSSOConnection,
+  isEnterpriseSSO,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -67,6 +68,7 @@ import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
 import { getLicence } from "../init/licence";
+import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -518,10 +520,14 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const apiKeys = await getAllApiKeysByOrganization(org.id);
 
+  const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
+    ? getSSOConnectionSummary(req.loginMethod)
+    : null;
+
   return res.status(200).json({
     status: 200,
     apiKeys,
-    ssoConnection: req.loginMethod,
+    enterpriseSSO,
     organization: {
       invites,
       ownerEmail,

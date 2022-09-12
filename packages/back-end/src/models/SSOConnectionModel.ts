@@ -17,6 +17,7 @@ const ssoConnectionSchema = new mongoose.Schema({
   dateCreated: Date,
   idpType: String,
   clientId: String,
+  clientSecret: String,
   extraQueryParameters: {},
   additionalScope: String,
   metadata: {},
@@ -45,4 +46,21 @@ export async function getSSOConnectionByEmailDomain(
   const doc = await SSOConnectionModel.findOne({ emailDomain });
 
   return doc ? doc.toJSON() : null;
+}
+
+export function getSSOConnectionSummary(
+  conn?: SSOConnectionInterface
+): Partial<SSOConnectionInterface> | null {
+  if (!conn) {
+    return null;
+  }
+  return {
+    emailDomain: conn.emailDomain,
+    idpType: conn.idpType,
+    clientId: conn.clientId,
+    clientSecret: conn.clientSecret ? "********" : undefined,
+    extraQueryParams: conn.extraQueryParams,
+    additionalScope: conn.additionalScope,
+    metadata: conn.metadata,
+  };
 }

@@ -22,7 +22,13 @@ import {
   UnauthenticatedResponse,
 } from "../../types/sso-connection";
 import { getSSOConnectionById } from "../models/SSOConnectionModel";
-import { Issuer, IssuerMetadata, generators, Client } from "openid-client";
+import {
+  Issuer,
+  IssuerMetadata,
+  TokenSet,
+  generators,
+  Client,
+} from "openid-client";
 import {
   AuthRefreshModel,
   createRefreshToken,
@@ -228,7 +234,7 @@ export class OpenIdAuth implements AuthConnection {
     return {
       idToken: tokenSet.id_token,
       refreshToken: tokenSet.refresh_token || "",
-      expiresIn: tokenSet.expires_in || 0,
+      expiresIn: this.getMaxAge(tokenSet),
     };
   }
   async middleware(
@@ -296,7 +302,7 @@ export class OpenIdAuth implements AuthConnection {
     return {
       idToken: tokenSet?.id_token || "",
       refreshToken: tokenSet?.refresh_token || "",
-      expiresIn: tokenSet?.expires_in || 0,
+      expiresIn: this.getMaxAge(tokenSet),
     };
   }
   async logout(req: Request, res: Response): Promise<string> {
@@ -311,6 +317,15 @@ export class OpenIdAuth implements AuthConnection {
     return "";
   }
 
+  private getMaxAge(tokenSet: TokenSet) {
+    if (tokenSet.expires_in) {
+      return tokenSet.expires_in;
+    }
+    if (tokenSet.expires_at) {
+      return Math.floor(tokenSet.expires_at - Date.now() / 1000);
+    }
+    return 0;
+  }
   private getRedirectURI(
     ssoConnection: SSOConnectionInterface,
     req: Request,

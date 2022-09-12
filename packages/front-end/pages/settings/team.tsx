@@ -48,7 +48,7 @@ const TeamPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  const ssoConnection = data?.ssoConnection;
+  const ssoConnection = data?.enterpriseSSO;
 
   return (
     <div className="container-fluid pagecontents">

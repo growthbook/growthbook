@@ -9,7 +9,7 @@ import usePermissions from "./usePermissions";
 type OrgSettingsResponse = {
   organization: OrganizationInterface & { members: MemberInfo[] };
   apiKeys: ApiKeyInterface[];
-  ssoConnection: SSOConnectionInterface | null;
+  enterpriseSSO: SSOConnectionInterface | null;
 };
 
 export function useAdminSettings() {

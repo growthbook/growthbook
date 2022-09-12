@@ -62,6 +62,7 @@ export async function updateSubscriptionInStripe(
   qty: number
 ) {
   if (!STRIPE_SECRET) {
+    return;
     throw new Error("Missing Stripe Secret");
   }
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
