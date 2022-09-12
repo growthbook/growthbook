@@ -27,7 +27,7 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const { mutateDefinitions, getDatasourceById } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
   const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
@@ -87,12 +87,12 @@ const MetricsPage = (): React.ReactElement => {
 
   const metrics = data.metrics;
 
-  const closeModal = (refresh: boolean) => {
-    if (refresh) {
-      mutateDefinitions({});
-      mutate();
-    }
+  const closeModal = () => {
     setModalData(null);
+  };
+  const onSuccess = () => {
+    mutateDefinitions();
+    mutate();
   };
 
   if (!metrics.length) {
@@ -102,6 +102,7 @@ const MetricsPage = (): React.ReactElement => {
           <MetricForm
             {...modalData}
             onClose={closeModal}
+            onSuccess={onSuccess}
             source="blank-state"
           />
         )}
@@ -161,7 +162,12 @@ const MetricsPage = (): React.ReactElement => {
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (
-        <MetricForm {...modalData} onClose={closeModal} source="metrics-list" />
+        <MetricForm
+          {...modalData}
+          onClose={closeModal}
+          onSuccess={onSuccess}
+          source="metrics-list"
+        />
       )}
 
       <div className="filters md-form row mb-3 align-items-center">

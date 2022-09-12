@@ -26,10 +26,21 @@ const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   existing: boolean;
   source: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
   importSampleData?: (source: string) => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
+  inline?: boolean;
+  secondaryCTA?: ReactElement;
+}> = ({
+  data,
+  onSuccess,
+  onCancel,
+  source,
+  existing,
+  importSampleData,
+  inline,
+  secondaryCTA,
+}) => {
   const [step, setStep] = useState(0);
   const [schema, setSchema] = useState("");
   const [possibleTypes, setPossibleTypes] = useState(
@@ -224,7 +235,7 @@ const NewDataSourceForm: FC<{
           if (isFinalStep) {
             await updateSettings();
             await onSuccess(data.id);
-            onCancel();
+            onCancel && onCancel();
           } else {
             setStep(step + 1);
           }
@@ -297,6 +308,9 @@ const NewDataSourceForm: FC<{
             </div>
           )}
         </div>
+        {secondaryCTA && (
+          <div className="col-12 text-center">{secondaryCTA}</div>
+        )}
       </div>
     );
   } else if (step === 1) {
@@ -437,6 +451,7 @@ const NewDataSourceForm: FC<{
       closeCta="Cancel"
       size="lg"
       error={lastError}
+      inline={inline}
     >
       {stepContents}
     </Modal>

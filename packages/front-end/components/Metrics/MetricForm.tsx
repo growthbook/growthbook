@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactElement, useState } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -36,8 +36,12 @@ export type MetricFormProps = {
   current: Partial<MetricInterface>;
   edit: boolean;
   source: string;
-  onClose: (refresh?: boolean) => void;
+  onClose?: () => void;
   advanced?: boolean;
+  inline?: boolean;
+  cta?: string;
+  onSuccess?: () => void;
+  secondaryCTA?: ReactElement;
 };
 
 function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
@@ -142,6 +146,10 @@ const MetricForm: FC<MetricFormProps> = ({
   source,
   initialStep = 0,
   advanced = false,
+  inline,
+  cta = "Save",
+  onSuccess,
+  secondaryCTA,
 }) => {
   const { datasources, getDatasourceById, metrics } = useDefinitions();
   const [step, setStep] = useState(initialStep);
@@ -321,7 +329,7 @@ const MetricForm: FC<MetricFormProps> = ({
       userIdType: value.userIdTypes.join(", "),
     });
 
-    onClose(true);
+    onSuccess && onSuccess();
   });
 
   const riskError =
@@ -331,15 +339,17 @@ const MetricForm: FC<MetricFormProps> = ({
 
   return (
     <PagedModal
+      inline={inline}
       header={edit ? "Edit Metric" : "New Metric"}
-      close={() => onClose(false)}
+      close={onClose}
       submit={onSubmit}
-      cta="Save"
-      closeCta="Cancel"
-      docSection="metrics"
+      cta={cta}
+      closeCta={!inline && "Cancel"}
       size="lg"
+      docSection="metrics"
       step={step}
       setStep={setStep}
+      secondaryCTA={secondaryCTA}
     >
       <Page
         display="Basic Info"

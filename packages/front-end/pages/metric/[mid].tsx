@@ -236,12 +236,12 @@ const MetricPage: FC = () => {
           edit={true}
           source="metrics-detail"
           initialStep={editModalOpen !== true ? editModalOpen : 0}
-          onClose={(success) => {
+          onClose={() => {
             setEditModalOpen(false);
-            if (success) {
-              mutateDefinitions({});
-              mutate();
-            }
+          }}
+          onSuccess={() => {
+            mutateDefinitions();
+            mutate();
           }}
         />
       )}
