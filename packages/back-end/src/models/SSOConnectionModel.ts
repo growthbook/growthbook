@@ -17,7 +17,6 @@ const ssoConnectionSchema = new mongoose.Schema({
   dateCreated: Date,
   idpType: String,
   clientId: String,
-  implicitGrant: Boolean,
   extraQueryParameters: {},
   additionalScope: String,
   metadata: {},

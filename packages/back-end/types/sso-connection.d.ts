@@ -11,7 +11,6 @@ export interface SSOConnectionInterface {
   clientSecret?: string;
   extraQueryParams?: Record<string, string>;
   metadata: IssuerMetadata;
-  implicitGrant?: boolean;
 }
 
 export type RedirectResponse = { redirectURI: string };
