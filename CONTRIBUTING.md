@@ -108,7 +108,7 @@ To access MongoDB with the [MongoDB Compass](https://www.mongodb.com/products/co
 2. Paste the connection string you configured in your `.env.local` here
 3. Press **Connect**
 
-At this point you should be connected to the database and see your databases. Click into the desired database, e.g. growthbook, to view your collections.
+At this point you should be connected to MongoDB and see your databases. Click into the desired database, e.g. growthbook, to view your collections.
 
 #### Mongo Shell
 
