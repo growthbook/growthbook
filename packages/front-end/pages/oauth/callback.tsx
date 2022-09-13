@@ -20,16 +20,13 @@ export default function OAuthCallbackPage() {
         method: "POST",
         credentials: "include",
       })
-      .then((res) => {
-        return res.json();
-      })
+      .then((res) => res.json())
       .then((json) => {
         if (!json?.redirectURI) {
-          throw new Error(
-            json?.message || "There was an error during authentication"
-          );
+          setError(json?.message || "An unknown error occurred");
+        } else {
+          router.replace(json.redirectURI);
         }
-        router.replace(json.redirectURI);
       })
       .catch((e) => {
         setError(e.message);
@@ -73,4 +70,3 @@ export default function OAuthCallbackPage() {
     </div>
   );
 }
-OAuthCallbackPage.preAuth = true;

@@ -56,9 +56,9 @@ export default function OAuthLookup() {
         await redirectWithTimeout(window.location.origin);
       })}
       close={async () => {
-        await softLogout();
-        window.location.href = window.location.origin;
         setOpen(false);
+        await softLogout();
+        await redirectWithTimeout(window.location.origin);
       }}
       closeCta="Cancel"
       cta="Continue"

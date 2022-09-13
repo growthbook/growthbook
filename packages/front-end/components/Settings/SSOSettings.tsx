@@ -18,7 +18,7 @@ export default function SSOSettings({ ssoConnection }: Props) {
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
-          {ssoConnection?.emailDomain && (
+          {ssoConnection.emailDomain && (
             <div>
               Users can auto-join your account when signing in through your
               Identity Provider with an email matching{" "}
@@ -33,21 +33,19 @@ export default function SSOSettings({ ssoConnection }: Props) {
             </div>
           )}
         </div>
-        {ssoConnection && (
-          <div className="ml-auto pl-3">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setExpanded(!expanded);
-              }}
-            >
-              {expanded ? "hide" : "view"} details
-            </a>
-          </div>
-        )}
+        <div className="ml-auto pl-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setExpanded(!expanded);
+            }}
+          >
+            {expanded ? "hide" : "view"} details
+          </a>
+        </div>
       </div>
-      {expanded && ssoConnection && (
+      {expanded && (
         <Code
           className="mt-2"
           language="json"

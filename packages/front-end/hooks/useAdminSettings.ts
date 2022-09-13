@@ -21,6 +21,7 @@ export function useAdminSettings() {
   const { apiCall } = useAuth();
 
   async function refresh() {
+    if (!permissions.organizationSettings) return;
     try {
       const res = await apiCall<OrgSettingsResponse>(`/organization`, {
         method: "GET",
@@ -33,7 +34,6 @@ export function useAdminSettings() {
   }
 
   useEffect(() => {
-    if (!permissions.organizationSettings) return;
     refresh();
   }, [permissions.organizationSettings]);
 

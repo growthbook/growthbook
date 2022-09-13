@@ -1124,9 +1124,7 @@ export async function putAdminResetUserPassword(
   const userToUpdateId = req.params.id;
 
   if (usingOpenId()) {
-    throw new Error(
-      "This functionality is not available with GrowthBook Cloud"
-    );
+    throw new Error("This functionality is not available when using SSO");
   }
 
   const { org } = getOrgFromReq(req);

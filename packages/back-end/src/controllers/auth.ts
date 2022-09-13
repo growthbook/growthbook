@@ -243,7 +243,7 @@ export async function postFirstTimeRegister(
   if (existingUser) {
     return res.status(400).json({
       status: 400,
-      message: "An error ocurred, please refresh the page and try again.",
+      message: "An error occurred, please refresh the page and try again.",
     });
   }
 
