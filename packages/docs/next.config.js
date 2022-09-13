@@ -25,6 +25,11 @@ module.exports = withMDX({
         destination: '/apidocs',
         permanent: true,
       },
+      {
+        source: '/app/api',
+        destination: '/apidocs',
+        permanent: true,
+      },
     ]
   }
 });

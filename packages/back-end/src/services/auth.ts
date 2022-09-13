@@ -21,7 +21,7 @@ import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
 import {
   hasOrganization,
-  getOrgFromAcccessToken,
+  getOrgByAcccessToken,
 } from "../models/OrganizationModel";
 import { AccessTokenRequest } from "../types/AccessTokenRequest";
 
@@ -255,7 +255,7 @@ export async function processAccessToken(
     const accessToken = authHeader.toString().split(" ")[1];
     if (!accessToken) throw new Error("No access token found");
 
-    const org = await getOrgFromAcccessToken(accessToken);
+    const org = await getOrgByAcccessToken(accessToken);
     if (!org) throw new Error("Invalid access token");
 
     req.organization = { ...org };

@@ -69,7 +69,7 @@ const ApiKeys: FC = () => {
       {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
       <h1>Access Token</h1>
       <p>
-        The access_token is used to make CRUD requests on behalf of your
+        The access_token is used to make CRUD operations on behalf of your
         organization. You can authenticate certain API requests using your
         access_token.{" "}
         <DocLink docSection="api_authentication">View Documentation</DocLink>
@@ -162,7 +162,7 @@ const ApiKeys: FC = () => {
                   <div className="tr-hover actions">
                     <DeleteButton
                       onClick={async () => {
-                        await apiCall(`/key/${encodeURIComponent(key.key)}`, {
+                        await apiCall(`/key/${key.key}`, {
                           method: "DELETE",
                         });
                         mutate();

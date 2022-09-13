@@ -230,12 +230,12 @@ export async function findOrganizationByClaimedDomain(domain: string) {
   return doc ? toInterface(doc) : null;
 }
 
-export async function getAccessTokenFromOrgId(orgId: string) {
+export async function getAccessTokenByOrgId(orgId: string) {
   const doc = await OrganizationModel.findOne({ id: orgId });
   return doc ? doc.accessToken : null;
 }
 
-export async function getOrgFromAcccessToken(accessToken: string) {
+export async function getOrgByAcccessToken(accessToken: string) {
   if (!accessToken) return null;
   const doc = await OrganizationModel.findOne({ accessToken });
   return doc ? toInterface(doc) : null;

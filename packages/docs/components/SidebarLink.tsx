@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-interface DocsLinkProps {
+interface SidebarLinkProps {
   href: string;
   name: string;
   beta: boolean;
@@ -8,13 +8,13 @@ interface DocsLinkProps {
   active: boolean;
 }
 
-export default function DocsLink({
+export default function SidebarLink({
   href,
   name,
   beta,
   auth,
   active,
-}: DocsLinkProps) {
+}: SidebarLinkProps) {
   return (
     <Link href={href}>
       <div

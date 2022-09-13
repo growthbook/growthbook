@@ -61,7 +61,7 @@ import {
   createOrganization,
   findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
-  getAccessTokenFromOrgId,
+  getAccessTokenByOrgId,
   hasOrganization,
   updateOrganization,
 } from "../models/OrganizationModel";
@@ -1168,7 +1168,7 @@ export async function putAdminResetUserPassword(
 
 export async function getHasAccessToken(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const hasAccessToken = !!(await getAccessTokenFromOrgId(org.id));
+  const hasAccessToken = !!(await getAccessTokenByOrgId(org.id));
 
   res.status(200).json({ status: 200, hasAccessToken });
 }
@@ -1177,7 +1177,7 @@ export async function getAccessToken(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
   const { org } = getOrgFromReq(req);
 
-  const accessToken = await getAccessTokenFromOrgId(org.id);
+  const accessToken = await getAccessTokenByOrgId(org.id);
   return res.status(200).json({ status: 200, accessToken });
 }
 
@@ -1185,7 +1185,7 @@ export async function postAccessToken(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
   const { org } = getOrgFromReq(req);
 
-  const accessToken = await getAccessTokenFromOrgId(org.id);
+  const accessToken = await getAccessTokenByOrgId(org.id);
 
   if (accessToken === "string") throw new Error("Access token already exists");
 

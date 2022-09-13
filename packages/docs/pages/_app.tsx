@@ -12,7 +12,7 @@ import {
   FaGithub,
   FaSlack,
 } from "react-icons/fa";
-import DocsLink from "../components/DocsLink";
+import SidebarLink from "../components/SidebarLink";
 
 const navLinks = [
   {
@@ -336,7 +336,7 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
             </Link>
             {navLinks.map((link, i) => (
               <div key={`link${i}`}>
-                <DocsLink
+                <SidebarLink
                   href={link.href}
                   name={link.name}
                   beta={false}
@@ -346,7 +346,7 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                 {link.links &&
                   link.links.map((sublink, j) => (
                     <div className="ml-3" key={`sublink${j}`}>
-                      <DocsLink
+                      <SidebarLink
                         href={sublink.href}
                         name={sublink.name}
                         beta={sublink.beta}
@@ -356,7 +356,7 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                       {sublink.links &&
                         sublink.links.map((subsublink, k) => (
                           <div className="ml-3" key={`subsublink${k}`}>
-                            <DocsLink
+                            <SidebarLink
                               href={subsublink.href}
                               name={subsublink.name}
                               beta={subsublink.beta}
