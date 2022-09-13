@@ -335,9 +335,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
-          if (res.redirectURI) {
-            await redirectWithTimeout(res.redirectURI);
-          }
+          await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
         orgId,
