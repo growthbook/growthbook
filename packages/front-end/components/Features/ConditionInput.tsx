@@ -156,6 +156,7 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
+                    //TODO: Should is in the group be in here, too?
                   ]
                 : attribute.datatype === "string"
                 ? [
@@ -246,11 +247,12 @@ export default function ConditionInput(props: Props) {
                     "$notEmpty",
                   ].includes(operator) ? (
                     ""
-                  ) : ["$inGroup", "$notInGroup"].includes(operator) ? (
+                  ) : ["$inGroup", "$notInGroup"].includes(operator) &&
+                    groups ? (
                     <SelectField
                       options={groups.map((g) => ({
                         label: g.groupName,
-                        value: g._id,
+                        value: g.csv,
                       }))}
                       value={value}
                       onChange={(v) => {
