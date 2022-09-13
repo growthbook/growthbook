@@ -13,7 +13,7 @@ export interface SSOConnectionInterface {
   metadata: IssuerMetadata;
 }
 
-export type RedirectResponse = { redirectURI: string };
+export type RedirectResponse = { redirectURI: string; confirm?: boolean };
 export type ShowLoginResponse = { showLogin: true; newInstallation: boolean };
 export type UnauthenticatedResponse = RedirectResponse | ShowLoginResponse;
 export type IdTokenResponse = { token: string };

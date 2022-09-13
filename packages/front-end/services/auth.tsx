@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useContext, FC } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  ReactElement,
+  ReactNode,
+} from "react";
 import { useRouter } from "next/router";
 import {
   MemberRole,
@@ -8,8 +14,6 @@ import {
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, getAppOrigin, isCloud } from "./env";
-import { ReactElement } from "react";
-import { ReactNode } from "react";
 import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
@@ -149,6 +153,18 @@ function getDetailedError(error: string): string | ReactElement {
   return error;
 }
 
+export async function softLogout() {
+  await fetch(getApiHost() + `/auth/logout/soft`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export async function redirectWithTimeout(url: string, timeout: number = 5000) {
+  window.location.href = url;
+  await new Promise((resolve) => setTimeout(resolve, timeout));
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -160,7 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     specialOrg,
     setSpecialOrg,
   ] = useState<Partial<OrganizationInterface> | null>(null);
-  const [AuthComponent, setAuthComponent] = useState<FC | null>(null);
+  const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [error, setError] = useState("");
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
@@ -172,20 +188,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setToken(resp.token);
       setLoading(false);
     } else if ("redirectURI" in resp) {
-      window.location.href = resp.redirectURI;
+      if (resp.confirm) {
+        setAuthComponent(
+          <Modal
+            open={true}
+            header="Sign In Required"
+            submit={async () => {
+              await redirectWithTimeout(resp.redirectURI);
+            }}
+            close={async () => {
+              await softLogout();
+              window.location.href = window.location.origin;
+            }}
+            closeCta="Cancel"
+            cta="Sign In"
+          >
+            <p>You must sign in with your SSO provider to continue.</p>
+          </Modal>
+        );
+      } else {
+        // Don't need to confirm, just redirect immediately
+        window.location.href = resp.redirectURI;
+      }
     } else if ("showLogin" in resp) {
       setLoading(false);
-      setAuthComponent(() => {
-        return (
-          <Welcome
-            firstTime={resp.newInstallation}
-            onSuccess={(t) => {
-              setToken(t);
-              setAuthComponent(null);
-            }}
-          />
-        );
-      });
+      setAuthComponent(
+        <Welcome
+          firstTime={resp.newInstallation}
+          onSuccess={(t) => {
+            setToken(t);
+            setAuthComponent(null);
+          }}
+        />
+      );
     } else {
       console.log(resp);
       throw new Error("Unknown refresh response");
@@ -299,8 +334,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           setSpecialOrg(null);
           setToken("");
           if (res.redirectURI) {
-            window.location.href = res.redirectURI;
-            await new Promise((resolve) => setTimeout(resolve, 5000));
+            await redirectWithTimeout(res.redirectURI);
           }
         },
         apiCall,
@@ -342,7 +376,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     >
       <>
         {children}
-        {AuthComponent}
+        {authComponent}
       </>
     </AuthContext.Provider>
   );

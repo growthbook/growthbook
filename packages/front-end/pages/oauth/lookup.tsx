@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import Field from "../../components/Forms/Field";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Modal from "../../components/Modal";
+import { redirectWithTimeout, softLogout } from "../../services/auth";
 import { getApiHost, isCloud } from "../../services/env";
 
 export async function lookupByEmail(email: string) {
@@ -52,11 +53,10 @@ export default function OAuthLookup() {
       submit={form.handleSubmit(async ({ email }) => {
         // This will lookup the SSO config id and store it in a cookie
         await lookupByEmail(email);
-        window.location.href = window.location.origin;
-        // Wait for 5 seconds for the page to redirect
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await redirectWithTimeout(window.location.origin);
       })}
-      close={() => {
+      close={async () => {
+        await softLogout();
         window.location.href = window.location.origin;
         setOpen(false);
       }}

@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Button from "../../components/Button";
 import LoadingOverlay from "../../components/LoadingOverlay";
+import { redirectWithTimeout, softLogout } from "../../services/auth";
 import { getApiHost } from "../../services/env";
 
 export default function OAuthCallbackPage() {
@@ -47,9 +48,7 @@ export default function OAuthCallbackPage() {
               <Button
                 color="primary"
                 onClick={async () => {
-                  window.location.href = "/";
-                  // Wait 5 seconds for the redirect to complete
-                  await new Promise((resolve) => setTimeout(resolve, 5000));
+                  await redirectWithTimeout(window.location.origin);
                 }}
               >
                 Retry
@@ -59,13 +58,8 @@ export default function OAuthCallbackPage() {
               <Button
                 color="outline-primary"
                 onClick={async () => {
-                  await fetch(getApiHost() + `/auth/logout/soft`, {
-                    method: "POST",
-                    credentials: "include",
-                  });
-                  window.location.href = "/";
-                  // Wait 5 seconds for the redirect to complete
-                  await new Promise((resolve) => setTimeout(resolve, 5000));
+                  await softLogout();
+                  await redirectWithTimeout(window.location.origin);
                 }}
               >
                 Logout

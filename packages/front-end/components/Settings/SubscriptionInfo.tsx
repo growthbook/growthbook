@@ -1,4 +1,4 @@
-import { useAuth } from "../../services/auth";
+import { redirectWithTimeout, useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import Tooltip from "../Tooltip";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
@@ -84,9 +84,7 @@ export default function SubscriptionInfo() {
                 }
               );
               if (res && res.url) {
-                window.location.href = res.url;
-                // Allow 5 seconds for the redirect to finish
-                await new Promise((resolve) => setTimeout(resolve, 5000));
+                await redirectWithTimeout(res.url);
               } else {
                 throw new Error("Unknown response");
               }

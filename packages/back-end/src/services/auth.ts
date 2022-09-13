@@ -50,6 +50,7 @@ type IdToken = {
 };
 
 type AuthChecks = {
+  connection_id: string;
   state: string;
   code_verifier: string;
 };
@@ -243,8 +244,16 @@ export class OpenIdAuth implements AuthConnection {
       throw new Error("Could not find SSO connection for this request");
     }
     const redirectURI = this.getRedirectURI(ssoConnection, req, res);
+
+    // If there's an existing incomplete auth session for this Cloud SSO provider,
+    // confirm with the user to give them a chance to cancel and reset to the default auth
+    const checks = this.getAuthChecks(req);
+    const confirm =
+      !!ssoConnection.id && checks?.connection_id === ssoConnection.id;
+
     return {
       redirectURI,
+      confirm,
     };
   }
   async refresh(
@@ -320,21 +329,23 @@ export class OpenIdAuth implements AuthConnection {
     const client = this.getOpenIdClient(ssoConnection);
 
     // Get rid of temporary codeVerifier cookie
-    const checks = AuthChecksCookie.getValue(req);
+    const checks = this.getAuthChecks(req);
     AuthChecksCookie.setValue("", req, res);
 
     if (!checks) {
       throw new Error("Missing auth checks in session");
     }
-    const { state, code_verifier }: AuthChecks = JSON.parse(checks);
+    if (checks.connection_id !== (ssoConnection.id || "")) {
+      throw new Error("Invalid auth checks in session");
+    }
 
     const params = client.callbackParams(req.originalUrl);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
       {
-        code_verifier,
-        state,
+        code_verifier: checks.code_verifier,
+        state: checks.state,
       }
     );
 
@@ -355,7 +366,12 @@ export class OpenIdAuth implements AuthConnection {
 
     return "";
   }
-
+  private getAuthChecks(req: Request) {
+    const checks = AuthChecksCookie.getValue(req);
+    if (!checks) return null;
+    const parsed: AuthChecks = JSON.parse(checks);
+    return parsed;
+  }
   private getMaxAge(tokenSet: TokenSet) {
     if (tokenSet.expires_in) {
       return tokenSet.expires_in;
@@ -378,6 +394,7 @@ export class OpenIdAuth implements AuthConnection {
     const state = generators.state();
 
     const checks: AuthChecks = {
+      connection_id: ssoConnection.id || "",
       code_verifier,
       state,
     };
