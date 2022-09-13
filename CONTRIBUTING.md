@@ -100,7 +100,19 @@ The packages are available at the following urls with hot-reloading:
 - Front-end: http://localhost:3000
 - Back-end: http://localhost:3100
 
-#### Accessing the MongoDB database
+#### MongoDB Compass
+
+To access MongoDB with the [MongoDB Compass](https://www.mongodb.com/products/compass) GUI, you can do the following after opening MongoDB Compass:
+
+1. In the menu bar, click **Connect** and choose **New Connection**
+2. Paste the connection string you configured in your `.env.local` here
+3. Press **Connect**
+
+At this point you should be connected to the database and see your databases. Click into the desired database, e.g. growthbook, to view your collections.
+
+#### Mongo Shell
+
+##### Accessing the MongoDB database
 
 To access MongoDB with the [mongosh shell](https://www.mongodb.com/docs/mongodb-shell/), run the following command:
 
@@ -116,7 +128,7 @@ Then login as the user of the database. If your user is `root`:
 mongosh -u root
 ```
 
-##### mongosh Commands
+###### mongosh Commands
 
 - `show dbs` should show you the databases in Mongo
 - `use <databasename>` will allow you to change to the right database. By default, you may be in another database and may need to call `use growthbook`
