@@ -13,7 +13,7 @@ export default function GroupsPage() {
     null
   );
 
-  const { data, error } = useApi("/groups");
+  const { data, error } = useApi<{ groupsArr: GroupInterface[] }>("/groups"); //TODO: Add types here like in other places
 
   const groups = data?.groupsArr;
 
@@ -53,8 +53,8 @@ export default function GroupsPage() {
           <div className="col-12">
             <p>
               Groups are defined comma separated lists of users based on a
-              unique unique identifier - for example, you might create a list of
-              a list of internal users. These groups, used with feature rules,
+              unique identifier - for example, you might create a list of
+              internal users. These groups, used with feature rules, allow you
               allow you to quickly target lists of users.
             </p>
             <table className="table appbox gbtable table-hover">
