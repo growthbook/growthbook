@@ -65,7 +65,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         ? "disable"
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
-    usingSSO: !!(SSO_CONFIG || IS_CLOUD),
+    usingSSO: !!SSO_CONFIG,
   };
 
   res.status(200).json(body);
