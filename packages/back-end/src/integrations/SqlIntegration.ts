@@ -825,16 +825,16 @@ export default abstract class SqlIntegration
           dimension
       )
     SELECT
-      s.variation,
-      s.dimension,
+      u.variation,
+      u.dimension,
       s.count,
       s.mean,
       s.stddev,
       u.users
     FROM
-      __stats s
-      JOIN __overallUsers u ON (
-        s.variation = u.variation 
+      __overallUsers u
+      LEFT JOIN __stats s ON (
+        s.variation = u.variation
         AND s.dimension = u.dimension
       )
     `

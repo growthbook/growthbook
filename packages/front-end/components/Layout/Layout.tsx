@@ -7,7 +7,7 @@ import TopNav from "./TopNav";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
-import { BsFlag, BsClipboardCheck } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaArrowRight } from "react-icons/fa";
@@ -15,6 +15,14 @@ import { inferDocUrl } from "../DocLink";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
+  {
+    name: "Get Started",
+    href: "/getstarted",
+    Icon: BsLightbulb,
+    path: /^getstarted/,
+    className: styles.first,
+    feature: "guided-onboarding-test-august-2022",
+  },
   {
     name: "Features",
     href: "/features",

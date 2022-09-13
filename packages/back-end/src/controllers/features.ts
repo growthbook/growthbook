@@ -65,7 +65,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     }
 
     //Archived features not to be shown
-    const features = await getFeatureDefinitions(
+    const { features, dateUpdated } = await getFeatureDefinitions(
       organization,
       environment,
       project
@@ -80,6 +80,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     res.status(200).json({
       status: 200,
       features,
+      dateUpdated,
     });
   } catch (e) {
     console.error(e);

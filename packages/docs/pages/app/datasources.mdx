@@ -31,7 +31,8 @@ GrowthBook supports a few popular database schemas out-of-the-box:
 
 - Segment
 - Snowplow
-- RudderStack
+- [RudderStack](/guide/rudderstack)
+- [Matomo](/guide/matomo)
 - Amplitude (Snowflake only)
 - Google Analytics 4 (BigQuery only)
 
@@ -94,7 +95,7 @@ SELECT user_id, device_id FROM logins
 
 ##### SQL Template Variables
 
-Within your queries, there are several placeholder variables you can use. These will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+Within your queries, there are several placeholder variables you can use. These will be replaced with strings before being run based on your experiment. This can be useful for giving hints to SQL optimization engines to improve query performance.
 
 The variables are:
 

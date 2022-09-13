@@ -225,7 +225,8 @@ app.post(
   slackController.postIdeas
 );
 
-app.use(bodyParser.json());
+// increase max payload json size to 1mb
+app.use(bodyParser.json({ limit: "500kb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -392,6 +393,14 @@ app.post(
 );
 app.get("/organization/namespaces", organizationsController.getNamespaces);
 app.post("/organization/namespaces", organizationsController.postNamespaces);
+app.put(
+  "/organization/namespaces/:name",
+  organizationsController.putNamespaces
+);
+app.delete(
+  "/organization/namespaces/:name",
+  organizationsController.deleteNamespace
+);
 app.post("/invite/accept", organizationsController.postInviteAccept);
 app.post("/invite", organizationsController.postInvite);
 app.post("/invite/resend", organizationsController.postInviteResend);

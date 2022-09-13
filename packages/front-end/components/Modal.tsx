@@ -38,11 +38,11 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
-  docSection,
+  inline = false,
   size = "md",
+  docSection,
   className = "",
   autoCloseOnSubmit = true,
-  inline = false,
   overflowAuto = true,
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
@@ -53,6 +53,10 @@ const Modal: FC<ModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  if (inline) {
+    size = "fill";
+  }
 
   useEffect(() => {
     setError(externalError);
@@ -154,6 +158,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
+          {secondaryCTA}
           {submit && !isSuccess ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
@@ -165,7 +170,6 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {secondaryCTA}
           {close && (
             <button
               className="btn btn-link"

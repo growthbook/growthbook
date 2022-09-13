@@ -54,6 +54,7 @@ export interface NorthStarMetric {
 export interface Namespaces {
   name: string;
   description: string;
+  status: "active" | "inactive";
 }
 
 export type SDKAttributeType =
@@ -101,6 +102,7 @@ export interface OrganizationSettings {
   attributeSchema?: SDKAttributeSchema;
   environments?: Environment[];
   sdkInstructionsViewed?: boolean;
+  videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];

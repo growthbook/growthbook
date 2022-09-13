@@ -76,6 +76,21 @@ export default function ChanceToWinColumn({
         className
       )}
     >
+      {enoughData && suspiciousChange && (
+        <div>
+          <div className="mb-1 d-flex flex-row">
+            <Tooltip
+              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                metric.maxPercentChange * 100
+              }%).`}
+            >
+              <span className="badge badge-pill badge-warning">
+                Suspicious Result
+              </span>
+            </Tooltip>
+          </div>
+        </div>
+      )}
       <Tooltip
         body={sigText}
         className="d-block"
@@ -94,15 +109,6 @@ export default function ChanceToWinColumn({
             snapshotCreated={snapshotDate}
             phaseStart={startDate}
           />
-        ) : suspiciousChange ? (
-          <div>
-            <div className="mb-1">
-              <span className="badge badge-pill badge-warning">
-                suspicious result
-              </span>
-            </div>
-            <small className="text-muted">value changed too much</small>
-          </div>
         ) : (
           <>{percentFormatter.format(chanceToWin)}</>
         )}
