@@ -12,8 +12,6 @@ import track from "../../services/track";
 import Tooltip from "../Tooltip";
 import CopyToClipboard from "../CopyToClipboard";
 
-export const apiAuthEnv = "access";
-
 const ApiKeys: FC = () => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);

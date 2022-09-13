@@ -8,9 +8,9 @@ export async function createApiKey(
 ): Promise<string> {
   const key =
     "key_" +
-    environment.substr(0, 4) +
+    environment.substring(0, 4) +
     "_" +
-    crypto.randomBytes(24).toString("hex").substr(0, 24);
+    encodeURIComponent(crypto.randomBytes(24).toString("base64"));
 
   await ApiKeyModel.create({
     organization: orgId,

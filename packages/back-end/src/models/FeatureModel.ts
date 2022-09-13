@@ -127,7 +127,8 @@ export async function createFeature(
 }
 
 export async function deleteFeature(organization: string, id: string) {
-  return await FeatureModel.deleteOne({ organization, id });
+  const deleteRes = await FeatureModel.deleteOne({ organization, id });
+  if (!deleteRes.deletedCount) throw new Error("Unable to delete feature");
 }
 
 export async function updateFeature(

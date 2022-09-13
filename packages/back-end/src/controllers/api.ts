@@ -120,9 +120,9 @@ export async function deleteFeatureApi(req: AccessTokenRequest, res: Response) {
   const { organization: org } = req;
 
   const feature = await getFeature(org.id, featureId);
+  if (!feature) throw new Error("Could not find feature");
 
-  const deleteRes = await deleteFeature(org.id, featureId);
-  if (!deleteRes.deletedCount) throw new Error("Feature not found");
+  await deleteFeature(org.id, featureId);
 
   await req.audit({
     event: "feature.delete",
