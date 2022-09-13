@@ -100,6 +100,29 @@ The packages are available at the following urls with hot-reloading:
 - Front-end: http://localhost:3000
 - Back-end: http://localhost:3100
 
+#### Accessing the MongoDB database
+
+To access MongoDB with the [mongosh shell](https://www.mongodb.com/docs/mongodb-shell/), run the following command:
+
+```sh
+docker exec -it mongo bash
+```
+
+Alternatively, if you are using Docker Desktop, you can click the CLI button to execute the shell for the Mongo container.
+
+Then login as the user of the database. If your user is `root`:
+
+```sh
+mongosh -u root
+```
+
+##### mongosh Commands
+
+- `show dbs` should show you the databases in Mongo
+- `use <databasename>` will allow you to change to the right database. By default, you may be in another database and may need to call `use growthbook`
+- `show collections` should show you the collections for the database you are using. This will throw an error if you are not logged in as the correct user.
+- `db` is available and you should be able to run queries against it, e.g. `db.users.find()`
+
 ### Working on docs
 
 To start the docs site, run `yarn workspace docs dev`. You can view the site at http://localhost:3200
