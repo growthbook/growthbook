@@ -1,7 +1,5 @@
 import ParamsRow from "../../../components/ParamsRow";
 import CollapsibleParams from "../../../components/CollapsibleParams";
-import FeatureObject from "../../../components/features/FeatureObject.mdx";
-import FeatureAttributes from "../../../components/features/FeatureAttributes.mdx";
 
 # Update
 
@@ -9,11 +7,7 @@ Updates a feature with the given properties.
 
 ## Endpoint
 
-`PUT /api/feature/{featureId}`
-
-<FeatureObject />
-
-<FeatureAttributes />
+`PUT /api/v1/features/{featureId}`
 
 ## Update feature request
 
@@ -54,18 +48,25 @@ Updates a feature with the given properties.
     type="Array<string>"
     description="An array of tags"
   />
+  <ParamsRow
+    name="archived"
+    required={false}
+    type="boolean"
+    description="Set to true to archive the feature"
+  />
 </section>
 
 ## Example curl request
 
 ```bash
-curl --location --request PUT 'https://cdn.growthbook.io/api/features/feat_a8ab78d93' \
---header 'Authorization: Bearer key_acce_asdfASDF1234!@#$ASDFasdf1234!@#$	' \
+curl --location --request PUT 'https://cdn.growthbook.io/api/v1/features/<featureId>' \
+--header 'Authorization: Bearer <access_token>' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "description": "New description",
     "owner": "New owner",
     "project": "new project name",
-    "tags": ["new", "tag", "array"]
+    "tags": ["new", "tag", "array"],
+    "archived": true
 }'
 ```

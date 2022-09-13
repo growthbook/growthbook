@@ -45,14 +45,10 @@ import * as projectsController from "./controllers/projects";
 import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
 import * as tagsController from "./controllers/tags";
-import * as publicApiController from "./controllers/publicApi";
+import * as apiController from "./controllers/api";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
-import {
-  validatePostFeatureReq,
-  validatePutFeatureReq,
-} from "./middleware/features";
 import validateAccessTokenApiReq from "./middleware/validateAccessTokenApiReq";
 
 // Wrap every controller function in asyncHandler to catch errors properly
@@ -81,7 +77,7 @@ wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
 wrapController(tagsController);
-wrapController(publicApiController);
+wrapController(apiController);
 
 const app = express();
 
@@ -262,24 +258,34 @@ app.options(
 
 //API routes that require an access token
 app.get(
-  "/api/healthcheck",
+  "/api/v1/healthcheck",
   validateAccessTokenApiReq(),
-  publicApiController.getHealthCheck
+  apiController.getHealthCheck
+);
+app.get(
+  "/api/v1/features/:featureId",
+  [validateAccessTokenApiReq()],
+  apiController.getFeatureApi
+);
+app.get(
+  "/api/v1/features",
+  [validateAccessTokenApiReq()],
+  apiController.listFeaturesApi
 );
 app.post(
-  "/api/features/:featureId",
-  [validateAccessTokenApiReq(), validatePostFeatureReq()],
-  publicApiController.postFeatureApi
+  "/api/v1/features/:featureId",
+  [validateAccessTokenApiReq()],
+  apiController.postFeatureApi
 );
 app.put(
-  "/api/features/:featureId",
-  [validateAccessTokenApiReq(), validatePutFeatureReq()],
-  publicApiController.putFeatureApi
+  "/api/v1/features/:featureId",
+  [validateAccessTokenApiReq()],
+  apiController.putFeatureApi
 );
 app.delete(
-  "/api/features/:featureId",
+  "/api/v1/features/:featureId",
   [validateAccessTokenApiReq()],
-  publicApiController.deleteFeatureApi
+  apiController.deleteFeatureApi
 );
 
 // Accept cross-origin requests from the frontend app
@@ -565,6 +571,12 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+
+// Access Tokens
+app.get("/has-access-token", organizationsController.getHasAccessToken);
+app.get("/access-token", organizationsController.getAccessToken);
+app.post("/access-token", organizationsController.postAccessToken);
+app.delete("/access-token", organizationsController.deleteAccessToken);
 
 // API keys
 app.get("/keys", organizationsController.getApiKeys);

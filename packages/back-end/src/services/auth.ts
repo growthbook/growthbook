@@ -19,7 +19,11 @@ import { MemberRole } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "./audit";
 import { getUserByEmail, getUserById } from "./users";
-import { hasOrganization } from "../models/OrganizationModel";
+import {
+  hasOrganization,
+  getOrgFromAcccessToken,
+} from "../models/OrganizationModel";
+import { AccessTokenRequest } from "../types/AccessTokenRequest";
 
 type JWTInfo = {
   email?: string;
@@ -236,13 +240,37 @@ export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
 }
 
-export async function accessTokenAudit(
-  data: Partial<AuditInterface>,
-  orgId: string
+export async function processAccessToken(
+  req: AccessTokenRequest,
+  res: Response,
+  next: NextFunction
 ) {
-  await insertAudit({
-    ...data,
-    organization: orgId,
-    dateCreated: new Date(),
-  });
+  try {
+    if (!req.headers || !req.headers.authorization)
+      throw new Error("Missing authorization header");
+    const authHeader = req.headers.authorization;
+    if (!authHeader.includes("Bearer"))
+      throw new Error("Add 'Bearer' to the 'Authorization' header");
+
+    const accessToken = authHeader.toString().split(" ")[1];
+    if (!accessToken) throw new Error("No access token found");
+
+    const org = await getOrgFromAcccessToken(accessToken);
+    if (!org) throw new Error("Invalid access token");
+
+    req.organization = { ...org };
+
+    req.audit = async (data: Partial<AuditInterface>) => {
+      await insertAudit({
+        ...data,
+        organization: org.id,
+        accessTokenReq: true,
+        dateCreated: new Date(),
+      });
+    };
+
+    return next();
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
 }

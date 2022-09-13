@@ -1,14 +1,14 @@
 import ParamsRow from "../../../components/ParamsRow";
 
-# Delete
+# Get
 
-Deletes a feature by its ID.
+Gets a feature by its ID.
 
 ## Endpoint
 
-`DELETE /api/v1/features/{featureId}`
+`GET /api/v1/features/{featureId}`
 
-## Delete feature request
+## Get feature request
 
 <section className="text-sm">
   <div className="text-lg font-bold">Headers</div>
@@ -23,7 +23,7 @@ Deletes a feature by its ID.
 ## Example curl request
 
 ```bash
-curl --location --request DELETE 'https://cdn.growthbook.io/api/v1/features/<featureId>' \
+curl --location --request GET 'https://cdn.growthbook.io/api/v1/features/<featureId>' \
 --header 'Authorization: Bearer <access_token>' \
 --header 'Content-Type: application/json'
 ```

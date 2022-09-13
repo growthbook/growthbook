@@ -56,6 +56,7 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
+  accessToken: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -226,5 +227,16 @@ export async function findOrganizationByClaimedDomain(domain: string) {
   const doc = await OrganizationModel.findOne({
     claimedDomain: domain,
   });
+  return doc ? toInterface(doc) : null;
+}
+
+export async function getAccessTokenFromOrgId(orgId: string) {
+  const doc = await OrganizationModel.findOne({ id: orgId });
+  return doc ? doc.accessToken : null;
+}
+
+export async function getOrgFromAcccessToken(accessToken: string) {
+  if (!accessToken) return null;
+  const doc = await OrganizationModel.findOne({ accessToken });
   return doc ? toInterface(doc) : null;
 }

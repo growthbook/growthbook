@@ -10,6 +10,7 @@ const docSections = {
   datasources: "/app/datasources",
   dashboard: "/app/experiments",
   api: "/apidocs",
+  api_authentication: "/apidocs/authentication",
   webhooks: "/app/webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",

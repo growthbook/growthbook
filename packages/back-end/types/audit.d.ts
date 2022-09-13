@@ -67,4 +67,5 @@ export interface AuditInterface {
   };
   details?: string;
   dateCreated: Date;
+  accessTokenReq?: boolean;
 }

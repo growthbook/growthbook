@@ -1,14 +1,14 @@
-import { Request, Response, NextFunction } from "express";
-import { getOrgByAccessTokenReq } from "../services/organizations";
+import { Response, NextFunction } from "express";
+import { processAccessToken } from "../services/auth";
+import { AccessTokenRequest } from "../types/AccessTokenRequest";
 
 export const validateAccessTokenApiReq = () => async (
-  req: Request,
+  req: AccessTokenRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    await getOrgByAccessTokenReq(req);
-    return next();
+    return processAccessToken(req, res, next);
   } catch (err) {
     console.error(err);
     return res.status(400).json({ status: 400, message: err.message });

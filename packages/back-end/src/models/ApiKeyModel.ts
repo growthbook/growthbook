@@ -18,11 +18,3 @@ export const ApiKeyModel = mongoose.model<ApiKeyDocument>(
   "ApiKey",
   apiKeySchema
 );
-
-export async function findOrgIdByAccessToken(accessToken: string) {
-  const doc = await ApiKeyModel.findOne({
-    key: accessToken,
-    environment: "access",
-  });
-  return doc?.organization;
-}

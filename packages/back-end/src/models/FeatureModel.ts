@@ -1,16 +1,28 @@
 import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
 import {
+  CreateFeatureInterface,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { featureUpdated, generateRuleId } from "../services/features";
+  UpdateFeatureInterface,
+} from "back-end/types/feature";
+import {
+  featureUpdated,
+  generateRuleId,
+  addIdsToRules,
+  parseDefaultValue,
+} from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
+import {
+  vCreateFeatureInterface,
+  vFeatureInterface,
+  vUpdateFeatureInterface,
+} from "../../types/feature/featureValidators";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -82,9 +94,36 @@ export async function getFeature(
   return feature ? upgradeFeatureInterface(feature.toJSON()) : null;
 }
 
-export async function createFeature(data: FeatureInterface) {
-  const feature = await FeatureModel.create(data);
+export async function createFeature(
+  data: CreateFeatureInterface,
+  orgId: string
+) {
+  vCreateFeatureInterface.parse(data);
+  const resultFeature: FeatureInterface = {
+    id: data.id.toLowerCase(),
+    archived: data.archived ?? false,
+    description: data.description,
+    organization: orgId,
+    owner: data.owner ?? "None",
+    project: data.project,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    valueType: data.valueType,
+    defaultValue: parseDefaultValue(data.defaultValue, data.valueType),
+    tags: data.tags,
+    environmentSettings: data.environmentSettings,
+    draft: data.draft,
+    revision: data.revision,
+  };
+  vFeatureInterface.parse(resultFeature);
+
+  addIdsToRules(resultFeature.environmentSettings, resultFeature.id);
+
+  const feature = await FeatureModel.create(resultFeature);
   await saveRevision(feature.toJSON());
+
+  featureUpdated(resultFeature);
+  return feature;
 }
 
 export async function deleteFeature(organization: string, id: string) {
@@ -94,12 +133,13 @@ export async function deleteFeature(organization: string, id: string) {
 export async function updateFeature(
   organization: string,
   id: string,
-  updates: Partial<FeatureInterface>
+  updates: UpdateFeatureInterface
 ) {
+  vUpdateFeatureInterface.parse(updates);
   await FeatureModel.updateOne(
     { organization, id },
     {
-      $set: updates,
+      $set: { ...updates, updatedAt: new Date() },
     }
   );
 }

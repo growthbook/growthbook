@@ -61,6 +61,7 @@ import {
   createOrganization,
   findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
+  getAccessTokenFromOrgId,
   hasOrganization,
   updateOrganization,
 } from "../models/OrganizationModel";
@@ -71,6 +72,7 @@ import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
 import { cloneDeep } from "lodash";
+import crypto from "crypto";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // Ensure user exists in database
@@ -800,9 +802,6 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
     const orig: Partial<OrganizationInterface> = {};
 
-    if (settings?.environments?.find((env) => env.id === "access"))
-      throw new Error("Reserved environment name: 'access'");
-
     if (name) {
       updates.name = name;
       orig.name = org.name;
@@ -1048,4 +1047,41 @@ export async function putAdminResetUserPassword(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function getHasAccessToken(req: AuthRequest, res: Response) {
+  const { org } = getOrgFromReq(req);
+  const hasAccessToken = !!(await getAccessTokenFromOrgId(org.id));
+
+  res.status(200).json({ status: 200, hasAccessToken });
+}
+
+export async function getAccessToken(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+  const { org } = getOrgFromReq(req);
+
+  const accessToken = await getAccessTokenFromOrgId(org.id);
+  return res.status(200).json({ status: 200, accessToken });
+}
+
+export async function postAccessToken(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+  const { org } = getOrgFromReq(req);
+
+  const accessToken = await getAccessTokenFromOrgId(org.id);
+
+  if (accessToken === "string") throw new Error("Access token already exists");
+
+  const newAccessToken = encodeURIComponent(
+    crypto.randomBytes(128).toString("base64")
+  );
+  await updateOrganization(org.id, { accessToken: newAccessToken });
+  return res.status(200).json({ status: 200 });
+}
+
+export async function deleteAccessToken(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+  const { org } = getOrgFromReq(req);
+  await updateOrganization(org.id, { accessToken: undefined });
+  return res.status(200).json({ status: 200 });
 }

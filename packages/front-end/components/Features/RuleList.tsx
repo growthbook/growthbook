@@ -95,7 +95,10 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+      <SortableContext
+        items={items.map((item) => item.id)}
+        strategy={verticalListSortingStrategy}
+      >
         {items.map(({ ...rule }, i) => (
           <SortableRule
             key={rule.id}

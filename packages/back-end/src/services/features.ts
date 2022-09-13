@@ -4,13 +4,10 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "../../types/feature";
+  UpdateFeatureInterface,
+} from "back-end/types/feature";
 import { queueWebhook } from "../jobs/webhooks";
-import {
-  createFeature,
-  getAllFeatures,
-  updateFeature,
-} from "../models/FeatureModel";
+import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import { findProjectById } from "../models/ProjectModel";
@@ -190,7 +187,7 @@ export function verifyDraftsAreEqual(
   }
 }
 
-function parseDefaultValue(
+export function parseDefaultValue(
   defaultValue: string,
   valueType: FeatureValueType
 ): string {
@@ -210,114 +207,23 @@ function parseDefaultValue(
   }
 }
 
-export async function createFeatureService(feature: Partial<FeatureInterface>) {
-  const {
-    id,
-    archived,
-    description,
-    organization,
-    owner,
-    project,
-    valueType,
-    defaultValue,
-    tags,
-    environmentSettings,
-    draft,
-    revision,
-  } = feature;
-
-  if (!id) throw new Error("Must specify feature key");
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores."
-    );
-  }
-
-  if (!organization) throw new Error("Organization could not be found");
-
-  if (!owner) throw new Error("Owner must be specified");
-
-  if (!valueType) throw new Error("Value type must be specified");
-  if (!["boolean", "number", "string", "json"].includes(valueType)) {
-    throw new Error(
-      "Value type must be one of boolean, number, string, or json"
-    );
-  }
-
-  if (!defaultValue) throw new Error("Default value must be specified");
-
-  const resultFeature: FeatureInterface = {
-    id: id.toLowerCase(),
-    archived: archived ?? false,
-    description,
-    organization,
-    owner,
-    project,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    valueType: valueType,
-    defaultValue: parseDefaultValue(defaultValue, valueType),
-    tags,
-    environmentSettings,
-    draft,
-    revision,
-  };
-
-  addIdsToRules(resultFeature.environmentSettings, resultFeature.id);
-
-  await createFeature(resultFeature);
-  featureUpdated(resultFeature);
-
-  return resultFeature;
-}
-
-export async function updateFeatureService(
-  updates: Partial<FeatureInterface>,
+export async function fireWebhook(
+  updates: UpdateFeatureInterface,
   feature: FeatureInterface,
-  featureId: string
+  newFeature: FeatureInterface
 ) {
-  const allowedKeys: (keyof FeatureInterface)[] = [
-    "tags",
-    "description",
-    "project",
-    "owner",
-  ];
-
-  const invalidKeys = Object.keys(updates).filter(
-    (k: keyof FeatureInterface) => !allowedKeys.includes(k)
-  );
-  if (invalidKeys.length) {
-    throw new Error(
-      `Invalid update fields for feature: [${invalidKeys.join(", ")}]`
-    );
-  }
-
-  let requiresWebhook = false;
   if (updates.project) {
     if (!(await findProjectById(updates.project, feature.organization))) {
       throw new Error("Project not found");
     }
 
     // See if anything important changed that requires firing a webhook
-    if ("project" in updates && updates.project !== feature.project) {
-      requiresWebhook = true;
+    if (updates.project !== feature.project) {
+      featureUpdated(
+        newFeature,
+        getEnabledEnvironments(feature),
+        feature.project || ""
+      );
     }
   }
-
-  await updateFeature(feature.organization, featureId, {
-    ...updates,
-    dateUpdated: new Date(),
-  });
-
-  const newFeature = { ...feature, ...updates };
-
-  if (requiresWebhook) {
-    featureUpdated(
-      newFeature,
-      getEnabledEnvironments(feature),
-      feature.project || ""
-    );
-  }
-
-  return newFeature;
 }

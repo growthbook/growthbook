@@ -142,7 +142,6 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
-
   connections?: {
     slack?: {
       team: string;
@@ -150,6 +149,7 @@ export interface OrganizationInterface {
     };
   };
   settings?: OrganizationSettings;
+  accessToken?: string;
 }
 
 export type NamespaceUsage = Record<

@@ -1,7 +1,5 @@
 import ParamsRow from "../../../components/ParamsRow";
 import CollapsibleParams from "../../../components/CollapsibleParams";
-import FeatureObject from "../../../components/features/FeatureObject.mdx";
-import FeatureAttributes from "../../../components/features/FeatureAttributes.mdx";
 
 # Create
 
@@ -9,11 +7,7 @@ Creates a feature with the given properties.
 
 ## Endpoint
 
-`POST /api/feature/{featureId}`
-
-<FeatureObject />
-
-<FeatureAttributes />
+`POST /api/v1/features/{featureId}`
 
 ## Create feature request
 
@@ -239,8 +233,8 @@ Creates a feature with the given properties.
 ## Example curl request
 
 ```bash
-curl --location --request POST 'https://cdn.growthbook.io/api/features/feat_a8ab78d93' \
---header 'Authorization: Bearer key_acce_asdfASDF1234!@#$ASDFasdf1234!@#$' \
+curl --location --request POST 'https://cdn.growthbook.io/api/v1/features/<featureId>' \
+--header 'Authorization: Bearer <access_token>' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "owner": "johndoe@******.com",

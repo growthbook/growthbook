@@ -6,10 +6,11 @@ import {
   FeatureInterface,
   FeatureRevisionInterface,
   FeatureRule,
-} from "../../types/feature";
+} from "../../types/feature/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
+  createFeature,
   deleteFeature,
   setFeatureDraftRules,
   editFeatureRule,
@@ -22,15 +23,15 @@ import {
   getDraftRules,
   discardDraft,
   updateDraft,
+  updateFeature,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../services/apiKey";
 import {
   arrayMove,
-  createFeatureService,
   featureUpdated,
   getFeatureDefinitions,
-  updateFeatureService,
+  fireWebhook,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
@@ -90,11 +91,10 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 }
 
 export async function postFeatures(
-  req: AuthRequest<Partial<FeatureInterface>>,
+  req: AuthRequest<FeatureInterface>,
   res: Response
 ) {
   req.checkPermissions("createFeatures");
-
   const feature = req.body;
   const { org, environments, userId, email, userName } = getOrgFromReq(req);
 
@@ -120,7 +120,7 @@ export async function postFeatures(
   feature.environmentSettings = environmentSettings;
   feature.revision = revision;
 
-  const resultFeature = await createFeatureService(feature);
+  const resultFeature = await createFeature(feature, org.id);
 
   await ensureWatching(userId, org.id, resultFeature.id, "features");
 
@@ -128,14 +128,14 @@ export async function postFeatures(
     event: "feature.create",
     entity: {
       object: "feature",
-      id: feature.id as string,
+      id: resultFeature.id,
     },
     details: auditDetailsCreate(feature),
   });
 
   res.status(200).json({
     status: 200,
-    resultFeature,
+    feature: resultFeature,
   });
 }
 
@@ -424,18 +424,19 @@ export async function putFeature(
 
   const { org } = getOrgFromReq(req);
   const { id: featureId } = req.params;
-  const feature = await getFeature(org.id, featureId);
-
-  if (!feature) throw new Error("Could not find feature");
-
   const updates = req.body;
+  const feature = await getFeature(org.id, featureId);
+  if (!feature) throw new Error("Could not find feature");
 
   // Changing the project can affect production if using project-scoped api keys
   if ("project" in updates) {
     req.checkPermissions("createFeatures", "publishFeatures");
   }
 
-  const newFeature = await updateFeatureService(updates, feature, feature.id);
+  await updateFeature(feature.organization, feature.id, { ...updates });
+  const newFeature = { ...feature, ...updates };
+
+  await fireWebhook(updates, feature, newFeature);
 
   await req.audit({
     event: "feature.update",

@@ -4,10 +4,17 @@ interface DocsLinkProps {
   href: string;
   name: string;
   beta: boolean;
+  auth: boolean;
   active: boolean;
 }
 
-export default function DocsLink({ href, name, beta, active }: DocsLinkProps) {
+export default function DocsLink({
+  href,
+  name,
+  beta,
+  auth,
+  active,
+}: DocsLinkProps) {
   return (
     <Link href={href}>
       <div
@@ -22,6 +29,13 @@ export default function DocsLink({ href, name, beta, active }: DocsLinkProps) {
           {beta ? (
             <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
               beta
+            </span>
+          ) : (
+            ""
+          )}
+          {auth ? (
+            <span className="bg-green-400 dark:bg-green-600 p-1 rounded text-xs ml-1">
+              auth
             </span>
           ) : (
             ""

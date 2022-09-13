@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { ApiKeyInterface } from "back-end/types/apikey";
@@ -10,24 +10,34 @@ import Link from "next/link";
 import { DocLink } from "../DocLink";
 import track from "../../services/track";
 import Tooltip from "../Tooltip";
+import CopyToClipboard from "../CopyToClipboard";
 
 export const apiAuthEnv = "access";
 
 const ApiKeys: FC = () => {
+  const { apiCall } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [accessToken, setAccessToken] = useState("");
+  const [showAccessToken, setShowAccessToken] = useState(false);
+
   const { data, error: keyError, mutate } = useApi<{ keys: ApiKeyInterface[] }>(
     "/keys"
   );
-  const { apiCall } = useAuth();
-  const [open, setOpen] = useState(false);
+  const {
+    data: hasAccessTokenData,
+    error: hasAccessTokenError,
+    mutate: hasAccessTokenMutate,
+  } = useApi<{ hasAccessToken: boolean }>(`/has-access-token`);
 
-  const hasPublicKey = useMemo(() => {
-    return !!data?.keys.find((k) => k.environment === apiAuthEnv);
-  }, [data]);
-
+  if (hasAccessTokenError) {
+    return (
+      <div className="alert alert-danger">{hasAccessTokenError.message}</div>
+    );
+  }
   if (keyError) {
     return <div className="alert alert-danger">{keyError.message}</div>;
   }
-  if (!data) {
+  if (!data || !hasAccessTokenData) {
     return <LoadingOverlay />;
   }
 
@@ -41,21 +51,89 @@ const ApiKeys: FC = () => {
     }
   });
 
-  async function handleCreatePublicApiKey() {
-    await apiCall("/keys", {
-      method: "POST",
-      body: JSON.stringify({
-        environment: apiAuthEnv,
-        description: "access_token for APIs that require authentication",
-      }),
-    });
+  async function handleCreateAccessToken() {
+    await apiCall("/access-token", { method: "POST" });
     track("Create access_token", {});
-    mutate();
+    hasAccessTokenMutate();
+  }
+
+  async function handleShowAccessToken() {
+    const { accessToken } = await apiCall<{ accessToken: string }>(
+      "/access-token",
+      { method: "GET" }
+    );
+    setAccessToken(accessToken);
+    setShowAccessToken(!showAccessToken);
   }
 
   return (
     <div>
       {open && <ApiKeysModal close={() => setOpen(false)} onCreate={mutate} />}
+      <h1>Access Token</h1>
+      <p>
+        The access_token is used to make CRUD requests on behalf of your
+        organization. You can authenticate certain API requests using your
+        access_token.{" "}
+        <DocLink docSection="api_authentication">View Documentation</DocLink>
+      </p>
+      {hasAccessTokenData.hasAccessToken && (
+        <table className="table mb-3 appbox gbtable table-hover">
+          <thead>
+            <tr>
+              <th>
+                Key{" "}
+                <a
+                  className="cursor-pointer"
+                  onClick={() => handleShowAccessToken()}
+                >
+                  (show key)
+                </a>
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="flex">
+                {showAccessToken ? (
+                  <CopyToClipboard text={accessToken} />
+                ) : (
+                  "*********"
+                )}
+              </td>
+              <td>
+                <DeleteButton
+                  onClick={async () => {
+                    await apiCall("/access-token", { method: "DELETE" });
+                    setAccessToken("");
+                    setShowAccessToken(false);
+                    hasAccessTokenMutate();
+                  }}
+                  displayName="Access Token"
+                  style={{ fontSize: "19px" }}
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+      <Tooltip body="Access Tokens are limited to one per organization and are used for API requests that require authentication">
+        {/* buttons do not work when wrapped in a span so this must be a div */}
+        <div
+          className={`btn btn-primary cursor-pointer ${
+            hasAccessTokenData.hasAccessToken ? "disabled" : ""
+          }`}
+          onClick={(e) => {
+            if (hasAccessTokenData.hasAccessToken) return;
+            e.preventDefault();
+            handleCreateAccessToken();
+          }}
+        >
+          <FaKey /> Create Access Token
+        </div>
+      </Tooltip>
+
+      <h1 className="mt-4">API Keys</h1>
       <p>
         API keys can be used with our SDKs (Javascript, React, Go, Ruby, PHP,
         Python, Android) or the Visual Editor.{" "}
@@ -110,20 +188,6 @@ const ApiKeys: FC = () => {
       >
         <FaKey /> Create New Key
       </button>
-
-      <Tooltip body="Access Tokens are limited to one per organization and are used for API requests that require authentication">
-        {/* buttons do not work when wrapped in a span so this must be a div */}
-        <div
-          className={`btn btn-primary ml-3 ${hasPublicKey ? "disabled" : ""}`}
-          onClick={(e) => {
-            if (hasPublicKey) return;
-            e.preventDefault();
-            handleCreatePublicApiKey();
-          }}
-        >
-          <FaKey /> Create Access Token
-        </div>
-      </Tooltip>
       <Link href={`/settings/environments`}>
         <a className="btn btn-outline-primary ml-3">Manage environments</a>
       </Link>

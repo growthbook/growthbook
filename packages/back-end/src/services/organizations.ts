@@ -1,4 +1,3 @@
-import { Request } from "express";
 import {
   findOrganizationById,
   findOrganizationByInviteKey,
@@ -41,25 +40,6 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { updateSubscriptionInStripe } from "./stripe";
-import { findOrgIdByAccessToken } from "../models/ApiKeyModel";
-
-export async function getOrgByAccessTokenReq(req: Request) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) throw new Error("'Authorization' header is required");
-  if (!authHeader.includes("Bearer"))
-    throw new Error("Add 'Bearer' to the 'Authorization' header");
-
-  const accessToken = authHeader.toString().split(" ")[1];
-  if (!accessToken) throw new Error("No access token found");
-
-  const orgId = await findOrgIdByAccessToken(accessToken);
-  if (!orgId) throw new Error("Invalid access token");
-
-  const org = await findOrganizationById(orgId);
-  if (!org) throw new Error("Organization not found");
-
-  return org;
-}
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
