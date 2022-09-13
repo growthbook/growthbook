@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request } from "express";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import { UserInterface } from "../../types/user";
@@ -49,17 +49,6 @@ export async function createRefreshToken(req: Request, user: UserInterface) {
   await AuthRefreshModel.create(authRefreshDoc);
 
   return token;
-}
-
-export async function deleteRefreshToken(req: Request, res: Response) {
-  const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
-  if (refreshToken) {
-    await AuthRefreshModel.deleteOne({
-      token: refreshToken,
-    });
-  }
-
-  res.clearCookie("AUTH_REFRESH_TOKEN");
 }
 
 export async function getUserIdFromAuthRefreshToken(

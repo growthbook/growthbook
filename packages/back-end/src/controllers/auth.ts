@@ -12,13 +12,15 @@ import { IS_CLOUD } from "../util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
-  IdTokenCookie,
   isNewInstallation,
   markInstalled,
-  RefreshTokenCookie,
-  SSOConnectionIdCookie,
   validatePasswordFormat,
 } from "../services/auth";
+import {
+  IdTokenCookie,
+  RefreshTokenCookie,
+  SSOConnectionIdCookie,
+} from "../util/cookie";
 import { getEmailFromUserId, getOrgFromReq } from "../services/organizations";
 import {
   createUser,
