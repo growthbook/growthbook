@@ -5,7 +5,7 @@ export async function getAllGroups(organization: string) {
     organization,
   });
   if (doc) {
-    return doc.groups;
+    return doc; //TODO: Come back and make this backwards compatiable
   }
 
   return [];

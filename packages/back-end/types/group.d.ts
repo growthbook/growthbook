@@ -4,7 +4,7 @@ export interface GroupInterface {
   groupName: string;
   owner: string;
   attributeKey: string;
-  csv: string;
+  group: string[];
   dateUpdated: Date;
   dateCreated: Date;
 }

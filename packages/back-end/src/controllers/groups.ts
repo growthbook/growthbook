@@ -3,6 +3,16 @@ import { Response } from "express";
 import { getOrgFromReq } from "../services/organizations";
 import { GroupModel } from "../models/GroupModel";
 
+function formatGroup(list: string) {
+  const listArr = list.split(",");
+
+  const group = listArr.map((i: string) => {
+    return i.trim();
+  });
+
+  return group;
+}
+
 export async function getAllGroups(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
 
@@ -21,16 +31,16 @@ export async function getAllGroups(req: AuthRequest, res: Response) {
 
 export async function createGroup(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, csv } = req.body;
+  const { groupName, owner, attributeKey, groupList } = req.body;
 
   const group = await GroupModel.create({
     groupName,
     owner,
     attributeKey,
-    csv,
+    group: formatGroup(groupList),
     organization: org.id,
-    dateCreated: Date.now(),
-    dateUpdated: Date.now(),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
   });
 
   return res.status(200).json({
@@ -41,7 +51,7 @@ export async function createGroup(req: AuthRequest, res: Response) {
 
 export async function updateGroup(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, csv } = req.body;
+  const { groupName, owner, attributeKey, groupList } = req.body;
 
   const group = await GroupModel.updateOne(
     { groupName: groupName },
@@ -49,9 +59,9 @@ export async function updateGroup(req: AuthRequest, res: Response) {
       groupName,
       owner,
       attributeKey,
-      csv,
+      group: formatGroup(groupList),
       organization: org.id,
-      dateUpdated: Date.now(),
+      dateUpdated: new Date(),
     }
   );
 

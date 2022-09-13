@@ -252,7 +252,7 @@ export default function ConditionInput(props: Props) {
                     <SelectField
                       options={groups.map((g) => ({
                         label: g.groupName,
-                        value: g.csv,
+                        value: g._id,
                       }))}
                       value={value}
                       onChange={(v) => {

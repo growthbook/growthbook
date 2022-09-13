@@ -25,7 +25,7 @@ const GroupForm: FC<{
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      csv: current.csv || "",
+      groupList: current.group || "",
     },
   });
 
@@ -73,7 +73,7 @@ const GroupForm: FC<{
         label="Create list of comma separated values"
         required
         textarea
-        {...form.register("csv")}
+        {...form.register("groupList")}
       />
     </Modal>
   );

@@ -10,7 +10,11 @@ const groupSchema = new mongoose.Schema({
   owner: String,
   dateCreated: Date,
   dateUpdated: Date,
-  csv: String,
+  group: [
+    {
+      type: String,
+    },
+  ],
   attributeKey: String,
 });
 

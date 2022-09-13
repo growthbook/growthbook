@@ -1,3 +1,5 @@
+import { GroupInterface } from "back-end/types/group";
+import useApi from "../../hooks/useApi";
 import { jsonToConds, useAttributeMap } from "../../services/features";
 import Code from "../Code";
 
@@ -35,6 +37,10 @@ function operatorToText(operator: string): string {
       return `is in the group`;
     case "$notInGroup":
       return `is not in the group`;
+    // case "$in":
+    //   return isGroup ? `is in the group` : `is in the list`;
+    // case "$nin":
+    //   return isGroup ? `is not in the group` : `is not in the list`;
     case "$true":
       return "is";
     case "$false":
@@ -50,13 +56,26 @@ function operatorToText(operator: string): string {
 function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
-function getValue(operator: string, value: string): string {
+function getValue(
+  operator: string,
+  value: string,
+  isGroup?: boolean,
+  groups?: GroupInterface[]
+): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
+  if (isGroup && groups) {
+    const index = groups.findIndex((i) => i._id === value); //TODO: Come back and clean this up somehow.
+    return groups[index].groupName;
+  }
   return value;
 }
 
 export default function ConditionDisplay({ condition }: { condition: string }) {
+  const { data } = useApi<{ groupsArr: GroupInterface[] }>("/groups");
+
+  const groups = data?.groupsArr;
+
   const conds = jsonToConds(condition);
 
   const attributes = useAttributeMap();
@@ -77,14 +96,14 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
 
   return (
     <div className="row">
-      {conds.map(({ field, operator, value }, i) => (
+      {conds.map(({ field, operator, value, isGroup }, i) => (
         <div key={i} className="col-auto d-flex flex-wrap">
           {i > 0 && <span className="mr-1">AND</span>}
           <span className="mr-1 border px-2 bg-light rounded">{field}</span>
           <span className="mr-1">{operatorToText(operator)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value)}
+              {getValue(operator, value, isGroup, groups)}
             </span>
           ) : (
             ""
