@@ -282,7 +282,7 @@ else {
 
 //  Pre-auth requests that are always available
 app.post("/auth/refresh", authController.postRefresh);
-app.post("/auth/logout/soft", authController.postLogoutSoft);
+app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
@@ -332,7 +332,6 @@ app.use(
 if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
 }
-app.post("/auth/logout", authController.postLogout);
 
 // Organizations
 app.get("/user", organizationsController.getUser);

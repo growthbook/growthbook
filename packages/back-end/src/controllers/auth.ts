@@ -10,6 +10,7 @@ import {
 } from "../models/OrganizationModel";
 import { IS_CLOUD } from "../util/secrets";
 import {
+  deleteAuthCookies,
   getAuthConnection,
   IdTokenCookie,
   isNewInstallation,
@@ -95,14 +96,12 @@ export async function postOAuthCallback(req: Request, res: Response) {
   RefreshTokenCookie.setValue(refreshToken, req, res);
   IdTokenCookie.setValue(idToken, req, res, expiresIn);
 
-  // TODO: better redirect location?
   return res.status(200).json({
     status: 200,
-    redirectURI: "/",
   });
 }
 
-async function getLocalSuccessResponse(
+async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
   user: UserInterface
@@ -128,20 +127,14 @@ async function getLocalSuccessResponse(
   });
 }
 
-export async function postLogoutSoft(req: Request, res: Response) {
-  RefreshTokenCookie.setValue("", req, res);
-  IdTokenCookie.setValue("", req, res);
-  SSOConnectionIdCookie.setValue("", req, res);
-
-  return res.status(200).json({
-    status: 200,
-  });
-}
-
-export async function postLogout(req: AuthRequest, res: Response) {
-  const redirectURI = await auth.logout(req, res);
-  RefreshTokenCookie.setValue("", req, res);
-  IdTokenCookie.setValue("", req, res);
+export async function postLogout(req: Request, res: Response) {
+  let redirectURI = "";
+  try {
+    redirectURI = await auth.logout(req, res);
+  } catch (e) {
+    console.error("Failed to logout of SSO", e);
+  }
+  deleteAuthCookies(req, res);
 
   return res.status(200).json({
     status: 200,
@@ -176,7 +169,7 @@ export async function postLogin(
     });
   }
 
-  getLocalSuccessResponse(req, res, user);
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postRegister(
@@ -201,12 +194,12 @@ export async function postRegister(
       });
     }
 
-    return getLocalSuccessResponse(req, res, existingUser);
+    return sendLocalSuccessResponse(req, res, existingUser);
   }
 
   // Create new account
   const user = await createUser(name, email, password);
-  getLocalSuccessResponse(req, res, user);
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postFirstTimeRegister(
@@ -251,7 +244,7 @@ export async function postFirstTimeRegister(
   await createOrganization(email, user.id, companyname, "");
   markInstalled();
 
-  getLocalSuccessResponse(req, res, user);
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postForgotPassword(

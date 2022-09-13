@@ -3,8 +3,7 @@ import {
   useAuth,
   UserOrganizations,
   getDefaultPermissions,
-  softLogout,
-  redirectWithTimeout,
+  safeLogout,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
@@ -171,8 +170,7 @@ const ProtectedPage: React.FC<{
         open={true}
         cta="Log Out"
         submit={async () => {
-          await softLogout();
-          await redirectWithTimeout(window.location.origin);
+          await safeLogout();
         }}
         submitColor="danger"
         closeCta="Reload"

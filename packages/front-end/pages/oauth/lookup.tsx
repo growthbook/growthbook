@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import Field from "../../components/Forms/Field";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Modal from "../../components/Modal";
-import { redirectWithTimeout, softLogout } from "../../services/auth";
+import { redirectWithTimeout, safeLogout } from "../../services/auth";
 import { getApiHost, isCloud } from "../../services/env";
 
 export async function lookupByEmail(email: string) {
@@ -57,8 +57,7 @@ export default function OAuthLookup() {
       })}
       close={async () => {
         setOpen(false);
-        await softLogout();
-        await redirectWithTimeout(window.location.origin);
+        await safeLogout();
       }}
       closeCta="Cancel"
       cta="Continue"

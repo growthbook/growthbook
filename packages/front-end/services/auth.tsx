@@ -153,11 +153,14 @@ function getDetailedError(error: string): string | ReactElement {
   return error;
 }
 
-export async function softLogout() {
-  await fetch(getApiHost() + `/auth/logout/soft`, {
+// Logout that always works, even if the user wasn't fully authenticated properly
+export async function safeLogout() {
+  const res = await fetch(getApiHost() + `/auth/logout`, {
     method: "POST",
     credentials: "include",
   });
+  const json = await res.json();
+  await redirectWithTimeout(json?.redirectURI || window.location.origin);
 }
 
 export async function redirectWithTimeout(url: string, timeout: number = 5000) {
@@ -197,8 +200,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
               await redirectWithTimeout(resp.redirectURI);
             }}
             close={async () => {
-              await softLogout();
-              window.location.href = window.location.origin;
+              await safeLogout();
             }}
             closeCta="Cancel"
             cta="Sign In"

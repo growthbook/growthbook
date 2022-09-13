@@ -355,15 +355,12 @@ export class OpenIdAuth implements AuthConnection {
       expiresIn: this.getMaxAge(tokenSet),
     };
   }
-  async logout(req: Request, res: Response): Promise<string> {
+  async logout(req: Request): Promise<string> {
     const ssoConnection = await getConnectionFromRequest(req);
-    SSOConnectionIdCookie.setValue("", req, res);
-
     if (ssoConnection?.metadata?.end_session_endpoint) {
       const client = this.getOpenIdClient(ssoConnection);
       return client.endSessionUrl();
     }
-
     return "";
   }
   private getAuthChecks(req: Request) {
@@ -590,6 +587,13 @@ export async function processJWT(
   }
 
   next();
+}
+
+export function deleteAuthCookies(req: Request, res: Response) {
+  RefreshTokenCookie.setValue("", req, res);
+  IdTokenCookie.setValue("", req, res);
+  SSOConnectionIdCookie.setValue("", req, res);
+  AuthChecksCookie.setValue("", req, res);
 }
 
 export function validatePasswordFormat(password?: string): string {

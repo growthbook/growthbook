@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Button from "../../components/Button";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { redirectWithTimeout, softLogout } from "../../services/auth";
+import { redirectWithTimeout, safeLogout } from "../../services/auth";
 import { getApiHost } from "../../services/env";
 
 export default function OAuthCallbackPage() {
@@ -22,10 +22,10 @@ export default function OAuthCallbackPage() {
       })
       .then((res) => res.json())
       .then((json) => {
-        if (!json?.redirectURI) {
+        if (json?.status !== 200) {
           setError(json?.message || "An unknown error occurred");
         } else {
-          router.replace(json.redirectURI);
+          router.replace("/");
         }
       })
       .catch((e) => {
@@ -55,8 +55,7 @@ export default function OAuthCallbackPage() {
               <Button
                 color="outline-primary"
                 onClick={async () => {
-                  await softLogout();
-                  await redirectWithTimeout(window.location.origin);
+                  await safeLogout();
                 }}
               >
                 Logout
