@@ -128,6 +128,16 @@ async function getLocalSuccessResponse(
   });
 }
 
+export async function postLogoutSoft(req: Request, res: Response) {
+  RefreshTokenCookie.setValue("", req, res);
+  IdTokenCookie.setValue("", req, res);
+  SSOConnectionIdCookie.setValue("", req, res);
+
+  return res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postLogout(req: AuthRequest, res: Response) {
   const redirectURI = await auth.logout(req, res);
   RefreshTokenCookie.setValue("", req, res);

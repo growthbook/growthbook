@@ -282,6 +282,7 @@ else {
 
 //  Pre-auth requests that are always available
 app.post("/auth/refresh", authController.postRefresh);
+app.post("/auth/logout/soft", authController.postLogoutSoft);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.

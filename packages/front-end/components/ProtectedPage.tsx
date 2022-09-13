@@ -16,7 +16,7 @@ import {
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
-import { isCloud } from "../services/env";
+import { getApiHost, isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
 import { ReactNode } from "react";
@@ -72,7 +72,6 @@ const ProtectedPage: React.FC<{
 }> = ({ children, organizationRequired }) => {
   const {
     isAuthenticated,
-    logout,
     apiCall,
     orgId,
     organizations,
@@ -170,7 +169,13 @@ const ProtectedPage: React.FC<{
         open={true}
         cta="Log Out"
         submit={async () => {
-          await logout();
+          await fetch(getApiHost() + `/auth/logout/soft`, {
+            method: "POST",
+            credentials: "include",
+          });
+          window.location.href = "/";
+          // Wait 5 seconds for the redirect to complete
+          await new Promise((resolve) => setTimeout(resolve, 5000));
         }}
         submitColor="danger"
         closeCta="Reload"

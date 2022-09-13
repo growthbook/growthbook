@@ -45,7 +45,13 @@ type IdToken = {
   email?: string;
   email_verified?: boolean;
   given_name?: string;
+  name?: string;
   sub?: string;
+};
+
+type AuthChecks = {
+  state: string;
+  code_verifier: string;
 };
 
 function days(n: number) {
@@ -53,6 +59,32 @@ function days(n: number) {
 }
 function minutes(n: number) {
   return n * 60 * 1000;
+}
+
+class MemoryCache<T> {
+  private store: Map<string, { expires: number; obj: T }>;
+  private ttl: number;
+
+  public constructor(ttl: number = 30) {
+    this.store = new Map();
+    this.ttl = ttl * 1000;
+  }
+
+  public get(key: string): T | null {
+    const existing = this.store.get(key);
+    if (existing && existing.expires > Date.now()) {
+      return existing.obj;
+    }
+
+    return null;
+  }
+
+  public set(key: string, obj: T) {
+    this.store.set(key, {
+      expires: Date.now() + this.ttl,
+      obj,
+    });
+  }
 }
 
 class Cookie {
@@ -87,7 +119,7 @@ class Cookie {
 export const SSOConnectionIdCookie = new Cookie("SSO_CONNECTION_ID", days(30));
 export const RefreshTokenCookie = new Cookie("AUTH_REFRESH_TOKEN", days(30));
 export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
-export const CodeVerifierCookie = new Cookie("CODE_VERIFIER", minutes(10));
+export const AuthChecksCookie = new Cookie("AUTH_CHECKS", minutes(10));
 
 type TokensResponse = {
   idToken: string;
@@ -198,8 +230,9 @@ export class LocalAuth implements AuthConnection {
   }
 }
 
-const ssoConnectionCache: Map<string, SSOConnectionInterface> = new Map();
-const ssoClientCache: Map<string, Client> = new Map();
+const ssoConnectionCache = new MemoryCache<SSOConnectionInterface>(30);
+const ssoClientCache = new MemoryCache<Client>(30);
+
 export class OpenIdAuth implements AuthConnection {
   async getUnauthenticatedResponse(
     req: Request,
@@ -287,15 +320,21 @@ export class OpenIdAuth implements AuthConnection {
     const client = this.getOpenIdClient(ssoConnection);
 
     // Get rid of temporary codeVerifier cookie
-    const codeVerifier = CodeVerifierCookie.getValue(req);
-    CodeVerifierCookie.setValue("", req, res);
+    const checks = AuthChecksCookie.getValue(req);
+    AuthChecksCookie.setValue("", req, res);
+
+    if (!checks) {
+      throw new Error("Missing auth checks in session");
+    }
+    const { state, code_verifier }: AuthChecks = JSON.parse(checks);
 
     const params = client.callbackParams(req.originalUrl);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
       {
-        code_verifier: codeVerifier,
+        code_verifier,
+        state,
       }
     );
 
@@ -336,7 +375,14 @@ export class OpenIdAuth implements AuthConnection {
     const code_verifier = generators.codeVerifier();
     const code_challenge = generators.codeChallenge(code_verifier);
 
-    CodeVerifierCookie.setValue(code_verifier, req, res);
+    const state = generators.state();
+
+    const checks: AuthChecks = {
+      code_verifier,
+      state,
+    };
+
+    AuthChecksCookie.setValue(JSON.stringify(checks), req, res);
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${
@@ -344,6 +390,7 @@ export class OpenIdAuth implements AuthConnection {
       }`.trim(),
       code_challenge,
       code_challenge_method: "S256",
+      state,
       audience: (ssoConnection.metadata?.audience ||
         ssoConnection.clientId) as string,
     });
@@ -419,7 +466,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
     verified: user.email_verified || false,
     email: user.email || "",
-    name: user.given_name || "",
+    name: user.given_name || user.name || "",
   };
 }
 
@@ -453,7 +500,11 @@ export async function processJWT(
     req.name = user.name;
     req.admin = !!user.admin;
 
-    if (IS_CLOUD && user.verified && !req.verified) {
+    // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
+    // require all future logins to be verified too.
+    // This stops someone from creating an unverified email/password account and gaining access to
+    // an account using "Login with Google"
+    if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
       return res.status(406).json({
         status: 406,
         message: "You must verify your email address before using GrowthBook",
