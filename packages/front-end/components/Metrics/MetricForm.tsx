@@ -27,6 +27,7 @@ import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
+import { MetricDefaults } from "back-end/types/organization";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -42,6 +43,7 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
+  metricDefaults?: MetricDefaults;
 };
 
 function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
@@ -149,6 +151,7 @@ const MetricForm: FC<MetricFormProps> = ({
   inline,
   cta = "Save",
   onSuccess,
+  metricDefaults = {},
   secondaryCTA,
 }) => {
   const { datasources, getDatasourceById, metrics } = useDefinitions();
@@ -220,10 +223,17 @@ const MetricForm: FC<MetricFormProps> = ({
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange:
-        (current.maxPercentChange || defaultMaxPercentChange) * 100,
+        (current.maxPercentChange ||
+          (metricDefaults?.maxPercentageChange || 0) / 100 ||
+          defaultMaxPercentChange) * 100,
       minPercentChange:
-        (current.minPercentChange || defaultMinPercentChange) * 100,
-      minSampleSize: current.minSampleSize || defaultMinSampleSize,
+        (current.minPercentChange ||
+          (metricDefaults?.minPercentageChange || 0) / 100 ||
+          defaultMinPercentChange) * 100,
+      minSampleSize:
+        current.minSampleSize ||
+        metricDefaults?.minimumSampleSize ||
+        defaultMinSampleSize,
     },
   });
 
