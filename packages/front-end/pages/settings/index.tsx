@@ -326,11 +326,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 )}
             </div>
           </div>
-          <div className="divider border-bottom mb-3 mt-3"></div>
+
+          <div className="divider border-bottom mb-3 mt-3" />
+
           <div className="row">
             <div className="col-sm-3">
-              <h4>Other Settings</h4>
+              <h4>Experiment Settings</h4>
             </div>
+
             <div className="col-sm-9 form-inline">
               <Field
                 label="Minimum experiment length (in days) when importing past
@@ -347,17 +350,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
-              <Field
-                label="Amount of historical data to include when analyzing metrics"
-                append="days"
-                className="ml-2"
-                containerClassName="mb-3"
-                disabled={hasFileConfig()}
-                options={[7, 14, 30, 90, 180, 365]}
-                {...form.register("metricAnalysisDays", {
-                  valueAsNumber: true,
-                })}
-              />
+
               <Field
                 label="Warn when this percent of experiment users are in multiple variations"
                 type="number"
@@ -372,6 +365,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
+
               <div className="mb-3">
                 <Field
                   label="Experiment Auto-Update Frequency"
@@ -432,7 +426,28 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
             </div>
           </div>
-          <div className="divider border-bottom mb-3 mt-3"></div>
+
+          <div className="divider border-bottom mb-3 mt-3" />
+
+          <div className="row">
+            <div className="col-sm-3">
+              <h4>Metrics Settings</h4>
+            </div>
+            <div className="col-sm-9 form-inline">
+              <Field
+                label="Amount of historical data to include when analyzing metrics"
+                append="days"
+                className="ml-2"
+                containerClassName="mb-3"
+                disabled={hasFileConfig()}
+                options={[7, 14, 30, 90, 180, 365]}
+                {...form.register("metricAnalysisDays", {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
+          </div>
+          <div className="divider border-bottom mb-3 mt-3" />
 
           <div className="row">
             <div className="col-12">
