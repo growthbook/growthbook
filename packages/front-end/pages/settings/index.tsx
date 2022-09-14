@@ -22,6 +22,11 @@ import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { DocLink } from "../../components/DocLink";
+import {
+  defaultMaxPercentChange,
+  defaultMinPercentChange,
+  defaultMinSampleSize,
+} from "../../services/metrics";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -62,6 +67,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //resolution?: string;
         //startDate?: Date;
       },
+      metricDefaults: {
+        minimumSampleSize: defaultMinSampleSize,
+        maxPercentageChange: defaultMaxPercentChange * 100,
+        minPercentageChange: defaultMinPercentChange * 100,
+      },
       updateSchedule: {
         type: "stale",
         hours: 6,
@@ -76,6 +86,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
     metricAnalysisDays: form.watch("metricAnalysisDays"),
+    metricDefaults: {
+      minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
+      maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
+      minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
+    },
     // customization:
     customized: form.watch("customized"),
     logoPath: form.watch("logoPath"),
@@ -433,18 +448,103 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="col-sm-3">
               <h4>Metrics Settings</h4>
             </div>
-            <div className="col-sm-9 form-inline">
-              <Field
-                label="Amount of historical data to include when analyzing metrics"
-                append="days"
-                className="ml-2"
-                containerClassName="mb-3"
-                disabled={hasFileConfig()}
-                options={[7, 14, 30, 90, 180, 365]}
-                {...form.register("metricAnalysisDays", {
-                  valueAsNumber: true,
-                })}
-              />
+            <div className="col-sm-9">
+              <div className="form-inline">
+                <Field
+                  label="Amount of historical data to include when analyzing metrics"
+                  append="days"
+                  className="ml-2"
+                  containerClassName="mb-3"
+                  disabled={hasFileConfig()}
+                  options={[7, 14, 30, 90, 180, 365]}
+                  {...form.register("metricAnalysisDays", {
+                    valueAsNumber: true,
+                  })}
+                />
+              </div>
+
+              {/* region Metrics Behavior Defaults */}
+              <>
+                <h5 className="mt-3">Metrics Behavior Defaults</h5>
+                <p>
+                  These are the pre-configured default values that will be used
+                  when configuring metrics. You can always change these values
+                  on a per-metric basis.
+                </p>
+
+                {/* region Minimum Sample Size */}
+                <div>
+                  <div className="form-inline">
+                    <Field
+                      label="Minimum Sample Size"
+                      type="number"
+                      // append="users"
+                      className="ml-2"
+                      containerClassName="mt-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("metricDefaults.minimumSampleSize", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <p>
+                    <small className="text-muted mb-3">
+                      The total count required in an experiment variation before
+                      showing results
+                    </small>
+                  </p>
+                </div>
+                {/* endregion Minimum Sample Size */}
+
+                {/* region Maximum Percentage Change */}
+                <div>
+                  <div className="form-inline">
+                    <Field
+                      label="Maximum Percentage Change"
+                      type="number"
+                      append="%"
+                      className="ml-2"
+                      containerClassName="mt-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("metricDefaults.maxPercentageChange", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <p>
+                    <small className="text-muted mb-3">
+                      An experiment that changes the metric by more than this
+                      percent will be flagged as suspicious
+                    </small>
+                  </p>
+                </div>
+                {/* endregion Maximum Percentage Change */}
+
+                {/* region Minimum Percentage Change */}
+                <div>
+                  <div className="form-inline">
+                    <Field
+                      label="Minimum Percentage Change"
+                      type="number"
+                      append="%"
+                      className="ml-2"
+                      containerClassName="mt-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("metricDefaults.minPercentageChange", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <p>
+                    <small className="text-muted mb-3">
+                      An experiment that changes the metric by less than this
+                      percent will be considered a draw
+                    </small>
+                  </p>
+                </div>
+                {/* endregion Minimum Percentage Change */}
+              </>
+              {/* endregion Metrics Behavior Defaults */}
             </div>
           </div>
           <div className="divider border-bottom mb-3 mt-3" />
