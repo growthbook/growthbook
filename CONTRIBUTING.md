@@ -108,7 +108,7 @@ To start the docs site, run `yarn workspace docs dev`. You can view the site at 
 
 To work on the SDKs, `cd` into the desired directory and the following commands are available:
 
-- `yarn test` - Run just
+- `yarn test` - Run Jest
 - `yarn build` - Run the rollup build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
@@ -116,7 +116,7 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 
 To work on the Python stats engine, `cd` into the `packages/stats` directory and the following commands are available:
 
-- `yarn test` - Run pytest
+- `. $(cd packages/stats && poetry env info --path)/bin/activate && yarn test` - Run pytest
 - `yarn lint` - Run flake8 and black
 - `poetry build` - Run the build process
 
