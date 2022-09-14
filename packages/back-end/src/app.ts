@@ -45,7 +45,7 @@ import * as projectsController from "./controllers/projects";
 import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
 import * as tagsController from "./controllers/tags";
-import * as groupsController from "./controllers/groups";
+import * as savedGroupsController from "./controllers/savedGroups";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
@@ -391,9 +391,8 @@ app.post("/tag", tagsController.postTag);
 app.delete("/tag/:id", tagsController.deleteTag);
 
 // groups
-app.get("/groups", groupsController.getAllGroups);
-app.post("/groups", groupsController.createGroup);
-app.put("/groups", groupsController.updateGroup);
+app.post("/saved-groups", savedGroupsController.createSavedGroup);
+app.put("/saved-groups", savedGroupsController.updateSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

@@ -6,16 +6,7 @@ const groupSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
-  groupName: String,
-  owner: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  group: [
-    {
-      type: String,
-    },
-  ],
-  attributeKey: String,
+  groups: [String],
 });
 
 export type GroupDocument = mongoose.Document & GroupInterface;

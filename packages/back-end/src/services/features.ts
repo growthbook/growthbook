@@ -9,7 +9,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { GroupModel } from "../models/GroupModel";
+import { SavedGroupModel } from "../models/SavedGroupModel";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -31,9 +31,9 @@ function getJSONValue(type: FeatureValueType, value: string): any {
 }
 
 async function getGroupById(id: string) {
-  const group = await GroupModel.findById(id);
+  const group = await SavedGroupModel.findById(id);
 
-  return group?.group || []; //TODO: Come back and think about how this could fail. Do we need a try/catch?
+  return group?.group || [];
 }
 
 // eslint-disable-next-line

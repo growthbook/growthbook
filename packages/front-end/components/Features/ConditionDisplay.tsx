@@ -1,4 +1,4 @@
-import { GroupInterface } from "back-end/types/group";
+import { SavedGroupInterface } from "back-end/types/saved-group";
 import useApi from "../../hooks/useApi";
 import { jsonToConds, useAttributeMap } from "../../services/features";
 import Code from "../Code";
@@ -34,9 +34,9 @@ function operatorToText(operator: string): string {
     case "$nin":
       return `is not in the list`;
     case "$inGroup":
-      return `is in the group`;
+      return `is in the saved group`;
     case "$notInGroup":
-      return `is not in the group`;
+      return `is not in the saved group`;
     case "$true":
       return "is";
     case "$false":
@@ -56,21 +56,30 @@ function getValue(
   operator: string,
   value: string,
   isGroup?: boolean,
-  groups?: GroupInterface[]
+  savedGroups?: SavedGroupInterface[]
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
-  if (isGroup && groups) {
-    const index = groups.findIndex((i) => i._id === value); //TODO: Come back and clean this up somehow.
-    return groups[index].groupName;
+
+  // Get the groupName from the associated group._id to display a human readable name.
+  if (isGroup && savedGroups) {
+    console.log("savedGroups", savedGroups);
+    //TODO: This will break if a group is deleted - need to fix this. Currently it just won't return a name. Need to remedy that.
+    const index = savedGroups.findIndex((i) => i._id === value);
+    if (index === -1) {
+      return "";
+    }
+    return savedGroups[index].groupName;
   }
   return value;
 }
 
 export default function ConditionDisplay({ condition }: { condition: string }) {
-  const { data } = useApi<{ groupsArr: GroupInterface[] }>("/groups");
+  const { data } = useApi<{ savedGroupsArr: SavedGroupInterface[] }>(
+    "/saved-groups"
+  );
 
-  const groups = data?.groupsArr;
+  const savedGroups = data?.savedGroupsArr;
 
   const conds = jsonToConds(condition);
 
@@ -99,7 +108,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
           <span className="mr-1">{operatorToText(operator)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value, isGroup, groups)}
+              {getValue(operator, value, isGroup, savedGroups)}
             </span>
           ) : (
             ""

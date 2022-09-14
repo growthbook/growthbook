@@ -53,6 +53,7 @@ import {
 } from "../services/email";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { getAllGroups } from "../services/group";
+import { getAllSavedGroups } from "../services/savedGroups";
 import { uploadFile } from "../services/files";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { WebhookModel } from "../models/WebhookModel";
@@ -165,6 +166,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     groups,
+    savedGroups,
     projects,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
@@ -175,6 +177,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     }),
     getAllTags(orgId),
     getAllGroups(orgId),
+    getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
   ]);
 
@@ -196,6 +199,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     groups,
+    savedGroups,
     projects,
   });
 }

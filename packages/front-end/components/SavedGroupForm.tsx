@@ -1,24 +1,24 @@
 import { FC } from "react";
-import { GroupInterface } from "back-end/types/group";
+import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../services/auth";
 import useMembers from "../hooks/useMembers";
-import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "./Modal";
 import Field from "./Forms/Field";
 import SelectField from "./Forms/SelectField";
 import { useAttributeSchema } from "../services/features";
+import { useDefinitions } from "../services/DefinitionsContext";
 
-const GroupForm: FC<{
+const SavedGroupForm: FC<{
   close: () => void;
-  current: Partial<GroupInterface>;
+  current: Partial<SavedGroupInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
 
-  const { mutateDefinitions } = useDefinitions();
-
   const attributeSchema = useAttributeSchema();
+
+  const { mutateDefinitions } = useDefinitions();
 
   const form = useForm({
     defaultValues: {
@@ -35,18 +35,18 @@ const GroupForm: FC<{
       open={true}
       header={current.groupName ? "Edit Group" : "New Group"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall("/groups", {
+        await apiCall("/saved-groups", {
           method: current.groupName ? "PUT" : "POST",
           body: JSON.stringify(value),
         });
-        await mutateDefinitions({});
+        mutateDefinitions({});
       })}
     >
       <Field
         label="Group Name"
         required
         {...form.register("groupName")}
-        helpText="e.g. beta users" //TODO: Come back and figure out how to get this to be previewText instead
+        placeholder="e.g. beta-users or internal-team-members"
       />
       <SelectField
         label="Owner"
@@ -75,7 +75,13 @@ const GroupForm: FC<{
         textarea
         {...form.register("groupList")}
       />
+      {current.groupName && (
+        <div className="alert alert-warning">
+          <b>Warning:</b> Updating this group will automatically update any
+          feature that has an override rule that uses this group.
+        </div>
+      )}
     </Modal>
   );
 };
-export default GroupForm;
+export default SavedGroupForm;

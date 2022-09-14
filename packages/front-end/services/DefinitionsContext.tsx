@@ -8,6 +8,7 @@ import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { TagInterface } from "back-end/types/tag";
 import { ReactNode } from "react";
+import { SavedGroupInterface } from "back-end/types/saved-group";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -16,6 +17,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   groups: string[];
+  savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
 };
 
@@ -56,6 +58,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   groups: [],
+  savedGroups: [],
   projects: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
@@ -133,6 +136,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: data.tags,
       groups: data.groups,
+      savedGroups: data.savedGroups,
       projects: data.projects,
       project:
         data.projects && data.projects.map((p) => p.id).includes(project)
@@ -146,7 +150,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getProjectById,
       getTagById,
       refreshGroups: async (groups) => {
-        const newGroups = groups.filter((t) => !data.groups.includes(t));
+        const newGroups = groups.filter((t) => console.log(t));
         if (newGroups.length > 0) {
           await mutate(
             {

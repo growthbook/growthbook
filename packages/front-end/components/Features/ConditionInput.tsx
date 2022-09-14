@@ -10,8 +10,7 @@ import Field from "../Forms/Field";
 import styles from "./ConditionInput.module.scss";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
-import useApi from "../../hooks/useApi";
-import { GroupInterface } from "back-end/types/group";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 interface Props {
   defaultValue: string;
@@ -19,9 +18,8 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { data } = useApi<{ groupsArr: GroupInterface[] }>("/groups");
+  const { savedGroups } = useDefinitions();
 
-  const groups = data?.groupsArr;
   const attributes = useAttributeMap();
 
   const [advanced, setAdvanced] = useState(
@@ -248,9 +246,9 @@ export default function ConditionInput(props: Props) {
                   ].includes(operator) ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    groups ? (
+                    savedGroups ? (
                     <SelectField
-                      options={groups.map((g) => ({
+                      options={savedGroups.map((g) => ({
                         label: g.groupName,
                         value: g._id,
                       }))}

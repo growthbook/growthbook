@@ -1,45 +1,47 @@
-import { GroupInterface } from "back-end/types/group";
+import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import Button from "../components/Button";
-import GroupForm from "../components/GroupForm";
+import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
-import useApi from "../hooks/useApi";
 import { ago } from "../services/dates";
+import { useDefinitions } from "../services/DefinitionsContext";
 
-export default function GroupsPage() {
-  const [groupForm, setGroupForm] = useState<null | Partial<GroupInterface>>(
-    null
-  );
+export default function SavedGroupsPage() {
+  const [
+    savedGroupForm,
+    setSavedGroupForm,
+  ] = useState<null | Partial<SavedGroupInterface>>(null);
 
-  const { data, error } = useApi<{ groupsArr: GroupInterface[] }>("/groups"); //TODO: Add types here like in other places
+  const { savedGroups, error } = useDefinitions();
 
-  const groups = data?.groupsArr;
-
-  if (!groups) return <LoadingOverlay />;
+  if (!savedGroups) return <LoadingOverlay />;
 
   return (
     <div className="p-3 container-fluid pagecontents">
-      {groupForm && (
-        <GroupForm close={() => setGroupForm(null)} current={groupForm} />
+      {savedGroupForm && (
+        <SavedGroupForm
+          close={() => setSavedGroupForm(null)}
+          current={savedGroupForm}
+        />
       )}
       <div className="row mb-3">
         <div className="col-auto d-flex">
-          <h1>Groups</h1>
+          <h1>Saved Groups</h1>
         </div>
         <div style={{ flex: 1 }}></div>
         <div className="col-auto">
           <Button
             color="primary"
             onClick={async () => {
-              setGroupForm({});
+              setSavedGroupForm({});
             }}
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               <GBAddCircle />
             </span>{" "}
-            New Group
+            New Saved Group
           </Button>
         </div>
       </div>
@@ -48,11 +50,11 @@ export default function GroupsPage() {
           There was an error loading the list of groups.
         </div>
       )}
-      {groups.length > 0 && (
+      {savedGroups.length > 0 && (
         <div className="row mb-4">
           <div className="col-12">
             <p>
-              Groups are defined comma separated lists of users based on a
+              Saved Groups are defined comma separated lists of users based on a
               unique identifier - for example, you might create a list of
               internal users. These groups, used with feature rules, allow you
               allow you to quickly target lists of users.
@@ -71,7 +73,7 @@ export default function GroupsPage() {
                 </tr>
               </thead>
               <tbody>
-                {groups.map((s) => {
+                {savedGroups.map((s) => {
                   return (
                     <tr key={s._id}>
                       <td>{s.groupName}</td>
@@ -96,7 +98,7 @@ export default function GroupsPage() {
                           title="Edit this segment"
                           onClick={(e) => {
                             e.preventDefault();
-                            setGroupForm(s);
+                            setSavedGroupForm(s);
                           }}
                         >
                           <FaPencilAlt />
@@ -119,7 +121,6 @@ export default function GroupsPage() {
                           }}
                         /> */}
                       </td>
-                      {/* )} */}
                     </tr>
                   );
                 })}
@@ -128,9 +129,9 @@ export default function GroupsPage() {
           </div>
         </div>
       )}
-      {groups.length === 0 && (
+      {savedGroups.length === 0 && (
         <div className="alert alert-info">
-          You don&apos;t have any segments defined yet.{" "}
+          You don&apos;t have any saved groups defined yet.{" "}
           {/* {permissions.createSegments && */}
           Click the button above to create your first one.
           {/* } */}
