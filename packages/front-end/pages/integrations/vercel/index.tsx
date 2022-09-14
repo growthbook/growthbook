@@ -74,68 +74,69 @@ export default function VercelIntegrationPage() {
         </Modal>
       ) : (
         <>
-          {envModalOpen && (
+          {envModalOpen ? (
             <EnvironmentModal
               existing={envModalOpen}
               close={() => setEnvModalOpen(null)}
               onSuccess={() => setIntegrationAlreadyExists(false)}
             />
-          )}
-          <Modal
-            submit={async () => {
-              await apiCall("/vercel/env-vars", {
-                method: "POST",
-                body: JSON.stringify({ gbVercelEnvMap }),
-              });
-              window.location.href = next as string;
-            }}
-            open
-            showCTAs={!envModalOpen}
-          >
-            <div>
-              <h4>Generate Environment Variables</h4>
-              <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-                Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
-                created in GrowthBook and Vercel in the following environments.
-              </div>
-              {gbVercelEnvMap.map((elem, i) => (
-                <div key={`keyMap${i}`} className="d-flex mt-2">
-                  <div>
-                    <div>
-                      <strong>Vercel environment:</strong>
-                    </div>
-                    <div>{elem.vercel}</div>
-                  </div>
-                  <div className="ml-5">
-                    <SelectField
-                      label="GrowthBook environment:"
-                      labelClassName="font-weight-bold font"
-                      options={environments.map((env) => ({
-                        label: env.id,
-                        value: env.id,
-                      }))}
-                      initialOption="None"
-                      value={elem.gb}
-                      onChange={(selected) => {
-                        const newMap = [...gbVercelEnvMap];
-                        newMap[i].gb = selected;
-                        setGbVercelEnvMap(newMap);
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                setEnvModalOpen({});
+          ) : (
+            <Modal
+              submit={async () => {
+                await apiCall("/vercel/env-vars", {
+                  method: "POST",
+                  body: JSON.stringify({ gbVercelEnvMap }),
+                });
+                window.location.href = next as string;
               }}
-              className="btn btn-link btn-sm col-sm-5 text-left"
+              open
             >
-              Create new environment
-            </button>
-          </Modal>
+              <div>
+                <h4>Generate Environment Variables</h4>
+                <div className="text-muted" style={{ fontSize: "0.8rem" }}>
+                  Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
+                  created in GrowthBook and Vercel in the following
+                  environments.
+                </div>
+                {gbVercelEnvMap.map((elem, i) => (
+                  <div key={`keyMap${i}`} className="d-flex mt-2">
+                    <div>
+                      <div>
+                        <strong>Vercel environment:</strong>
+                      </div>
+                      <div>{elem.vercel}</div>
+                    </div>
+                    <div className="ml-5">
+                      <SelectField
+                        label="GrowthBook environment:"
+                        labelClassName="font-weight-bold font"
+                        options={environments.map((env) => ({
+                          label: env.id,
+                          value: env.id,
+                        }))}
+                        initialOption="None"
+                        value={elem.gb}
+                        onChange={(selected) => {
+                          const newMap = [...gbVercelEnvMap];
+                          newMap[i].gb = selected;
+                          setGbVercelEnvMap(newMap);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEnvModalOpen({});
+                }}
+                className="btn btn-link btn-sm col-sm-5 text-left"
+              >
+                Create new environment
+              </button>
+            </Modal>
+          )}
         </>
       )}
     </>

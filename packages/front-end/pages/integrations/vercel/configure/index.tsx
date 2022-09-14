@@ -20,7 +20,6 @@ export default function VercelPage() {
             <th>GB Environment</th>
             <th>Vercel Environments</th>
             <th>Description</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>

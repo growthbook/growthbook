@@ -8,8 +8,6 @@ This integration creates GrowthBook API keys and creates matching keys as Enviro
 
 `GROWTHBOOK_KEY`: This key will be used with the SDK of your choice.
 
-`GROWTHBOOK_WEBHOOK_SECRET`: This key can later be used to get feature data from your GrowthBook account.
-
 ## 1. Navigate to the GrowthBook Vercel integration
 
 <a href="https://vercel.com/integrations/growthbook" target="_blank">
@@ -46,8 +44,8 @@ The account selected will determine which projects are shown in the next step.
 
 ## 5. Setup your environments
 
-Both `GROWTHBOOK_KEY` and `GROWTHBOOK_WEBHOOK_SECRET` will be added as environment variables to your project.
-Configure each Vercel environment to map to its correct GrowthBook environment. For example, if you
+`GROWTHBOOK_KEY` will be added as an environment variable to your project.
+Configure each Vercel environment to map to its correct GrowthBook environment. For example, if you are
 using "production" for your Vercel environment you will most likely want to set your GrowthBook Environment to
 "production".
 
@@ -80,4 +78,3 @@ Vercel Keys are located in the "Environment Variables" section of your project s
 ## 7. Next steps
 
 Configure an SDK with your project using the keys you just created. [Click here to view our SDKs](/lib).
-Configure your GrowthBook webhook. [Click here to view the webhook docs](/app/webhooks).

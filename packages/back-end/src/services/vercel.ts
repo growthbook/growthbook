@@ -8,17 +8,6 @@ import {
 } from "../../types/vercel";
 import { createApiKey } from "./apiKey";
 
-const gbApiKey = {
-  key: "GROWTHBOOK_KEY",
-  description:
-    "This key allows you to connect your GrowthBook sdk to the GrowthBook API.",
-};
-const gbWebhookKey = {
-  key: "GROWTHBOOK_WEBHOOK_SECRET",
-  description: "This key allows you to connect to GrowthBook webhooks.",
-};
-const gbKeys = [gbApiKey, gbWebhookKey];
-
 interface VercelApiCallProps {
   token: string;
   teamId: string | null;
@@ -75,19 +64,17 @@ export async function createOrgGbKeys(
 ) {
   const orgGbKeys = [];
   for (const envMapEntry of gbVercelEnvMap) {
-    for (const gbKey of gbKeys) {
-      const createdKeyVal = await createApiKey(
-        orgId,
-        envMapEntry.gb,
-        gbKey.description
-      );
-      orgGbKeys.push({
-        key: gbKey.key,
-        value: createdKeyVal,
-        gbEnv: envMapEntry.gb,
-        vercelEnvArr: envMapEntry.vercel,
-      });
-    }
+    const createdKeyVal = await createApiKey(
+      orgId,
+      envMapEntry.gb,
+      "This key allows you to connect your GrowthBook sdk to the GrowthBook API."
+    );
+    orgGbKeys.push({
+      key: "GROWTHBOOK_KEY",
+      value: createdKeyVal,
+      gbEnv: envMapEntry.gb,
+      vercelEnvArr: envMapEntry.vercel,
+    });
   }
   return orgGbKeys;
 }
