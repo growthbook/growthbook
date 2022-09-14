@@ -349,6 +349,12 @@ export default function FeatureModal({
             }}
             label="Percent of users to include"
           />
+          <ConditionInput
+            defaultValue={rule?.condition}
+            onChange={(cond) => {
+              form.setValue("rule.condition", cond);
+            }}
+          />
           <FeatureValueField
             label={"Value when included"}
             id="ruleValue"
@@ -402,6 +408,12 @@ export default function FeatureModal({
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"
+          />
+          <ConditionInput
+            defaultValue={rule?.condition}
+            onChange={(cond) => {
+              form.setValue("rule.condition", cond);
+            }}
           />
           <VariationsInput
             coverage={form.watch("rule.coverage")}
