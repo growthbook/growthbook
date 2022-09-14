@@ -23,7 +23,6 @@ import useOrgSettings from "../hooks/useOrgSettings";
 export interface Condition {
   field: string;
   operator: string;
-  isGroup?: boolean;
   value: string;
 }
 
@@ -499,8 +498,6 @@ export function jsonToConds(
         if (operator === ("$inGroup" || "$notInGroup")) {
           return conds.push({
             field,
-            isGroup: true,
-            // operator: operator === "$inGroup" ? "$in" : "$nin",
             operator,
             value: v,
           });
@@ -508,9 +505,7 @@ export function jsonToConds(
         valid = false;
       });
     });
-    if (!valid) {
-      return null;
-    }
+    if (!valid) return null;
     return conds;
   } catch (e) {
     return null;

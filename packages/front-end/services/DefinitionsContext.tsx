@@ -150,7 +150,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getProjectById,
       getTagById,
       refreshGroups: async (groups) => {
-        const newGroups = groups.filter((t) => console.log(t));
+        const newGroups = groups.filter((t) => !data.groups.includes(t));
         if (newGroups.length > 0) {
           await mutate(
             {

@@ -5,7 +5,7 @@ export async function getAllSavedGroups(organization: string) {
     organization,
   });
   if (doc) {
-    return doc; //TODO: Come back and figure out why this is failing when I try to revert back to doc.groups.
+    return doc;
   }
 
   return [];

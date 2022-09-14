@@ -55,14 +55,13 @@ function needsValue(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  isGroup?: boolean,
   savedGroups?: SavedGroupInterface[]
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
 
   // Get the groupName from the associated group._id to display a human readable name.
-  if (isGroup && savedGroups) {
+  if (operator === ("$inGroup" || "$notInGroup") && savedGroups) {
     const index = savedGroups.findIndex((i) => i._id === value);
     if (index === -1) {
       return "(Group Was Deleted)";
@@ -95,14 +94,14 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
 
   return (
     <div className="row">
-      {conds.map(({ field, operator, value, isGroup }, i) => (
+      {conds.map(({ field, operator, value }, i) => (
         <div key={i} className="col-auto d-flex flex-wrap">
           {i > 0 && <span className="mr-1">AND</span>}
           <span className="mr-1 border px-2 bg-light rounded">{field}</span>
           <span className="mr-1">{operatorToText(operator)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value, isGroup, savedGroups)}
+              {getValue(operator, value, savedGroups)}
             </span>
           ) : (
             ""
