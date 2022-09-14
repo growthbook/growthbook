@@ -37,10 +37,6 @@ function operatorToText(operator: string): string {
       return `is in the group`;
     case "$notInGroup":
       return `is not in the group`;
-    // case "$in":
-    //   return isGroup ? `is in the group` : `is in the list`;
-    // case "$nin":
-    //   return isGroup ? `is not in the group` : `is not in the list`;
     case "$true":
       return "is";
     case "$false":

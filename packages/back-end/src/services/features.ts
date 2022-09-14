@@ -9,6 +9,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import { GroupModel } from "../models/GroupModel";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -28,6 +29,30 @@ function getJSONValue(type: FeatureValueType, value: string): any {
   if (type === "boolean") return value === "false" ? false : true;
   return null;
 }
+
+async function getGroupById(id: string) {
+  const group = await GroupModel.findById(id);
+
+  return group?.group || []; //TODO: Come back and think about how this could fail. Do we need a try/catch?
+}
+
+// eslint-disable-next-line
+async function formatCondition(condition: any) {
+  console.log("condition", condition);
+  if ("$inGroup" in condition) {
+    const groupList = await getGroupById(condition.$inGroup);
+    condition.$in = groupList;
+    delete condition["$inGroup"];
+  }
+
+  if ("notInGroup" in condition) {
+    const groupList = await getGroupById(condition.$inGroup);
+    condition.$nin = groupList;
+    delete condition["$notInGroup"];
+  }
+  return condition;
+}
+
 export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
@@ -54,11 +79,21 @@ export async function getFeatureDefinitions(
       rules:
         settings.rules
           ?.filter((r) => r.enabled)
-          ?.map((r) => {
+          ?.map(async (r) => {
             const rule: FeatureDefinitionRule = {};
             if (r.condition && r.condition !== "{}") {
               try {
                 rule.condition = JSON.parse(r.condition);
+                for (const attribute in rule.condition) {
+                  for (const condition in rule.condition[attribute]) {
+                    if (condition === ("$inGroup" || "$notInGroup")) {
+                      const updatedCondition = await formatCondition(
+                        rule.condition[attribute]
+                      );
+                      rule.condition[attribute] = updatedCondition;
+                    }
+                  }
+                }
               } catch (e) {
                 // ignore condition parse errors here
               }
