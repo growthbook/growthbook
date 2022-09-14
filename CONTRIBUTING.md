@@ -100,21 +100,23 @@ The packages are available at the following urls with hot-reloading:
 - Front-end: http://localhost:3000
 - Back-end: http://localhost:3100
 
-#### MongoDB Compass
+#### Accessing the MongoDB database
 
-To access MongoDB with the [MongoDB Compass](https://www.mongodb.com/products/compass) GUI, you can do the following after opening MongoDB Compass:
+GrowthBook uses MongoDB as a primary data store, and while working on the code it may be necessary to access the database directly. [MongoDB Compass](https://www.mongodb.com/products/compass) is the easiest way, but you can also use the [mongosh shell](https://www.mongodb.com/docs/mongodb-shell/).
+
+##### MongoDB Compass
+
+To access MongoDB with the MongoDB Compass GUI, you can do the following after opening MongoDB Compass:
 
 1. In the menu bar, click **Connect** and choose **New Connection**
 2. Paste the connection string you configured in your `.env.local` here
 3. Press **Connect**
 
-At this point you should be connected to MongoDB and see your databases. Click into the desired database, e.g. growthbook, to view your collections.
+At this point you should be connected to MongoDB and see your databases. Click into the desired database, e.g. `growthbook`, to view your collections.
 
-#### Mongo Shell
+##### Mongo Shell
 
-##### Accessing the MongoDB database
-
-To access MongoDB with the [mongosh shell](https://www.mongodb.com/docs/mongodb-shell/), run the following command:
+To access MongoDB with the `mongosh` shell, run the following command:
 
 ```sh
 docker exec -it mongo bash
