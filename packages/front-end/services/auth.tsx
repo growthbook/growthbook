@@ -90,7 +90,6 @@ let _currentRefreshOperation: null | Promise<
 > = null;
 async function refreshToken() {
   if (!_currentRefreshOperation) {
-    console.log("Making refresh request");
     _currentRefreshOperation = fetch(getApiHost() + "/auth/refresh", {
       method: "POST",
       credentials: "include",
@@ -326,7 +325,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         isAuthenticated: !!token,
         loading,
         logout: async () => {
-          // TODO: redirectURI
           const res: { redirectURI: string } = await apiCall(`/auth/logout`, {
             method: "POST",
             credentials: "include",

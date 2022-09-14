@@ -27,7 +27,6 @@ type AuthChecks = {
 
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
-  console.log("expensive operation");
   const ssoConnection = await getSSOConnectionById(ssoConnectionId);
   if (ssoConnection) {
     return ssoConnection;
