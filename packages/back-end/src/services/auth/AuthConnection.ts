@@ -9,11 +9,7 @@ export type TokensResponse = {
 };
 
 export interface AuthConnection {
-  refresh(
-    req: Request,
-    res: Response,
-    refreshToken: string
-  ): Promise<TokensResponse>;
+  refresh(req: Request, refreshToken: string): Promise<TokensResponse>;
   getUnauthenticatedResponse(
     req: Request,
     res: Response
@@ -24,5 +20,6 @@ export interface AuthConnection {
     res: Response,
     data: unknown
   ): Promise<TokensResponse>;
+  // Returns the URL to redirect to in order to complete the logout
   logout(req: Request, res: Response): Promise<string>;
 }

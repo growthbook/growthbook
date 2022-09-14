@@ -14,18 +14,37 @@ import { UnauthenticatedResponse } from "../../../types/sso-connection";
 import { isNewInstallation } from ".";
 import { getUserById } from "../users";
 
+const jwtCheck = jwtExpress({
+  secret: JWT_SECRET,
+  audience: "https://api.growthbook.io",
+  issuer: "https://api.growthbook.io",
+  algorithms: ["HS256"],
+});
+
 export class LocalAuthConnection implements AuthConnection {
-  middleware(req: Request, res: Response, next: NextFunction): void {
-    if (!JWT_SECRET) {
-      throw new Error("Must specify JWT_SECRET environment variable");
+  async refresh(req: Request, refreshToken: string): Promise<TokensResponse> {
+    const userId = await getUserIdFromAuthRefreshToken(refreshToken);
+    if (!userId) {
+      throw new Error("No user found with that refresh token");
     }
-    const jwtCheck = jwtExpress({
-      secret: JWT_SECRET,
-      audience: "https://api.growthbook.io",
-      issuer: "https://api.growthbook.io",
-      algorithms: ["HS256"],
-    });
-    jwtCheck(req, res, next);
+
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error("Invalid user id - " + userId);
+    }
+
+    return {
+      idToken: this.generateJWT(user),
+      refreshToken,
+      expiresIn: 1800,
+    };
+  }
+  async getUnauthenticatedResponse(): Promise<UnauthenticatedResponse> {
+    const newInstallation = await isNewInstallation();
+    return {
+      showLogin: true,
+      newInstallation,
+    };
   }
   async processCallback(
     req: Request,
@@ -45,33 +64,11 @@ export class LocalAuthConnection implements AuthConnection {
     }
     return "";
   }
-  async getUnauthenticatedResponse(): Promise<UnauthenticatedResponse> {
-    const newInstallation = await isNewInstallation();
-    return {
-      showLogin: true,
-      newInstallation,
-    };
-  }
-  async refresh(
-    req: Request,
-    res: Response,
-    refreshToken: string
-  ): Promise<TokensResponse> {
-    const userId = await getUserIdFromAuthRefreshToken(refreshToken);
-    if (!userId) {
-      throw new Error("No user found with that refresh token");
+  middleware(req: Request, res: Response, next: NextFunction): void {
+    if (!JWT_SECRET) {
+      throw new Error("Must specify JWT_SECRET environment variable");
     }
-
-    const user = await getUserById(userId);
-    if (!user) {
-      throw new Error("Invalid user id - " + userId);
-    }
-
-    return {
-      idToken: this.generateJWT(user),
-      refreshToken,
-      expiresIn: 1800,
-    };
+    jwtCheck(req, res, next);
   }
   private generateJWT(user: UserInterface) {
     return jwt.sign(

@@ -25,41 +25,21 @@ type AuthChecks = {
   code_verifier: string;
 };
 
-const ssoConnectionCache = new MemoryCache<SSOConnectionInterface>(30);
-const ssoClientCache = new MemoryCache<Client>(30);
+// Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
+const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
+  console.log("expensive operation");
+  const ssoConnection = await getSSOConnectionById(ssoConnectionId);
+  if (ssoConnection) {
+    return ssoConnection;
+  }
+  throw new Error("Could not find SSO connection - " + ssoConnectionId);
+}, 30);
+
+const clientMap: Map<SSOConnectionInterface, Client> = new Map();
 
 export class OpenIdAuthConnection implements AuthConnection {
-  async getUnauthenticatedResponse(
-    req: Request,
-    res: Response
-  ): Promise<UnauthenticatedResponse> {
-    const ssoConnection = await getConnectionFromRequest(req);
-    if (!ssoConnection) {
-      throw new Error("Could not find SSO connection for this request");
-    }
-    const redirectURI = this.getRedirectURI(ssoConnection, req, res);
-
-    // If there's an existing incomplete auth session for this Cloud SSO provider,
-    // confirm with the user to give them a chance to cancel and reset to the default auth
-    const checks = this.getAuthChecks(req);
-    const confirm =
-      !!ssoConnection.id && checks?.connection_id === ssoConnection.id;
-
-    return {
-      redirectURI,
-      confirm,
-    };
-  }
-  async refresh(
-    req: Request,
-    res: Response,
-    refreshToken: string
-  ): Promise<TokensResponse> {
-    const ssoConnection = await getConnectionFromRequest(req);
-    if (!ssoConnection) {
-      throw new Error("Could not find SSO connection for this request");
-    }
-    const client = this.getOpenIdClient(ssoConnection);
+  async refresh(req: Request, refreshToken: string): Promise<TokensResponse> {
+    const { client } = await getConnectionFromRequest(req);
 
     const tokenSet = await client.refresh(refreshToken);
 
@@ -73,54 +53,25 @@ export class OpenIdAuthConnection implements AuthConnection {
       expiresIn: this.getMaxAge(tokenSet),
     };
   }
-  async middleware(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const ssoConnection = await getConnectionFromRequest(req);
-      if (!ssoConnection) {
-        throw new Error("Could not find SSO connection for this request");
-      }
+  async getUnauthenticatedResponse(
+    req: Request,
+    res: Response
+  ): Promise<UnauthenticatedResponse> {
+    const { connection, client } = await getConnectionFromRequest(req);
+    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
-      // Store the ssoConnectionId in the request
-      req.loginMethod = ssoConnection;
+    // If there's an existing incomplete auth session for this Cloud SSO provider,
+    // confirm with the user to give them a chance to cancel and reset to the default auth
+    const checks = this.getAuthChecks(req);
+    const confirm = !!connection.id && checks?.connection_id === connection.id;
 
-      const metadata = ssoConnection.metadata;
-
-      const jwksUri = metadata.jwks_uri;
-      const algorithms = metadata.id_token_signing_alg_values_supported;
-      const issuer = metadata.issuer;
-
-      if (!jwksUri || !algorithms || !issuer) {
-        throw new Error(
-          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
-        );
-      }
-
-      const middleware = jwtExpress({
-        secret: jwks.expressJwtSecret({
-          cache: true,
-          rateLimit: true,
-          jwksRequestsPerMinute: 5,
-          jwksUri,
-        }),
-        audience: ssoConnection.clientId,
-        issuer,
-        algorithms,
-      });
-      middleware(req, res, next);
-    } catch (e) {
-      next(e);
-    }
+    return {
+      redirectURI,
+      confirm,
+    };
   }
   async processCallback(req: Request, res: Response): Promise<TokensResponse> {
-    const ssoConnection = await getConnectionFromRequest(req);
-    if (!ssoConnection) {
-      throw new Error("Could not find SSO connection for this request");
-    }
-    const client = this.getOpenIdClient(ssoConnection);
+    const { connection, client } = await getConnectionFromRequest(req);
 
     // Get rid of temporary codeVerifier cookie
     const checks = this.getAuthChecks(req);
@@ -129,7 +80,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     if (!checks) {
       throw new Error("Missing auth checks in session");
     }
-    if (checks.connection_id !== (ssoConnection.id || "")) {
+    if (checks.connection_id !== (connection.id || "")) {
       throw new Error("Invalid auth checks in session");
     }
 
@@ -150,13 +101,52 @@ export class OpenIdAuthConnection implements AuthConnection {
     };
   }
   async logout(req: Request): Promise<string> {
-    const ssoConnection = await getConnectionFromRequest(req);
-    if (ssoConnection?.metadata?.end_session_endpoint) {
-      const client = this.getOpenIdClient(ssoConnection);
-      return client.endSessionUrl();
+    const { connection } = await getConnectionFromRequest(req);
+    if (connection?.metadata?.logout_endpoint) {
+      return connection.metadata.logout_endpoint as string;
     }
     return "";
   }
+  async middleware(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { connection } = await getConnectionFromRequest(req);
+
+      // Store the ssoConnectionId in the request
+      req.loginMethod = connection;
+
+      const metadata = connection.metadata;
+
+      const jwksUri = metadata.jwks_uri;
+      const algorithms = metadata.id_token_signing_alg_values_supported;
+      const issuer = metadata.issuer;
+
+      if (!jwksUri || !algorithms || !issuer) {
+        throw new Error(
+          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
+        );
+      }
+
+      const middleware = jwtExpress({
+        secret: jwks.expressJwtSecret({
+          cache: true,
+          rateLimit: true,
+          jwksRequestsPerMinute: 5,
+          jwksUri,
+        }),
+        audience: connection.clientId,
+        issuer,
+        algorithms,
+      });
+      middleware(req, res, next);
+    } catch (e) {
+      next(e);
+    }
+  }
+
   private getAuthChecks(req: Request) {
     const checks = AuthChecksCookie.getValue(req);
     if (!checks) return null;
@@ -174,11 +164,10 @@ export class OpenIdAuthConnection implements AuthConnection {
   }
   private getRedirectURI(
     ssoConnection: SSOConnectionInterface,
+    client: Client,
     req: Request,
     res: Response
   ) {
-    const client = this.getOpenIdClient(ssoConnection);
-
     const code_verifier = generators.codeVerifier();
     const code_challenge = generators.codeChallenge(code_verifier);
 
@@ -211,16 +200,25 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     return url;
   }
+}
 
-  private getOpenIdClient(connection: SSOConnectionInterface) {
-    const cacheKey = JSON.stringify(connection);
-    const existing = ssoClientCache.get(cacheKey);
-    if (existing) {
-      return existing;
-    }
+async function getConnectionFromRequest(req: Request) {
+  // First, get the connection info
+  const ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+  let connection: SSOConnectionInterface;
+  if (IS_CLOUD && ssoConnectionId) {
+    connection = await ssoConnectionCache.get(ssoConnectionId);
+  } else if (SSO_CONFIG) {
+    connection = SSO_CONFIG;
+  } else {
+    throw new Error("No SSO connection configured");
+  }
 
+  // Then, get the corresponding OpenID Client
+  let client = clientMap.get(connection);
+  if (!client) {
     const issuer = new Issuer(connection.metadata as IssuerMetadata);
-    const client = new issuer.Client({
+    client = new issuer.Client({
       client_id: connection.clientId,
       client_secret: connection.clientSecret,
       redirect_uris: [`${APP_ORIGIN}/oauth/callback`],
@@ -229,36 +227,8 @@ export class OpenIdAuthConnection implements AuthConnection {
         ? "client_secret_basic"
         : "none",
     });
-    ssoClientCache.set(cacheKey, client);
-    return client;
-  }
-}
-
-function getDefaultSSOConnection(): SSOConnectionInterface {
-  if (!SSO_CONFIG) {
-    throw new Error("No SSO connection configured");
-  }
-  return SSO_CONFIG;
-}
-async function getConnectionFromRequest(
-  req: Request
-): Promise<SSOConnectionInterface> {
-  const ssoConnectionId = SSOConnectionIdCookie.getValue(req);
-  if (IS_CLOUD && ssoConnectionId) {
-    const existing = ssoConnectionCache.get(ssoConnectionId);
-    if (existing) {
-      return existing;
-    }
-
-    const ssoConnection = await getSSOConnectionById(ssoConnectionId);
-    if (ssoConnection) {
-      ssoConnectionCache.set(ssoConnectionId, ssoConnection);
-      return ssoConnection;
-    } else {
-      throw new Error("Could not find SSO connection - " + ssoConnectionId);
-    }
+    clientMap.set(connection, client);
   }
 
-  // Otherwise, use default
-  return getDefaultSSOConnection();
+  return { connection, client };
 }

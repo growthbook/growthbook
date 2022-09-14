@@ -246,7 +246,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     });
   }
 
-  if (error && !isCloud()) {
+  if (error) {
     return (
       <Modal
         header="logo"
