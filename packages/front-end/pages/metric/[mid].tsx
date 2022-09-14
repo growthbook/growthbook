@@ -51,6 +51,7 @@ import usePermissions from "../../hooks/usePermissions";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -82,6 +83,8 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   useSwitchOrg(data?.metric?.organization);
+
+  const orgSettings = useOrgSettings();
 
   const form = useForm<{ name: string; description: string }>();
 
@@ -233,6 +236,7 @@ const MetricPage: FC = () => {
       {editModalOpen !== false && (
         <MetricForm
           current={metric}
+          metricDefaults={orgSettings?.metricDefaults}
           edit={true}
           source="metrics-detail"
           initialStep={editModalOpen !== true ? editModalOpen : 0}
@@ -861,13 +865,16 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.minSampleSize ?? defaultMinSampleSize}
+                      {metric?.minSampleSize ||
+                        orgSettings?.metricDefaults?.minimumSampleSize ||
+                        defaultMinSampleSize}
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Max percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {metric?.maxPercentChange * 100 ||
+                        orgSettings?.metricDefaults?.maxPercentageChange ||
                         defaultMaxPercentChange * 100}
                       %
                     </span>
@@ -876,6 +883,7 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change :</span>{" "}
                     <span className="font-weight-bold">
                       {metric?.minPercentChange * 100 ||
+                        orgSettings?.metricDefaults?.minPercentageChange ||
                         defaultMinPercentChange * 100}
                       %
                     </span>
