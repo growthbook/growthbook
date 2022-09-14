@@ -80,7 +80,10 @@ export default function SavedGroupsPage() {
                       <td>{s.owner}</td>
                       <td>{s.attributeKey}</td>
                       {/* TODO: Come back and update the line below to truncate at a certain character length */}
-                      <td className="d-none d-md-table-cell">
+                      <td
+                        className="d-none d-md-table-cell text-truncate"
+                        style={{ maxWidth: "100px" }}
+                      >
                         {s.group.map((attribute, index) => {
                           if (index === s.group.length - 1) {
                             return attribute;

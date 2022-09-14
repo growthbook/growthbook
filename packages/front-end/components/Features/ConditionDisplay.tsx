@@ -1,5 +1,5 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import useApi from "../../hooks/useApi";
+import { useDefinitions } from "../../services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "../../services/features";
 import Code from "../Code";
 
@@ -63,11 +63,9 @@ function getValue(
 
   // Get the groupName from the associated group._id to display a human readable name.
   if (isGroup && savedGroups) {
-    console.log("savedGroups", savedGroups);
-    //TODO: This will break if a group is deleted - need to fix this. Currently it just won't return a name. Need to remedy that.
     const index = savedGroups.findIndex((i) => i._id === value);
     if (index === -1) {
-      return "";
+      return "(Group Was Deleted)";
     }
     return savedGroups[index].groupName;
   }
@@ -75,11 +73,7 @@ function getValue(
 }
 
 export default function ConditionDisplay({ condition }: { condition: string }) {
-  const { data } = useApi<{ savedGroupsArr: SavedGroupInterface[] }>(
-    "/saved-groups"
-  );
-
-  const savedGroups = data?.savedGroupsArr;
+  const { savedGroups } = useDefinitions();
 
   const conds = jsonToConds(condition);
 

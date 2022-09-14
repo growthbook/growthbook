@@ -38,7 +38,6 @@ async function getGroupById(id: string) {
 
 // eslint-disable-next-line
 async function formatCondition(condition: any) {
-  console.log("condition", condition);
   if ("$inGroup" in condition) {
     const groupList = await getGroupById(condition.$inGroup);
     condition.$in = groupList;
@@ -94,6 +93,7 @@ export async function getFeatureDefinitions(
                     }
                   }
                 }
+                console.log(rule.condition);
               } catch (e) {
                 // ignore condition parse errors here
               }
