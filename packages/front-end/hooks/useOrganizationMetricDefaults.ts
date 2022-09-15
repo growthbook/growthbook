@@ -29,7 +29,7 @@ export const useOrganizationMetricDefaults = (): MetricDefaults => {
       ...(orgSettings?.metricDefaults || {}),
     };
     setMetricDefaults(updatedDefaults);
-  }, [orgSettings.metricDefaults]);
+  }, [orgSettings?.metricDefaults]);
 
   return metricDefaults;
 };
