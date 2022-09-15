@@ -25,6 +25,7 @@ import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
 import { MetricDefaults } from "back-end/types/organization";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -148,13 +149,16 @@ const MetricForm: FC<MetricFormProps> = ({
   inline,
   cta = "Save",
   onSuccess,
-  metricDefaults = {},
   secondaryCTA,
 }) => {
   const { datasources, getDatasourceById, metrics } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
+
+  const metricDefaults = useOrganizationMetricDefaults();
+
+  console.log("MetricForm", metricDefaults);
 
   useEffect(() => {
     track("View Metric Form", {
@@ -189,43 +193,48 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
-  const form = useForm({
-    defaultValues: {
-      datasource:
-        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
-        "",
-      name: current.name || "",
-      description: current.description || "",
-      type: current.type || "binomial",
-      table: current.table || "",
-      denominator: current.denominator || "",
-      column: current.column || "",
-      inverse: !!current.inverse,
-      ignoreNulls: !!current.ignoreNulls,
-      queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      cap: current.cap || 0,
-      conversionWindowHours:
-        current.conversionWindowHours || getDefaultConversionWindowHours(),
-      conversionDelayHours: current.conversionDelayHours || 0,
-      sql: current.sql || "",
-      aggregation: current.aggregation || "",
-      conditions: current.conditions || [],
-      userIdTypes: current.userIdTypes || [],
-      userIdColumns: current.userIdColumns || {
-        user_id: current.userIdColumn || "user_id",
-        anonymous_id: current.anonymousIdColumn || "anonymous_id",
-      },
-      timestampColumn: current.timestampColumn || "",
-      tags: current.tags || [],
-      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
-      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
-      maxPercentChange:
-        (current.maxPercentChange || metricDefaults.maxPercentageChange) * 100,
-      minPercentChange:
-        (current.minPercentChange || metricDefaults.minPercentageChange) * 100,
-      minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
+  const transformFormDefaults = () => ({
+    datasource:
+      ("datasource" in current ? current.datasource : datasources[0]?.id) || "",
+    name: current.name || "",
+    description: current.description || "",
+    type: current.type || "binomial",
+    table: current.table || "",
+    denominator: current.denominator || "",
+    column: current.column || "",
+    inverse: !!current.inverse,
+    ignoreNulls: !!current.ignoreNulls,
+    queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
+    cap: current.cap || 0,
+    conversionWindowHours:
+      current.conversionWindowHours || getDefaultConversionWindowHours(),
+    conversionDelayHours: current.conversionDelayHours || 0,
+    sql: current.sql || "",
+    aggregation: current.aggregation || "",
+    conditions: current.conditions || [],
+    userIdTypes: current.userIdTypes || [],
+    userIdColumns: current.userIdColumns || {
+      user_id: current.userIdColumn || "user_id",
+      anonymous_id: current.anonymousIdColumn || "anonymous_id",
     },
+    timestampColumn: current.timestampColumn || "",
+    tags: current.tags || [],
+    winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
+    loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+    maxPercentChange:
+      (current.maxPercentChange || metricDefaults.maxPercentageChange) * 100,
+    minPercentChange:
+      (current.minPercentChange || metricDefaults.minPercentageChange) * 100,
+    minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
   });
+
+  const form = useForm({
+    defaultValues: useMemo(transformFormDefaults, [metricDefaults]),
+  });
+
+  useEffect(() => {
+    form.reset(transformFormDefaults());
+  }, [metricDefaults, form]);
 
   const { apiCall } = useAuth();
 
@@ -258,7 +267,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label: m.name,
         };
       });
-  }, [metrics, value.datasource]);
+  }, [metrics, value.datasource, metricDefaults]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
