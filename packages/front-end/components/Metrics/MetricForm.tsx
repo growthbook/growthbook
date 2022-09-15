@@ -24,7 +24,6 @@ import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
-import { MetricDefaults } from "back-end/types/organization";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const weekAgo = new Date();
@@ -41,7 +40,6 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
-  metricDefaults?: MetricDefaults;
 };
 
 function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {

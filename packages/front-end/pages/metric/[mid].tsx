@@ -233,7 +233,6 @@ const MetricPage: FC = () => {
       {editModalOpen !== false && (
         <MetricForm
           current={metric}
-          metricDefaults={metricDefaults}
           edit={true}
           source="metrics-detail"
           initialStep={editModalOpen !== true ? editModalOpen : 0}
