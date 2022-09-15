@@ -7,6 +7,8 @@ import {
   defaultMinSampleSize,
 } from "./metrics";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { MetricDefaults } from "back-end/types/organization";
+import useOrgSettings from "../hooks/useOrgSettings";
 
 export type ExperimentTableRow = {
   label: string;
@@ -18,11 +20,15 @@ export type ExperimentTableRow = {
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface
+  metric: MetricInterface,
+  metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.value || !stats?.value) return false;
 
-  const minSampleSize = metric.minSampleSize || defaultMinSampleSize;
+  const minSampleSize =
+    metric.minSampleSize ||
+    metricDefaults?.minimumSampleSize ||
+    defaultMinSampleSize;
 
   return Math.max(baseline.value, stats.value) >= minSampleSize;
 }
@@ -30,11 +36,15 @@ export function hasEnoughData(
 export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface
+  metric: MetricInterface,
+  metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
 
-  const maxPercentChange = metric.maxPercentChange || defaultMaxPercentChange;
+  const maxPercentChange =
+    metric.maxPercentChange ||
+    metricDefaults?.maxPercentageChange ||
+    defaultMaxPercentChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
@@ -42,16 +52,24 @@ export function isSuspiciousUplift(
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface
+  metric: MetricInterface,
+  metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
 
-  const minPercentChange = metric.minPercentChange || defaultMinPercentChange;
+  const minPercentChange =
+    metric.minPercentChange ||
+    metricDefaults?.minPercentageChange ||
+    defaultMinPercentChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
 }
 
-export function getRisk(riskVariation: number, row: ExperimentTableRow) {
+export function getRisk(
+  riskVariation: number,
+  row: ExperimentTableRow,
+  metricDefaults: MetricDefaults
+) {
   let risk: number;
   let riskCR: number;
   let relativeRisk: number;
@@ -65,16 +83,16 @@ export function getRisk(riskVariation: number, row: ExperimentTableRow) {
     showRisk =
       risk !== null &&
       riskCR > 0 &&
-      hasEnoughData(baseline, stats, row.metric) &&
-      !isSuspiciousUplift(baseline, stats, row.metric);
+      hasEnoughData(baseline, stats, row.metric, metricDefaults) &&
+      !isSuspiciousUplift(baseline, stats, row.metric, metricDefaults);
   } else {
     risk = -1;
     row.variations.forEach((stats, i) => {
       if (!i) return;
-      if (!hasEnoughData(baseline, stats, row.metric)) {
+      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
-      if (isSuspiciousUplift(baseline, stats, row.metric)) {
+      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
 
@@ -101,6 +119,8 @@ export function useRiskVariation(
   numVariations: number,
   rows: ExperimentTableRow[]
 ) {
+  const orgSettings = useOrgSettings();
+
   const [riskVariation, setRiskVariation] = useState(() => {
     // Calculate the total risk for each variation across all metrics
     const sums: number[] = Array(numVariations).fill(0);
@@ -114,10 +134,24 @@ export function useRiskVariation(
         if (!stats || !stats.risk || !stats.cr) {
           return;
         }
-        if (!hasEnoughData(baseline, stats, row.metric)) {
+        if (
+          !hasEnoughData(
+            baseline,
+            stats,
+            row.metric,
+            orgSettings?.metricDefaults
+          )
+        ) {
           return;
         }
-        if (isSuspiciousUplift(baseline, stats, row.metric)) {
+        if (
+          isSuspiciousUplift(
+            baseline,
+            stats,
+            row.metric,
+            orgSettings?.metricDefaults
+          )
+        ) {
           return;
         }
 
@@ -144,6 +178,8 @@ export function useDomain(
   variations: ExperimentReportVariation[],
   rows: ExperimentTableRow[]
 ): [number, number] {
+  const orgSettings = useOrgSettings();
+
   let lowerBound: number, upperBound: number;
   rows.forEach((row) => {
     const baseline = row.variations[0];
@@ -155,8 +191,21 @@ export function useDomain(
       // Skip if missing or bad data
       const stats = row.variations[i];
       if (!stats) return;
-      if (!hasEnoughData(baseline, stats, row.metric)) return;
-      if (isSuspiciousUplift(baseline, stats, row.metric)) return;
+      if (
+        !hasEnoughData(baseline, stats, row.metric, orgSettings?.metricDefaults)
+      ) {
+        return;
+      }
+      if (
+        isSuspiciousUplift(
+          baseline,
+          stats,
+          row.metric,
+          orgSettings?.metricDefaults
+        )
+      ) {
+        return;
+      }
 
       const ci = stats.ci || [];
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
