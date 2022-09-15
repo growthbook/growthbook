@@ -47,4 +47,4 @@ assignees: ""
 
 <!-- Your environment, e.g. GrowthBook version, dev-container vs. local development vs. cloud -->
 
-- GrowthBook version: ****\_****
+- GrowthBook version: \_\_
