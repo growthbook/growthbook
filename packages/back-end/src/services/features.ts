@@ -10,6 +10,9 @@ import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import { SavedGroupModel } from "../models/SavedGroupModel";
+import { replaceSavedGroupsInCondition } from "../util/features";
+
+export type GroupMap = Map<string, string[]>;
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -30,34 +33,21 @@ function getJSONValue(type: FeatureValueType, value: string): any {
   return null;
 }
 
-async function getGroupById(id: string) {
-  const group = await SavedGroupModel.findById(id);
-
-  return group?.group || [];
-}
-
-// eslint-disable-next-line
-async function formatCondition(condition: any) {
-  if ("$inGroup" in condition) {
-    const groupList = await getGroupById(condition.$inGroup);
-    condition.$in = groupList;
-    delete condition["$inGroup"];
-  }
-
-  if ("notInGroup" in condition) {
-    const groupList = await getGroupById(condition.$inGroup);
-    condition.$nin = groupList;
-    delete condition["$notInGroup"];
-  }
-  return condition;
-}
-
 export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
   project?: string
 ) {
   const features = await getAllFeatures(organization, project);
+
+  // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs.
+  const allGroups = await SavedGroupModel.find({ organization });
+  const groupMap: GroupMap = new Map();
+  allGroups.forEach((group) => {
+    groupMap.set(group.id, group.group);
+  });
+
+  console.log(groupMap);
 
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
@@ -73,6 +63,8 @@ export async function getFeatureDefinitions(
       mostRecentUpdate = feature.dateUpdated;
     }
 
+    // console.log(groupMap);
+
     defs[feature.id] = {
       defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
       rules:
@@ -82,17 +74,16 @@ export async function getFeatureDefinitions(
             const rule: FeatureDefinitionRule = {};
             if (r.condition && r.condition !== "{}") {
               try {
-                rule.condition = JSON.parse(r.condition);
-                for (const attribute in rule.condition) {
-                  for (const condition in rule.condition[attribute]) {
-                    if (condition === ("$inGroup" || "$notInGroup")) {
-                      const updatedCondition = await formatCondition(
-                        rule.condition[attribute]
-                      );
-                      rule.condition[attribute] = updatedCondition;
-                    }
-                  }
-                }
+                // console.log("before", JSON.parse(r.condition));
+                // console.log(
+                //   "after",
+                //   JSON.parse(
+                //     replaceSavedGroupsInCondition(r.condition, groupMap)
+                //   )
+                // );
+                rule.condition = JSON.parse(
+                  replaceSavedGroupsInCondition(r.condition, groupMap)
+                );
               } catch (e) {
                 // ignore condition parse errors here
               }
