@@ -119,6 +119,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
         newVal[k] = data.organization.settings?.[k] || newVal[k];
+
+        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
+        // Transform these values from the UI format
+        if (k === "metricDefaults") {
+          newVal.metricDefaults = {
+            ...newVal.metricDefaults,
+            maxPercentageChange:
+              newVal.metricDefaults.maxPercentageChange * 100,
+            minPercentageChange:
+              newVal.metricDefaults.minPercentageChange * 100,
+          };
+        }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
@@ -144,16 +156,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !data?.organization?.settings?.visualEditorEnabled &&
       value.visualEditorEnabled;
 
+    const transformedOrgSettings = {
+      ...value,
+      metricDefaults: {
+        ...value.metricDefaults,
+        maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
+        minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+      },
+    };
+
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: transformedOrgSettings,
       }),
     });
     await mutate();
     organizations.forEach((org) => {
       if (org.id === orgId) {
-        org.settings = value;
+        org.settings = transformedOrgSettings;
       }
     });
     setOrganizations(organizations);
