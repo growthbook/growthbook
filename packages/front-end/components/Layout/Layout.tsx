@@ -27,9 +27,36 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^features/,
+    path: /^(features|saved-groups|segment|dimension|datasources)/,
     beta: false,
-    className: styles.first,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "All Features",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Attributes",
+        href: "/settings/attributes",
+        path: /^settings\/attributes/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
+        name: "Environments",
+        href: "/settings/environments",
+        path: /^settings\/environments/,
+      },
+      {
+        name: "Saved Groups",
+        href: "/saved-groups",
+        path: /^saved-groups/,
+      },
+    ],
   },
   {
     name: "Analysis",
@@ -63,11 +90,6 @@ const navlinks: SidebarLinkProps[] = [
         href: "/datasources",
         path: /^datasources/,
         permissions: ["editDatasourceSettings"],
-      },
-      {
-        name: "Saved Groups",
-        href: "/saved-groups",
-        path: /^saved-groups/,
       },
     ],
   },
@@ -124,16 +146,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^projects/,
       },
       {
-        name: "Attributes",
-        href: "/settings/attributes",
-        path: /^settings\/attributes/,
-      },
-      {
-        name: "Environments",
-        href: "/settings/environments",
-        path: /^settings\/environments/,
-      },
-      {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
@@ -142,11 +154,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
       },
       {
         name: "Billing",
