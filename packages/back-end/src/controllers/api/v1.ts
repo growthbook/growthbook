@@ -2,21 +2,21 @@ import { Response } from "express";
 import {
   CreateFeatureInterface,
   UpdateFeatureInterface,
-} from "../../types/feature/feature";
+} from "../../../types/feature/feature";
 import {
   createFeature,
   deleteFeature,
   getAllFeatures,
   getFeature,
   updateFeature,
-} from "../models/FeatureModel";
+} from "../../models/FeatureModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../services/audit";
-import { fireWebhook } from "../services/features";
-import { AccessTokenRequest } from "../types/AccessTokenRequest";
+} from "../../services/audit";
+import { fireWebhook } from "../../services/features";
+import { AccessTokenRequest } from "../../types/AccessTokenRequest";
 
 export function getHealthCheck(req: AccessTokenRequest, res: Response) {
   return res.status(200).json({

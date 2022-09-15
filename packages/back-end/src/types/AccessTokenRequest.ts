@@ -3,7 +3,7 @@ import { OrganizationInterface } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 
 // eslint-disable-next-line
-export type AccessTokenRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
+export type AccessTokenRequest<Body = any, Params = any, Query = any> = Request<Params, null, Body, Query> & {
   organization: OrganizationInterface;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 };

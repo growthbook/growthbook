@@ -1,10 +1,6 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, {
-  RequestHandler,
-  ErrorRequestHandler,
-  Response,
-} from "express";
+import express, { ErrorRequestHandler, Response } from "express";
 import mongoInit from "./init/mongo";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
@@ -26,6 +22,7 @@ import { getJWTCheck, processJWT } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
+import { apiV1Router } from "./routers/api/v1";
 
 // Controllers
 import * as authController from "./controllers/auth";
@@ -45,21 +42,11 @@ import * as projectsController from "./controllers/projects";
 import * as featuresController from "./controllers/features";
 import * as slackController from "./controllers/slack";
 import * as tagsController from "./controllers/tags";
-import * as apiController from "./controllers/api";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
-import validateAccessTokenApiReq from "./middleware/validateAccessTokenApiReq";
+import { wrapController } from "./services/routers";
 
-// Wrap every controller function in asyncHandler to catch errors properly
-// eslint-disable-next-line
-function wrapController(controller: Record<string, RequestHandler<any>>): void {
-  Object.keys(controller).forEach((key) => {
-    if (typeof controller[key] === "function") {
-      controller[key] = asyncHandler(controller[key]);
-    }
-  });
-}
 wrapController(authController);
 wrapController(organizationsController);
 wrapController(datasourcesController);
@@ -77,7 +64,6 @@ wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
 wrapController(tagsController);
-wrapController(apiController);
 
 const app = express();
 
@@ -257,37 +243,8 @@ app.options(
   }
 );
 
-//API routes that require an access token
-app.get(
-  "/api/v1/healthcheck",
-  validateAccessTokenApiReq(),
-  apiController.getHealthCheck
-);
-app.get(
-  "/api/v1/features/:featureId",
-  [validateAccessTokenApiReq()],
-  apiController.getFeatureApi
-);
-app.get(
-  "/api/v1/features",
-  [validateAccessTokenApiReq()],
-  apiController.listFeaturesApi
-);
-app.post(
-  "/api/v1/features/:featureId",
-  [validateAccessTokenApiReq()],
-  apiController.postFeatureApi
-);
-app.put(
-  "/api/v1/features/:featureId",
-  [validateAccessTokenApiReq()],
-  apiController.putFeatureApi
-);
-app.delete(
-  "/api/v1/features/:featureId",
-  [validateAccessTokenApiReq()],
-  apiController.deleteFeatureApi
-);
+// API routes (require JWT, do not require cors)
+app.use("/api/v1", apiV1Router);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
@@ -580,12 +537,6 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
-
-// Access Tokens
-app.get("/has-access-token", organizationsController.getHasAccessToken);
-app.get("/access-token", organizationsController.getAccessToken);
-app.post("/access-token", organizationsController.postAccessToken);
-app.delete("/access-token", organizationsController.deleteAccessToken);
 
 // API keys
 app.get("/keys", organizationsController.getApiKeys);
