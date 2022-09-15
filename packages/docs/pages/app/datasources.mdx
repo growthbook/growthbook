@@ -233,6 +233,18 @@ There are two ways to provide credentials to GrowthBook:
 1. Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
 2. Upload a JSON key file for the service account
 
+### Snowflake
+
+We support multiple [account identifier](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html) formats when connecting to Snowflake. An example account identifier is `xy12345.us-east-2.aws`.
+
+If you are self-hosting GrowthBook, you can send queries to Snowflake through an Authenticated Proxy.
+
+To enable this, set a `SNOWFLAKE_PROXY` environment variable in your GrowthBook container. Here is an example:
+
+```
+SNOWFLAKE_PROXY=http://username:password@proxyserver.company.com:80
+```
+
 ### Mixpanel
 
 You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
