@@ -5,9 +5,9 @@ import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
-import GuidedGetStarted from "../components/GuidedGetStarted";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../hooks/usePermissions";
+import GuidedGetStarted from "../components/GuidedGetStarted/GuidedGetStarted";
 
 const GetStartedPage = (): React.ReactElement => {
   const permissions = usePermissions();

@@ -1,24 +1,25 @@
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
 import React, { ReactNode, useState } from "react";
-import useOrgSettings from "../hooks/useOrgSettings";
-import CodeSnippetModal from "./Features/CodeSnippetModal";
-import FeatureModal from "./Features/FeatureModal";
+import useOrgSettings from "../../hooks/useOrgSettings";
+import CodeSnippetModal from "../Features/CodeSnippetModal";
+import FeatureModal from "../Features/FeatureModal";
 import GetStartedSteps from "./GetStartedSteps";
-import MetricForm from "./Metrics/MetricForm";
+import MetricForm from "../Metrics/MetricForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
-import { useDefinitions } from "../services/DefinitionsContext";
-import useUser from "../hooks/useUser";
-import { useAuth } from "../services/auth";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import useUser from "../../hooks/useUser";
+import { useAuth } from "../../services/auth";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import styles from "./GuidedGetStarted.module.scss";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import NewDataSourceForm from "./Settings/NewDataSourceForm";
-import { hasFileConfig } from "../services/env";
-import track from "../services/track";
-import { DocLink, DocSection } from "./DocLink";
+import NewDataSourceForm from "../Settings/NewDataSourceForm";
+import { hasFileConfig } from "../../services/env";
+import track from "../../services/track";
+import { DocLink, DocSection } from "../DocLink";
+import SuccessCard from "./SuccessCard";
 
 export type Task = {
   blackTitle: string;
@@ -30,6 +31,7 @@ export type Task = {
   render: ReactNode;
   inviteTeammates?: boolean;
   additionalCta?: ReactNode;
+  alwaysShowHelperText?: boolean;
 };
 
 export default function GuidedGetStarted({
@@ -78,11 +80,15 @@ export default function GuidedGetStarted({
 
   const steps: Task[] = [
     {
+      alwaysShowHelperText: true,
       blackTitle: "Welcome to ",
       purpleTitle: "GrowthBook!",
       text:
         "GrowthBook is a modular platform that enables teams to create feature flags and analyze experiment results. These features can be used together, or on their own - the choice is yours.",
-      completed: settings?.videoInstructionsViewed || false,
+      completed:
+        settings?.videoInstructionsViewed ||
+        datasources.length > 0 ||
+        features.length > 0,
       additionalCta: (
         <Link href="/settings/team">
           <a className="font-weight-bold">
@@ -141,6 +147,7 @@ export default function GuidedGetStarted({
       ),
     },
     {
+      alwaysShowHelperText: true,
       blackTitle: "Install an ",
       purpleTitle: "SDK",
       text:
@@ -179,24 +186,35 @@ export default function GuidedGetStarted({
       docSection: "features",
       completed: features.length > 0 || skippedSteps["feature-flag"],
       render: (
-        <FeatureModal
-          inline={true}
-          cta={"Next: Add a Data Source"}
-          onSuccess={async () => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "feature-flag": true });
+        <>
+          {features.length > 0 ? (
+            <SuccessCard
+              feature="feature flag"
+              href="/features"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Next: Add a Data Source"
+            />
+          ) : (
+            <FeatureModal
+              inline={true}
+              cta={"Next: Add a Data Source"}
+              onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-        />
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({ ...skippedSteps, "feature-flag": true });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
+              }
+            />
+          )}
+        </>
       ),
     },
     {
@@ -208,35 +226,46 @@ export default function GuidedGetStarted({
       docSection: "datasources",
       completed: datasources.length > 0 || skippedSteps["data-source"],
       render: (
-        <NewDataSourceForm
-          data={{
-            name: "My Datasource",
-            settings: {},
-          }}
-          existing={false}
-          inline={true}
-          source="get-started"
-          onSuccess={async () => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "data-source": true });
+        <>
+          {datasources.length > 0 ? (
+            <SuccessCard
+              feature="data source"
+              href="/datasources"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Next: Add a Metric"
+            />
+          ) : (
+            <NewDataSourceForm
+              data={{
+                name: "My Datasource",
+                settings: {},
+              }}
+              existing={false}
+              inline={true}
+              source="get-started"
+              onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-          importSampleData={
-            !hasDataSource &&
-            allowImport &&
-            !hasSampleExperiment &&
-            importSampleData("datasource-form")
-          }
-        />
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({ ...skippedSteps, "data-source": true });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
+              }
+              importSampleData={
+                !hasDataSource &&
+                allowImport &&
+                !hasSampleExperiment &&
+                importSampleData("datasource-form")
+              }
+            />
+          )}
+        </>
       ),
     },
     {
@@ -248,30 +277,45 @@ export default function GuidedGetStarted({
       docSection: "metrics",
       completed: metrics.length > 0 || skippedSteps["metric-definition"],
       render: (
-        <MetricForm
-          inline={true}
-          cta={"Finish"}
-          current={{}}
-          edit={false}
-          source="get-started"
-          onSuccess={() => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "metric-definition": true });
+        <>
+          {metrics.length > 0 ? (
+            <SuccessCard
+              feature="metric"
+              href="/metrics"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Next: Continue Setting up Account"
+            />
+          ) : (
+            <MetricForm
+              inline={true}
+              cta={"Finish"}
+              current={{}}
+              edit={false}
+              source="get-started"
+              onSuccess={() => {
                 setCurrentStep(currentStep + 1);
               }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-        />
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({
+                      ...skippedSteps,
+                      "metric-definition": true,
+                    });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
+              }
+            />
+          )}
+        </>
       ),
     },
     {
+      alwaysShowHelperText: true,
       blackTitle: "Great ",
       purpleTitle: "Work!",
       completed: experiments.length > 0,
@@ -317,7 +361,7 @@ export default function GuidedGetStarted({
     if (initialStep >= 0) {
       return initialStep;
     } else {
-      return 0;
+      return steps.length - 1;
     }
   });
 
@@ -338,16 +382,20 @@ export default function GuidedGetStarted({
               {steps[currentStep].purpleTitle}
             </span>
           </h1>
-          <p className="text-center col-10">
-            {`${steps[currentStep].text} `}
-            {steps[currentStep].learnMoreLink && steps[currentStep].docSection && (
-              <span>
-                <DocLink docSection={steps[currentStep].docSection}>
-                  {steps[currentStep].learnMoreLink}
-                </DocLink>
-              </span>
-            )}
-          </p>
+          {(!steps[currentStep].completed ||
+            steps[currentStep].alwaysShowHelperText) && (
+            <p className="text-center col-10">
+              {`${steps[currentStep].text} `}
+              {steps[currentStep].learnMoreLink &&
+                steps[currentStep].docSection && (
+                  <span>
+                    <DocLink docSection={steps[currentStep].docSection}>
+                      {steps[currentStep].learnMoreLink}
+                    </DocLink>
+                  </span>
+                )}
+            </p>
+          )}
           {steps[currentStep].additionalCta}
         </div>
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
