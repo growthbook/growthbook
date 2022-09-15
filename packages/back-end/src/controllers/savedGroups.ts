@@ -3,13 +3,12 @@ import { Response } from "express";
 import { getOrgFromReq } from "../services/organizations";
 import { SavedGroupModel } from "../models/SavedGroupModel";
 
-//IMPORTANT: SavedGroups and Groups are very similar, but serve two different purposes. At the time of development 9/22 we are
-// quietly deprecating Groups. Initially groups were used with experiments to only include people in a group in an experiement
-//SavedGroups are used with features flag rules where rules can say if "x is/is not in SavedGroup" do/don't show a feature
+// IMPORTANT: SavedGroups and Groups are very similar, but serve two different purposes. At the time of development 9/22 we are
+// quietly deprecating Groups. Initially groups were used with experiments to only include people in a group in an experiement.
+// SavedGroups are used with features flag rules where rules can say if "x is/is not in SavedGroup" do/don't show a feature
 
 function formatGroup(list: string) {
   const listArr = list.split(",");
-  console.log("formatGroup was called");
 
   const savedGroup = listArr.map((i: string) => {
     return i.trim();

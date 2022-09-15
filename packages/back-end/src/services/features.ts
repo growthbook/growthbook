@@ -93,7 +93,6 @@ export async function getFeatureDefinitions(
                     }
                   }
                 }
-                console.log(rule.condition);
               } catch (e) {
                 // ignore condition parse errors here
               }
