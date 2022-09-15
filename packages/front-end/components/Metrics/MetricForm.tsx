@@ -220,9 +220,9 @@ const MetricForm: FC<MetricFormProps> = ({
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange:
-        current.maxPercentChange || metricDefaults.maxPercentageChange * 100,
+        (current.maxPercentChange || metricDefaults.maxPercentageChange) * 100,
       minPercentChange:
-        current.minPercentChange || metricDefaults.minPercentageChange * 100,
+        (current.minPercentChange || metricDefaults.minPercentageChange) * 100,
       minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
     },
   });
