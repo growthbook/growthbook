@@ -48,6 +48,7 @@ import * as tagsController from "./controllers/tags";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
+import { todosRouter } from "./routers/todos/todo.router";
 
 // Wrap every controller function in asyncHandler to catch errors properly
 // eslint-disable-next-line
@@ -306,21 +307,21 @@ if (UPLOAD_METHOD === "local") {
 }
 
 // All other routes require a valid JWT
-app.use(getJWTCheck());
+// app.use(getJWTCheck());
 
 // Add logged in user props to the request
-app.use(processJWT);
+// app.use(processJWT);
 
 // Add logged in user props to the logger
-app.use(
-  (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-    res.log = req.log = req.log.child({
-      userId: req.userId,
-      admin: !!req.admin,
-    });
-    next();
-  }
-);
+// app.use(
+//   (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
+//     res.log = req.log = req.log.child({
+//       userId: req.userId,
+//       admin: !!req.admin,
+//     });
+//     next();
+//   }
+// );
 
 // Logged-in auth requests
 // Managed cloud deployment uses Auth0 instead
@@ -332,14 +333,14 @@ if (!IS_CLOUD) {
 app.get("/user", organizationsController.getUser);
 
 // Every other route requires a userId to be set
-app.use(
-  asyncHandler(async (req: AuthRequest, res, next) => {
-    if (!req.userId) {
-      throw new Error("Must be authenticated.  Try refreshing the page.");
-    }
-    next();
-  })
-);
+// app.use(
+//   asyncHandler(async (req: AuthRequest, res, next) => {
+//     if (!req.userId) {
+//       throw new Error("Must be authenticated.  Try refreshing the page.");
+//     }
+//     next();
+//   })
+// );
 
 // Organization and Settings
 app.put("/user/name", organizationsController.putUserName);
@@ -588,6 +589,8 @@ app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
 app.post("/admin/organization/:id/populate", adminController.addSampleData);
+
+app.use("/todos", todosRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

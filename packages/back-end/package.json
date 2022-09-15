@@ -58,7 +58,8 @@
     "sql-formatter": "^4.0.2",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^9.14.0",
-    "uniqid": "^5.3.0"
+    "uniqid": "^5.3.0",
+    "zod": "^3.19.1"
   },
   "devDependencies": {
     "@types/async": "^3.0.2",
