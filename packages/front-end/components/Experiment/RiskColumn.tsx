@@ -5,6 +5,7 @@ import {
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "../../services/metrics";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -18,7 +19,12 @@ export default function RiskColumn({
   row: ExperimentTableRow;
   riskVariation: number;
 }) {
-  const { relativeRisk, risk, showRisk } = getRisk(riskVariation, row);
+  const orgSettings = useOrgSettings();
+  const { relativeRisk, risk, showRisk } = getRisk(
+    riskVariation,
+    row,
+    orgSettings?.metricDefaults
+  );
 
   const winRiskThreshold = row.metric.winRisk || defaultWinRiskThreshold;
   const loseRiskThreshold = row.metric.loseRisk || defaultLoseRiskThreshold;

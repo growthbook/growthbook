@@ -3,6 +3,7 @@ import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { hasEnoughData } from "../../services/experiments";
 import AlignedGraph from "./AlignedGraph";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export default function PercentGraphColumn({
   metric,
@@ -17,7 +18,13 @@ export default function PercentGraphColumn({
   domain: [number, number];
   id: string;
 }) {
-  const enoughData = hasEnoughData(baseline, stats, metric);
+  const orgSettings = useOrgSettings();
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    orgSettings?.metricDefaults
+  );
   const { ciUpper, ciLower } = useConfidenceLevels();
   const barType = stats.uplift?.dist ? "violin" : "pill";
 
