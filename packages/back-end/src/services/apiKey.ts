@@ -6,14 +6,16 @@ export async function createApiKey(
   environment: string,
   description?: string
 ): Promise<string> {
-  const key =
-    "key_" +
-    environment.substring(0, 4) +
-    "_" +
-    crypto
-      .randomBytes(32)
+  const keyBase = `key_${environment.substring(0, 4)}_`;
+  let keySecret = "";
+  while (keySecret.length < 32) {
+    keySecret = crypto
+      .randomBytes(128)
       .toString("base64")
-      .replace(/[=+/]/g, crypto.randomBytes(1).toString("hex"));
+      .replace(/[=+/]/g, "")
+      .substring(0, 32);
+  }
+  const key = keyBase + keySecret;
 
   await ApiKeyModel.create({
     organization,
