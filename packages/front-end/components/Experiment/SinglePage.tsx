@@ -25,7 +25,12 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
 import EditStatusModal from "./EditStatusModal";
-import { FaArrowDown, FaExternalLinkAlt, FaLink } from "react-icons/fa";
+import {
+  FaArrowDown,
+  FaExternalLinkAlt,
+  FaLink,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import useApi from "../../hooks/useApi";
 import useUser from "../../hooks/useUser";
 import ResultsIndicator from "./ResultsIndicator";
@@ -33,6 +38,7 @@ import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
 import Code from "../Code";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 function getColWidth(v: number) {
   // 2 across
@@ -483,6 +489,16 @@ export default function SinglePage({
                   />
                 </RightRailSectionGroup>
               )}
+              <RightRailSectionGroup title="Attribution Model" type="custom">
+                <AttributionModelTooltip>
+                  <strong>
+                    {experiment.attributionModel === "allExposures"
+                      ? "All Exposures"
+                      : "First Exposure"}
+                  </strong>{" "}
+                  <FaQuestionCircle />
+                </AttributionModelTooltip>
+              </RightRailSectionGroup>
             </div>
           </RightRailSection>
           <div className="mb-4"></div>
