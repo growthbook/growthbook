@@ -154,7 +154,11 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    //TODO: Should is in the group be in here, too?
+                    savedGroups.length > 0 && {
+                      label: "is in the group",
+                      value: "$inGroup",
+                    },
+                    { label: "is not in the group", value: "$notInGroup" },
                   ]
                 : attribute.datatype === "string"
                 ? [
@@ -170,7 +174,10 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    { label: "is in the group", value: "$inGroup" },
+                    savedGroups.length > 0 && {
+                      label: "is in the group",
+                      value: "$inGroup",
+                    },
                     { label: "is not in the group", value: "$notInGroup" },
                   ]
                 : attribute.datatype === "number"
@@ -185,7 +192,10 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    { label: "is in the group", value: "$inGroup" },
+                    savedGroups.length > 0 && {
+                      label: "is in the group",
+                      value: "$inGroup",
+                    },
                     { label: "is not in the group", value: "$notInGroup" },
                   ]
                 : [];
