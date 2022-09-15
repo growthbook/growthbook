@@ -1,14 +1,9 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
-import {
-  defaultMaxPercentChange,
-  defaultMinPercentChange,
-  defaultMinSampleSize,
-} from "./metrics";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
-import useOrgSettings from "../hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
   label: string;
@@ -26,9 +21,7 @@ export function hasEnoughData(
   if (!baseline?.value || !stats?.value) return false;
 
   const minSampleSize =
-    metric.minSampleSize ||
-    metricDefaults?.minimumSampleSize ||
-    defaultMinSampleSize;
+    metric.minSampleSize || metricDefaults.minimumSampleSize;
 
   return Math.max(baseline.value, stats.value) >= minSampleSize;
 }
@@ -42,9 +35,7 @@ export function isSuspiciousUplift(
   if (!baseline?.cr || !stats?.cr) return false;
 
   const maxPercentChange =
-    metric.maxPercentChange ||
-    metricDefaults?.maxPercentageChange ||
-    defaultMaxPercentChange;
+    metric.maxPercentChange || metricDefaults?.maxPercentageChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
@@ -58,9 +49,7 @@ export function isBelowMinChange(
   if (!baseline?.cr || !stats?.cr) return false;
 
   const minPercentChange =
-    metric.minPercentChange ||
-    metricDefaults?.minPercentageChange ||
-    defaultMinPercentChange;
+    metric.minPercentChange || metricDefaults.minPercentageChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
 }
@@ -119,7 +108,7 @@ export function useRiskVariation(
   numVariations: number,
   rows: ExperimentTableRow[]
 ) {
-  const orgSettings = useOrgSettings();
+  const metricDefaults = useOrganizationMetricDefaults();
 
   const [riskVariation, setRiskVariation] = useState(() => {
     // Calculate the total risk for each variation across all metrics
@@ -134,24 +123,10 @@ export function useRiskVariation(
         if (!stats || !stats.risk || !stats.cr) {
           return;
         }
-        if (
-          !hasEnoughData(
-            baseline,
-            stats,
-            row.metric,
-            orgSettings?.metricDefaults
-          )
-        ) {
+        if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
           return;
         }
-        if (
-          isSuspiciousUplift(
-            baseline,
-            stats,
-            row.metric,
-            orgSettings?.metricDefaults
-          )
-        ) {
+        if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
           return;
         }
 
@@ -178,7 +153,7 @@ export function useDomain(
   variations: ExperimentReportVariation[],
   rows: ExperimentTableRow[]
 ): [number, number] {
-  const orgSettings = useOrgSettings();
+  const metricDefaults = useOrganizationMetricDefaults();
 
   let lowerBound: number, upperBound: number;
   rows.forEach((row) => {
@@ -191,19 +166,10 @@ export function useDomain(
       // Skip if missing or bad data
       const stats = row.variations[i];
       if (!stats) return;
-      if (
-        !hasEnoughData(baseline, stats, row.metric, orgSettings?.metricDefaults)
-      ) {
+      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
-      if (
-        isSuspiciousUplift(
-          baseline,
-          stats,
-          row.metric,
-          orgSettings?.metricDefaults
-        )
-      ) {
+      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
 

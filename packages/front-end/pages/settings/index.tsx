@@ -22,11 +22,7 @@ import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { DocLink } from "../../components/DocLink";
-import {
-  defaultMaxPercentChange,
-  defaultMinPercentChange,
-  defaultMinSampleSize,
-} from "../../services/metrics";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -46,6 +42,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
+
+  const metricDefaults = useOrganizationMetricDefaults();
 
   // eslint-disable-next-line
   const form = useForm<OrganizationSettings>({
@@ -68,9 +66,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //startDate?: Date;
       },
       metricDefaults: {
-        minimumSampleSize: defaultMinSampleSize,
-        maxPercentageChange: defaultMaxPercentChange * 100,
-        minPercentageChange: defaultMinPercentChange * 100,
+        minimumSampleSize: metricDefaults.minimumSampleSize,
+        maxPercentageChange: metricDefaults.maxPercentageChange * 100,
+        minPercentageChange: metricDefaults.minPercentageChange * 100,
       },
       updateSchedule: {
         type: "stale",

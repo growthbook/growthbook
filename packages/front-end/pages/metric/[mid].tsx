@@ -14,9 +14,6 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  defaultMaxPercentChange,
-  defaultMinPercentChange,
-  defaultMinSampleSize,
 } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
 import Tabs from "../../components/Tabs/Tabs";
@@ -51,7 +48,7 @@ import usePermissions from "../../hooks/usePermissions";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
-import useOrgSettings from "../../hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -84,7 +81,7 @@ const MetricPage: FC = () => {
 
   useSwitchOrg(data?.metric?.organization);
 
-  const orgSettings = useOrgSettings();
+  const metricDefaults = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
 
@@ -236,7 +233,7 @@ const MetricPage: FC = () => {
       {editModalOpen !== false && (
         <MetricForm
           current={metric}
-          metricDefaults={orgSettings?.metricDefaults}
+          metricDefaults={metricDefaults}
           edit={true}
           source="metrics-detail"
           initialStep={editModalOpen !== true ? editModalOpen : 0}
@@ -866,16 +863,14 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
                       {metric?.minSampleSize ||
-                        orgSettings?.metricDefaults?.minimumSampleSize ||
-                        defaultMinSampleSize}
+                        metricDefaults.minimumSampleSize}
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Max percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {metric?.maxPercentChange * 100 ||
-                        orgSettings?.metricDefaults?.maxPercentageChange ||
-                        defaultMaxPercentChange * 100}
+                        metricDefaults.maxPercentageChange}
                       %
                     </span>
                   </li>
@@ -883,8 +878,7 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change :</span>{" "}
                     <span className="font-weight-bold">
                       {metric?.minPercentChange * 100 ||
-                        orgSettings?.metricDefaults?.minPercentageChange ||
-                        defaultMinPercentChange * 100}
+                        metricDefaults.minPercentageChange}
                       %
                     </span>
                   </li>

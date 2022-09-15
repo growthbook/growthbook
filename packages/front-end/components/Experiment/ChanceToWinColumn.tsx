@@ -7,11 +7,10 @@ import {
   isBelowMinChange,
   isSuspiciousUplift,
 } from "../../services/experiments";
-import { defaultMinSampleSize } from "../../services/metrics";
 import NotEnoughData from "./NotEnoughData";
 import { ExperimentStatus } from "back-end/types/experiment";
 import Tooltip from "../Tooltip";
-import useOrgSettings from "../../hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -35,29 +34,22 @@ export default function ChanceToWinColumn({
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
 }) {
-  const orgSettings = useOrgSettings();
+  const metricDefaults = useOrganizationMetricDefaults();
 
   const minSampleSize =
-    metric?.minSampleSize ||
-    orgSettings?.metricDefaults?.minimumSampleSize ||
-    defaultMinSampleSize;
-  const enoughData = hasEnoughData(
-    baseline,
-    stats,
-    metric,
-    orgSettings?.metricDefaults
-  );
+    metric?.minSampleSize || metricDefaults.minimumSampleSize;
+  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,
     metric,
-    orgSettings?.metricDefaults
+    metricDefaults
   );
   const belowMinChange = isBelowMinChange(
     baseline,
     stats,
     metric,
-    orgSettings?.metricDefaults
+    metricDefaults
   );
   const { ciUpper, ciLower } = useConfidenceLevels();
 

@@ -20,6 +20,7 @@ import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -28,6 +29,7 @@ const ExperimentsGetStarted = ({
   experiments: ExperimentInterfaceStringDates[];
   mutate: () => void;
 }): React.ReactElement => {
+  const metricDefaults = useOrganizationMetricDefaults();
   const { metrics, datasources, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
 
@@ -131,6 +133,7 @@ const ExperimentsGetStarted = ({
         {metricsOpen && (
           <MetricForm
             current={{}}
+            metricDefaults={metricDefaults}
             edit={false}
             source="get-started"
             onClose={() => {

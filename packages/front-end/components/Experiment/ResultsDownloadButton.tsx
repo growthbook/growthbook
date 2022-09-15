@@ -7,7 +7,7 @@ import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
-import useOrgSettings from "../../hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {
   date?: string;
@@ -36,7 +36,7 @@ export default function ResultsDownloadButton({
   dimension: string;
 }) {
   const { getMetricById, getDimensionById, ready } = useDefinitions();
-  const orgSettings = useOrgSettings();
+  const metricDefaults = useOrganizationMetricDefaults();
 
   const dimensionName =
     getDimensionById(dimension)?.name ||
@@ -70,11 +70,7 @@ export default function ResultsDownloadButton({
           };
           const stats = variation.metrics[m];
           if (!stats) return [];
-          const { relativeRisk } = getRisk(
-            index,
-            row,
-            orgSettings?.metricDefaults
-          );
+          const { relativeRisk } = getRisk(index, row, metricDefaults);
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
             metric: metric?.name,

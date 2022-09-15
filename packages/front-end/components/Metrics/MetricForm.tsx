@@ -15,9 +15,6 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  defaultMaxPercentChange,
-  defaultMinPercentChange,
-  defaultMinSampleSize,
   formatConversionRate,
 } from "../../services/metrics";
 import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
@@ -223,17 +220,10 @@ const MetricForm: FC<MetricFormProps> = ({
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange:
-        (current.maxPercentChange ||
-          (metricDefaults?.maxPercentageChange || 0) / 100 ||
-          defaultMaxPercentChange) * 100,
+        current.maxPercentChange || metricDefaults.maxPercentageChange * 100,
       minPercentChange:
-        (current.minPercentChange ||
-          (metricDefaults?.minPercentageChange || 0) / 100 ||
-          defaultMinPercentChange) * 100,
-      minSampleSize:
-        current.minSampleSize ||
-        metricDefaults?.minimumSampleSize ||
-        defaultMinSampleSize,
+        current.minPercentChange || metricDefaults.minPercentageChange * 100,
+      minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
     },
   });
 
@@ -941,7 +931,7 @@ const MetricForm: FC<MetricFormProps> = ({
               </div>
               {riskError && <div className="text-danger">{riskError}</div>}
               <small className="text-muted">
-                Set the threasholds for risk for this metric. This is used when
+                Set the thresholds for risk for this metric. This is used when
                 determining metric significance, highlighting the risk value as
                 green, yellow, or red.
               </small>
@@ -961,8 +951,11 @@ const MetricForm: FC<MetricFormProps> = ({
                 required in an experiment variation before showing results
                 (default{" "}
                 {value.type === "binomial"
-                  ? defaultMinSampleSize
-                  : formatConversionRate(value.type, defaultMinSampleSize)}
+                  ? metricDefaults.minimumSampleSize
+                  : formatConversionRate(
+                      value.type,
+                      metricDefaults.minimumSampleSize
+                    )}
                 )
               </small>
             </div>
@@ -974,7 +967,7 @@ const MetricForm: FC<MetricFormProps> = ({
               {...form.register("maxPercentChange", { valueAsNumber: true })}
               helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
-              defaultMaxPercentChange * 100
+              metricDefaults.maxPercentageChange * 100
             })`}
             />
             <Field
@@ -984,7 +977,9 @@ const MetricForm: FC<MetricFormProps> = ({
               append="%"
               {...form.register("minPercentChange", { valueAsNumber: true })}
               helpText={`An experiment that changes the metric by less than this percent will be
-            considered a draw (default ${defaultMinPercentChange * 100})`}
+            considered a draw (default ${
+              metricDefaults.minPercentageChange * 100
+            })`}
             />
           </>
         )}
