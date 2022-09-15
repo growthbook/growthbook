@@ -20,7 +20,6 @@ import { hasFileConfig } from "../../services/env";
 import track from "../../services/track";
 import { DocLink, DocSection } from "../DocLink";
 import SuccessCard from "./SuccessCard";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 export type Task = {
   blackTitle: string;
@@ -51,7 +50,6 @@ export default function GuidedGetStarted({
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
-  const metricDefaults = useOrganizationMetricDefaults();
   const { datasources, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const { update } = useUser();
@@ -294,7 +292,6 @@ export default function GuidedGetStarted({
               current={{}}
               edit={false}
               source="get-started"
-              metricDefaults={metricDefaults}
               onSuccess={() => {
                 setCurrentStep(currentStep + 1);
               }}

@@ -20,7 +20,6 @@ import TagsFilter, {
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
-import useOrgSettings from "../hooks/useOrgSettings";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -36,8 +35,6 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const permissions = usePermissions();
-
-  const orgSettings = useOrgSettings();
 
   const tagsFilter = useTagsFilter("metrics");
 
@@ -104,7 +101,6 @@ const MetricsPage = (): React.ReactElement => {
         {modalData && (
           <MetricForm
             {...modalData}
-            metricDefaults={orgSettings?.metricDefaults}
             onClose={closeModal}
             onSuccess={onSuccess}
             source="blank-state"
