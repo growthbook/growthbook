@@ -9,10 +9,16 @@ import { SavedGroupModel } from "../models/SavedGroupModel";
 
 function formatGroup(list: string) {
   const listArr = list.split(",");
+  console.log("formatGroup was called");
 
   const savedGroup = listArr.map((i: string) => {
     return i.trim();
   });
+
+  // Removes any trailing commas
+  if (savedGroup[savedGroup.length - 1] === "") {
+    savedGroup.pop();
+  }
 
   return savedGroup;
 }
