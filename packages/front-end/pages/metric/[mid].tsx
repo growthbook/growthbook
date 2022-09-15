@@ -869,16 +869,16 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Max percent change:</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.maxPercentChange * 100 ||
-                        metricDefaults.maxPercentageChange}
+                      {(metric?.maxPercentChange ||
+                        metricDefaults.maxPercentageChange) * 100}
                       %
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Min percent change :</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.minPercentChange * 100 ||
-                        metricDefaults.minPercentageChange}
+                      {(metric?.minPercentChange ||
+                        metricDefaults.minPercentageChange) * 100}
                       %
                     </span>
                   </li>
