@@ -158,8 +158,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const metricDefaults = useOrganizationMetricDefaults();
 
-  console.log("MetricForm", metricDefaults);
-
   useEffect(() => {
     track("View Metric Form", {
       source,
