@@ -35,6 +35,10 @@ GrowthBook supports a few popular database schemas out-of-the-box:
 - [Matomo](/guide/matomo)
 - Amplitude (Snowflake only)
 - Google Analytics 4 (BigQuery only)
+- Jitsu
+- Firebase
+- Heap Analytics
+- Freshpaint
 
 After connecting to your data source, you will be prompted to choose one of the above. If your data is in a different format, you can also decide to define a custom schema.
 
@@ -83,9 +87,17 @@ Make sure to return the exact column names that GrowthBook is expecting. If your
 
 If a user sees an experiment multiple times, you should return multiple rows in your assignment query, one for each time the user was exposed to the experiment.
 
-During analysis, we use these events to calculate conversion windows for metrics. For example, if a user saw an experiment on day 1 and again on day 7, we might only include their metric conversions that happened within 3 days of each event (i.e. day 1-4 or day 7-11). All other metric conversions would be ignored (e.g. day 5 or 6). The exact length of the conversion window depends on metric-specific settings.
+This helps in two ways
 
-If you prefer to only use the initial assignment event instead, you can override this behavior on a per-analysis basis in the configuration settings.
+1. Detecting when users were exposed to more than one variation
+2. Calculating metric conversion windows based on an experiment's Attribution Model
+
+There are 2 **Attribution Models** that experiments can use:
+
+- **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment
+- **All Exposures** uses multiple conversion windows, one for each time the user sees an experiment
+
+By default, all new analyses will use the "All Exposures" model. You can change this on a per-experiment basis as needed.
 
 ##### Experiment Dimensions
 
@@ -263,7 +275,7 @@ To add the datasource in GrowthBook, you will need:
 2.  The service account secret
 3.  Your project id (found on the Project Settings Overview page)
 
-### Google Analytics
+### Universal Google Analytics
 
 **Note:** The Google Analytics data source only supports older Universal Analytics properties. If you are using Google Analytics v4 property, you need to [setup a BigQuery export](https://support.google.com/analytics/answer/9823238) and use that as the data source instead.
 

@@ -8,6 +8,8 @@ import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getExposureQuery } from "../../services/datasources";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import { FaQuestionCircle } from "react-icons/fa";
 
 const FilterSummary: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -142,13 +144,15 @@ const FilterSummary: FC<{
           <div className="row mb-3">
             <div className="col-5">
               <strong className="text-gray">
-                Users with Multiple Assignment Events:
+                <AttributionModelTooltip>
+                  Attribution Model <FaQuestionCircle />
+                </AttributionModelTooltip>
               </strong>
             </div>
             <div className="col">
               {experiment.attributionModel === "allExposures"
-                ? "Consider all events"
-                : "Only use first event"}
+                ? "All Exposures"
+                : "First Exposure"}
             </div>
           </div>
           {datasource?.properties?.queryLanguage === "sql" && (

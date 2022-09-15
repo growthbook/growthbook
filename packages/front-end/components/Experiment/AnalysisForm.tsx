@@ -8,6 +8,8 @@ import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import { FaQuestionCircle } from "react-icons/fa";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -292,20 +294,23 @@ const AnalysisForm: FC<{
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <Field
-          label="Users with Multiple Assignment Events"
+          label={
+            <AttributionModelTooltip>
+              Attribution Model <FaQuestionCircle />
+            </AttributionModelTooltip>
+          }
           labelClassName="font-weight-bold"
           {...form.register("attributionModel")}
           options={[
             {
-              display: "First Event Only",
+              display: "First Exposure",
               value: "firstExposure",
             },
             {
-              display: "All Events",
+              display: "All Exposures",
               value: "allExposures",
             },
           ]}
-          helpText="Which experiment assignment events to include in the analysis"
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
