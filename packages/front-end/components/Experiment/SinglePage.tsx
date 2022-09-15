@@ -489,11 +489,13 @@ export default function SinglePage({
                   />
                 </RightRailSectionGroup>
               )}
-              <RightRailSectionGroup title="Attribution Model" type="commaList">
+              <RightRailSectionGroup title="Attribution Model" type="custom">
                 <AttributionModelTooltip>
-                  {experiment.attributionModel === "allExposures"
-                    ? "All Exposures"
-                    : "First Exposure"}{" "}
+                  <strong>
+                    {experiment.attributionModel === "allExposures"
+                      ? "All Exposures"
+                      : "First Exposure"}
+                  </strong>{" "}
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
               </RightRailSectionGroup>

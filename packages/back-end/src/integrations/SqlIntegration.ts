@@ -739,7 +739,7 @@ export default abstract class SqlIntegration
               : dimension?.type !== "activation" && activationMetrics.length > 0
               ? "__activatedUsers"
               : "__experiment"
-          } u ON (u.${baseIdType} = u.${baseIdType})
+          } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
           m.conversion_start >= u.conversion_start
           AND m.conversion_start <= u.conversion_end

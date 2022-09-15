@@ -296,10 +296,9 @@ const AnalysisForm: FC<{
         <Field
           label={
             <AttributionModelTooltip>
-              Attribution Model <FaQuestionCircle />
+              <strong>Attribution Model</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
-          labelClassName="font-weight-bold"
           {...form.register("attributionModel")}
           options={[
             {
