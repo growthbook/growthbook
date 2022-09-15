@@ -45,7 +45,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const metricDefaults = useOrganizationMetricDefaults();
 
-  // eslint-disable-next-line
   const form = useForm<OrganizationSettings>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -497,7 +496,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <Field
                       label="Minimum Sample Size"
                       type="number"
-                      // append="users"
                       className="ml-2"
                       containerClassName="mt-2"
                       disabled={hasFileConfig()}
