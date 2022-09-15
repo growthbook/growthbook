@@ -44,6 +44,8 @@ export type ExperimentPhaseStringDates = Omit<
 
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
+export type AttributionModel = "firstExposure" | "allExposures";
+
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -74,6 +76,7 @@ export interface ExperimentInterface {
   queryFilter?: string;
   skipPartialData?: boolean;
   removeMultipleExposures?: boolean;
+  attributionModel?: AttributionModel;
   autoAssign: boolean;
   previewURL: string;
   targetURLRegex: string;
