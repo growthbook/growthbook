@@ -155,10 +155,13 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                     savedGroups.length > 0 && {
-                      label: "is in the group",
+                      label: "is in the saved group",
                       value: "$inGroup",
                     },
-                    { label: "is not in the group", value: "$notInGroup" },
+                    {
+                      label: "is not in the saved group",
+                      value: "$notInGroup",
+                    },
                   ]
                 : attribute.datatype === "string"
                 ? [
@@ -175,10 +178,13 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                     savedGroups.length > 0 && {
-                      label: "is in the group",
+                      label: "is in the saved group",
                       value: "$inGroup",
                     },
-                    { label: "is not in the group", value: "$notInGroup" },
+                    {
+                      label: "is not in the saved group",
+                      value: "$notInGroup",
+                    },
                   ]
                 : attribute.datatype === "number"
                 ? [
@@ -193,10 +199,13 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                     savedGroups.length > 0 && {
-                      label: "is in the group",
+                      label: "is in the saved group",
                       value: "$inGroup",
                     },
-                    { label: "is not in the group", value: "$notInGroup" },
+                    {
+                      label: "is not in the saved group",
+                      value: "$notInGroup",
+                    },
                   ]
                 : [];
 

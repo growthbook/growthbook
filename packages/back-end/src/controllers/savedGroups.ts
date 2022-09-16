@@ -7,7 +7,7 @@ import { SavedGroupModel } from "../models/SavedGroupModel";
 // quietly deprecating Groups. Initially groups were used with experiments to only include people in a group in an experiement.
 // SavedGroups are used with features flag rules where rules can say if "x is/is not in SavedGroup" do/don't show a feature
 
-function formatGroup(list: string) {
+function formatSavedGroup(list: string) {
   const listArr = list.split(",");
 
   const savedGroup = listArr.map((i: string) => {
@@ -26,11 +26,13 @@ export async function createSavedGroup(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const { groupName, owner, attributeKey, groupList } = req.body;
 
+  req.checkPermissions("createFeatures");
+
   const savedGroup = await SavedGroupModel.create({
     groupName,
     owner,
     attributeKey,
-    group: formatGroup(groupList),
+    group: formatSavedGroup(groupList),
     organization: org.id,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -46,13 +48,15 @@ export async function updateSavedGroup(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const { groupName, owner, attributeKey, groupList } = req.body;
 
+  req.checkPermissions("createFeatures");
+
   const savedGroup = await SavedGroupModel.updateOne(
     { groupName: groupName },
     {
       groupName,
       owner,
       attributeKey,
-      group: formatGroup(groupList),
+      group: formatSavedGroup(groupList),
       organization: org.id,
       dateUpdated: new Date(),
     }
