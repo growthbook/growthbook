@@ -19,7 +19,6 @@ export function replaceSavedGroupsInCondition(
         return `"nin": ${JSON.stringify(ids)}`;
       }
     );
-  console.log(newString);
 
   return newString;
 }
