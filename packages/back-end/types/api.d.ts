@@ -26,7 +26,7 @@ export interface FeatureDefinitionRule {
 export interface FeatureDefinition {
   // eslint-disable-next-line
   defaultValue: any;
-  rules?: Promise<FeatureDefinitionRule>[];
+  rules?: FeatureDefinitionRule[];
 }
 
 export interface ExperimentOverridesResponse {

@@ -66,7 +66,7 @@ export async function getFeatureDefinitions(
       rules:
         settings.rules
           ?.filter((r) => r.enabled)
-          ?.map(async (r) => {
+          ?.map((r) => {
             const rule: FeatureDefinitionRule = {};
             if (r.condition && r.condition !== "{}") {
               try {
