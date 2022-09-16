@@ -189,48 +189,43 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
-  const transformFormDefaults = () => ({
-    datasource:
-      ("datasource" in current ? current.datasource : datasources[0]?.id) || "",
-    name: current.name || "",
-    description: current.description || "",
-    type: current.type || "binomial",
-    table: current.table || "",
-    denominator: current.denominator || "",
-    column: current.column || "",
-    inverse: !!current.inverse,
-    ignoreNulls: !!current.ignoreNulls,
-    queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-    cap: current.cap || 0,
-    conversionWindowHours:
-      current.conversionWindowHours || getDefaultConversionWindowHours(),
-    conversionDelayHours: current.conversionDelayHours || 0,
-    sql: current.sql || "",
-    aggregation: current.aggregation || "",
-    conditions: current.conditions || [],
-    userIdTypes: current.userIdTypes || [],
-    userIdColumns: current.userIdColumns || {
-      user_id: current.userIdColumn || "user_id",
-      anonymous_id: current.anonymousIdColumn || "anonymous_id",
-    },
-    timestampColumn: current.timestampColumn || "",
-    tags: current.tags || [],
-    winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
-    loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
-    maxPercentChange:
-      (current.maxPercentChange || metricDefaults.maxPercentageChange) * 100,
-    minPercentChange:
-      (current.minPercentChange || metricDefaults.minPercentageChange) * 100,
-    minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
-  });
-
   const form = useForm({
-    defaultValues: useMemo(transformFormDefaults, [metricDefaults]),
+    defaultValues: {
+      datasource:
+        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
+        "",
+      name: current.name || "",
+      description: current.description || "",
+      type: current.type || "binomial",
+      table: current.table || "",
+      denominator: current.denominator || "",
+      column: current.column || "",
+      inverse: !!current.inverse,
+      ignoreNulls: !!current.ignoreNulls,
+      queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
+      cap: current.cap || 0,
+      conversionWindowHours:
+        current.conversionWindowHours || getDefaultConversionWindowHours(),
+      conversionDelayHours: current.conversionDelayHours || 0,
+      sql: current.sql || "",
+      aggregation: current.aggregation || "",
+      conditions: current.conditions || [],
+      userIdTypes: current.userIdTypes || [],
+      userIdColumns: current.userIdColumns || {
+        user_id: current.userIdColumn || "user_id",
+        anonymous_id: current.anonymousIdColumn || "anonymous_id",
+      },
+      timestampColumn: current.timestampColumn || "",
+      tags: current.tags || [],
+      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
+      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+      maxPercentChange:
+        (current.maxPercentChange || metricDefaults.maxPercentageChange) * 100,
+      minPercentChange:
+        (current.minPercentChange || metricDefaults.minPercentageChange) * 100,
+      minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
+    },
   });
-
-  useEffect(() => {
-    form.reset(transformFormDefaults());
-  }, [metricDefaults, form]);
 
   const { apiCall } = useAuth();
 

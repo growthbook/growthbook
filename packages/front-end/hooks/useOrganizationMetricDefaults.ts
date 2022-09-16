@@ -1,5 +1,5 @@
 import { MetricDefaults } from "back-end/types/organization";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import useOrgSettings from "./useOrgSettings";
 
 const defaultMaxPercentChange = 0.5;
@@ -17,19 +17,13 @@ const METRIC_DEFAULTS = {
  * If an organization has them set, use them, otherwise use the hardcoded defaults.
  */
 export const useOrganizationMetricDefaults = (): MetricDefaults => {
-  const [metricDefaults, setMetricDefaults] = useState<MetricDefaults>(
-    METRIC_DEFAULTS
-  );
-
   const orgSettings = useOrgSettings();
 
-  useEffect(() => {
-    const updatedDefaults: MetricDefaults = {
+  return useMemo(
+    () => ({
       ...METRIC_DEFAULTS,
       ...(orgSettings?.metricDefaults || {}),
-    };
-    setMetricDefaults(updatedDefaults);
-  }, [orgSettings?.metricDefaults]);
-
-  return metricDefaults;
+    }),
+    [orgSettings]
+  );
 };
