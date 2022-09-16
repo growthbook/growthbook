@@ -38,3 +38,19 @@ export const createTodo: RequestHandler<
     todo: newTodo,
   });
 };
+
+export const getTodo: RequestHandler<{ index: string }, { todo: Todo }> = (
+  req,
+  res
+) => {
+  const index = parseInt(req.params.index);
+  const todo = todosDb[index];
+  if (!todo)
+    throw new Error(
+      "💣 BOOM - Unexpected error that should propagate to the error handler"
+    );
+
+  return res.json({
+    todo,
+  });
+};
