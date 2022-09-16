@@ -1,10 +1,6 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, {
-  RequestHandler,
-  ErrorRequestHandler,
-  Response,
-} from "express";
+import express, { ErrorRequestHandler, Response } from "express";
 import mongoInit from "./init/mongo";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
@@ -48,16 +44,26 @@ import * as tagsController from "./controllers/tags";
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
+import { wrapController } from "./services/routers";
 
-// Wrap every controller function in asyncHandler to catch errors properly
-// eslint-disable-next-line
-function wrapController(controller: Record<string, RequestHandler<any>>): void {
-  Object.keys(controller).forEach((key) => {
-    if (typeof controller[key] === "function") {
-      controller[key] = asyncHandler(controller[key]);
-    }
-  });
-}
+import { preAuthRouter } from "./routers/preAuth";
+import { organizationsRouter } from "./routers/organization";
+import { tagsRouter } from "./routers/tags";
+import { ideasRouter } from "./routers/ideas";
+import { metricsRouter } from "./routers/metrics";
+import { experimentsRouter } from "./routers/experiments";
+import { reportsRouter } from "./routers/reports";
+import { segmentsRouter } from "./routers/segments";
+import { dimensionsRouter } from "./routers/dimensions";
+import { projectsRouter } from "./routers/projects";
+import { featuresRouter } from "./routers/features";
+import { datasourcesRouter } from "./routers/datasources";
+import { keysRouter } from "./routers/keys";
+import { webhooksRouter } from "./routers/webhooks";
+import { presentationsRouter } from "./routers/presentations";
+import { discussionsRouter } from "./routers/discussions";
+import { adminRouter } from "./routers/admin";
+
 wrapController(authController);
 wrapController(organizationsController);
 wrapController(datasourcesController);
@@ -266,19 +272,7 @@ app.use(
   })
 );
 
-// Pre-auth requests
-// Managed cloud deployment uses Auth0 instead
-if (!IS_CLOUD) {
-  app.post("/auth/refresh", authController.postRefresh);
-  app.post("/auth/login", authController.postLogin);
-  app.post("/auth/logout", authController.postLogout);
-  app.post("/auth/register", authController.postRegister);
-  app.post("/auth/firsttime", authController.postFirstTimeRegister);
-  app.post("/auth/forgot", authController.postForgotPassword);
-  app.get("/auth/reset/:token", authController.getResetPassword);
-  app.post("/auth/reset/:token", authController.postResetPassword);
-}
-app.get("/auth/hasorgs", authController.getHasOrganizations);
+app.use("/auth", preAuthRouter);
 
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
@@ -341,253 +335,22 @@ app.use(
   })
 );
 
-// Organization and Settings
-app.put("/user/name", organizationsController.putUserName);
-app.get("/user/watching", organizationsController.getWatchedItems);
-app.post("/user/watch/:type/:id", organizationsController.postWatchItem);
-app.post("/user/unwatch/:type/:id", organizationsController.postUnwatchItem);
-app.get("/organization/definitions", organizationsController.getDefinitions);
-app.get("/activity", organizationsController.getActivityFeed);
-app.get("/history/:type/:id", organizationsController.getHistory);
-app.get("/organization", organizationsController.getOrganization);
-app.post("/organization", organizationsController.signup);
-app.put("/organization", organizationsController.putOrganization);
-app.post(
-  "/organization/config/import",
-  organizationsController.postImportConfig
-);
-app.get("/organization/namespaces", organizationsController.getNamespaces);
-app.post("/organization/namespaces", organizationsController.postNamespaces);
-app.put(
-  "/organization/namespaces/:name",
-  organizationsController.putNamespaces
-);
-app.delete(
-  "/organization/namespaces/:name",
-  organizationsController.deleteNamespace
-);
-app.post("/invite/accept", organizationsController.postInviteAccept);
-app.post("/invite", organizationsController.postInvite);
-app.post("/invite/resend", organizationsController.postInviteResend);
-app.put("/invite/:key/role", organizationsController.putInviteRole);
-app.delete("/invite", organizationsController.deleteInvite);
-app.get("/members", organizationsController.getUsers);
-app.delete("/member/:id", organizationsController.deleteMember);
-app.put("/member/:id/role", organizationsController.putMemberRole);
-app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
-app.post("/subscription/checkout", stripeController.postNewSubscription);
-app.get("/subscription/quote", stripeController.getSubscriptionQuote);
-app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.post("/subscription/success", stripeController.postSubscriptionSuccess);
-app.get("/queries/:ids", datasourcesController.getQueries);
-app.post("/organization/sample-data", datasourcesController.postSampleData);
-app.put(
-  "/member/:id/admin-password-reset",
-  organizationsController.putAdminResetUserPassword
-);
-
-// tags
-app.post("/tag", tagsController.postTag);
-app.delete("/tag/:id", tagsController.deleteTag);
-
-// Ideas
-app.get("/ideas", ideasController.getIdeas);
-app.post("/ideas", ideasController.postIdeas);
-app.get("/idea/:id", ideasController.getIdea);
-app.post("/idea/:id", ideasController.postIdea);
-app.delete("/idea/:id", ideasController.deleteIdea);
-app.post("/idea/:id/vote", ideasController.postVote);
-app.post("/ideas/impact", ideasController.getEstimatedImpact);
-app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
-app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
-
-// Metrics
-app.get("/metrics", metricsController.getMetrics);
-app.post("/metrics", metricsController.postMetrics);
-app.get("/metric/:id", metricsController.getMetric);
-app.put("/metric/:id", metricsController.putMetric);
-app.delete("/metric/:id", metricsController.deleteMetric);
-app.get("/metric/:id/usage", metricsController.getMetricUsage);
-app.post("/metric/:id/analysis", metricsController.postMetricAnalysis);
-app.get(
-  "/metric/:id/analysis/status",
-  metricsController.getMetricAnalysisStatus
-);
-app.post("/metric/:id/analysis/cancel", metricsController.cancelMetricAnalysis);
-
-// Experiments
-app.get("/experiments", experimentsController.getExperiments);
-app.post("/experiments", experimentsController.postExperiments);
-app.get(
-  "/experiments/frequency/month/:num",
-  experimentsController.getExperimentsFrequencyMonth
-);
-app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
-app.get("/experiments/snapshots/", experimentsController.getSnapshots);
-app.get("/experiment/:id", experimentsController.getExperiment);
-app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
-app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
-app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
-app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
-app.get(
-  "/experiment/:id/snapshot/:phase/:dimension",
-  experimentsController.getSnapshotWithDimension
-);
-app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
-app.post(
-  "/experiment/:id/snapshot/:phase/preview",
-  experimentsController.previewManualSnapshot
-);
-app.post("/experiment/:id", experimentsController.postExperiment);
-app.delete("/experiment/:id", experimentsController.deleteExperiment);
-app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
-app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
-app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
-app.put(
-  "/experiment/:id/phase/:phase",
-  experimentsController.putExperimentPhase
-);
-app.delete(
-  "/experiment/:id/phase/:phase",
-  experimentsController.deleteExperimentPhase
-);
-app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
-app.put(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.addScreenshot
-);
-app.delete(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot
-);
-app.post(
-  "/experiment/:id/archive",
-  experimentsController.postExperimentArchive
-);
-app.post(
-  "/experiment/:id/unarchive",
-  experimentsController.postExperimentUnarchive
-);
-app.post("/experiments/import", experimentsController.postPastExperiments);
-app.get(
-  "/experiments/import/:id",
-  experimentsController.getPastExperimentsList
-);
-app.get(
-  "/experiments/import/:id/status",
-  experimentsController.getPastExperimentStatus
-);
-app.post(
-  "/experiments/import/:id/cancel",
-  experimentsController.cancelPastExperiments
-);
-app.post(
-  "/experiments/notebook/:id",
-  experimentsController.postSnapshotNotebook
-);
-app.post(
-  "/experiments/report/:snapshot",
-  reportsController.postReportFromSnapshot
-);
-
-// Reports
-app.get("/report/:id", reportsController.getReport);
-app.put("/report/:id", reportsController.putReport);
-app.delete("/report/:id", reportsController.deleteReport);
-app.get("/report/:id/status", reportsController.getReportStatus);
-app.post("/report/:id/refresh", reportsController.refreshReport);
-app.post("/report/:id/cancel", reportsController.cancelReport);
-app.post("/report/:id/notebook", reportsController.postNotebook);
-app.get("/reports", reportsController.getReports);
-
-// Segments
-app.get("/segments", segmentsController.getAllSegments);
-app.post("/segments", segmentsController.postSegments);
-app.put("/segments/:id", segmentsController.putSegment);
-app.delete("/segments/:id", segmentsController.deleteSegment);
-app.get("/segments/:id/usage", segmentsController.getSegmentUsage);
-
-// Dimensions
-app.get("/dimensions", dimensionsController.getAllDimensions);
-app.post("/dimensions", dimensionsController.postDimensions);
-app.put("/dimensions/:id", dimensionsController.putDimension);
-app.delete("/dimensions/:id", dimensionsController.deleteDimension);
-
-// Projects
-app.post("/projects", projectsController.postProjects);
-app.put("/projects/:id", projectsController.putProject);
-app.delete("/projects/:id", projectsController.deleteProject);
-
-// Features
-app.get("/feature", featuresController.getFeatures);
-app.get("/feature/:id", featuresController.getFeatureById);
-app.post("/feature", featuresController.postFeatures);
-app.put("/feature/:id", featuresController.putFeature);
-app.delete("/feature/:id", featuresController.deleteFeatureById);
-app.post(
-  "/feature/:id/defaultvalue",
-  featuresController.postFeatureDefaultValue
-);
-app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
-app.post("/feature/:id/publish", featuresController.postFeaturePublish);
-app.post("/feature/:id/archive", featuresController.postFeatureArchive);
-app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
-app.post("/feature/:id/draft", featuresController.postFeatureDraft);
-app.post("/feature/:id/rule", featuresController.postFeatureRule);
-app.put("/feature/:id/rule", featuresController.putFeatureRule);
-app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
-app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
-app.get("/usage/features", featuresController.getRealtimeUsage);
-
-// Data Sources
-app.get("/datasources", datasourcesController.getDataSources);
-app.get("/datasource/:id", datasourcesController.getDataSource);
-app.post("/datasources", datasourcesController.postDataSources);
-app.put("/datasource/:id", datasourcesController.putDataSource);
-app.delete("/datasource/:id", datasourcesController.deleteDataSource);
-
-// API keys
-app.get("/keys", organizationsController.getApiKeys);
-app.post("/keys", organizationsController.postApiKey);
-app.delete("/key/:key", organizationsController.deleteApiKey);
-
-// Webhooks
-app.get("/webhooks", organizationsController.getWebhooks);
-app.post("/webhooks", organizationsController.postWebhook);
-app.put("/webhook/:id", organizationsController.putWebhook);
-app.delete("/webhook/:id", organizationsController.deleteWebhook);
-
-// Presentations
-app.get("/presentations", presentationController.getPresentations);
-app.post("/presentation", presentationController.postPresentation);
-app.get("/presentation/preview", presentationController.getPresentationPreview);
-app.get("/presentation/:id", presentationController.getPresentation);
-app.post("/presentation/:id", presentationController.updatePresentation);
-app.delete("/presentation/:id", presentationController.deletePresentation);
-
-// Discussions
-app.get(
-  "/discussion/:parentType/:parentId",
-  discussionsController.getDiscussion
-);
-app.post(
-  "/discussion/:parentType/:parentId",
-  discussionsController.postDiscussions
-);
-app.put(
-  "/discussion/:parentType/:parentId/:index",
-  discussionsController.putComment
-);
-app.delete(
-  "/discussion/:parentType/:parentId/:index",
-  discussionsController.deleteComment
-);
-app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
-
-// Admin
-app.get("/admin/organizations", adminController.getOrganizations);
-app.post("/admin/organization/:id/populate", adminController.addSampleData);
+app.use(organizationsRouter);
+app.use("/tag", tagsRouter);
+app.use(ideasRouter);
+app.use(metricsRouter);
+app.use(experimentsRouter);
+app.use(reportsRouter);
+app.use("segments", segmentsRouter);
+app.use("dimensions", dimensionsRouter);
+app.use("projects", projectsRouter);
+app.use(featuresRouter);
+app.use(datasourcesRouter);
+app.use(keysRouter);
+app.use(webhooksRouter);
+app.use(presentationsRouter);
+app.use(discussionsRouter);
+app.use(adminRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
