@@ -4,7 +4,6 @@ import auth0AuthSource from "../authSources/auth0AuthSource";
 import localAuthSource from "../authSources/localAuthSource";
 import {
   MemberRole,
-  OrganizationConnections,
   OrganizationInterface,
   OrganizationSettings,
   Permissions,
@@ -29,7 +28,6 @@ export type OrganizationMember = {
   freeSeats?: number;
   discountCode?: string;
   hasActiveSubscription?: boolean;
-  connections?: OrganizationConnections;
 };
 
 export type UserOrganizations = OrganizationMember[];

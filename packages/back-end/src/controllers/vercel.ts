@@ -17,7 +17,11 @@ import {
   postEnvVar,
   reduceGbVercelEnvMap,
 } from "../services/vercel";
-import { VERCEL_CLIENT_ID, VERCEL_CLIENT_SECRET } from "../util/secrets";
+import {
+  APP_ORIGIN,
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "../util/secrets";
 import { auditDetailsUpdate } from "../services/audit";
 
 export async function getHasToken(req: AuthRequest, res: Response) {
@@ -43,7 +47,7 @@ export async function postToken(
       code: code,
       client_id: VERCEL_CLIENT_ID,
       client_secret: VERCEL_CLIENT_SECRET,
-      redirect_uri: "https://app.growthbook.io/integrations/vercel",
+      redirect_uri: `${APP_ORIGIN}/integrations/vercel`,
     }),
   };
 
@@ -64,7 +68,7 @@ export async function postToken(
     },
     details: auditDetailsUpdate(
       { connections: { vercel: orig } },
-      { connections: { vercel: updatePayload } }
+      { connections: { vercel: { ...updatePayload, token: "*********" } } }
     ),
   });
 

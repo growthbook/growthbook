@@ -56,7 +56,7 @@ export default function VercelIntegrationPage() {
       {integrationAlreadyExists ? (
         <Modal
           open
-          close={() => close()}
+          close={() => window.close()}
           cta="Continue"
           submit={async () => {
             setIntegrationAlreadyExists(false);
@@ -78,7 +78,7 @@ export default function VercelIntegrationPage() {
             <EnvironmentModal
               existing={envModalOpen}
               close={() => setEnvModalOpen(null)}
-              onSuccess={() => setIntegrationAlreadyExists(false)}
+              onSuccess={() => setEnvModalOpen(null)}
             />
           ) : (
             <Modal
@@ -118,7 +118,7 @@ export default function VercelIntegrationPage() {
                         value={elem.gb}
                         onChange={(selected) => {
                           const newMap = [...gbVercelEnvMap];
-                          newMap[i].gb = selected;
+                          newMap[i] = { ...newMap[i], gb: selected };
                           setGbVercelEnvMap(newMap);
                         }}
                       />

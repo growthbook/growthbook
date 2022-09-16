@@ -67,7 +67,7 @@ export async function createOrgGbKeys(
     const createdKeyVal = await createApiKey(
       orgId,
       envMapEntry.gb,
-      "This key allows you to connect your GrowthBook sdk to the GrowthBook API."
+      "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API."
     );
     orgGbKeys.push({
       key: "GROWTHBOOK_KEY",
