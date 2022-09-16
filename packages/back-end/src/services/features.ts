@@ -47,8 +47,6 @@ export async function getFeatureDefinitions(
     groupMap.set(group.id, group.group);
   });
 
-  console.log(groupMap);
-
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
   features.forEach((feature) => {
@@ -63,8 +61,6 @@ export async function getFeatureDefinitions(
       mostRecentUpdate = feature.dateUpdated;
     }
 
-    // console.log(groupMap);
-
     defs[feature.id] = {
       defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
       rules:
@@ -74,13 +70,6 @@ export async function getFeatureDefinitions(
             const rule: FeatureDefinitionRule = {};
             if (r.condition && r.condition !== "{}") {
               try {
-                // console.log("before", JSON.parse(r.condition));
-                // console.log(
-                //   "after",
-                //   JSON.parse(
-                //     replaceSavedGroupsInCondition(r.condition, groupMap)
-                //   )
-                // );
                 rule.condition = JSON.parse(
                   replaceSavedGroupsInCondition(r.condition, groupMap)
                 );

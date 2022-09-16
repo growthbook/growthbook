@@ -15,7 +15,7 @@ describe("replaceSavedGroupsInCondition", () => {
     ]);
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      "{ id: { $in: '6323291eb4bb4f3035feff45' } }"
+      "{'id': {'in': ['123','345','678','91011']}}"
     );
   });
 });
