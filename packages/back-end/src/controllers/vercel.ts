@@ -67,7 +67,7 @@ export async function postToken(
       id: org.id,
     },
     details: auditDetailsUpdate(
-      { connections: { vercel: orig } },
+      { connections: { vercel: { ...orig, token: "*********" } } },
       { connections: { vercel: { ...updatePayload, token: "*********" } } }
     ),
   });
