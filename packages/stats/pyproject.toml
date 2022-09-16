@@ -31,7 +31,6 @@ scipy = "^1.5.4"
 [tool.poetry.dev-dependencies]
 tox = "^3.20.1"
 virtualenv = "^20.2.2"
-pip = "^20.3.1"
 twine = "^3.3.0"
 toml = "^0.10.2"
 black = "20.8b1"
