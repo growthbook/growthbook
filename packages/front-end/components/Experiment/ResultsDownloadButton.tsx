@@ -36,7 +36,7 @@ export default function ResultsDownloadButton({
   dimension: string;
 }) {
   const { getMetricById, getDimensionById, ready } = useDefinitions();
-  const metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const dimensionName =
     getDimensionById(dimension)?.name ||

@@ -108,7 +108,7 @@ export function useRiskVariation(
   numVariations: number,
   rows: ExperimentTableRow[]
 ) {
-  const metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [riskVariation, setRiskVariation] = useState(() => {
     // Calculate the total risk for each variation across all metrics
@@ -153,7 +153,7 @@ export function useDomain(
   variations: ExperimentReportVariation[],
   rows: ExperimentTableRow[]
 ): [number, number] {
-  const metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   let lowerBound: number, upperBound: number;
   rows.forEach((row) => {

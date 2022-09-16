@@ -18,7 +18,7 @@ export default function PercentGraphColumn({
   domain: [number, number];
   id: string;
 }) {
-  const metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const { ciUpper, ciLower } = useConfidenceLevels();
   const barType = stats.uplift?.dist ? "violin" : "pill";

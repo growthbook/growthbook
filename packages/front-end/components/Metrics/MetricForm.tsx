@@ -154,7 +154,12 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
 
-  const metricDefaults = useOrganizationMetricDefaults();
+  const {
+    getMinSampleSizeForMetric,
+    getMinPercentageChangeForMetric,
+    getMaxPercentageChangeForMetric,
+    metricDefaults,
+  } = useOrganizationMetricDefaults();
 
   useEffect(() => {
     track("View Metric Form", {
@@ -219,11 +224,9 @@ const MetricForm: FC<MetricFormProps> = ({
       tags: current.tags || [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
-      maxPercentChange:
-        (current.maxPercentChange || metricDefaults.maxPercentageChange) * 100,
-      minPercentChange:
-        (current.minPercentChange || metricDefaults.minPercentageChange) * 100,
-      minSampleSize: current.minSampleSize || metricDefaults.minimumSampleSize,
+      maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
+      minPercentChange: getMinPercentageChangeForMetric(current) * 100,
+      minSampleSize: getMinSampleSizeForMetric(current),
     },
   });
 

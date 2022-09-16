@@ -19,7 +19,7 @@ export default function RiskColumn({
   row: ExperimentTableRow;
   riskVariation: number;
 }) {
-  const metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } = useOrganizationMetricDefaults();
   const { relativeRisk, risk, showRisk } = getRisk(
     riskVariation,
     row,

@@ -43,7 +43,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
 
-  const metricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const form = useForm<OrganizationSettings>({
     defaultValues: {

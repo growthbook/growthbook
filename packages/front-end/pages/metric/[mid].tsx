@@ -81,7 +81,11 @@ const MetricPage: FC = () => {
 
   useSwitchOrg(data?.metric?.organization);
 
-  const metricDefaults = useOrganizationMetricDefaults();
+  const {
+    getMinSampleSizeForMetric,
+    getMinPercentageChangeForMetric,
+    getMaxPercentageChangeForMetric,
+  } = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
 
@@ -861,24 +865,19 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.minSampleSize ||
-                        metricDefaults.minimumSampleSize}
+                      {getMinSampleSizeForMetric(metric)}
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Max percent change:</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric?.maxPercentChange ||
-                        metricDefaults.maxPercentageChange) * 100}
-                      %
+                      {getMaxPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Min percent change :</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric?.minPercentChange ||
-                        metricDefaults.minPercentageChange) * 100}
-                      %
+                      {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
                 </ul>

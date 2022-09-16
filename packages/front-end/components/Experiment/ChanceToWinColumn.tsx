@@ -34,10 +34,12 @@ export default function ChanceToWinColumn({
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
 }) {
-  const metricDefaults = useOrganizationMetricDefaults();
+  const {
+    getMinSampleSizeForMetric,
+    metricDefaults,
+  } = useOrganizationMetricDefaults();
 
-  const minSampleSize =
-    metric?.minSampleSize || metricDefaults.minimumSampleSize;
+  const minSampleSize = getMinSampleSizeForMetric(metric);
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const suspiciousChange = isSuspiciousUplift(
     baseline,
