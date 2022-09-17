@@ -102,3 +102,6 @@ export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
+
+export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
+export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";

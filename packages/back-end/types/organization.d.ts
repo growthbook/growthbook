@@ -118,6 +118,22 @@ export interface SubscriptionQuote {
   additionalSeatPrice: number;
 }
 
+export interface OrganizationConnections {
+  slack?: SlackConnection;
+  vercel?: VercelConnection;
+}
+
+export interface SlackConnection {
+  team: string;
+  token: string;
+}
+
+export interface VercelConnection {
+  token: string;
+  configurationId: string;
+  teamId: string | null;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -145,12 +161,7 @@ export interface OrganizationInterface {
   members: Member[];
   invites: Invite[];
 
-  connections?: {
-    slack?: {
-      team: string;
-      token: string;
-    };
-  };
+  connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
 
