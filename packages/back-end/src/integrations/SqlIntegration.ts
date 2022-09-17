@@ -115,6 +115,21 @@ export default abstract class SqlIntegration
   avg(col: string) {
     return `AVG(${col})`;
   }
+  sum(col: string) {
+    return `SUM(${col})`;
+  }
+  power(col: string, power: number) {
+    return `POWER(${col}, ${power})`;
+  }
+  variance(col: string) {
+    return `VARIANCE(${col})`;
+  }
+  covariance(x: string, y: string) {
+    return `COVARIANCE(${x}, ${y})`;
+  }
+  sqrt(col: string) {
+    return `SQRT(${col})`;
+  }
   formatDate(col: string): string {
     return col;
   }
@@ -474,7 +489,7 @@ export default abstract class SqlIntegration
     tablePrefix: string = "__activationMetric",
     initialTable: string = "__experiment"
   ) {
-    // Note: the conversion_start/end alias below is needed for clickhouse
+    // Note: the aliases below are needed for clickhouse
     return `
       SELECT
         initial.${baseIdType},
@@ -625,6 +640,13 @@ export default abstract class SqlIntegration
         ? denominatorMetrics[0]
         : metric;
 
+    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
+    // If the denominator is a binomial, it's just acting as a filter
+    // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
+    // When the denominator is a count, it's a real ratio, dividing two quantities
+    // e.g. "Pages/Session" is dividing number of page views by number of sessions
+    const isRatio = denominator?.type === "count";
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -652,6 +674,17 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         endDate: metricEnd,
       })})
+      ${
+        isRatio
+          ? `, __denominator as (${this.getMetricCTE({
+              metric: denominator,
+              baseIdType,
+              idJoinMap,
+              startDate: metricStart,
+              endDate: metricEnd,
+            })})`
+          : ""
+      }
       ${
         segment
           ? `, __segment as (${this.getSegmentCTE(
@@ -748,6 +781,25 @@ export default abstract class SqlIntegration
       )`
           : ""
       }
+      ${
+        useAllExposures && isRatio
+          ? `, __distinctDenominator as (
+        -- One row per included denominator conversion
+        SELECT
+          m.${baseIdType},
+          m.conversion_start as ts,
+          m.value
+        FROM
+          __denominator m
+          JOIN __denominatorUsers u ON (u.${baseIdType} = m.${baseIdType})
+        WHERE
+          m.conversion_start >= u.conversion_start
+          AND m.conversion_start <= u.conversion_end
+        GROUP BY
+          m.${baseIdType}, m.conversion_start, m.value
+      )`
+          : ""
+      }
       , __distinctUsers as (
         -- One row per user/dimension${
           removeMultipleExposures ? "" : "/variation"
@@ -807,11 +859,41 @@ export default abstract class SqlIntegration
         removeMultipleExposures ? "" : ", e.variation"
       }
       )
+      ${
+        isRatio
+          ? `
+      , __userDenominator as (
+        -- Add in the aggregate denominator value for each user
+        SELECT
+          d.variation,
+          d.dimension,
+          d.${baseIdType},
+          ${this.getAggregateMetricColumn(denominator, "m")} as value
+        FROM
+          __distinctUsers d
+          JOIN ${
+            useAllExposures ? "__distinctDenominator" : "__denominator"
+          } m ON (
+            m.${baseIdType} = d.${baseIdType}
+          )
+        ${
+          useAllExposures
+            ? ""
+            : `WHERE
+          m.conversion_start >= d.conversion_start
+          AND m.conversion_start <= d.conversion_end`
+        }
+        GROUP BY
+          variation, dimension, d.${baseIdType}
+      )`
+          : ""
+      }
       , __userMetric as (
         -- Add in the aggregate metric value for each user
         SELECT
           d.variation,
           d.dimension,
+          d.${baseIdType},
           ${aggregate} as value
         FROM
           __distinctUsers d
@@ -840,19 +922,51 @@ export default abstract class SqlIntegration
           variation,
           dimension
       )
-      , __stats as (    
-        -- Sum all user metrics together to get a total per variation/dimension
+      , __variations as (
+        -- One row per variation/dimension with aggregations
         SELECT
-          variation,
-          dimension,
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) as count,
-          ${this.avg("value")} as mean,
-          ${this.stddev("value")} as stddev
+          ${this.avg("m.value")} as m_mean,
+          ${this.power(this.avg("m.value"), 2)} as m_sq_mean
+          ${this.variance("m.value")} as m_var,
+          ${this.sum("m.value")} as m_sum,
+          ${this.stddev("m.value")} as m_sd
+          ${
+            isRatio
+              ? `
+            , ${this.avg("d.value")} as d_mean
+            , ${this.power(this.avg("d.value"), 2)} as d_sq_mean
+            , ${this.variance("d.value")} as d_var,
+            , ${this.sum("d.value")} as d_sum
+            , ${this.covariance("m.value", "d.value")} as covar
+          `
+              : ""
+          }
         FROM
-          __userMetric
+          ${
+            isRatio
+              ? `__userDenominator d
+          LEFT JOIN __userMetric m ON (
+            d.${baseIdType} = m.${baseIdType}
+          )`
+              : `__userMetric m`
+          }
         GROUP BY
           variation,
           dimension
+      )
+      , __stats as (
+        -- Calculate the stats for each variation
+        SELECT
+          variation,
+          dimension,
+          count,
+          ${this.getMetricMean(isRatio)} as mean,
+          ${this.getMetricStdDev(isRatio)} as stddev
+        FROM
+          __variations
       )
     SELECT
       u.variation,
@@ -879,6 +993,25 @@ export default abstract class SqlIntegration
 
   private getMetricQueryFormat(metric: MetricInterface) {
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
+  }
+
+  private getMetricMean(isRatio: boolean) {
+    if (isRatio) {
+      return `m_sum / d_sum`;
+    }
+    return `m_mean`;
+  }
+
+  private getMetricStdDev(isRatio: boolean) {
+    // For ratio metrics (e.g. pages/session) the units are correlated.
+    // We need to use the Delta method to get the correct variance
+    if (isRatio) {
+      return this.sqrt(
+        `(m_var/m_sq_mean + d_var/d_sq_mean - 2*covar/(m_mean*d_mean))
+         * (m_sq_mean / (d_sq_mean*count))`
+      );
+    }
+    return "m_sd";
   }
 
   private getMetricCTE({

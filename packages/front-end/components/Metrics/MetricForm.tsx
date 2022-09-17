@@ -251,14 +251,23 @@ const MetricForm: FC<MetricFormProps> = ({
     return metrics
       .filter((m) => m.id !== current?.id)
       .filter((m) => m.datasource === value.datasource)
-      .filter((m) => m.type === "binomial")
+      .filter((m) => {
+        // Binomial metrics can always be a denominator
+        // That just makes it act like a funnel (or activation) metric
+        if (m.type === "binomial") return true;
+
+        // If the numerator has a value (not binomial),
+        // then count metrics can be used as the denominator as well.
+        // This makes it act like a true ratio metric
+        return value.type !== "binomial" && m.type === "count";
+      })
       .map((m) => {
         return {
           value: m.id,
           label: m.name,
         };
       });
-  }, [metrics, value.datasource]);
+  }, [metrics, value.type, value.datasource]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
