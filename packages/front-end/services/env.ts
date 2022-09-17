@@ -1,19 +1,7 @@
 import * as Sentry from "@sentry/react";
+import { EnvironmentInitValue } from "../pages/api/init";
 
-const env: {
-  telemetry: "debug" | "enable" | "disable";
-  cloud: boolean;
-  appOrigin: string;
-  apiHost: string;
-  config: "file" | "db";
-  defaultConversionWindowHours: number;
-  build?: {
-    sha: string;
-    date: string;
-  };
-  sentryDSN: string;
-  apiCredentials: boolean;
-} = {
+const env: EnvironmentInitValue = {
   telemetry: "enable",
   cloud: false,
   appOrigin: "",
@@ -21,7 +9,7 @@ const env: {
   config: "db",
   defaultConversionWindowHours: 72,
   sentryDSN: "",
-  apiCredentials: false,
+  usingSSO: false,
 };
 
 export async function initEnv() {
@@ -52,9 +40,6 @@ export function isTelemetryEnabled() {
 export function inTelemetryDebugMode(): boolean {
   return env.telemetry === "debug";
 }
-export function includeApiCredentials() {
-  return env.apiCredentials;
-}
 export function hasFileConfig() {
   return env.config === "file";
 }
@@ -63,4 +48,7 @@ export function getDefaultConversionWindowHours() {
 }
 export function getGrowthBookBuild(): { sha: string; date: string } {
   return env.build || { sha: "", date: "" };
+}
+export function usingSSO() {
+  return env.usingSSO;
 }

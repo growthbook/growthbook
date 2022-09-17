@@ -6,6 +6,7 @@ import express, {
   Response,
 } from "express";
 import mongoInit from "./init/mongo";
+import licenceInit from "./init/licence";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -22,7 +23,7 @@ import {
 import asyncHandler from "express-async-handler";
 import pino from "pino-http";
 import { verifySlackRequestSignature } from "./services/slack";
-import { getJWTCheck, processJWT } from "./services/auth";
+import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
@@ -86,6 +87,7 @@ async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
+      await licenceInit();
     })();
   }
   try {
@@ -268,18 +270,26 @@ app.use(
   })
 );
 
-// Pre-auth requests
-// Managed cloud deployment uses Auth0 instead
-if (!IS_CLOUD) {
-  app.post("/auth/refresh", authController.postRefresh);
+const useSSO = usingOpenId();
+
+// Pre-auth requests when not using SSO
+if (!useSSO) {
   app.post("/auth/login", authController.postLogin);
-  app.post("/auth/logout", authController.postLogout);
   app.post("/auth/register", authController.postRegister);
   app.post("/auth/firsttime", authController.postFirstTimeRegister);
   app.post("/auth/forgot", authController.postForgotPassword);
   app.get("/auth/reset/:token", authController.getResetPassword);
   app.post("/auth/reset/:token", authController.postResetPassword);
 }
+// Pre-auth requests when using SSO
+else {
+  app.post("/auth/sso", authController.getSSOConnectionFromDomain);
+  app.post("/auth/callback", authController.postOAuthCallback);
+}
+
+//  Pre-auth requests that are always available
+app.post("/auth/refresh", authController.postRefresh);
+app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // File uploads don't require auth tokens.
@@ -308,7 +318,8 @@ if (UPLOAD_METHOD === "local") {
 }
 
 // All other routes require a valid JWT
-app.use(getJWTCheck());
+const auth = getAuthConnection();
+app.use(auth.middleware);
 
 // Add logged in user props to the request
 app.use(processJWT);
@@ -325,8 +336,7 @@ app.use(
 );
 
 // Logged-in auth requests
-// Managed cloud deployment uses Auth0 instead
-if (!IS_CLOUD) {
+if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
 }
 

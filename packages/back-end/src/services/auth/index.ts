@@ -1,99 +1,61 @@
-import { IS_CLOUD, JWT_SECRET } from "../util/secrets";
-import jwt from "express-jwt";
-import jwks from "jwks-rsa";
-import { NextFunction, Response } from "express";
-import { AuthRequest } from "../types/AuthRequest";
-import {
-  markUserAsVerified,
-  UserDocument,
-  UserModel,
-} from "../models/UserModel";
+import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
+import { NextFunction, Request, Response } from "express";
+import { AuthRequest } from "../../types/AuthRequest";
+import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import {
   getDefaultPermissions,
   getOrganizationById,
   getPermissionsByRole,
   getRole,
-  validateLogin,
-} from "./organizations";
-import { MemberRole } from "../../types/organization";
-import { AuditInterface } from "../../types/audit";
-import { insertAudit } from "./audit";
-import { getUserByEmail, getUserById } from "./users";
-import { hasOrganization } from "../models/OrganizationModel";
+} from "../organizations";
+import { MemberRole } from "../../../types/organization";
+import { UserInterface } from "../../../types/user";
+import { AuditInterface } from "../../../types/audit";
+import { insertAudit } from "../audit";
+import { getUserByEmail } from "../users";
+import { hasOrganization } from "../../models/OrganizationModel";
+import {
+  IdTokenCookie,
+  AuthChecksCookie,
+  RefreshTokenCookie,
+  SSOConnectionIdCookie,
+} from "../../util/cookie";
+import { AuthConnection } from "./AuthConnection";
+import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
+import { LocalAuthConnection } from "./LocalAuthConnection";
 
 type JWTInfo = {
   email?: string;
   verified?: boolean;
   name?: string;
-  method?: string;
 };
 
-// Self-hosted deployments use local auth
-function getLocalJWTCheck() {
-  if (!JWT_SECRET) {
-    throw new Error("Must specify JWT_SECRET environment variable");
-  }
-
-  return jwt({
-    secret: JWT_SECRET,
-    audience: "https://api.growthbook.io",
-    issuer: "https://api.growthbook.io",
-    algorithms: ["HS256"],
-  });
-}
-async function getUserFromLocalJWT(user: {
-  sub: string;
-}): Promise<UserDocument | null> {
-  return getUserById(user.sub);
-}
-
-// Managed cloud deployment uses Auth0,
-function getAuth0JWTCheck() {
-  return jwt({
-    secret: jwks.expressJwtSecret({
-      cache: true,
-      rateLimit: true,
-      jwksRequestsPerMinute: 5,
-      jwksUri: "https://growthbook.auth0.com/.well-known/jwks.json",
-    }),
-    audience: "https://api.growthbook.io",
-    issuer: "https://growthbook.auth0.com/",
-    algorithms: ["RS256"],
-  });
-}
-
-async function getUserFromEmail(email: string): Promise<UserDocument | null> {
-  if (!email) {
-    throw new Error("Missing email address in authentication token");
-  }
-  return getUserByEmail(email);
-}
-
-function getInitialDataFromJWT(user: {
-  ["https://growthbook.io/email"]?: string;
-  ["https://growthbook.io/fname"]?: string;
-  ["https://growthbook.io/verified"]?: boolean;
+type IdToken = {
+  email?: string;
+  email_verified?: boolean;
+  given_name?: string;
+  name?: string;
   sub?: string;
-}): JWTInfo {
-  if (!IS_CLOUD) {
-    return {
-      verified: false,
-      method: "local",
-    };
-  }
+};
 
-  const sub = user["sub"] || "";
-  const method = sub.split("|")[0] || "";
-  return {
-    email: user["https://growthbook.io/email"] || "",
-    name: user["https://growthbook.io/fname"] || "",
-    verified: user["https://growthbook.io/verified"] || false,
-    method,
-  };
+export function getAuthConnection(): AuthConnection {
+  return usingOpenId() ? new OpenIdAuthConnection() : new LocalAuthConnection();
 }
 
-export function getJWTCheck() {
-  return IS_CLOUD ? getAuth0JWTCheck() : getLocalJWTCheck();
+async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
+  if (!token.email) {
+    throw new Error("Id token does not contain email address");
+  }
+  const user = await getUserByEmail(String(token.email));
+  if (!user) return null;
+  return user.toJSON();
+}
+function getInitialDataFromJWT(user: IdToken): JWTInfo {
+  return {
+    verified: user.email_verified || false,
+    email: user.email || "",
+    name: user.given_name || user.name || "",
+  };
 }
 
 export async function processJWT(
@@ -102,12 +64,11 @@ export async function processJWT(
   res: Response,
   next: NextFunction
 ) {
-  const { email, name, verified, method } = getInitialDataFromJWT(req.user);
+  const { email, name, verified } = getInitialDataFromJWT(req.user);
 
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-  req.loginMethod = method || "";
   req.permissions = getDefaultPermissions();
 
   // Throw error if permissions don't pass
@@ -119,9 +80,7 @@ export async function processJWT(
     }
   };
 
-  const user = await (IS_CLOUD
-    ? getUserFromEmail(req.email)
-    : getUserFromLocalJWT(req.user));
+  const user = await getUserFromJWT(req.user);
 
   if (user) {
     req.email = user.email;
@@ -129,7 +88,11 @@ export async function processJWT(
     req.name = user.name;
     req.admin = !!user.admin;
 
-    if (IS_CLOUD && user.verified && !req.verified) {
+    // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
+    // require all future logins to be verified too.
+    // This stops someone from creating an unverified email/password account and gaining access to
+    // an account using "Login with Google"
+    if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
       return res.status(406).json({
         status: 406,
         message: "You must verify your email address before using GrowthBook",
@@ -158,13 +121,13 @@ export async function processJWT(
         }
 
         // Make sure this is a valid login method for the organization
-        try {
-          validateLogin(req, req.organization);
-        } catch (e) {
-          return res.status(403).json({
-            status: 403,
-            message: e.message,
-          });
+        if (req.organization.restrictLoginMethod) {
+          if (req.loginMethod?.id !== req.organization.restrictLoginMethod) {
+            return res.status(403).json({
+              status: 403,
+              message: "Must login with Enterprise SSO.",
+            });
+          }
         }
 
         const role: MemberRole = req.admin
@@ -198,6 +161,13 @@ export async function processJWT(
   }
 
   next();
+}
+
+export function deleteAuthCookies(req: Request, res: Response) {
+  RefreshTokenCookie.setValue("", req, res);
+  IdTokenCookie.setValue("", req, res);
+  SSOConnectionIdCookie.setValue("", req, res);
+  AuthChecksCookie.setValue("", req, res);
 }
 
 export function validatePasswordFormat(password?: string): string {
@@ -234,4 +204,10 @@ export function isNewInstallation() {
 }
 export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
+}
+
+export function usingOpenId() {
+  if (IS_CLOUD) return true;
+  if (SSO_CONFIG) return true;
+  return false;
 }

@@ -27,8 +27,12 @@ const navLinks = [
     name: "Self-Host",
     links: [
       {
+        href: "/self-host/env",
+        name: "Environment Variables",
+      },
+      {
         href: "/self-host/config",
-        name: "Configuration",
+        name: "Config.yml",
       },
     ],
   },

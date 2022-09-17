@@ -61,6 +61,10 @@ export async function updateSubscriptionInStripe(
   subscriptionId: string,
   qty: number
 ) {
+  if (!STRIPE_SECRET) {
+    console.error("Missing STRIPE_SECRET");
+    return;
+  }
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
   // Only update subscription if the qty is different than what Stripe currently has
@@ -87,6 +91,10 @@ const priceData: {
 export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
   if (priceData[priceId]) return priceData[priceId];
 
+  if (!STRIPE_SECRET) {
+    return null;
+  }
+
   try {
     priceData[priceId] = await stripe.prices.retrieve(priceId, {
       expand: ["tiers"],
@@ -106,6 +114,8 @@ export async function getCoupon(
 ): Promise<Stripe.Coupon | null> {
   if (!discountCode) return null;
   if (discountData[discountCode]) return discountData[discountCode];
+
+  if (!STRIPE_SECRET) return null;
 
   try {
     discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
@@ -128,6 +138,10 @@ export function hasActiveSubscription(org: OrganizationInterface) {
 
 export async function getStripeCustomerId(org: OrganizationInterface) {
   if (org.stripeCustomerId) return org.stripeCustomerId;
+
+  if (!STRIPE_SECRET) {
+    throw new Error("Missing Stripe secret");
+  }
 
   // Create a new Stripe customer and save it in the organization object
   const { id } = await stripe.customers.create({

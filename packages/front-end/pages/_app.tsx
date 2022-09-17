@@ -81,25 +81,26 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        <AuthProvider>
-          <GrowthBookProvider growthbook={growthbook}>
-            <ProtectedPage
-              organizationRequired={organizationRequired}
-              preAuth={preAuth}
-            >
-              {organizationRequired && !preAuth ? (
-                <DefinitionsProvider>
-                  {!liteLayout && <Layout />}
-                  <main className={`main ${parts[0]}`}>
-                    <Component {...pageProps} />
-                  </main>
-                </DefinitionsProvider>
-              ) : (
-                <Component {...pageProps} />
-              )}
-            </ProtectedPage>
-          </GrowthBookProvider>
-        </AuthProvider>
+        preAuth ? (
+          <Component {...pageProps} />
+        ) : (
+          <AuthProvider>
+            <GrowthBookProvider growthbook={growthbook}>
+              <ProtectedPage organizationRequired={organizationRequired}>
+                {organizationRequired ? (
+                  <DefinitionsProvider>
+                    {!liteLayout && <Layout />}
+                    <main className={`main ${parts[0]}`}>
+                      <Component {...pageProps} />
+                    </main>
+                  </DefinitionsProvider>
+                ) : (
+                  <Component {...pageProps} />
+                )}
+              </ProtectedPage>
+            </GrowthBookProvider>
+          </AuthProvider>
+        )
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">

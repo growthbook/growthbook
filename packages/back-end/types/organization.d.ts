@@ -137,7 +137,7 @@ export interface VercelConnection {
 export interface OrganizationInterface {
   id: string;
   url: string;
-  claimedDomain?: string;
+  dateCreated: Date;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -175,3 +175,11 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type LicenceData = {
+  ref: string;
+  sub: string;
+  qty: number;
+  iat: string;
+  eat: string;
+};

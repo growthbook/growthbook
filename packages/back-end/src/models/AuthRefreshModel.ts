@@ -1,6 +1,7 @@
-import { Request, Response } from "express";
+import { Request } from "express";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import { UserInterface } from "../../types/user";
 
 export interface AuthRefreshInterface {
   token: string;
@@ -34,39 +35,20 @@ export const AuthRefreshModel = mongoose.model<AuthRefreshDocument>(
   authRefreshSchema
 );
 
-export async function createRefreshToken(
-  req: Request,
-  res: Response,
-  userId: string
-) {
+export async function createRefreshToken(req: Request, user: UserInterface) {
   const token = crypto.randomBytes(32).toString("base64");
 
   const authRefreshDoc: AuthRefreshInterface = {
     createdAt: new Date(),
     lastLogin: new Date(),
-    userId,
+    userId: user.id,
     ip: req.ip,
     userAgent: req.headers["user-agent"] || "",
     token,
   };
   await AuthRefreshModel.create(authRefreshDoc);
 
-  res.cookie("AUTH_REFRESH_TOKEN", token, {
-    httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    secure: req.secure,
-  });
-}
-
-export async function deleteRefreshToken(req: Request, res: Response) {
-  const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
-  if (refreshToken) {
-    await AuthRefreshModel.deleteOne({
-      token: refreshToken,
-    });
-  }
-
-  res.clearCookie("AUTH_REFRESH_TOKEN");
+  return token;
 }
 
 export async function getUserIdFromAuthRefreshToken(
