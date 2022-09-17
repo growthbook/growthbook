@@ -10,7 +10,12 @@ import licenceInit from "./init/licence";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
-import { APP_ORIGIN, CORS_ORIGIN_REGEX, UPLOAD_METHOD } from "./util/secrets";
+import {
+  APP_ORIGIN,
+  CORS_ORIGIN_REGEX,
+  IS_CLOUD,
+  UPLOAD_METHOD,
+} from "./util/secrets";
 import {
   getExperimentConfig,
   getExperimentsScript,
@@ -35,6 +40,7 @@ import * as presentationController from "./controllers/presentations";
 import * as discussionsController from "./controllers/discussions";
 import * as adminController from "./controllers/admin";
 import * as stripeController from "./controllers/stripe";
+import * as vercelController from "./controllers/vercel";
 import * as segmentsController from "./controllers/segments";
 import * as dimensionsController from "./controllers/dimensions";
 import * as projectsController from "./controllers/projects";
@@ -64,6 +70,7 @@ wrapController(presentationController);
 wrapController(discussionsController);
 wrapController(adminController);
 wrapController(stripeController);
+wrapController(vercelController);
 wrapController(segmentsController);
 wrapController(dimensionsController);
 wrapController(projectsController);
@@ -390,6 +397,13 @@ app.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
 );
+
+if (IS_CLOUD) {
+  app.get("/vercel/has-token", vercelController.getHasToken);
+  app.post("/vercel/token", vercelController.postToken);
+  app.post("/vercel/env-vars", vercelController.postEnvVars);
+  app.get("/vercel/config", vercelController.getConfig);
+}
 
 // tags
 app.post("/tag", tagsController.postTag);

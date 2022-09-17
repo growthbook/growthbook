@@ -51,6 +51,11 @@ const organizationSchema = new mongoose.Schema({
       team: String,
       token: String,
     },
+    vercel: {
+      token: String,
+      configurationId: String,
+      teamId: String,
+    },
   },
   settings: {},
 });

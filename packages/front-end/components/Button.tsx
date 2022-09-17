@@ -8,7 +8,7 @@ interface Props
     ButtonHTMLAttributes<HTMLButtonElement>,
     HTMLButtonElement
   > {
-  color: string;
+  color?: string;
   onClick: () => Promise<void>;
   disabled?: boolean;
   description?: string;

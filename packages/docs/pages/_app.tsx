@@ -156,6 +156,16 @@ const navLinks = [
     ],
   },
   {
+    href: "/integrations",
+    name: "Integrations",
+    links: [
+      {
+        href: "/integrations/vercel",
+        name: "Vercel",
+      },
+    ],
+  },
+  {
     href: "/faq",
     name: "FAQ",
   },
