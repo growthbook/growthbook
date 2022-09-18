@@ -115,20 +115,11 @@ export default abstract class SqlIntegration
   avg(col: string) {
     return `AVG(${col})`;
   }
-  sum(col: string) {
-    return `SUM(${col})`;
-  }
-  power(col: string, power: number) {
-    return `POWER(${col}, ${power})`;
-  }
   variance(col: string) {
-    return `VARIANCE(${col})`;
+    return `VAR_SAMP(${col})`;
   }
-  covariance(x: string, y: string) {
-    return `COVARIANCE(${x}, ${y})`;
-  }
-  sqrt(col: string) {
-    return `SQRT(${col})`;
+  covariance(y: string, x: string): string {
+    return `COVAR_SAMP(${y}, ${x})`;
   }
   formatDate(col: string): string {
     return col;
@@ -929,17 +920,17 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) as count,
           ${this.avg("m.value")} as m_mean,
-          ${this.power(this.avg("m.value"), 2)} as m_sq_mean
+          power(${this.avg("m.value")}, 2) as m_sq_mean
           ${this.variance("m.value")} as m_var,
-          ${this.sum("m.value")} as m_sum,
+          sum(m.value) as m_sum,
           ${this.stddev("m.value")} as m_sd
           ${
             isRatio
               ? `
             , ${this.avg("d.value")} as d_mean
-            , ${this.power(this.avg("d.value"), 2)} as d_sq_mean
+            , power(${this.avg("d.value")}, 2) as d_sq_mean
             , ${this.variance("d.value")} as d_var,
-            , ${this.sum("d.value")} as d_sum
+            , sum(d.value) as d_sum
             , ${this.covariance("m.value", "d.value")} as covar
           `
               : ""
@@ -1006,10 +997,8 @@ export default abstract class SqlIntegration
     // For ratio metrics (e.g. pages/session) the units are correlated.
     // We need to use the Delta method to get the correct variance
     if (isRatio) {
-      return this.sqrt(
-        `(m_var/m_sq_mean + d_var/d_sq_mean - 2*covar/(m_mean*d_mean))
-         * (m_sq_mean / (d_sq_mean*count))`
-      );
+      return `sqrt((m_var/m_sq_mean + d_var/d_sq_mean - 2*covar/(m_mean*d_mean))
+         * (m_sq_mean / (d_sq_mean*count)))`;
     }
     return "m_sd";
   }
