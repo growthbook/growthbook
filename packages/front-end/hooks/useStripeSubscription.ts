@@ -68,6 +68,7 @@ export default function useStripeSubscription() {
 
   return {
     freeSeats,
+    organization: data?.organization,
     quote: quote,
     planName,
     nextBillDate,
