@@ -1178,7 +1178,7 @@ export async function getAccessToken(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
 
   const accessToken = await getAccessTokenByOrgId(org.id);
-  return res.status(200).json({ status: 200, accessToken });
+  res.status(200).json({ status: 200, accessToken });
 }
 
 export async function postAccessToken(req: AuthRequest, res: Response) {
@@ -1189,16 +1189,17 @@ export async function postAccessToken(req: AuthRequest, res: Response) {
 
   if (accessToken === "string") throw new Error("Access token already exists");
 
-  const newAccessToken = encodeURIComponent(
-    crypto.randomBytes(128).toString("base64")
-  );
+  const newAccessToken = crypto
+    .randomBytes(128)
+    .toString("base64")
+    .replace(/[=/+]/g, "");
   await updateOrganization(org.id, { accessToken: newAccessToken });
-  return res.status(200).json({ status: 200 });
+  res.status(200).json({ status: 200 });
 }
 
 export async function deleteAccessToken(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
   const { org } = getOrgFromReq(req);
   await updateOrganization(org.id, { accessToken: undefined });
-  return res.status(200).json({ status: 200 });
+  res.status(200).json({ status: 200 });
 }

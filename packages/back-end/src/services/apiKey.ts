@@ -10,7 +10,7 @@ export async function createApiKey(
     "key_" +
     environment.substring(0, 4) +
     "_" +
-    encodeURIComponent(crypto.randomBytes(24).toString("base64"));
+    crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
 
   await ApiKeyModel.create({
     organization: orgId,

@@ -19,7 +19,7 @@ import { fireWebhook } from "../../services/features";
 import { AccessTokenRequest } from "../../types/AccessTokenRequest";
 
 export function getHealthCheck(req: AccessTokenRequest, res: Response) {
-  return res.status(200).json({
+  res.status(200).json({
     status: 200,
     healthy: true,
   });
@@ -32,7 +32,7 @@ export async function getFeatureApi(req: AccessTokenRequest, res: Response) {
   const feature = await getFeature(organization.id, featureId);
   if (!feature) throw new Error("Feature not found");
 
-  return res.status(200).json({
+  res.status(200).json({
     status: 200,
     feature,
   });
@@ -48,7 +48,7 @@ export async function listFeaturesApi(req: AccessTokenRequest, res: Response) {
 
   const features = await getAllFeatures(organization.id, project);
 
-  return res.status(200).json({
+  res.status(200).json({
     status: 200,
     features: features,
   });
@@ -75,7 +75,7 @@ export async function postFeatureApi(
     accessTokenReq: true,
   });
 
-  return res.status(200).json({
+  res.status(200).json({
     status: 200,
     feature: resultFeature,
   });
@@ -134,7 +134,7 @@ export async function deleteFeatureApi(req: AccessTokenRequest, res: Response) {
     accessTokenReq: true,
   });
 
-  return res.status(200).json({
+  res.status(200).json({
     status: 200,
     message: "Feature deleted successfully",
   });

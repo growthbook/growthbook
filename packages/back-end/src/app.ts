@@ -23,6 +23,7 @@ import compression from "compression";
 import fs from "fs";
 import path from "path";
 import { apiV1Router } from "./routers/api/v1";
+import { accessTokenRouter } from "./routers/access-tokens";
 
 // Controllers
 import * as authController from "./controllers/auth";
@@ -537,6 +538,9 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+
+// Access Tokens
+app.use("/access-token", accessTokenRouter);
 
 // API keys
 app.get("/keys", organizationsController.getApiKeys);

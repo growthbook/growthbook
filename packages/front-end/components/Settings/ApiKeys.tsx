@@ -25,7 +25,7 @@ const ApiKeys: FC = () => {
     data: hasAccessTokenData,
     error: hasAccessTokenError,
     mutate: hasAccessTokenMutate,
-  } = useApi<{ hasAccessToken: boolean }>(`/has-access-token`);
+  } = useApi<{ hasAccessToken: boolean }>(`/access-token/exists`);
 
   if (hasAccessTokenError) {
     return (
