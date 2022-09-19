@@ -920,18 +920,16 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) as count,
           ${this.avg("m.value")} as m_mean,
-          power(${this.avg("m.value")}, 2) as m_sq_mean
           ${this.variance("m.value")} as m_var,
           sum(m.value) as m_sum,
           ${this.stddev("m.value")} as m_sd
           ${
             isRatio
-              ? `
-            , ${this.avg("d.value")} as d_mean
-            , power(${this.avg("d.value")}, 2) as d_sq_mean
-            , ${this.variance("d.value")} as d_var,
-            , sum(d.value) as d_sum
-            , ${this.covariance("m.value", "d.value")} as covar
+              ? `,
+            ${this.avg("d.value")} as d_mean,
+            ${this.variance("d.value")} as d_var,
+            sum(d.value) as d_sum,
+            ${this.covariance("d.value", "m.value")} as covar
           `
               : ""
           }
@@ -945,8 +943,8 @@ export default abstract class SqlIntegration
               : `__userMetric m`
           }
         GROUP BY
-          variation,
-          dimension
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension
       )
       , __stats as (
         -- Calculate the stats for each variation
@@ -997,8 +995,11 @@ export default abstract class SqlIntegration
     // For ratio metrics (e.g. pages/session) the units are correlated.
     // We need to use the Delta method to get the correct variance
     if (isRatio) {
-      return `sqrt((m_var/m_sq_mean + d_var/d_sq_mean - 2*covar/(m_mean*d_mean))
-         * (m_sq_mean / (d_sq_mean*count)))`;
+      return `sqrt(
+        m_var/power(d_mean,2)
+        - 2*m_mean*covar/power(d_mean,3)
+        + power(m_mean,2)*d_var/power(d_mean,4)
+      )`;
     }
     return "m_sd";
   }
