@@ -133,11 +133,11 @@ const ExperimentsGetStarted = ({
             current={{}}
             edit={false}
             source="get-started"
-            onClose={(refresh) => {
+            onClose={() => {
               setMetricsOpen(false);
-              if (refresh) {
-                mutateDefinitions();
-              }
+            }}
+            onSuccess={() => {
+              mutateDefinitions();
             }}
           />
         )}

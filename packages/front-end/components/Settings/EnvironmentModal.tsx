@@ -52,6 +52,9 @@ export default function EnvironmentModal({
               "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
             );
           }
+          if (newEnvs.find((e) => e.id === value.id)) {
+            throw new Error("Environment id is already in use");
+          }
           newEnvs.push({
             id: value.id.toLowerCase(),
             description: value.description,

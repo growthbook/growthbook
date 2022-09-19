@@ -609,6 +609,7 @@ export default abstract class SqlIntegration
     );
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
+    const useAllExposures = experiment.attributionModel === "allExposures";
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
 
@@ -722,6 +723,31 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
+      ${
+        useAllExposures
+          ? `, __distinctConversions as (
+        -- One row per included metric conversion
+        SELECT
+          m.${baseIdType},  
+          m.conversion_start as ts,
+          m.value
+        FROM
+          __metric m
+          JOIN ${
+            denominatorMetrics.length > 0
+              ? "__denominatorUsers"
+              : dimension?.type !== "activation" && activationMetrics.length > 0
+              ? "__activatedUsers"
+              : "__experiment"
+          } u ON (u.${baseIdType} = m.${baseIdType})
+        WHERE
+          m.conversion_start >= u.conversion_start
+          AND m.conversion_start <= u.conversion_end
+        GROUP BY
+          m.${baseIdType}, m.conversion_start, m.value
+      )`
+          : ""
+      }
       , __distinctUsers as (
         -- One row per user/dimension${
           removeMultipleExposures ? "" : "/variation"
@@ -789,12 +815,16 @@ export default abstract class SqlIntegration
           ${aggregate} as value
         FROM
           __distinctUsers d
-          JOIN __metric m ON (
+          JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
             m.${baseIdType} = d.${baseIdType}
           )
-          WHERE
-            m.conversion_start >= d.conversion_start
-            AND m.conversion_start <= d.conversion_end
+        ${
+          useAllExposures
+            ? ""
+            : `WHERE
+          m.conversion_start >= d.conversion_start
+          AND m.conversion_start <= d.conversion_end`
+        }
         GROUP BY
           variation, dimension, d.${baseIdType}
       )
@@ -825,16 +855,16 @@ export default abstract class SqlIntegration
           dimension
       )
     SELECT
-      s.variation,
-      s.dimension,
+      u.variation,
+      u.dimension,
       s.count,
       s.mean,
       s.stddev,
       u.users
     FROM
-      __stats s
-      JOIN __overallUsers u ON (
-        s.variation = u.variation 
+      __overallUsers u
+      LEFT JOIN __stats s ON (
+        s.variation = u.variation
         AND s.dimension = u.dimension
       )
     `

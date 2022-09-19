@@ -100,6 +100,43 @@ The packages are available at the following urls with hot-reloading:
 - Front-end: http://localhost:3000
 - Back-end: http://localhost:3100
 
+#### Accessing the MongoDB database
+
+GrowthBook uses MongoDB as a primary data store, and while working on the code it may be necessary to access the database directly. [MongoDB Compass](https://www.mongodb.com/products/compass) is the easiest way, but you can also use the [mongosh shell](https://www.mongodb.com/docs/mongodb-shell/).
+
+##### MongoDB Compass
+
+To access MongoDB with the MongoDB Compass GUI, you can do the following after opening MongoDB Compass:
+
+1. In the menu bar, click **Connect** and choose **New Connection**
+2. Paste the connection string you configured in your `.env.local` here
+3. Press **Connect**
+
+At this point you should be connected to MongoDB and see your databases. Click into the desired database, e.g. `growthbook`, to view your collections.
+
+##### Mongo Shell
+
+To access MongoDB with the `mongosh` shell, run the following command:
+
+```sh
+docker exec -it mongo bash
+```
+
+Alternatively, if you are using Docker Desktop, you can click the CLI button to execute the shell for the Mongo container.
+
+Then login as the user of the database. If your user is `root`:
+
+```sh
+mongosh -u root
+```
+
+###### mongosh Commands
+
+- `show dbs` should show you the databases in Mongo
+- `use <databasename>` will allow you to change to the right database. By default, you may be in another database and may need to call `use growthbook`
+- `show collections` should show you the collections for the database you are using. This will throw an error if you are not logged in as the correct user.
+- `db` is available and you should be able to run queries against it, e.g. `db.users.find()`
+
 ### Working on docs
 
 To start the docs site, run `yarn workspace docs dev`. You can view the site at http://localhost:3200
@@ -108,7 +145,7 @@ To start the docs site, run `yarn workspace docs dev`. You can view the site at 
 
 To work on the SDKs, `cd` into the desired directory and the following commands are available:
 
-- `yarn test` - Run just
+- `yarn test` - Run Jest
 - `yarn build` - Run the rollup build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
@@ -116,7 +153,7 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 
 To work on the Python stats engine, `cd` into the `packages/stats` directory and the following commands are available:
 
-- `yarn test` - Run pytest
+- `. $(cd packages/stats && poetry env info --path)/bin/activate && yarn test` - Run pytest
 - `yarn lint` - Run flake8 and black
 - `poetry build` - Run the build process
 

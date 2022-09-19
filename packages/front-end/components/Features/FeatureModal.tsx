@@ -29,10 +29,14 @@ import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useEnvironments } from "../../services/features";
 import { useWatching } from "../../services/WatchProvider";
+import { ReactElement } from "react";
 
 export type Props = {
-  close: () => void;
+  close?: () => void;
   onSuccess: (feature: FeatureInterface) => Promise<void>;
+  inline?: boolean;
+  cta?: string;
+  secondaryCTA?: ReactElement;
 };
 
 function parseDefaultValue(
@@ -55,7 +59,13 @@ function parseDefaultValue(
   }
 }
 
-export default function FeatureModal({ close, onSuccess }: Props) {
+export default function FeatureModal({
+  close,
+  onSuccess,
+  inline,
+  cta = "Create",
+  secondaryCTA,
+}: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
 
@@ -98,11 +108,13 @@ export default function FeatureModal({ close, onSuccess }: Props) {
 
   return (
     <Modal
-      open={true}
+      inline={inline}
       size="lg"
+      open={true}
       header="Create Feature"
-      cta="Create"
+      cta={cta}
       close={close}
+      secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { rule, defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;
@@ -337,6 +349,12 @@ export default function FeatureModal({ close, onSuccess }: Props) {
             }}
             label="Percent of users to include"
           />
+          <ConditionInput
+            defaultValue={rule?.condition}
+            onChange={(cond) => {
+              form.setValue("rule.condition", cond);
+            }}
+          />
           <FeatureValueField
             label={"Value when included"}
             id="ruleValue"
@@ -390,6 +408,12 @@ export default function FeatureModal({ close, onSuccess }: Props) {
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => s.property)}
             helpText="Will be hashed together with the Tracking Key to pick a value"
+          />
+          <ConditionInput
+            defaultValue={rule?.condition}
+            onChange={(cond) => {
+              form.setValue("rule.condition", cond);
+            }}
           />
           <VariationsInput
             coverage={form.watch("rule.coverage")}
