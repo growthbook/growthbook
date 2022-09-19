@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
-import { useAuth } from "../../services/auth";
+import { redirectWithTimeout, useAuth } from "../../services/auth";
 import track from "../../services/track";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip";
@@ -60,12 +60,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           subtotal: quote?.subtotal,
           total: quote?.total,
         });
-        window.location.href = resp.session.url;
-        // Stay in a "loading" state to give the redirect time to finish
-        // If it's not done within 5 seconds, let them try to click again
-        await new Promise((resolve) => {
-          setTimeout(resolve, 5000);
-        });
+        await redirectWithTimeout(resp.session.url);
       } else {
         setError("Failed to start checkout");
       }

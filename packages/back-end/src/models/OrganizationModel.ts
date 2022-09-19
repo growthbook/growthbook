@@ -8,13 +8,10 @@ const organizationSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  dateCreated: Date,
   url: String,
   name: String,
   ownerEmail: String,
-  claimedDomain: {
-    type: String,
-    index: true,
-  },
   restrictLoginMethod: String,
   members: [
     {
@@ -53,6 +50,11 @@ const organizationSchema = new mongoose.Schema({
     slack: {
       team: String,
       token: String,
+    },
+    vercel: {
+      token: String,
+      configurationId: String,
+      teamId: String,
     },
   },
   settings: {},
@@ -120,6 +122,7 @@ export async function createOrganization(
       },
     ],
     id: uniqid("org_"),
+    dateCreated: new Date(),
     settings: {
       environments: [
         {
@@ -219,12 +222,4 @@ export async function getOrganizationsWithNorthStars() {
     },
   });
   return withNorthStars.map(toInterface);
-}
-
-export async function findOrganizationByClaimedDomain(domain: string) {
-  if (!domain) return null;
-  const doc = await OrganizationModel.findOne({
-    claimedDomain: domain,
-  });
-  return doc ? toInterface(doc) : null;
 }
