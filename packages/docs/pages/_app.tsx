@@ -27,8 +27,12 @@ const navLinks = [
     name: "Self-Host",
     links: [
       {
+        href: "/self-host/env",
+        name: "Environment Variables",
+      },
+      {
         href: "/self-host/config",
-        name: "Configuration",
+        name: "Config.yml",
       },
     ],
   },
@@ -148,6 +152,16 @@ const navLinks = [
       {
         href: "/lib/build-your-own",
         name: "Build Your Own",
+      },
+    ],
+  },
+  {
+    href: "/integrations",
+    name: "Integrations",
+    links: [
+      {
+        href: "/integrations/vercel",
+        name: "Vercel",
       },
     ],
   },

@@ -1,13 +1,15 @@
 import {
+  createOrganization,
+  findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
   updateOrganization,
 } from "../models/OrganizationModel";
 import { randomBytes } from "crypto";
-import { APP_ORIGIN } from "../util/secrets";
+import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
-import { isEmailEnabled, sendInviteEmail } from "./email";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import {
   MemberRole,
   OrganizationInterface,
@@ -40,6 +42,8 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { updateSubscriptionInStripe } from "./stripe";
+import { markInstalled } from "./auth";
+import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -272,6 +276,19 @@ export async function addMemberToOrg(
   ];
 
   await updateOrganization(org.id, { members });
+
+  // Update Stripe subscription if org has subscription
+  if (org.subscription?.id) {
+    // Get the updated organization
+    const updatedOrganization = await getOrganizationById(org.id);
+
+    if (updatedOrganization?.subscription) {
+      await updateSubscriptionInStripe(
+        updatedOrganization.subscription.id,
+        getNumberOfMembersAndInvites(updatedOrganization)
+      );
+    }
+  }
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -604,26 +621,6 @@ export async function importConfig(
   }
 }
 
-export function validateLogin(
-  req: AuthRequest,
-  organization: OrganizationInterface
-): void {
-  // If an organization restricts the login method, make sure it matches
-  if (
-    organization.restrictLoginMethod &&
-    req.loginMethod !== organization.restrictLoginMethod
-  ) {
-    throw new Error(
-      `Invalid login method. Expected '${organization.restrictLoginMethod}', received '${req.loginMethod}'.`
-    );
-  }
-
-  // If the organization has a claimed domain, require all email logins to be verified
-  if (organization.claimedDomain && !req.verified) {
-    throw new Error("You must validate your email address before logging in.");
-  }
-}
-
 export async function getEmailFromUserId(userId: string) {
   const u = await UserModel.findOne({ id: userId });
   return u?.email || "";
@@ -684,4 +681,79 @@ export async function getExperimentOverrides(
   });
 
   return { overrides, expIdMapping };
+}
+
+export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
+  if (!connection) return false;
+  // When self-hosting, SSO is always enterprise
+  if (!IS_CLOUD) return true;
+
+  // On cloud, the default SSO (Auth0) does not have a connection id
+  if (!connection.id) return false;
+
+  return true;
+}
+
+// Auto-add user to an organization if using Enterprise SSO
+export async function addMemberFromSSOConnection(
+  req: AuthRequest
+): Promise<OrganizationInterface | null> {
+  if (!req.userId) return null;
+
+  const ssoConnection = req.loginMethod;
+  if (!ssoConnection || !ssoConnection.emailDomain) return null;
+
+  // Check if the user's email domain is allowed by the SSO connection
+  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+  if (emailDomain !== ssoConnection.emailDomain) {
+    return null;
+  }
+
+  let organization: null | OrganizationInterface = null;
+  // On Cloud, we need to get the organization from the SSO connection
+  if (IS_CLOUD) {
+    if (!ssoConnection.organization) {
+      return null;
+    }
+    organization = await getOrganizationById(ssoConnection.organization);
+  }
+  // When self-hosting, there should be only one organization in Mongo
+  else {
+    const orgs = await findAllOrganizations();
+    // Sanity check in case there are multiple orgs for whatever reason
+    if (orgs.length > 1) {
+      console.error(
+        "Expected a single organization for self-hosted GrowthBook"
+      );
+      return null;
+    }
+    // If this is a brand-new installation, create an organization first
+    else if (!orgs.length) {
+      organization = await createOrganization(
+        req.email,
+        req.userId,
+        "My Organization",
+        ""
+      );
+      markInstalled();
+      return organization;
+    }
+
+    organization = orgs[0];
+  }
+  if (!organization) return null;
+
+  await addMemberToOrg(organization, req.userId);
+  try {
+    await sendNewMemberEmail(
+      req.name || "",
+      req.email || "",
+      organization.name,
+      organization.ownerEmail
+    );
+  } catch (e) {
+    console.error("Failed to send new member email", e.message);
+  }
+
+  return organization;
 }

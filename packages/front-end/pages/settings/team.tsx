@@ -3,16 +3,14 @@ import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import InviteList from "../../components/Settings/InviteList";
-import MemberList, { MemberInfo } from "../../components/Settings/MemberList";
-import useApi from "../../hooks/useApi";
+import MemberList from "../../components/Settings/MemberList";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
-import { OrganizationInterface } from "back-end/types/organization";
+import SSOSettings from "../../components/Settings/SSOSettings";
+import { useAdminSettings } from "../../hooks/useAdminSettings";
 
 const TeamPage: FC = () => {
-  const { data, error, mutate } = useApi<{
-    organization: OrganizationInterface & { members: MemberInfo[] };
-  }>(`/organization`);
+  const { data, error, refresh: mutate } = useAdminSettings();
 
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -44,15 +42,13 @@ const TeamPage: FC = () => {
   }, [checkoutSessionId]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <div className="alert alert-danger">An error occurred: {error}</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
   }
+
+  const ssoConnection = data?.enterpriseSSO;
 
   return (
     <div className="container-fluid pagecontents">
@@ -69,6 +65,7 @@ const TeamPage: FC = () => {
           <div>You can now invite more team members to your account.</div>
         </div>
       )}
+      <SSOSettings ssoConnection={ssoConnection} />
       <h1>Team Members</h1>
       <MemberList members={data.organization.members} mutate={mutate} />
       {data.organization.invites.length > 0 ? (

@@ -9,7 +9,6 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
-    "@auth0/auth0-spa-js": "^1.9.0",
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
     "@growthbook/growthbook-react": "^0.9.0",
@@ -44,7 +43,7 @@
     "markdown-it": "^11.0.0",
     "markdown-it-sanitizer": "^0.4.3",
     "md5": "^2.3.0",
-    "next": "12",
+    "next": "12.2.5",
     "react": "^18.2.0",
     "react-ace": "^10.1.0",
     "react-beautiful-dnd": "^13.1.0",

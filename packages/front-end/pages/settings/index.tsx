@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { useAuth } from "../../services/auth";
 import { FaPencilAlt } from "react-icons/fa";
@@ -10,19 +9,16 @@ import track from "../../services/track";
 import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "../../services/env";
-import {
-  OrganizationInterface,
-  OrganizationSettings,
-} from "back-end/types/organization";
+import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import Field from "../../components/Forms/Field";
 import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
-import { ApiKeyInterface } from "back-end/types/apikey";
 import { DocLink } from "../../components/DocLink";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import { useAdminSettings } from "../../hooks/useAdminSettings";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -34,10 +30,7 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { data, error, mutate } = useApi<{
-    organization: OrganizationInterface;
-    apiKeys: ApiKeyInterface[];
-  }>(`/organization`);
+  const { data, error, refresh: mutate } = useAdminSettings();
 
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
@@ -138,11 +131,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   }, [data?.organization?.settings]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <div className="alert alert-danger">An error occurred: {error}</div>;
   }
   if (!data) {
     return <LoadingOverlay />;

@@ -1,21 +1,14 @@
 import { useFeature } from "@growthbook/growthbook-react";
-import {
-  OrganizationInterface,
-  SubscriptionQuote,
-} from "back-end/types/organization";
+import { SubscriptionQuote } from "back-end/types/organization";
+import { useEffect, useState } from "react";
+import { useAuth } from "../services/auth";
 import { getValidDate } from "../services/dates";
 import { isCloud } from "../services/env";
-import useApi from "./useApi";
+import { useAdminSettings } from "./useAdminSettings";
+import usePermissions from "./usePermissions";
 
 export default function useStripeSubscription() {
-  const { data } = useApi<{
-    organization: OrganizationInterface;
-  }>(`/organization`);
-
-  const { data: quoteData } = useApi<{
-    quote: SubscriptionQuote;
-  }>(`/subscription/quote`);
-
+  const { data } = useAdminSettings();
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
   const showSeatOverageBanner = useFeature(
     "self-serve-billing-overage-warning-banner"
@@ -23,7 +16,22 @@ export default function useStripeSubscription() {
 
   const freeSeats = data?.organization?.freeSeats || 3;
 
-  const activeAndInvitedUsers = quoteData?.quote?.qty || 0;
+  const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
+
+  const { apiCall } = useAuth();
+  const permissions = usePermissions();
+  useEffect(() => {
+    if (!permissions.organizationSettings) return;
+    if (!isCloud()) return;
+
+    apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
+      .then((data) => {
+        setQuote(data.quote);
+      })
+      .catch((e) => console.error(e));
+  }, [freeSeats, isCloud(), permissions.organizationSettings]);
+
+  const activeAndInvitedUsers = quote?.qty || 0;
 
   const subscriptionStatus = data?.organization?.subscription?.status;
 
@@ -60,7 +68,7 @@ export default function useStripeSubscription() {
 
   return {
     freeSeats,
-    quote: quoteData?.quote,
+    quote: quote,
     planName,
     nextBillDate,
     dateToBeCanceled,
@@ -71,7 +79,7 @@ export default function useStripeSubscription() {
     hasActiveSubscription,
     trialEnd: trialEnd as null | Date,
     showSeatOverageBanner,
-    loading: !quoteData || !data,
+    loading: !quote || !data,
     canSubscribe:
       isCloud() &&
       !disableSelfServeBilling &&
