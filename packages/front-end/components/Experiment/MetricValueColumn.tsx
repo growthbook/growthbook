@@ -42,7 +42,9 @@ export default function MetricValueColumn({
                   )}
                 </span>{" "}
                 /&nbsp;
-                {numberFormatter.format(stats.users || users)}
+                {numberFormatter.format(
+                  stats.stats?.count || stats.users || users
+                )}
               </em>
             </small>
           </div>

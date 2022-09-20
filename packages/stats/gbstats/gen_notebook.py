@@ -1,4 +1,4 @@
-from .gbstats import (
+from packages.stats.gbstats.gbstats import (
     detect_unknown_variations,
     analyze_metric_df,
     get_metric_df,
@@ -102,7 +102,6 @@ def create_notebook(
         cells.append(nbf.new_markdown_cell("### Data Quality Checks / Preparation"))
 
         type = metric["type"]
-        ignore_nulls = metric["ignore_nulls"]
         inverse = metric["inverse"]
 
         unknown_var_ids = detect_unknown_variations(metric["rows"], var_id_map)
@@ -124,8 +123,6 @@ def create_notebook(
             rows=metric["rows"],
             var_id_map=var_id_map,
             var_names=var_names,
-            ignore_nulls=ignore_nulls,
-            type=type,
         )
         cells.append(
             code_cell_df(
@@ -136,8 +133,6 @@ def create_notebook(
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map,\n"
                     f"    var_names=var_names,\n"
-                    f"    ignore_nulls={ignore_nulls},\n"
-                    f'    type="{type}"\n'
                     f")\n"
                     f"display(m{i})"
                 ),

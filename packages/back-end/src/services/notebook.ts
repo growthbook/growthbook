@@ -117,7 +117,6 @@ export async function generateNotebook(
           name: metric.name,
           sql: q.query,
           inverse: !!metric.inverse,
-          ignore_nulls: !!metric.ignoreNulls,
           type: metric.type,
         };
       })
@@ -146,7 +145,6 @@ for metric in data['metrics']:
         'name': metric['name'],
         'sql': metric['sql'],
         'inverse': metric['inverse'],
-        'ignore_nulls': metric['ignore_nulls'],
         'type': metric['type']
     })
 

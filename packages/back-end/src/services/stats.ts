@@ -79,7 +79,6 @@ data = json.loads("""${JSON.stringify({
       var_names: variations.map((v) => v.name),
       weights: variations.map((v) => v.weight),
       type: metric.type,
-      ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions: maxDimensions,
       rows,
@@ -87,7 +86,6 @@ data = json.loads("""${JSON.stringify({
 
 var_id_map = data['var_id_map']
 var_names = data['var_names']
-ignore_nulls = data['ignore_nulls']
 inverse = data['inverse']
 type = data['type']
 weights = data['weights']
@@ -104,8 +102,6 @@ df = get_metric_df(
   rows=rows,
   var_id_map=var_id_map,
   var_names=var_names,
-  ignore_nulls=ignore_nulls,
-  type=type,
 )
 
 reduced = reduce_dimensionality(

@@ -86,11 +86,12 @@ const ManualSnapshotForm: FC<{
       const m = getMetricById(key);
       ret[key] = values.metrics[key].map((v, i) => {
         if (m.type === "binomial") {
+          const p = v.count / values.users[i];
           return {
             users: values.users[i],
-            count: v.count,
-            mean: 1,
-            stddev: 1,
+            count: values.users[i],
+            mean: p,
+            stddev: Math.sqrt(p * (1 - p)),
           };
         } else if (m.type === "count") {
           return {
@@ -102,7 +103,7 @@ const ManualSnapshotForm: FC<{
         } else if (m.type === "revenue") {
           return {
             users: values.users[i],
-            count: v.count,
+            count: values.users[i],
             mean: v.mean,
             stddev: v.stddev,
           };

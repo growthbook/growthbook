@@ -130,6 +130,9 @@ export default abstract class SqlIntegration
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
   }
+  castIntToFloat(col: string): string {
+    return col;
+  }
   castUserDateCol(column: string): string {
     return column;
   }
@@ -666,17 +669,6 @@ export default abstract class SqlIntegration
         endDate: metricEnd,
       })})
       ${
-        isRatio
-          ? `, __denominator as (${this.getMetricCTE({
-              metric: denominator,
-              baseIdType,
-              idJoinMap,
-              startDate: metricStart,
-              endDate: metricEnd,
-            })})`
-          : ""
-      }
-      ${
         segment
           ? `, __segment as (${this.getSegmentCTE(
               segment,
@@ -781,7 +773,7 @@ export default abstract class SqlIntegration
           m.timestamp as ts,
           m.value
         FROM
-          __denominator m
+          __denominator${denominatorMetrics.length - 1} m
           JOIN __denominatorUsers u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
           m.timestamp >= u.conversion_start
@@ -863,7 +855,9 @@ export default abstract class SqlIntegration
         FROM
           __distinctUsers d
           JOIN ${
-            useAllExposures ? "__distinctDenominator" : "__denominator"
+            useAllExposures
+              ? "__distinctDenominator"
+              : `__denominator${denominatorMetrics.length - 1}`
           } m ON (
             m.${baseIdType} = d.${baseIdType}
           )
@@ -918,17 +912,17 @@ export default abstract class SqlIntegration
         SELECT
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
-          COUNT(*) as count,
+          ${this.castIntToFloat("COUNT(*)")} as count,
           ${this.avg("m.value")} as m_mean,
           ${this.variance("m.value")} as m_var,
-          sum(m.value) as m_sum,
+          ${this.castIntToFloat("sum(m.value)")} as m_sum,
           ${this.stddev("m.value")} as m_sd
           ${
             isRatio
               ? `,
             ${this.avg("d.value")} as d_mean,
             ${this.variance("d.value")} as d_var,
-            sum(d.value) as d_sum,
+            ${this.castIntToFloat("sum(d.value)")} as d_sum,
             ${this.covariance("d.value", "m.value")} as covar
           `
               : ""
@@ -951,18 +945,18 @@ export default abstract class SqlIntegration
         SELECT
           variation,
           dimension,
-          count,
-          ${this.getMetricMean(isRatio)} as mean,
-          ${this.getMetricStdDev(isRatio)} as stddev
+          ${this.getVariationCount(isRatio)} as count,
+          ${this.getVariationMean(isRatio)} as mean,
+          ${this.getVariationStddev(isRatio)} as stddev
         FROM
           __variations
       )
     SELECT
       u.variation,
       u.dimension,
-      s.count,
-      s.mean,
-      s.stddev,
+      ${this.getOverallCount(isRatio, metric)} as count,
+      ${this.getOverallMean(isRatio, metric)} as mean,
+      ${this.getOverallStddev(isRatio, metric)} as stddev,
       u.users
     FROM
       __overallUsers u
@@ -984,22 +978,66 @@ export default abstract class SqlIntegration
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }
 
-  private getMetricMean(isRatio: boolean) {
+  private getOverallCount(isRatio: boolean, metric: MetricInterface) {
+    if (isRatio || metric.ignoreNulls) {
+      return `s.count`;
+    }
+    return `u.users`;
+  }
+  private getOverallMean(isRatio: boolean, metric: MetricInterface) {
+    // For these metrics, the mean was already calculated correctly for the variation
+    if (isRatio || metric.ignoreNulls) {
+      return `s.mean`;
+    }
+    // For everything else, s.mean only considered converted users.
+    // We need to adjust to include all users
+    return `s.mean * s.count / u.users`;
+  }
+  private getOverallStddev(isRatio: boolean, metric: MetricInterface) {
+    // Normal approximation for a bernouli random variable
+    if (metric.type === "binomial") {
+      return `sqrt((s.count/u.users)*(1-s.count/u.users))`;
+    }
+    // For these metrics, we already calculated stddev correctly for the variation
+    if (isRatio || metric.ignoreNulls) {
+      return `s.stddev`;
+    }
+    // For all other metrics, s.stddev only considers converted users.
+    // Need to adjust it to include all users (non-converted have a mean/stddev of 0)
+    return this.ifElse(
+      "u.users>1",
+      `sqrt(
+        (s.count-1)*power(s.stddev,2)/(u.users-1)
+        + s.count*(u.users-s.count)*power(s.mean,2)/(u.users*(u.users-1))
+      )`,
+      "0"
+    );
+  }
+  private getVariationCount(isRatio: boolean) {
     if (isRatio) {
-      return `m_sum / d_sum`;
+      return `d_sum`;
+    }
+    return `count`;
+  }
+  private getVariationMean(isRatio: boolean) {
+    if (isRatio) {
+      return this.ifElse("d_sum>0", `m_sum / d_sum`, "0");
     }
     return `m_mean`;
   }
-
-  private getMetricStdDev(isRatio: boolean) {
+  private getVariationStddev(isRatio: boolean) {
     // For ratio metrics (e.g. pages/session) the units are correlated.
     // We need to use the Delta method to get the correct variance
     if (isRatio) {
-      return `sqrt(
+      return this.ifElse(
+        "d_mean>0",
+        `sqrt(
         m_var/power(d_mean,2)
         - 2*m_mean*covar/power(d_mean,3)
         + power(m_mean,2)*d_var/power(d_mean,4)
-      )`;
+      )`,
+        "0"
+      );
     }
     return "m_sd";
   }
