@@ -1,15 +1,8 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useState } from "react";
-import {
-  FaAngleLeft,
-  FaCloudDownloadAlt,
-  FaCode,
-  FaExternalLinkAlt,
-  FaKey,
-} from "react-icons/fa";
+import { FaAngleLeft, FaCode, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
-import Button from "../../components/Button";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
@@ -64,7 +57,6 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
-  const supportsImports = d.properties?.pastExperiments;
 
   const joinTables = (d.settings?.queries?.identityJoins || []).filter(
     (j) => j.query.length > 1
@@ -106,7 +98,7 @@ const DataSourcePage: FC = () => {
       </div>
 
       <div className="row">
-        <div className="col-md-9">
+        <div className="col-md-12">
           <div className="row mb-3">
             {canEdit && permissions.createDatasources && (
               <div className="col-auto">
@@ -317,40 +309,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </div>
             </>
           )}
-        </div>
-        <div className="col-md-3">
-          {supportsImports &&
-            permissions.runQueries &&
-            permissions.createAnalyses && (
-              <div className="card">
-                <div className="card-body">
-                  <h2>Import Past Experiments</h2>
-                  <p>
-                    If you have past experiments already in your data source,
-                    you can import them to GrowthBook.
-                  </p>
-                  <Button
-                    color="outline-primary"
-                    onClick={async () => {
-                      const res = await apiCall<{ id: string }>(
-                        "/experiments/import",
-                        {
-                          method: "POST",
-                          body: JSON.stringify({
-                            datasource: d.id,
-                          }),
-                        }
-                      );
-                      if (res.id) {
-                        await router.push(`/experiments/import/${res.id}`);
-                      }
-                    }}
-                  >
-                    <FaCloudDownloadAlt /> Import
-                  </Button>
-                </div>
-              </div>
-            )}
         </div>
       </div>
 
