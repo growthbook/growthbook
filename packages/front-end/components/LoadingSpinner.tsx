@@ -3,5 +3,5 @@ import { FaSpinner } from "react-icons/fa";
 import styles from "./LoadingSpinner.module.scss";
 
 export default function LoadingSpinner(): React.ReactElement {
-  return <FaSpinner className={`${styles.spin} mr-3`} />;
+  return <FaSpinner className={`${styles.spin}`} />;
 }

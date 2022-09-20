@@ -18,12 +18,13 @@ import clsx from "clsx";
 import styles from "./TopNav.module.scss";
 import { useRouter } from "next/router";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import { isCloud } from "../../services/env";
+import { isCloud, usingSSO } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "../Settings/UpgradeModal";
+import Tooltip from "../Tooltip";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -50,7 +51,7 @@ const TopNav: FC<{
     hasActiveSubscription,
   } = useStripeSubscription();
 
-  const { name, email, update, permissions, role } = useUser();
+  const { name, email, update, permissions, role, licence } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -143,10 +144,11 @@ const TopNav: FC<{
         {showNotices && (
           <>
             {permissions.organizationSettings &&
+              isCloud() &&
               subscriptionStatus === "trialing" &&
               trialRemaining >= 0 && (
                 <button
-                  className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block"
+                  className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
                   onClick={(e) => {
                     e.preventDefault();
                     router.push("/settings/billing");
@@ -158,9 +160,10 @@ const TopNav: FC<{
                 </button>
               )}
             {permissions.organizationSettings &&
+              isCloud() &&
               subscriptionStatus === "past_due" && (
                 <button
-                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
+                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
                   onClick={(e) => {
                     e.preventDefault();
                     router.push("/settings/billing");
@@ -174,7 +177,7 @@ const TopNav: FC<{
               permissions.organizationSettings &&
               activeAndInvitedUsers > freeSeats && (
                 <button
-                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
+                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
                   onClick={async (e) => {
                     e.preventDefault();
                     setUpgradeModal(true);
@@ -184,9 +187,53 @@ const TopNav: FC<{
                 </button>
               )}
 
-            {hasActiveSubscription && (
+            {licence &&
+              permissions.organizationSettings &&
+              licence.eat < new Date().toISOString().substring(0, 10) && (
+                <Tooltip
+                  body={
+                    <>
+                      Your licence expired on <strong>{licence.eat}</strong>.
+                      Contact sales@growthbook.io to renew.
+                    </>
+                  }
+                >
+                  <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
+                    <FaExclamationTriangle /> licence expired
+                  </div>
+                </Tooltip>
+              )}
+
+            {licence &&
+              permissions.organizationSettings &&
+              activeAndInvitedUsers > licence.qty && (
+                <Tooltip
+                  body={
+                    <>
+                      Your licence is valid for{" "}
+                      <strong>{licence.qty} seats</strong>, but you are
+                      currently using <strong>{activeAndInvitedUsers}</strong>.
+                      Contact sales@growthbook.io to extend your quota.
+                    </>
+                  }
+                >
+                  <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
+                    <FaExclamationTriangle /> licence quota exceded
+                  </div>
+                </Tooltip>
+              )}
+
+            {hasActiveSubscription && isCloud() && (
               <div className="ml-2">
-                <span className="badge badge-pill badge-dark">PRO</span>
+                <span className="badge badge-pill badge-dark mr-1">PRO</span>
+              </div>
+            )}
+
+            {licence && (
+              <div className="ml-2">
+                <span className="badge badge-pill badge-dark mr-1">
+                  ENTERPRISE
+                </span>
               </div>
             )}
 
@@ -294,7 +341,7 @@ const TopNav: FC<{
               Edit Profile
             </button>
             <div className="dropdown-divider"></div>
-            {!isCloud() && (
+            {!usingSSO() && (
               <>
                 <button
                   className="dropdown-item"

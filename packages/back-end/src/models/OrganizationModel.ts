@@ -8,13 +8,10 @@ const organizationSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  dateCreated: Date,
   url: String,
   name: String,
   ownerEmail: String,
-  claimedDomain: {
-    type: String,
-    index: true,
-  },
   restrictLoginMethod: String,
   members: [
     {
@@ -53,6 +50,11 @@ const organizationSchema = new mongoose.Schema({
     slack: {
       team: String,
       token: String,
+    },
+    vercel: {
+      token: String,
+      configurationId: String,
+      teamId: String,
     },
   },
   settings: {},
@@ -121,6 +123,7 @@ export async function createOrganization(
       },
     ],
     id: uniqid("org_"),
+    dateCreated: new Date(),
     settings: {
       environments: [
         {
@@ -235,7 +238,7 @@ export async function getAccessTokenByOrgId(orgId: string) {
   return doc ? doc.accessToken : null;
 }
 
-export async function getOrgByAcccessToken(accessToken: string) {
+export async function getOrgByAccessToken(accessToken: string) {
   if (!accessToken) return null;
   const doc = await OrganizationModel.findOne({ accessToken });
   return doc ? toInterface(doc) : null;

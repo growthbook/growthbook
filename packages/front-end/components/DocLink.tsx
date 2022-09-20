@@ -29,8 +29,8 @@ const docSections = {
   //Other
   user_guide: "/app",
   config: "/self-host/config",
-  config_yml: "/self-host/config#configyml",
-  config_domains_and_ports: "/self-host/config#domains-and-ports",
+  config_yml: "/self-host/config",
+  config_domains_and_ports: "/self-host/env#domains-and-ports",
   config_organization_settings: "/self-host/config#organization-settings",
   visual_editor: "/app/visual",
 };

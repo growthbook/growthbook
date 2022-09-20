@@ -118,10 +118,26 @@ export interface SubscriptionQuote {
   additionalSeatPrice: number;
 }
 
+export interface OrganizationConnections {
+  slack?: SlackConnection;
+  vercel?: VercelConnection;
+}
+
+export interface SlackConnection {
+  team: string;
+  token: string;
+}
+
+export interface VercelConnection {
+  token: string;
+  configurationId: string;
+  teamId: string | null;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
-  claimedDomain?: string;
+  dateCreated: Date;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -144,12 +160,8 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
-  connections?: {
-    slack?: {
-      team: string;
-      token: string;
-    };
-  };
+
+  connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   accessToken?: string;
 }
@@ -164,3 +176,11 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type LicenceData = {
+  ref: string;
+  sub: string;
+  qty: number;
+  iat: string;
+  eat: string;
+};

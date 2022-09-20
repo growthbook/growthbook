@@ -8,6 +8,8 @@ import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import { FaQuestionCircle } from "react-icons/fa";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -50,6 +52,7 @@ const AnalysisForm: FC<{
       removeMultipleExposures: experiment.removeMultipleExposures
         ? "remove"
         : "keep",
+      attributionModel: experiment.attributionModel || "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
@@ -287,6 +290,26 @@ const AnalysisForm: FC<{
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label={
+            <AttributionModelTooltip>
+              <strong>Attribution Model</strong> <FaQuestionCircle />
+            </AttributionModelTooltip>
+          }
+          {...form.register("attributionModel")}
+          options={[
+            {
+              display: "First Exposure",
+              value: "firstExposure",
+            },
+            {
+              display: "All Exposures",
+              value: "allExposures",
+            },
+          ]}
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
