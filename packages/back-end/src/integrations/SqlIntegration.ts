@@ -341,7 +341,7 @@ export default abstract class SqlIntegration
             __metric m
             ${
               params.segment
-                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
+                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                 : ""
             }
           GROUP BY
@@ -361,17 +361,17 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("m.conversion_start")} as date,
+              ${this.dateTrunc("m.timestamp")} as date,
               ${aggregate} as value
             FROM
               __metric m
               ${
                 params.segment
-                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
+                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                   : ""
               }
             GROUP BY
-              ${this.dateTrunc("m.conversion_start")},
+              ${this.dateTrunc("m.timestamp")},
               m.${baseIdType}
           )
           , __byDateOverall as (
@@ -503,8 +503,8 @@ export default abstract class SqlIntegration
             const prevAlias = i ? `t${i - 1}` : "initial";
             const alias = `t${i}`;
             return `
-              ${alias}.conversion_start >= ${prevAlias}.conversion_start
-              AND ${alias}.conversion_start <= ${prevAlias}.conversion_end`;
+              ${alias}.timestamp >= ${prevAlias}.conversion_start
+              AND ${alias}.timestamp <= ${prevAlias}.conversion_end`;
           })
           .join("\n AND ")}`;
   }
@@ -526,7 +526,7 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "user") {
       return "d.value";
     } else if (dimension.type === "date") {
-      return this.formatDate(this.dateTrunc("e.conversion_start"));
+      return this.formatDate(this.dateTrunc("e.timestamp"));
     } else if (dimension.type === "experiment") {
       return "e.dimension";
     }
@@ -753,7 +753,7 @@ export default abstract class SqlIntegration
         -- One row per included metric conversion
         SELECT
           m.${baseIdType},  
-          m.conversion_start as ts,
+          m.timestamp as ts,
           m.value
         FROM
           __metric m
@@ -765,10 +765,10 @@ export default abstract class SqlIntegration
               : "__experiment"
           } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          m.conversion_start >= u.conversion_start
-          AND m.conversion_start <= u.conversion_end
+          m.timestamp >= u.conversion_start
+          AND m.timestamp <= u.conversion_end
         GROUP BY
-          m.${baseIdType}, m.conversion_start, m.value
+          m.${baseIdType}, m.timestamp, m.value
       )`
           : ""
       }
@@ -778,16 +778,16 @@ export default abstract class SqlIntegration
         -- One row per included denominator conversion
         SELECT
           m.${baseIdType},
-          m.conversion_start as ts,
+          m.timestamp as ts,
           m.value
         FROM
           __denominator m
           JOIN __denominatorUsers u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          m.conversion_start >= u.conversion_start
-          AND m.conversion_start <= u.conversion_end
+          m.timestamp >= u.conversion_start
+          AND m.timestamp <= u.conversion_end
         GROUP BY
-          m.${baseIdType}, m.conversion_start, m.value
+          m.${baseIdType}, m.timestamp, m.value
       )`
           : ""
       }
@@ -844,7 +844,7 @@ export default abstract class SqlIntegration
               ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
               : ""
           }
-        ${segment ? `WHERE s.date <= e.conversion_start` : ""}
+        ${segment ? `WHERE s.date <= e.timestamp` : ""}
         GROUP BY
         ${dimension ? dimensionGroupBy + ", " : ""}e.${baseIdType}${
         removeMultipleExposures ? "" : ", e.variation"
@@ -871,8 +871,8 @@ export default abstract class SqlIntegration
           useAllExposures
             ? ""
             : `WHERE
-          m.conversion_start >= d.conversion_start
-          AND m.conversion_start <= d.conversion_end`
+          m.timestamp >= d.conversion_start
+          AND m.timestamp <= d.conversion_end`
         }
         GROUP BY
           variation, dimension, d.${baseIdType}
@@ -895,8 +895,8 @@ export default abstract class SqlIntegration
           useAllExposures
             ? ""
             : `WHERE
-          m.conversion_start >= d.conversion_start
-          AND m.conversion_start <= d.conversion_end`
+          m.timestamp >= d.conversion_start
+          AND m.timestamp <= d.conversion_end`
         }
         GROUP BY
           variation, dimension, d.${baseIdType}
@@ -1065,6 +1065,7 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
+        ${timestampCol} as timestamp,
         ${this.addHours(
           timestampCol,
           conversionDelayHours
@@ -1152,6 +1153,7 @@ export default abstract class SqlIntegration
     SELECT
       e.${baseIdType} as ${baseIdType},
       ${this.castToString("e.variation_id")} as variation,
+      ${timestampColumn} as timestamp,
       ${this.addHours(
         timestampColumn,
         conversionDelayHours
