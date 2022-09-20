@@ -36,7 +36,7 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
       submit={handleSubmit}
       close={onCancel}
       size="max"
-      header="Edit upyter Notebook Query Runner"
+      header="Edit Jupyter Notebook Query Runner"
       cta="Save"
     >
       <h4>Jupyter Notebook Query Runner (optional)</h4>
