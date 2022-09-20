@@ -6,6 +6,7 @@ export interface SnapshotMetric {
   value: number;
   cr: number;
   users: number;
+  denominator?: number;
   ci?: [number, number];
   expected?: number;
   risk?: [number, number];

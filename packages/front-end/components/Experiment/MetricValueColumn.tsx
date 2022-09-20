@@ -43,7 +43,7 @@ export default function MetricValueColumn({
                 </span>{" "}
                 /&nbsp;
                 {numberFormatter.format(
-                  stats.stats?.count || stats.users || users
+                  stats.denominator || stats.users || users
                 )}
               </em>
             </small>

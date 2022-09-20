@@ -37,6 +37,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
               value: Number,
               cr: Number,
               users: Number,
+              denominator: Number,
               ci: [Number],
               uplift: {
                 dist: String,

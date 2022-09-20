@@ -551,6 +551,45 @@ export default abstract class SqlIntegration
     return `e.${col}`;
   }
 
+  private getMetricStart(phase: ExperimentPhase, metrics: MetricInterface[]) {
+    const metricStart = new Date(phase.dateStarted);
+    let runningDelay = 0;
+    let minDelay = 0;
+    metrics.forEach((m) => {
+      if (m.conversionDelayHours) {
+        const delay = runningDelay + m.conversionDelayHours;
+        if (delay < minDelay) minDelay = delay;
+        runningDelay = delay;
+      }
+    });
+    if (minDelay < 0) {
+      metricStart.setHours(metricStart.getHours() + minDelay);
+    }
+    return metricStart;
+  }
+
+  private getMetricEnd(phase: ExperimentPhase, metrics: MetricInterface[]) {
+    if (!phase.dateEnded) return null;
+
+    const metricEnd = new Date(phase.dateEnded);
+    let runningHours = 0;
+    let maxHours = 0;
+    metrics.forEach((m) => {
+      const hours =
+        runningHours +
+        (m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+        (m.conversionDelayHours || 0);
+      if (hours > maxHours) maxHours = hours;
+      runningHours = hours;
+    });
+
+    if (maxHours > 0) {
+      metricEnd.setHours(metricEnd.getHours() + maxHours);
+    }
+
+    return metricEnd;
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric,
@@ -572,33 +611,11 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = new Date(phase.dateStarted);
-    const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
-    if (metricEnd) {
-      let additionalHours = 0;
-      activationMetrics.concat(denominatorMetrics).forEach((m) => {
-        additionalHours +=
-          m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-      });
-
-      metricEnd.setHours(
-        metricEnd.getHours() +
-          // Add conversion window so metric has time to convert after experiment ends
-          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
-          // If using activation or denominator metrics, also need to allow for that conversion time
-          additionalHours
-      );
-    }
-
-    // Add conversion delay
-    if (metric.conversionDelayHours) {
-      metricStart.setHours(
-        metricStart.getHours() + metric.conversionDelayHours
-      );
-      if (metricEnd) {
-        metricEnd.setHours(metricEnd.getHours() + metric.conversionDelayHours);
-      }
-    }
+    const orderedMetrics = activationMetrics
+      .concat(denominatorMetrics)
+      .concat([metric]);
+    const metricStart = this.getMetricStart(phase, orderedMetrics);
+    const metricEnd = this.getMetricEnd(phase, orderedMetrics);
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
