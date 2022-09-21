@@ -5,7 +5,6 @@ import track from "../../services/track";
 import Modal from "../Modal";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Field from "../Forms/Field";
-import Code from "../Code";
 import DataSourceSchemaChooser from "./DataSourceSchemaChooser";
 import { useFieldArray, useForm } from "react-hook-form";
 import StringArrayField from "../Forms/StringArrayField";
@@ -499,57 +498,6 @@ const EditDataSourceSettingsForm: FC<{
                   </button>
                 </div>
               )}
-
-              <h4>Jupyter Notebook Query Runner (optional)</h4>
-              <div className="bg-light border my-2 p-3 ml-3">
-                <div className="row mb-3">
-                  <div className="col">
-                    <CodeTextArea
-                      label="Python runQuery definition"
-                      language="python"
-                      placeholder="def runQuery(sql):"
-                      value={form.watch(`settings.notebookRunQuery`)}
-                      setValue={(python) =>
-                        form.setValue(`settings.notebookRunQuery`, python)
-                      }
-                      helpText="Used when exporting experiment results to a Jupyter notebook"
-                    />
-                  </div>
-                  <div className="col-md-5 col-lg-4">
-                    <div className="pt-md-4">
-                      Function definition:
-                      <ul>
-                        <li>
-                          Function name: <code>runQuery</code>
-                        </li>
-                        <li>
-                          Arguments: <code>sql</code> (string)
-                        </li>
-                        <li>
-                          Return: <code>df</code> (pandas data frame)
-                        </li>
-                      </ul>
-                      <p>Example for postgres/redshift:</p>
-                      <Code
-                        language="python"
-                        theme="light"
-                        code={`import os
-import psycopg2
-import pandas as pd
-from sqlalchemy import create_engine, text
-
-# Use env variables or similar for passwords!
-password = os.getenv('POSTGRES_PW')
-connStr = f'postgresql+psycopg2://user:{password}@localhost'
-dbConnection = create_engine(connStr).connect();
-
-def runQuery(sql):
-  return pd.read_sql(text(sql), dbConnection)`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
             </>
           )}
         </div>

@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import React, { FC, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import {
   FaAngleLeft,
-  FaCloudDownloadAlt,
   FaCode,
   FaExternalLinkAlt,
   FaKey,
+  FaPencilAlt,
 } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
-import Button from "../../components/Button";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
@@ -19,6 +18,12 @@ import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink, DocSection } from "../../components/DocLink";
+import {
+  DataSourceEditingResourceType,
+  DataSourceUIMode,
+} from "../../components/Settings/EditDataSource/types";
+import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDataSource/EditJupyterNotebookQueryRunner";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -48,6 +53,36 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
 
+  // region New Editing by section
+
+  const [uiMode, setUiMode] = useState<DataSourceUIMode>("view");
+  const [
+    editingResource,
+    setEditingResource,
+  ] = useState<DataSourceEditingResourceType | null>(null);
+
+  const updateDataSource = useCallback(
+    async (dataSource: DataSourceInterfaceWithParams) => {
+      await apiCall(`/datasource/${dataSource.id}`, {
+        method: "PUT",
+        body: JSON.stringify(dataSource),
+      });
+
+      await mutateDefinitions({});
+
+      setUiMode("view");
+      setEditingResource(null);
+    },
+    [mutateDefinitions]
+  );
+
+  const cancelUpdateDataSource = useCallback(() => {
+    setUiMode("view");
+    setEditingResource(null);
+  }, []);
+
+  // endregion New Editing by section
+
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
   }
@@ -64,7 +99,6 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
-  const supportsImports = d.properties?.pastExperiments;
 
   const joinTables = (d.settings?.queries?.identityJoins || []).filter(
     (j) => j.query.length > 1
@@ -106,7 +140,7 @@ const DataSourcePage: FC = () => {
       </div>
 
       <div className="row">
-        <div className="col-md-9">
+        <div className="col-md-12">
           <div className="row mb-3">
             {canEdit && permissions.createDatasources && (
               <div className="col-auto">
@@ -296,8 +330,26 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   ))}
                 </div>
               )}
+
+              {/* region Jupyter Notebook */}
               <div className="mb-4">
-                <h3>Jupyter Notebook Query Runner</h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div className="">
+                    <h3>Jupyter Notebook Query Runner</h3>
+                  </div>
+
+                  <div className="">
+                    <button
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        setUiMode("edit");
+                        setEditingResource("jupyter_notebook");
+                      }}
+                    >
+                      <FaPencilAlt /> Edit
+                    </button>
+                  </div>
+                </div>
                 <p>
                   Tell us how to query this data source from within a Jupyter
                   notebook environment.
@@ -315,42 +367,20 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 )}
               </div>
+
+              {d &&
+              uiMode === "edit" &&
+              editingResource === "jupyter_notebook" ? (
+                <EditJupyterNotebookQueryRunner
+                  onSave={updateDataSource}
+                  onCancel={cancelUpdateDataSource}
+                  dataSource={d}
+                />
+              ) : null}
+
+              {/* endregion Jupyter Notebook */}
             </>
           )}
-        </div>
-        <div className="col-md-3">
-          {supportsImports &&
-            permissions.runQueries &&
-            permissions.createAnalyses && (
-              <div className="card">
-                <div className="card-body">
-                  <h2>Import Past Experiments</h2>
-                  <p>
-                    If you have past experiments already in your data source,
-                    you can import them to GrowthBook.
-                  </p>
-                  <Button
-                    color="outline-primary"
-                    onClick={async () => {
-                      const res = await apiCall<{ id: string }>(
-                        "/experiments/import",
-                        {
-                          method: "POST",
-                          body: JSON.stringify({
-                            datasource: d.id,
-                          }),
-                        }
-                      );
-                      if (res.id) {
-                        await router.push(`/experiments/import/${res.id}`);
-                      }
-                    }}
-                  >
-                    <FaCloudDownloadAlt /> Import
-                  </Button>
-                </div>
-              </div>
-            )}
         </div>
       </div>
 
