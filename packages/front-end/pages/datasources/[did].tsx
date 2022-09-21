@@ -261,30 +261,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 onCancel={cancelUpdateDataSource}
                 dataSource={d}
               />
-              {/*<div className="mb-4">*/}
-              {/*  <h3>Identifier Types</h3>*/}
-              {/*  <p>*/}
-              {/*    The different units you use to split traffic in an experiment.*/}
-              {/*  </p>*/}
-              {/*  {d.settings?.userIdTypes?.map(({ userIdType, description }) => (*/}
-              {/*    <div*/}
-              {/*      className="bg-white border mb-3 p-3 ml-3"*/}
-              {/*      key={userIdType}*/}
-              {/*    >*/}
-              {/*      <h4>{userIdType}</h4>*/}
-              {/*      {description && <div>{description}</div>}*/}
-              {/*    </div>*/}
-              {/*  ))}*/}
-              {/*</div>*/}
-
-              {/*{d && editingResource === "identifier_types" ? (*/}
-              {/*  <DataSourceInlineEditIdentifierTypes*/}
-              {/*    onSave={updateDataSource}*/}
-              {/*    onCancel={cancelUpdateDataSource}*/}
-              {/*    dataSource={d}*/}
-              {/*  />*/}
-              {/*) : null}*/}
-              {/* endregion Identifier Types */}
 
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>

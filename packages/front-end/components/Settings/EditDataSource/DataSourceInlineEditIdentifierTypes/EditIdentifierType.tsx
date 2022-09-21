@@ -35,7 +35,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       submit={handleSubmit}
       close={onCancel}
       size="max"
-      header="Edit Identifier Types"
+      header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
       cta="Save"
       autoFocusSelector="#id-modal-identifier-type"
     >
