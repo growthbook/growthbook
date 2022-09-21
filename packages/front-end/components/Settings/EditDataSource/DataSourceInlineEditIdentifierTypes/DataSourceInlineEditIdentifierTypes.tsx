@@ -64,6 +64,11 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
     [dataSource, onSave]
   );
 
+  const handleAdd = useCallback(() => {
+    setUiMode("add");
+    setEditingIndex(userIdTypes.length);
+  }, [userIdTypes]);
+
   if (!dataSource) {
     console.error("ImplementationError: dataSource cannot be null");
     return null;
@@ -77,13 +82,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         </div>
 
         <div className="">
-          <button
-            className="btn btn-outline-secondary"
-            onClick={() => {
-              setUiMode("add");
-              setEditingIndex(userIdTypes.length);
-            }}
-          >
+          <button className="btn btn-outline-secondary" onClick={handleAdd}>
             <FaPlus className="mr-1" /> Add
           </button>
         </div>
@@ -141,7 +140,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         <EmptyStateCard>
           <div className="mb-3">No user identifier types.</div>
 
-          <button className="btn btn-outline-primary">
+          <button onClick={handleAdd} className="btn btn-outline-primary">
             <FaPlus className="mr-1" /> Add
           </button>
         </EmptyStateCard>

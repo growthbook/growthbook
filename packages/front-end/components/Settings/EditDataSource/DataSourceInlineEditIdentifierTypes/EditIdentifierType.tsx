@@ -27,6 +27,10 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const handleSubmit = form.handleSubmit(async (value) => {
     onSave(value.userIdType, value.description);
+    form.reset({
+      userIdType: "",
+      description: "",
+    });
   });
 
   return (
