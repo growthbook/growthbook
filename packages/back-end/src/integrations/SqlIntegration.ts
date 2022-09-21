@@ -996,9 +996,12 @@ export default abstract class SqlIntegration
   }
 
   private getOverallCount(isRatio: boolean, metric: MetricInterface) {
+    // We want to return the denominator for the metric
+    // When ignoring nulls or using a ratio, we use the variation count
     if (isRatio || metric.ignoreNulls) {
       return `s.count`;
     }
+    // Otherwise, the denominator is the number of users in the experiment
     return `u.users`;
   }
   private getOverallMean(isRatio: boolean, metric: MetricInterface) {
@@ -1012,6 +1015,7 @@ export default abstract class SqlIntegration
   }
   private getOverallStddev(isRatio: boolean, metric: MetricInterface) {
     // Normal approximation for a bernouli random variable
+    // p*(1-p) where p is the conversion rate (count/users)
     if (metric.type === "binomial") {
       return `sqrt((s.count/u.users)*(1-s.count/u.users))`;
     }
@@ -1021,6 +1025,7 @@ export default abstract class SqlIntegration
     }
     // For all other metrics, s.stddev only considers converted users.
     // Need to adjust it to include all users (non-converted have a mean/stddev of 0)
+    // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
     return this.ifElse(
       "u.users>1",
       `sqrt(
@@ -1031,12 +1036,15 @@ export default abstract class SqlIntegration
     );
   }
   private getVariationCount(isRatio: boolean) {
+    // For ratio metrics, we want to use the denominator sum as the count
     if (isRatio) {
       return `d_sum`;
     }
+    // Otherwise, we want to use the count of users
     return `count`;
   }
   private getVariationMean(isRatio: boolean) {
+    // Ratio metric means are calculated as a proportion of 2 sums
     if (isRatio) {
       return this.ifElse("d_sum>0", `m_sum / d_sum`, "0");
     }
@@ -1045,6 +1053,7 @@ export default abstract class SqlIntegration
   private getVariationStddev(isRatio: boolean) {
     // For ratio metrics (e.g. pages/session) the units are correlated.
     // We need to use the Delta method to get the correct variance
+    // https://stats.stackexchange.com/questions/291594/estimation-of-population-ratio-using-delta-method/291652#291652
     if (isRatio) {
       return this.ifElse(
         "d_mean>0",
