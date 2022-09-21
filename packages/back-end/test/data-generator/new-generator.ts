@@ -1,15 +1,45 @@
-const growthbook = require("@growthbook/growthbook");
-const jstat = require("jstat");
-const fs = require("fs");
-const ObjectToCsv = require("objects-to-csv");
+/// <reference types="../../typings/jstat" />
+import { GrowthBook } from "@growthbook/growthbook";
+import { jStat } from "jstat";
+import fs from "fs";
 
 const NUM_USERS = 10000;
+const OUTPUT_DIR = "/tmp/csv";
 
-const userRetention = {};
+type TableData = {
+  userId: string;
+  anonymousId: string;
+  sessionId: string;
+  browser: string;
+  country: string;
+  timestamp: string;
+};
+type PageViewTableData = TableData & {
+  path: string;
+};
+type SessionTableData = TableData & {
+  duration: number;
+  pages: number;
+  sessionStart: string;
+};
+type ExperimentTableData = TableData & {
+  experimentId: string;
+  variationId: number;
+};
+type PurchaseTableData = TableData & {
+  amount: number;
+  qty: number;
+};
+type EventTableData = TableData & {
+  value?: number;
+  event: string;
+};
+
+const userRetention: Record<string, number> = {};
 
 const startDate = new Date();
 startDate.setDate(startDate.getDate() - 90);
-function getDateRangeCondition(start, end) {
+function getDateRangeCondition(start: number, end: number) {
   const s = new Date(startDate);
   const e = new Date(startDate);
   s.setDate(s.getDate() + start);
@@ -36,8 +66,12 @@ function advanceTime(max = 61) {
   currentDate.setSeconds(currentDate.getSeconds() + seconds);
 }
 
-const experimentViews = [];
-function trackExperiment({ sessionStart, ...data }, result, experimentId) {
+const experimentViews: ExperimentTableData[] = [];
+function trackExperiment(
+  data: Omit<ExperimentTableData, "experimentId" | "variationId">,
+  result: { inExperiment: boolean; variationId: number },
+  experimentId: string
+) {
   if (!result.inExperiment) return;
   experimentViews.push({
     ...data,
@@ -47,8 +81,8 @@ function trackExperiment({ sessionStart, ...data }, result, experimentId) {
   });
 }
 
-const events = [];
-function trackEvent({ sessionStart, ...data }, event) {
+const events: EventTableData[] = [];
+function trackEvent(data: Omit<EventTableData, "event">, event: string) {
   events.push({
     value: 0,
     ...data,
@@ -57,23 +91,23 @@ function trackEvent({ sessionStart, ...data }, event) {
   });
 }
 
-const purchases = [];
-function trackPurchase({ sessionStart, ...data }) {
+const purchases: PurchaseTableData[] = [];
+function trackPurchase(data: PurchaseTableData) {
   purchases.push({
     ...data,
     timestamp: getTimestamp(),
   });
 }
 
-const pageViews = [];
-function trackPageView({ sessionStart, ...data }) {
+const pageViews: PageViewTableData[] = [];
+function trackPageView(data: PageViewTableData) {
   pageViews.push({
     ...data,
     timestamp: getTimestamp(),
   });
 }
 
-function getBrowser() {
+function getBrowser(): string {
   const r = Math.random();
   if (r < 0.68) {
     return "Chrome";
@@ -93,17 +127,17 @@ function getBrowser() {
   return "Opera";
 }
 
-function normalInt(min, max) {
+function normalInt(min: number, max: number): number {
   const mean = (max - min) / 2 + min;
   const stddev = (max - min) / 3;
 
-  const x = Math.round(jstat.normal.sample(mean, stddev));
+  const x = Math.round(jStat.normal.sample(mean, stddev));
   if (x < min) return min;
   if (x > max) return max;
   return x;
 }
 
-function getCountry(userId) {
+function getCountry(userId: number): string {
   const i = userId % 10;
   if (i < 6) return "US";
   if (i < 8) return "UK";
@@ -111,7 +145,7 @@ function getCountry(userId) {
   return "AU";
 }
 
-function viewHomepage(data, gb) {
+function viewHomepage(data: TableData, gb: GrowthBook) {
   // Land on home page
   trackPageView({
     ...data,
@@ -149,7 +183,7 @@ function viewHomepage(data, gb) {
   return !searched;
 }
 
-function viewSearchResults(data, gb) {
+function viewSearchResults(data: TableData, gb: GrowthBook) {
   trackPageView({
     ...data,
     path: "/search",
@@ -173,7 +207,7 @@ function viewSearchResults(data, gb) {
   return Math.random() < 0.3 - res.value;
 }
 
-function viewItemPage(data, gb) {
+function viewItemPage(data: TableData, gb: GrowthBook) {
   // Id corresponds to price
   const itemId = Math.floor(Math.random() * 10 + 1);
   trackPageView({
@@ -223,7 +257,7 @@ function viewItemPage(data, gb) {
   };
 }
 
-function viewCheckout(data, gb) {
+function viewCheckout(data: TableData, gb: GrowthBook) {
   trackPageView({
     ...data,
     path: `/checkout`,
@@ -240,7 +274,7 @@ function viewCheckout(data, gb) {
   return Math.random() < res.value;
 }
 
-function purchase(data, gb, qty, price) {
+function purchase(data: TableData, gb: GrowthBook, qty: number, price: number) {
   trackPageView({
     ...data,
     path: `/success`,
@@ -270,20 +304,27 @@ function getTimestamp() {
   return currentDate.toISOString().substring(0, 19).replace("T", " ");
 }
 
-const sessions = [];
-async function simulateSession(userId, anonymousId) {
+const sessions: SessionTableData[] = [];
+async function simulateSession(
+  userId: number,
+  anonymousId: string
+): Promise<Omit<SessionTableData, "duration" | "pages">> {
   setRandomTime();
   const browser = getBrowser();
-  const commonEventData = {
+  const commonEventData: TableData = {
     userId: userId + "",
     anonymousId: browser + anonymousId,
     sessionId: Math.random() + "",
     browser,
-    sessionStart: getTimestamp(),
     country: getCountry(userId),
+    timestamp: "",
+  };
+  const sessionData = {
+    ...commonEventData,
+    sessionStart: getTimestamp(),
   };
 
-  const gb = new growthbook.GrowthBook({
+  const gb = new GrowthBook({
     attributes: {
       id: userId,
       anonId: commonEventData.anonymousId,
@@ -294,16 +335,16 @@ async function simulateSession(userId, anonymousId) {
   });
 
   let bounce = viewHomepage(commonEventData, gb);
-  if (bounce) return commonEventData;
+  if (bounce) return sessionData;
 
   bounce = viewSearchResults(commonEventData, gb);
-  if (bounce) return commonEventData;
+  if (bounce) return sessionData;
 
   // Views a couple items
   let qty = 0;
   let price = 0;
   // A/B test that shows recommended items (increases number viewed)
-  let res = gb.run({
+  const res = gb.run({
     key: "recommended-items",
     variations: [4, 4.2, 4.4],
     condition: getDateRangeCondition(20, 50),
@@ -314,17 +355,17 @@ async function simulateSession(userId, anonymousId) {
     qty += item.qty;
     price += item.amount;
   }
-  if (!qty) return commonEventData;
+  if (!qty) return sessionData;
 
   bounce = viewCheckout(commonEventData, gb);
-  if (bounce) return commonEventData;
+  if (bounce) return sessionData;
 
   purchase(commonEventData, gb, qty, price);
 
-  return commonEventData;
+  return sessionData;
 }
 
-const anonymousIds = {};
+const anonymousIds: Record<string, string> = {};
 async function simulate() {
   for (let i = 0; i < 90; i++) {
     for (let j = 0; j < NUM_USERS; j++) {
@@ -361,10 +402,28 @@ async function simulate() {
     currentDate.setDate(currentDate.getDate() + 1);
   }
 }
-simulate().then(async () => {
-  console.log("Done!");
 
-  const sortDate = (a, b) => a.timestamp.localeCompare(b.timestamp);
+function writeCSV(objs: Record<string, unknown>[], filename: string) {
+  const path = OUTPUT_DIR + "/" + filename;
+  const firstRow = objs.shift();
+  if (!firstRow) return;
+  const rows: string[][] = [];
+  const headers = Object.keys(firstRow);
+  rows.push(headers);
+  for (let i = 0; i < objs.length; i++) {
+    const row: string[] = [];
+    for (let j = 0; j < headers.length; j++) {
+      row.push(String(objs[i][j] || ""));
+    }
+  }
+  const contents = rows.map((row) => row.join(",")).join("\n") + "\n";
+  fs.writeFileSync(path, contents);
+}
+
+console.log("Generating dummy data...");
+simulate().then(async () => {
+  const sortDate = (a: TableData, b: TableData) =>
+    a.timestamp.localeCompare(b.timestamp);
 
   sessions.sort((a, b) => a.sessionStart.localeCompare(b.sessionStart));
   pageViews.sort(sortDate);
@@ -381,44 +440,12 @@ simulate().then(async () => {
     events: events.length,
   });
 
-  //fs.mkdirSync("csv");
-  fs.mkdirSync("/tmp/csv", { recursive: true });
-  await new ObjectToCsv(sessions).toDisk("/tmp/csv/sessions.csv");
-  await new ObjectToCsv(pageViews).toDisk("/tmp/csv/pageViews.csv");
-  await new ObjectToCsv(experimentViews).toDisk("/tmp/csv/experimentViews.csv");
-  await new ObjectToCsv(purchases).toDisk("/tmp/csv/purchases.csv");
-  await new ObjectToCsv(events).toDisk("/tmp/csv/events.csv");
+  console.log(`Writing CSVs to '${OUTPUT_DIR}'...`);
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  writeCSV(sessions, "sessions.csv");
+  writeCSV(sessions, "sessions.csv");
+  writeCSV(pageViews, "pageViews.csv");
+  writeCSV(experimentViews, "experimentViews.csv");
+  writeCSV(purchases, "purchases.csv");
+  writeCSV(events, "events.csv");
 });
-
-function getSample(userId) {
-  return {
-    userId,
-    sessions: sessions
-      .filter((x) => x.userId === userId)
-      .map((s) => {
-        const filter = (x) =>
-          x.userId === userId && x.sessionId === s.sessionId;
-        const combined = events
-          .filter(filter)
-          .concat(
-            pageViews.filter(filter).map((p) => ({ ...p, event: "Page View" }))
-          )
-          .concat(
-            experimentViews
-              .filter(filter)
-              .map((e) => ({ ...e, event: "Experiment Viewed" }))
-          )
-          .map(({ userId, sessionStart, sessionId, anonymousId, ...other }) => {
-            return other;
-          });
-        combined.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-        return {
-          ...s,
-          events: combined,
-        };
-      }),
-  };
-}
-
-// console.log(JSON.stringify(getSample("100"), null, 2));
