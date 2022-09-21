@@ -61,7 +61,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
       onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave, uiMode]
   );
 
   const handleAdd = useCallback(() => {
@@ -155,6 +155,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
           userIdType={recordEditing?.userIdType}
           description={recordEditing?.description}
           onSave={handleSave(editingIndex)}
+          dataSource={dataSource}
         />
       ) : null}
       {/* endregion Add/Edit modal */}

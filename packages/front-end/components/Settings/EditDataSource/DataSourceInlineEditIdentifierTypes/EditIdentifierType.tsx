@@ -1,9 +1,11 @@
-import React, { FC } from "react";
+import React, { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 type EditIdentifierTypeProps = {
+  dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
   onCancel: () => void;
   userIdType: string;
@@ -12,12 +14,17 @@ type EditIdentifierTypeProps = {
 };
 
 export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
+  dataSource,
   mode,
   userIdType,
   description,
   onSave,
   onCancel,
 }) => {
+  const existingIds = (dataSource.settings?.userIdTypes || []).map(
+    (item) => item.userIdType
+  );
+
   const form = useForm({
     defaultValues: {
       userIdType: userIdType,
@@ -33,6 +40,26 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     });
   });
 
+  const userEnteredUserIdType = form.watch("userIdType");
+
+  const isDuplicate = useMemo(() => {
+    return mode === "add" && existingIds.includes(userEnteredUserIdType);
+  }, [existingIds, mode, userEnteredUserIdType]);
+
+  const saveEnabled = useMemo(() => {
+    if (!userEnteredUserIdType) {
+      // Disable if empty
+      return false;
+    }
+
+    // Disable if duplicate
+    return !isDuplicate;
+  }, [isDuplicate, userEnteredUserIdType]);
+
+  const fieldError = isDuplicate
+    ? `The user identifier ${userEnteredUserIdType} already exists`
+    : "";
+
   return (
     <Modal
       open={true}
@@ -41,6 +68,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       size="max"
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
       cta="Save"
+      ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identifier-type"
     >
       <div className="row">
@@ -58,6 +86,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
             title="Only lowercase letters and underscores allowed"
             readOnly={mode === "edit"}
             required
+            error={fieldError}
             helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
           />
           <Field
