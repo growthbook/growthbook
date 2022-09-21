@@ -9,6 +9,7 @@ import { EditIdentifierType } from "./EditIdentifierType";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import DeleteButton from "../../../DeleteButton";
+import { EmptyStateCard } from "../EmptyStateCard";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -137,11 +138,13 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
       {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
-        <div>
-          <p className="mb-2">No user identifier types.</p>
+        <EmptyStateCard>
+          <div className="mb-3">No user identifier types.</div>
 
-          <button className="btn btn-outline">Add</button>
-        </div>
+          <button className="btn btn-outline-primary">
+            <FaPlus className="mr-1" /> Add
+          </button>
+        </EmptyStateCard>
       ) : null}
       {/* endregion Identity Type empty state */}
 
