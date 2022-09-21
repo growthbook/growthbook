@@ -17,6 +17,7 @@ import cronstrue from "cronstrue";
 import TempMessage from "../../components/TempMessage";
 import Button from "../../components/Button";
 import { DocLink } from "../../components/DocLink";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 import { useAdminSettings } from "../../hooks/useAdminSettings";
 
 function hasChanges(
@@ -35,7 +36,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
 
-  // eslint-disable-next-line
+  const { metricDefaults } = useOrganizationMetricDefaults();
+
   const form = useForm<OrganizationSettings>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -55,6 +57,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //resolution?: string;
         //startDate?: Date;
       },
+      metricDefaults: {
+        minimumSampleSize: metricDefaults.minimumSampleSize,
+        maxPercentageChange: metricDefaults.maxPercentageChange * 100,
+        minPercentageChange: metricDefaults.minPercentageChange * 100,
+      },
       updateSchedule: {
         type: "stale",
         hours: 6,
@@ -69,6 +76,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
     metricAnalysisDays: form.watch("metricAnalysisDays"),
+    metricDefaults: {
+      minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
+      maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
+      minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
+    },
     // customization:
     customized: form.watch("customized"),
     logoPath: form.watch("logoPath"),
@@ -99,6 +111,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
         newVal[k] = data.organization.settings?.[k] || newVal[k];
+
+        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
+        // Transform these values from the UI format
+        if (k === "metricDefaults") {
+          newVal.metricDefaults = {
+            ...newVal.metricDefaults,
+            maxPercentageChange:
+              newVal.metricDefaults.maxPercentageChange * 100,
+            minPercentageChange:
+              newVal.metricDefaults.minPercentageChange * 100,
+          };
+        }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
@@ -120,16 +144,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !data?.organization?.settings?.visualEditorEnabled &&
       value.visualEditorEnabled;
 
+    const transformedOrgSettings = {
+      ...value,
+      metricDefaults: {
+        ...value.metricDefaults,
+        maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
+        minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+      },
+    };
+
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: transformedOrgSettings,
       }),
     });
     await mutate();
     organizations.forEach((org) => {
       if (org.id === orgId) {
-        org.settings = value;
+        org.settings = transformedOrgSettings;
       }
     });
     setOrganizations(organizations);
@@ -315,11 +348,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 )}
             </div>
           </div>
-          <div className="divider border-bottom mb-3 mt-3"></div>
+
+          <div className="divider border-bottom mb-3 mt-3" />
+
           <div className="row">
             <div className="col-sm-3">
-              <h4>Other Settings</h4>
+              <h4>Experiment Settings</h4>
             </div>
+
             <div className="col-sm-9 form-inline">
               <Field
                 label="Minimum experiment length (in days) when importing past
@@ -336,17 +372,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
-              <Field
-                label="Amount of historical data to include when analyzing metrics"
-                append="days"
-                className="ml-2"
-                containerClassName="mb-3"
-                disabled={hasFileConfig()}
-                options={[7, 14, 30, 90, 180, 365]}
-                {...form.register("metricAnalysisDays", {
-                  valueAsNumber: true,
-                })}
-              />
+
               <Field
                 label="Warn when this percent of experiment users are in multiple variations"
                 type="number"
@@ -361,6 +387,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   valueAsNumber: true,
                 })}
               />
+
               <div className="mb-3">
                 <Field
                   label="Experiment Auto-Update Frequency"
@@ -421,7 +448,112 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
             </div>
           </div>
-          <div className="divider border-bottom mb-3 mt-3"></div>
+
+          <div className="divider border-bottom mb-3 mt-3" />
+
+          <div className="row">
+            <div className="col-sm-3">
+              <h4>Metrics Settings</h4>
+            </div>
+            <div className="col-sm-9">
+              <div className="form-inline">
+                <Field
+                  label="Amount of historical data to include when analyzing metrics"
+                  append="days"
+                  className="ml-2"
+                  containerClassName="mb-3"
+                  disabled={hasFileConfig()}
+                  options={[7, 14, 30, 90, 180, 365]}
+                  {...form.register("metricAnalysisDays", {
+                    valueAsNumber: true,
+                  })}
+                />
+              </div>
+
+              {/* region Metrics Behavior Defaults */}
+              <>
+                <h5 className="mt-3">Metrics Behavior Defaults</h5>
+                <p>
+                  These are the pre-configured default values that will be used
+                  when configuring metrics. You can always change these values
+                  on a per-metric basis.
+                </p>
+
+                {/* region Minimum Sample Size */}
+                <div>
+                  <div className="form-inline">
+                    <Field
+                      label="Minimum Sample Size"
+                      type="number"
+                      className="ml-2"
+                      containerClassName="mt-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("metricDefaults.minimumSampleSize", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <p>
+                    <small className="text-muted mb-3">
+                      The total count required in an experiment variation before
+                      showing results
+                    </small>
+                  </p>
+                </div>
+                {/* endregion Minimum Sample Size */}
+
+                {/* region Maximum Percentage Change */}
+                <div>
+                  <div className="form-inline">
+                    <Field
+                      label="Maximum Percentage Change"
+                      type="number"
+                      append="%"
+                      className="ml-2"
+                      containerClassName="mt-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("metricDefaults.maxPercentageChange", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <p>
+                    <small className="text-muted mb-3">
+                      An experiment that changes the metric by more than this
+                      percent will be flagged as suspicious
+                    </small>
+                  </p>
+                </div>
+                {/* endregion Maximum Percentage Change */}
+
+                {/* region Minimum Percentage Change */}
+                <div>
+                  <div className="form-inline">
+                    <Field
+                      label="Minimum Percentage Change"
+                      type="number"
+                      append="%"
+                      className="ml-2"
+                      containerClassName="mt-2"
+                      disabled={hasFileConfig()}
+                      {...form.register("metricDefaults.minPercentageChange", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <p>
+                    <small className="text-muted mb-3">
+                      An experiment that changes the metric by less than this
+                      percent will be considered a draw
+                    </small>
+                  </p>
+                </div>
+                {/* endregion Minimum Percentage Change */}
+              </>
+              {/* endregion Metrics Behavior Defaults */}
+            </div>
+          </div>
+          <div className="divider border-bottom mb-3 mt-3" />
 
           <div className="row">
             <div className="col-12">
