@@ -63,10 +63,6 @@ const EditDataSourceSettingsForm: FC<{
     control: form.control,
     name: "settings.queries.identityJoins",
   });
-  const userIdTypes = useFieldArray({
-    control: form.control,
-    name: "settings.userIdTypes",
-  });
 
   const userIdTypeOptions = form.watch("settings.userIdTypes").map((t) => {
     return {

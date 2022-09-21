@@ -74,7 +74,7 @@ const DataSourcePage: FC = () => {
       setUiMode("view");
       setEditingResource(null);
     },
-    [mutateDefinitions]
+    [mutateDefinitions, apiCall]
   );
 
   const cancelUpdateDataSource = useCallback(() => {
@@ -363,7 +363,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         setEditingResource("jupyter_notebook");
                       }}
                     >
-                      <FaPencilAlt /> Edit
+                      <FaPencilAlt className="mr-1" /> Edit
                     </button>
                   </div>
                 </div>
