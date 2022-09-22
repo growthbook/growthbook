@@ -9,7 +9,13 @@ function getAttributeType(
   const index = allGroups?.findIndex(
     (group: SavedGroupInterface) => group.id === groupId
   );
+
+  if (index === -1) {
+    return null;
+  }
+
   const attribute = allGroups[index].attributeKey;
+
   const type: string | undefined = attributeMap?.get(attribute);
 
   return type;
