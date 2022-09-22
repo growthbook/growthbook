@@ -130,7 +130,7 @@ export default abstract class SqlIntegration
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
   }
-  castIntToFloat(col: string): string {
+  ensureFloat(col: string): string {
     return col;
   }
   castUserDateCol(column: string): string {
@@ -929,17 +929,17 @@ export default abstract class SqlIntegration
         SELECT
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
-          ${this.castIntToFloat("COUNT(*)")} as count,
+          ${this.ensureFloat("COUNT(*)")} as count,
           ${this.avg("m.value")} as m_mean,
           ${this.variance("m.value")} as m_var,
-          ${this.castIntToFloat("sum(m.value)")} as m_sum,
+          ${this.ensureFloat("sum(m.value)")} as m_sum,
           ${this.stddev("m.value")} as m_sd
           ${
             isRatio
               ? `,
             ${this.avg("d.value")} as d_mean,
             ${this.variance("d.value")} as d_var,
-            ${this.castIntToFloat("sum(d.value)")} as d_sum,
+            ${this.ensureFloat("sum(d.value)")} as d_sum,
             ${this.covariance("d.value", "m.value")} as covar
           `
               : ""

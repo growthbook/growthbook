@@ -1,4 +1,4 @@
-from packages.stats.gbstats.gbstats import (
+from .gbstats import (
     detect_unknown_variations,
     analyze_metric_df,
     get_metric_df,

@@ -22,7 +22,7 @@ export default class Postgres extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `${endCol}::DATE - ${startCol}::DATE`;
   }
-  castIntToFloat(col: string): string {
+  ensureFloat(col: string): string {
     return `${col}::float`;
   }
   avg(col: string) {

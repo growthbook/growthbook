@@ -28,7 +28,7 @@ export default class Redshift extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
-  castIntToFloat(col: string): string {
+  ensureFloat(col: string): string {
     return `${col}::float`;
   }
 }
