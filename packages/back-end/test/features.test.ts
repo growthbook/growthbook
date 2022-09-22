@@ -1,79 +1,161 @@
 import { replaceSavedGroupsInCondition } from "../src/util/features";
 
+const groupMap = new Map();
+
+groupMap.set("grp_exl5jgrdl8bzy4x4", ["123", "345", "678", "910"]);
+groupMap.set("grp_exl5jijgl8c3hw2w", ["12", "23", "34"]);
+groupMap.set("grp_exl5jijgl8c3n0qt", ["1", "2", "3", "4"]);
+
+const allGroups = [
+  {
+    values: ["123", "345", "678", "910"],
+    groupName: "sample-group",
+    owner: "",
+    attributeKey: "id",
+    orgId: "org_exl5j7wgl4499rm4",
+    id: "grp_exl5jgrdl8bzy4x4",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  },
+  {
+    values: ["12", "23", "34"],
+    groupName: "sample-group-2",
+    owner: "",
+    attributeKey: "deviceId",
+    orgId: "org_exl5j7wgl4499rm4",
+    id: "grp_exl5jijgl8c3hw2w",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  },
+  {
+    values: ["1", "2", "3", "4"],
+    groupName: "number-test-2",
+    owner: "",
+    attributeKey: "number",
+    orgId: "org_exl5j7wgl4499rm4",
+    id: "grp_exl5jijgl8c3n0qt",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  },
+];
+
+const attributeMap = new Map();
+
+attributeMap.set("id", "string");
+attributeMap.set("number", "number");
+attributeMap.set("deviceId", "string");
+
 describe("replaceSavedGroupsInCondition", () => {
   it("does not format condition that doesn't contain $inGroup", () => {
     const rawCondition = JSON.stringify({ id: "1234" });
 
-    const groupMap = new Map();
-
-    groupMap.set("6323291eb4bb4f3035feff45", ["123", "345", "678", "91011"]);
-    groupMap.set("6323293ab4bb4f3035feff53", [
-      "dsfdf23",
-      "234232sd",
-      "23423ewr",
-      "23423efrwe",
-    ]);
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      JSON.stringify({ id: "1234" })
-    );
+    expect(
+      replaceSavedGroupsInCondition(
+        rawCondition,
+        groupMap,
+        allGroups,
+        attributeMap
+      )
+    ).toEqual(JSON.stringify({ id: "1234" }));
   });
 
   it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
-    const rawCondition = JSON.stringify({
-      id: { $inGroup: "6323291eb4bb4f3035feff45" },
-    });
+    const ids = ["123", "345", "678", "910"];
+    const groupId = "grp_exl5jgrdl8bzy4x4";
+    groupMap.set(groupId, ids);
 
-    const groupMap = new Map();
+    const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
 
-    groupMap.set("6323291eb4bb4f3035feff45", ["123", "345", "678", "91011"]);
-    groupMap.set("6323293ab4bb4f3035feff53", [
-      "dsfdf23",
-      "234232sd",
-      "23423ewr",
-      "23423efrwe",
-    ]);
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      JSON.stringify({ id: { $in: ["123", "345", "678", "91011"] } })
-    );
+    expect(
+      replaceSavedGroupsInCondition(
+        rawCondition,
+        groupMap,
+        allGroups,
+        attributeMap
+      )
+    ).toEqual('{"id":{"$in": ["123","345","678","910"]}}');
   });
 
   it("replaces the $notInGroup and groupId with $nin and the array of IDs", () => {
-    const rawCondition =
-      '{ "id": { "$notInGroup": "6323291eb4bb4f3035feff45" } }';
+    const ids = ["123", "345", "678", "910"];
+    const groupId = "grp_exl5jgrdl8bzy4x4";
+    groupMap.set(groupId, ids);
 
-    const groupMap = new Map();
+    const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
-    groupMap.set("6323291eb4bb4f3035feff45", ["123", "345", "678", "91011"]);
-    groupMap.set("6323293ab4bb4f3035feff53", [
-      "dsfdf23",
-      "234232sd",
-      "23423ewr",
-      "23423efrwe",
-    ]);
+    expect(
+      replaceSavedGroupsInCondition(
+        rawCondition,
+        groupMap,
+        allGroups,
+        attributeMap
+      )
+    ).toEqual('{"id":{"$nin": ["123","345","678","910"]}}');
+  });
 
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{ "id": { "nin": ["123","345","678","91011"] } }'
-    );
+  it("should replace the $in operator in and if the group.attributeKey is a number, the output array should be numbers", () => {
+    const ids = ["1", "2", "3", "4"];
+    const groupId = "grp_exl5jijgl8c3n0qt";
+    groupMap.set(groupId, ids);
+
+    const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
+
+    expect(
+      replaceSavedGroupsInCondition(
+        rawCondition,
+        groupMap,
+        allGroups,
+        attributeMap
+      )
+    ).toEqual('{"number":{"$in": [1,2,3,4]}}');
   });
 
   it("should replace the $in operator in more complex conditions correctly", () => {
-    const rawCondition =
-      '{ "id": { "$in": ["123","345","678","91011"] }, "browser": "chrome" }';
+    const ids = ["1", "2", "3", "4"];
+    const groupId = "grp_exl5jijgl8c3n0qt";
+    groupMap.set(groupId, ids);
 
-    const groupMap = new Map();
+    const rawCondition = JSON.stringify({
+      number: { $inGroup: groupId },
+      id: "123",
+      browser: "chrome",
+    });
 
-    groupMap.set("6323291eb4bb4f3035feff45", ["123", "345", "678", "91011"]);
-    groupMap.set("6323293ab4bb4f3035feff53", [
-      "dsfdf23",
-      "234232sd",
-      "23423ewr",
-      "23423efrwe",
-    ]);
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{ "id": { "$in": ["123","345","678","91011"] }, "browser": "chrome" }'
-    );
+    expect(
+      replaceSavedGroupsInCondition(
+        rawCondition,
+        groupMap,
+        allGroups,
+        attributeMap
+      )
+    ).toEqual('{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}');
   });
+});
+
+it("should correctly replace the $in operator in advanced mode conditions", () => {
+  const ids = ["1", "2", "3", "4"];
+  const groupId = "grp_exl5jijgl8c3n0qt";
+  groupMap.set(groupId, ids);
+
+  const rawCondition = JSON.stringify({
+    $and: [
+      {
+        $or: [{ browser: "chrome" }, { deviceId: { $inGroup: groupId } }],
+      },
+      {
+        $not: [{ company: { $notInGroup: groupId } }],
+      },
+    ],
+  });
+
+  expect(
+    replaceSavedGroupsInCondition(
+      rawCondition,
+      groupMap,
+      allGroups,
+      attributeMap
+    )
+  ).toEqual(
+    '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}'
+  );
 });
