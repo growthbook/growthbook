@@ -11,8 +11,10 @@ import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
+import { getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[]>;
+export type AttributeMap = Map<string, string>;
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -39,6 +41,15 @@ export async function getFeatureDefinitions(
   project?: string
 ) {
   const features = await getAllFeatures(organization, project);
+
+  const org = await getOrganizationById(organization);
+
+  const attributes = org?.settings?.attributeSchema;
+
+  const attributeMap: AttributeMap = new Map();
+  attributes?.forEach((attribute) => {
+    attributeMap.set(attribute.property, attribute.datatype);
+  });
 
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs.
   const allGroups = await getAllSavedGroups(organization);
@@ -71,7 +82,12 @@ export async function getFeatureDefinitions(
             if (r.condition && r.condition !== "{}") {
               try {
                 rule.condition = JSON.parse(
-                  replaceSavedGroupsInCondition(r.condition, groupMap)
+                  replaceSavedGroupsInCondition(
+                    r.condition,
+                    groupMap,
+                    allGroups || [],
+                    attributeMap
+                  )
                 );
               } catch (e) {
                 // ignore condition parse errors here
