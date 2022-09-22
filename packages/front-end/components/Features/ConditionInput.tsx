@@ -213,6 +213,15 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            const savedGroupOptions = savedGroups.filter((g) => {
+              if (g.attributeKey === field) {
+                return {
+                  label: g.groupName,
+                  value: g.id,
+                };
+              }
+            });
+
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
@@ -271,8 +280,7 @@ export default function ConditionInput(props: Props) {
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
                     savedGroups ? (
                     <SelectField
-                      //TODO: Update this to only give options that match the type - e.g. if it's "id" only show options for strings
-                      options={savedGroups.map((g) => ({
+                      options={savedGroupOptions.map((g) => ({
                         label: g.groupName,
                         value: g.id,
                       }))}
