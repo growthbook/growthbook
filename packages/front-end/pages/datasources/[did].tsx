@@ -306,28 +306,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 ))}
               </div>
 
-              {joinTables.length > 0 && d.settings?.userIdTypes?.length > 1 && (
-                <div className="mb-4">
-                  <h3>Identifier Join Tables</h3>
-                  <p>
-                    Joins different identifier types together when needed during
-                    experiment analysis.
-                  </p>
-                  {joinTables.map((t, i) => (
-                    <div className="bg-white border mb-3" key={i}>
-                      <h4 className="pt-3 px-3">{t.ids.join(", ")}</h4>
-                      <Code
-                        language="sql"
-                        theme="light"
-                        code={t.query}
-                        containerClassName="mb-0"
-                        expandable={true}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <DataSourceInlineEditIdentityJoins
                 dataSource={d}
                 onSave={updateDataSource}
