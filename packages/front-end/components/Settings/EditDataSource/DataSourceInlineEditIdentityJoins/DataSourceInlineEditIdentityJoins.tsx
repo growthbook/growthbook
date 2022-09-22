@@ -6,8 +6,12 @@ import Code from "../../../Code";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  IdentityJoinQuery,
+} from "back-end/types/datasource";
 import Tooltip from "../../../Tooltip";
+import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -69,6 +73,15 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       onSave(copy);
     },
     [identityJoins, onSave, dataSource]
+  );
+
+  const handleSave = useCallback(
+    (idx: number) => (identityJoin: IdentityJoinQuery) => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      copy.settings.queries.identityJoins[idx] = identityJoin;
+      onSave(copy);
+    },
+    [dataSource, onSave, uiMode]
   );
 
   if (!dataSource) {
@@ -202,7 +215,15 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       {/* endregion Identity Joins empty state */}
 
       {/* region Add/Edit modal */}
-      {uiMode === "edit" || uiMode === "add" ? <>TODO: Add/Edit</> : null}
+      {uiMode === "edit" || uiMode === "add" ? (
+        <AddEditIdentityJoinModal
+          dataSource={dataSource}
+          mode={uiMode}
+          onSave={handleSave(editingIndex)}
+          onCancel={handleCancel}
+          identityJoin={identityJoins[editingIndex]}
+        />
+      ) : null}
       {/* endregion Add/Edit modal */}
     </div>
   );
