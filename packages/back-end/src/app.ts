@@ -76,6 +76,7 @@ wrapController(featuresController);
 wrapController(slackController);
 wrapController(reportsController);
 wrapController(tagsController);
+wrapController(savedGroupsController);
 
 const app = express();
 
@@ -391,8 +392,8 @@ app.post("/tag", tagsController.postTag);
 app.delete("/tag/:id", tagsController.deleteTag);
 
 // groups
-app.post("/saved-groups", savedGroupsController.createSavedGroup);
-app.put("/saved-groups", savedGroupsController.updateSavedGroup);
+app.post("/saved-groups", savedGroupsController.postSavedGroup);
+app.put("/saved-groups", savedGroupsController.putSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

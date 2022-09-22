@@ -18,6 +18,8 @@ export default function SavedGroupsPage() {
 
   const { savedGroups, error } = useDefinitions();
 
+  console.log(savedGroups);
+
   if (!savedGroups) return <LoadingOverlay />;
 
   return (
@@ -79,7 +81,7 @@ export default function SavedGroupsPage() {
               <tbody>
                 {savedGroups.map((s) => {
                   return (
-                    <tr key={s._id}>
+                    <tr key={s.id}>
                       <td>{s.groupName}</td>
                       <td>{s.owner}</td>
                       <td>{s.attributeKey}</td>
@@ -87,8 +89,8 @@ export default function SavedGroupsPage() {
                         className="d-none d-md-table-cell text-truncate"
                         style={{ maxWidth: "100px" }}
                       >
-                        {s.group.map((attribute, index) => {
-                          if (index === s.group.length - 1) {
+                        {s.values.map((attribute, index) => {
+                          if (index === s.values.length - 1) {
                             return attribute;
                           } else {
                             return `${attribute}, `;

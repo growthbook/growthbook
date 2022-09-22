@@ -39,16 +39,19 @@ const navlinks: SidebarLinkProps[] = [
         name: "Attributes",
         href: "/settings/attributes",
         path: /^settings\/attributes/,
+        permissions: ["organizationSettings"],
       },
       {
         name: "Namespaces",
         href: "/namespaces",
         path: /^namespaces/,
+        permissions: ["organizationSettings"],
       },
       {
         name: "Environments",
         href: "/settings/environments",
         path: /^settings\/environments/,
+        permissions: ["organizationSettings"],
       },
       {
         name: "Saved Groups",

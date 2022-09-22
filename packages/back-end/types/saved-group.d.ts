@@ -1,10 +1,10 @@
 export interface SavedGroupInterface {
-  _id: string;
-  organization: string;
+  id: string;
+  orgId: string;
   groupName: string;
   owner: string;
   attributeKey: string;
-  group: string[];
+  values: string[];
   dateUpdated: Date;
   dateCreated: Date;
 }

@@ -1,8 +1,13 @@
 import mongoose from "mongoose";
 import { SavedGroupInterface } from "../../types/saved-group";
+import uniqid from "uniqid";
 
 const savedGroupSchema = new mongoose.Schema({
-  organization: {
+  id: {
+    type: String,
+    unique: true,
+  },
+  orgId: {
     type: String,
     index: true,
   },
@@ -10,13 +15,66 @@ const savedGroupSchema = new mongoose.Schema({
   owner: String,
   dateCreated: Date,
   dateUpdated: Date,
-  group: [String],
+  values: [String],
   attributeKey: String,
 });
 
-export type SavedGroupDocument = mongoose.Document & SavedGroupInterface;
+type SavedGroupDocument = mongoose.Document & SavedGroupInterface;
 
-export const SavedGroupModel = mongoose.model<SavedGroupDocument>(
+const SavedGroupModel = mongoose.model<SavedGroupDocument>(
   "savedGroup",
   savedGroupSchema
 );
+
+function parseSaveGroupString(list: string) {
+  const listArr = list.split(",");
+
+  const savedGroup = listArr.map((i: string) => {
+    return i.trim();
+  });
+
+  return [
+    ...new Set(savedGroup.filter((value) => value !== "," && value !== "")),
+  ];
+}
+
+type SavedGroupEditableProps = Omit<
+  SavedGroupInterface,
+  "dateCreated" | "dateUpdated" | "id" | "values"
+>;
+
+export async function createSavedGroup(
+  values: string,
+  group: SavedGroupEditableProps
+): Promise<SavedGroupInterface> {
+  const newGroup = await SavedGroupModel.create({
+    ...group,
+    values: parseSaveGroupString(values),
+    id: uniqid("grp_"),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  });
+  return newGroup.toJSON();
+}
+
+export async function getAllSavedGroups(
+  orgId: string
+): Promise<SavedGroupInterface[]> {
+  const savedGroups = await SavedGroupModel.find({ orgId });
+  return savedGroups.map((value) => value.toJSON());
+}
+
+export async function updateSavedGroup(
+  values: string,
+  groupName: string,
+  group: SavedGroupEditableProps
+): Promise<void> {
+  await SavedGroupModel.updateOne(
+    { groupName: groupName },
+    {
+      ...group,
+      values: parseSaveGroupString(values),
+      dateUpdated: new Date(),
+    }
+  );
+}

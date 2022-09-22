@@ -9,8 +9,8 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { SavedGroupModel } from "../models/SavedGroupModel";
 import { replaceSavedGroupsInCondition } from "../util/features";
+import { getAllSavedGroups } from "../models/SavedGroupModel";
 
 export type GroupMap = Map<string, string[]>;
 
@@ -41,10 +41,10 @@ export async function getFeatureDefinitions(
   const features = await getAllFeatures(organization, project);
 
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs.
-  const allGroups = await SavedGroupModel.find({ organization });
+  const allGroups = await getAllSavedGroups(organization);
   const groupMap: GroupMap = new Map();
   allGroups.forEach((group) => {
-    groupMap.set(group.id, group.group);
+    groupMap.set(group.id, group.values);
   });
 
   const defs: Record<string, FeatureDefinition> = {};

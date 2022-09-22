@@ -53,7 +53,7 @@ import {
 } from "../services/email";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { getAllGroups } from "../services/group";
-import { getAllSavedGroups } from "../services/savedGroups";
+import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { uploadFile } from "../services/files";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { WebhookModel } from "../models/WebhookModel";

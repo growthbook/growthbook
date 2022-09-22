@@ -2,7 +2,7 @@ import { replaceSavedGroupsInCondition } from "../src/util/features";
 
 describe("replaceSavedGroupsInCondition", () => {
   it("does not format condition that doesn't contain $inGroup", () => {
-    const rawCondition = "{'id': '1234'}";
+    const rawCondition = JSON.stringify({ id: "1234" });
 
     const groupMap = new Map();
 
@@ -15,12 +15,14 @@ describe("replaceSavedGroupsInCondition", () => {
     ]);
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      "{'id': '1234'}"
+      JSON.stringify({ id: "1234" })
     );
   });
 
   it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
-    const rawCondition = '{ "id": { "$inGroup": "6323291eb4bb4f3035feff45" } }';
+    const rawCondition = JSON.stringify({
+      id: { $inGroup: "6323291eb4bb4f3035feff45" },
+    });
 
     const groupMap = new Map();
 
@@ -33,7 +35,7 @@ describe("replaceSavedGroupsInCondition", () => {
     ]);
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{ "id": { "in": ["123","345","678","91011"] } }'
+      JSON.stringify({ id: { $in: ["123", "345", "678", "91011"] } })
     );
   });
 
@@ -58,7 +60,7 @@ describe("replaceSavedGroupsInCondition", () => {
 
   it("should replace the $in operator in more complex conditions correctly", () => {
     const rawCondition =
-      '{ "id": { "in": ["123","345","678","91011"] }, "browser": "chrome" }';
+      '{ "id": { "$in": ["123","345","678","91011"] }, "browser": "chrome" }';
 
     const groupMap = new Map();
 
@@ -71,7 +73,7 @@ describe("replaceSavedGroupsInCondition", () => {
     ]);
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{ "id": { "in": ["123","345","678","91011"] }, "browser": "chrome" }'
+      '{ "id": { "$in": ["123","345","678","91011"] }, "browser": "chrome" }'
     );
   });
 });

@@ -43,6 +43,32 @@ export default function ConditionInput(props: Props) {
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
 
+  const savedGroupValues = [
+    {
+      label: "is in the saved group",
+      value: "$inGroup",
+    },
+    {
+      label: "is not in the saved group",
+      value: "$notInGroup",
+    },
+  ];
+
+  const savedGroupOperators: { label: string; value: string }[] = [];
+
+  if (savedGroups) {
+    for (const group of savedGroups) {
+      // map the attributeKey to the attributes map and get the value.datatype associated with that attributeKey.
+      // then, add that datatype as a property to savedGroupOperators where it's associated value is equal to savedGroupValues
+      const attribute = group.attributeKey;
+
+      if (attributes.has(attribute)) {
+        const datatype = attributes.get(attribute).datatype;
+        savedGroupOperators[datatype] = savedGroupValues;
+      }
+    }
+  }
+
   if (advanced || !attributes.size || !simpleAllowed) {
     return (
       <div className="mb-3">
@@ -154,14 +180,6 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    savedGroups.length > 0 && {
-                      label: "is in the saved group",
-                      value: "$inGroup",
-                    },
-                    {
-                      label: "is not in the saved group",
-                      value: "$notInGroup",
-                    },
                   ]
                 : attribute.datatype === "string"
                 ? [
@@ -177,14 +195,7 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    savedGroups.length > 0 && {
-                      label: "is in the saved group",
-                      value: "$inGroup",
-                    },
-                    {
-                      label: "is not in the saved group",
-                      value: "$notInGroup",
-                    },
+                    ...(savedGroupOperators[attribute.datatype] || []),
                   ]
                 : attribute.datatype === "number"
                 ? [
@@ -198,14 +209,7 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    savedGroups.length > 0 && {
-                      label: "is in the saved group",
-                      value: "$inGroup",
-                    },
-                    {
-                      label: "is not in the saved group",
-                      value: "$notInGroup",
-                    },
+                    ...(savedGroupOperators[attribute.datatype] || []),
                   ]
                 : [];
 
@@ -267,9 +271,10 @@ export default function ConditionInput(props: Props) {
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
                     savedGroups ? (
                     <SelectField
+                      //TODO: Update this to only give options that match the type - e.g. if it's "id" only show options for strings
                       options={savedGroups.map((g) => ({
                         label: g.groupName,
-                        value: g._id,
+                        value: g.id,
                       }))}
                       value={value}
                       onChange={(v) => {
