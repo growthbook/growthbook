@@ -1,8 +1,13 @@
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { EmptyStateCard } from "../EmptyStateCard";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import Code from "../../../Code";
+import MoreMenu from "../../../Dropdown/MoreMenu";
+import DeleteButton from "../../../DeleteButton";
+import cloneDeep from "lodash/cloneDeep";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import Tooltip from "../../../Tooltip";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -15,6 +20,12 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+
+  const handleCancel = useCallback(() => {
+    setUiMode("view");
+    setEditingIndex(-1);
+    onCancel();
+  }, [onCancel]);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -30,6 +41,9 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   // const indexOpenMapRef = useRef<Map<number, boolean>>(new Map());
 
   const addIsDisabled = (dataSource.settings?.userIdTypes || []).length < 2;
+  const addButtonTooltip = addIsDisabled
+    ? "You will be able to create identifier join tables when you have identified at least 2 user identifiers."
+    : "";
 
   const identityJoins = dataSource?.settings?.queries?.identityJoins || [];
 
@@ -37,6 +51,25 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     setUiMode("add");
     setEditingIndex(identityJoins.length);
   }, [identityJoins]);
+
+  const handleActionEditClicked = useCallback(
+    (idx: number) => () => {
+      setEditingIndex(idx);
+      setUiMode("edit");
+    },
+    []
+  );
+
+  const handleActionDeleteClicked = useCallback(
+    (idx: number) => async () => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+
+      copy.settings.queries.identityJoins.splice(idx, 1);
+
+      onSave(copy);
+    },
+    [identityJoins, onSave, dataSource]
+  );
 
   if (!dataSource) {
     console.error("ImplementationError: dataSource cannot be null");
@@ -62,13 +95,15 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
         </div>
 
         <div className="">
-          <button
-            disabled={addIsDisabled}
-            className="btn btn-outline-primary font-weight-bold"
-            onClick={handleAdd}
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
+          <Tooltip body={addButtonTooltip}>
+            <button
+              disabled={addIsDisabled}
+              className="btn btn-outline-primary font-weight-bold"
+              onClick={handleAdd}
+            >
+              <FaPlus className="mr-1" /> Add
+            </button>
+          </Tooltip>
         </div>
       </div>
       {/* endregion Heading */}
@@ -80,19 +115,48 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
           return (
             <div className="bg-white border mb-3" key={`identity-join-${idx}`}>
               <div className="d-flex justify-content-between">
+                {/* Title */}
                 <h4 className="py-3 px-3 my-0">
                   {identityJoin.ids.join(" ↔ ")}
                 </h4>
-                <button
-                  className="btn"
-                  onClick={handleExpandCollapseForIndex(idx)}
-                >
-                  <FaChevronRight
-                    style={{
-                      transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
-                    }}
-                  />
-                </button>
+
+                {/* Actions*/}
+                <div className="d-flex align-items-center">
+                  <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                    <button
+                      className="dropdown-item py-2"
+                      onClick={handleActionEditClicked(idx)}
+                    >
+                      <FaPencilAlt className="mr-2" /> Edit
+                    </button>
+
+                    <DeleteButton
+                      onClick={handleActionDeleteClicked(idx)}
+                      className="dropdown-item text-danger py-2"
+                      iconClassName="mr-2"
+                      style={{ borderRadius: 0 }}
+                      useIcon
+                      displayName={identityJoin.ids.join(" ↔ ")}
+                      deleteMessage={`Are you sure you want to delete identifier type ${identityJoin.ids.join(
+                        " ↔ "
+                      )}?`}
+                      title="Delete"
+                      text="Delete"
+                      outline={false}
+                    />
+                  </MoreMenu>
+
+                  <button
+                    className="btn ml-3"
+                    onClick={handleExpandCollapseForIndex(idx)}
+                  >
+                    <FaChevronRight
+                      style={{
+                        transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
               <div>
                 {isOpen && (
@@ -124,16 +188,22 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
             )}
           </div>
 
-          <button
-            disabled={addIsDisabled}
-            onClick={handleAdd}
-            className="btn btn-outline-primary font-weight-bold"
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
+          <Tooltip body={addButtonTooltip}>
+            <button
+              disabled={addIsDisabled}
+              onClick={handleAdd}
+              className="btn btn-outline-primary font-weight-bold"
+            >
+              <FaPlus className="mr-1" /> Add
+            </button>
+          </Tooltip>
         </EmptyStateCard>
       ) : null}
       {/* endregion Identity Joins empty state */}
+
+      {/* region Add/Edit modal */}
+      {uiMode === "edit" || uiMode === "add" ? <>TODO: Add/Edit</> : null}
+      {/* endregion Add/Edit modal */}
     </div>
   );
 };
