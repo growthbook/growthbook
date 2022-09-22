@@ -25,6 +25,7 @@ import {
 import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDataSource/EditJupyterNotebookQueryRunner";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
+import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -304,6 +305,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 ))}
               </div>
+
               {joinTables.length > 0 && d.settings?.userIdTypes?.length > 1 && (
                 <div className="mb-4">
                   <h3>Identifier Join Tables</h3>
@@ -325,6 +327,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   ))}
                 </div>
               )}
+
+              <DataSourceInlineEditIdentityJoins
+                dataSource={d}
+                onSave={updateDataSource}
+                onCancel={cancelUpdateDataSource}
+              />
 
               {/* region Jupyter Notebook */}
               <div className="mb-4">
