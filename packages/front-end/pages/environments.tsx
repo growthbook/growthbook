@@ -2,16 +2,16 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import DeleteButton from "../../components/DeleteButton";
-import EnvironmentModal from "../../components/Settings/EnvironmentModal";
-import { useAuth } from "../../services/auth";
+import DeleteButton from "../components/DeleteButton";
+import EnvironmentModal from "../components/Settings/EnvironmentModal";
+import { useAuth } from "../services/auth";
 import { Environment } from "back-end/types/organization";
-import { GBAddCircle } from "../../components/Icons";
-import { useEnvironments } from "../../services/features";
-import useUser from "../../hooks/useUser";
-import MoreMenu from "../../components/Dropdown/MoreMenu";
-import Button from "../../components/Button";
-import useApi from "../../hooks/useApi";
+import { GBAddCircle } from "../components/Icons";
+import { useEnvironments } from "../services/features";
+import useUser from "../hooks/useUser";
+import MoreMenu from "../components/Dropdown/MoreMenu";
+import Button from "../components/Button";
+import useApi from "../hooks/useApi";
 import { ApiKeyInterface } from "back-end/types/apikey";
 
 const EnvironmentsPage: FC = () => {
