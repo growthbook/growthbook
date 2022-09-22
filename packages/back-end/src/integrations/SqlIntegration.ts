@@ -299,20 +299,8 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = new Date(params.from);
-    const metricEnd = new Date(params.to);
-    metricEnd.setHours(
-      metricEnd.getHours() +
-        (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
-    );
-    if (params.metric.conversionDelayHours) {
-      metricStart.setHours(
-        metricStart.getHours() + params.metric.conversionDelayHours
-      );
-      metricEnd.setHours(
-        metricEnd.getHours() + params.metric.conversionDelayHours
-      );
-    }
+    const metricStart = this.getMetricStart([params.metric], params.from);
+    const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "m");
 
@@ -551,8 +539,8 @@ export default abstract class SqlIntegration
     return `e.${col}`;
   }
 
-  private getMetricStart(phase: ExperimentPhase, metrics: MetricInterface[]) {
-    const metricStart = new Date(phase.dateStarted);
+  private getMetricStart(metrics: MetricInterface[], initial: Date) {
+    const metricStart = new Date(initial);
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
@@ -568,10 +556,10 @@ export default abstract class SqlIntegration
     return metricStart;
   }
 
-  private getMetricEnd(phase: ExperimentPhase, metrics: MetricInterface[]) {
-    if (!phase.dateEnded) return null;
+  private getMetricEnd(metrics: MetricInterface[], initial?: Date) {
+    if (!initial) return null;
 
-    const metricEnd = new Date(phase.dateEnded);
+    const metricEnd = new Date(initial);
     let runningHours = 0;
     let maxHours = 0;
     metrics.forEach((m) => {
@@ -614,8 +602,8 @@ export default abstract class SqlIntegration
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
       .concat([metric]);
-    const metricStart = this.getMetricStart(phase, orderedMetrics);
-    const metricEnd = this.getMetricEnd(phase, orderedMetrics);
+    const metricStart = this.getMetricStart(orderedMetrics, phase.dateStarted);
+    const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
@@ -924,7 +912,7 @@ export default abstract class SqlIntegration
           variation,
           dimension
       )
-      , __variations as (
+      , __stats as (
         -- One row per variation/dimension with aggregations
         SELECT
           ${isRatio ? `d` : `m`}.variation,
@@ -957,23 +945,12 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension
       )
-      , __stats as (
-        -- Calculate the stats for each variation
-        SELECT
-          variation,
-          dimension,
-          ${this.getVariationCount(isRatio)} as count,
-          ${this.getVariationMean(isRatio)} as mean,
-          ${this.getVariationStddev(isRatio)} as stddev
-        FROM
-          __variations
-      )
     SELECT
       u.variation,
       u.dimension,
-      ${this.getOverallCount(isRatio, metric)} as count,
-      ${this.getOverallMean(isRatio, metric)} as mean,
-      ${this.getOverallStddev(isRatio, metric)} as stddev,
+      ${this.getVariationDenominator(isRatio, metric)} as count,
+      ${this.getVariationMean(isRatio, metric)} as mean,
+      ${this.getVariationStddev(isRatio, metric)} as stddev,
       u.users
     FROM
       __overallUsers u
@@ -995,77 +972,66 @@ export default abstract class SqlIntegration
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }
 
-  private getOverallCount(isRatio: boolean, metric: MetricInterface) {
-    // We want to return the denominator for the metric
-    // When ignoring nulls or using a ratio, we use the variation count
-    if (isRatio || metric.ignoreNulls) {
+  private getVariationDenominator(isRatio: boolean, metric: MetricInterface) {
+    // Ratio metrics use the sum of the denominator metric
+    if (isRatio) {
+      return `s.d_sum`;
+    }
+    // If we're ignoring nulls, we only want to use the converted user count
+    if (metric.ignoreNulls) {
       return `s.count`;
     }
     // Otherwise, the denominator is the number of users in the experiment
     return `u.users`;
   }
-  private getOverallMean(isRatio: boolean, metric: MetricInterface) {
-    // For these metrics, the mean was already calculated correctly for the variation
-    if (isRatio || metric.ignoreNulls) {
-      return `s.mean`;
+  private getVariationMean(isRatio: boolean, metric: MetricInterface) {
+    // The mean of a ratio metric is the ratio of the sums
+    if (isRatio) {
+      return this.ifElse("s.d_sum>0", `s.m_sum / s.d_sum`, "0");
     }
-    // For everything else, s.mean only considered converted users.
+    // If we're ignoring non-converted users, we don't need any corrections
+    if (metric.ignoreNulls) {
+      return `s.m_mean`;
+    }
+    // For everything else, the raw mean only considered converted users.
     // We need to adjust to include all users
-    return `s.mean * s.count / u.users`;
+    return `s.m_mean * s.count / u.users`;
   }
-  private getOverallStddev(isRatio: boolean, metric: MetricInterface) {
-    // Normal approximation for a bernouli random variable
-    // p*(1-p) where p is the conversion rate (count/users)
+  private getVariationStddev(isRatio: boolean, metric: MetricInterface) {
+    // For binomial metrics, we use the normal approximation for a bernouli random variable
+    // variance = p*(1-p) where p is the conversion rate (count/users)
     if (metric.type === "binomial") {
       return `sqrt((s.count/u.users)*(1-s.count/u.users))`;
     }
-    // For these metrics, we already calculated stddev correctly for the variation
-    if (isRatio || metric.ignoreNulls) {
-      return `s.stddev`;
-    }
-    // For all other metrics, s.stddev only considers converted users.
-    // Need to adjust it to include all users (non-converted have a mean/stddev of 0)
-    // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
-    return this.ifElse(
-      "u.users>1",
-      `sqrt(
-        (s.count-1)*power(s.stddev,2)/(u.users-1)
-        + s.count*(u.users-s.count)*power(s.mean,2)/(u.users*(u.users-1))
-      )`,
-      "0"
-    );
-  }
-  private getVariationCount(isRatio: boolean) {
-    // For ratio metrics, we want to use the denominator sum as the count
-    if (isRatio) {
-      return `d_sum`;
-    }
-    // Otherwise, we want to use the count of users
-    return `count`;
-  }
-  private getVariationMean(isRatio: boolean) {
-    // Ratio metric means are calculated as a proportion of 2 sums
-    if (isRatio) {
-      return this.ifElse("d_sum>0", `m_sum / d_sum`, "0");
-    }
-    return `m_mean`;
-  }
-  private getVariationStddev(isRatio: boolean) {
     // For ratio metrics (e.g. pages/session) the units are correlated.
     // We need to use the Delta method to get the correct variance
     // https://stats.stackexchange.com/questions/291594/estimation-of-population-ratio-using-delta-method/291652#291652
     if (isRatio) {
       return this.ifElse(
-        "d_mean>0",
+        "s.d_mean>0",
         `sqrt(
-        m_var/power(d_mean,2)
-        - 2*m_mean*covar/power(d_mean,3)
-        + power(m_mean,2)*d_var/power(d_mean,4)
+        s.m_var/power(s.d_mean,2)
+        - 2*s.m_mean*s.covar/power(s.d_mean,3)
+        + power(s.m_mean,2)*s.d_var/power(s.d_mean,4)
       )`,
         "0"
       );
     }
-    return "m_sd";
+    // If we're ignoring non-converting users, the standard deviation is already correct
+    if (metric.ignoreNulls) {
+      return `s.m_sd`;
+    }
+    // For all other metrics, stddev only considers converted users.
+    // Need to adjust it to include all users (non-converted have a mean/stddev of 0)
+    // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+    return this.ifElse(
+      "u.users>1",
+      `sqrt(
+        (s.count-1)*power(s.m_sd,2)/(u.users-1)
+        + s.count*(u.users-s.count)*power(s.m_mean,2)/(u.users*(u.users-1))
+      )`,
+      "0"
+    );
   }
 
   private getMetricCTE({
