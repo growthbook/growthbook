@@ -17,7 +17,7 @@ type TableData = {
 type PageViewTableData = TableData & {
   path: string;
 };
-type SessionTableData = TableData & {
+type SessionTableData = Omit<TableData, "timestamp"> & {
   duration: number;
   pages: number;
   sessionStart: string;
@@ -311,33 +311,36 @@ async function simulateSession(
 ): Promise<Omit<SessionTableData, "duration" | "pages">> {
   setRandomTime();
   const browser = getBrowser();
-  const commonEventData: TableData = {
+  const commonData = {
     userId: userId + "",
     anonymousId: browser + anonymousId,
     sessionId: Math.random() + "",
     browser,
     country: getCountry(userId),
+  };
+  const eventData: TableData = {
+    ...commonData,
     timestamp: "",
   };
-  const sessionData = {
-    ...commonEventData,
+  const sessionData: Omit<SessionTableData, "duration" | "pages"> = {
+    ...commonData,
     sessionStart: getTimestamp(),
   };
 
   const gb = new GrowthBook({
     attributes: {
       id: userId,
-      anonId: commonEventData.anonymousId,
+      anonId: eventData.anonymousId,
       date: currentDate.toISOString().substring(0, 10),
-      browser: commonEventData.browser,
-      country: commonEventData.country,
+      browser: eventData.browser,
+      country: eventData.country,
     },
   });
 
-  let bounce = viewHomepage(commonEventData, gb);
+  let bounce = viewHomepage(eventData, gb);
   if (bounce) return sessionData;
 
-  bounce = viewSearchResults(commonEventData, gb);
+  bounce = viewSearchResults(eventData, gb);
   if (bounce) return sessionData;
 
   // Views a couple items
@@ -351,16 +354,16 @@ async function simulateSession(
   });
   const itemsViewed = normalInt(1, res.value);
   for (let i = 0; i < itemsViewed; i++) {
-    const item = viewItemPage(commonEventData, gb);
+    const item = viewItemPage(eventData, gb);
     qty += item.qty;
     price += item.amount;
   }
   if (!qty) return sessionData;
 
-  bounce = viewCheckout(commonEventData, gb);
+  bounce = viewCheckout(eventData, gb);
   if (bounce) return sessionData;
 
-  purchase(commonEventData, gb, qty, price);
+  purchase(eventData, gb, qty, price);
 
   return sessionData;
 }
@@ -413,8 +416,9 @@ function writeCSV(objs: Record<string, unknown>[], filename: string) {
   for (let i = 0; i < objs.length; i++) {
     const row: string[] = [];
     for (let j = 0; j < headers.length; j++) {
-      row.push(String(objs[i][j] || ""));
+      row.push(String(objs[i][headers[j]] || ""));
     }
+    rows.push(row);
   }
   const contents = rows.map((row) => row.join(",")).join("\n") + "\n";
   fs.writeFileSync(path, contents);

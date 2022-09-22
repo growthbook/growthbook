@@ -5,8 +5,8 @@ CREATE TABLE pages (
   sessionId VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2), 
-  path VARCHAR(32), 
-  timestamp TIMESTAMP
+  timestamp TIMESTAMP, 
+  path VARCHAR(32)
 );
 
 DROP TABLE IF EXISTS experiment_viewed;
@@ -15,10 +15,10 @@ CREATE TABLE experiment_viewed (
   anonymousId VARCHAR(64), 
   sessionId VARCHAR(64), 
   browser VARCHAR(20), 
-  country VARCHAR(2), 
+  country VARCHAR(2),
+  timestamp TIMESTAMP, 
   experimentId VARCHAR(32),
-  variationId VARCHAR(32),
-  timestamp TIMESTAMP
+  variationId VARCHAR(32)
 );
 
 DROP TABLE IF EXISTS orders;
@@ -27,10 +27,10 @@ CREATE TABLE orders (
   anonymousId VARCHAR(64), 
   sessionId VARCHAR(64), 
   browser VARCHAR(20), 
-  country VARCHAR(2), 
+  country VARCHAR(2),
+  timestamp TIMESTAMP, 
   qty INTEGER,
-  amount INTEGER,
-  timestamp TIMESTAMP
+  amount INTEGER
 );
 
 DROP TABLE IF EXISTS events;
@@ -41,8 +41,8 @@ CREATE TABLE events (
   sessionId VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2), 
-  event VARCHAR(32), 
-  timestamp TIMESTAMP
+  timestamp TIMESTAMP, 
+  event VARCHAR(32)
 );
 
 DROP TABLE IF EXISTS sessions;
@@ -51,8 +51,8 @@ CREATE TABLE sessions (
   anonymousId VARCHAR(64), 
   sessionId VARCHAR(64), 
   browser VARCHAR(20), 
-  sessionStart TIMESTAMP, 
   country VARCHAR(2), 
+  sessionStart TIMESTAMP, 
   pages INTEGER,
   duration INTEGER
 );
