@@ -127,6 +127,7 @@ const DataSourcePage: FC = () => {
           <div className="col-auto">
             <DeleteButton
               displayName={d.name}
+              className="font-weight-bold"
               text="Delete"
               onClick={async () => {
                 await apiCall(`/datasource/${d.id}`, {
@@ -261,6 +262,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 onCancel={cancelUpdateDataSource}
                 dataSource={d}
               />
+              {/* endregion Identifier Types */}
 
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>
@@ -333,7 +335,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
 
                   <div className="">
                     <button
-                      className="btn btn-outline-secondary"
+                      className="btn btn-outline-primary font-weight-bold"
                       onClick={() => {
                         setUiMode("edit");
                         setEditingResource("jupyter_notebook");
