@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
 import fs from "fs";
+import { IssuerMetadata } from "openid-client";
+import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -102,3 +104,54 @@ export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
+
+// Self-hosted Enterprise licence key
+export const LICENCE_KEY = process.env.LICENCE_KEY || "";
+
+// Self-hosted SSO
+function getSSOConfig() {
+  if (!process.env.SSO_CONFIG) return null;
+
+  if (!IS_CLOUD && !LICENCE_KEY) {
+    throw new Error(
+      "Must have an Enterprise Licence Key to use self-hosted SSO"
+    );
+  }
+
+  const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
+  // Must include clientId and specific metadata
+  const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
+    "authorization_endpoint",
+    "issuer",
+    "jwks_uri",
+    "id_token_signing_alg_values_supported",
+    "token_endpoint",
+  ];
+  if (!config?.clientId || !config?.metadata) {
+    throw new Error("SSO_CONFIG must contain 'clientId' and 'metadata'");
+  }
+
+  const missingMetadata = requiredMetadataKeys.filter(
+    (k) => !(k in config.metadata)
+  );
+  if (missingMetadata.length > 0) {
+    throw new Error(
+      "SSO_CONFIG missing required metadata fields: " +
+        missingMetadata.join(", ")
+    );
+  }
+
+  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
+  if (
+    IS_CLOUD &&
+    config?.metadata?.issuer !== "https://growthbook.auth0.com/"
+  ) {
+    throw new Error("Invalid SSO configuration for GrowthBook Cloud");
+  }
+
+  config.id = "";
+  return config;
+}
+export const SSO_CONFIG = getSSOConfig();
+export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
+export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";

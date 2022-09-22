@@ -14,9 +14,6 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-  defaultMaxPercentChange,
-  defaultMinPercentChange,
-  defaultMinSampleSize,
 } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
 import Tabs from "../../components/Tabs/Tabs";
@@ -51,6 +48,7 @@ import usePermissions from "../../hooks/usePermissions";
 import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -82,6 +80,12 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   useSwitchOrg(data?.metric?.organization);
+
+  const {
+    getMinSampleSizeForMetric,
+    getMinPercentageChangeForMetric,
+    getMaxPercentageChangeForMetric,
+  } = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
 
@@ -861,23 +865,19 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.minSampleSize ?? defaultMinSampleSize}
+                      {getMinSampleSizeForMetric(metric)}
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Max percent change:</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.maxPercentChange * 100 ||
-                        defaultMaxPercentChange * 100}
-                      %
+                      {getMaxPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Min percent change :</span>{" "}
                     <span className="font-weight-bold">
-                      {metric?.minPercentChange * 100 ||
-                        defaultMinPercentChange * 100}
-                      %
+                      {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
                 </ul>

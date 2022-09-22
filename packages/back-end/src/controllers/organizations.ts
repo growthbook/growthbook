@@ -9,10 +9,10 @@ import {
   getRole,
   importConfig,
   getOrgFromReq,
-  addMemberToOrg,
-  validateLogin,
   getPermissionsByRole,
   updateRole,
+  addMemberFromSSOConnection,
+  isEnterpriseSSO,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -46,11 +46,7 @@ import { getFeature } from "../models/FeatureModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByOrganization } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
-import {
-  sendInviteEmail,
-  sendNewMemberEmail,
-  sendNewOrgEmail,
-} from "../services/email";
+import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { getAllGroups } from "../services/group";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
@@ -60,7 +56,6 @@ import { WebhookModel } from "../models/WebhookModel";
 import { createWebhook } from "../services/webhooks";
 import {
   createOrganization,
-  findOrganizationByClaimedDomain,
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
@@ -71,11 +66,14 @@ import { WebhookInterface } from "../../types/webhook";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
+import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
+import { getLicence } from "../init/licence";
+import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
-  // Ensure user exists in database
-  if (!req.userId && IS_CLOUD) {
+  // If using SSO, auto-create users in Mongo who we don't recognize yet
+  if (!req.userId && usingOpenId()) {
     const user = await createUser(req.name || "", req.email, "", req.verified);
     req.userId = user.id;
   }
@@ -89,45 +87,24 @@ export async function getUser(req: AuthRequest, res: Response) {
   // List of all organizations the user belongs to
   const orgs = await findOrganizationsByMemberId(userId);
 
-  // If the user is not in an organization yet and they are using GrowthBook Cloud
+  // If the user is not in an organization yet and is using SSO
   // Check to see if they should be auto-added to one based on their email domain
-  if (!orgs.length && IS_CLOUD) {
-    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-
-    const autoOrg = await findOrganizationByClaimedDomain(emailDomain);
+  if (!orgs.length) {
+    const autoOrg = await addMemberFromSSOConnection(req);
     if (autoOrg) {
-      // Throw error is the login method is invalid
-      validateLogin(req, autoOrg);
-
-      await addMemberToOrg(autoOrg, userId);
       orgs.push(autoOrg);
-      try {
-        await sendNewMemberEmail(
-          req.name || "",
-          req.email || "",
-          autoOrg.name,
-          autoOrg.ownerEmail
-        );
-      } catch (e) {
-        console.error("Failed to send new member email", e.message);
-      }
     }
   }
 
   // Filter out orgs that the user can't log in to
-  let lastError: Error | null = null;
-  const validOrgs = orgs.filter((org) => {
-    try {
-      validateLogin(req, org);
-      return true;
-    } catch (e) {
-      lastError = e;
-      return false;
-    }
-  });
+  const validOrgs = orgs.filter(
+    (org) =>
+      !org.restrictLoginMethod ||
+      req.loginMethod?.id === org.restrictLoginMethod
+  );
   // If all of a user's orgs were filtered out, throw an error
-  if (orgs.length && !validOrgs.length && lastError) {
-    throw lastError;
+  if (orgs.length && !validOrgs.length) {
+    throw new Error("Must login with Enterprise SSO");
   }
 
   return res.status(200).json({
@@ -136,6 +113,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
+    licence: !IS_CLOUD && getLicence(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
       return {
@@ -546,9 +524,14 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const apiKeys = await getAllApiKeysByOrganization(org.id);
 
+  const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
+    ? getSSOConnectionSummary(req.loginMethod)
+    : null;
+
   return res.status(200).json({
     status: 200,
     apiKeys,
+    enterpriseSSO,
     organization: {
       invites,
       ownerEmail,
@@ -915,7 +898,7 @@ export async function putOrganization(
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
-  const { name, settings } = req.body;
+  const { name, settings, connections } = req.body;
 
   try {
     const updates: Partial<OrganizationInterface> = {};
@@ -932,6 +915,16 @@ export async function putOrganization(
         ...settings,
       };
       orig.settings = org.settings;
+    }
+    if (connections?.vercel) {
+      const { token, configurationId, teamId } = connections.vercel;
+      if (token && configurationId) {
+        updates.connections = {
+          ...updates.connections,
+          vercel: { token, configurationId, teamId },
+        };
+        orig.connections = org.connections;
+      }
     }
 
     await updateOrganization(org.id, updates);
@@ -1144,10 +1137,8 @@ export async function putAdminResetUserPassword(
   const { updatedPassword } = req.body;
   const userToUpdateId = req.params.id;
 
-  if (IS_CLOUD) {
-    throw new Error(
-      "This functionality is not available with GrowthBook Cloud"
-    );
+  if (usingOpenId()) {
+    throw new Error("This functionality is not available when using SSO");
   }
 
   const { org } = getOrgFromReq(req);

@@ -96,6 +96,8 @@ export function format(sql: string) {
     })
       // Fix Snowflate syntax for flatten function
       .replace(/ = > /g, " => ")
+      // Similar fix for PrestoDB/Athena lambda functions
+      .replace(/ - > /g, " -> ")
   );
 }
 

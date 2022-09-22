@@ -15,9 +15,6 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  defaultMaxPercentChange,
-  defaultMinPercentChange,
-  defaultMinSampleSize,
   formatConversionRate,
 } from "../../services/metrics";
 import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
@@ -27,6 +24,7 @@ import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -156,6 +154,13 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
 
+  const {
+    getMinSampleSizeForMetric,
+    getMinPercentageChangeForMetric,
+    getMaxPercentageChangeForMetric,
+    metricDefaults,
+  } = useOrganizationMetricDefaults();
+
   useEffect(() => {
     track("View Metric Form", {
       source,
@@ -219,11 +224,9 @@ const MetricForm: FC<MetricFormProps> = ({
       tags: current.tags || [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
-      maxPercentChange:
-        (current.maxPercentChange || defaultMaxPercentChange) * 100,
-      minPercentChange:
-        (current.minPercentChange || defaultMinPercentChange) * 100,
-      minSampleSize: current.minSampleSize || defaultMinSampleSize,
+      maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
+      minPercentChange: getMinPercentageChangeForMetric(current) * 100,
+      minSampleSize: getMinSampleSizeForMetric(current),
     },
   });
 
@@ -258,7 +261,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label: m.name,
         };
       });
-  }, [metrics, value.datasource]);
+  }, [metrics, value.datasource, metricDefaults]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
@@ -931,7 +934,7 @@ const MetricForm: FC<MetricFormProps> = ({
               </div>
               {riskError && <div className="text-danger">{riskError}</div>}
               <small className="text-muted">
-                Set the threasholds for risk for this metric. This is used when
+                Set the thresholds for risk for this metric. This is used when
                 determining metric significance, highlighting the risk value as
                 green, yellow, or red.
               </small>
@@ -951,8 +954,11 @@ const MetricForm: FC<MetricFormProps> = ({
                 required in an experiment variation before showing results
                 (default{" "}
                 {value.type === "binomial"
-                  ? defaultMinSampleSize
-                  : formatConversionRate(value.type, defaultMinSampleSize)}
+                  ? metricDefaults.minimumSampleSize
+                  : formatConversionRate(
+                      value.type,
+                      metricDefaults.minimumSampleSize
+                    )}
                 )
               </small>
             </div>
@@ -964,7 +970,7 @@ const MetricForm: FC<MetricFormProps> = ({
               {...form.register("maxPercentChange", { valueAsNumber: true })}
               helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
-              defaultMaxPercentChange * 100
+              metricDefaults.maxPercentageChange * 100
             })`}
             />
             <Field
@@ -974,7 +980,9 @@ const MetricForm: FC<MetricFormProps> = ({
               append="%"
               {...form.register("minPercentChange", { valueAsNumber: true })}
               helpText={`An experiment that changes the metric by less than this percent will be
-            considered a draw (default ${defaultMinPercentChange * 100})`}
+            considered a draw (default ${
+              metricDefaults.minPercentageChange * 100
+            })`}
             />
           </>
         )}

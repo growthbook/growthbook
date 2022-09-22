@@ -35,6 +35,10 @@ GrowthBook supports a few popular database schemas out-of-the-box:
 - [Matomo](/guide/matomo)
 - Amplitude (Snowflake only)
 - Google Analytics 4 (BigQuery only)
+- Jitsu
+- Firebase
+- Heap Analytics
+- Freshpaint
 
 After connecting to your data source, you will be prompted to choose one of the above. If your data is in a different format, you can also decide to define a custom schema.
 
@@ -77,7 +81,23 @@ WHERE
   event_type = 'viewed experiment'
 ```
 
-Don’t worry about returning duplicate rows or ordering the result. We handle that for you automatically. Whatever you do, just make sure to return the exact column names that GrowthBook is expecting. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
+Make sure to return the exact column names that GrowthBook is expecting. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
+
+##### Duplicate Rows
+
+If a user sees an experiment multiple times, you should return multiple rows in your assignment query, one for each time the user was exposed to the experiment.
+
+This helps in two ways
+
+1. Detecting when users were exposed to more than one variation
+2. Calculating metric conversion windows based on an experiment's Attribution Model
+
+There are 2 **Attribution Models** that experiments can use:
+
+- **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment
+- **All Exposures** uses multiple conversion windows, one for each time the user sees an experiment
+
+Currently, all analyses will use the "First Exposure" model by default. You can change this on a per-experiment basis as needed.
 
 ##### Experiment Dimensions
 
@@ -233,6 +253,18 @@ There are two ways to provide credentials to GrowthBook:
 1. Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
 2. Upload a JSON key file for the service account
 
+### Snowflake
+
+We support multiple [account identifier](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html) formats when connecting to Snowflake. An example account identifier is `xy12345.us-east-2.aws`.
+
+If you are self-hosting GrowthBook, you can send queries to Snowflake through an Authenticated Proxy.
+
+To enable this, set a `SNOWFLAKE_PROXY` environment variable in your GrowthBook container. Here is an example:
+
+```
+SNOWFLAKE_PROXY=http://username:password@proxyserver.company.com:80
+```
+
 ### Mixpanel
 
 You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
@@ -243,7 +275,7 @@ To add the datasource in GrowthBook, you will need:
 2.  The service account secret
 3.  Your project id (found on the Project Settings Overview page)
 
-### Google Analytics
+### Universal Google Analytics
 
 **Note:** The Google Analytics data source only supports older Universal Analytics properties. If you are using Google Analytics v4 property, you need to [setup a BigQuery export](https://support.google.com/analytics/answer/9823238) and use that as the data source instead.
 

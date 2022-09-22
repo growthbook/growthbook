@@ -1,6 +1,5 @@
 import React, { FC, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
@@ -11,11 +10,6 @@ import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import NewDataSourceForm from "./NewDataSourceForm";
-
-const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
-  name: "My Datasource",
-  settings: {},
-};
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -121,7 +115,10 @@ const DataSources: FC = () => {
       {newModalOpen && (
         <NewDataSourceForm
           existing={false}
-          data={DEFAULT_DATA_SOURCE}
+          data={{
+            name: "My Datasource",
+            settings: {},
+          }}
           source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});
