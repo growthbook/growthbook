@@ -24,6 +24,7 @@ import {
 } from "../../components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDataSource/EditJupyterNotebookQueryRunner";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -73,7 +74,7 @@ const DataSourcePage: FC = () => {
       setUiMode("view");
       setEditingResource(null);
     },
-    [mutateDefinitions]
+    [mutateDefinitions, apiCall]
   );
 
   const cancelUpdateDataSource = useCallback(() => {
@@ -254,21 +255,13 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
-              <div className="mb-4">
-                <h3>Identifier Types</h3>
-                <p>
-                  The different units you use to split traffic in an experiment.
-                </p>
-                {d.settings?.userIdTypes?.map(({ userIdType, description }) => (
-                  <div
-                    className="bg-white border mb-3 p-3 ml-3"
-                    key={userIdType}
-                  >
-                    <h4>{userIdType}</h4>
-                    {description && <div>{description}</div>}
-                  </div>
-                ))}
-              </div>
+              {/* region Identifier Types */}
+              <DataSourceInlineEditIdentifierTypes
+                onSave={updateDataSource}
+                onCancel={cancelUpdateDataSource}
+                dataSource={d}
+              />
+
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>
                 <p>
@@ -346,7 +339,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         setEditingResource("jupyter_notebook");
                       }}
                     >
-                      <FaPencilAlt /> Edit
+                      <FaPencilAlt className="mr-1" /> Edit
                     </button>
                   </div>
                 </div>
