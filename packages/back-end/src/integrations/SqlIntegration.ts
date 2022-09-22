@@ -290,20 +290,8 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = new Date(params.from);
-    const metricEnd = new Date(params.to);
-    metricEnd.setHours(
-      metricEnd.getHours() +
-        (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
-    );
-    if (params.metric.conversionDelayHours) {
-      metricStart.setHours(
-        metricStart.getHours() + params.metric.conversionDelayHours
-      );
-      metricEnd.setHours(
-        metricEnd.getHours() + params.metric.conversionDelayHours
-      );
-    }
+    const metricStart = this.getMetricStart([params.metric], params.from);
+    const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "m");
 
@@ -335,7 +323,7 @@ export default abstract class SqlIntegration
             __metric m
             ${
               params.segment
-                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
+                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                 : ""
             }
           GROUP BY
@@ -355,17 +343,17 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("m.conversion_start")} as date,
+              ${this.dateTrunc("m.timestamp")} as date,
               ${aggregate} as value
             FROM
               __metric m
               ${
                 params.segment
-                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
+                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                   : ""
               }
             GROUP BY
-              ${this.dateTrunc("m.conversion_start")},
+              ${this.dateTrunc("m.timestamp")},
               m.${baseIdType}
           )
           , __byDateOverall as (
@@ -497,8 +485,8 @@ export default abstract class SqlIntegration
             const prevAlias = i ? `t${i - 1}` : "initial";
             const alias = `t${i}`;
             return `
-              ${alias}.conversion_start >= ${prevAlias}.conversion_start
-              AND ${alias}.conversion_start <= ${prevAlias}.conversion_end`;
+              ${alias}.timestamp >= ${prevAlias}.conversion_start
+              AND ${alias}.timestamp <= ${prevAlias}.conversion_end`;
           })
           .join("\n AND ")}`;
   }
@@ -520,7 +508,7 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "user") {
       return "d.value";
     } else if (dimension.type === "date") {
-      return this.formatDate(this.dateTrunc("e.conversion_start"));
+      return this.formatDate(this.dateTrunc("e.timestamp"));
     } else if (dimension.type === "experiment") {
       return "e.dimension";
     }
@@ -540,6 +528,45 @@ export default abstract class SqlIntegration
       return `a.${col}`;
     }
     return `e.${col}`;
+  }
+
+  private getMetricStart(metrics: MetricInterface[], initial: Date) {
+    const metricStart = new Date(initial);
+    let runningDelay = 0;
+    let minDelay = 0;
+    metrics.forEach((m) => {
+      if (m.conversionDelayHours) {
+        const delay = runningDelay + m.conversionDelayHours;
+        if (delay < minDelay) minDelay = delay;
+        runningDelay = delay;
+      }
+    });
+    if (minDelay < 0) {
+      metricStart.setHours(metricStart.getHours() + minDelay);
+    }
+    return metricStart;
+  }
+
+  private getMetricEnd(metrics: MetricInterface[], initial?: Date) {
+    if (!initial) return null;
+
+    const metricEnd = new Date(initial);
+    let runningHours = 0;
+    let maxHours = 0;
+    metrics.forEach((m) => {
+      const hours =
+        runningHours +
+        (m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+        (m.conversionDelayHours || 0);
+      if (hours > maxHours) maxHours = hours;
+      runningHours = hours;
+    });
+
+    if (maxHours > 0) {
+      metricEnd.setHours(metricEnd.getHours() + maxHours);
+    }
+
+    return metricEnd;
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
@@ -563,33 +590,11 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = new Date(phase.dateStarted);
-    const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
-    if (metricEnd) {
-      let additionalHours = 0;
-      activationMetrics.concat(denominatorMetrics).forEach((m) => {
-        additionalHours +=
-          m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-      });
-
-      metricEnd.setHours(
-        metricEnd.getHours() +
-          // Add conversion window so metric has time to convert after experiment ends
-          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
-          // If using activation or denominator metrics, also need to allow for that conversion time
-          additionalHours
-      );
-    }
-
-    // Add conversion delay
-    if (metric.conversionDelayHours) {
-      metricStart.setHours(
-        metricStart.getHours() + metric.conversionDelayHours
-      );
-      if (metricEnd) {
-        metricEnd.setHours(metricEnd.getHours() + metric.conversionDelayHours);
-      }
-    }
+    const orderedMetrics = activationMetrics
+      .concat(denominatorMetrics)
+      .concat([metric]);
+    const metricStart = this.getMetricStart(orderedMetrics, phase.dateStarted);
+    const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
@@ -729,7 +734,7 @@ export default abstract class SqlIntegration
         -- One row per included metric conversion
         SELECT
           m.${baseIdType},  
-          m.conversion_start as ts,
+          m.timestamp as ts,
           m.value
         FROM
           __metric m
@@ -741,10 +746,10 @@ export default abstract class SqlIntegration
               : "__experiment"
           } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          m.conversion_start >= u.conversion_start
-          AND m.conversion_start <= u.conversion_end
+          m.timestamp >= u.conversion_start
+          AND m.timestamp <= u.conversion_end
         GROUP BY
-          m.${baseIdType}, m.conversion_start, m.value
+          m.${baseIdType}, m.timestamp, m.value
       )`
           : ""
       }
@@ -801,7 +806,7 @@ export default abstract class SqlIntegration
               ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
               : ""
           }
-        ${segment ? `WHERE s.date <= e.conversion_start` : ""}
+        ${segment ? `WHERE s.date <= e.timestamp` : ""}
         GROUP BY
         ${dimension ? dimensionGroupBy + ", " : ""}e.${baseIdType}${
         removeMultipleExposures ? "" : ", e.variation"
@@ -822,8 +827,8 @@ export default abstract class SqlIntegration
           useAllExposures
             ? ""
             : `WHERE
-          m.conversion_start >= d.conversion_start
-          AND m.conversion_start <= d.conversion_end`
+          m.timestamp >= d.conversion_start
+          AND m.timestamp <= d.conversion_end`
         }
         GROUP BY
           variation, dimension, d.${baseIdType}
@@ -942,6 +947,7 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
+        ${timestampCol} as timestamp,
         ${this.addHours(
           timestampCol,
           conversionDelayHours
@@ -1029,6 +1035,7 @@ export default abstract class SqlIntegration
     SELECT
       e.${baseIdType} as ${baseIdType},
       ${this.castToString("e.variation_id")} as variation,
+      ${timestampColumn} as timestamp,
       ${this.addHours(
         timestampColumn,
         conversionDelayHours
