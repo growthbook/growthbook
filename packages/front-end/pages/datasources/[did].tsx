@@ -102,10 +102,6 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
 
-  const joinTables = (d.settings?.queries?.identityJoins || []).filter(
-    (j) => j.query.length > 1
-  );
-
   return (
     <div className="container mt-3 pagecontents">
       <div className="mb-2">

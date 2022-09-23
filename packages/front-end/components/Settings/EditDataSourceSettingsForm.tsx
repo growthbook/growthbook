@@ -9,7 +9,6 @@ import DataSourceSchemaChooser from "./DataSourceSchemaChooser";
 import { useFieldArray, useForm } from "react-hook-form";
 import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
-import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip";

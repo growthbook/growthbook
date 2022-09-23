@@ -1,15 +1,14 @@
-import React, { FC, useCallback, useMemo } from "react";
+import React, { FC, useMemo } from "react";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
-import isEqual from "lodash/isEqual";
-import intersectionBy from "lodash/intersectionBy";
 
 import { useForm } from "react-hook-form";
 import Modal from "../../../Modal";
 import MultiSelectField from "../../../Forms/MultiSelectField";
 import CodeTextArea from "../../../Forms/CodeTextArea";
+import { isDuplicateIdentityJoin } from "./utils";
 
 type AddEditIdentityJoinModalProps = {
   identityJoin: IdentityJoinQuery | null;
@@ -17,7 +16,6 @@ type AddEditIdentityJoinModalProps = {
   mode: "add" | "edit";
   onSave: (identityJoin: IdentityJoinQuery) => void;
   onCancel: () => void;
-  // TODO: other props
 };
 
 export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
@@ -56,13 +54,23 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
     });
   });
 
-  // TODO: Validate
-  const saveEnabled = true;
+  // region Validation
 
-  // const isDuplicate = useMemo(() => {
-  //   intersectionBy(existingIdentityJoins, )
-  //   // return mode === "add" && existingIdentityJoins.filter(identityJoin => isEqual());
-  // }, [existingIdentityJoins, mode]);
+  const userEnteredIdentityJoinIds = form.watch("ids");
+  const userEnteredQuery = form.watch("query");
+  const userHasEnteredEnoughData =
+    userEnteredQuery && userEnteredIdentityJoinIds.length >= 2;
+
+  const isDuplicate = useMemo(() => {
+    return (
+      mode === "add" &&
+      isDuplicateIdentityJoin(userEnteredIdentityJoinIds, existingIdentityJoins)
+    );
+  }, [existingIdentityJoins, mode, userEnteredIdentityJoinIds]);
+
+  const saveEnabled = !isDuplicate && userHasEnteredEnoughData;
+
+  // endregion Validation
 
   const modalTitle = useMemo(() => {
     if (mode === "add") {
