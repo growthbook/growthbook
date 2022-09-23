@@ -61,16 +61,15 @@ export async function getAllSavedGroups(
   orgId: string
 ): Promise<SavedGroupInterface[]> {
   const savedGroups = await SavedGroupModel.find({ orgId });
-  return savedGroups.map((value) => value.toJSON());
+  return savedGroups.map((value) => value.toJSON()) || [];
 }
 
 export async function updateSavedGroup(
   values: string,
-  groupName: string,
   group: SavedGroupEditableProps
 ): Promise<void> {
   await SavedGroupModel.updateOne(
-    { groupName: groupName },
+    { groupName: group.groupName },
     {
       ...group,
       values: parseSaveGroupString(values),

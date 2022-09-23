@@ -18,8 +18,6 @@ export default function SavedGroupsPage() {
 
   const { savedGroups, error } = useDefinitions();
 
-  console.log(savedGroups);
-
   if (!savedGroups) return <LoadingOverlay />;
 
   return (

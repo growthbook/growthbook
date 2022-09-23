@@ -85,7 +85,7 @@ export async function getFeatureDefinitions(
                   replaceSavedGroupsInCondition(
                     r.condition,
                     groupMap,
-                    allGroups || [],
+                    allGroups,
                     attributeMap
                   )
                 );

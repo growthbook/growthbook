@@ -32,7 +32,7 @@ export async function putSavedGroup(req: AuthRequest, res: Response) {
 
   req.checkPermissions("createFeatures");
 
-  const savedGroup = await updateSavedGroup(groupList, groupName, {
+  const savedGroup = await updateSavedGroup(groupList, {
     groupName,
     owner,
     attributeKey,
