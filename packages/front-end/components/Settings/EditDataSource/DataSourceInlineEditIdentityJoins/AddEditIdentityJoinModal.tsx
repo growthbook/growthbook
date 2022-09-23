@@ -40,7 +40,10 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
 
   const form = useForm<IdentityJoinQuery>({
     defaultValues: {
-      ids: identityJoin?.ids || [],
+      ids:
+        mode === "add"
+          ? identityTypes.map(({ userIdType }) => userIdType)
+          : identityJoin?.ids || [],
       query: mode === "add" ? defaultQuery : identityJoin?.query || "",
     },
   });
