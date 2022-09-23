@@ -7,6 +7,7 @@ import {
   FaExternalLinkAlt,
   FaKey,
   FaPencilAlt,
+  FaPlus,
 } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
@@ -323,7 +324,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         setEditingResource("jupyter_notebook");
                       }}
                     >
-                      <FaPencilAlt className="mr-1" /> Edit
+                      {d.settings.notebookRunQuery ? (
+                        <>
+                          <FaPencilAlt className="mr-1" /> Edit
+                        </>
+                      ) : (
+                        <>
+                          <FaPlus className="mr-1" /> Add
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -340,7 +349,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   />
                 ) : (
                   <div className="alert alert-info">
-                    No query runner defined, Jupyter export is disabled.
+                    Used when exporting experiment results to a Jupyter notebook
                   </div>
                 )}
               </div>
