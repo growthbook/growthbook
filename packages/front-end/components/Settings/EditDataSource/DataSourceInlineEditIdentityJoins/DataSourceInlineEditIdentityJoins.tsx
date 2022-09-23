@@ -1,6 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
-import { EmptyStateCard } from "../EmptyStateCard";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import Code from "../../../Code";
 import MoreMenu from "../../../Dropdown/MoreMenu";
@@ -41,8 +40,8 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     [openIndexes]
   );
 
-  const addIsDisabled = (dataSource.settings?.userIdTypes || []).length < 2;
-
+  const userIdTypes = dataSource.settings?.userIdTypes || [];
+  const addIsDisabled = userIdTypes.length < 2;
   const identityJoins = dataSource?.settings?.queries?.identityJoins || [];
 
   const handleAdd = useCallback(() => {
@@ -86,127 +85,104 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   return (
     <div className="my-5">
       {/* region Heading */}
-      <div className="d-flex justify-content-between align-items-center">
-        <div className="">
-          <h3>Identifier Join Tables</h3>
-          <p>
-            Joins different identifier types together when needed during
-            experiment analysis.
-          </p>
-          {addIsDisabled && (
+      {identityJoins.length > 0 || userIdTypes.length >= 2 ? (
+        <div className="d-flex justify-content-between align-items-center">
+          <div className="">
+            <h3>Identifier Join Tables</h3>
             <p>
-              You will be able to create identifier join tables when you have
-              identified at least 2 user identifiers.
+              Joins different identifier types together when needed during
+              experiment analysis.
             </p>
-          )}
-        </div>
+          </div>
 
-        <div>
-          <button
-            disabled={addIsDisabled}
-            className="btn btn-outline-primary font-weight-bold"
-            onClick={handleAdd}
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
+          <div>
+            <button
+              disabled={addIsDisabled}
+              className="btn btn-outline-primary font-weight-bold"
+              onClick={handleAdd}
+            >
+              <FaPlus className="mr-1" /> Add
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
       {/* endregion Heading */}
 
       {/* region Identity Joins list */}
-      <div className="mb-4">
-        {identityJoins.map((identityJoin, idx) => {
-          const isOpen = openIndexes[idx] || false;
-          return (
-            <div className="bg-white border mb-3" key={`identity-join-${idx}`}>
-              <div className="d-flex justify-content-between">
-                {/* Title */}
-                <h4 className="py-3 px-3 my-0">
-                  {identityJoin.ids.join(" ↔ ")}
-                </h4>
+      {identityJoins.length > 0 ? (
+        <div className="mb-4">
+          {identityJoins.map((identityJoin, idx) => {
+            const isOpen = openIndexes[idx] || false;
+            return (
+              <div
+                className="bg-white border mb-3"
+                key={`identity-join-${idx}`}
+              >
+                <div className="d-flex justify-content-between">
+                  {/* Title */}
+                  <h4 className="py-3 px-3 my-0">
+                    {identityJoin.ids.join(" ↔ ")}
+                  </h4>
 
-                {/* Actions*/}
-                <div className="d-flex align-items-center">
-                  <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                  {/* Actions*/}
+                  <div className="d-flex align-items-center">
+                    <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                      <button
+                        className="dropdown-item py-2"
+                        onClick={handleActionEditClicked(idx)}
+                      >
+                        <FaPencilAlt className="mr-2" /> Edit
+                      </button>
+
+                      <DeleteButton
+                        onClick={handleActionDeleteClicked(idx)}
+                        className="dropdown-item text-danger py-2"
+                        iconClassName="mr-2"
+                        style={{ borderRadius: 0 }}
+                        useIcon
+                        displayName={identityJoin.ids.join(" ↔ ")}
+                        deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
+                          " ↔ "
+                        )}?`}
+                        title="Delete"
+                        text="Delete"
+                        outline={false}
+                      />
+                    </MoreMenu>
+
                     <button
-                      className="dropdown-item py-2"
-                      onClick={handleActionEditClicked(idx)}
+                      className="btn ml-3"
+                      onClick={handleExpandCollapseForIndex(idx)}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit
+                      <FaChevronRight
+                        style={{
+                          transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
+                        }}
+                      />
                     </button>
-
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon
-                      displayName={identityJoin.ids.join(" ↔ ")}
-                      deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
-                        " ↔ "
-                      )}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
+                  </div>
+                </div>
+                <div>
+                  {isOpen && (
+                    <Code
+                      language="sql"
+                      theme="light"
+                      code={identityJoin.query}
+                      containerClassName="mb-0"
+                      expandable={true}
                     />
-                  </MoreMenu>
-
-                  <button
-                    className="btn ml-3"
-                    onClick={handleExpandCollapseForIndex(idx)}
-                  >
-                    <FaChevronRight
-                      style={{
-                        transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
-                      }}
-                    />
-                  </button>
+                  )}
                 </div>
               </div>
-              <div>
-                {isOpen && (
-                  <Code
-                    language="sql"
-                    theme="light"
-                    code={identityJoin.query}
-                    containerClassName="mb-0"
-                    expandable={true}
-                  />
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {/* endregion Identity Joins list */}
-
-      {/* region Identity Joins empty state */}
-      {identityJoins.length === 0 ? (
-        <EmptyStateCard>
-          <div className="mb-3">
-            <h4>No identity joins.</h4>
-            {addIsDisabled ? (
-              <p>
-                You will be able to create identifier join tables when you have
-                identified at least 2 user identifiers.
-              </p>
-            ) : (
-              <p>
-                You can create identifier join tables with 2 or more identifiers
-              </p>
-            )}
-          </div>
-
-          <button
-            disabled={addIsDisabled}
-            onClick={handleAdd}
-            className="btn btn-outline-primary font-weight-bold"
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
-        </EmptyStateCard>
+            );
+          })}
+        </div>
+      ) : userIdTypes.length >= 2 ? (
+        // Empty state
+        <div className="alert alert-info">No identity joins.</div>
       ) : null}
-      {/* endregion Identity Joins empty state */}
+
+      {/* endregion Identity Joins list */}
 
       {/* region Add/Edit modal */}
       {uiMode === "edit" || uiMode === "add" ? (
