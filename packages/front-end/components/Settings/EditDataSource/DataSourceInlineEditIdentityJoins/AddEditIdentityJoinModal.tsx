@@ -106,7 +106,6 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           <MultiSelectField
             label="Identifier Types"
             value={userEnteredIdentityJoinIds}
-            disabled={mode === "edit"}
             onChange={(value) => {
               form.setValue("ids", value);
             }}
