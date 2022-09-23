@@ -10,7 +10,6 @@ import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
-import Tooltip from "../../../Tooltip";
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
@@ -42,12 +41,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     [openIndexes]
   );
 
-  // const indexOpenMapRef = useRef<Map<number, boolean>>(new Map());
-
   const addIsDisabled = (dataSource.settings?.userIdTypes || []).length < 2;
-  const addButtonTooltip = addIsDisabled
-    ? "You will be able to create identifier join tables when you have identified at least 2 user identifiers."
-    : "";
 
   const identityJoins = dataSource?.settings?.queries?.identityJoins || [];
 
@@ -107,16 +101,14 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
           )}
         </div>
 
-        <div className="">
-          <Tooltip body={addButtonTooltip}>
-            <button
-              disabled={addIsDisabled}
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={handleAdd}
-            >
-              <FaPlus className="mr-1" /> Add
-            </button>
-          </Tooltip>
+        <div>
+          <button
+            disabled={addIsDisabled}
+            className="btn btn-outline-primary font-weight-bold"
+            onClick={handleAdd}
+          >
+            <FaPlus className="mr-1" /> Add
+          </button>
         </div>
       </div>
       {/* endregion Heading */}
@@ -192,24 +184,26 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       {identityJoins.length === 0 ? (
         <EmptyStateCard>
           <div className="mb-3">
-            <p>No identity joins.</p>
-            {addIsDisabled && (
+            <h4>No identity joins.</h4>
+            {addIsDisabled ? (
               <p>
                 You will be able to create identifier join tables when you have
                 identified at least 2 user identifiers.
               </p>
+            ) : (
+              <p>
+                You can create identifier join tables with 2 or more identifiers
+              </p>
             )}
           </div>
 
-          <Tooltip body={addButtonTooltip}>
-            <button
-              disabled={addIsDisabled}
-              onClick={handleAdd}
-              className="btn btn-outline-primary font-weight-bold"
-            >
-              <FaPlus className="mr-1" /> Add
-            </button>
-          </Tooltip>
+          <button
+            disabled={addIsDisabled}
+            onClick={handleAdd}
+            className="btn btn-outline-primary font-weight-bold"
+          >
+            <FaPlus className="mr-1" /> Add
+          </button>
         </EmptyStateCard>
       ) : null}
       {/* endregion Identity Joins empty state */}
