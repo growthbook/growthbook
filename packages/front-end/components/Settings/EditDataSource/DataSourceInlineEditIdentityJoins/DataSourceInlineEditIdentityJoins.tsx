@@ -142,7 +142,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                       style={{ borderRadius: 0 }}
                       useIcon
                       displayName={identityJoin.ids.join(" ↔ ")}
-                      deleteMessage={`Are you sure you want to delete identifier type ${identityJoin.ids.join(
+                      deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
                         " ↔ "
                       )}?`}
                       title="Delete"
