@@ -117,16 +117,20 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           />
 
           <div>
-            <div className="pt-md-4">
-              <strong>Required columns</strong>
-            </div>
-            <ul>
-              {form.watch("ids").map((id) => (
-                <li key={id}>
-                  <code>{id}</code>
-                </li>
-              ))}
-            </ul>
+            {form.watch("ids").length ? (
+              <>
+                <div className="pt-md-4">
+                  <strong>Required columns</strong>
+                </div>
+                <ul>
+                  {form.watch("ids").map((id) => (
+                    <li key={id}>
+                      <code>{id}</code>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </div>
         </div>
 
