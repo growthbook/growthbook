@@ -1,4 +1,6 @@
 import isEqual from "lodash/isEqual";
+import sortBy from "lodash/sortBy";
+
 import { IdentityJoinQuery } from "back-end/types/datasource";
 
 /**
@@ -11,7 +13,7 @@ export const isDuplicateIdentityJoin = (
   existingIdentityJoins: IdentityJoinQuery[]
 ): boolean => {
   const existingElement = existingIdentityJoins.find((item) => {
-    return isEqual(item.ids.sort(), newIds.sort());
+    return isEqual(sortBy(item.ids), sortBy(newIds));
   });
   return !!existingElement;
 };
