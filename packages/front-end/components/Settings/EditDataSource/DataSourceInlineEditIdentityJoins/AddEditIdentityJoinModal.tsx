@@ -105,7 +105,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         <div className="col-xs-12 col-md-6">
           <MultiSelectField
             label="Identifier Types"
-            value={form.watch("ids")}
+            value={userEnteredIdentityJoinIds}
             disabled={mode === "edit"}
             onChange={(value) => {
               form.setValue("ids", value);
@@ -117,13 +117,13 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           />
 
           <div>
-            {form.watch("ids").length ? (
+            {userEnteredIdentityJoinIds.length ? (
               <>
                 <div className="pt-md-4">
                   <strong>Required columns</strong>
                 </div>
                 <ul>
-                  {form.watch("ids").map((id) => (
+                  {userEnteredIdentityJoinIds.map((id) => (
                     <li key={id}>
                       <code>{id}</code>
                     </li>
@@ -138,7 +138,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           <CodeTextArea
             label="SQL Query"
             language="sql"
-            value={form.watch("query")}
+            value={userEnteredQuery}
             setValue={(sql) => form.setValue("query", sql)}
           />
         </div>
