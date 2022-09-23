@@ -15,10 +15,13 @@ export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
 export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
+  if (!phase?.phase) {
+    return null;
+  }
   return (
     <>
       <span className="phase">
-        {phase?.phase === "main" || !phase?.phase ? "" : phase.phase + ", "}
+        {phase.phase === "main" ? "" : phase.phase + ", "}
       </span>
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%
