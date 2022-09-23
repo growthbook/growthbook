@@ -18,7 +18,7 @@ export function phaseSummary(
   return (
     <>
       <span className="phase">
-        {phase.phase === "main" ? "" : phase.phase + ", "}
+        {phase?.phase === "main" || !phase?.phase ? "" : phase.phase + ", "}
       </span>
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%
