@@ -254,6 +254,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
+              {/* TODO: design changes for Identity Joins nested */}
               {/* region Identifier Types */}
               <DataSourceInlineEditIdentifierTypes
                 onSave={updateDataSource}
@@ -261,6 +262,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 dataSource={d}
               />
               {/* endregion Identifier Types */}
+
+              {/* region Identity Joins */}
+              <DataSourceInlineEditIdentityJoins
+                dataSource={d}
+                onSave={updateDataSource}
+                onCancel={cancelUpdateDataSource}
+              />
+              {/* endregion Identity Joins */}
 
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>
@@ -302,12 +311,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 ))}
               </div>
-
-              <DataSourceInlineEditIdentityJoins
-                dataSource={d}
-                onSave={updateDataSource}
-                onCancel={cancelUpdateDataSource}
-              />
 
               {/* region Jupyter Notebook */}
               <div className="mb-4">
