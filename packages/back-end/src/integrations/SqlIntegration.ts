@@ -951,7 +951,7 @@ export default abstract class SqlIntegration
       ${this.getVariationDenominator(isRatio, metric)} as count,
       ${this.getVariationMean(isRatio, metric)} as mean,
       ${this.getVariationStddev(isRatio, metric)} as stddev,
-      u.users
+      ${this.getVariationUsers(metric)} as users
     FROM
       __overallUsers u
       LEFT JOIN __stats s ON (
@@ -972,6 +972,12 @@ export default abstract class SqlIntegration
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }
 
+  private getVariationUsers(metric: MetricInterface) {
+    if (metric.ignoreNulls) {
+      return `coalesce(s.count,0)`;
+    }
+    return `u.users`;
+  }
   private getVariationDenominator(isRatio: boolean, metric: MetricInterface) {
     // Ratio metrics use the sum of the denominator metric
     if (isRatio) {
