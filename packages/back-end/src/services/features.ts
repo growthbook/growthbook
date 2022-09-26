@@ -34,7 +34,6 @@ function getJSONValue(type: FeatureValueType, value: string): any {
   if (type === "boolean") return value === "false" ? false : true;
   return null;
 }
-
 export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
@@ -51,7 +50,7 @@ export async function getFeatureDefinitions(
     attributeMap.set(attribute.property, attribute.datatype);
   });
 
-  // // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs.
+  // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups = await getAllSavedGroups(organization);
 
   function getGroupValues(

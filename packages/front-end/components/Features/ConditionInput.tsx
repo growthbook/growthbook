@@ -205,7 +205,9 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
-                    ...(savedGroupOptions ? savedGroupOperators : []),
+                    ...(savedGroupOptions.length > 0
+                      ? savedGroupOperators
+                      : []),
                   ]
                 : [];
 

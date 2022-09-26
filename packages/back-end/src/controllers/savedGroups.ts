@@ -52,7 +52,7 @@ export async function putSavedGroup(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { id, groupName, owner, groupList } = req.body;
+  const { id, groupName, owner, groupList, attributeKey } = req.body;
 
   if (!id) {
     throw new Error("Must specify saved group id");
@@ -62,14 +62,14 @@ export async function putSavedGroup(
 
   const values = parseSaveGroupString(groupList);
 
-  const savedGroup = await updateSavedGroup(id, org.id, {
+  await updateSavedGroup(id, org.id, {
     values,
     groupName,
     owner,
+    attributeKey,
   });
 
   return res.status(200).json({
     status: 200,
-    savedGroup,
   });
 }

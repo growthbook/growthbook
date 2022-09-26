@@ -33,7 +33,7 @@ type CreateSavedGroupProps = Omit<
 
 type UpdateSavedGroupProps = Omit<
   SavedGroupInterface,
-  "dateCreated" | "dateUpdated" | "id" | "organization" | "attributeKey"
+  "dateCreated" | "dateUpdated" | "id" | "organization"
 >;
 
 export function parseSaveGroupString(list: string) {
