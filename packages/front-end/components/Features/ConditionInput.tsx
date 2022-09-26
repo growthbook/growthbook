@@ -130,8 +130,6 @@ export default function ConditionInput(props: Props) {
               }
             });
 
-            console.log("savedGroup options", savedGroupOptions);
-
             const onChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
