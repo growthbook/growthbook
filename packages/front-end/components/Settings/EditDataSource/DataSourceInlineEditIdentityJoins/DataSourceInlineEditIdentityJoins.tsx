@@ -10,6 +10,7 @@ import {
   IdentityJoinQuery,
 } from "back-end/types/datasource";
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
+import Tooltip from "../../../Tooltip";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -83,16 +84,17 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   }
 
   return (
-    <div className="my-5">
+    <div className="">
       {/* region Heading */}
       {identityJoins.length > 0 || userIdTypes.length >= 2 ? (
-        <div className="d-flex justify-content-between align-items-center">
-          <div className="">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex">
             <h3>Identifier Join Tables</h3>
-            <p>
-              Joins different identifier types together when needed during
-              experiment analysis.
-            </p>
+            <Tooltip
+              className="ml-2"
+              body="Joins different identifier types together when needed during
+              experiment analysis."
+            />
           </div>
 
           <div>
@@ -110,12 +112,13 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       {/* region Identity Joins list */}
       {identityJoins.length > 0 ? (
-        <div className="mb-4">
+        <div className="">
           {identityJoins.map((identityJoin, idx) => {
             const isOpen = openIndexes[idx] || false;
             return (
               <div
-                className="bg-white border mb-3"
+                style={{ marginBottom: -1 }}
+                className="bg-white border"
                 key={`identity-join-${idx}`}
               >
                 <div className="d-flex justify-content-between">

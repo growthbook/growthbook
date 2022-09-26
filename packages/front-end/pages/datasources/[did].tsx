@@ -254,22 +254,31 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
-              {/* TODO: design changes for Identity Joins nested */}
-              {/* region Identifier Types */}
-              <DataSourceInlineEditIdentifierTypes
-                onSave={updateDataSource}
-                onCancel={cancelUpdateDataSource}
-                dataSource={d}
-              />
-              {/* endregion Identifier Types */}
+              <h2 className="mt-4">Identifiers</h2>
+              <p>
+                The different units you use to split traffic in an experiment.
+              </p>
 
-              {/* region Identity Joins */}
-              <DataSourceInlineEditIdentityJoins
-                dataSource={d}
-                onSave={updateDataSource}
-                onCancel={cancelUpdateDataSource}
-              />
-              {/* endregion Identity Joins */}
+              <div className="card py-3 px-3 mb-4">
+                {/* TODO: design changes for Identity Joins nested */}
+                {/* region Identifier Types */}
+                <DataSourceInlineEditIdentifierTypes
+                  onSave={updateDataSource}
+                  onCancel={cancelUpdateDataSource}
+                  dataSource={d}
+                />
+                {/* endregion Identifier Types */}
+
+                <div className="mt-4">
+                  {/* region Identity Joins */}
+                  <DataSourceInlineEditIdentityJoins
+                    dataSource={d}
+                    onSave={updateDataSource}
+                    onCancel={cancelUpdateDataSource}
+                  />
+                </div>
+                {/* endregion Identity Joins */}
+              </div>
 
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>

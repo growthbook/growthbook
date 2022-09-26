@@ -10,6 +10,7 @@ import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import DeleteButton from "../../../DeleteButton";
 import { EmptyStateCard } from "../EmptyStateCard";
+import Tooltip from "../../../Tooltip";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -75,10 +76,14 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   }
 
   return (
-    <div className="my-5">
-      <div className="d-flex justify-content-between align-items-center">
-        <div className="">
+    <div className="">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex align-items-center">
           <h3>Identifier Types</h3>
+          <Tooltip
+            className="ml-2"
+            body="The different units you use to split traffic in an experiment."
+          />
         </div>
 
         <div className="">
@@ -91,21 +96,18 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         </div>
       </div>
 
-      <p>The different units you use to split traffic in an experiment.</p>
-
       {userIdTypes.map(({ userIdType, description }, idx) => (
         <div
-          className="d-flex justify-content-between align-items-center bg-white border mb-3 p-3 "
+          style={{ marginBottom: -1 }}
+          className="d-flex justify-content-between align-items-center bg-white border p-2"
           key={userIdType}
         >
           {/* region Identity Type text */}
-          <div>
-            <h4>{userIdType}</h4>
-            {description ? (
-              <span>{description}</span>
-            ) : (
-              <span className="text-muted">(no description)</span>
-            )}
+          <div className="d-flex">
+            <p className="mb-0 mr-3 font-weight-bold">{userIdType}</p>
+            <span className="text-muted">
+              {description || "(no description)"}
+            </span>
           </div>
           {/* endregion Identity Type text */}
 
@@ -140,16 +142,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
       {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
-        <EmptyStateCard>
-          <div className="mb-3">No user identifier types.</div>
-
-          <button
-            onClick={handleAdd}
-            className="btn btn-outline-primary font-weight-bold"
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
-        </EmptyStateCard>
+        <div className="mb-0 alert alert-info">No user identifier types.</div>
       ) : null}
       {/* endregion Identity Type empty state */}
 
