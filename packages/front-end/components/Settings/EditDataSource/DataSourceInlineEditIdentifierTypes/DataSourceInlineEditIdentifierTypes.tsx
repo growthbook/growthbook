@@ -9,7 +9,6 @@ import { EditIdentifierType } from "./EditIdentifierType";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import DeleteButton from "../../../DeleteButton";
-import { EmptyStateCard } from "../EmptyStateCard";
 import Tooltip from "../../../Tooltip";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
@@ -79,7 +78,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
     <div className="">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="d-flex align-items-center">
-          <h3>Identifier Types</h3>
+          <h3 className="mb-0">Identifier Types</h3>
           <Tooltip
             className="ml-2"
             body="The different units you use to split traffic in an experiment."
