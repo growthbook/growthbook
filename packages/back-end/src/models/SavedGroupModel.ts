@@ -26,30 +26,35 @@ const SavedGroupModel = mongoose.model<SavedGroupDocument>(
   savedGroupSchema
 );
 
-function parseSaveGroupString(list: string) {
-  const listArr = list.split(",");
-
-  const savedGroup = listArr.map((i: string) => {
-    return i.trim();
-  });
-
-  return [
-    ...new Set(savedGroup.filter((value) => value !== "," && value !== "")),
-  ];
-}
-
-type SavedGroupEditableProps = Omit<
+type CreateSavedGroupProps = Omit<
   SavedGroupInterface,
-  "dateCreated" | "dateUpdated" | "id" | "values"
+  "dateCreated" | "dateUpdated" | "id"
 >;
 
+type UpdateSavedGroupProps = Omit<
+  SavedGroupInterface,
+  | "dateCreated"
+  | "dateUpdated"
+  | "id"
+  | "organization"
+  | "attributeKey"
+  | "orgId"
+>;
+
+export function parseSaveGroupString(list: string) {
+  const values = list
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => !!value);
+
+  return [...new Set(values)];
+}
+
 export async function createSavedGroup(
-  values: string,
-  group: SavedGroupEditableProps
+  group: CreateSavedGroupProps
 ): Promise<SavedGroupInterface> {
   const newGroup = await SavedGroupModel.create({
     ...group,
-    values: parseSaveGroupString(values),
     id: uniqid("grp_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -65,14 +70,17 @@ export async function getAllSavedGroups(
 }
 
 export async function updateSavedGroup(
-  values: string,
-  group: SavedGroupEditableProps
+  savedGroupId: string,
+  orgId: string,
+  group: UpdateSavedGroupProps
 ): Promise<void> {
   await SavedGroupModel.updateOne(
-    { groupName: group.groupName },
+    {
+      id: savedGroupId,
+      orgId: orgId,
+    },
     {
       ...group,
-      values: parseSaveGroupString(values),
       dateUpdated: new Date(),
     }
   );

@@ -26,6 +26,7 @@ const SavedGroupForm: FC<{
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
       groupList: current.values || "",
+      id: current.id || "",
     },
   });
 
@@ -35,7 +36,6 @@ const SavedGroupForm: FC<{
       open={true}
       header={current.groupName ? "Edit Group" : "New Group"}
       submit={form.handleSubmit(async (value) => {
-        console.log("value", value);
         await apiCall("/saved-groups", {
           method: current.groupName ? "PUT" : "POST",
           body: JSON.stringify(value),

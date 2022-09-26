@@ -1,19 +1,34 @@
 import { AuthRequest } from "../types/AuthRequest";
 import { Response } from "express";
 import { getOrgFromReq } from "../services/organizations";
-import { createSavedGroup, updateSavedGroup } from "../models/SavedGroupModel";
+import {
+  createSavedGroup,
+  parseSaveGroupString,
+  updateSavedGroup,
+} from "../models/SavedGroupModel";
 
 // IMPORTANT: SavedGroups and Groups are very similar, but serve two different purposes. At the time of development 9/22 we are
 // quietly deprecating Groups. Initially groups were used with experiments to only include people in a group in an experiement.
 // SavedGroups are used with features flag rules where rules can say if "x is/is not in SavedGroup" do/don't show a feature
 
-export async function postSavedGroup(req: AuthRequest, res: Response) {
+export async function postSavedGroup(
+  req: AuthRequest<{
+    groupName: string;
+    owner: string;
+    attributeKey: string;
+    groupList: string;
+  }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   const { groupName, owner, attributeKey, groupList } = req.body;
 
   req.checkPermissions("createFeatures");
 
-  const savedGroup = await createSavedGroup(groupList, {
+  const values = parseSaveGroupString(groupList);
+
+  const savedGroup = await createSavedGroup({
+    values,
     groupName,
     owner,
     attributeKey,
@@ -26,17 +41,31 @@ export async function postSavedGroup(req: AuthRequest, res: Response) {
   });
 }
 
-export async function putSavedGroup(req: AuthRequest, res: Response) {
+export async function putSavedGroup(
+  req: AuthRequest<{
+    id: string;
+    groupName: string;
+    owner: string;
+    attributeKey: string;
+    groupList: string;
+  }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, groupList } = req.body;
+  const { id, groupName, owner, groupList } = req.body;
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
 
   req.checkPermissions("createFeatures");
 
-  const savedGroup = await updateSavedGroup(groupList, {
+  const values = parseSaveGroupString(groupList);
+
+  const savedGroup = await updateSavedGroup(id, org.id, {
+    values,
     groupName,
     owner,
-    attributeKey,
-    orgId: org.id,
   });
 
   return res.status(200).json({

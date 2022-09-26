@@ -2,61 +2,13 @@ import { replaceSavedGroupsInCondition } from "../src/util/features";
 
 const groupMap = new Map();
 
-groupMap.set("grp_exl5jgrdl8bzy4x4", ["123", "345", "678", "910"]);
-groupMap.set("grp_exl5jijgl8c3hw2w", ["12", "23", "34"]);
-groupMap.set("grp_exl5jijgl8c3n0qt", ["1", "2", "3", "4"]);
-
-const allGroups = [
-  {
-    values: ["123", "345", "678", "910"],
-    groupName: "sample-group",
-    owner: "",
-    attributeKey: "id",
-    orgId: "org_exl5j7wgl4499rm4",
-    id: "grp_exl5jgrdl8bzy4x4",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  },
-  {
-    values: ["12", "23", "34"],
-    groupName: "sample-group-2",
-    owner: "",
-    attributeKey: "deviceId",
-    orgId: "org_exl5j7wgl4499rm4",
-    id: "grp_exl5jijgl8c3hw2w",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  },
-  {
-    values: ["1", "2", "3", "4"],
-    groupName: "number-test-2",
-    owner: "",
-    attributeKey: "number",
-    orgId: "org_exl5j7wgl4499rm4",
-    id: "grp_exl5jijgl8c3n0qt",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  },
-];
-
-const attributeMap = new Map();
-
-attributeMap.set("id", "string");
-attributeMap.set("number", "number");
-attributeMap.set("deviceId", "string");
-
 describe("replaceSavedGroupsInCondition", () => {
   it("does not format condition that doesn't contain $inGroup", () => {
     const rawCondition = JSON.stringify({ id: "1234" });
 
-    expect(
-      replaceSavedGroupsInCondition(
-        rawCondition,
-        groupMap,
-        allGroups,
-        attributeMap
-      )
-    ).toEqual(JSON.stringify({ id: "1234" }));
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      JSON.stringify({ id: "1234" })
+    );
   });
 
   it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
@@ -66,14 +18,9 @@ describe("replaceSavedGroupsInCondition", () => {
 
     const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
 
-    expect(
-      replaceSavedGroupsInCondition(
-        rawCondition,
-        groupMap,
-        allGroups,
-        attributeMap
-      )
-    ).toEqual('{"id":{"$in": ["123","345","678","910"]}}');
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"id":{"$in": ["123","345","678","910"]}}'
+    );
   });
 
   it("replaces the $notInGroup and groupId with $nin and the array of IDs", () => {
@@ -83,35 +30,25 @@ describe("replaceSavedGroupsInCondition", () => {
 
     const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
-    expect(
-      replaceSavedGroupsInCondition(
-        rawCondition,
-        groupMap,
-        allGroups,
-        attributeMap
-      )
-    ).toEqual('{"id":{"$nin": ["123","345","678","910"]}}');
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"id":{"$nin": ["123","345","678","910"]}}'
+    );
   });
 
   it("should replace the $in operator in and if the group.attributeKey is a number, the output array should be numbers", () => {
-    const ids = ["1", "2", "3", "4"];
+    const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, ids);
 
     const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
 
-    expect(
-      replaceSavedGroupsInCondition(
-        rawCondition,
-        groupMap,
-        allGroups,
-        attributeMap
-      )
-    ).toEqual('{"number":{"$in": [1,2,3,4]}}');
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"number":{"$in": [1,2,3,4]}}'
+    );
   });
 
   it("should replace the $in operator in more complex conditions correctly", () => {
-    const ids = ["1", "2", "3", "4"];
+    const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, ids);
 
@@ -121,19 +58,14 @@ describe("replaceSavedGroupsInCondition", () => {
       browser: "chrome",
     });
 
-    expect(
-      replaceSavedGroupsInCondition(
-        rawCondition,
-        groupMap,
-        allGroups,
-        attributeMap
-      )
-    ).toEqual('{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}');
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}'
+    );
   });
 });
 
 it("should correctly replace the $in operator in advanced mode conditions", () => {
-  const ids = ["1", "2", "3", "4"];
+  const ids = [1, 2, 3, 4];
   const groupId = "grp_exl5jijgl8c3n0qt";
   groupMap.set(groupId, ids);
 
@@ -148,14 +80,7 @@ it("should correctly replace the $in operator in advanced mode conditions", () =
     ],
   });
 
-  expect(
-    replaceSavedGroupsInCondition(
-      rawCondition,
-      groupMap,
-      allGroups,
-      attributeMap
-    )
-  ).toEqual(
+  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
     '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}'
   );
 });
@@ -166,16 +91,11 @@ it("handle extra whitespace and spaces correctly", () => {
   groupMap.set(groupId, ids);
 
   // eslint-disable-next-line
-  const rawCondition = JSON.stringify({ id: {      $notInGroup:    groupId } });
+  const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
-  expect(
-    replaceSavedGroupsInCondition(
-      rawCondition,
-      groupMap,
-      allGroups,
-      attributeMap
-    )
-  ).toEqual('{"id":{"$nin": ["123","345","678","910"]}}');
+  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+    '{"id":{"$nin": ["123","345","678","910"]}}'
+  );
 });
 
 it("handle extra newlines and spaces correctly", () => {
@@ -184,20 +104,16 @@ it("handle extra newlines and spaces correctly", () => {
   groupMap.set(groupId, ids);
 
   /* eslint-disable */
-  const rawCondition = JSON.stringify({      id: {     
-     $notInGroup:  
-       groupId } 
-                });
+  const rawCondition = JSON.stringify({
+    id: {
+      $notInGroup: groupId,
+    },
+  });
   /* eslint-enable */
 
-  expect(
-    replaceSavedGroupsInCondition(
-      rawCondition,
-      groupMap,
-      allGroups,
-      attributeMap
-    )
-  ).toEqual('{"id":{"$nin": ["123","345","678","910"]}}');
+  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+    '{"id":{"$nin": ["123","345","678","910"]}}'
+  );
 });
 
 it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
@@ -209,14 +125,9 @@ it("should replace the $in operator and add an empty array if groupId doesn't ex
     number: { $inGroup: "invalid-groupId" },
   });
 
-  expect(
-    replaceSavedGroupsInCondition(
-      rawCondition,
-      groupMap,
-      allGroups,
-      attributeMap
-    )
-  ).toEqual('{"number":{"$in": []}}');
+  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+    '{"number":{"$in": []}}'
+  );
 });
 
 it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
@@ -228,14 +139,9 @@ it("should NOT replace $inGroup text if it appears in a string somewhere randoml
     number: { $eq: "$inGroup" },
   });
 
-  expect(
-    replaceSavedGroupsInCondition(
-      rawCondition,
-      groupMap,
-      allGroups,
-      attributeMap
-    )
-  ).toEqual('{"number":{"$eq":"$inGroup"}}');
+  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+    '{"number":{"$eq":"$inGroup"}}'
+  );
 });
 
 it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
@@ -247,12 +153,7 @@ it("should NOT replace someone hand writes a condition with $inGroup: false", ()
     number: { $inGroup: false },
   });
 
-  expect(
-    replaceSavedGroupsInCondition(
-      rawCondition,
-      groupMap,
-      allGroups,
-      attributeMap
-    )
-  ).toEqual('{"number":{"$inGroup":false}}');
+  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+    '{"number":{"$inGroup":false}}'
+  );
 });

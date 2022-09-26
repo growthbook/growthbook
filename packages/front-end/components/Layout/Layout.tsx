@@ -123,7 +123,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects|namespaces)/,
+    path: /^(settings|admin|projects)/,
     permissions: ["organizationSettings"],
     autoClose: true,
     subLinks: [

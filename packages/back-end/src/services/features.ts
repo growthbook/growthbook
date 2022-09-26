@@ -13,7 +13,7 @@ import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
 
-export type GroupMap = Map<string, string[]>;
+export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
 
 function roundVariationWeight(num: number): number {
@@ -51,12 +51,26 @@ export async function getFeatureDefinitions(
     attributeMap.set(attribute.property, attribute.datatype);
   });
 
-  // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs.
+  // // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs.
   const allGroups = await getAllSavedGroups(organization);
-  const groupMap: GroupMap = new Map();
-  allGroups.forEach((group) => {
-    groupMap.set(group.id, group.values);
-  });
+
+  function getGroupValues(
+    values: string[],
+    type?: string
+  ): string[] | number[] {
+    if (type === "number") {
+      return values.map((v) => parseFloat(v));
+    }
+    return values;
+  }
+
+  const groupMap: GroupMap = new Map(
+    allGroups.map((group) => {
+      const attributeType = attributeMap?.get(group.attributeKey);
+      const values = getGroupValues(group.values, attributeType);
+      return [group.id, values];
+    })
+  );
 
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
@@ -82,12 +96,7 @@ export async function getFeatureDefinitions(
             if (r.condition && r.condition !== "{}") {
               try {
                 rule.condition = JSON.parse(
-                  replaceSavedGroupsInCondition(
-                    r.condition,
-                    groupMap,
-                    allGroups,
-                    attributeMap
-                  )
+                  replaceSavedGroupsInCondition(r.condition, groupMap)
                 );
               } catch (e) {
                 // ignore condition parse errors here
