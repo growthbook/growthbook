@@ -9,7 +9,6 @@ import DataSourceSchemaChooser from "./DataSourceSchemaChooser";
 import { useFieldArray, useForm } from "react-hook-form";
 import StringArrayField from "../Forms/StringArrayField";
 import uniqid from "uniqid";
-import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip";
@@ -305,120 +304,6 @@ const EditDataSourceSettingsForm: FC<{
                   Add New Assignment Table
                 </button>
               </div>
-
-              {userIdTypeOptions.length > 1 && (
-                <div className="mb-4">
-                  <h4>Identifier Join Tables</h4>
-                  <div>
-                    Queries that return a mapping between different identifier
-                    types
-                  </div>
-                  {identityJoins.fields.map((join, i) => {
-                    return (
-                      <div
-                        key={join.id}
-                        className="bg-light border my-2 p-3 ml-3"
-                      >
-                        <div className="row">
-                          <div className="col-auto">
-                            <h5>
-                              {i + 1}.{" "}
-                              {form
-                                .watch(
-                                  `settings.queries.identityJoins.${i}.ids`
-                                )
-                                ?.join(" + ")}
-                            </h5>
-                          </div>
-                          <div className="col-auto ml-auto">
-                            <a
-                              className="text-danger"
-                              href="#"
-                              title="Remove id join table"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                identityJoins.remove(i);
-                              }}
-                            >
-                              delete
-                            </a>
-                          </div>
-                        </div>
-                        <div className="row">
-                          <div className="col-md-7 col-lg-8">
-                            <MultiSelectField
-                              label="Identifier Types"
-                              value={form.watch(
-                                `settings.queries.identityJoins.${i}.ids`
-                              )}
-                              onChange={(val) => {
-                                form.setValue(
-                                  `settings.queries.identityJoins.${i}.ids`,
-                                  val
-                                );
-                              }}
-                              options={userIdTypeOptions.map((u) => ({
-                                value: u.value,
-                                label: u.display,
-                              }))}
-                            />
-                          </div>
-                        </div>
-                        <div className="row">
-                          <div className="col">
-                            <CodeTextArea
-                              label="SQL Query"
-                              language="sql"
-                              value={form.watch(
-                                `settings.queries.identityJoins.${i}.query`
-                              )}
-                              setValue={(sql) =>
-                                form.setValue(
-                                  `settings.queries.identityJoins.${i}.query`,
-                                  sql
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col-md-5 col-lg-4">
-                            <div className="pt-md-4">
-                              <strong>Required columns</strong>
-                            </div>
-                            <ul>
-                              {form
-                                .watch(
-                                  `settings.queries.identityJoins.${i}.ids`
-                                )
-                                .map((id) => (
-                                  <li key={id}>
-                                    <code>{id}</code>
-                                  </li>
-                                ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <button
-                    className="btn btn-outline-primary ml-3"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const userIds = userIdTypeOptions
-                        .map((u) => u.value)
-                        .slice(0, 2);
-
-                      identityJoins.append({
-                        ids: userIds,
-                        query: `SELECT\n  ${userIds[0]} as ${userIds[0]},\n  ${userIds[1]} as ${userIds[2]}\nFROM my_table`,
-                      });
-                    }}
-                  >
-                    Add New Identifier Join Table
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>

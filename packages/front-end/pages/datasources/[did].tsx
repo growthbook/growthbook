@@ -7,6 +7,7 @@ import {
   FaExternalLinkAlt,
   FaKey,
   FaPencilAlt,
+  FaPlus,
 } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
@@ -25,6 +26,7 @@ import {
 import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDataSource/EditJupyterNotebookQueryRunner";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
+import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -101,10 +103,6 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
 
-  const joinTables = (d.settings?.queries?.identityJoins || []).filter(
-    (j) => j.query.length > 1
-  );
-
   return (
     <div className="container mt-3 pagecontents">
       <div className="mb-2">
@@ -127,6 +125,7 @@ const DataSourcePage: FC = () => {
           <div className="col-auto">
             <DeleteButton
               displayName={d.name}
+              className="font-weight-bold"
               text="Delete"
               onClick={async () => {
                 await apiCall(`/datasource/${d.id}`, {
@@ -255,12 +254,31 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
-              {/* region Identifier Types */}
-              <DataSourceInlineEditIdentifierTypes
-                onSave={updateDataSource}
-                onCancel={cancelUpdateDataSource}
-                dataSource={d}
-              />
+              <h2 className="mt-4">Identifiers</h2>
+              <p>
+                The different units you use to split traffic in an experiment.
+              </p>
+
+              <div className="card py-3 px-3 mb-4">
+                {/* TODO: design changes for Identity Joins nested */}
+                {/* region Identifier Types */}
+                <DataSourceInlineEditIdentifierTypes
+                  onSave={updateDataSource}
+                  onCancel={cancelUpdateDataSource}
+                  dataSource={d}
+                />
+                {/* endregion Identifier Types */}
+
+                <div className="mt-4">
+                  {/* region Identity Joins */}
+                  <DataSourceInlineEditIdentityJoins
+                    dataSource={d}
+                    onSave={updateDataSource}
+                    onCancel={cancelUpdateDataSource}
+                  />
+                </div>
+                {/* endregion Identity Joins */}
+              </div>
 
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>
@@ -302,27 +320,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </div>
                 ))}
               </div>
-              {joinTables.length > 0 && d.settings?.userIdTypes?.length > 1 && (
-                <div className="mb-4">
-                  <h3>Identifier Join Tables</h3>
-                  <p>
-                    Joins different identifier types together when needed during
-                    experiment analysis.
-                  </p>
-                  {joinTables.map((t, i) => (
-                    <div className="bg-white border mb-3" key={i}>
-                      <h4 className="pt-3 px-3">{t.ids.join(", ")}</h4>
-                      <Code
-                        language="sql"
-                        theme="light"
-                        code={t.query}
-                        containerClassName="mb-0"
-                        expandable={true}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
 
               {/* region Jupyter Notebook */}
               <div className="mb-4">
@@ -333,13 +330,21 @@ mixpanel.init('YOUR PROJECT TOKEN', {
 
                   <div className="">
                     <button
-                      className="btn btn-outline-secondary"
+                      className="btn btn-outline-primary font-weight-bold"
                       onClick={() => {
                         setUiMode("edit");
                         setEditingResource("jupyter_notebook");
                       }}
                     >
-                      <FaPencilAlt className="mr-1" /> Edit
+                      {d.settings.notebookRunQuery ? (
+                        <>
+                          <FaPencilAlt className="mr-1" /> Edit
+                        </>
+                      ) : (
+                        <>
+                          <FaPlus className="mr-1" /> Add
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -356,7 +361,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   />
                 ) : (
                   <div className="alert alert-info">
-                    No query runner defined, Jupyter export is disabled.
+                    Used when exporting experiment results to a Jupyter notebook
                   </div>
                 )}
               </div>
