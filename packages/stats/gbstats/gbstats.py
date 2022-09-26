@@ -32,7 +32,7 @@ def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
-def get_metric_df(rows, var_id_map, var_names):
+def get_metric_df(rows, var_id_map, var_names, ignore_nulls=None, type="binomial"):
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -63,13 +63,35 @@ def get_metric_df(rows, var_id_map, var_names):
         key = str(row.variation)
         if key in var_id_map:
             i = var_id_map[key]
-            dimensions[dim]["total_users"] += row.users
+
+            stats = {
+                "users": row.users,
+                "count": row.count,
+                "mean": row.mean,
+                "stddev": row.stddev,
+                "total": row.mean * row.count,
+            }
+
+            # Legacy usage of this library required mean/stddev correction
+            if ignore_nulls != None:
+                # Mean/stddev in SQL results are only based on converting users
+                # If we need to add in unconverting users, we need to correct the values
+                stats = get_adjusted_stats(
+                    x=row.mean,
+                    sx=row.stddev,
+                    c=row.count,
+                    n=row.users,
+                    ignore_nulls=ignore_nulls,
+                    type=type,
+                )
+
+            dimensions[dim]["total_users"] += stats["users"]
             prefix = f"v{i}" if i > 0 else "baseline"
-            dimensions[dim][f"{prefix}_users"] = row.users
-            dimensions[dim][f"{prefix}_count"] = row.count
-            dimensions[dim][f"{prefix}_mean"] = row.mean
-            dimensions[dim][f"{prefix}_stddev"] = row.stddev
-            dimensions[dim][f"{prefix}_total"] = row.mean * row.count
+            dimensions[dim][f"{prefix}_users"] = stats["users"]
+            dimensions[dim][f"{prefix}_count"] = stats["count"]
+            dimensions[dim][f"{prefix}_mean"] = stats["mean"]
+            dimensions[dim][f"{prefix}_stddev"] = stats["stddev"]
+            dimensions[dim][f"{prefix}_total"] = stats["total"]
 
     return pd.DataFrame(dimensions.values())
 
@@ -158,7 +180,7 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
 
             # Run the A/B test analysis of baseline vs variation
             if type == "binomial":
-                res = binomial_ab_test(m_a*x_a, x_a, m_b*x_b, x_b)
+                res = binomial_ab_test(m_a * x_a, x_a, m_b*x_b, x_b)
             else:
                 res = gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b)
 
@@ -231,6 +253,151 @@ def format_results(df):
                 )
         results.append(dim)
     return results
+
+
+# Adjust metric stats to account for unconverted users
+def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
+    # Binomial metrics always have mean=1 and stddev=0, no need to correct
+    if type == "binomial":
+        p = c/n if n > 0 else 0
+        return {"users": n, "count": n, "mean": p, "stddev": math.sqrt(p*(1-p)), "total": c}
+    # Ignore unconverted users
+    elif ignore_nulls:
+        return {"users": c, "count": c, "mean": x, "stddev": sx, "total": c * x}
+    # Add in unconverted users and correct the mean/stddev
+    else:
+        m = n - c
+        return {
+            "users": n,
+            "count": n,
+            "mean": correctMean(c, x, m, 0),
+            "stddev": correctStddev(c, x, sx, m, 0, 0),
+            "total": c * x,
+        }
+
+
+# @deprecated
+# Transform raw SQL result for metrics into a list of stats per variation
+def process_metric_rows(rows, var_id_map, users, ignore_nulls=False, type="binomial"):
+    stats = [{"users": 0, "count": 0, "mean": 0, "stddev": 0, "total": 0}] * len(
+        var_id_map.keys()
+    )
+    for row in rows.itertuples(index=False):
+        id = str(row.variation)
+        if id in var_id_map:
+            variation = var_id_map[id]
+            stats[variation] = get_adjusted_stats(
+                x=row.mean,
+                sx=row.stddev,
+                c=row.count,
+                n=users[variation],
+                ignore_nulls=ignore_nulls,
+                type=type,
+            )
+    return pd.DataFrame(stats)
+
+
+# @deprecated
+# Transform raw SQL result for users into a list of num_users per variation
+def process_user_rows(rows, var_id_map):
+    users = [0] * len(var_id_map.keys())
+    unknown_var_ids = []
+    for row in rows.itertuples(index=False):
+        id = str(row.variation)
+        if id in var_id_map:
+            variation = var_id_map[id]
+            users[variation] = row.users
+        else:
+            unknown_var_ids.append(id)
+    return users, unknown_var_ids
+
+
+# @deprecated
+# Run A/B test analysis for a metric
+def run_analysis(metric, var_names, type="binomial", inverse=False):
+    vars = iter(metric.itertuples(index=False))
+    baseline = next(vars)
+
+    # baseline users, mean, count, stddev, and value
+    n_a = baseline.users
+    m_a = baseline.mean
+    x_a = baseline.count
+    s_a = baseline.stddev
+    v_a = baseline.total
+
+    cr_a = v_a / n_a
+
+    ret = pd.DataFrame(
+        [
+            {
+                "variation": var_names[0],
+                "users": n_a,
+                "total": v_a,
+                "per_user": cr_a,
+                "chance_to_beat_control": None,
+                "risk_of_choosing": None,
+                "percent_change": None,
+                "uplift_dist": None,
+                "uplift_mean": None,
+                "uplift_stddev": None,
+            }
+        ]
+    )
+
+    baseline_risk = 0
+    for i, row in enumerate(vars):
+        # variation users, mean, count, stddev, and value
+        n_b = row.users
+        m_b = row.mean
+        x_b = row.count
+        s_b = row.stddev
+        v_b = row.total
+        cr_b = v_b / n_b
+
+        if type == "binomial":
+            res = binomial_ab_test(x_a, n_a, x_b, n_b)
+        else:
+            res = gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b)
+
+        # Flip risk and chance to win for inverse metrics
+        risk0 = res["risk"][0] if not inverse else res["risk"][1]
+        risk1 = res["risk"][1] if not inverse else res["risk"][0]
+        ctw = res["chance_to_win"] if not inverse else 1 - res["chance_to_win"]
+
+        # Turn risk into relative risk
+        risk0 = risk0 / cr_b
+        risk1 = risk1 / cr_b
+
+        if risk0 > baseline_risk:
+            baseline_risk = risk0
+
+        s = pd.Series(
+            {
+                "variation": var_names[i + 1],
+                "users": n_b,
+                "total": v_b,
+                "per_user": cr_b,
+                "chance_to_beat_control": ctw,
+                "risk_of_choosing": risk1,
+                "percent_change": res["expected"],
+                "uplift_dist": res["uplift"]["dist"],
+                "uplift_mean": res["uplift"]["mean"],
+                "uplift_stddev": res["uplift"]["stddev"],
+            }
+        )
+
+        ret = ret.append(s, ignore_index=True)
+
+    ret.at[0, "risk_of_choosing"] = baseline_risk
+
+    # Rename columns for binomial metrics
+    if type == "binomial":
+        ret.rename(
+            columns={"total": "conversions", "per_user": "conversion_rate"},
+            inplace=True,
+        )
+
+    return ret
 
 
 # Run a chi-squared test to make sure the observed traffic split matches the expected one
