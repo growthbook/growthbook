@@ -23,8 +23,6 @@ export default function SubscriptionInfo() {
     quote,
     loading,
     canSubscribe,
-    hasPendingSubscriptionChange,
-    currentSeatsPaidFor,
     activeAndInvitedUsers,
   } = useStripeSubscription();
 
@@ -112,13 +110,15 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
-      {hasPendingSubscriptionChange && (
+      {quote.currentSeatsPaidFor !== activeAndInvitedUsers && (
         <div className="col-md-12 mb-3 alert alert-warning">
           {`You have recently ${
-            activeAndInvitedUsers - currentSeatsPaidFor > 0
+            activeAndInvitedUsers - quote.currentSeatsPaidFor > 0
               ? "added"
               : "removed"
-          } ${Math.abs(activeAndInvitedUsers - currentSeatsPaidFor)} seats. `}
+          } ${Math.abs(
+            activeAndInvitedUsers - quote.currentSeatsPaidFor
+          )} seats. `}
           These changes will be applied to your subscription soon.
         </div>
       )}
