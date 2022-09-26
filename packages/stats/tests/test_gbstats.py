@@ -291,7 +291,7 @@ def test_adjusted_stats_binomial():
     print(adjusted)
     assert adjusted["users"] == 2000
     assert adjusted["mean"] == 0.5
-    assert round_(adjusted["stddev"]) == math.sqrt(.25)
+    assert round_(adjusted["stddev"]) == math.sqrt(0.25)
     assert adjusted["total"] == 1000
 
 

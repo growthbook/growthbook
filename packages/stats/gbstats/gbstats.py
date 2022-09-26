@@ -73,7 +73,7 @@ def get_metric_df(rows, var_id_map, var_names, ignore_nulls=None, type="binomial
             }
 
             # Legacy usage of this library required mean/stddev correction
-            if ignore_nulls != None:
+            if ignore_nulls is not None:
                 # Mean/stddev in SQL results are only based on converting users
                 # If we need to add in unconverting users, we need to correct the values
                 stats = get_adjusted_stats(
@@ -180,7 +180,7 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
 
             # Run the A/B test analysis of baseline vs variation
             if type == "binomial":
-                res = binomial_ab_test(m_a * x_a, x_a, m_b*x_b, x_b)
+                res = binomial_ab_test(m_a * x_a, x_a, m_b * x_b, x_b)
             else:
                 res = gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b)
 
@@ -259,8 +259,14 @@ def format_results(df):
 def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
     # Binomial metrics always have mean=1 and stddev=0, no need to correct
     if type == "binomial":
-        p = c/n if n > 0 else 0
-        return {"users": n, "count": n, "mean": p, "stddev": math.sqrt(p*(1-p)), "total": c}
+        p = c / n if n > 0 else 0
+        return {
+            "users": n,
+            "count": n,
+            "mean": p,
+            "stddev": math.sqrt(p * (1 - p)),
+            "total": c,
+        }
     # Ignore unconverted users
     elif ignore_nulls:
         return {"users": c, "count": c, "mean": x, "stddev": sx, "total": c * x}
