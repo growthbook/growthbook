@@ -23,7 +23,8 @@ export default function SubscriptionInfo() {
     quote,
     loading,
     canSubscribe,
-    organization,
+    hasPendingSubscriptionChange,
+    currentSeatsPaidFor,
     activeAndInvitedUsers,
   } = useStripeSubscription();
 
@@ -44,7 +45,7 @@ export default function SubscriptionInfo() {
         <strong>Current Plan:</strong> {planName}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {quote?.qty || 0}
+        <strong>Number Of Seats:</strong> {quote?.currentSeatsPaidFor || 0}
       </div>
       {quote && (
         <div className="col-md-12 mb-3">
@@ -111,10 +112,14 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
-      {activeAndInvitedUsers !==
-        (organization.members.length + organization.invites.length || 0) && (
+      {hasPendingSubscriptionChange && (
         <div className="col-md-12 mb-3 alert alert-warning">
-          Your subscription has pending changes that will be applied soon.
+          {`You have recently ${
+            activeAndInvitedUsers - currentSeatsPaidFor > 0
+              ? "added"
+              : "removed"
+          } ${Math.abs(activeAndInvitedUsers - currentSeatsPaidFor)} seats. `}
+          These changes will be applied to your subscription soon.
         </div>
       )}
     </>

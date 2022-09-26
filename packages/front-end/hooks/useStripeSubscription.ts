@@ -31,7 +31,9 @@ export default function useStripeSubscription() {
       .catch((e) => console.error(e));
   }, [freeSeats, isCloud(), permissions.organizationSettings]);
 
-  const activeAndInvitedUsers = quote?.qty || 0;
+  const currentSeatsPaidFor = quote?.currentSeatsPaidFor || 0;
+
+  const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
   const subscriptionStatus = data?.organization?.subscription?.status;
 
@@ -66,9 +68,11 @@ export default function useStripeSubscription() {
     trialEnd = getValidDate(trialEnd * 1000);
   }
 
+  const hasPendingSubscriptionChange =
+    currentSeatsPaidFor !== activeAndInvitedUsers;
+
   return {
     freeSeats,
-    organization: data?.organization,
     quote: quote,
     planName,
     nextBillDate,
@@ -76,7 +80,7 @@ export default function useStripeSubscription() {
     cancelationDate,
     subscriptionStatus,
     pendingCancelation,
-    activeAndInvitedUsers,
+    currentSeatsPaidFor,
     hasActiveSubscription,
     trialEnd: trialEnd as null | Date,
     showSeatOverageBanner,
@@ -86,5 +90,7 @@ export default function useStripeSubscription() {
       !disableSelfServeBilling &&
       selfServePricingEnabled &&
       !hasActiveSubscription,
+    hasPendingSubscriptionChange,
+    activeAndInvitedUsers,
   };
 }
