@@ -1,0 +1,199 @@
+import React, { FC, Fragment, useCallback, useState } from "react";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+  IdentityJoinQuery,
+} from "back-end/types/datasource";
+import cloneDeep from "lodash/cloneDeep";
+import { EmptyStateCard } from "../EmptyStateCard";
+import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
+import MoreMenu from "../../../Dropdown/MoreMenu";
+import DeleteButton from "../../../DeleteButton";
+import Code from "../../../Code";
+
+type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
+
+export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
+  dataSource,
+  onSave,
+  onCancel,
+}) => {
+  const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
+  const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+
+  const handleExpandCollapseForIndex = useCallback(
+    (index) => () => {
+      const currentValue = openIndexes[index] || false;
+      const updatedOpenIndexes = [...openIndexes];
+      updatedOpenIndexes[index] = !currentValue;
+
+      setOpenIndexes(updatedOpenIndexes);
+    },
+    [openIndexes]
+  );
+
+  const handleCancel = useCallback(() => {
+    setUiMode("view");
+    setEditingIndex(-1);
+    onCancel();
+  }, [onCancel]);
+
+  const experimentExposureQueries = dataSource.settings?.queries.exposure || [];
+
+  const handleAdd = useCallback(() => {
+    setUiMode("add");
+    setEditingIndex(experimentExposureQueries.length);
+  }, [experimentExposureQueries]);
+
+  const handleActionEditClicked = useCallback(
+    (idx: number) => () => {
+      setEditingIndex(idx);
+      setUiMode("edit");
+    },
+    []
+  );
+
+  const handleActionDeleteClicked = useCallback(
+    (idx: number) => async () => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+
+      copy.settings.queries.identityJoins.splice(idx, 1);
+
+      onSave(copy);
+    },
+    [experimentExposureQueries, onSave, dataSource]
+  );
+
+  const handleSave = useCallback(
+    (idx: number) => (exposureQuery: ExposureQuery) => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // copy.settings.queries.identityJoins[idx] = identityJoin;
+      // onSave(copy);
+    },
+    [dataSource, onSave, uiMode]
+  );
+
+  if (!dataSource) {
+    console.error("ImplementationError: dataSource cannot be null");
+    return null;
+  }
+
+  return (
+    <div>
+      <h3>Experiment Assignment Queries</h3>
+      <p>
+        Returns a record of which experiment variation was assigned to each
+        user.
+      </p>
+
+      {/* region Empty state */}
+      {experimentExposureQueries.length === 0 ? (
+        <EmptyStateCard>
+          <div className="mb-3">No experiment assignment queries</div>
+
+          <button
+            onClick={handleAdd}
+            className="btn btn-outline-primary font-weight-bold"
+          >
+            <FaPlus className="mr-1" /> Add
+          </button>
+        </EmptyStateCard>
+      ) : null}
+      {/* endregion Empty state */}
+
+      {experimentExposureQueries.map((query, idx) => {
+        const isOpen = openIndexes[idx] || false;
+
+        return (
+          <div key={query.id} className="card p-3 mb-3">
+            <div className="d-flex justify-content-between">
+              {/* region Title Bar */}
+              <div>
+                <div className="d-flex">
+                  <h4>{query.name}</h4>
+                  {query.description && (
+                    <p className="ml-3 text-muted">{query.description}</p>
+                  )}
+                </div>
+
+                <div className="row">
+                  <div className="col-auto">
+                    <strong>Identifier: </strong>
+                    <code>{query.userIdType}</code>
+                  </div>
+                  <div className="col-auto">
+                    <strong>Dimension Columns: </strong>
+                    {query.dimensions.map((d, i) => (
+                      <Fragment key={i}>
+                        {i ? ", " : ""}
+                        <code key={d}>{d}</code>
+                      </Fragment>
+                    ))}
+                    {!query.dimensions.length && (
+                      <em className="text-muted">none</em>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* endregion Title Bar */}
+
+              {/* region Actions*/}
+
+              <div className="d-flex align-items-center">
+                <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                  <button
+                    className="dropdown-item py-2"
+                    onClick={handleActionEditClicked(idx)}
+                  >
+                    <FaPencilAlt className="mr-2" /> Edit
+                  </button>
+
+                  <DeleteButton
+                    onClick={handleActionDeleteClicked(idx)}
+                    className="dropdown-item text-danger py-2"
+                    iconClassName="mr-2"
+                    style={{ borderRadius: 0 }}
+                    useIcon
+                    displayName={query.name}
+                    deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
+                    title="Delete"
+                    text="Delete"
+                    outline={false}
+                  />
+                </MoreMenu>
+
+                <button
+                  className="btn ml-3"
+                  onClick={handleExpandCollapseForIndex(idx)}
+                >
+                  <FaChevronRight
+                    style={{
+                      transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
+                    }}
+                  />
+                </button>
+              </div>
+
+              {/* endregion Actions*/}
+            </div>
+
+            {isOpen && (
+              <div className="mb-2">
+                <Code
+                  language="sql"
+                  theme="light"
+                  code={query.query}
+                  containerClassName="mb-0"
+                  expandable={true}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};

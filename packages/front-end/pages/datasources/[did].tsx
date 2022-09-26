@@ -27,6 +27,7 @@ import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDa
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
+import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -279,6 +280,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 </div>
                 {/* endregion Identity Joins */}
               </div>
+
+              <ExperimentAssignmentQueries
+                dataSource={d}
+                onSave={updateDataSource}
+                onCancel={cancelUpdateDataSource}
+              />
 
               <div className="mb-4">
                 <h3>Experiment Assignment Queries</h3>
