@@ -32,7 +32,7 @@ export async function postSavedGroup(
     groupName,
     owner,
     attributeKey,
-    orgId: org.id,
+    organization: org.id,
   });
 
   return res.status(200).json({

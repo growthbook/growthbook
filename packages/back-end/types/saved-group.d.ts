@@ -1,6 +1,6 @@
 export interface SavedGroupInterface {
   id: string;
-  orgId: string;
+  organization: string;
   groupName: string;
   owner: string;
   attributeKey: string;

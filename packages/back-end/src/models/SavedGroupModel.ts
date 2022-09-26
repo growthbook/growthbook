@@ -7,7 +7,7 @@ const savedGroupSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  orgId: {
+  organization: {
     type: String,
     index: true,
   },
@@ -33,12 +33,7 @@ type CreateSavedGroupProps = Omit<
 
 type UpdateSavedGroupProps = Omit<
   SavedGroupInterface,
-  | "dateCreated"
-  | "dateUpdated"
-  | "id"
-  | "organization"
-  | "attributeKey"
-  | "orgId"
+  "dateCreated" | "dateUpdated" | "id" | "organization" | "attributeKey"
 >;
 
 export function parseSaveGroupString(list: string) {
@@ -63,21 +58,21 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  orgId: string
+  organization: string
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups = await SavedGroupModel.find({ orgId });
+  const savedGroups = await SavedGroupModel.find({ organization });
   return savedGroups.map((value) => value.toJSON()) || [];
 }
 
 export async function updateSavedGroup(
   savedGroupId: string,
-  orgId: string,
+  organization: string,
   group: UpdateSavedGroupProps
 ): Promise<void> {
   await SavedGroupModel.updateOne(
     {
       id: savedGroupId,
-      orgId: orgId,
+      organization: organization,
     },
     {
       ...group,
