@@ -45,6 +45,7 @@ export interface ExperimentSnapshotInterface {
   dimension: string | null;
   unknownVariations?: string[];
   multipleExposures?: number;
+  hasCorrectedStats?: boolean;
   results?: {
     name: string;
     srm: number;

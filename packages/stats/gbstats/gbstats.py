@@ -32,7 +32,14 @@ def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
-def get_metric_df(rows, var_id_map, var_names, ignore_nulls=None, type="binomial"):
+def get_metric_df(
+    rows,
+    var_id_map,
+    var_names,
+    ignore_nulls=False,
+    type="binomial",
+    needs_correction=True,
+):
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -73,7 +80,7 @@ def get_metric_df(rows, var_id_map, var_names, ignore_nulls=None, type="binomial
             }
 
             # Legacy usage of this library required mean/stddev correction
-            if ignore_nulls is not None:
+            if needs_correction:
                 # Mean/stddev in SQL results are only based on converting users
                 # If we need to add in unconverting users, we need to correct the values
                 stats = get_adjusted_stats(

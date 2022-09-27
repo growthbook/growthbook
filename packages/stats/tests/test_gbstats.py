@@ -213,7 +213,9 @@ def test_get_metric_df_new():
             },
         ]
     )
-    df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+    df = get_metric_df(
+        rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+    )
     result = analyze_metric_df(df, [0.5, 0.5], "revenue", False)
 
     assert len(result.index) == 2

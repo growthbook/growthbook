@@ -21,6 +21,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   dimension: String,
   unknownVariations: [String],
   multipleExposures: Number,
+  hasCorrectedStats: Boolean,
   results: [
     {
       _id: false,
