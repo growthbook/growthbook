@@ -280,51 +280,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 {/* endregion Identity Joins */}
               </div>
 
-              <ExperimentAssignmentQueries
-                dataSource={d}
-                onSave={updateDataSource}
-                onCancel={cancelUpdateDataSource}
-              />
-
-              <div className="mb-4">
-                <h3>Experiment Assignment Queries</h3>
-                <p>
-                  Returns a record of which experiment variation was assigned to
-                  each user.
-                </p>
-                {d.settings?.queries?.exposure?.map((e) => (
-                  <div className="bg-white border mb-3 ml-3" key={e.id}>
-                    <div className="px-3 pt-3">
-                      <h4>{e.name}</h4>
-                      {e.description && <p>{e.description}</p>}
-                      <div className="row">
-                        <div className="col-auto">
-                          <strong>Identifier: </strong>
-                          <code>{e.userIdType}</code>
-                        </div>
-                        <div className="col-auto">
-                          <strong>Dimension Columns: </strong>
-                          {e.dimensions.map((d, i) => (
-                            <React.Fragment key={i}>
-                              {i ? ", " : ""}
-                              <code key={d}>{d}</code>
-                            </React.Fragment>
-                          ))}
-                          {!e.dimensions.length && (
-                            <em className="text-muted">none</em>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <Code
-                      language="sql"
-                      theme="light"
-                      code={e.query}
-                      containerClassName="mb-0"
-                      expandable={true}
-                    />
-                  </div>
-                ))}
+              <div className="my-5">
+                <ExperimentAssignmentQueries
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={cancelUpdateDataSource}
+                />
               </div>
 
               {/* region Jupyter Notebook */}

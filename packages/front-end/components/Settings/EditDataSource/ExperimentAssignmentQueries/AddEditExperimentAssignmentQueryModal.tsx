@@ -69,7 +69,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identify-joins-heading"
     >
-      <div key={exposureQuery.id} className="bg-light border my-2 p-4 ml-3">
+      <div key={exposureQuery.id} className="my-2 ml-3">
         <div className="row">
           <div className="col-xs-12">
             {/* TODO: Enable this for Mixpanel */}
@@ -118,19 +118,17 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   setValue={(sql) => form.setValue("query", sql)}
                 />
                 <div className="form-group">
-                  <div className="row">
-                    <label className="mr-2">
-                      Use Name Columns
-                      <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-                    </label>
-                    <Toggle
-                      id={`toggle-${exposureQuery.id}`}
-                      value={form.watch("hasNameCol")}
-                      setValue={(hasNameCol) => {
-                        form.setValue("hasNameCol", hasNameCol);
-                      }}
-                    />
-                  </div>
+                  <label className="mr-2">
+                    Use Name Columns
+                    <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                  </label>
+                  <Toggle
+                    id={`toggle-${exposureQuery.id}`}
+                    value={form.watch("hasNameCol")}
+                    setValue={(hasNameCol) => {
+                      form.setValue("hasNameCol", hasNameCol);
+                    }}
+                  />
                 </div>
 
                 <StringArrayField
