@@ -32,7 +32,14 @@ def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
-def get_metric_df(rows, var_id_map, var_names, ignore_nulls=False, type="binomial"):
+def get_metric_df(
+    rows,
+    var_id_map,
+    var_names,
+    ignore_nulls=False,
+    type="binomial",
+    needs_correction=True,
+):
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -63,16 +70,28 @@ def get_metric_df(rows, var_id_map, var_names, ignore_nulls=False, type="binomia
         key = str(row.variation)
         if key in var_id_map:
             i = var_id_map[key]
-            # Mean/stddev in SQL results are only based on converting users
-            # If we need to add in unconverting users, we need to correct the values
-            stats = get_adjusted_stats(
-                x=row.mean,
-                sx=row.stddev,
-                c=row.count,
-                n=row.users,
-                ignore_nulls=ignore_nulls,
-                type=type,
-            )
+
+            stats = {
+                "users": row.users,
+                "count": row.count,
+                "mean": row.mean,
+                "stddev": row.stddev,
+                "total": row.mean * row.count,
+            }
+
+            # Legacy usage of this library required mean/stddev correction
+            if needs_correction:
+                # Mean/stddev in SQL results are only based on converting users
+                # If we need to add in unconverting users, we need to correct the values
+                stats = get_adjusted_stats(
+                    x=row.mean,
+                    sx=row.stddev,
+                    c=row.count,
+                    n=row.users,
+                    ignore_nulls=ignore_nulls,
+                    type=type,
+                )
+
             dimensions[dim]["total_users"] += stats["users"]
             prefix = f"v{i}" if i > 0 else "baseline"
             dimensions[dim][f"{prefix}_users"] = stats["users"]
@@ -146,9 +165,7 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
         m_a = s["baseline_mean"]
         x_a = s["baseline_count"]
         s_a = s["baseline_stddev"]
-        cr_a = s["baseline_total"] / n_a if n_a > 0 else 0
-
-        s["baseline_cr"] = cr_a
+        s["baseline_cr"] = m_a
 
         # List of users in each variation (used for SRM check)
         users = [0] * num_variations
@@ -162,16 +179,15 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
             m_b = s[f"v{i}_mean"]
             x_b = s[f"v{i}_count"]
             s_b = s[f"v{i}_stddev"]
-            cr_b = s[f"v{i}_total"] / n_b if n_b > 0 else 0
 
-            s[f"v{i}_cr"] = cr_b
-            s[f"v{i}_expected"] = (cr_b / cr_a) - 1 if cr_a > 0 else 0
+            s[f"v{i}_cr"] = m_b
+            s[f"v{i}_expected"] = (m_b / m_a) - 1 if m_a > 0 else 0
 
             users[i] = n_b
 
             # Run the A/B test analysis of baseline vs variation
             if type == "binomial":
-                res = binomial_ab_test(x_a, n_a, x_b, n_b)
+                res = binomial_ab_test(m_a * x_a, x_a, m_b * x_b, x_b)
             else:
                 res = gaussian_ab_test(m_a, s_a, n_a, m_b, s_b, n_b)
 
@@ -181,8 +197,8 @@ def analyze_metric_df(df, weights, type="binomial", inverse=False):
             ctw = res["chance_to_win"] if not inverse else 1 - res["chance_to_win"]
 
             # Turn risk into relative risk
-            risk0 = risk0 / cr_b if cr_b > 0 else 0
-            risk1 = risk1 / cr_b if cr_b > 0 else 0
+            risk0 = risk0 / m_b if m_b > 0 else 0
+            risk1 = risk1 / m_b if m_b > 0 else 0
 
             # The baseline risk is the max risk of any of the variation A/B tests
             if risk0 > baseline_risk:
@@ -223,6 +239,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_total"],
                         "users": row[f"{prefix}_users"],
+                        "denominator": row[f"{prefix}_count"],
                         "stats": stats,
                     }
                 )
@@ -232,6 +249,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_total"],
                         "users": row[f"{prefix}_users"],
+                        "denominator": row[f"{prefix}_count"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "uplift": row[f"{prefix}_uplift"],
@@ -248,7 +266,14 @@ def format_results(df):
 def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
     # Binomial metrics always have mean=1 and stddev=0, no need to correct
     if type == "binomial":
-        return {"users": n, "count": c, "mean": 1, "stddev": 0, "total": c}
+        p = c / n if n > 0 else 0
+        return {
+            "users": n,
+            "count": n,
+            "mean": p,
+            "stddev": math.sqrt(p * (1 - p)),
+            "total": c,
+        }
     # Ignore unconverted users
     elif ignore_nulls:
         return {"users": c, "count": c, "mean": x, "stddev": sx, "total": c * x}
@@ -257,7 +282,7 @@ def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
         m = n - c
         return {
             "users": n,
-            "count": c,
+            "count": n,
             "mean": correctMean(c, x, m, 0),
             "stddev": correctStddev(c, x, sx, m, 0, 0),
             "total": c * x,
