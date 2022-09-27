@@ -5,7 +5,8 @@ import {
   ExposureQuery,
 } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
-import MultiSelectField from "../../../Forms/MultiSelectField";
+import cloneDeep from "lodash/cloneDeep";
+import uniqId from "uniqid";
 import Field from "../../../Forms/Field";
 import CodeTextArea from "../../../Forms/CodeTextArea";
 import Tooltip from "../../../Tooltip";
@@ -39,17 +40,33 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     return null;
   }
 
+  const userIdTypeOptions = dataSource.settings.userIdTypes.map(
+    ({ userIdType }) => ({
+      display: userIdType,
+      value: userIdType,
+    })
+  );
+  const defaultUserId = userIdTypeOptions[0]?.value || "user_id";
+
   const form = useForm<ExposureQuery>({
-    defaultValues: {
-      id: exposureQuery?.id || null,
-      query: exposureQuery?.query || "",
-      name: exposureQuery?.name || "",
-      dimensions: exposureQuery?.dimensions || [],
-      description: exposureQuery?.description || "",
-      hasNameCol: exposureQuery?.hasNameCol || false,
-      userIdType: exposureQuery?.userIdType || null,
-    },
+    defaultValues:
+      mode === "edit"
+        ? cloneDeep<ExposureQuery>(exposureQuery)
+        : {
+            description: "",
+            id: uniqId("tbl_"),
+            name: "",
+            dimensions: [],
+            query: `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`,
+            userIdType: userIdTypeOptions[0]?.value || "",
+          },
   });
+
+  // User-entered values
+  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredQuery = form.watch("query");
+  const userEnteredHasNameCol = form.watch("hasNameCol");
+  const userEnteredDimensions = form.watch("dimensions");
 
   const handleSubmit = form.handleSubmit(async (value) => {
     onSave(value);
@@ -67,8 +84,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const identityTypes = dataSource.settings.userIdTypes || [];
 
-  // TODO: Validation logic
-  const saveEnabled = true;
+  const saveEnabled =
+    userEnteredUserIdType && userEnteredQuery && userEnteredHasNameCol;
 
   return (
     <Modal
@@ -104,7 +121,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   label="SQL Query"
                   required
                   language="sql"
-                  value={form.watch("query")}
+                  value={userEnteredQuery}
                   setValue={(sql) => form.setValue("query", sql)}
                 />
                 <div className="form-group">
@@ -114,7 +131,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   </label>
                   <Toggle
                     id="exposure-query-toggle"
-                    value={form.watch("hasNameCol")}
+                    value={userEnteredHasNameCol}
                     setValue={(hasNameCol) => {
                       form.setValue("hasNameCol", hasNameCol);
                     }}
@@ -123,7 +140,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
                 <StringArrayField
                   label="Dimension Columns"
-                  value={form.watch("dimensions")}
+                  value={userEnteredDimensions}
                   onChange={(dimensions) => {
                     form.setValue("dimensions", dimensions);
                   }}
@@ -135,7 +152,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </div>
                 <ul>
                   <li>
-                    <code>{form.watch("userIdType")}</code>
+                    <code>{userEnteredUserIdType}</code>
                   </li>
                   <li>
                     <code>timestamp</code>
@@ -146,7 +163,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   <li>
                     <code>variation_id</code>
                   </li>
-                  {form.watch("hasNameCol") && (
+                  {userEnteredHasNameCol && (
                     <>
                       <li>
                         <code>experiment_name</code>
