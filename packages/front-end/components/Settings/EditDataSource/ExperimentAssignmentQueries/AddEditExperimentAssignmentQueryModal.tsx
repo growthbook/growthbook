@@ -13,7 +13,7 @@ import Toggle from "../../../Forms/Toggle";
 import StringArrayField from "../../../Forms/StringArrayField";
 
 type EditExperimentAssignmentQueryProps = {
-  exposureQuery: ExposureQuery;
+  exposureQuery?: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
   onSave: (exposureQuery: ExposureQuery) => void;
@@ -41,13 +41,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const form = useForm<ExposureQuery>({
     defaultValues: {
-      id: exposureQuery.id || null,
-      query: exposureQuery.query || "",
-      name: exposureQuery.name || "",
-      dimensions: exposureQuery.dimensions || [],
-      description: exposureQuery.description || "",
-      hasNameCol: exposureQuery.hasNameCol || false,
-      userIdType: exposureQuery.userIdType || null,
+      id: exposureQuery?.id || null,
+      query: exposureQuery?.query || "",
+      name: exposureQuery?.name || "",
+      dimensions: exposureQuery?.dimensions || [],
+      description: exposureQuery?.description || "",
+      hasNameCol: exposureQuery?.hasNameCol || false,
+      userIdType: exposureQuery?.userIdType || null,
     },
   });
 
@@ -69,7 +69,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identify-joins-heading"
     >
-      <div key={exposureQuery.id} className="my-2 ml-3">
+      <div className="my-2 ml-3">
         <div className="row">
           <div className="col-xs-12">
             {/* TODO: Enable this for Mixpanel */}
@@ -123,7 +123,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                   </label>
                   <Toggle
-                    id={`toggle-${exposureQuery.id}`}
+                    id="exposure-query-toggle"
                     value={form.watch("hasNameCol")}
                     setValue={(hasNameCol) => {
                       form.setValue("hasNameCol", hasNameCol);

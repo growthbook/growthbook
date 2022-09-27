@@ -83,27 +83,31 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   return (
     <div>
-      <h3>Experiment Assignment Queries</h3>
-      <p>
-        Queries that return a list of experiment variation assignment events.
-      </p>
-      <p>
-        Returns a record of which experiment variation was assigned to each
-        user.
-      </p>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="">
+          <h3>Experiment Assignment Queries</h3>
+          <p>
+            Queries that return a list of experiment variation assignment
+            events. Returns a record of which experiment variation was assigned
+            to each user.
+          </p>
+        </div>
 
-      {/* region Empty state */}
-      {experimentExposureQueries.length === 0 ? (
-        <EmptyStateCard>
-          <div className="mb-3">No experiment assignment queries</div>
-
+        <div className="">
           <button
-            onClick={handleAdd}
             className="btn btn-outline-primary font-weight-bold"
+            onClick={handleAdd}
           >
             <FaPlus className="mr-1" /> Add
           </button>
-        </EmptyStateCard>
+        </div>
+      </div>
+
+      {/* region Empty state */}
+      {experimentExposureQueries.length === 0 ? (
+        <div className="alert alert-info mb-0">
+          No experiment assignment queries
+        </div>
       ) : null}
       {/* endregion Empty state */}
 
