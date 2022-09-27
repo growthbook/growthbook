@@ -130,7 +130,6 @@ const DataSources: FC = () => {
           }}
         />
       )}
-      {/* TODO: Navigate to the data sources page instead of opening this modal */}
       {newDataSource && (
         <EditDataSourceSettingsForm
           firstTime={true}

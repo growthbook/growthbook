@@ -93,7 +93,6 @@ const ExperimentsGetStarted = ({
         {dataSourceQueriesOpen &&
           datasources?.[0] &&
           datasources[0].properties?.hasSettings && (
-            // TODO: Navigate to the data sources page instead of opening this modal
             <EditDataSourceSettingsForm
               firstTime={true}
               data={datasources[0]}
@@ -117,7 +116,6 @@ const ExperimentsGetStarted = ({
             onSuccess={async () => {
               await mutateDefinitions();
               setDataSourceOpen(false);
-              // TODO: Navigate to the data source page
               setDataSourceQueriesOpen(true);
             }}
             importSampleData={
