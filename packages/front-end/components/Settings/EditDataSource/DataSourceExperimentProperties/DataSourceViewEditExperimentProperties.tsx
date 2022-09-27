@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaPencilAlt } from "react-icons/fa";
-import { DataSourceEditExperimentPropertiesModal } from "./DataSourceEditExperimentPropertiesModal";
+import { DataSourceEditExperimentEventPropertiesModal } from "./DataSourceEditExperimentEventPropertiesModal";
 import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
@@ -90,7 +90,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
       {/* region Add/Edit modal */}
 
       {uiMode === "edit" ? (
-        <DataSourceEditExperimentPropertiesModal
+        <DataSourceEditExperimentEventPropertiesModal
           dataSource={dataSource}
           onCancel={handleCancel}
           onSave={handleSave}

@@ -7,13 +7,13 @@ import {
 import Field from "../../../Forms/Field";
 import Modal from "../../../Modal";
 
-type DataSourceEditExperimentPropertiesProps = {
+type DataSourceEditExperimentEventPropertiesProps = {
   dataSource: DataSourceInterfaceWithParams;
   onSave: (experimentProps: DataSourceEvents) => void;
   onCancel: () => void;
 };
 
-export const DataSourceEditExperimentPropertiesModal: FC<DataSourceEditExperimentPropertiesProps> = ({
+export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExperimentEventPropertiesProps> = ({
   dataSource,
   onCancel,
   onSave,
