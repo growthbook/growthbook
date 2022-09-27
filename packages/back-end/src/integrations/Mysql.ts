@@ -31,6 +31,9 @@ export default class Mysql extends SqlIntegration {
   covariance(y: string, x: string): string {
     return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
   }
+  stddev(col: string) {
+    return `STDDEV_SAMP(${col})`;
+  }
   addTime(
     col: string,
     unit: "hour" | "minute",

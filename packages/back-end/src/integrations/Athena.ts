@@ -36,4 +36,7 @@ export default class Athena extends SqlIntegration {
   useAliasInGroupBy(): boolean {
     return false;
   }
+  ensureFloat(col: string): string {
+    return `1.0*${col}`;
+  }
 }
