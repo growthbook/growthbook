@@ -95,7 +95,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
         <div className="">
           <button
-            className="btn btn-outline-primary font-weight-bold"
+            className="btn btn-outline-primary font-weight-bold text-nowrap"
             onClick={handleAdd}
           >
             <FaPlus className="mr-1" /> Add
