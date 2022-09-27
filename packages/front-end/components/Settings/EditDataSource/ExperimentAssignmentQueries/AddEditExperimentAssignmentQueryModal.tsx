@@ -51,17 +51,31 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     },
   });
 
+  const handleSubmit = form.handleSubmit(async (value) => {
+    onSave(value);
+
+    form.reset({
+      id: null,
+      query: "",
+      name: "",
+      dimensions: [],
+      description: "",
+      hasNameCol: false,
+      userIdType: null,
+    });
+  });
+
   const events = dataSource.properties?.events || false;
 
   const identityTypes = dataSource.settings.userIdTypes || [];
 
-  // TODO: Fix
+  // TODO: Validation logic
   const saveEnabled = true;
 
   return (
     <Modal
       open={true}
-      // submit={handleSubmit}
+      submit={handleSubmit}
       close={onCancel}
       size="max"
       header={modalTitle}

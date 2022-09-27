@@ -60,7 +60,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
 
-      copy.settings.queries.identityJoins.splice(idx, 1);
+      copy.settings.queries.exposure.splice(idx, 1);
 
       onSave(copy);
     },
@@ -70,8 +70,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   const handleSave = useCallback(
     (idx: number) => (exposureQuery: ExposureQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // copy.settings.queries.identityJoins[idx] = identityJoin;
-      // onSave(copy);
+      copy.settings.queries.exposure[idx] = exposureQuery;
+      onSave(copy);
     },
     [dataSource, onSave, uiMode]
   );
