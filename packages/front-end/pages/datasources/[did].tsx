@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { FaAngleLeft, FaCode, FaExternalLinkAlt, FaKey } from "react-icons/fa";
+import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -97,67 +97,51 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-secondary">{d.type}</span>{" "}
           <span className="badge badge-success">connected</span>
         </div>
-        <div style={{ flex: 1 }} />
-        {canEdit && permissions.createDatasources && (
-          <div className="col-auto">
-            <DeleteButton
-              displayName={d.name}
-              className="font-weight-bold"
-              text="Delete"
-              onClick={async () => {
-                await apiCall(`/datasource/${d.id}`, {
-                  method: "DELETE",
-                });
-                mutateDefinitions({});
-                router.push("/datasources");
-              }}
-            />
-          </div>
-        )}
       </div>
 
       <div className="row">
         <div className="col-md-12">
           <div className="row mb-3">
-            {/* TODO: Replace header */}
             {canEdit && permissions.createDatasources && (
-              <div className="col-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditConn(true);
-                  }}
-                >
-                  <FaKey /> Edit Connection Info
-                </a>
-              </div>
-            )}
-
-            {/* TODO: Replace header */}
-            {(supportsSQL || supportsEvents) &&
-              canEdit &&
-              permissions.editDatasourceSettings && (
-                <div className="col-auto">
-                  <a
-                    href="#"
+              <div className="d-md-flex w-100 justify-content-between">
+                <div>
+                  <button
+                    className="btn btn-outline-primary mb-2 mb-md-0 mr-md-2 font-weight-bold"
                     onClick={(e) => {
                       e.preventDefault();
-                      setEditSettings(true);
+                      setEditConn(true);
                     }}
                   >
-                    <FaCode /> Edit Query Settings
-                  </a>
+                    <FaKey /> Edit Connection Info
+                  </button>
+
+                  <DocLink
+                    className="btn btn-outline-secondary font-weight-bold mb-2 mb-md-0"
+                    docSection={d.type as DocSection}
+                    fallBackSection="datasources"
+                  >
+                    <FaExternalLinkAlt /> View documentation
+                  </DocLink>
                 </div>
-              )}
-            <div className="col-auto ml-auto">
-              <DocLink
-                docSection={d.type as DocSection}
-                fallBackSection="datasources"
-              >
-                <FaExternalLinkAlt /> View documentation
-              </DocLink>
-            </div>
+
+                <div>
+                  {canEdit && permissions.createDatasources && (
+                    <DeleteButton
+                      displayName={d.name}
+                      className="font-weight-bold"
+                      text={`Delete "${d.name}" Datasource`}
+                      onClick={async () => {
+                        await apiCall(`/datasource/${d.id}`, {
+                          method: "DELETE",
+                        });
+                        mutateDefinitions({});
+                        router.push("/datasources");
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
