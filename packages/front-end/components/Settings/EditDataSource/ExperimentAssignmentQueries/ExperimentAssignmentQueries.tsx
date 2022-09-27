@@ -11,6 +11,7 @@ import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";
 import Code from "../../../Code";
+import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -83,6 +84,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   return (
     <div>
       <h3>Experiment Assignment Queries</h3>
+      <p>
+        Queries that return a list of experiment variation assignment events.
+      </p>
       <p>
         Returns a record of which experiment variation was assigned to each
         user.
@@ -194,6 +198,20 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           </div>
         );
       })}
+
+      {/* region Add/Edit modal */}
+
+      {uiMode === "edit" || uiMode === "add" ? (
+        <AddEditExperimentAssignmentQueryModal
+          exposureQuery={experimentExposureQueries[editingIndex]}
+          dataSource={dataSource}
+          mode={uiMode}
+          onSave={handleSave(editingIndex)}
+          onCancel={handleCancel}
+        />
+      ) : null}
+
+      {/* endregion Add/Edit modal */}
     </div>
   );
 };
