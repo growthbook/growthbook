@@ -33,13 +33,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       ? "Add an Experiment Assignment query"
       : `Edit ${exposureQuery.name}`;
 
-  if (!exposureQuery && mode === "edit") {
-    console.error(
-      "ImplementationError: exposureQuery is required for Edit mode"
-    );
-    return null;
-  }
-
   const userIdTypeOptions = dataSource.settings.userIdTypes.map(
     ({ userIdType }) => ({
       display: userIdType,
@@ -86,6 +79,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const saveEnabled =
     userEnteredUserIdType && userEnteredQuery && userEnteredHasNameCol;
+
+  if (!exposureQuery && mode === "edit") {
+    console.error(
+      "ImplementationError: exposureQuery is required for Edit mode"
+    );
+    return null;
+  }
 
   return (
     <Modal

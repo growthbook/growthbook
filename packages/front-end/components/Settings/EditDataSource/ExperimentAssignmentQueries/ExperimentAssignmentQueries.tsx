@@ -3,10 +3,8 @@ import { DataSourceQueryEditingModalBaseProps } from "../types";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-  IdentityJoinQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { EmptyStateCard } from "../EmptyStateCard";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";

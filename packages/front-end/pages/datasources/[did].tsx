@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import {
-  FaAngleLeft,
-  FaCode,
-  FaExternalLinkAlt,
-  FaKey,
-  FaPencilAlt,
-  FaPlus,
-} from "react-icons/fa";
+import { FaAngleLeft, FaCode, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -19,16 +12,12 @@ import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink, DocSection } from "../../components/DocLink";
-import {
-  DataSourceEditingResourceType,
-  DataSourceUIMode,
-} from "../../components/Settings/EditDataSource/types";
-import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDataSource/EditJupyterNotebookQueryRunner";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
+import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -60,12 +49,6 @@ const DataSourcePage: FC = () => {
 
   // region New Editing by section
 
-  const [uiMode, setUiMode] = useState<DataSourceUIMode>("view");
-  const [
-    editingResource,
-    setEditingResource,
-  ] = useState<DataSourceEditingResourceType | null>(null);
-
   const updateDataSource = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
       await apiCall(`/datasource/${dataSource.id}`, {
@@ -74,17 +57,9 @@ const DataSourcePage: FC = () => {
       });
 
       await mutateDefinitions({});
-
-      setUiMode("view");
-      setEditingResource(null);
     },
     [mutateDefinitions, apiCall]
   );
-
-  const cancelUpdateDataSource = useCallback(() => {
-    setUiMode("view");
-    setEditingResource(null);
-  }, []);
 
   // endregion New Editing by section
 
@@ -195,7 +170,7 @@ const DataSourcePage: FC = () => {
                 <DataSourceViewEditExperimentProperties
                   dataSource={d}
                   onSave={updateDataSource}
-                  onCancel={cancelUpdateDataSource}
+                  onCancel={() => undefined}
                 />
               </div>
 
@@ -251,7 +226,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 {/* region Identifier Types */}
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSource}
-                  onCancel={cancelUpdateDataSource}
+                  onCancel={() => undefined}
                   dataSource={d}
                 />
                 {/* endregion Identifier Types */}
@@ -261,7 +236,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   <DataSourceInlineEditIdentityJoins
                     dataSource={d}
                     onSave={updateDataSource}
-                    onCancel={cancelUpdateDataSource}
+                    onCancel={() => undefined}
                   />
                 </div>
                 {/* endregion Identity Joins */}
@@ -271,64 +246,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 <ExperimentAssignmentQueries
                   dataSource={d}
                   onSave={updateDataSource}
-                  onCancel={cancelUpdateDataSource}
+                  onCancel={() => undefined}
                 />
               </div>
 
               {/* region Jupyter Notebook */}
-              <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div className="">
-                    <h3>Jupyter Notebook Query Runner</h3>
-                  </div>
 
-                  <div className="">
-                    <button
-                      className="btn btn-outline-primary font-weight-bold"
-                      onClick={() => {
-                        setUiMode("edit");
-                        setEditingResource("jupyter_notebook");
-                      }}
-                    >
-                      {d.settings.notebookRunQuery ? (
-                        <>
-                          <FaPencilAlt className="mr-1" /> Edit
-                        </>
-                      ) : (
-                        <>
-                          <FaPlus className="mr-1" /> Add
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <p>
-                  Tell us how to query this data source from within a Jupyter
-                  notebook environment.
-                </p>
-                {d.settings?.notebookRunQuery ? (
-                  <Code
-                    theme="light"
-                    code={d.settings.notebookRunQuery}
-                    language="python"
-                    expandable={true}
-                  />
-                ) : (
-                  <div className="alert alert-info">
-                    Used when exporting experiment results to a Jupyter notebook
-                  </div>
-                )}
-              </div>
-
-              {d &&
-              uiMode === "edit" &&
-              editingResource === "jupyter_notebook" ? (
-                <EditJupyterNotebookQueryRunner
-                  onSave={updateDataSource}
-                  onCancel={cancelUpdateDataSource}
-                  dataSource={d}
-                />
-              ) : null}
+              <DataSourceJupyterNotebookQuery
+                dataSource={d}
+                onSave={updateDataSource}
+                onCancel={() => undefined}
+              />
 
               {/* endregion Jupyter Notebook */}
             </>
