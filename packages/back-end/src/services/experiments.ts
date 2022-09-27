@@ -661,6 +661,7 @@ export async function createSnapshot(
   data.results = results?.dimensions;
   data.unknownVariations = results?.unknownVariations || [];
   data.multipleExposures = results?.multipleExposures || 0;
+  data.hasCorrectedStats = true;
 
   const snapshot = await ExperimentSnapshotModel.create(data);
 

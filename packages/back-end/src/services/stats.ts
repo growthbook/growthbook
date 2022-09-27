@@ -24,6 +24,7 @@ export interface StatsEngineDimensionResponse {
     cr: number;
     value: number;
     users: number;
+    denominator?: number;
     stats: MetricStats;
     expected?: number;
     chanceToWin?: number;
@@ -106,6 +107,7 @@ df = get_metric_df(
   var_names=var_names,
   ignore_nulls=ignore_nulls,
   type=type,
+  needs_correction=False
 )
 
 reduced = reduce_dimensionality(

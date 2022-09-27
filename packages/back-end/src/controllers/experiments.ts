@@ -1311,6 +1311,7 @@ export async function getSnapshotStatus(
         {
           $set: {
             ...updates,
+            hasCorrectedStats: true,
             unknownVariations:
               results?.unknownVariations || snapshot.unknownVariations || [],
             multipleExposures:
