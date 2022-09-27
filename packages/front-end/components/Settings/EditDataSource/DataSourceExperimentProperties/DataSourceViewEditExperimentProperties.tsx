@@ -1,0 +1,103 @@
+import React, { FC, useCallback, useState } from "react";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { FaPencilAlt } from "react-icons/fa";
+import { DataSourceEditExperimentPropertiesModal } from "./DataSourceEditExperimentPropertiesModal";
+import {
+  DataSourceEvents,
+  DataSourceInterfaceWithParams,
+} from "back-end/types/datasource";
+import cloneDeep from "lodash/cloneDeep";
+
+type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
+
+export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperimentPropertiesProps> = ({
+  onSave,
+  onCancel,
+  dataSource,
+}) => {
+  const [uiMode, setUiMode] = useState<"view" | "edit">("view");
+
+  const handleEdit = useCallback(() => {
+    setUiMode("edit");
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    setUiMode("view");
+    onCancel();
+  }, [onCancel]);
+
+  const handleSave = useCallback((eventProperties: DataSourceEvents) => {
+    const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+    copy.settings.events = eventProperties;
+    onSave(copy);
+  }, []);
+
+  if (!dataSource) {
+    console.error("ImplementationError: dataSource cannot be null");
+    return null;
+  }
+
+  const dataSourceEvents = dataSource.properties.events;
+  if (!dataSourceEvents) {
+    console.error(
+      "ImplementationError: dataSource.properties.events cannot be null"
+    );
+    return null;
+  }
+
+  return (
+    <div>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h3 className="mb-0">Query Settings</h3>
+
+        <div className="">
+          <button
+            className="btn btn-outline-primary font-weight-bold text-nowrap"
+            onClick={handleEdit}
+          >
+            <FaPencilAlt className="mr-1" /> Edit
+          </button>
+        </div>
+      </div>
+
+      <table className="table appbox gbtable mb-5">
+        <tbody>
+          <tr>
+            <th>Experiment Event</th>
+            <td>
+              <code>{dataSource.settings.events.experimentEvent || ""}</code>
+            </td>
+          </tr>
+          <tr>
+            <th>Experiment Id Property</th>
+            <td>
+              <code>
+                {dataSource.settings.events.experimentIdProperty || ""}
+              </code>
+            </td>
+          </tr>
+          <tr>
+            <th>Variation Id Property</th>
+            <td>
+              <code>
+                {dataSource.settings.events.variationIdProperty || ""}
+              </code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* region Add/Edit modal */}
+
+      {uiMode === "edit" ? (
+        <DataSourceEditExperimentPropertiesModal
+          dataSource={dataSource}
+          onCancel={handleCancel}
+          onSave={handleSave}
+        />
+      ) : null}
+
+      {/* endregion Add/Edit modal */}
+    </div>
+  );
+};

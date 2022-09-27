@@ -28,6 +28,7 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -143,6 +144,7 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="row mb-3">
+            {/* TODO: Replace header */}
             {canEdit && permissions.createDatasources && (
               <div className="col-auto">
                 <a
@@ -156,6 +158,8 @@ const DataSourcePage: FC = () => {
                 </a>
               </div>
             )}
+
+            {/* TODO: Replace header */}
             {(supportsSQL || supportsEvents) &&
               canEdit &&
               permissions.editDatasourceSettings && (
@@ -187,31 +191,14 @@ const DataSourcePage: FC = () => {
           )}
           {supportsEvents && d?.settings?.events && (
             <>
-              <h3 className="mb-3">Query Settings</h3>
-              <table className="table appbox gbtable mb-5">
-                <tbody>
-                  <tr>
-                    <th>Experiment Event</th>
-                    <td>
-                      <code>{d.settings.events.experimentEvent || ""}</code>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Experiment Id Property</th>
-                    <td>
-                      <code>
-                        {d.settings.events.experimentIdProperty || ""}
-                      </code>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Variation Id Property</th>
-                    <td>
-                      <code>{d.settings.events.variationIdProperty || ""}</code>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="my-4">
+                <DataSourceViewEditExperimentProperties
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={cancelUpdateDataSource}
+                />
+              </div>
+
               {d.type === "mixpanel" && (
                 <div>
                   <h3>Mixpanel Tracking Instructions</h3>

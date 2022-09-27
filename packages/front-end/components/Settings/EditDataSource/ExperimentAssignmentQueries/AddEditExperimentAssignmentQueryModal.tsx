@@ -65,8 +65,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     });
   });
 
-  const events = dataSource.properties?.events || false;
-
   const identityTypes = dataSource.settings.userIdTypes || [];
 
   // TODO: Validation logic
@@ -86,28 +84,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       <div className="my-2 ml-3">
         <div className="row">
           <div className="col-xs-12">
-            {/* TODO: Enable this for Mixpanel */}
-            {events && (
-              <div>
-                <h4 className="font-weight-bold">Experiments</h4>
-                {/*<Field*/}
-                {/*  label="View Experiment Event"*/}
-                {/*  placeholder="$experiment_started"*/}
-                {/*  {...form.register("experimentEvent")}*/}
-                {/*/>*/}
-                {/*<Field*/}
-                {/*  label="Experiment Id Property"*/}
-                {/*  placeholder="Experiment name"*/}
-                {/*  {...form.register("experimentIdProperty")}*/}
-                {/*/>*/}
-                {/*<Field*/}
-                {/*  label="Variation Id Property"*/}
-                {/*  placeholder="Variant name"*/}
-                {/*  {...form.register("variationIdProperty")}*/}
-                {/*/>*/}
-              </div>
-            )}
-
             <Field label="Display Name" required {...form.register("name")} />
             <Field
               label="Description (optional)"
