@@ -27,6 +27,7 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
+import { rolesRouter } from "./routers/roles.r";
 
 // Controllers
 import * as authController from "./controllers/auth";
@@ -397,6 +398,9 @@ app.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
 );
+
+// roles
+app.use("/roles", rolesRouter);
 
 if (IS_CLOUD) {
   app.get("/vercel/has-token", vercelController.getHasToken);

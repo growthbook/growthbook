@@ -4,7 +4,6 @@ import { useAuth } from "../../services/auth";
 import useUser from "../../hooks/useUser";
 import DeleteButton from "../DeleteButton";
 import { GBAddCircle } from "../Icons";
-import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { usingSSO } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
@@ -14,7 +13,7 @@ export type MemberInfo = {
   id: string;
   name: string;
   email: string;
-  role: MemberRole;
+  role: string;
 };
 
 const MemberList: FC<{

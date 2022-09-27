@@ -30,6 +30,9 @@ import useOrgSettings from "../../hooks/useOrgSettings";
 import { useEnvironments } from "../../services/features";
 import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
+import usePermissions from "../../hooks/usePermissions";
+import Tooltip from "../Tooltip";
+import { checkEnvPermissions } from "../../services/permissions";
 
 export type Props = {
   close?: () => void;
@@ -68,6 +71,7 @@ export default function FeatureModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
+  const permissions = usePermissions();
 
   const { refreshWatching } = useWatching();
 
@@ -190,25 +194,48 @@ export default function FeatureModal({
 
       <label>Enabled Environments</label>
       <div className="row">
-        {environments.map((env) => (
-          <div className="col-auto" key={env.id}>
-            <div className="form-group mb-0">
-              <label htmlFor={`${env.id}_toggle_create`} className="mr-2 ml-3">
-                {env.id}:
-              </label>
-              <Toggle
-                id={`${env.id}_toggle_create`}
-                label={env.id}
-                value={environmentSettings[env.id].enabled}
-                setValue={(on) => {
-                  environmentSettings[env.id].enabled = on;
-                  form.setValue("environmentSettings", environmentSettings);
-                }}
-                type="environment"
-              />
+        {environments.map((env) => {
+          const disabled = checkEnvPermissions(
+            permissions,
+            "publishFeatures",
+            env.id
+          );
+          if (disabled) environmentSettings[env.id].enabled = false;
+
+          return (
+            <div className="col-auto" key={env.id}>
+              <div className="form-group mb-0">
+                <label
+                  htmlFor={`${env.id}_toggle_create`}
+                  className="mr-2 ml-3"
+                >
+                  {env.id}:
+                </label>
+                <Tooltip
+                  body={
+                    disabled
+                      ? `You do not have the permissions to publish a feature in ${env.id}.`
+                      : ""
+                  }
+                >
+                  <Toggle
+                    id={`${env.id}_toggle_create`}
+                    label={env.id}
+                    value={
+                      disabled ? false : environmentSettings[env.id].enabled
+                    }
+                    disabled={disabled}
+                    setValue={(on) => {
+                      environmentSettings[env.id].enabled = on;
+                      form.setValue("environmentSettings", environmentSettings);
+                    }}
+                    type="environment"
+                  />
+                </Tooltip>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <hr />

@@ -1,44 +1,17 @@
 import Stripe from "stripe";
 import { ImplementationType } from "./experiment";
-
-export type Permissions = {
-  addComments: boolean;
-  runQueries: boolean;
-  createPresentations: boolean;
-  createIdeas: boolean;
-  createAnalyses: boolean;
-  createMetrics: boolean;
-  createDimensions: boolean;
-  createSegments: boolean;
-  editDatasourceSettings: boolean;
-  publishFeatures: boolean;
-  createFeatures: boolean;
-  createFeatureDrafts: boolean;
-  organizationSettings: boolean;
-  createDatasources: boolean;
-  superDelete: boolean;
-};
-
-export type MemberRole =
-  | "readonly"
-  | "collaborator"
-  | "designer"
-  | "analyst"
-  | "developer"
-  | "engineer"
-  | "experimenter"
-  | "admin";
+import { Permissions } from "./permissions";
 
 export interface Invite {
   email: string;
   key: string;
   dateCreated: Date;
-  role: MemberRole;
+  role: string;
 }
 
 export interface Member {
   id: string;
-  role: MemberRole;
+  role: string;
 }
 
 export interface NorthStarMetric {
@@ -166,8 +139,8 @@ export interface OrganizationInterface {
     priceId?: string;
   };
   members: Member[];
+  roles: Record<string, Permissions>;
   invites: Invite[];
-
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }

@@ -23,6 +23,7 @@ import EditTagsForm from "../../components/Tags/EditTagsForm";
 import ControlledTabs from "../../components/Tabs/ControlledTabs";
 import WatchButton from "../../components/WatchButton";
 import {
+  getEnabledEnvironments,
   getFeatureDefaultValue,
   getRules,
   useEnvironmentState,
@@ -40,6 +41,7 @@ import RevisionDropdown from "../../components/Features/RevisionDropdown";
 import usePermissions from "../../hooks/usePermissions";
 import DiscussionThread from "../../components/DiscussionThread";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
+import { checkEnvPermissions } from "../../services/permissions";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -186,7 +188,12 @@ export default function FeaturePage() {
               setDraftModal(true);
             }}
           >
-            Review{permissions.publishFeatures && " and Publish"}
+            Review
+            {checkEnvPermissions(
+              permissions,
+              "publishFeatures",
+              ...getEnabledEnvironments(data.feature)
+            ) && " and Publish"}
           </button>
         </div>
       )}

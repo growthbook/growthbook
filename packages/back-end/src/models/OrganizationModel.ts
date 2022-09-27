@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { OrganizationInterface } from "../../types/organization";
 import uniqid from "uniqid";
 import { getConfigOrganizationSettings } from "../init/config";
+import { migrateOrganization } from "../util/migrations";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -45,6 +46,10 @@ const organizationSchema = new mongoose.Schema({
     cancel_at_period_end: Boolean,
     planNickname: String,
     priceId: String,
+  },
+  roles: {
+    type: Map,
+    of: [String],
   },
   connections: {
     slack: {
@@ -100,7 +105,7 @@ function toInterface(doc: OrganizationDocument): OrganizationInterface {
     ];
   }
 
-  return json;
+  return migrateOrganization(json);
 }
 
 export async function createOrganization(

@@ -1,20 +1,19 @@
 import React, { FC, useState } from "react";
 import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
-import { MemberRole } from "back-end/types/organization";
 
 export type ChangeRoleInfo = {
   uniqueKey: string;
   displayInfo: string;
-  role: MemberRole;
+  role: string;
 };
 
 const ChangeRoleModal: FC<{
   roleInfo: ChangeRoleInfo;
   close?: () => void;
-  onConfirm: (role: MemberRole) => Promise<void>;
+  onConfirm: (role: string) => Promise<void>;
 }> = ({ roleInfo, close, onConfirm }) => {
-  const [role, setRole] = useState<MemberRole>(roleInfo.role);
+  const [role, setRole] = useState(roleInfo.role);
 
   return (
     <Modal

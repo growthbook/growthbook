@@ -29,7 +29,6 @@ import {
 import { UserModel } from "../models/UserModel";
 import {
   Invite,
-  MemberRole,
   NamespaceUsage,
   OrganizationInterface,
 } from "../../types/organization";
@@ -69,6 +68,7 @@ import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
 import { getLicence } from "../init/licence";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
+import { migrateOrganization } from "../util/migrations";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -115,15 +115,16 @@ export async function getUser(req: AuthRequest, res: Response) {
     licence: !IS_CLOUD && getLicence(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
+      const migOrg = migrateOrganization(org);
       return {
-        id: org.id,
-        name: org.name,
+        id: migOrg.id,
+        name: migOrg.name,
         role,
-        permissions: getPermissionsByRole(role),
-        settings: org.settings || {},
-        freeSeats: org.freeSeats || 3,
-        discountCode: org.discountCode || "",
-        hasActiveSubscription: hasActiveSubscription(org),
+        permissions: getPermissionsByRole(migOrg, role),
+        settings: migOrg.settings || {},
+        freeSeats: migOrg.freeSeats || 3,
+        discountCode: migOrg.discountCode || "",
+        hasActiveSubscription: hasActiveSubscription(migOrg),
       };
     }),
   });
@@ -388,7 +389,7 @@ export async function putUserName(
 }
 
 export async function putMemberRole(
-  req: AuthRequest<{ role: MemberRole }, { id: string }>,
+  req: AuthRequest<{ role: string }, { id: string }>,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");
@@ -435,7 +436,7 @@ export async function putMemberRole(
 }
 
 export async function putInviteRole(
-  req: AuthRequest<{ role: MemberRole }, { key: string }>,
+  req: AuthRequest<{ role: string }, { key: string }>,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");
@@ -507,11 +508,12 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     subscription,
     freeSeats,
     connections,
+    roles,
     settings,
     disableSelfServeBilling,
   } = org;
 
-  const roleMapping: Map<string, MemberRole> = new Map();
+  const roleMapping: Map<string, string> = new Map();
   members.forEach((m) => {
     roleMapping.set(m.id, updateRole(m.role));
   });
@@ -545,6 +547,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
           role: roleMapping.get(id),
         };
       }),
+      roles,
       settings,
     },
   });

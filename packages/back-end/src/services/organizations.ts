@@ -10,11 +10,8 @@ import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import {
-  MemberRole,
-  OrganizationInterface,
-  Permissions,
-} from "../../types/organization";
+import { OrganizationInterface } from "../../types/organization";
+import { Permissions } from "../../types/permissions";
 import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
@@ -96,7 +93,7 @@ export async function getConfidenceLevelsForOrg(id: string) {
 }
 
 // Handle old roles in a backwards-compatible way
-export function updateRole(role: MemberRole): MemberRole {
+export function updateRole(role: string): string {
   if (role === "designer") {
     return "collaborator";
   }
@@ -106,74 +103,19 @@ export function updateRole(role: MemberRole): MemberRole {
   return role;
 }
 
-export function getRole(
-  org: OrganizationInterface,
-  userId: string
-): MemberRole {
+export function getRole(org: OrganizationInterface, userId: string): string {
   return updateRole(
     org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
       "readonly"
   );
 }
 
-export function getDefaultPermissions(): Permissions {
-  return {
-    addComments: false,
-    createIdeas: false,
-    createPresentations: false,
-    publishFeatures: false,
-    createFeatures: false,
-    createFeatureDrafts: false,
-    createAnalyses: false,
-    createDimensions: false,
-    createMetrics: false,
-    createSegments: false,
-    runQueries: false,
-    editDatasourceSettings: false,
-    createDatasources: false,
-    organizationSettings: false,
-    superDelete: false,
-  };
-}
-
-export function getPermissionsByRole(role: MemberRole): Permissions {
+export function getPermissionsByRole(
+  org: OrganizationInterface,
+  role: string
+): Permissions {
   role = updateRole(role);
-
-  // Start with no permissions
-  const permissions = getDefaultPermissions();
-
-  // Base permissions shared by everyone (except readonly)
-  if (role !== "readonly") {
-    permissions.addComments = true;
-    permissions.createIdeas = true;
-    permissions.createPresentations = true;
-  }
-
-  // Feature flag permissions
-  if (role === "engineer" || role === "experimenter" || role === "admin") {
-    permissions.publishFeatures = true;
-    permissions.createFeatures = true;
-    permissions.createFeatureDrafts = true;
-  }
-
-  // Analysis permissions
-  if (role === "analyst" || role === "experimenter" || role === "admin") {
-    permissions.createAnalyses = true;
-    permissions.createDimensions = true;
-    permissions.createMetrics = true;
-    permissions.createSegments = true;
-    permissions.runQueries = true;
-    permissions.editDatasourceSettings = true;
-  }
-
-  // Admin permissions
-  if (role === "admin") {
-    permissions.organizationSettings = true;
-    permissions.createDatasources = true;
-    permissions.superDelete = true;
-  }
-
-  return permissions;
+  return org.roles[role] || [];
 }
 
 export function getNumberOfMembersAndInvites(
@@ -260,7 +202,7 @@ export function getInviteUrl(key: string) {
 export async function addMemberToOrg(
   org: OrganizationInterface,
   userId: string,
-  role: MemberRole = "collaborator"
+  role: string = "collaborator"
 ) {
   // If memebr is already in the org, skip
   if (org.members.find((m) => m.id === userId)) {
@@ -329,7 +271,7 @@ export async function acceptInvite(key: string, userId: string) {
 export async function inviteUser(
   organization: OrganizationInterface,
   email: string,
-  role: MemberRole = "admin"
+  role: string = "admin"
 ) {
   organization.invites = organization.invites || [];
 

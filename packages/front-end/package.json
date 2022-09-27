@@ -9,6 +9,7 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
+    "shared": "0.0.1",
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
     "@growthbook/growthbook-react": "^0.9.0",

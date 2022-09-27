@@ -13,6 +13,8 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import isEqual from "lodash/isEqual";
+import { OrganizationInterface } from "../../types/organization";
+import { Permission, Permissions } from "../../types/permissions";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -271,4 +273,57 @@ export function upgradeFeatureInterface(
   }
 
   return newFeature;
+}
+
+function getDefaultRoles(): Record<string, Permissions> {
+  const basePermissions: Permission[] = [
+    "addComments",
+    "createIdeas",
+    "createPresentations",
+  ];
+  const featurePermissions: Permission[] = [
+    "publishFeatures",
+    "createFeatures",
+    "createFeatureDrafts",
+  ];
+  const analysisPermissions: Permission[] = [
+    "createAnalyses",
+    "createDimensions",
+    "createMetrics",
+    "createSegments",
+    "runQueries",
+    "editDatasourceSettings",
+  ];
+  const adminPermissions: Permission[] = [
+    "organizationSettings",
+    "createDatasources",
+    "superDelete",
+  ];
+
+  return {
+    readonly: [],
+    collaborator: basePermissions,
+    designer: basePermissions,
+    analyst: basePermissions.concat(analysisPermissions),
+    developer: basePermissions,
+    engineer: basePermissions.concat(featurePermissions),
+    experimenter: basePermissions
+      .concat(featurePermissions)
+      .concat(analysisPermissions),
+    admin: basePermissions
+      .concat(featurePermissions)
+      .concat(analysisPermissions)
+      .concat(adminPermissions),
+  };
+}
+
+export function migrateOrganization(
+  org: OrganizationInterface
+): OrganizationInterface {
+  const newOrg = { ...org };
+  if (!org.roles) {
+    const roles: Record<string, Permissions> = getDefaultRoles();
+    return { ...newOrg, roles };
+  }
+  return newOrg;
 }

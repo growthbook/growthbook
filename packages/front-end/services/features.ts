@@ -690,3 +690,9 @@ export function useRealtimeData(
 
   return { usage, usageDomain: [0, max] };
 }
+
+export function getEnabledEnvironments(feature: FeatureInterface) {
+  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    return !!feature.environmentSettings?.[env]?.enabled;
+  });
+}

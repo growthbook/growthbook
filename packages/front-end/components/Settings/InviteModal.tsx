@@ -5,7 +5,6 @@ import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
-import { MemberRole } from "back-end/types/organization";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "./UpgradeModal";
@@ -16,7 +15,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 }) => {
   const form = useForm<{
     email: string;
-    role: MemberRole;
+    role: string;
   }>({
     defaultValues: {
       email: "",

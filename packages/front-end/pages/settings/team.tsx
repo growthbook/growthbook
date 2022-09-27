@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
 import SSOSettings from "../../components/Settings/SSOSettings";
 import { useAdminSettings } from "../../hooks/useAdminSettings";
+import TeamRoles from "../../components/Settings/TeamRoles";
 
 const TeamPage: FC = () => {
   const { data, error, refresh: mutate } = useAdminSettings();
@@ -66,7 +67,15 @@ const TeamPage: FC = () => {
         </div>
       )}
       <SSOSettings ssoConnection={ssoConnection} />
-      <h1>Team Members</h1>
+
+      <h1>Team Roles</h1>
+      <TeamRoles
+        roles={data.organization.roles}
+        members={data.organization.members}
+        mutate={mutate}
+      />
+
+      <h1 className="mt-5">Team Members</h1>
       <MemberList members={data.organization.members} mutate={mutate} />
       {data.organization.invites.length > 0 ? (
         <InviteList invites={data.organization.invites} mutate={mutate} />

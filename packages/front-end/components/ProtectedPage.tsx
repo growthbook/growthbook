@@ -1,26 +1,18 @@
 import { useEffect, useState, createContext } from "react";
-import {
-  useAuth,
-  UserOrganizations,
-  getDefaultPermissions,
-  safeLogout,
-} from "../services/auth";
+import { useAuth, UserOrganizations, safeLogout } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import track from "../services/track";
-import {
-  OrganizationSettings,
-  Permissions,
-  MemberRole,
-  LicenceData,
-} from "back-end/types/organization";
+import { OrganizationSettings, LicenceData } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
 import { ReactNode } from "react";
+import { Permission } from "back-end/types/permissions";
+import { defaultPermissions } from "shared";
 
 type User = { id: string; email: string; name: string };
 
@@ -41,7 +33,7 @@ interface MembersResponse {
 let currentUser: null | {
   id: string;
   org: string;
-  role: MemberRole;
+  role: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -58,12 +50,12 @@ export type UserContextValue = {
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
-  permissions: Permissions;
+  permissions: Record<Permission, boolean>;
   settings: OrganizationSettings;
 };
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: getDefaultPermissions(),
+  permissions: defaultPermissions,
   settings: {},
 });
 
@@ -118,12 +110,18 @@ const ProtectedPage: React.FC<{
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
   const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
-  const permissions = currentOrg?.permissions || getDefaultPermissions();
+
+  const orgPermissions = currentOrg?.permissions || [];
+
+  const permissions: Record<Partial<Permission>, boolean> = defaultPermissions;
+  for (const orgPermission of orgPermissions) {
+    permissions[orgPermission] = true;
+  }
 
   // Super admins always have some basic permissions
   if (data?.admin) {
-    permissions.organizationSettings = true;
-    permissions.editDatasourceSettings = true;
+    permissions["organizationSettings"] = true;
+    permissions["editDatasourceSettings"] = true;
   }
 
   useEffect(() => {

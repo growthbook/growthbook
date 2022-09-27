@@ -4,7 +4,6 @@ import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import { Invite } from "back-end/types/organization";
 import { datetime } from "../../services/dates";
-import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ChangeRoleModal, { ChangeRoleInfo } from "./ChangeRoleModal";
 
@@ -150,7 +149,7 @@ const InviteList: FC<{
                       setRoleModal({
                         uniqueKey: key,
                         displayInfo: email,
-                        role: role as MemberRole,
+                        role: role,
                       });
                     }}
                   >

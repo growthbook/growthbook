@@ -1,43 +1,46 @@
 import { FC } from "react";
 import clsx from "clsx";
-import { MemberRole } from "back-end/types/organization";
-
-const roles: [MemberRole, string][] = [
-  ["readonly", "View all features and experiment results"],
-  ["collaborator", "Add comments and contribute ideas"],
-  ["engineer", "Manage features"],
-  ["analyst", "Analyze experiments"],
-  ["experimenter", "Manage features AND analyze experiments"],
-  [
-    "admin",
-    "All access + invite teammates and configure organization settings",
-  ],
-];
+import { useAdminSettings } from "../../hooks/useAdminSettings";
+import LoadingOverlay from "../LoadingOverlay";
 
 const RoleSelector: FC<{
-  role: MemberRole;
-  setRole: (role: MemberRole) => void;
+  role: string;
+  setRole: (role: string) => void;
 }> = ({ role, setRole }) => {
+  const { data, error } = useAdminSettings();
+
+  if (error) {
+    return <div className="alert alert-danger">An error occurred: {error}</div>;
+  }
+  if (!data) {
+    return <LoadingOverlay />;
+  }
+
   return (
     <div>
-      {roles.map(([name, description]) => (
-        <div className="list-group" key={name}>
-          <button
-            className={clsx("list-group-item list-group-item-action", {
-              active: role === name,
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              setRole(name);
-            }}
-          >
-            <div className="d-flex w-100">
-              <strong style={{ width: 115 }}>{name}</strong>
-              <div style={{ flex: 1 }}>{description}</div>
-            </div>
-          </button>
-        </div>
-      ))}
+      {Object.entries(data.organization.roles)
+        .sort(
+          ([, aPermissions], [, bPermissions]) =>
+            aPermissions.length - bPermissions.length
+        )
+        .map(([roleId, permissions]) => (
+          <div className="list-group" key={roleId}>
+            <button
+              className={clsx("list-group-item list-group-item-action", {
+                active: role === roleId,
+              })}
+              onClick={(e) => {
+                e.preventDefault();
+                setRole(roleId);
+              }}
+            >
+              <div className="d-flex w-100">
+                <strong style={{ width: 115 }}>{roleId}</strong>
+                <div style={{ flex: 1 }}>{permissions.join(", ")}</div>
+              </div>
+            </button>
+          </div>
+        ))}
     </div>
   );
 };

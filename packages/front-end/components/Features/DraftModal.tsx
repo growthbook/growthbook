@@ -1,5 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useEnvironments } from "../../services/features";
+import {
+  getEnabledEnvironments,
+  useEnvironments,
+} from "../../services/features";
 import Modal from "../Modal";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "../Button";
@@ -9,6 +12,7 @@ import Field from "../Forms/Field";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
+import { checkEnvPermissions } from "../../services/permissions";
 
 export interface Props {
   feature: FeatureInterface;
@@ -100,7 +104,11 @@ export default function DraftModal({ feature, close, mutate }: Props) {
       open={true}
       header={"Review Draft Changes"}
       submit={
-        permissions.publishFeatures
+        checkEnvPermissions(
+          permissions,
+          "publishFeatures",
+          ...getEnabledEnvironments(feature)
+        )
           ? async () => {
               try {
                 await apiCall(`/feature/${feature.id}/publish`, {
@@ -157,7 +165,11 @@ export default function DraftModal({ feature, close, mutate }: Props) {
           <ExpandableDiff {...diff} key={diff.title} />
         ))}
       </div>
-      {permissions.publishFeatures && (
+      {checkEnvPermissions(
+        permissions,
+        "publishFeatures",
+        ...getEnabledEnvironments(feature)
+      ) && (
         <Field
           label="Add a Comment (optional)"
           textarea

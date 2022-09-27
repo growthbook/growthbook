@@ -1,7 +1,7 @@
 import { Request } from "express";
 import { OrganizationInterface } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
-import { Permissions } from "../../types/organization";
+import { Permissions, EnvPermission } from "../../types/permissions";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 // eslint-disable-next-line
@@ -15,5 +15,9 @@ export type AuthRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
   organization?: OrganizationInterface;
   permissions: Permissions;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-  checkPermissions: (...permission: (keyof Permissions)[]) => void;
+  checkPermissions: (...permission: Permissions) => void;
+  checkEnvPermissions: (
+    envBasePermission: EnvPermission,
+    ...environments: string[]
+  ) => void;
 };
