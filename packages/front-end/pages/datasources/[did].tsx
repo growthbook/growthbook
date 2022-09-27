@@ -261,7 +261,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </p>
 
               <div className="card py-3 px-3 mb-4">
-                {/* TODO: design changes for Identity Joins nested */}
                 {/* region Identifier Types */}
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSource}
