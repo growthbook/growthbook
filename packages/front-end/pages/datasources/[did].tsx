@@ -47,8 +47,10 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
 
-  // region New Editing by section
-
+  /**
+   * Update the data source provided.
+   * Each section is responsible for retaining the rest of the data source and editing its specific section.
+   */
   const updateDataSource = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
       await apiCall(`/datasource/${dataSource.id}`, {
@@ -60,8 +62,6 @@ const DataSourcePage: FC = () => {
     },
     [mutateDefinitions, apiCall]
   );
-
-  // endregion New Editing by section
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -166,7 +166,7 @@ const DataSourcePage: FC = () => {
           )}
           {supportsEvents && d?.settings?.events && (
             <>
-              <div className="my-4">
+              <div className="my-5">
                 <DataSourceViewEditExperimentProperties
                   dataSource={d}
                   onSave={updateDataSource}
@@ -223,23 +223,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </p>
 
               <div className="card py-3 px-3 mb-4">
-                {/* region Identifier Types */}
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSource}
                   onCancel={() => undefined}
                   dataSource={d}
                 />
-                {/* endregion Identifier Types */}
 
                 <div className="mt-4">
-                  {/* region Identity Joins */}
                   <DataSourceInlineEditIdentityJoins
                     dataSource={d}
                     onSave={updateDataSource}
                     onCancel={() => undefined}
                   />
                 </div>
-                {/* endregion Identity Joins */}
               </div>
 
               <div className="my-5">
@@ -250,15 +246,13 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </div>
 
-              {/* region Jupyter Notebook */}
-
-              <DataSourceJupyterNotebookQuery
-                dataSource={d}
-                onSave={updateDataSource}
-                onCancel={() => undefined}
-              />
-
-              {/* endregion Jupyter Notebook */}
+              <div className="my-5">
+                <DataSourceJupyterNotebookQuery
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                />
+              </div>
             </>
           )}
         </div>

@@ -23,48 +23,46 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
 
   return (
     <div>
-      <div className="mb-4">
-        <div className="d-flex justify-content-between align-items-center">
-          <div className="">
-            <h3>Jupyter Notebook Query Runner</h3>
-          </div>
-
-          <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={() => {
-                setUiMode("edit");
-              }}
-            >
-              {dataSource.settings.notebookRunQuery ? (
-                <>
-                  <FaPencilAlt className="mr-1" /> Edit
-                </>
-              ) : (
-                <>
-                  <FaPlus className="mr-1" /> Add
-                </>
-              )}
-            </button>
-          </div>
+      <div className="d-flex justify-content-between align-items-center">
+        <div className="">
+          <h3>Jupyter Notebook Query Runner</h3>
         </div>
-        <p>
-          Tell us how to query this data source from within a Jupyter notebook
-          environment.
-        </p>
-        {dataSource.settings?.notebookRunQuery ? (
-          <Code
-            theme="light"
-            code={dataSource.settings.notebookRunQuery}
-            language="python"
-            expandable={true}
-          />
-        ) : (
-          <div className="alert alert-info">
-            Used when exporting experiment results to a Jupyter notebook
-          </div>
-        )}
+
+        <div className="">
+          <button
+            className="btn btn-outline-primary font-weight-bold"
+            onClick={() => {
+              setUiMode("edit");
+            }}
+          >
+            {dataSource.settings.notebookRunQuery ? (
+              <>
+                <FaPencilAlt className="mr-1" /> Edit
+              </>
+            ) : (
+              <>
+                <FaPlus className="mr-1" /> Add
+              </>
+            )}
+          </button>
+        </div>
       </div>
+      <p>
+        Tell us how to query this data source from within a Jupyter notebook
+        environment.
+      </p>
+      {dataSource.settings?.notebookRunQuery ? (
+        <Code
+          theme="light"
+          code={dataSource.settings.notebookRunQuery}
+          language="python"
+          expandable={true}
+        />
+      ) : (
+        <div className="alert alert-info">
+          Used when exporting experiment results to a Jupyter notebook
+        </div>
+      )}
 
       {uiMode === "edit" ? (
         <EditJupyterNotebookQueryRunner
