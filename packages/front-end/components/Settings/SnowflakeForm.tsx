@@ -1,11 +1,15 @@
 import { FC, ChangeEventHandler } from "react";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { useNoAutoFillPasswordProps } from "../../hooks/useNoAutoFillPasswordProps";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
 }> = ({ params, existing, onParamChange }) => {
+  const usernameFieldProps = useNoAutoFillPasswordProps();
+  const passwordFieldProps = useNoAutoFillPasswordProps();
+
   return (
     <div className="row">
       <div className="form-group col-md-12">
@@ -23,6 +27,7 @@ const SnowflakeForm: FC<{
       <div className="form-group col-md-12">
         <label>Username</label>
         <input
+          {...usernameFieldProps}
           type="text"
           className="form-control"
           name="username"
@@ -34,6 +39,7 @@ const SnowflakeForm: FC<{
       <div className="form-group col-md-12">
         <label>Password</label>
         <input
+          {...passwordFieldProps}
           type="password"
           className="form-control"
           name="password"

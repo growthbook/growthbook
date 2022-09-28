@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
 import HostWarning from "./HostWarning";
+import { useNoAutoFillPasswordProps } from "../../hooks/useNoAutoFillPasswordProps";
 
 const MysqlForm: FC<{
   params: Partial<MysqlConnectionParams>;
@@ -8,6 +9,10 @@ const MysqlForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
+  const databaseFieldProps = useNoAutoFillPasswordProps();
+  const usernameFieldProps = useNoAutoFillPasswordProps();
+  const passwordFieldProps = useNoAutoFillPasswordProps();
+
   return (
     <>
       <HostWarning
@@ -44,6 +49,7 @@ const MysqlForm: FC<{
         <div className="form-group col-md-12">
           <label>Database</label>
           <input
+            {...databaseFieldProps}
             type="text"
             className="form-control"
             name="database"
@@ -55,6 +61,7 @@ const MysqlForm: FC<{
         <div className="form-group col-md-12">
           <label>User</label>
           <input
+            {...usernameFieldProps}
             type="text"
             className="form-control"
             name="user"
@@ -66,6 +73,7 @@ const MysqlForm: FC<{
         <div className="form-group col-md-12">
           <label>Password</label>
           <input
+            {...passwordFieldProps}
             type="password"
             className="form-control"
             name="password"

@@ -1,11 +1,16 @@
 import { FC, ChangeEventHandler } from "react";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { useNoAutoFillPasswordProps } from "../../hooks/useNoAutoFillPasswordProps";
 
 const AthenaForm: FC<{
   params: Partial<AthenaConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
 }> = ({ params, existing, onParamChange }) => {
+  const usernameFieldProps = useNoAutoFillPasswordProps();
+  const databaseFieldProps = useNoAutoFillPasswordProps();
+  const passwordFieldProps = useNoAutoFillPasswordProps();
+
   return (
     <div className="row">
       <div className="form-group col-md-12">
@@ -33,6 +38,7 @@ const AthenaForm: FC<{
       <div className="form-group col-md-12">
         <label>AWS Access Key</label>
         <input
+          {...usernameFieldProps}
           type="text"
           className="form-control"
           name="accessKeyId"
@@ -45,6 +51,7 @@ const AthenaForm: FC<{
       <div className="form-group col-md-12">
         <label>Access Secret</label>
         <input
+          {...passwordFieldProps}
           type="password"
           className="form-control"
           name="secretAccessKey"
@@ -57,6 +64,7 @@ const AthenaForm: FC<{
       <div className="form-group col-md-12">
         <label>Database Name</label>
         <input
+          {...databaseFieldProps}
           type="text"
           className="form-control"
           name="database"

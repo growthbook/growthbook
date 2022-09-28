@@ -1,11 +1,15 @@
-import { FC, ChangeEventHandler } from "react";
+import { ChangeEventHandler, FC } from "react";
 import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { useNoAutoFillPasswordProps } from "../../hooks/useNoAutoFillPasswordProps";
 
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, existing, onParamChange }) => {
+  const usernameFieldProps = useNoAutoFillPasswordProps();
+  const secretFieldProps = useNoAutoFillPasswordProps();
+
   return (
     <>
       <div className="alert alert-info">
@@ -23,6 +27,7 @@ const MixpanelForm: FC<{
         <div className="form-group col-md-12">
           <label>Username</label>
           <input
+            {...usernameFieldProps}
             type="text"
             className="form-control"
             name="username"
@@ -34,9 +39,9 @@ const MixpanelForm: FC<{
         <div className="form-group col-md-12">
           <label>Secret</label>
           <input
+            {...secretFieldProps}
             type="password"
             className="form-control"
-            name="secret"
             required={!existing}
             value={params.secret || ""}
             onChange={onParamChange}

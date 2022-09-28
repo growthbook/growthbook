@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import HostWarning from "./HostWarning";
+import { useNoAutoFillPasswordProps } from "../../hooks/useNoAutoFillPasswordProps";
 
 const ClickHouseForm: FC<{
   params: Partial<ClickHouseConnectionParams>;
@@ -8,6 +9,10 @@ const ClickHouseForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
+  const usernameFieldProps = useNoAutoFillPasswordProps();
+  const databaseFieldProps = useNoAutoFillPasswordProps();
+  const passwordFieldProps = useNoAutoFillPasswordProps();
+
   return (
     <>
       <HostWarning
@@ -44,6 +49,7 @@ const ClickHouseForm: FC<{
         <div className="form-group col-md-12">
           <label>Database</label>
           <input
+            {...databaseFieldProps}
             type="text"
             className="form-control"
             name="database"
@@ -54,6 +60,7 @@ const ClickHouseForm: FC<{
         <div className="form-group col-md-12">
           <label>Username</label>
           <input
+            {...usernameFieldProps}
             type="text"
             className="form-control"
             name="username"
@@ -64,6 +71,7 @@ const ClickHouseForm: FC<{
         <div className="form-group col-md-12">
           <label>Password</label>
           <input
+            {...passwordFieldProps}
             type="password"
             className="form-control"
             name="password"

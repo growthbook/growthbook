@@ -4,6 +4,7 @@ import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import HostWarning from "./HostWarning";
+import { useNoAutoFillPasswordProps } from "../../hooks/useNoAutoFillPasswordProps";
 
 const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
@@ -12,6 +13,9 @@ const PostgresForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   const [certs, setCerts] = useState(false);
+  const databaseFieldProps = useNoAutoFillPasswordProps();
+  const usernameFieldProps = useNoAutoFillPasswordProps();
+  const passwordFieldProps = useNoAutoFillPasswordProps();
 
   return (
     <>
@@ -49,6 +53,7 @@ const PostgresForm: FC<{
         <div className="form-group col-md-12">
           <label>Database</label>
           <input
+            {...databaseFieldProps}
             type="text"
             className="form-control"
             name="database"
@@ -60,6 +65,7 @@ const PostgresForm: FC<{
         <div className="form-group col-md-12">
           <label>User</label>
           <input
+            {...usernameFieldProps}
             type="text"
             className="form-control"
             name="user"
@@ -71,6 +77,7 @@ const PostgresForm: FC<{
         <div className="form-group col-md-12">
           <label>Password</label>
           <input
+            {...passwordFieldProps}
             type="password"
             className="form-control"
             name="password"
