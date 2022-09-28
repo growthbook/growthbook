@@ -202,7 +202,7 @@ const EditDataSourceSettingsForm: FC<{
                             setValue={(sql) => {
                               form.setValue(
                                 `settings.queries.exposure.${i}.query`,
-                                sql.replace(/;\s*/, "")
+                                sql
                               );
                             }}
                           />

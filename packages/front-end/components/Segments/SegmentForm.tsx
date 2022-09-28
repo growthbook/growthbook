@@ -102,7 +102,7 @@ const SegmentForm: FC<{
           language="sql"
           value={form.watch("sql")}
           setValue={(sql) => {
-            form.setValue("sql", sql.replace(/;\s*/, ""));
+            form.setValue("sql", sql);
           }}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           helpText={

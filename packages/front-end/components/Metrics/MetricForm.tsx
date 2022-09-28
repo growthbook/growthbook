@@ -515,7 +515,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   language="sql"
                   value={form.watch("sql")}
                   setValue={(sql) => {
-                    form.setValue("sql", sql.replace(/;\s*/, ""));
+                    form.setValue("sql", sql);
                   }}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
