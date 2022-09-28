@@ -1,6 +1,5 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import useApi from "../../hooks/useApi";
-import { useState } from "react";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";

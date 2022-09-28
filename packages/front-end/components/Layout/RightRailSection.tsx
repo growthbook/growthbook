@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC } from "react";
+import { ReactNode, FC } from "react";
 
 const RightRailSection: FC<{
   open?: () => void;

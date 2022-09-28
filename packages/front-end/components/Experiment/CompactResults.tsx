@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { FC, useMemo } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { MdSwapCalls } from "react-icons/md";
 import Tooltip from "../Tooltip";
@@ -7,7 +7,6 @@ import {
   ExperimentTableRow,
   useRiskVariation,
 } from "../../services/experiments";
-import { useMemo } from "react";
 import ResultsTable from "./ResultsTable";
 import {
   ExperimentReportResultDimension,
