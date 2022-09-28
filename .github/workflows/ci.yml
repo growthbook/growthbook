@@ -45,16 +45,12 @@ jobs:
         env:
           CI: true
 
-      - name: lint
-        run: |
-          yarn build
-          yarn lint
-          yarn workspace stats lint
-
       - name: build sdk packages
         run: |
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
+          yarn lint
+          yarn workspace stats lint
 
       - name: type-check
         run: |
