@@ -35,7 +35,9 @@ const RoleSelector: FC<{
               }}
             >
               <div className="d-flex w-100">
-                <strong style={{ width: 115 }}>{roleId}</strong>
+                <strong style={{ width: 115, wordBreak: "break-word" }}>
+                  {roleId}
+                </strong>
                 <div style={{ flex: 1 }}>{permissions.join(", ")}</div>
               </div>
             </button>
