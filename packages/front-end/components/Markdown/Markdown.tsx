@@ -1,10 +1,11 @@
 import { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import markdown from "markdown-it";
 import sanitizer from "markdown-it-sanitizer";
+import mark from "markdown-it-mark";
 import styles from "./Markdown.module.scss";
 import clsx from "clsx";
 
-const md = markdown({ html: true, linkify: true }).use(sanitizer);
+const md = markdown({ html: true, linkify: true }).use(sanitizer).use(mark);
 
 const Markdown: FC<
   DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>
