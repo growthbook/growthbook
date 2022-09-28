@@ -31,9 +31,12 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     canSubscribe,
     activeAndInvitedUsers,
   } = useStripeSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(
+    canSubscribe && activeAndInvitedUsers >= freeSeats
+  );
 
   // Hit their free limit and needs to upgrade to invite more team members
-  if (canSubscribe && activeAndInvitedUsers >= freeSeats) {
+  if (showUpgradeModal) {
     return (
       <UpgradeModal
         close={close}
@@ -44,29 +47,41 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   }
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const resp = await apiCall<{
-      emailSent: boolean;
-      inviteUrl: string;
-      status: number;
-      message?: string;
-    }>(`/invite`, {
-      method: "POST",
-      body: JSON.stringify(value),
-    });
+    const inviteArr = value.email.split(",");
 
-    if (resp.emailSent) {
-      mutate();
-      close();
-    } else {
-      setInviteUrl(resp.inviteUrl);
-      setEmailSent(resp.emailSent);
-      mutate();
+    if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
+      setShowUpgradeModal(true);
+      return;
     }
 
-    track("Team Member Invited", {
-      emailSent,
-      role: value.role,
-    });
+    for (const email of inviteArr) {
+      const resp = await apiCall<{
+        emailSent: boolean;
+        inviteUrl: string;
+        status: number;
+        message?: string;
+      }>(`/invite`, {
+        method: "POST",
+        body: JSON.stringify({
+          email: email,
+          role: value.role,
+        }),
+      });
+
+      if (resp.emailSent) {
+        mutate();
+        close();
+      } else {
+        setInviteUrl(resp.inviteUrl);
+        setEmailSent(resp.emailSent);
+        mutate();
+      }
+
+      track("Team Member Invited", {
+        emailSent,
+        role: value.role,
+      });
+    }
   });
 
   const email = form.watch("email");
@@ -83,20 +98,30 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       {emailSent === false && (
         <>
           <div className="alert alert-danger">
-            Failed to send invite email to <strong>{email}</strong>
+            {email.split(",").length > 1 ? (
+              "Failed to send the invite emails. To manually send the invite link, click the '3 dots' next to each invitee."
+            ) : (
+              <span>
+                Failed to send invite email to <strong>{email}</strong>
+              </span>
+            )}
           </div>
-          <p>You can manually send them the following invite link:</p>
-          <div className="mb-3">
-            <code>{inviteUrl}</code>
-          </div>
+          {email.split(",").length === 1 && (
+            <>
+              <p>You can manually send them the following invite link:</p>
+              <div className="mb-3">
+                <code>{inviteUrl}</code>
+              </div>
+            </>
+          )}
         </>
       )}
       {emailSent === null && (
         <>
           <Field
             label="Email Address"
-            type="email"
             required
+            helpText="Enter a comma separated list of emails to invite multiple members at once."
             {...form.register("email")}
           />
           <RoleSelector
