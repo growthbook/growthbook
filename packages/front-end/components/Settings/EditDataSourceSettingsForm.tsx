@@ -199,12 +199,12 @@ const EditDataSourceSettingsForm: FC<{
                             value={form.watch(
                               `settings.queries.exposure.${i}.query`
                             )}
-                            setValue={(sql) => {
+                            setValue={(sql) =>
                               form.setValue(
                                 `settings.queries.exposure.${i}.query`,
                                 sql
-                              );
-                            }}
+                              )
+                            }
                           />
                           <div className="form-group">
                             <div className="row">
