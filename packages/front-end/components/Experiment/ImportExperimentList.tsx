@@ -1,7 +1,13 @@
-import { ago, date, datetime, getValidDate } from "../../services/dates";
+import {
+  ago,
+  date,
+  datetime,
+  daysBetween,
+  getValidDate,
+} from "../../services/dates";
 import Link from "next/link";
 //import Button from "../Button";
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { useSearch } from "../../services/search";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -14,26 +20,19 @@ import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import usePermissions from "../../hooks/usePermissions";
+import Field from "../Forms/Field";
+import useOrgSettings from "../../hooks/useOrgSettings";
+import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
   onImport: (obj: Partial<ExperimentInterfaceStringDates>) => void;
   importId: string;
-  searchLimit?: number;
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
-  hideImported?: boolean;
-  //useForm?: boolean;
-}> = ({
-  onImport,
-  importId,
-  searchLimit = 4,
-  showQueries = true,
-  changeDatasource,
-  hideImported = false,
-  //useForm = true,
-}) => {
+}> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
   const { getDatasourceById, ready, datasources } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -48,13 +47,45 @@ const ImportExperimentList: FC<{
   );
   const pastExpArr = data?.experiments?.experiments || [];
   const existing = data?.existing || [];
+  const { pastExperimentsMinLength } = useOrgSettings();
+
+  const [minUsersFilter, setMinUsersFilter] = useState("100");
+  const [minLengthFilter, setMinLengthFilter] = useState(
+    `${pastExperimentsMinLength || 6}`
+  );
+  const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
+    ""
+  );
 
   const {
     list: filteredExperiments,
     searchInputProps,
+    clear: clearSearch,
   } = useSearch(
-    pastExpArr?.filter((e) => !hideImported || !existing?.[e.trackingKey]) ||
-      [],
+    pastExpArr?.filter((e) => {
+      if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
+        return false;
+      }
+      if (alreadyImportedFilter && existing?.[e.trackingKey]) {
+        return false;
+      }
+      const status =
+        daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
+      if (statusFilter && statusFilter !== status) {
+        return false;
+      }
+      if (
+        minLengthFilter &&
+        status === "stopped" &&
+        daysBetween(e.startDate, e.endDate) < (parseInt(minLengthFilter) || 0)
+      ) {
+        return false;
+      }
+
+      // Passed all the filters, include it in the table
+      return true;
+    }) || [],
     ["trackingKey"]
   );
 
@@ -79,6 +110,14 @@ const ImportExperimentList: FC<{
   );
 
   const datasource = getDatasourceById(data.experiments.datasource);
+
+  function clearFilters() {
+    setAlreadyImportedFilter(false);
+    setMinUsersFilter("0");
+    setMinLengthFilter("0");
+    setStatusFilter("");
+    clearSearch();
+  }
 
   return (
     <>
@@ -170,22 +209,109 @@ const ImportExperimentList: FC<{
         <div>
           <h4>Experiments</h4>
           <p>
-            These are all of the {hideImported && "new "}experiments we found in
-            your datasource for the past 12 months.
-          </p>
-          {pastExpArr.length > searchLimit && (
-            <div className="row mb-3">
-              <div className="col-lg-3 col-md-4 col-6">
-                <input
-                  type="search"
-                  className=" form-control"
-                  placeholder="Search"
-                  aria-controls="dtBasicExample"
-                  {...searchInputProps}
+            These are all of the experiments we found in your datasource{" "}
+            {data.experiments.config && (
+              <>
+                from <strong>{date(data.experiments.config.start)}</strong> to{" "}
+                <strong>{date(data.experiments.config.end)}</strong>{" "}
+                <Tooltip
+                  body={
+                    "You can change the lookback window in General Settings."
+                  }
                 />
-              </div>
+              </>
+            )}
+            .
+          </p>
+          <div className="row mb-3 text-align-center bg-light border-top border-bottom">
+            <div className="col-auto">
+              <label className="small mb-0">Filter</label>
+              <input
+                type="search"
+                className=" form-control"
+                placeholder="Search"
+                {...searchInputProps}
+              />
             </div>
-          )}
+            <div className="col-auto">
+              <Field
+                label="Min Users"
+                labelClassName="small mb-0"
+                type="number"
+                min={0}
+                step={1}
+                style={{ width: 80 }}
+                value={minUsersFilter}
+                onChange={(e) => {
+                  setMinUsersFilter(e.target.value || "");
+                }}
+              />
+            </div>
+            <div className="col-auto">
+              <Field
+                label="Min Length"
+                labelClassName="small mb-0"
+                type="number"
+                min={0}
+                step={1}
+                style={{ width: 60 }}
+                value={minLengthFilter}
+                onChange={(e) => {
+                  setMinLengthFilter(e.target.value || "");
+                }}
+                append="days"
+              />
+            </div>
+            <div className="col-auto">
+              <Field
+                label="Status"
+                labelClassName="small mb-0"
+                options={[
+                  {
+                    display: "All",
+                    value: "",
+                  },
+                  {
+                    display: "Running",
+                    value: "running",
+                  },
+                  {
+                    display: "Stopped",
+                    value: "stopped",
+                  },
+                ]}
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(
+                    (e.target.value as "" | "stopped" | "running") || ""
+                  );
+                }}
+              />
+            </div>
+            <div className="col-auto align-self-center">
+              <Toggle
+                id="hide-imported"
+                value={alreadyImportedFilter}
+                setValue={setAlreadyImportedFilter}
+              />{" "}
+              Hide Imported
+            </div>
+          </div>
+          <small>
+            Showing <strong>{filteredExperiments.length}</strong> of{" "}
+            <strong>{pastExpArr.length}</strong> experiments.{" "}
+            {filteredExperiments.length < pastExpArr.length && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  clearFilters();
+                }}
+              >
+                Clear all filters
+              </a>
+            )}
+          </small>
           <table className="table appbox">
             <thead>
               <tr>
@@ -283,6 +409,26 @@ const ImportExperimentList: FC<{
                   </tr>
                 );
               })}
+              {filteredExperiments.length <= 0 && pastExpArr.length > 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="alert alert-info">
+                      <em>
+                        No experiments match your current filters.{" "}
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            clearFilters();
+                          }}
+                        >
+                          Clear all filters
+                        </a>
+                      </em>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

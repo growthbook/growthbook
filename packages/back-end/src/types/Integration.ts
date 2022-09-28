@@ -65,7 +65,6 @@ export type ExperimentMetricQueryParams = {
 
 export type PastExperimentParams = {
   from: Date;
-  minLength?: number;
 };
 
 export type MetricValueParams = {

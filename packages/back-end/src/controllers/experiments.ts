@@ -1739,11 +1739,7 @@ export async function postPastExperiments(
   if (!model) {
     const { queries, result } = await startRun(
       {
-        experiments: getPastExperiments(
-          integration,
-          start,
-          org?.settings?.pastExperimentsMinLength
-        ),
+        experiments: getPastExperiments(integration, start),
       },
       processPastExperiments
     );
@@ -1753,6 +1749,10 @@ export async function postPastExperiments(
       datasource: datasource,
       experiments: result || [],
       runStarted: now,
+      config: {
+        start,
+        end: now,
+      },
       error: "",
       queries,
       dateCreated: new Date(),
@@ -1762,17 +1762,17 @@ export async function postPastExperiments(
   } else if (force) {
     const { queries, result } = await startRun(
       {
-        experiments: getPastExperiments(
-          integration,
-          start,
-          org?.settings?.pastExperimentsMinLength
-        ),
+        experiments: getPastExperiments(integration, start),
       },
       processPastExperiments
     );
     model.set("runStarted", now);
     model.set("error", "");
     model.set("queries", queries);
+    model.set("config", {
+      start: start,
+      end: new Date(),
+    });
     if (result) {
       model.set("experiments", result);
     }

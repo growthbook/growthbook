@@ -38,6 +38,7 @@ export function useSearch<T>(
 ): {
   list: T[];
   isFiltered: boolean;
+  clear: () => void;
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -55,6 +56,9 @@ export function useSearch<T>(
   return {
     list,
     isFiltered,
+    clear: () => {
+      setValue("");
+    },
     searchInputProps: {
       value,
       onChange: (e: ChangeEvent<HTMLInputElement>): void => {
