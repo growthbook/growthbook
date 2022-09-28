@@ -58,12 +58,12 @@ const CompactResults: FC<{
         };
       })
       .filter((row) => row.metric);
-  }, [results, ready]);
+  }, [results, ready, metrics, getMetricById]);
 
   const users = useMemo(() => {
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
-  }, [results]);
+  }, [results?.variations, variations]);
   const risk = useRiskVariation(variations.length, rows);
 
   return (

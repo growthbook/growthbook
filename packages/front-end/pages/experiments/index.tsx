@@ -31,7 +31,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId, users } = useUser();
+  const { getUserDisplay, permissions, userId } = useUser();
 
   const [currentPage, setCurrentPage] = useState({
     running: 1,
@@ -47,7 +47,7 @@ const ExperimentsPage = (): React.ReactElement => {
       metrics: (orig: string[]) =>
         orig?.map((m) => getMetricById(m)?.name)?.filter(Boolean) || [],
     };
-  }, [getMetricById, users.size]);
+  }, [getMetricById, getUserDisplay]);
 
   const { list: experiments, searchInputProps, isFiltered } = useSearch(
     data?.experiments || [],

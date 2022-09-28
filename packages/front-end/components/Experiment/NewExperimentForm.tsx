@@ -94,7 +94,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     track("New Experiment Form", {
       source,
     });
-  }, []);
+  }, [source]);
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {

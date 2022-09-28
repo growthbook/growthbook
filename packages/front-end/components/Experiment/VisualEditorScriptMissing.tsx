@@ -1,5 +1,5 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useState } from "react";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
@@ -21,12 +21,15 @@ export default function VisualEditorScriptMissing({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
 
-  async function refreshApiKeys() {
-    const res = await apiCall<{ keys: ApiKeyInterface[] }>(`/keys`, {
-      method: "GET",
-    });
-    setApiKeys(res.keys);
-  }
+  const refreshApiKeys = useCallback(
+    async function refreshApiKeys() {
+      const res = await apiCall<{ keys: ApiKeyInterface[] }>(`/keys`, {
+        method: "GET",
+      });
+      setApiKeys(res.keys);
+    },
+    [apiCall]
+  );
 
   useEffect(() => {
     if (!permissions.organizationSettings) {
@@ -40,7 +43,7 @@ export default function VisualEditorScriptMissing({
       .catch((e) => {
         setError(e.message);
       });
-  }, [permissions.organizationSettings]);
+  }, [permissions.organizationSettings, refreshApiKeys]);
 
   if (!ready) {
     return <LoadingOverlay />;

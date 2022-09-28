@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import NewExperimentForm from "./NewExperimentForm";
 import ImportExperimentList from "./ImportExperimentList";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -35,7 +35,7 @@ const ImportExperimentModal: FC<{
 
   const { apiCall } = useAuth();
 
-  const getImportId = async () => {
+  const getImportId = useCallback(async () => {
     if (datasourceId) {
       try {
         const res = await apiCall<{ id: string }>("/experiments/import", {
@@ -51,10 +51,11 @@ const ImportExperimentModal: FC<{
         console.error(e);
       }
     }
-  };
+  }, [apiCall, datasourceId]);
+
   useEffect(() => {
     getImportId();
-  }, [datasourceId]);
+  }, [datasourceId, getImportId]);
 
   if (selected || !importModal || !datasourceId) {
     return (

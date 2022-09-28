@@ -31,7 +31,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       subtotal: quote?.subtotal,
       total: quote?.total,
     });
-  }, []);
+  }, [quote, source]);
 
   const { apiCall } = useAuth();
   const [error, setError] = useState(null);

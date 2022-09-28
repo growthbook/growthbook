@@ -18,5 +18,5 @@ export default function useGlobalMenu(
 
     document.addEventListener("click", callback);
     return () => document.removeEventListener("click", callback);
-  }, []);
+  }, [close, selector]);
 }

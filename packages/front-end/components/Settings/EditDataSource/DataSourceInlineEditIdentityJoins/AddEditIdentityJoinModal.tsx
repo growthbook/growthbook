@@ -25,8 +25,13 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   onCancel,
   onSave,
 }) => {
-  const identityTypes = dataSource.settings.userIdTypes || [];
-  const existingIdentityJoins = dataSource.settings.queries.identityJoins || [];
+  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
+    dataSource,
+  ]);
+  const existingIdentityJoins = useMemo(
+    () => dataSource.settings.queries.identityJoins || [],
+    [dataSource]
+  );
 
   const defaultQuery = useMemo(() => {
     return (

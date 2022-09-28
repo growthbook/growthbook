@@ -26,7 +26,7 @@ export default function Home(): React.ReactElement {
     } else {
       router.replace("/getstarted");
     }
-  }, [features, data, loading]);
+  }, [features, data, loading, router]);
 
   if (error || featuresError) {
     return (

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../../services/auth";
 import { Environment } from "back-end/types/organization";
 import { GbVercelEnvMap } from "back-end/types/vercel";
@@ -24,6 +24,24 @@ export default function VercelIntegrationPage() {
   const [envModalOpen, setEnvModalOpen] = useState<Partial<Environment> | null>(
     null
   );
+
+  const postToken = useCallback(
+    function postToken() {
+      const options = {
+        method: "POST",
+        body: JSON.stringify({
+          code,
+          configurationId,
+          teamId: teamId ? teamId : null,
+        }),
+      };
+      apiCall("/vercel/token", options).catch(() => {
+        //do nothing
+      });
+    },
+    [apiCall, code, configurationId, teamId]
+  );
+
   const [gbVercelEnvMap, setGbVercelEnvMap] = useState<GbVercelEnvMap>([
     { vercel: "production", gb: "" },
     { vercel: "preview", gb: "" },
@@ -35,21 +53,7 @@ export default function VercelIntegrationPage() {
       if (data.hasToken) return setIntegrationAlreadyExists(true);
       postToken();
     }
-  }, [data]);
-
-  async function postToken() {
-    const options = {
-      method: "POST",
-      body: JSON.stringify({
-        code,
-        configurationId,
-        teamId: teamId ? teamId : null,
-      }),
-    };
-    apiCall("/vercel/token", options).catch(() => {
-      //do nothing
-    });
-  }
+  }, [data, postToken]);
 
   return (
     <>

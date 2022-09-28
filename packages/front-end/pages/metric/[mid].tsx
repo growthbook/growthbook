@@ -94,7 +94,7 @@ const MetricPage: FC = () => {
       form.setValue("name", data.metric.name || "");
       form.setValue("description", data.metric.description || "");
     }
-  }, [data]);
+  }, [data, form]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

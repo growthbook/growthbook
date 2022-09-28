@@ -2,7 +2,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
@@ -44,7 +44,7 @@ export default function ResultsDownloadButton({
     dimension ||
     null;
 
-  const getRows = () => {
+  const getRows = useCallback(() => {
     const csvRows: CsvRow[] = [];
 
     if (!results || !variations || !ready) return [];
@@ -86,7 +86,16 @@ export default function ResultsDownloadButton({
       });
     });
     return csvRows;
-  };
+  }, [
+    dimension,
+    dimensionName,
+    getMetricById,
+    metricDefaults,
+    metrics,
+    ready,
+    results,
+    variations,
+  ]);
 
   const href = useMemo(() => {
     try {
@@ -103,7 +112,7 @@ export default function ResultsDownloadButton({
       console.error(e);
       return "";
     }
-  }, [results, ready, variations, dimension]);
+  }, [getRows]);
 
   if (!href) return null;
 

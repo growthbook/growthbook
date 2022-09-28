@@ -39,7 +39,7 @@ export default function RuleList({
 
   useEffect(() => {
     setItems(getRules(feature, environment));
-  }, [getRules(feature, environment)]);
+  }, [environment, feature]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),

@@ -1,7 +1,7 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { OrganizationInterface } from "back-end/types/organization";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MemberInfo } from "../components/Settings/MemberList";
 import { useAuth } from "../services/auth";
 import usePermissions from "./usePermissions";
@@ -20,22 +20,25 @@ export function useAdminSettings() {
 
   const { apiCall } = useAuth();
 
-  async function refresh() {
-    if (!permissions.organizationSettings) return;
-    try {
-      const res = await apiCall<OrgSettingsResponse>(`/organization`, {
-        method: "GET",
-      });
-      setData(res);
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    }
-  }
+  const refresh = useCallback(
+    async function refresh() {
+      if (!permissions.organizationSettings) return;
+      try {
+        const res = await apiCall<OrgSettingsResponse>(`/organization`, {
+          method: "GET",
+        });
+        setData(res);
+        setError("");
+      } catch (e) {
+        setError(e.message);
+      }
+    },
+    [apiCall, permissions.organizationSettings]
+  );
 
   useEffect(() => {
     refresh();
-  }, [permissions.organizationSettings]);
+  }, [permissions.organizationSettings, refresh]);
 
   return { data, error, refresh };
 }

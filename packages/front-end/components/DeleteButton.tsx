@@ -42,7 +42,7 @@ const DeleteButton: FC<{
     getConfirmationContent()
       .then((c) => setDynamicContent(c))
       .catch((e) => console.error(e));
-  }, [confirming]);
+  }, [confirming, getConfirmationContent]);
 
   return (
     <>

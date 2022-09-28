@@ -46,7 +46,7 @@ const MarkdownInput: FC<{
     if (autofocus && textareaRef.current) {
       textareaRef.current.focus();
     }
-  }, [autofocus, textareaRef.current]);
+  }, [autofocus]);
 
   const onDrop = (files: File[]) => {
     setUploading(true);

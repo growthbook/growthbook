@@ -136,6 +136,8 @@ export default function CodeSnippetModal({
       });
       await update();
     })();
+    // GuidedGetStarted has an infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
   // Create API key if one doesn't exist yet
@@ -163,6 +165,8 @@ export default function CodeSnippetModal({
         console.error(e);
       }
     })();
+    // GuidedGetStarted has an infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [environment]);
 
   useEffect(() => {
@@ -185,6 +189,8 @@ export default function CodeSnippetModal({
         tracking: "custom",
       });
     }
+    // GuidedGetStarted has an infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasources?.[0]?.type]);
 
   return (

@@ -39,7 +39,7 @@ const TeamPage: FC = () => {
       .catch((e) => {
         console.error(e);
       });
-  }, [checkoutSessionId]);
+  }, [checkoutSessionId, apiCall, mutate, router]);
 
   if (error) {
     return <div className="alert alert-danger">An error occurred: {error}</div>;

@@ -4,7 +4,7 @@ import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
-import { useEffect } from "react";
+import { memo, useEffect, useMemo } from "react";
 import track from "../services/track";
 import { initEnv } from "../services/env";
 import { useState } from "react";

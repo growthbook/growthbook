@@ -33,11 +33,15 @@ export default function ConditionInput(props: Props) {
   useEffect(() => {
     if (advanced) return;
     setValue(condToJson(conds, attributes));
+    // infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [advanced, conds]);
 
   useEffect(() => {
     props.onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
+    // infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, attributes]);
 
   if (advanced || !attributes.size || !simpleAllowed) {

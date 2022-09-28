@@ -32,7 +32,7 @@ export default function DimensionChooser({
     if (value === "pre:activation" && !activationMetric) {
       setValue("");
     }
-  }, [value, activationMetric]);
+  }, [value, activationMetric, setValue]);
 
   // Don't show anything if the datasource doesn't support dimensions
   if (!datasource || !datasource.properties?.dimensions) {

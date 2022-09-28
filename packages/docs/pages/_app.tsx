@@ -213,7 +213,7 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
     return () => {
       router.events.off("routeChangeComplete", handleRouteChange);
     };
-  }, []);
+  }, [router.events]);
 
   let currentIndex = -1;
   linksInOrder.forEach((l, i) => {

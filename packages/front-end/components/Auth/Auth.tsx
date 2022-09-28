@@ -1,4 +1,4 @@
-import { ReactElement, useState } from "react";
+import { ReactElement, useCallback, useState } from "react";
 import track from "../../services/track";
 import { getApiHost } from "../../services/env";
 import Modal from "../Modal";
@@ -22,46 +22,41 @@ export default function Auth({
     },
   });
 
-  return (
-    <Modal
-      solidOverlay={true}
-      open={true}
-      submit={
-        state === "forgotSuccess"
-          ? undefined
-          : form.handleSubmit(async (data) => {
-              const res = await fetch(getApiHost() + "/auth/" + state, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                credentials: "include",
-                body: JSON.stringify(data),
-              });
-              const json: {
-                status: number;
-                token: string;
-                message?: string;
-              } = await res.json();
-              if (json.status > 200) {
-                throw new Error(
-                  json.message || "An error occurred. Please try again."
-                );
-              }
+  const handleSubmit = useCallback(async () => {
+    if (state === "forgotSuccess") return;
 
-              if (state === "register") {
-                track("Register");
-              }
-
-              if (state === "forgot") {
-                setState("forgotSuccess");
-              } else {
-                onSuccess(json.token);
-              }
-            })
+    form.handleSubmit(async (data) => {
+      const res = await fetch(getApiHost() + "/auth/" + state, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      const json: {
+        status: number;
+        token: string;
+        message?: string;
+      } = await res.json();
+      if (json.status > 200) {
+        throw new Error(json.message || "An error occurred. Please try again.");
       }
-      cta={"Submit"}
-    >
+
+      if (state === "register") {
+        track("Register");
+      }
+
+      if (state === "forgot") {
+        setState("forgotSuccess");
+      } else {
+        onSuccess(json.token);
+      }
+    });
+  }, [form, onSuccess, state]);
+
+  return (
+    <Modal solidOverlay={true} open={true} submit={handleSubmit} cta={"Submit"}>
       {state === "register" && (
         <div>
           <h3>Register</h3>

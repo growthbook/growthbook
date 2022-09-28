@@ -14,5 +14,5 @@ export default function useSwitchOrg(newOrg: null | string): void {
         url: "",
       });
     }
-  }, [orgId, newOrg]);
+  }, [orgId, newOrg, setOrgId, setSpecialOrg]);
 }

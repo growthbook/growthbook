@@ -73,7 +73,7 @@ const RunQueriesButton: FC<{
 
   useEffect(() => {
     mutate();
-  }, [initialStatus]);
+  }, [initialStatus, mutate]);
 
   useEffect(() => {
     if (status !== "running") return;
@@ -90,7 +90,7 @@ const RunQueriesButton: FC<{
       window.clearTimeout(timer);
       timer = -1;
     };
-  }, [status, timeoutLength]);
+  }, [mutate, status, timeoutLength]);
 
   useEffect(() => {
     if (status === "succeeded") {
@@ -99,7 +99,7 @@ const RunQueriesButton: FC<{
     if (status === "failed") {
       onReady();
     }
-  }, [status]);
+  }, [onReady, status]);
 
   useEffect(() => {
     if (status !== "running") return;

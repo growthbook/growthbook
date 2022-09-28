@@ -1,4 +1,11 @@
-import { FC, useEffect, useRef, useState, MouseEvent } from "react";
+import {
+  FC,
+  useEffect,
+  useRef,
+  useState,
+  MouseEvent,
+  useCallback,
+} from "react";
 import { useForm } from "react-hook-form";
 import { GiClick } from "react-icons/gi";
 import clsx from "clsx";
@@ -143,7 +150,7 @@ const EditorPage: FC = () => {
       stream.stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     }
-  }, [mode]);
+  }, [mode, stream]);
 
   // Stop screenshot mode when the stream ends
   useEffect(() => {
@@ -153,45 +160,59 @@ const EditorPage: FC = () => {
     ) {
       setMode("interactive");
     }
-  }, [mode, stream?.stream?.getVideoTracks()?.[0]?.readyState]);
+  }, [mode, stream?.stream]);
 
-  function sendCommand(command: IncomingMessage) {
-    if (!loaded || !iframe.current) return;
-    if (!iframeReady && command.command !== "isReady") return;
-    try {
-      iframe.current.contentWindow.postMessage(command, "*");
-    } catch (e) {
-      console.error(e);
-    }
-  }
+  const sendCommand = useCallback(
+    function sendCommand(command: IncomingMessage) {
+      if (!loaded || !iframe.current) return;
+      if (!iframeReady && command.command !== "isReady") return;
+      try {
+        iframe.current.contentWindow.postMessage(command, "*");
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [iframeReady, loaded]
+  );
 
-  function render() {
-    if (!loaded) return;
-    sendCommand({
-      command: "mutateDOM",
-      mutations: varData.dom.filter((d) => d.selector),
-    });
-    sendCommand({
-      command: "injectCSS",
-      css: varData.css,
-    });
-
-    if (mode === "inspector" && currentEl?.selected) {
-      requestAnimationFrame(() => {
-        sendCommand({
-          command: "selectElement",
-          selector: currentEl?.selector,
-          ancestor: 0,
-        });
+  const render = useCallback(
+    function render() {
+      if (!loaded) return;
+      sendCommand({
+        command: "mutateDOM",
+        mutations: varData.dom.filter((d) => d.selector),
       });
-    }
-  }
+      sendCommand({
+        command: "injectCSS",
+        css: varData.css,
+      });
+
+      if (mode === "inspector" && currentEl?.selected) {
+        requestAnimationFrame(() => {
+          sendCommand({
+            command: "selectElement",
+            selector: currentEl?.selector,
+            ancestor: 0,
+          });
+        });
+      }
+    },
+    [
+      currentEl?.selected,
+      currentEl?.selector,
+      loaded,
+      mode,
+      sendCommand,
+      varData.css,
+      varData.dom,
+    ]
+  );
 
   // Render when the value changes, at most once every 100ms
   useEffect(() => {
     const timer = setTimeout(render, 100);
     return () => clearTimeout(timer);
-  }, [iframeReady, varData, variation]);
+  }, [iframeReady, render, varData, variation]);
 
   // When the url changes, reload the iframe
   useEffect(() => {
@@ -213,7 +234,7 @@ const EditorPage: FC = () => {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [iframeReady, iframeLoaded]);
+  }, [iframeReady, iframeLoaded, sendCommand]);
 
   // When the dev inspector mode changes, update the iframe state
   useEffect(() => {
@@ -244,7 +265,14 @@ const EditorPage: FC = () => {
         });
       }
     }
-  }, [iframe.current, iframeReady, mode, loaded, currentEl?.selected]);
+  }, [
+    iframeReady,
+    mode,
+    loaded,
+    currentEl?.selected,
+    currentEl.selector,
+    sendCommand,
+  ]);
 
   function updateValue(
     newValue: Partial<{ dom: DomMutation[]; css: string; screenshot: string }>

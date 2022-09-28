@@ -23,7 +23,7 @@ export default function InAppHelp() {
     s.async = true;
     s.src = config.baseUrl + "/widget.js";
     document.head.appendChild(s);
-  }, [config]);
+  }, [config, email, name, userId]);
 
   return null;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext } from "react";
+import { useEffect, useState, createContext, useCallback } from "react";
 import {
   useAuth,
   UserOrganizations,
@@ -84,7 +84,7 @@ const ProtectedPage: React.FC<{
   const [users, setUsers] = useState<Map<string, User>>(new Map());
   const router = useRouter();
 
-  const update = async () => {
+  const update = useCallback(async () => {
     try {
       const res = await apiCall<UserResponse>("/user", {
         method: "GET",
@@ -96,9 +96,9 @@ const ProtectedPage: React.FC<{
     } catch (e) {
       setError(e.message);
     }
-  };
+  }, [apiCall, setOrganizations]);
 
-  const refreshUsers = async () => {
+  const refreshUsers = useCallback(async () => {
     try {
       const res = await apiCall<MembersResponse>("/members", {
         method: "GET",
@@ -114,7 +114,7 @@ const ProtectedPage: React.FC<{
     } catch (e) {
       setUsers(new Map());
     }
-  };
+  }, [apiCall]);
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
   const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
@@ -136,7 +136,7 @@ const ProtectedPage: React.FC<{
       refreshUsers();
       track("Organization Loaded");
     }
-  }, [orgId]);
+  }, [data?.userId, orgId, refreshUsers, role]);
 
   // Once authenticated, get userId, orgId from API
   useEffect(() => {
@@ -144,7 +144,7 @@ const ProtectedPage: React.FC<{
       return;
     }
     update();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, update]);
 
   const growthbook = useGrowthBook();
   useEffect(() => {
@@ -161,7 +161,7 @@ const ProtectedPage: React.FC<{
       discountCode: currentOrg?.discountCode || "",
       hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
-  }, [data, router?.pathname]);
+  }, [currentOrg, data, growthbook, router?.pathname]);
 
   if (error) {
     return (

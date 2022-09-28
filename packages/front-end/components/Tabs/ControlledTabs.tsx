@@ -1,13 +1,14 @@
-import {
-  FC,
-  Children,
-  useState,
-  isValidElement,
-  ReactNode,
-  ReactElement,
-  useEffect,
-} from "react";
 import clsx from "clsx";
+import {
+  Children,
+  FC,
+  isValidElement,
+  ReactElement,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import TabButton from "./TabButton";
 import TabButtons from "./TabButtons";
 
@@ -48,9 +49,10 @@ const ControlledTabs: FC<{
     if (!active && defaultTab) {
       setActive(defaultTab);
     }
-  }, [defaultTab, active]);
+  }, [defaultTab, active, setActive]);
 
-  const anchorMap = new Map<string, string>();
+  const anchorMap = useMemo(() => new Map<string, string>(), []);
+
   let activeChosen = null;
   let backupActive = null;
   Children.forEach(children, (child) => {
@@ -140,7 +142,7 @@ const ControlledTabs: FC<{
         [active]: true,
       });
     }
-  }, [active]);
+  }, [active, loaded]);
 
   useEffect(() => {
     const handler = () => {
@@ -153,7 +155,7 @@ const ControlledTabs: FC<{
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, []);
+  }, [anchorMap, setActive]);
 
   return (
     <div

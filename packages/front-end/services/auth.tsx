@@ -4,6 +4,8 @@ import React, {
   useContext,
   ReactElement,
   ReactNode,
+  useMemo,
+  useCallback,
 } from "react";
 import { useRouter } from "next/router";
 import {
@@ -170,6 +172,7 @@ export async function redirectWithTimeout(url: string, timeout: number = 5000) {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  console.log("rendering AuthProvider");
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string>(null);
@@ -183,7 +186,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
-  async function init() {
+  const init = useCallback(async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
       setError("");
@@ -226,7 +229,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       console.log(resp);
       throw new Error("Unknown refresh response");
     }
-  }
+  }, []);
 
   // Start auth flow to get an id token
   useEffect(() => {
@@ -236,31 +239,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     });
   }, []);
 
-  const orgList = [...organizations];
-  if (specialOrg && !orgList.map((o) => o.id).includes(specialOrg.id)) {
-    orgList.push({
-      id: specialOrg.id,
-      name: specialOrg.name,
-      role: "admin",
-    });
-  }
+  const orgList = useMemo(() => {
+    const innerOrgList = [...organizations];
+    if (specialOrg && !innerOrgList.map((o) => o.id).includes(specialOrg.id)) {
+      innerOrgList.push({
+        id: specialOrg.id,
+        name: specialOrg.name,
+        role: "admin",
+      });
+    }
+    return innerOrgList;
+  }, [organizations, specialOrg]);
+
+  const tryAgainSubmit = useCallback(async () => {
+    try {
+      await init();
+    } catch (e) {
+      setError(e.message);
+      console.error(e);
+      throw new Error("Still receiving error");
+    }
+  }, [init]);
 
   if (error) {
     return (
-      <Modal
-        header="logo"
-        open={true}
-        cta="Try Again"
-        submit={async () => {
-          try {
-            await init();
-          } catch (e) {
-            setError(e.message);
-            console.error(e);
-            throw new Error("Still receiving error");
-          }
-        }}
-      >
+      <Modal header="logo" open={true} cta="Try Again" submit={tryAgainSubmit}>
         <p>
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>

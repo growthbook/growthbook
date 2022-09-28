@@ -60,7 +60,7 @@ const DateResults: FC<{
         }),
       };
     });
-  }, [results, cumulative]);
+  }, [results, variations, cumulative]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
@@ -143,7 +143,15 @@ const DateResults: FC<{
         // Filter out any edge cases when the metric is undefined
         .filter((table) => table.metric)
     );
-  }, [results, cumulative, ready]);
+  }, [
+    ready,
+    results,
+    metrics,
+    guardrails,
+    getMetricById,
+    variations,
+    cumulative,
+  ]);
 
   return (
     <div className="mb-4 mx-3 pb-4">

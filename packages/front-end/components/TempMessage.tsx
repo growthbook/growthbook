@@ -30,7 +30,7 @@ const TempMessage: FC<TempMessageProps> = ({ children, close }) => {
     return () => {
       clearTimeout(timer);
     };
-  }, [closing]);
+  }, [close, closing]);
 
   return (
     <div

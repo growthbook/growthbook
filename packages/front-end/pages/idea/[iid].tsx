@@ -82,7 +82,7 @@ const IdeaPage = (): ReactElement => {
       form.setValue("details", data.idea.details || "");
       form.setValue("project", data.idea.project || "");
     }
-  }, [data]);
+  }, [data, form]);
 
   if (dataError) {
     return (

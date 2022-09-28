@@ -29,7 +29,7 @@ export default function useStripeSubscription() {
         setQuote(data.quote);
       })
       .catch((e) => console.error(e));
-  }, [freeSeats, isCloud(), permissions.organizationSettings]);
+  }, [apiCall, freeSeats, permissions.organizationSettings]);
 
   const activeAndInvitedUsers = quote?.qty || 0;
 

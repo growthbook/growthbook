@@ -677,7 +677,7 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, [update]);
+  }, [update, mutate]);
 
   const max = useMemo(() => {
     return Math.max(

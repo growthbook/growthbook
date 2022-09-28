@@ -25,7 +25,7 @@ export default function VisualEditorInstructions({
     if (!key && apiKeys.length > 0) {
       setKey(apiKeys[0].key);
     }
-  }, [apiKeys]);
+  }, [apiKeys, key]);
 
   if (!apiKeys.length) {
     return (

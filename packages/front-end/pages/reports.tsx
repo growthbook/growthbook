@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { datetime, ago } from "../services/dates";
@@ -10,7 +10,6 @@ import useApi from "../hooks/useApi";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import Toggle from "../components/Forms/Toggle";
-import experiments from "./experiments";
 import useUser from "../hooks/useUser";
 
 const ReportsPage = (): React.ReactElement => {
@@ -36,7 +35,7 @@ const ReportsPage = (): React.ReactElement => {
     }
   };
 
-  const { users, userId, getUserDisplay } = useUser();
+  const { userId, getUserDisplay } = useUser();
   const expMap = useMemo(() => {
     const tmp = new Map();
     if (data?.experiments && data?.experiments.length > 0) {
@@ -47,16 +46,19 @@ const ReportsPage = (): React.ReactElement => {
     return tmp;
   }, [data?.experiments]);
 
-  const getExperimentName = (experimentId: string): string => {
-    return expMap.get(experimentId)?.name ?? "";
-  };
+  const getExperimentName = useCallback(
+    (experimentId: string): string => {
+      return expMap.get(experimentId)?.name ?? "";
+    },
+    [expMap]
+  );
 
   const transforms = useMemo(() => {
     return {
       userId: (orig: string) => getUserDisplay(orig),
       experimentId: (orig: string) => getExperimentName(orig),
     };
-  }, [getUserDisplay, users.size, experiments]);
+  }, [getUserDisplay, getExperimentName]);
 
   const { list: filteredReports, searchInputProps, isFiltered } = useSearch(
     data?.reports || [],

@@ -46,7 +46,7 @@ export function useSearch<T>(
   const [value, setValue] = useState("");
   const searchIndex = useMemo(() => {
     return index<T>(objects, fields, transform);
-  }, [objects, transform]);
+  }, [objects, transform, fields]);
 
   const isFiltered = value.length >= 2;
 
@@ -82,7 +82,7 @@ export function useFeatureSearch(
   const [value, setValue] = useState(initialSearchTerm ?? "");
   const searchIndex = useMemo(() => {
     return index<FeatureInterface>(objects, fields, transform);
-  }, [objects, transform]);
+  }, [objects, transform, fields]);
 
   const searchTermArr = [];
   const envSearch = {};
@@ -267,7 +267,7 @@ export function useSort<T>(
       return (comp1 - comp2) * sort.dir;
     });
     return sorted;
-  }, [sort, items]);
+  }, [sort, items, compFunctions]);
 
   const SortableTH = useMemo(() => {
     const th: FC<{
@@ -302,7 +302,7 @@ export function useSort<T>(
       </th>
     );
     return th;
-  }, [sort.dir, sort.field]);
+  }, [sort.dir, sort.field, setSort]);
 
   return {
     sorted,

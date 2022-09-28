@@ -218,7 +218,15 @@ const ShareModal = ({
       };
       form.reset(newVal);
     }
-  }, [existing?.slides]);
+  }, [
+    existing?.customTheme,
+    existing?.description,
+    existing?.sharable,
+    existing?.slides,
+    existing?.theme,
+    existing?.title,
+    form,
+  ]);
 
   const {
     list: experiments,

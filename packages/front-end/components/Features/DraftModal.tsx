@@ -93,7 +93,12 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     }
 
     return diffs;
-  }, [feature]);
+  }, [
+    environments,
+    feature.defaultValue,
+    feature.draft,
+    feature.environmentSettings,
+  ]);
 
   return (
     <Modal

@@ -76,7 +76,7 @@ const BreakDownResults: FC<{
         };
       })
       .filter((table) => table.metric);
-  }, [results, metrics, guardrails, ready]);
+  }, [ready, metrics, guardrails, getMetricById, results]);
 
   const risk = useRiskVariation(
     variations.length,

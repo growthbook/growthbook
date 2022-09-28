@@ -31,7 +31,7 @@ export default function OAuthCallbackPage() {
       .catch((e) => {
         setError(e.message);
       });
-  }, []);
+  }, [router]);
 
   return (
     <div className="container">

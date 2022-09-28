@@ -110,7 +110,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
 
     return data.metrics.filter((m) => m.status !== "archived");
-  }, [data?.metrics]);
+  }, [data]);
 
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
@@ -119,69 +119,85 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getProjectById = useGetById(data?.projects);
   const getTagById = useGetById(data?.tags);
 
-  let value: DefinitionContextValue;
-  if (error) {
-    value = { ...defaultValue, error: error?.message || "" };
-  } else if (!data) {
-    value = defaultValue;
-  } else {
-    value = {
-      ready: true,
-      metrics: activeMetrics,
-      datasources: data.datasources,
-      dimensions: data.dimensions,
-      segments: data.segments,
-      tags: data.tags,
-      groups: data.groups,
-      projects: data.projects,
-      project:
-        data.projects && data.projects.map((p) => p.id).includes(project)
-          ? project
-          : "",
-      setProject,
-      getMetricById,
-      getDatasourceById,
-      getDimensionById,
-      getSegmentById,
-      getProjectById,
-      getTagById,
-      refreshGroups: async (groups) => {
-        const newGroups = groups.filter((t) => !data.groups.includes(t));
-        if (newGroups.length > 0) {
-          await mutate(
-            {
-              ...data,
-              groups: data.groups.concat(newGroups),
-            },
-            false
-          );
-        }
-      },
-      refreshTags: async (tags) => {
-        const existingTags = data.tags.map((t) => t.id);
-        const newTags = tags.filter((t) => !existingTags.includes(t));
+  // console.log("rerendering DefinitionsContext");
 
-        if (newTags.length > 0) {
-          await mutate(
-            {
-              ...data,
-              tags: data.tags.concat(
-                newTags.map((t) => ({
-                  id: t,
-                  color: "#029dd1",
-                  description: "",
-                }))
-              ),
-            },
-            false
-          );
-        }
-      },
-      mutateDefinitions: async (changes) => {
-        await mutate(Object.assign({ status: 200, ...data }, changes), true);
-      },
-    };
-  }
+  const value: DefinitionContextValue = useMemo(() => {
+    if (error) {
+      return { ...defaultValue, error: error?.message || "" };
+    } else if (!data) {
+      return defaultValue;
+    } else {
+      return {
+        ready: true,
+        metrics: activeMetrics,
+        datasources: data.datasources,
+        dimensions: data.dimensions,
+        segments: data.segments,
+        tags: data.tags,
+        groups: data.groups,
+        projects: data.projects,
+        project:
+          data.projects && data.projects.map((p) => p.id).includes(project)
+            ? project
+            : "",
+        setProject,
+        getMetricById,
+        getDatasourceById,
+        getDimensionById,
+        getSegmentById,
+        getProjectById,
+        getTagById,
+        refreshGroups: async (groups) => {
+          const newGroups = groups.filter((t) => !data.groups.includes(t));
+          if (newGroups.length > 0) {
+            await mutate(
+              {
+                ...data,
+                groups: data.groups.concat(newGroups),
+              },
+              false
+            );
+          }
+        },
+        refreshTags: async (tags) => {
+          const existingTags = data.tags.map((t) => t.id);
+          const newTags = tags.filter((t) => !existingTags.includes(t));
+
+          if (newTags.length > 0) {
+            await mutate(
+              {
+                ...data,
+                tags: data.tags.concat(
+                  newTags.map((t) => ({
+                    id: t,
+                    color: "#029dd1",
+                    description: "",
+                  }))
+                ),
+              },
+              false
+            );
+          }
+        },
+        mutateDefinitions: async (changes) => {
+          await mutate(Object.assign({ status: 200, ...data }, changes), true);
+        },
+      };
+    }
+  }, [
+    activeMetrics,
+    // data,
+    error,
+    getDatasourceById,
+    getDimensionById,
+    getMetricById,
+    getProjectById,
+    getSegmentById,
+    getTagById,
+    mutate,
+    project,
+    setProject,
+  ]);
 
   return (
     <DefinitionsContext.Provider value={value}>

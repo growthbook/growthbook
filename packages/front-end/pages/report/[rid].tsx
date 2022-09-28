@@ -65,7 +65,7 @@ export default function ReportPage() {
       };
       form.reset(newVal);
     }
-  }, [data?.report]);
+  }, [data?.report, form]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

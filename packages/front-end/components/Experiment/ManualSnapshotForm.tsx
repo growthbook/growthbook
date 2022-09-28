@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from "react";
+import { FC, useState, useEffect, useCallback } from "react";
 import Modal from "../Modal";
 import {
   ExperimentSnapshotInterface,
@@ -41,13 +41,16 @@ const ManualSnapshotForm: FC<{
     });
   }
 
-  const isRatio = (metric: MetricInterface) => {
-    if (!metric.denominator) return false;
-    const denominator = getMetricById(metric.denominator);
-    if (!denominator) return false;
-    if (denominator.type !== "count") return false;
-    return true;
-  };
+  const isRatio = useCallback(
+    (metric: MetricInterface) => {
+      if (!metric.denominator) return false;
+      const denominator = getMetricById(metric.denominator);
+      if (!denominator) return false;
+      if (denominator.type !== "count") return false;
+      return true;
+    },
+    [getMetricById]
+  );
 
   const initialValue: {
     users: number[];
@@ -102,49 +105,52 @@ const ManualSnapshotForm: FC<{
     users: form.watch("users"),
   };
 
-  function getStats() {
-    const ret: { [key: string]: MetricStats[] } = {};
-    Object.keys(values.metrics).forEach((key) => {
-      const m = getMetricById(key);
-      ret[key] = values.metrics[key].map((v, i) => {
-        if (m.type === "binomial") {
-          // Use the normal approximation for a bernouli variable to calculate stddev
-          const p = v.count / values.users[i];
-          return {
-            users: values.users[i],
-            count: values.users[i],
-            mean: p,
-            stddev: Math.sqrt(p * (1 - p)),
-          };
-        } else if (isRatio(m)) {
-          // For ratio metrics, the count (denominator) may be different from the number of users
-          return {
-            users: values.users[i],
-            count: v.count,
-            mean: v.mean,
-            stddev: v.stddev,
-          };
-        } else if (m.ignoreNulls || m.denominator) {
-          // When ignoring nulls (or using a funnel metric)
-          // Limit the users to only ones who converted
-          return {
-            users: v.count,
-            count: v.count,
-            mean: v.mean,
-            stddev: v.stddev,
-          };
-        } else {
-          return {
-            users: values.users[i],
-            count: values.users[i],
-            mean: v.mean,
-            stddev: v.stddev,
-          };
-        }
+  const getStats = useCallback(
+    function getStats() {
+      const ret: { [key: string]: MetricStats[] } = {};
+      Object.keys(values.metrics).forEach((key) => {
+        const m = getMetricById(key);
+        ret[key] = values.metrics[key].map((v, i) => {
+          if (m.type === "binomial") {
+            // Use the normal approximation for a bernouli variable to calculate stddev
+            const p = v.count / values.users[i];
+            return {
+              users: values.users[i],
+              count: values.users[i],
+              mean: p,
+              stddev: Math.sqrt(p * (1 - p)),
+            };
+          } else if (isRatio(m)) {
+            // For ratio metrics, the count (denominator) may be different from the number of users
+            return {
+              users: values.users[i],
+              count: v.count,
+              mean: v.mean,
+              stddev: v.stddev,
+            };
+          } else if (m.ignoreNulls || m.denominator) {
+            // When ignoring nulls (or using a funnel metric)
+            // Limit the users to only ones who converted
+            return {
+              users: v.count,
+              count: v.count,
+              mean: v.mean,
+              stddev: v.stddev,
+            };
+          } else {
+            return {
+              users: values.users[i],
+              count: values.users[i],
+              mean: v.mean,
+              stddev: v.stddev,
+            };
+          }
+        });
       });
-    });
-    return ret;
-  }
+      return ret;
+    },
+    [getMetricById, isRatio, values.metrics, values.users]
+  );
 
   // Get preview stats when the value changes
   useEffect(() => {
@@ -196,7 +202,7 @@ const ManualSnapshotForm: FC<{
         cancel = true;
       };
     }
-  }, [hash]);
+  }, [apiCall, experiment.id, getStats, hash, phase, values.users]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     await apiCall<{ status: number; message: string }>(

@@ -38,7 +38,7 @@ const InvitationPage = (): React.ReactElement => {
       .catch((e) => {
         setError(e.message);
       });
-  }, []);
+  }, [apiCall]);
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;

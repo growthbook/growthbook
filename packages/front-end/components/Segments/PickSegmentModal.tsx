@@ -32,7 +32,7 @@ export default function PickSegmentModal({
           value: s.id,
         };
       });
-  }, [segments]);
+  }, [datasource, segments]);
 
   return (
     <Modal

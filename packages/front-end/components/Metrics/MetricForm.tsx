@@ -272,7 +272,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label: m.name,
         };
       });
-  }, [metrics, value.type, value.datasource]);
+  }, [metrics, current?.id, value.datasource, value.type]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
