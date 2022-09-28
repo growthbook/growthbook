@@ -11,12 +11,14 @@ type NoAutoFillPasswordProps = {
 };
 
 /**
- * This is a hack to remove Chrome's autofill password prompt.
- * This will need to be used on both username and password fields, in separate implementations.
+ * This is a hack to remove the browser autofill password prompts.
+ * This has been tested on macOS in Chrome, Brave, Firefox and Safari.
+ * A separate hook invocation will need to be used for each field that may trigger password auto-fill.
+ * This includes but is not limited to username, password, and (sometimes) database.
  * Learn why here: https://developer.mozilla.org/en-US/docs/Web/Security/Securing_your_site/Turning_off_form_autocompletion#the_autocomplete_attribute_and_login_fields
  * Appropriate usages:
  *    - data source forms to prevent sending GrowthBook credentials to third-parties
- *      - Fields: username, password, database
+ *      - Fields: username, password, database (and possibly more)
  * Inappropriate usages (do not use for):
  *    - GrowthBook login forms
  */
