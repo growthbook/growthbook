@@ -41,6 +41,7 @@
     "jstat": "^1.9.3",
     "lodash": "^4.17.21",
     "markdown-it": "^11.0.0",
+    "markdown-it-mark": "^3.0.1",
     "markdown-it-sanitizer": "^0.4.3",
     "md5": "^2.3.0",
     "next": "12.2.5",
