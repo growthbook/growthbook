@@ -104,7 +104,9 @@ const DimensionForm: FC<{
           required
           language="sql"
           value={form.watch("sql")}
-          setValue={(sql) => form.setValue("sql", sql)}
+          setValue={(sql) => {
+            form.setValue("sql", sql.replace(/;\s*/, ""));
+          }}
           placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
           helpText={
             <>
