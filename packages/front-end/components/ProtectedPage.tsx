@@ -113,7 +113,7 @@ const ProtectedPage: React.FC<{
 
   const orgPermissions = currentOrg?.permissions || [];
 
-  const permissions: Record<Partial<Permission>, boolean> = defaultPermissions;
+  const permissions: Record<Permission, boolean> = defaultPermissions;
   for (const orgPermission of orgPermissions) {
     permissions[orgPermission] = true;
   }
