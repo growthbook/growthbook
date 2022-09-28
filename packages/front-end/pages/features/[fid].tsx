@@ -325,6 +325,10 @@ export default function FeaturePage() {
         </div>
 
         <div className="col-auto">
+          Type: {data.feature.valueType || "unknown"}
+        </div>
+
+        <div className="col-auto">
           Owner: {data.feature.owner ? data.feature.owner : "None"}
           {permissions.createFeatures && (
             <a
