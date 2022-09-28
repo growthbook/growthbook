@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
 import fs from "fs";
+import { IssuerMetadata } from "openid-client";
+import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -29,6 +31,7 @@ if (!MONGODB_URI) {
 }
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+const isLocalhost = APP_ORIGIN.includes("localhost");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
 export const CORS_ORIGIN_REGEX = corsOriginRegex
@@ -56,7 +59,7 @@ export const GCS_DOMAIN =
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
-if (prod && !IS_CLOUD && JWT_SECRET === "dev") {
+if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
     "Cannot use JWT_SECRET=dev in production. Please set to a long random string."
   );
@@ -71,9 +74,8 @@ export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
-export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-export const STRIPE_DEFAULT_COUPON = process.env.STRIPE_DEFAULT_COUPON || "";
+export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
@@ -102,3 +104,54 @@ export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
+
+// Self-hosted Enterprise licence key
+export const LICENCE_KEY = process.env.LICENCE_KEY || "";
+
+// Self-hosted SSO
+function getSSOConfig() {
+  if (!process.env.SSO_CONFIG) return null;
+
+  if (!IS_CLOUD && !LICENCE_KEY) {
+    throw new Error(
+      "Must have an Enterprise Licence Key to use self-hosted SSO"
+    );
+  }
+
+  const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
+  // Must include clientId and specific metadata
+  const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
+    "authorization_endpoint",
+    "issuer",
+    "jwks_uri",
+    "id_token_signing_alg_values_supported",
+    "token_endpoint",
+  ];
+  if (!config?.clientId || !config?.metadata) {
+    throw new Error("SSO_CONFIG must contain 'clientId' and 'metadata'");
+  }
+
+  const missingMetadata = requiredMetadataKeys.filter(
+    (k) => !(k in config.metadata)
+  );
+  if (missingMetadata.length > 0) {
+    throw new Error(
+      "SSO_CONFIG missing required metadata fields: " +
+        missingMetadata.join(", ")
+    );
+  }
+
+  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
+  if (
+    IS_CLOUD &&
+    config?.metadata?.issuer !== "https://growthbook.auth0.com/"
+  ) {
+    throw new Error("Invalid SSO configuration for GrowthBook Cloud");
+  }
+
+  config.id = "";
+  return config;
+}
+export const SSO_CONFIG = getSSOConfig();
+export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
+export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";

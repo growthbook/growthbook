@@ -11,8 +11,7 @@
     "start": "node dist/server.js",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
-    "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
-    "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"
+    "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "5",
@@ -48,6 +47,7 @@
     "node-fetch": "^2.6.1",
     "nodemailer": "^6.6.0",
     "nunjucks": "^3.2.3",
+    "openid-client": "^5.1.9",
     "pg": "^8.6.0",
     "pino-http": "^5.3.0",
     "pino-pretty": "^5.1.0",
@@ -57,7 +57,7 @@
     "snowflake-promise": "^4.5.0",
     "sql-formatter": "^4.0.2",
     "string-env-interpolation": "^1.0.1",
-    "stripe": "^8.106.0",
+    "stripe": "^9.14.0",
     "uniqid": "^5.3.0"
   },
   "devDependencies": {
@@ -75,7 +75,7 @@
     "@types/jsonwebtoken": "^8.5.1",
     "@types/lodash": "^4.14.157",
     "@types/md5": "^2.2.0",
-    "@types/node": "^14.0.0",
+    "@types/node": "^14.0.5",
     "@types/node-fetch": "^2.5.8",
     "@types/nodemailer": "^6.4.1",
     "@types/nunjucks": "^3.1.4",

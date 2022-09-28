@@ -661,6 +661,7 @@ export async function createSnapshot(
   data.results = results?.dimensions;
   data.unknownVariations = results?.unknownVariations || [];
   data.multipleExposures = results?.multipleExposures || 0;
+  data.hasCorrectedStats = true;
 
   const snapshot = await ExperimentSnapshotModel.create(data);
 
@@ -718,8 +719,10 @@ export async function processPastExperiments(
         startDate: e.start_date,
         numVariations: 1,
         variationKeys: [e.variation_id],
+        variationNames: [e.variation_name || ""],
         exposureQueryId: e.exposureQueryId || "",
         trackingKey: e.experiment_id,
+        experimentName: e.experiment_name,
         users: e.users,
         weights: [e.users],
       };
@@ -736,6 +739,7 @@ export async function processPastExperiments(
         el.weights.push(e.users);
         el.users += e.users;
         el.numVariations++;
+        el.variationNames?.push(e.variation_name || "");
       }
     }
   });

@@ -8,13 +8,10 @@ const organizationSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  dateCreated: Date,
   url: String,
   name: String,
   ownerEmail: String,
-  claimedDomain: {
-    type: String,
-    index: true,
-  },
   restrictLoginMethod: String,
   members: [
     {
@@ -33,16 +30,31 @@ const organizationSchema = new mongoose.Schema({
     },
   ],
   stripeCustomerId: String,
+  discountCode: String,
+  priceId: String,
+  freeSeats: Number,
+  disableSelfServeBilling: Boolean,
   subscription: {
     id: String,
     qty: Number,
     trialEnd: Date,
     status: String,
+    current_period_end: Number,
+    cancel_at: Number,
+    canceled_at: Number,
+    cancel_at_period_end: Boolean,
+    planNickname: String,
+    priceId: String,
   },
   connections: {
     slack: {
       team: String,
       token: String,
+    },
+    vercel: {
+      token: String,
+      configurationId: String,
+      teamId: String,
     },
   },
   settings: {},
@@ -110,6 +122,7 @@ export async function createOrganization(
       },
     ],
     id: uniqid("org_"),
+    dateCreated: new Date(),
     settings: {
       environments: [
         {
@@ -159,6 +172,14 @@ export async function updateOrganizationByStripeId(
   );
 }
 
+export async function findOrganizationByStripeCustomerId(id: string) {
+  const doc = await OrganizationModel.findOne({
+    stripeCustomerId: id,
+  });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function hasOrganization() {
   const res = await OrganizationModel.findOne();
   return !!res;
@@ -201,12 +222,4 @@ export async function getOrganizationsWithNorthStars() {
     },
   });
   return withNorthStars.map(toInterface);
-}
-
-export async function findOrganizationByClaimedDomain(domain: string) {
-  if (!domain) return null;
-  const doc = await OrganizationModel.findOne({
-    claimedDomain: domain,
-  });
-  return doc ? toInterface(doc) : null;
 }

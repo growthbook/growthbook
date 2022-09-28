@@ -2,8 +2,8 @@ import { useEffect, useState, createContext } from "react";
 import {
   useAuth,
   UserOrganizations,
-  SubscriptionStatus,
   getDefaultPermissions,
+  safeLogout,
 } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
@@ -13,6 +13,7 @@ import {
   OrganizationSettings,
   Permissions,
   MemberRole,
+  LicenceData,
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
@@ -30,6 +31,7 @@ interface UserResponse {
   email: string;
   admin: boolean;
   organizations?: UserOrganizations;
+  licence?: LicenceData;
 }
 
 interface MembersResponse {
@@ -51,13 +53,12 @@ export type UserContextValue = {
   email?: string;
   admin?: boolean;
   role?: string;
+  licence?: LicenceData;
   users?: Map<string, User>;
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
   permissions: Permissions;
-  subscriptionStatus?: SubscriptionStatus;
-  trialEnd?: Date;
   settings: OrganizationSettings;
 };
 
@@ -68,14 +69,10 @@ export const UserContext = createContext<UserContextValue>({
 
 const ProtectedPage: React.FC<{
   organizationRequired: boolean;
-  preAuth: boolean;
   children: ReactNode;
-}> = ({ children, organizationRequired, preAuth }) => {
+}> = ({ children, organizationRequired }) => {
   const {
-    loading,
     isAuthenticated,
-    login,
-    logout,
     apiCall,
     orgId,
     organizations,
@@ -141,17 +138,6 @@ const ProtectedPage: React.FC<{
     }
   }, [orgId]);
 
-  // Initial authentication
-  useEffect(() => {
-    if (loading || isAuthenticated || preAuth) {
-      return;
-    }
-    const fn = async () => {
-      await login();
-    };
-    fn();
-  }, [loading, isAuthenticated, preAuth, login]);
-
   // Once authenticated, get userId, orgId from API
   useEffect(() => {
     if (!isAuthenticated) {
@@ -170,13 +156,12 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      hasLicenceKey: !!data?.licence,
+      freeSeats: currentOrg?.freeSeats || 3,
+      discountCode: currentOrg?.discountCode || "",
+      hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
   }, [data, router?.pathname]);
-
-  // This page is before the user is authenticated (e.g. reset password)
-  if (preAuth) {
-    return <>{children}</>;
-  }
 
   if (error) {
     return (
@@ -185,7 +170,7 @@ const ProtectedPage: React.FC<{
         open={true}
         cta="Log Out"
         submit={async () => {
-          await logout();
+          await safeLogout();
         }}
         submitColor="danger"
         closeCta="Reload"
@@ -230,9 +215,8 @@ const ProtectedPage: React.FC<{
     refreshUsers,
     role,
     permissions,
-    subscriptionStatus: currentOrg?.subscriptionStatus || "active",
-    trialEnd: currentOrg?.trialEnd,
     settings: currentOrg?.settings || {},
+    licence: data?.licence,
   };
 
   return (

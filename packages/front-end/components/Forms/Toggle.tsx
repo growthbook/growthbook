@@ -7,6 +7,7 @@ export default function Toggle({
   id,
   disabled = false,
   type = "toggle",
+  className,
 }: {
   id: string;
   value: boolean;
@@ -14,10 +15,13 @@ export default function Toggle({
   setValue: (value: boolean) => void;
   disabled?: boolean;
   type?: "featureValue" | "environment" | "toggle";
+  className?: string;
 }) {
   return (
     <div
-      className={`toggle-switch ${disabled ? "disabled" : ""} toggle-${type}`}
+      className={`toggle-switch ${disabled ? "disabled" : ""} toggle-${type} ${
+        className || ""
+      }`}
     >
       <input
         type="checkbox"

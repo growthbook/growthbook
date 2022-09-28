@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { ImplementationType } from "./experiment";
 
 export type Permissions = {
@@ -50,9 +51,16 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export interface MetricDefaults {
+  minimumSampleSize?: number;
+  maxPercentageChange?: number;
+  minPercentageChange?: number;
+}
+
 export interface Namespaces {
   name: string;
   description: string;
+  status: "active" | "inactive";
 }
 
 export type SDKAttributeType =
@@ -114,6 +122,7 @@ export interface OrganizationSettings {
   secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
+  metricDefaults?: MetricDefaults;
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
@@ -123,41 +132,66 @@ export interface OrganizationSettings {
   environments?: Environment[];
   customFields?: CustomField[];
   sdkInstructionsViewed?: boolean;
+  videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
 
+export interface SubscriptionQuote {
+  qty: number;
+  unitPrice: number;
+  discountAmount: number;
+  discountMessage: string;
+  subtotal: number;
+  total: number;
+  additionalSeatPrice: number;
+}
+
+export interface OrganizationConnections {
+  slack?: SlackConnection;
+  vercel?: VercelConnection;
+}
+
+export interface SlackConnection {
+  team: string;
+  token: string;
+}
+
+export interface VercelConnection {
+  token: string;
+  configurationId: string;
+  teamId: string | null;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
-  claimedDomain?: string;
+  dateCreated: Date;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
+  freeSeats?: number;
+  discountCode?: string;
+  priceId?: string;
+  disableSelfServeBilling?: boolean;
   subscription?: {
     id: string;
     qty: number;
     trialEnd: Date | null;
-    status:
-      | "incomplete"
-      | "incomplete_expired"
-      | "trialing"
-      | "active"
-      | "past_due"
-      | "canceled"
-      | "unpaid";
+    status: Stripe.Subscription.Status;
+    current_period_end: number;
+    cancel_at: number | null;
+    canceled_at: number | null;
+    cancel_at_period_end: boolean;
+    planNickname: string | null;
+    priceId?: string;
   };
   members: Member[];
   invites: Invite[];
 
-  connections?: {
-    slack?: {
-      team: string;
-      token: string;
-    };
-  };
+  connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
 
@@ -171,3 +205,11 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type LicenceData = {
+  ref: string;
+  sub: string;
+  qty: number;
+  iat: string;
+  eat: string;
+};

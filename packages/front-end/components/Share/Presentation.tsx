@@ -105,7 +105,7 @@ const Presentation = ({
             e.experiment.variations[e.experiment.winner]?.name +
             " beat the control and won";
         } else if (e.experiment.results === "lost") {
-          resultsText = `The ${variationsPlural} beat the control and won`;
+          resultsText = `The ${variationsPlural} did not improve over the control`;
 
           if (e.experiment.variations.length === 2) {
             variationExtra[1] = (

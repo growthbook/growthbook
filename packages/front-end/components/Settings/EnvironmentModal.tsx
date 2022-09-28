@@ -52,6 +52,9 @@ export default function EnvironmentModal({
               "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
             );
           }
+          if (newEnvs.find((e) => e.id === value.id)) {
+            throw new Error("Environment id is already in use");
+          }
           newEnvs.push({
             id: value.id.toLowerCase(),
             description: value.description,
@@ -129,6 +132,14 @@ export default function EnvironmentModal({
         }}
       />{" "}
       <label htmlFor="toggle">Show toggle on feature list </label>
+      {!existing.id && (
+        <div>
+          <small className="d-inline-block text-muted mt-3 mb-0">
+            Each new environment key will have an API key automatically
+            generated for it
+          </small>
+        </div>
+      )}
     </Modal>
   );
 }

@@ -15,7 +15,7 @@ const CustomFieldsPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const customFields = useCustomFields();
   const { apiCall } = useAuth();
-  const { update } = useUser();
+  const { update, licence } = useUser();
 
   const reoderFields = async (i: number, dir: -1 | 1) => {
     [customFields[i + dir], customFields[i]] = [
@@ -33,6 +33,26 @@ const CustomFieldsPage = (): React.ReactElement => {
       update();
     });
   };
+  if (!licence) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <div className="mb-5">
+          <div className="row mb-3 align-items-center">
+            <div className="col-auto">
+              <h3>Custom Experiment Fields</h3>
+              <p className="text-gray"></p>
+            </div>
+          </div>
+          <div className="row mb-3">
+            <div className="col-auto mb-2 alert alert-info py-2">
+              Custom experiment fields are available for enterprise plans.
+              Please upgrade your plan to access this feature.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       <div className="contents container-fluid pagecontents">

@@ -1,10 +1,4 @@
 import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import {
-  createRefreshToken,
-  deleteRefreshToken,
-  getUserIdFromAuthRefreshToken,
-} from "../models/AuthRefreshModel";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -16,10 +10,17 @@ import {
 } from "../models/OrganizationModel";
 import { IS_CLOUD } from "../util/secrets";
 import {
+  deleteAuthCookies,
+  getAuthConnection,
   isNewInstallation,
   markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
+import {
+  IdTokenCookie,
+  RefreshTokenCookie,
+  SSOConnectionIdCookie,
+} from "../util/cookie";
 import { getEmailFromUserId, getOrgFromReq } from "../services/organizations";
 import {
   createUser,
@@ -29,36 +30,8 @@ import {
   verifyPassword,
 } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
-import { JWT_SECRET } from "../util/secrets";
-
-function generateJWT(userId: string) {
-  return jwt.sign(
-    {
-      scope: "profile openid email",
-    },
-    JWT_SECRET,
-    {
-      algorithm: "HS256",
-      audience: "https://api.growthbook.io",
-      issuer: "https://api.growthbook.io",
-      subject: userId,
-      // 30 minutes
-      expiresIn: 1800,
-    }
-  );
-}
-
-async function successResponse(req: Request, res: Response, userId: string) {
-  const token = generateJWT(userId);
-
-  // Create a refresh token
-  await createRefreshToken(req, res, userId);
-
-  return res.status(200).json({
-    status: 200,
-    token,
-  });
-}
+import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
+import { UserInterface } from "../../types/user";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();
@@ -68,35 +41,106 @@ export async function getHasOrganizations(req: Request, res: Response) {
   });
 }
 
+const auth = getAuthConnection();
+
 export async function postRefresh(req: Request, res: Response) {
-  // Look for refresh token header
-  const refreshToken = req.cookies["AUTH_REFRESH_TOKEN"];
-  if (!refreshToken) {
-    const newInstallation = await isNewInstallation();
-
+  // First try getting the idToken from cookies
+  const idToken = IdTokenCookie.getValue(req);
+  if (idToken) {
     return res.json({
       status: 200,
-      authenticated: false,
-      newInstallation,
+      token: idToken,
     });
   }
 
-  const userId = await getUserIdFromAuthRefreshToken(refreshToken);
-  if (!userId) {
+  // Then, try using a refreshToken
+  try {
+    const refreshToken = RefreshTokenCookie.getValue(req);
+    if (!refreshToken) {
+      throw new Error("Missing refresh token");
+    }
+    const {
+      idToken,
+      refreshToken: newRefreshToken,
+      expiresIn,
+    } = await auth.refresh(req, refreshToken);
+
+    IdTokenCookie.setValue(idToken, req, res, expiresIn);
+    if (newRefreshToken) {
+      RefreshTokenCookie.setValue(newRefreshToken, req, res);
+    }
+
     return res.json({
       status: 200,
-      authenticated: false,
+      token: idToken,
+    });
+  } catch (e) {
+    // Could not refresh
+    const data = await auth.getUnauthenticatedResponse(req, res);
+    return res.json({
+      status: 200,
+      ...data,
     });
   }
+}
 
-  const user = await getUserById(userId);
+export async function postOAuthCallback(req: Request, res: Response) {
+  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+    req,
+    res,
+    null
+  );
 
-  const token = generateJWT(userId);
-  return res.json({
+  if (!idToken) {
+    throw new Error("Could not authenticate");
+  }
+
+  RefreshTokenCookie.setValue(refreshToken, req, res);
+  IdTokenCookie.setValue(idToken, req, res, expiresIn);
+
+  return res.status(200).json({
     status: 200,
-    authenticated: true,
-    token,
-    email: user?.email || "",
+  });
+}
+
+async function sendLocalSuccessResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface
+) {
+  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+    req,
+    res,
+    user
+  );
+  if (!idToken) {
+    return res.status(400).json({
+      status: 400,
+      message: "Unable to create id token for user",
+    });
+  }
+
+  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
+  RefreshTokenCookie.setValue(refreshToken, req, res);
+
+  res.status(200).json({
+    status: 200,
+    token: idToken,
+  });
+}
+
+export async function postLogout(req: Request, res: Response) {
+  let redirectURI = "";
+  try {
+    redirectURI = await auth.logout(req, res);
+  } catch (e) {
+    console.error("Failed to logout of SSO", e);
+  }
+  deleteAuthCookies(req, res);
+
+  return res.status(200).json({
+    status: 200,
+    redirectURI,
   });
 }
 
@@ -127,15 +171,7 @@ export async function postLogin(
     });
   }
 
-  return successResponse(req as Request, res, user.id);
-}
-
-export async function postLogout(req: Request, res: Response) {
-  await deleteRefreshToken(req, res);
-
-  res.status(200).json({
-    status: 200,
-  });
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postRegister(
@@ -153,19 +189,19 @@ export async function postRegister(
   if (existingUser) {
     // Try to login to existing account
     const valid = await verifyPassword(existingUser, password);
-    if (valid) {
-      return successResponse(req as Request, res, existingUser.id);
+    if (!valid) {
+      return res.status(400).json({
+        status: 400,
+        message: "That email address is already registered.",
+      });
     }
 
-    return res.status(400).json({
-      status: 400,
-      message: "That email address is already registered.",
-    });
+    return sendLocalSuccessResponse(req, res, existingUser);
   }
 
   // Create new account
   const user = await createUser(name, email, password);
-  return successResponse(req as Request, res, user.id);
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postFirstTimeRegister(
@@ -183,6 +219,14 @@ export async function postFirstTimeRegister(
   >,
   res: Response
 ) {
+  // Only allow this API endpoint when it's a brand-new installation with no users yet
+  const newInstallation = await isNewInstallation();
+  if (!newInstallation) {
+    throw new Error(
+      "An organization is already configured. Please refresh the page and try again."
+    );
+  }
+
   const { email, name, password, companyname } = req.body;
 
   validatePasswordFormat(password);
@@ -194,14 +238,15 @@ export async function postFirstTimeRegister(
   if (existingUser) {
     return res.status(400).json({
       status: 400,
-      message: "An error ocurred, please refresh the page and try again.",
+      message: "An error occurred, please refresh the page and try again.",
     });
   }
 
   const user = await createUser(name, email, password);
   await createOrganization(email, user.id, companyname, "");
   markInstalled();
-  return successResponse(req, res, user.id);
+
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postForgotPassword(
@@ -240,6 +285,22 @@ export async function getResetPassword(
   res.status(200).json({
     status: 200,
     email,
+  });
+}
+
+export async function getSSOConnectionFromDomain(req: Request, res: Response) {
+  const { domain } = req.body;
+
+  const sso = await getSSOConnectionByEmailDomain(domain as string);
+
+  if (!sso?.id) {
+    throw new Error(`Unknown SSO Connection for *@${domain}`);
+  }
+
+  SSOConnectionIdCookie.setValue(sso.id, req, res);
+
+  return res.status(200).json({
+    status: 200,
   });
 }
 

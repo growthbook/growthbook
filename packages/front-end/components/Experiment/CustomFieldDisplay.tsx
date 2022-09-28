@@ -10,6 +10,7 @@ import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import CustomFieldInput from "./CustomFieldInput";
 import { CustomField } from "back-end/types/organization";
+import useUser from "../../hooks/useUser";
 
 const CustomFieldDisplay: FC<{
   label?: string;
@@ -33,6 +34,7 @@ const CustomFieldDisplay: FC<{
     });
   }
 
+  const { licence } = useUser();
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       customFields: experiment?.customFields || defaultFields,
@@ -63,13 +65,20 @@ const CustomFieldDisplay: FC<{
             })}
             cta="Save"
           >
-            <CustomFieldInput customFields={customFields} form={form} />
+            {licence ? (
+              <CustomFieldInput customFields={customFields} form={form} />
+            ) : (
+              <div className="text-center">
+                Custom fields are available as part of the enterprise plan
+              </div>
+            )}
           </Modal>
         )}
         {label && (
           <HeaderWithEdit
             edit={
               canEdit &&
+              licence &&
               (() => {
                 setEditModal(true);
               })

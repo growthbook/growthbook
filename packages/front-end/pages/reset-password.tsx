@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import Modal from "../components/Modal";
-import { getApiHost, isCloud } from "../services/env";
+import { getApiHost, usingSSO } from "../services/env";
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function ResetPasswordPage(): ReactElement {
     }
 
     // Check if token is valid
-    fetch(getApiHost() + "/auth/reset/" + token)
+    fetch(getApiHost() + "/auth/reset/" + token, { credentials: "include" })
       .then((res) => res.json())
       .then((json: { status: number; message?: string; email?: string }) => {
         if (json.status > 200) {
@@ -37,7 +37,7 @@ export default function ResetPasswordPage(): ReactElement {
       });
   }, [token, router.isReady]);
 
-  if (isCloud()) {
+  if (usingSSO()) {
     return (
       <div className="container">
         <div className="alert alert-danger">
@@ -56,6 +56,7 @@ export default function ResetPasswordPage(): ReactElement {
           ? undefined
           : async () => {
               const res = await fetch(getApiHost() + "/auth/reset/" + token, {
+                credentials: "include",
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",

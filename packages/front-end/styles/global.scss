@@ -106,6 +106,18 @@ pre {
     $highlight-purple
   );
 }
+.btn-outline-primary:not(:disabled):not(.disabled).selected {
+  background-color: rgba(124, 69, 234, 0.1);
+  border: 2px solid #7c45ea;
+}
+.btn-outline-selected:not(:disabled):not(.disabled) {
+  background-color: rgba(69, 196, 234, 0.1);
+  border: 2px solid #00894f;
+}
+.btn-light-hover:hover {
+  background-color: rgba(154, 110, 248, 0.2);
+  color: inherit;
+}
 .badge {
   line-height: 1em;
   font-size: 85.72%; //12px

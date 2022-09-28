@@ -7,10 +7,10 @@ import {
   isBelowMinChange,
   isSuspiciousUplift,
 } from "../../services/experiments";
-import { defaultMinSampleSize } from "../../services/metrics";
 import NotEnoughData from "./NotEnoughData";
 import { ExperimentStatus } from "back-end/types/experiment";
 import Tooltip from "../Tooltip";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -34,10 +34,25 @@ export default function ChanceToWinColumn({
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
 }) {
-  const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
-  const enoughData = hasEnoughData(baseline, stats, metric);
-  const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
-  const belowMinChange = isBelowMinChange(baseline, stats, metric);
+  const {
+    getMinSampleSizeForMetric,
+    metricDefaults,
+  } = useOrganizationMetricDefaults();
+
+  const minSampleSize = getMinSampleSizeForMetric(metric);
+  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const suspiciousChange = isSuspiciousUplift(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
+  const belowMinChange = isBelowMinChange(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
   const { ciUpper, ciLower } = useConfidenceLevels();
 
   const shouldHighlight =
@@ -76,6 +91,21 @@ export default function ChanceToWinColumn({
         className
       )}
     >
+      {enoughData && suspiciousChange && (
+        <div>
+          <div className="mb-1 d-flex flex-row">
+            <Tooltip
+              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                metric.maxPercentChange * 100
+              }%).`}
+            >
+              <span className="badge badge-pill badge-warning">
+                Suspicious Result
+              </span>
+            </Tooltip>
+          </div>
+        </div>
+      )}
       <Tooltip
         body={sigText}
         className="d-block"
@@ -94,15 +124,6 @@ export default function ChanceToWinColumn({
             snapshotCreated={snapshotDate}
             phaseStart={startDate}
           />
-        ) : suspiciousChange ? (
-          <div>
-            <div className="mb-1">
-              <span className="badge badge-pill badge-warning">
-                suspicious result
-              </span>
-            </div>
-            <small className="text-muted">value changed too much</small>
-          </div>
         ) : (
           <>{percentFormatter.format(chanceToWin)}</>
         )}

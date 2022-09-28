@@ -1,7 +1,5 @@
 import React, { FC, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
-import DataSourceForm from "./DataSourceForm";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
@@ -10,11 +8,8 @@ import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
 import usePermissions from "../../hooks/usePermissions";
-
-const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
-  name: "My Datasource",
-  settings: {},
-};
+import { DocLink } from "../DocLink";
+import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -96,9 +91,7 @@ const DataSources: FC = () => {
             <div className="alert alert-info">
               It looks like you have a <code>config.yml</code> file. Data
               sources defined there will show up on this page.{" "}
-              <a href="https://docs.growthbook.io/self-host/config#configyml">
-                View Documentation
-              </a>
+              <DocLink docSection="config_yml">View Documentation</DocLink>
             </div>
           )}
         </div>
@@ -120,14 +113,17 @@ const DataSources: FC = () => {
       )}
 
       {newModalOpen && (
-        <DataSourceForm
+        <NewDataSourceForm
           existing={false}
-          data={DEFAULT_DATA_SOURCE}
+          data={{
+            name: "My Datasource",
+            settings: {},
+          }}
           source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});
             setNewModalOpen(false);
-            setQueriesModalOpen(id);
+            await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {
             setNewModalOpen(false);

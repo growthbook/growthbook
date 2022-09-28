@@ -446,6 +446,7 @@ export async function postExperiments(
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
     removeMultipleExposures: !!data.removeMultipleExposures,
+    attributionModel: data.attributionModel || "firstExposure",
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
@@ -583,6 +584,7 @@ export async function postExperiment(
     "queryFilter",
     "skipPartialData",
     "removeMultipleExposures",
+    "attributionModel",
     "metrics",
     "guardrails",
     "variations",
@@ -1310,6 +1312,7 @@ export async function getSnapshotStatus(
         {
           $set: {
             ...updates,
+            hasCorrectedStats: true,
             unknownVariations:
               results?.unknownVariations || snapshot.unknownVariations || [],
             multipleExposures:
@@ -1709,6 +1712,7 @@ export async function getPastExperimentsList(
   });
 }
 
+//experiments/import, sent here right after "add experiment"
 export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response

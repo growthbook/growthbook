@@ -1,12 +1,18 @@
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
-import { useState } from "react";
+import { MouseEventHandler, useState } from "react";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
+import DeleteButton from "../DeleteButton";
+import MoreMenu from "../Dropdown/MoreMenu";
 
 export interface Props {
+  i: number;
   usage: NamespaceUsage;
   namespace: Namespaces;
+  onDelete: () => Promise<void>;
+  onArchive: () => Promise<void>;
+  onEdit: () => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -14,31 +20,87 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export default function NamespaceTableRow({ usage, namespace }: Props) {
+export default function NamespaceTableRow({
+  i,
+  usage,
+  namespace,
+  onDelete,
+  onArchive,
+  onEdit,
+}: Props) {
   const experiments = usage[namespace.name] ?? [];
 
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<[number, number] | null>(null);
 
+  const status = namespace?.status || "active";
+
+  const expandRow: MouseEventHandler = (e) => {
+    e.preventDefault();
+    setOpen(!open);
+  };
+
   return (
     <>
       <tr
+        className={`${status === "inactive" ? "text-muted" : ""}`}
         style={{ cursor: "pointer" }}
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(!open);
-        }}
       >
-        <td>{namespace.name}</td>
-        <td>{namespace.description}</td>
-        <td>{experiments.length}</td>
-        <td>
+        <td onClick={expandRow}>
+          {namespace.name}
+          {status === "inactive" && (
+            <div
+              className={`badge badge-secondary ml-2`}
+              style={{ fontSize: "0.9em" }}
+              title="This namespace is hidden and cannot be used for new experiments"
+            >
+              Disabled
+            </div>
+          )}
+        </td>
+        <td onClick={expandRow}>{namespace.description}</td>
+        <td onClick={expandRow}>{experiments.length}</td>
+        <td onClick={expandRow}>
           {percentFormatter.format(
             findGaps(usage, namespace.name).reduce(
               (sum, range) => sum + (range.end - range.start),
               0
             )
           )}
+        </td>
+        <td>
+          <MoreMenu id={"namespace" + i + "_actions"}>
+            <a
+              href="#"
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                onEdit();
+              }}
+            >
+              edit
+            </a>
+            <a
+              href="#"
+              className="dropdown-item"
+              onClick={async (e) => {
+                e.preventDefault();
+                await onArchive();
+              }}
+            >
+              {namespace?.status === "inactive" ? "enable" : "disable"}
+            </a>
+            {experiments.length === 0 && (
+              <DeleteButton
+                displayName="Namespace"
+                className="dropdown-item text-danger"
+                useIcon={false}
+                text="delete"
+                title="Delete Namespace"
+                onClick={onDelete}
+              />
+            )}
+          </MoreMenu>
         </td>
       </tr>
       <tr
@@ -48,7 +110,7 @@ export default function NamespaceTableRow({ usage, namespace }: Props) {
         }}
       >
         <td
-          colSpan={4}
+          colSpan={5}
           className="px-4 bg-light"
           style={{
             boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",

@@ -3,6 +3,8 @@ import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
 import { ReactNode } from "react";
+import Tooltip from "./Tooltip";
+import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
   header?: "logo" | string | ReactElement | boolean;
@@ -12,6 +14,7 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  docSection?: DocSection;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
   inline?: boolean;
@@ -35,10 +38,11 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  inline = false,
   size = "md",
+  docSection,
   className = "",
   autoCloseOnSubmit = true,
-  inline = false,
   overflowAuto = true,
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
@@ -49,6 +53,10 @@ const Modal: FC<ModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  if (inline) {
+    size = "fill";
+  }
 
   useEffect(() => {
     setError(externalError);
@@ -91,6 +99,11 @@ const Modal: FC<ModalProps> = ({
               header
             )}
           </h5>
+          {docSection && (
+            <DocLink docSection={docSection}>
+              <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+            </DocLink>
+          )}
           {close && (
             <button
               type="button"
@@ -145,6 +158,7 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
+          {secondaryCTA}
           {submit && !isSuccess ? (
             <button
               className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
@@ -156,7 +170,6 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {secondaryCTA}
           {close && (
             <button
               className="btn btn-link"

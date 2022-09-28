@@ -4,16 +4,25 @@ import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
-import { FaArrowRight } from "react-icons/fa";
 import { GBExperiment, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
-import { BsFlag, BsClipboardCheck } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { FaArrowRight } from "react-icons/fa";
+import { inferDocUrl } from "../DocLink";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
+  {
+    name: "Get Started",
+    href: "/getstarted",
+    Icon: BsLightbulb,
+    path: /^getstarted/,
+    className: styles.first,
+    feature: "guided-onboarding-test-august-2022",
+  },
   {
     name: "Features",
     href: "/features",
@@ -169,6 +178,14 @@ const otherPageTitles = [
   {
     path: /^experiments\/designer/,
     title: "Visual Experiment Designer",
+  },
+  {
+    path: /^integrations\/vercel/,
+    title: "Vercel Integration",
+  },
+  {
+    path: /^integrations\/vercel\/configure/,
+    title: "Vercel Integration Configuration",
   },
   {
     path: /^getstarted/,
@@ -339,7 +356,7 @@ const Layout = (): React.ReactElement => {
         <div style={{ flex: 1 }} />
         <div className="p-3">
           <a
-            href="https://docs.growthbook.io"
+            href={inferDocUrl()}
             className="btn btn-outline-light btn-block"
             target="_blank"
             rel="noreferrer"

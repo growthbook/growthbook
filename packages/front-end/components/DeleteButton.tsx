@@ -6,6 +6,7 @@ import Modal from "./Modal";
 const DeleteButton: FC<{
   onClick: () => Promise<void>;
   className?: string;
+  iconClassName?: string;
   style?: CSSProperties;
   outline?: boolean;
   link?: boolean;
@@ -19,6 +20,7 @@ const DeleteButton: FC<{
 }> = ({
   onClick,
   className,
+  iconClassName,
   displayName,
   style,
   outline = true,
@@ -74,7 +76,8 @@ const DeleteButton: FC<{
           setConfirming(true);
         }}
       >
-        {useIcon && <FaTrash />} {text}
+        {useIcon && <FaTrash className={iconClassName} />}
+        {text && ` ${text}`}
       </a>
     </>
   );

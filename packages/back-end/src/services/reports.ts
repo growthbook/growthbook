@@ -55,6 +55,7 @@ export function reportArgsFromSnapshot(
     queryFilter: snapshot.queryFilter,
     skipPartialData: snapshot.skipPartialData,
     removeMultipleExposures: !!experiment.removeMultipleExposures,
+    attributionModel: experiment.attributionModel || "firstExposure",
   };
 }
 
@@ -127,6 +128,7 @@ export async function startExperimentAnalysis(
     metrics: args.metrics,
     guardrails: args.guardrails,
     removeMultipleExposures: !!args.removeMultipleExposures,
+    attributionModel: args.attributionModel || "firstExposure",
     id: "",
     name: "",
     dateCreated: new Date(),
@@ -214,6 +216,11 @@ export async function runReport(
       report.args,
       useCache
     );
+
+    if (results) {
+      results.hasCorrectedStats = true;
+    }
+
     updates.queries = queries;
     updates.results = results || report.results;
     updates.runStarted = new Date();

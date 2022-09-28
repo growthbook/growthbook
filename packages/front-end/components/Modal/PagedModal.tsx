@@ -1,23 +1,27 @@
 import clsx from "clsx";
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 import { Children, FC, isValidElement, ReactNode } from "react";
 import Modal from "../Modal";
 import { MdCheck } from "react-icons/md";
+import { DocSection } from "../DocLink";
 
 type Props = {
   header: string;
   submitColor?: string;
   cta?: string;
   closeCta?: string;
-  size?: "md" | "lg" | "max";
+  size?: "md" | "lg" | "max" | "fill";
+  docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
   navFill?: boolean;
   inline?: boolean;
-  close: () => void;
+  close?: () => void;
   submit: () => Promise<void>;
   children: ReactNode;
+  backButton?: boolean;
   step: number;
   setStep: (step: number) => void;
+  secondaryCTA?: ReactElement;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -28,7 +32,12 @@ const PagedModal: FC<Props> = (props) => {
     submit,
     navStyle,
     navFill,
+    backButton = false,
     cta,
+    inline,
+    secondaryCTA,
+    size,
+    // size = "md",
     ...passThrough
   } = props;
 
@@ -41,6 +50,7 @@ const PagedModal: FC<Props> = (props) => {
   }[] = [];
   let content: ReactNode;
   let nextStep: number = null;
+  let prevStep: number = null;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
     const { display, enabled, validate } = child.props;
@@ -53,12 +63,14 @@ const PagedModal: FC<Props> = (props) => {
     steps.push({ display, enabled, validate });
   });
 
+  prevStep = step - 1;
+  if (prevStep < 0) prevStep = null;
+
   async function validateSteps(before?: number) {
     before = before ?? steps.length;
     for (let i = 0; i < before; i++) {
       if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
-      //console.log("Validating step", i);
       try {
         await steps[i].validate();
       } catch (e) {
@@ -75,17 +87,36 @@ const PagedModal: FC<Props> = (props) => {
 
   return (
     <Modal
+      inline={inline}
+      size={size}
       open={true}
       {...passThrough}
       submit={async () => {
         await validateSteps(nextStep);
         if (!nextStep) {
           await submit();
-          props.close();
+          if (props.close) {
+            props.close();
+          }
         } else {
           setStep(nextStep);
         }
       }}
+      secondaryCTA={
+        secondaryCTA ? (
+          secondaryCTA
+        ) : backButton && prevStep !== null ? (
+          <button
+            className={`btn btn-outline-primary mr-3`}
+            onClick={(e) => {
+              e.preventDefault();
+              setStep(prevStep);
+            }}
+          >
+            back
+          </button>
+        ) : null
+      }
       error={error}
       autoCloseOnSubmit={false}
       cta={!nextStep ? cta : "Next"}

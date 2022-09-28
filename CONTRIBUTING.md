@@ -4,6 +4,14 @@ Interested in making GrowthBook better? So are we! This guide should help get yo
 
 If you just want to contribute a client library in a new language and not make changes to the app itself, you can skip the instructions here and view https://docs.growthbook.io/lib/build-your-own instead.
 
+## Quickstart
+
+The fastest way to start contributing to GrowthBook is by using our pre configured devcontainer. A dev container is a Docker container that is specifically configured to provide a full-featured development environment.
+
+1. Install the vscode extension [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). Launch VS code Quick Open `Ctrl + P` then paste the following command `ext install ms-vscode-remote.remote-containers` and press enter.
+2. If you do not have Docker installed follow these instructions [Docker](https://docs.docker.com/engine/install/)
+3. Open the Command Palette `Ctrl + Shift + P` then paste the following command `Remote-Containers: Reopen in Container` and press enter.
+
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
@@ -36,11 +44,11 @@ Now you have the basic Linux system set up, and can follow along with all the ot
    - Can also use `git clone` and list the HTTPS URL of the repo afterwards
 3. Run `cd growthbook`
 4. Run `yarn` to install dependencies
-5. Install [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
-   - Run `curl -sSL https://install.python-poetry.org | python3 -`
-   - Install the lastest version of the python virutal environment `sudo apt install python<version #>-venv`
-   - Add poetry's path to your shell config file (~/.bashrc, ~/.zshrc, etc) `export PATH="<the path>:$PATH"` for [help](https://linuxize.com/post/how-to-add-directory-to-path-in-linux/)
-   - Run `poetry -v` to confirm a successful install
+5. Install [poetry](https://python-poetry.org/docs/)
+   - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
+   - Close and reopen your terminal
+   - Run `poetry --v` to confirm a successful install
+   - If unsuccessful add the Poetry path (ex. `$HOME/.poetry/bin`) to your global path (ex. `/etc/profile`, `/etc/environment`, `~/.bashrc`, `~/.zshrc`)
 6. Run `yarn setup` to do the initial build
 7. If you have Docker installed, start MongoDB in Docker:
 
@@ -92,6 +100,43 @@ The packages are available at the following urls with hot-reloading:
 - Front-end: http://localhost:3000
 - Back-end: http://localhost:3100
 
+#### Accessing the MongoDB database
+
+GrowthBook uses MongoDB as a primary data store, and while working on the code it may be necessary to access the database directly. [MongoDB Compass](https://www.mongodb.com/products/compass) is the easiest way, but you can also use the [mongosh shell](https://www.mongodb.com/docs/mongodb-shell/).
+
+##### MongoDB Compass
+
+To access MongoDB with the MongoDB Compass GUI, you can do the following after opening MongoDB Compass:
+
+1. In the menu bar, click **Connect** and choose **New Connection**
+2. Paste the connection string you configured in your `.env.local` here
+3. Press **Connect**
+
+At this point you should be connected to MongoDB and see your databases. Click into the desired database, e.g. `growthbook`, to view your collections.
+
+##### Mongo Shell
+
+To access MongoDB with the `mongosh` shell, run the following command:
+
+```sh
+docker exec -it mongo bash
+```
+
+Alternatively, if you are using Docker Desktop, you can click the CLI button to execute the shell for the Mongo container.
+
+Then login as the user of the database. If your user is `root`:
+
+```sh
+mongosh -u root
+```
+
+###### mongosh Commands
+
+- `show dbs` should show you the databases in Mongo
+- `use <databasename>` will allow you to change to the right database. By default, you may be in another database and may need to call `use growthbook`
+- `show collections` should show you the collections for the database you are using. This will throw an error if you are not logged in as the correct user.
+- `db` is available and you should be able to run queries against it, e.g. `db.users.find()`
+
 ### Working on docs
 
 To start the docs site, run `yarn workspace docs dev`. You can view the site at http://localhost:3200
@@ -100,7 +145,7 @@ To start the docs site, run `yarn workspace docs dev`. You can view the site at 
 
 To work on the SDKs, `cd` into the desired directory and the following commands are available:
 
-- `yarn test` - Run just
+- `yarn test` - Run Jest
 - `yarn build` - Run the rollup build process
 - `yarn size` - Get the gzip size of the bundle (must run `yarn build` first)
 
@@ -108,7 +153,7 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 
 To work on the Python stats engine, `cd` into the `packages/stats` directory and the following commands are available:
 
-- `yarn test` - Run pytest
+- `. $(cd packages/stats && poetry env info --path)/bin/activate && yarn test` - Run pytest
 - `yarn lint` - Run flake8 and black
 - `poetry build` - Run the build process
 

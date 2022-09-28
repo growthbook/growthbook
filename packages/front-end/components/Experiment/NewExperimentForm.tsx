@@ -115,6 +115,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
+      attributionModel: initialValue?.attributionModel ?? "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
@@ -165,6 +166,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const {
     settings: { visualEditorEnabled },
+    licence,
   } = useUser();
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -219,6 +221,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     <PagedModal
       header={"New Experiment Analysis"}
       close={onClose}
+      docSection="experiments"
       submit={onSubmit}
       cta={"Save"}
       closeCta="Cancel"
@@ -310,7 +313,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
       </Page>
-      {customFields?.length && (
+      {licence && customFields?.length && (
         <Page display="Custom Fields">
           <CustomFieldInput customFields={customFields} form={form} />
         </Page>

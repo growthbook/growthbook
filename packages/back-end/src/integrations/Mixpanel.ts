@@ -61,11 +61,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
   private aggregateMetricValues(metric: MetricInterface, destVar: string) {
     if (metric.type === "binomial") {
       return `// Metric - ${metric.name}
-      ${destVar} = ${destVar}.length ? 1 : null;`;
+      ${destVar} = ${destVar}.length ? 1 : 0;`;
     }
 
     return `// Metric - ${metric.name}
-    ${destVar} = !${destVar}.length ? null : (
+    ${destVar} = !${destVar}.length ? 0 : (
       (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
     );${
       metric.cap && metric.cap > 0

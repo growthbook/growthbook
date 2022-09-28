@@ -115,6 +115,12 @@ export default abstract class SqlIntegration
   avg(col: string) {
     return `AVG(${col})`;
   }
+  variance(col: string) {
+    return `VAR_SAMP(${col})`;
+  }
+  covariance(y: string, x: string): string {
+    return `COVAR_SAMP(${y}, ${x})`;
+  }
   formatDate(col: string): string {
     return col;
   }
@@ -123,6 +129,9 @@ export default abstract class SqlIntegration
   }
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
+  }
+  ensureFloat(col: string): string {
+    return col;
   }
   castUserDateCol(column: string): string {
     return column;
@@ -167,12 +176,21 @@ export default abstract class SqlIntegration
     WITH
       ${experimentQueries
         .map((q, i) => {
+          const hasNameCol = q.hasNameCol || false;
           return `
         __exposures${i} as (
           SELECT 
-            ${this.castToString(`'${q.id}'`)} as exposure_query, 
+            ${this.castToString(`'${q.id}'`)} as exposure_query,
             experiment_id,
-            variation_id,
+            ${
+              hasNameCol ? "MIN(experiment_name)" : "experiment_id"
+            } as experiment_name,
+            ${this.castToString("variation_id")} as variation_id,
+            ${
+              hasNameCol
+                ? "MIN(variation_name)"
+                : this.castToString("variation_id")
+            } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
             count(distinct ${q.userIdType}) as users
           FROM
@@ -199,7 +217,9 @@ export default abstract class SqlIntegration
         SELECT
           exposure_query,
           experiment_id,
+          MIN(experiment_name) as experiment_name,
           variation_id,
+          MIN(variation_name) as variation_name,
           -- It's common for a small number of tracking events to continue coming in
           -- long after an experiment ends, so limit to days with enough traffic
           max(users)*0.05 as threshold
@@ -209,13 +229,15 @@ export default abstract class SqlIntegration
           -- Skip days where a variation got 5 or fewer visitors since it's probably not real traffic
           users > 5
         GROUP BY
-          exposure_query, experiment_id, variation_id
+        exposure_query, experiment_id, variation_id
       ),
       __variations as (
         SELECT
           d.exposure_query,
           d.experiment_id,
+          MIN(d.experiment_name) as experiment_name,
           d.variation_id,
+          MIN(d.variation_name) as variation_name,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
           SUM(d.users) as users
@@ -256,7 +278,9 @@ export default abstract class SqlIntegration
       return {
         exposure_query: row.exposure_query,
         experiment_id: row.experiment_id,
+        experiment_name: row.experiment_name,
         variation_id: row.variation_id ?? "",
+        variation_name: row.variation_name,
         users: parseInt(row.users) || 0,
         end_date: this.convertDate(row.end_date).toISOString(),
         start_date: this.convertDate(row.start_date).toISOString(),
@@ -275,20 +299,8 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = new Date(params.from);
-    const metricEnd = new Date(params.to);
-    metricEnd.setHours(
-      metricEnd.getHours() +
-        (params.metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS)
-    );
-    if (params.metric.conversionDelayHours) {
-      metricStart.setHours(
-        metricStart.getHours() + params.metric.conversionDelayHours
-      );
-      metricEnd.setHours(
-        metricEnd.getHours() + params.metric.conversionDelayHours
-      );
-    }
+    const metricStart = this.getMetricStart([params.metric], params.from);
+    const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "m");
 
@@ -320,7 +332,7 @@ export default abstract class SqlIntegration
             __metric m
             ${
               params.segment
-                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
+                ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                 : ""
             }
           GROUP BY
@@ -340,17 +352,17 @@ export default abstract class SqlIntegration
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${this.dateTrunc("m.conversion_start")} as date,
+              ${this.dateTrunc("m.timestamp")} as date,
               ${aggregate} as value
             FROM
               __metric m
               ${
                 params.segment
-                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.conversion_start`
+                  ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                   : ""
               }
             GROUP BY
-              ${this.dateTrunc("m.conversion_start")},
+              ${this.dateTrunc("m.timestamp")},
               m.${baseIdType}
           )
           , __byDateOverall as (
@@ -459,7 +471,7 @@ export default abstract class SqlIntegration
     tablePrefix: string = "__activationMetric",
     initialTable: string = "__experiment"
   ) {
-    // Note: the conversion_start/end alias below is needed for clickhouse
+    // Note: the aliases below are needed for clickhouse
     return `
       SELECT
         initial.${baseIdType},
@@ -482,8 +494,8 @@ export default abstract class SqlIntegration
             const prevAlias = i ? `t${i - 1}` : "initial";
             const alias = `t${i}`;
             return `
-              ${alias}.conversion_start >= ${prevAlias}.conversion_start
-              AND ${alias}.conversion_start <= ${prevAlias}.conversion_end`;
+              ${alias}.timestamp >= ${prevAlias}.conversion_start
+              AND ${alias}.timestamp <= ${prevAlias}.conversion_end`;
           })
           .join("\n AND ")}`;
   }
@@ -505,7 +517,7 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "user") {
       return "d.value";
     } else if (dimension.type === "date") {
-      return this.formatDate(this.dateTrunc("e.conversion_start"));
+      return this.formatDate(this.dateTrunc("e.timestamp"));
     } else if (dimension.type === "experiment") {
       return "e.dimension";
     }
@@ -525,6 +537,45 @@ export default abstract class SqlIntegration
       return `a.${col}`;
     }
     return `e.${col}`;
+  }
+
+  private getMetricStart(metrics: MetricInterface[], initial: Date) {
+    const metricStart = new Date(initial);
+    let runningDelay = 0;
+    let minDelay = 0;
+    metrics.forEach((m) => {
+      if (m.conversionDelayHours) {
+        const delay = runningDelay + m.conversionDelayHours;
+        if (delay < minDelay) minDelay = delay;
+        runningDelay = delay;
+      }
+    });
+    if (minDelay < 0) {
+      metricStart.setHours(metricStart.getHours() + minDelay);
+    }
+    return metricStart;
+  }
+
+  private getMetricEnd(metrics: MetricInterface[], initial?: Date) {
+    if (!initial) return null;
+
+    const metricEnd = new Date(initial);
+    let runningHours = 0;
+    let maxHours = 0;
+    metrics.forEach((m) => {
+      const hours =
+        runningHours +
+        (m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+        (m.conversionDelayHours || 0);
+      if (hours > maxHours) maxHours = hours;
+      runningHours = hours;
+    });
+
+    if (maxHours > 0) {
+      metricEnd.setHours(metricEnd.getHours() + maxHours);
+    }
+
+    return metricEnd;
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
@@ -548,33 +599,11 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = new Date(phase.dateStarted);
-    const metricEnd = phase.dateEnded ? new Date(phase.dateEnded) : null;
-    if (metricEnd) {
-      let additionalHours = 0;
-      activationMetrics.concat(denominatorMetrics).forEach((m) => {
-        additionalHours +=
-          m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-      });
-
-      metricEnd.setHours(
-        metricEnd.getHours() +
-          // Add conversion window so metric has time to convert after experiment ends
-          (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
-          // If using activation or denominator metrics, also need to allow for that conversion time
-          additionalHours
-      );
-    }
-
-    // Add conversion delay
-    if (metric.conversionDelayHours) {
-      metricStart.setHours(
-        metricStart.getHours() + metric.conversionDelayHours
-      );
-      if (metricEnd) {
-        metricEnd.setHours(metricEnd.getHours() + metric.conversionDelayHours);
-      }
-    }
+    const orderedMetrics = activationMetrics
+      .concat(denominatorMetrics)
+      .concat([metric]);
+    const metricStart = this.getMetricStart(orderedMetrics, phase.dateStarted);
+    const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
@@ -594,6 +623,7 @@ export default abstract class SqlIntegration
     );
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
+    const useAllExposures = experiment.attributionModel === "allExposures";
 
     const aggregate = this.getAggregateMetricColumn(metric, "m");
 
@@ -608,6 +638,13 @@ export default abstract class SqlIntegration
         : denominatorMetrics.length > 0
         ? denominatorMetrics[0]
         : metric;
+
+    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
+    // If the denominator is a binomial, it's just acting as a filter
+    // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
+    // When the denominator is a count, it's a real ratio, dividing two quantities
+    // e.g. "Pages/Session" is dividing number of page views by number of sessions
+    const isRatio = denominator?.type === "count";
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -707,6 +744,50 @@ export default abstract class SqlIntegration
             )})`
           : ""
       }
+      ${
+        useAllExposures
+          ? `, __distinctConversions as (
+        -- One row per included metric conversion
+        SELECT
+          m.${baseIdType},  
+          m.timestamp as ts,
+          m.value
+        FROM
+          __metric m
+          JOIN ${
+            denominatorMetrics.length > 0
+              ? "__denominatorUsers"
+              : dimension?.type !== "activation" && activationMetrics.length > 0
+              ? "__activatedUsers"
+              : "__experiment"
+          } u ON (u.${baseIdType} = m.${baseIdType})
+        WHERE
+          m.timestamp >= u.conversion_start
+          AND m.timestamp <= u.conversion_end
+        GROUP BY
+          m.${baseIdType}, m.timestamp, m.value
+      )`
+          : ""
+      }
+      ${
+        useAllExposures && isRatio
+          ? `, __distinctDenominator as (
+        -- One row per included denominator conversion
+        SELECT
+          m.${baseIdType},
+          m.timestamp as ts,
+          m.value
+        FROM
+          __denominator${denominatorMetrics.length - 1} m
+          JOIN __denominatorUsers u ON (u.${baseIdType} = m.${baseIdType})
+        WHERE
+          m.timestamp >= u.conversion_start
+          AND m.timestamp <= u.conversion_end
+        GROUP BY
+          m.${baseIdType}, m.timestamp, m.value
+      )`
+          : ""
+      }
       , __distinctUsers as (
         -- One row per user/dimension${
           removeMultipleExposures ? "" : "/variation"
@@ -760,26 +841,62 @@ export default abstract class SqlIntegration
               ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
               : ""
           }
-        ${segment ? `WHERE s.date <= e.conversion_start` : ""}
+        ${segment ? `WHERE s.date <= e.timestamp` : ""}
         GROUP BY
         ${dimension ? dimensionGroupBy + ", " : ""}e.${baseIdType}${
         removeMultipleExposures ? "" : ", e.variation"
       }
       )
+      ${
+        isRatio
+          ? `
+      , __userDenominator as (
+        -- Add in the aggregate denominator value for each user
+        SELECT
+          d.variation,
+          d.dimension,
+          d.${baseIdType},
+          ${this.getAggregateMetricColumn(denominator, "m")} as value
+        FROM
+          __distinctUsers d
+          JOIN ${
+            useAllExposures
+              ? "__distinctDenominator"
+              : `__denominator${denominatorMetrics.length - 1}`
+          } m ON (
+            m.${baseIdType} = d.${baseIdType}
+          )
+        ${
+          useAllExposures
+            ? ""
+            : `WHERE
+          m.timestamp >= d.conversion_start
+          AND m.timestamp <= d.conversion_end`
+        }
+        GROUP BY
+          variation, dimension, d.${baseIdType}
+      )`
+          : ""
+      }
       , __userMetric as (
         -- Add in the aggregate metric value for each user
         SELECT
           d.variation,
           d.dimension,
+          d.${baseIdType},
           ${aggregate} as value
         FROM
           __distinctUsers d
-          JOIN __metric m ON (
+          JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
             m.${baseIdType} = d.${baseIdType}
           )
-          WHERE
-            m.conversion_start >= d.conversion_start
-            AND m.conversion_start <= d.conversion_end
+        ${
+          useAllExposures
+            ? ""
+            : `WHERE
+          m.timestamp >= d.conversion_start
+          AND m.timestamp <= d.conversion_end`
+        }
         GROUP BY
           variation, dimension, d.${baseIdType}
       )
@@ -795,31 +912,50 @@ export default abstract class SqlIntegration
           variation,
           dimension
       )
-      , __stats as (    
-        -- Sum all user metrics together to get a total per variation/dimension
+      , __stats as (
+        -- One row per variation/dimension with aggregations
         SELECT
-          variation,
-          dimension,
-          COUNT(*) as count,
-          ${this.avg("value")} as mean,
-          ${this.stddev("value")} as stddev
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension,
+          ${this.ensureFloat("COUNT(*)")} as count,
+          ${this.avg("m.value")} as m_mean,
+          ${this.variance("m.value")} as m_var,
+          ${this.ensureFloat("sum(m.value)")} as m_sum,
+          ${this.stddev("m.value")} as m_sd
+          ${
+            isRatio
+              ? `,
+            ${this.avg("d.value")} as d_mean,
+            ${this.variance("d.value")} as d_var,
+            ${this.ensureFloat("sum(d.value)")} as d_sum,
+            ${this.covariance("d.value", "m.value")} as covar
+          `
+              : ""
+          }
         FROM
-          __userMetric
+          ${
+            isRatio
+              ? `__userDenominator d
+          LEFT JOIN __userMetric m ON (
+            d.${baseIdType} = m.${baseIdType}
+          )`
+              : `__userMetric m`
+          }
         GROUP BY
-          variation,
-          dimension
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension
       )
     SELECT
-      s.variation,
-      s.dimension,
-      s.count,
-      s.mean,
-      s.stddev,
-      u.users
+      u.variation,
+      u.dimension,
+      ${this.getVariationDenominator(isRatio, metric)} as count,
+      ${this.getVariationMean(isRatio, metric)} as mean,
+      ${this.getVariationStddev(isRatio, metric)} as stddev,
+      ${this.getVariationUsers(metric)} as users
     FROM
-      __stats s
-      JOIN __overallUsers u ON (
-        s.variation = u.variation 
+      __overallUsers u
+      LEFT JOIN __stats s ON (
+        s.variation = u.variation
         AND s.dimension = u.dimension
       )
     `
@@ -834,6 +970,74 @@ export default abstract class SqlIntegration
 
   private getMetricQueryFormat(metric: MetricInterface) {
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
+  }
+
+  private getVariationUsers(metric: MetricInterface) {
+    if (metric.ignoreNulls) {
+      return `coalesce(s.count,0)`;
+    }
+    return `u.users`;
+  }
+  private getVariationDenominator(isRatio: boolean, metric: MetricInterface) {
+    // Ratio metrics use the sum of the denominator metric
+    if (isRatio) {
+      return `s.d_sum`;
+    }
+    // If we're ignoring nulls, we only want to use the converted user count
+    if (metric.ignoreNulls) {
+      return `s.count`;
+    }
+    // Otherwise, the denominator is the number of users in the experiment
+    return `u.users`;
+  }
+  private getVariationMean(isRatio: boolean, metric: MetricInterface) {
+    // The mean of a ratio metric is the ratio of the sums
+    if (isRatio) {
+      return this.ifElse("s.d_sum>0", `s.m_sum / s.d_sum`, "0");
+    }
+    // If we're ignoring non-converted users, we don't need any corrections
+    if (metric.ignoreNulls) {
+      return `s.m_mean`;
+    }
+    // For everything else, the raw mean only considered converted users.
+    // We need to adjust to include all users
+    return `s.m_mean * s.count / u.users`;
+  }
+  private getVariationStddev(isRatio: boolean, metric: MetricInterface) {
+    // For binomial metrics, we use the normal approximation for a bernouli random variable
+    // variance = p*(1-p) where p is the conversion rate (count/users)
+    if (metric.type === "binomial") {
+      return `sqrt((s.count/u.users)*(1-s.count/u.users))`;
+    }
+    // For ratio metrics (e.g. pages/session) the units are correlated.
+    // We need to use the Delta method to get the correct variance
+    // https://stats.stackexchange.com/questions/291594/estimation-of-population-ratio-using-delta-method/291652#291652
+    if (isRatio) {
+      return this.ifElse(
+        "s.d_mean>0",
+        `sqrt(
+        s.m_var/power(s.d_mean,2)
+        - 2*s.m_mean*s.covar/power(s.d_mean,3)
+        + power(s.m_mean,2)*s.d_var/power(s.d_mean,4)
+      )`,
+        "0"
+      );
+    }
+    // If we're ignoring non-converting users, the standard deviation is already correct
+    if (metric.ignoreNulls) {
+      return `s.m_sd`;
+    }
+    // For all other metrics, stddev only considers converted users.
+    // Need to adjust it to include all users (non-converted have a mean/stddev of 0)
+    // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
+    return this.ifElse(
+      "u.users>1",
+      `sqrt(
+        (s.count-1)*power(s.m_sd,2)/(u.users-1)
+        + s.count*(u.users-s.count)*power(s.m_mean,2)/(u.users*(u.users-1))
+      )`,
+      "0"
+    );
   }
 
   private getMetricCTE({
@@ -897,6 +1101,7 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
+        ${timestampCol} as timestamp,
         ${this.addHours(
           timestampCol,
           conversionDelayHours
@@ -984,6 +1189,7 @@ export default abstract class SqlIntegration
     SELECT
       e.${baseIdType} as ${baseIdType},
       ${this.castToString("e.variation_id")} as variation,
+      ${timestampColumn} as timestamp,
       ${this.addHours(
         timestampColumn,
         conversionDelayHours

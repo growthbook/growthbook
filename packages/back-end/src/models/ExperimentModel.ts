@@ -30,6 +30,7 @@ const experimentSchema = new mongoose.Schema({
   queryFilter: String,
   skipPartialData: Boolean,
   removeMultipleExposures: Boolean,
+  attributionModel: String,
   archived: Boolean,
   status: String,
   results: String,

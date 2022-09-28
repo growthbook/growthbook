@@ -9,6 +9,7 @@ import { ago } from "../../services/dates";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tooltip from "../Tooltip";
+import { DocLink } from "../DocLink";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
@@ -37,13 +38,7 @@ const Webhooks: FC = () => {
       <p>
         Webhooks push the latest feature definitions to your server whenever
         they are modified within the GrowthBook app.{" "}
-        <a
-          href="https://docs.growthbook.io/app/webhooks"
-          target="_blank"
-          rel="noreferrer"
-        >
-          View Documentation
-        </a>
+        <DocLink docSection="webhooks">View Documentation</DocLink>
       </p>
 
       {data.webhooks.length > 0 && (

@@ -1,3 +1,4 @@
+import { AttributionModel } from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 
@@ -40,6 +41,7 @@ export interface ExperimentReportArgs {
   queryFilter?: string;
   skipPartialData?: boolean;
   removeMultipleExposures?: boolean;
+  attributionModel?: AttributionModel;
 }
 export interface ExperimentReportResultDimension {
   name: string;
@@ -49,6 +51,7 @@ export interface ExperimentReportResultDimension {
 export interface ExperimentReportResults {
   unknownVariations: string[];
   multipleExposures: number;
+  hasCorrectedStats?: boolean;
   dimensions: ExperimentReportResultDimension[];
 }
 export interface ExperimentReportInterface extends ReportInterfaceBase {

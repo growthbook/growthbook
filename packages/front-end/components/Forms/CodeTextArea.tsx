@@ -27,6 +27,7 @@ export type Props = Omit<
 > & {
   language: Language;
   value: string;
+  height?: number;
   setValue: (value: string) => void;
 };
 
@@ -35,6 +36,7 @@ export default function CodeTextArea({
   value,
   setValue,
   placeholder,
+  height = 260,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -51,7 +53,7 @@ export default function CodeTextArea({
               mode={language}
               theme="textmate"
               width="inherit"
-              height="140px"
+              height={`${height}px`}
               value={value}
               onChange={(newValue) => setValue(newValue)}
               placeholder={placeholder}
