@@ -195,7 +195,7 @@ export default function FeatureModal({
       <label>Enabled Environments</label>
       <div className="row">
         {environments.map((env) => {
-          const disabled = checkEnvPermissions(
+          const disabled = !checkEnvPermissions(
             permissions,
             "publishFeatures",
             env.id
