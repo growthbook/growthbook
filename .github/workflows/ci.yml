@@ -47,6 +47,7 @@ jobs:
 
       - name: lint
         run: |
+          yarn build
           yarn lint
           yarn workspace stats lint
 
