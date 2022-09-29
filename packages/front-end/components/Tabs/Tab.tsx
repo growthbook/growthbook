@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC, ReactElement } from "react";
+import { ReactNode, FC, ReactElement } from "react";
 
 const Tab: FC<{
   display: string;

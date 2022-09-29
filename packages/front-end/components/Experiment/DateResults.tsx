@@ -1,11 +1,10 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { MetricInterface } from "back-end/types/metric";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
 import { formatConversionRate } from "../../services/metrics";
-import { useState } from "react";
 import Toggle from "../Forms/Toggle";
 import { getValidDate } from "../../services/dates";
 import {
