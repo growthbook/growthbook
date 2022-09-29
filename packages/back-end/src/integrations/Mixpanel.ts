@@ -507,13 +507,25 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return getMixpanelPropertyColumn(col);
   }
 
+  private getEventNames(event?: string) {
+    if (!event) return [];
+    return event
+      .split(/ OR /g)
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+
   private getEvents(from: Date, to: Date, events: (string | undefined)[]) {
-    const uniqueEvents = Array.from(new Set(events.filter(Boolean)));
+    const uniqueEvents = new Set<string>();
+    events.forEach((event) => {
+      const eventNames = this.getEventNames(event);
+      eventNames.forEach((name) => uniqueEvents.add(name));
+    });
 
     const filter = {
       from_date: from.toISOString().substr(0, 10),
       to_date: to.toISOString().substr(0, 10),
-      event_selectors: uniqueEvents.map((e) => {
+      event_selectors: Array.from(uniqueEvents).map((e) => {
         return {
           event: e,
         };
@@ -532,7 +544,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ) {
     const checks: string[] = [];
     // Right event name
-    checks.push(`event.name === "${metric.table}"`);
+    const eventNames = this.getEventNames(metric.table);
+    checks.push(`${JSON.stringify(eventNames)}.includes(event.name)`);
 
     // Within conversion window
     if (conversionWindowStart) {
