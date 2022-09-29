@@ -47,8 +47,10 @@ export default function FeaturesPage() {
 
   const { features, loading, error, mutate } = useFeaturesList();
 
-  const { getProjectById } = useDefinitions();
-  const featuresHaveProjects = features.some((f) => f.project);
+  const { project, getProjectById } = useDefinitions();
+
+  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  const showProjectColumn = !project && features.some((f) => f.project);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
@@ -209,7 +211,7 @@ export default function FeaturesPage() {
               <tr>
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
-                {featuresHaveProjects && <th>Project</th>}
+                {showProjectColumn && <th>Project</th>}
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
                   <th key={en.id}>{en.id}</th>
@@ -269,7 +271,7 @@ export default function FeaturesPage() {
                           </a>
                         </Link>
                       </td>
-                      {featuresHaveProjects && (
+                      {showProjectColumn && (
                         <td>{getProjectById(feature.project)?.name || ""}</td>
                       )}
                       <td>
