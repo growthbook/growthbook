@@ -64,8 +64,9 @@ const ClickHouseForm: FC<{
         <div className="form-group col-md-12">
           <label>Password</label>
           <input
-            type="password"
-            className="form-control"
+            type="text"
+            className="form-control password-presentation"
+            autoComplete="off"
             name="password"
             value={params.password || ""}
             onChange={onParamChange}
