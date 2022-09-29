@@ -10,10 +10,9 @@ import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "./UpgradeModal";
 
-type inviteResult = {
+type InviteResult = {
   email: string;
   inviteUrl: string;
-  emailSent: boolean | null;
 };
 
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
@@ -29,10 +28,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       role: "admin",
     },
   });
-  const [successfulInvites, setSuccessfulInvites] = useState<inviteResult[]>(
+  const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
     []
   );
-  const [failedInvites, setFailedInvites] = useState<inviteResult[]>([]);
+  const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
   const {
     freeSeats,
@@ -62,6 +61,9 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       return;
     }
 
+    const failed: InviteResult[] = [];
+    const succeeded: InviteResult[] = [];
+
     for (const email of inviteArr) {
       const resp = await apiCall<{
         emailSent: boolean;
@@ -76,24 +78,14 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         }),
       });
 
+      const result: InviteResult = {
+        email,
+        inviteUrl: resp.inviteUrl,
+      };
       if (resp.emailSent) {
-        setSuccessfulInvites((successfulInvites) => [
-          ...successfulInvites,
-          {
-            email: email,
-            inviteUrl: resp.inviteUrl,
-            emailSent: resp.emailSent,
-          },
-        ]);
+        succeeded.push(result);
       } else {
-        setFailedInvites((failedInvites) => [
-          ...failedInvites,
-          {
-            email: email,
-            inviteUrl: resp.inviteUrl,
-            emailSent: resp.emailSent,
-          },
-        ]);
+        failed.push(result);
       }
 
       track("Team Member Invited", {
@@ -101,6 +93,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         role: value.role,
       });
     }
+    setSuccessfulInvites(succeeded);
+    setFailedInvites(failed);
 
     mutate();
   });
