@@ -6,24 +6,16 @@ import Link from "next/link";
 import { datetime } from "../../services/dates";
 import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
-import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
-  const [queriesModalOpen, setQueriesModalOpen] = useState("");
 
   const router = useRouter();
 
-  const {
-    datasources,
-    error,
-    mutateDefinitions,
-    ready,
-    getDatasourceById,
-  } = useDefinitions();
+  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
 
   const permissions = usePermissions();
 
@@ -33,10 +25,6 @@ const DataSources: FC = () => {
   if (!ready) {
     return <LoadingOverlay />;
   }
-
-  const newDataSource = queriesModalOpen
-    ? getDatasourceById(queriesModalOpen)
-    : null;
 
   return (
     <div>
@@ -128,18 +116,6 @@ const DataSources: FC = () => {
           onCancel={() => {
             setNewModalOpen(false);
           }}
-        />
-      )}
-      {newDataSource && (
-        <EditDataSourceSettingsForm
-          firstTime={true}
-          data={newDataSource}
-          onCancel={() => setQueriesModalOpen("")}
-          onSuccess={async () => {
-            await mutateDefinitions({});
-            await router.push(`/datasources/${newDataSource.id}`);
-          }}
-          source="datasource-list"
         />
       )}
     </div>

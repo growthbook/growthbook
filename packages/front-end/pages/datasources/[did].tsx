@@ -6,7 +6,6 @@ import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
-import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
@@ -28,7 +27,6 @@ function quotePropertyName(name: string) {
 
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
-  const [editSettings, setEditSettings] = useState(false);
 
   const permissions = usePermissions();
 
@@ -254,19 +252,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           }}
           onCancel={() => {
             setEditConn(false);
-          }}
-        />
-      )}
-
-      {editSettings && (
-        <EditDataSourceSettingsForm
-          data={d}
-          source={"datasource-detail"}
-          onSuccess={() => {
-            mutateDefinitions({});
-          }}
-          onCancel={() => {
-            setEditSettings(false);
           }}
         />
       )}
