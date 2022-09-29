@@ -14,6 +14,6 @@ export type DataSourceEditingResourceType =
 
 export type DataSourceQueryEditingModalBaseProps = {
   dataSource: DataSourceInterfaceWithParams;
-  onSave: (dataSource: DataSourceInterfaceWithParams) => void;
+  onSave: (dataSource: DataSourceInterfaceWithParams) => Promise<void>;
   onCancel: () => void;
 };

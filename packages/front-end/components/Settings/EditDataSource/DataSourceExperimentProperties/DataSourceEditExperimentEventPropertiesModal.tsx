@@ -9,7 +9,7 @@ import Modal from "../../../Modal";
 
 type DataSourceEditExperimentEventPropertiesProps = {
   dataSource: DataSourceInterfaceWithParams;
-  onSave: (experimentProps: DataSourceEvents) => void;
+  onSave: (experimentProps: DataSourceEvents) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -29,7 +29,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value);
+    await onSave(value);
 
     form.reset({
       experimentEvent: "",

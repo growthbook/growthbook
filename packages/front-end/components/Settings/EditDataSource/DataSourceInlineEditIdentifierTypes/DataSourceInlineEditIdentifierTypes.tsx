@@ -46,20 +46,20 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.userIdTypes.splice(idx, 1);
 
-      onSave(copy);
+      await onSave(copy);
     },
     [userIdTypes, onSave, dataSource]
   );
 
   const handleSave = useCallback(
-    (idx: number) => (userIdType: string, description: string) => {
+    (idx: number) => async (userIdType: string, description: string) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.userIdTypes[idx] = {
         userIdType,
         description,
       };
 
-      onSave(copy);
+      await onSave(copy);
     },
     [dataSource, onSave, uiMode]
   );

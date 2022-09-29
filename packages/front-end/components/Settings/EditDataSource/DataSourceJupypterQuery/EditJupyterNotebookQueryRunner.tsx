@@ -27,7 +27,7 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
   const handleSubmit = form.handleSubmit(async (value) => {
     const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
     copy.settings.notebookRunQuery = value.query;
-    onSave(copy);
+    await onSave(copy);
   });
 
   return (

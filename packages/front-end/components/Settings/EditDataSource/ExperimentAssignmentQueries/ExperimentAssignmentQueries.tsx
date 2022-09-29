@@ -60,16 +60,16 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       copy.settings.queries.exposure.splice(idx, 1);
 
-      onSave(copy);
+      await onSave(copy);
     },
     [experimentExposureQueries, onSave, dataSource]
   );
 
   const handleSave = useCallback(
-    (idx: number) => (exposureQuery: ExposureQuery) => {
+    (idx: number) => async (exposureQuery: ExposureQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.queries.exposure[idx] = exposureQuery;
-      onSave(copy);
+      await onSave(copy);
     },
     [dataSource, onSave, uiMode]
   );

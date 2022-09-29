@@ -10,7 +10,7 @@ type EditIdentifierTypeProps = {
   onCancel: () => void;
   userIdType: string;
   description: string;
-  onSave: (name: string, description: string) => void;
+  onSave: (name: string, description: string) => Promise<void>;
 };
 
 export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
@@ -33,7 +33,8 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value.userIdType, value.description);
+    await onSave(value.userIdType, value.description);
+
     form.reset({
       userIdType: "",
       description: "",

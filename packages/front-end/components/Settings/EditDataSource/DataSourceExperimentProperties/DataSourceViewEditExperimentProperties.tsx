@@ -26,10 +26,10 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
     onCancel();
   }, [onCancel]);
 
-  const handleSave = useCallback((eventProperties: DataSourceEvents) => {
+  const handleSave = useCallback(async (eventProperties: DataSourceEvents) => {
     const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
     copy.settings.events = eventProperties;
-    onSave(copy);
+    await onSave(copy);
   }, []);
 
   if (!dataSource) {

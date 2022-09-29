@@ -62,7 +62,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredDimensions = form.watch("dimensions");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value);
+    await onSave(value);
 
     form.reset({
       id: null,
