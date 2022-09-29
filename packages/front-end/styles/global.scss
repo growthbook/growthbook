@@ -1,19 +1,7 @@
-@import "colors.scss";
+@use "colors"; // TODO: Remove import
+@import "theme";
 
-$font-size-base: 0.875rem !default; // change the default from 16px to 14px.
-$h1-font-size: 1.5rem !default; //24px
-$h2-font-size: 1.25rem !default; //20px
-$h3-font-size: 1.125rem !default; //18px
-$h4-font-size: 1rem !default; //16px
-$h5-font-size: 0.875rem !default; //14px
-$h6-font-size: $font-size-base !default;
-$headings-font-weight: 600 !default;
-$font-weight-bold: 600 !default;
-
-$grid-gutter-width: 16px !default;
-$badge-padding-y: 0.25em !default; // 3px for default size
-$badge-padding-x: 0.584em !default; // 7px for default size
-
+@import "bootstrap-overrides";
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
@@ -29,8 +17,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
-  background-color: $main-background;
-  color: $main-black;
+  background-color: var(--background-color);
+  color: var(--text-color-main);
 }
 
 #block-menu-container {
@@ -59,25 +47,25 @@ pre {
   font-size: 100%;
 }
 .text-blue {
-  color: $second-blue;
+  color: colors.$second-blue;
 }
 .text-purple {
-  color: $highlight-purple;
+  color: colors.$highlight-purple;
 }
 .text-indigo {
-  color: $indigo;
+  color: colors.$indigo;
 }
 .text-gray {
-  color: $gray1;
+  color: colors.$gray1;
 }
 .text-light-gray {
-  color: $gray2;
+  color: colors.$gray2;
 }
 .font-weight-semibold {
   font-weight: 500;
 }
 .uppercase-title {
-  color: $gray1;
+  color: colors.$gray1;
   text-transform: uppercase;
   font-size: 11px;
   font-weight: 600;
@@ -86,24 +74,24 @@ pre {
 
 .btn-primary {
   @include button-variant(
-    $highlight-purple,
-    darken($highlight-purple, 7.5%),
-    darken($highlight-purple, 10%),
-    lighten($highlight-purple, 5%),
-    lighten($highlight-purple, 10%),
-    darken($highlight-purple, 30%)
+    colors.$highlight-purple,
+    darken(colors.$highlight-purple, 7.5%),
+    darken(colors.$highlight-purple, 10%),
+    lighten(colors.$highlight-purple, 5%),
+    lighten(colors.$highlight-purple, 10%),
+    darken(colors.$highlight-purple, 30%)
   );
   white-space: nowrap;
   font-weight: 600;
 }
 
 .btn-outline-primary {
-  //button-outline-variant($color, $color-hover: color-yiq($color), $active-background: $color, $active-border: $color
+  //button-outline-variant(colors.$color, colors.$color-hover: color-yiq(colors.$color), colors.$active-background: colors.$color, colors.$active-border: colors.$color
   @include button-outline-variant(
-    $highlight-purple,
+    colors.$highlight-purple,
     #fff,
-    lighten($highlight-purple, 0%),
-    $highlight-purple
+    lighten(colors.$highlight-purple, 0%),
+    colors.$highlight-purple
   );
 }
 .btn-outline-primary:not(:disabled):not(.disabled).selected {
@@ -133,16 +121,16 @@ pre {
 }
 .badge-gray {
   @include badge-variant(#f6f7f9);
-  border: 1px solid $gray4;
+  border: 1px solid colors.$gray4;
 }
 .multi-select-container {
   z-index: 99999999;
 }
 .graybox {
-  background-color: $gray6;
+  background-color: colors.$gray6;
   padding: 15px 20px 20px;
   border-radius: 3px;
-  border: 1px solid $gray5;
+  border: 1px solid colors.$gray5;
   label {
     font-weight: 600;
   }
@@ -176,11 +164,11 @@ pre {
 }
 .modal {
   .modal-header {
-    background-color: $gray5;
+    background-color: colors.$gray5;
   }
   .rbt-token {
-    background-color: rgba($highlight-purple, 0.1);
-    color: $highlight-purple;
+    background-color: rgba(colors.$highlight-purple, 0.1);
+    color: colors.$highlight-purple;
     font-weight: 600;
   }
 }
@@ -188,10 +176,10 @@ pre {
   margin: 0 auto;
 }
 .gbtable {
-  color: $main-black;
+  color: colors.$main-black;
   margin-bottom: 0;
-  background-color: $white;
-  border: 1px solid $gray4;
+  background-color: colors.$white;
+  border: 1px solid colors.$gray4;
   thead {
     th {
       font-size: 11px;
@@ -199,7 +187,7 @@ pre {
       font-weight: 600;
       color: #52597a;
       white-space: nowrap;
-      border-bottom: 1px solid $gray4;
+      border-bottom: 1px solid colors.$gray4;
       border-top: 0;
 
       .activesort,
@@ -243,7 +231,7 @@ pre {
     }
 
     tr {
-      border: 1px solid $gray4;
+      border: 1px solid colors.$gray4;
       margin-bottom: 1em;
       background-color: white;
     }
@@ -256,7 +244,7 @@ pre {
       background-color: white;
     }
     tr td:not(:last-child) {
-      border-bottom: 1px solid $gray4;
+      border-bottom: 1px solid colors.$gray4;
     }
 
     &.experiment-table {
@@ -277,13 +265,13 @@ pre {
       padding-right: 10px;
       white-space: nowrap;
       content: attr(data-title);
-      color: $gray1;
+      color: colors.$gray1;
     }
   }
 }
 
 .pagination-area {
-  border-top: 1px solid $gray4;
+  border-top: 1px solid colors.$gray4;
   padding: 10px;
 
   .pagination {
@@ -295,7 +283,7 @@ pre {
         border: 0;
         margin: 0 5px;
         font-weight: 600;
-        color: $main-black;
+        color: colors.$main-black;
       }
       .link-number {
         min-width: 30px;
@@ -311,7 +299,7 @@ pre {
         color: #fff;
       }
       &.disabled .page-link {
-        color: $gray2;
+        color: colors.$gray2;
       }
     }
     //.active .page-link
@@ -331,22 +319,22 @@ pre {
     font-weight: 500;
     font-size: 15px;
     line-height: 22px;
-    border: 1px solid $gray4;
+    border: 1px solid colors.$gray4;
     border-radius: 0;
     border-right: 0;
     padding: 6px 20px;
     background-color: #fff;
-    color: $main-black;
+    color: colors.$main-black;
     &:hover {
-      background-color: rgba($highlight-purple, 0.08);
-      border: 1px solid rgba($highlight-purple, 0.15);
+      background-color: rgba(colors.$highlight-purple, 0.08);
+      border: 1px solid rgba(colors.$highlight-purple, 0.15);
       border-right: 0;
-      color: $highlight-purple;
+      color: colors.$highlight-purple;
     }
     &.active {
-      color: $highlight-purple;
-      background-color: rgba($highlight-purple, 0.15);
-      border: 1px solid rgba($highlight-purple, 0.15);
+      color: colors.$highlight-purple;
+      background-color: rgba(colors.$highlight-purple, 0.15);
+      border: 1px solid rgba(colors.$highlight-purple, 0.15);
       font-weight: bold;
     }
     &:first-child {
@@ -354,14 +342,14 @@ pre {
       border-bottom-left-radius: 3px;
     }
     &.last {
-      border-right: 1px solid $gray4;
+      border-right: 1px solid colors.$gray4;
       border-top-right-radius: 3px;
       border-bottom-right-radius: 3px;
       &:hover {
-        border-right: 1px solid rgba($highlight-purple, 0.15);
+        border-right: 1px solid rgba(colors.$highlight-purple, 0.15);
       }
       &.active {
-        border-right: 1px solid rgba($highlight-purple, 0.15);
+        border-right: 1px solid rgba(colors.$highlight-purple, 0.15);
       }
     }
     .badge {
@@ -370,7 +358,7 @@ pre {
   }
   .tab-content {
     border-radius: 3px;
-    border-color: $gray4;
+    border-color: colors.$gray4;
   }
 }
 .paged-modal-default {
@@ -380,7 +368,7 @@ pre {
   font-weight: 600;
   padding: 0;
   a {
-    color: $main-black;
+    color: colors.$main-black;
   }
   .step {
     white-space: nowrap;
@@ -388,27 +376,27 @@ pre {
 
     .step-number {
       display: inline-block;
-      color: $highlight-purple;
+      color: colors.$highlight-purple;
       text-align: center;
       margin: 0 4px;
-      background-color: rgba($highlight-purple, 0.15);
+      background-color: rgba(colors.$highlight-purple, 0.15);
       width: 24px;
       height: 24px;
       line-height: 24px;
     }
     &.active {
       a {
-        color: $highlight-purple;
+        color: colors.$highlight-purple;
       }
       .step-number {
-        background-color: $highlight-purple;
-        color: $white;
+        background-color: colors.$highlight-purple;
+        color: colors.$white;
       }
     }
     &.completed {
       .step-number {
-        background-color: $highlight-purple;
-        color: $white;
+        background-color: colors.$highlight-purple;
+        color: colors.$white;
       }
     }
   }
@@ -422,7 +410,7 @@ pre {
         content: "";
         display: inline-block;
         width: 100%;
-        border-bottom: 1px dashed $purple-tint;
+        border-bottom: 1px dashed colors.$purple-tint;
         height: 1px;
       }
       &:last-of-type {
@@ -438,14 +426,14 @@ pre {
 }
 .modal {
   label {
-    color: $gray1;
+    color: colors.$gray1;
     font-weight: 500;
   }
 }
 
 .app-sidebar-header {
   .selected {
-    background-color: $purple;
+    background-color: colors.$purple;
   }
   .divider {
     margin-top: 9px;
@@ -466,7 +454,7 @@ pre {
 
 .appbox {
   background-color: #fff;
-  border: 1px solid $app-border;
+  border: 1px solid colors.$app-border;
   margin-bottom: 1em;
   border-radius: 5px;
 
@@ -527,7 +515,7 @@ pre {
 
     .message {
       padding: 2px 6px;
-      background: $highlight-purple;
+      background: colors.$highlight-purple;
       color: #fff;
       position: relative;
       margin-right: 10px;
@@ -541,7 +529,7 @@ pre {
         top: 50%;
         margin-top: -6px;
         border: 6px solid transparent;
-        border-left: 6px solid $highlight-purple;
+        border-left: 6px solid colors.$highlight-purple;
       }
     }
   }
@@ -574,7 +562,7 @@ pre {
 
   .body {
     background: #fff;
-    color: $dark;
+    color: colors.$dark;
     padding: 15px;
     border-radius: 5px;
   }
@@ -623,7 +611,7 @@ pre {
   }
 
   .intro-side {
-    background-color: $purple;
+    background-color: colors.$purple;
     background: radial-gradient(
       at 50% 100%,
       rgba(109, 18, 228, 0.75),
@@ -703,10 +691,10 @@ pre {
   background: rgba(255, 255, 255, 0.7);
   .tooltip-results {
     .ci-neg {
-      color: $dark-red;
+      color: colors.$dark-red;
     }
     .ci-pos {
-      color: $dark-green;
+      color: colors.$dark-green;
     }
     > div {
       padding: 0 8px;
@@ -748,7 +736,7 @@ pre {
     text-indent: -9999px;
     width: 50px;
     height: 25px;
-    background: $gray-300;
+    background: colors.$gray-300;
     display: block;
     border-radius: 100px;
     margin-bottom: 0;
@@ -773,10 +761,10 @@ pre {
   }
 
   input:checked + label {
-    background: $purple;
+    background: colors.$purple;
   }
   &.toggle-featureValue input:checked + label {
-    background: $blue;
+    background: colors.$blue;
   }
 
   label:active:after {
@@ -869,7 +857,7 @@ pre {
   }
 
   .inverse-indicator {
-    color: $orange;
+    color: colors.$orange;
   }
 
   &.aligned-graph {
@@ -976,7 +964,7 @@ pre {
 
   td.won {
     background-color: rgba(#a6edd1, 0.3);
-    color: $dark-green;
+    color: colors.$dark-green;
     .expected {
       font-weight: bold;
     }
@@ -989,7 +977,7 @@ pre {
   }
   td.draw {
     background-color: rgba(#d7c9e2, 0.3);
-    color: $dark-purple;
+    color: colors.$dark-purple;
   }
 
   .metricname:hover {
@@ -998,7 +986,7 @@ pre {
 }
 
 .bg-purple {
-  background: $highlight-purple;
+  background: colors.$highlight-purple;
 }
 
 .change-bar {
@@ -1086,7 +1074,7 @@ pre {
 }
 
 .statuslabel {
-  color: $gray-600;
+  color: colors.$gray-600;
   font-weight: normal;
 }
 
@@ -1096,7 +1084,7 @@ li.metrics a span img {
 }
 
 .leftBar {
-  background-color: $light-grey;
+  background-color: colors.$light-grey;
   width: 330px;
   padding: 20px;
   flex-direction: column;
@@ -1105,21 +1093,21 @@ li.metrics a span img {
   transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
   position: fixed;
   overflow: hidden;
-  border-right: 1px solid #cacaca;
+  border-right: 1px solid var(--border-color-alt);
 }
 
 .watchaction {
-  color: $highlight-purple;
+  color: colors.$highlight-purple;
   text-decoration: none;
   &.notwatching {
-    color: $gray-500;
+    color: colors.$gray-500;
   }
   &:hover {
-    color: lighten($highlight-purple, 5%);
+    color: lighten(colors.$highlight-purple, 5%);
   }
   &.watch-icon {
     &.notwatching {
-      color: $gray-400;
+      color: colors.$gray-400;
     }
   }
 }
@@ -1137,7 +1125,7 @@ li.metrics a span img {
       padding-top: 0.7rem;
     }
     li:not(:last-child) {
-      border-bottom: 1px solid #e0e2eb;
+      border-bottom: 1px solid var(--border-color);
     }
   }
   .semi-bold {
@@ -1150,7 +1138,7 @@ li.metrics a span img {
   }
   .activity-box {
     background-color: #fff;
-    border: 1px solid #e0e2eb;
+    border: 1px solid var(--border-color);
     padding: 20px;
     border-radius: 4px;
     h4 {
@@ -1161,11 +1149,11 @@ li.metrics a span img {
     background-color: rgba(124, 69, 234, 0.1);
     padding: 4px;
     font-weight: 500;
-    color: $highlight-purple;
+    color: colors.$highlight-purple;
     border-radius: 100px;
   }
   .no-link-color {
-    color: $main-black;
+    color: colors.$main-black;
     text-decoration: none;
   }
 
@@ -1184,8 +1172,8 @@ li.metrics a span img {
 
 .experiments {
   .experiment-table {
-    //border: 1px solid $app-border;
-    //color: $gray-600;
+    //border: 1px solid colors.$app-border;
+    //color: colors.$gray-600;
 
     h1,
     h2,
@@ -1214,7 +1202,7 @@ li.metrics a span img {
       padding: 0 4px;
       line-height: 20px;
       vertical-align: top;
-      color: $gray-500;
+      color: colors.$gray-500;
       cursor: pointer;
     }
     .submenu {
@@ -1230,7 +1218,7 @@ li.metrics a span img {
   }
   .testname {
     font-weight: 400;
-    color: $main-black;
+    color: colors.$main-black;
   }
   .hypothesis {
     font-size: 1em;
@@ -1243,7 +1231,7 @@ li.metrics a span img {
     height: 20px;
     margin-right: -17px;
     vertical-align: middle;
-    color: $light-grey;
+    color: colors.$light-grey;
     background-size: contain;
     background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSIwcHgiIHk9IjBweCIKCSB3aWR0aD0iMC44ZW0iIGhlaWdodD0iMC44ZW0iIHZpZXdCb3g9IjAgMCA0MDEuOTk4IDQwMS45OTgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMS45OTggNDAxLjk5ODsiCgkgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5jbHMtMSB7CiAgICAgICAgZmlsbDogIzk5OTsKICAgICAgICBmaWxsLXJ1bGU6IGV2ZW5vZGQ7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgo8Zz4KCTxnPgoJCTxwYXRoIGNsYXNzPSdjbHMtMScgZD0iTTczLjA5MiwxNjQuNDUyaDI1NS44MTNjNC45NDksMCw5LjIzMy0xLjgwNywxMi44NDgtNS40MjRjMy42MTMtMy42MTYsNS40MjctNy44OTgsNS40MjctMTIuODQ3CgkJCWMwLTQuOTQ5LTEuODEzLTkuMjI5LTUuNDI3LTEyLjg1TDIxMy44NDYsNS40MjRDMjEwLjIzMiwxLjgxMiwyMDUuOTUxLDAsMjAwLjk5OSwwcy05LjIzMywxLjgxMi0xMi44NSw1LjQyNEw2MC4yNDIsMTMzLjMzMQoJCQljLTMuNjE3LDMuNjE3LTUuNDI0LDcuOTAxLTUuNDI0LDEyLjg1YzAsNC45NDgsMS44MDcsOS4yMzEsNS40MjQsMTIuODQ3QzYzLjg2MywxNjIuNjQ1LDY4LjE0NCwxNjQuNDUyLDczLjA5MiwxNjQuNDUyeiIvPgoJCTxwYXRoIGNsYXNzPSdjbHMtMScgZD0iTTMyOC45MDUsMjM3LjU0OUg3My4wOTJjLTQuOTUyLDAtOS4yMzMsMS44MDgtMTIuODUsNS40MjFjLTMuNjE3LDMuNjE3LTUuNDI0LDcuODk4LTUuNDI0LDEyLjg0NwoJCQljMCw0Ljk0OSwxLjgwNyw5LjIzMyw1LjQyNCwxMi44NDhMMTg4LjE0OSwzOTYuNTdjMy42MjEsMy42MTcsNy45MDIsNS40MjgsMTIuODUsNS40MjhzOS4yMzMtMS44MTEsMTIuODQ3LTUuNDI4bDEyNy45MDctMTI3LjkwNgoJCQljMy42MTMtMy42MTQsNS40MjctNy44OTgsNS40MjctMTIuODQ4YzAtNC45NDgtMS44MTMtOS4yMjktNS40MjctMTIuODQ3QzMzOC4xMzksMjM5LjM1MywzMzMuODU0LDIzNy41NDksMzI4LjkwNSwyMzcuNTQ5eiIvPgoJPC9nPgo8L2c+Cjwvc3ZnPg==")
       no-repeat 99%;
@@ -1267,14 +1255,14 @@ li.metrics a span img {
       no-repeat 99%;
   }
   .needs-results {
-    background-color: $lighter-red;
+    background-color: colors.$lighter-red;
   }
 }
 
 .purple-phase {
   .percent-traffic,
   .split {
-    color: $highlight-purple;
+    color: colors.$highlight-purple;
   }
 }
 .experiment-details,
@@ -1282,7 +1270,7 @@ li.metrics a span img {
   .tab-content {
     background-color: #fff;
     padding: 1rem;
-    border: 1px solid $gray4;
+    border: 1px solid colors.$gray4;
   }
 
   h5 {
@@ -1295,7 +1283,7 @@ li.metrics a span img {
     }
     .hypothesis {
       .hypothesis-title {
-        color: $secondary;
+        color: colors.$secondary;
         font-size: 13px;
       }
     }
@@ -1333,7 +1321,7 @@ li.metrics a span img {
       margin: 0;
       padding: 0;
       font-size: 11px;
-      background: $purple;
+      background: colors.$purple;
       color: white;
       padding: 0.2em 0;
       position: absolute;
@@ -1351,7 +1339,7 @@ li.metrics a span img {
 
       width: 100%;
       height: 100%;
-      background: $purple;
+      background: colors.$purple;
     }
     .ribbon:before {
       right: 100%;
@@ -1379,7 +1367,7 @@ li.metrics a span img {
     }
   }
   .winner {
-    background-color: $lighter-green;
+    background-color: colors.$lighter-green;
     border-color: #a9d6b8;
     .card-header {
       padding-right: 30px;
@@ -1403,24 +1391,24 @@ li.metrics a span img {
     }
   }
   .loser {
-    background-color: $lighter-red;
+    background-color: colors.$lighter-red;
     border-color: #f0d5ce;
   }
   .image-blank {
     background-size: contain;
     background: #fafafa url("/images/image-blank.png") no-repeat 50% 50%;
     min-height: 200px;
-    border-top: 1px solid $gray4;
-    border-bottom: 1px solid $gray4;
+    border-top: 1px solid colors.$gray4;
+    border-bottom: 1px solid colors.$gray4;
   }
   .experiment-image {
     height: 300px;
     width: 100%;
     object-fit: scale-down;
     object-position: 50% 50%;
-    background: $gray1;
-    border-top: 1px solid $gray4;
-    border-bottom: 1px solid $gray4;
+    background: colors.$gray1;
+    border-top: 1px solid colors.$gray4;
+    border-bottom: 1px solid colors.$gray4;
   }
   .results-table {
     font-size: 14px;
@@ -1433,12 +1421,12 @@ li.metrics a span img {
       .dataname {
         display: block;
         font-size: 0.8rem;
-        color: $gray-600;
+        color: colors.$gray-600;
       }
     }
 
     .notenoughdata {
-      color: $gray-600;
+      color: colors.$gray-600;
     }
     .enoughdata {
       &.significant {
@@ -1449,15 +1437,15 @@ li.metrics a span img {
       }
 
       &.losing {
-        background-color: $lighter-red;
+        background-color: colors.$lighter-red;
         .vardata {
-          color: $red;
+          color: colors.$red;
         }
       }
       &.winning {
-        background-color: $lighter-green;
+        background-color: colors.$lighter-green;
         .vardata {
-          color: $dark-green;
+          color: colors.$dark-green;
         }
       }
     }
@@ -1467,7 +1455,7 @@ li.metrics a span img {
     }
     .ctbb-title {
       margin-left: 0.75rem;
-      color: $gray-500;
+      color: colors.$gray-500;
     }
     .numberResult {
       padding: 0;
@@ -1479,12 +1467,12 @@ li.metrics a span img {
         }
       }
       .winner {
-        color: $dark-green;
-        background-color: $lighter-green;
+        color: colors.$dark-green;
+        background-color: colors.$lighter-green;
       }
       .loser {
-        color: $dark-red;
-        background-color: $light-red;
+        color: colors.$dark-red;
+        background-color: colors.$light-red;
       }
       .ctbb {
         span {
@@ -1515,10 +1503,10 @@ html {
   .edit,
   .delete {
     cursor: pointer;
-    color: $darker-blue;
+    color: colors.$darker-blue;
     margin: 0 4px;
     svg {
-      fill: $blue;
+      fill: colors.$blue;
     }
   }
   .lower-card-details {
@@ -1533,14 +1521,14 @@ html {
 }
 .moremenu {
   svg {
-    fill: $gray-600;
+    fill: colors.$gray-600;
   }
 }
 .cursor-pointer {
   cursor: pointer;
 }
 .bg-impact {
-  background-color: $bg-impact;
+  background-color: colors.$bg-impact;
 }
 .dropdownmenu {
   position: absolute;
@@ -1558,7 +1546,7 @@ html {
     cursor: pointer;
   }
   a:hover {
-    background-color: $blue;
+    background-color: colors.$blue;
     color: #fff;
   }
   &.closed {
@@ -1648,7 +1636,7 @@ html {
       text-decoration: none;
     }
     p {
-      color: $gray-900;
+      color: colors.$gray-900;
     }
   }
   .secondary-box {
@@ -1737,12 +1725,12 @@ html {
       position: absolute;
       right: 0.8em;
       top: 0.3em;
-      color: $dark-green;
+      color: colors.$dark-green;
     }
   }
   .selected {
-    border-color: $dark-green;
-    background-color: $lighter-green;
+    border-color: colors.$dark-green;
+    background-color: colors.$lighter-green;
   }
   .scrollarea {
     max-height: 300px;
@@ -1784,7 +1772,7 @@ html {
 
 @media (max-width: 850px) {
   .leftBar {
-    background-color: $light-grey;
+    background-color: colors.$light-grey;
     width: 100%;
     padding: 15px;
     flex-direction: column;
@@ -1793,7 +1781,7 @@ html {
     transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
     position: static;
     overflow: hidden;
-    border-right: 1px solid #cacaca;
+    border-right: 1px solid var(--border-color-alt);
   }
   .experiment-details .contents {
     padding: 15px;
@@ -1849,7 +1837,7 @@ html {
     height: 11px;
 
     .rangeslider__fill {
-      background-color: $primary;
+      background-color: colors.$primary;
     }
 
     .rangeslider__handle {

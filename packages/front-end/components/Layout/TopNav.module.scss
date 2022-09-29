@@ -1,4 +1,5 @@
-@import "../../styles/colors.scss";
+@use "../../styles/colors.scss";
+
 $sidebarwidth: 240px;
 .topbar {
   position: fixed;
@@ -8,12 +9,12 @@ $sidebarwidth: 240px;
   height: 56px;
   z-index: 945;
   transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
-  background-color: #fff;
-  border-bottom: 1px solid #cacaca;
+  background-color: var(--surface-background-color);
+  border-bottom: 1px solid var(--border-color-alt);
 }
 .pagetitle {
   font-size: 18px;
-  color: $main-black;
+  color: var(--text-color-main);
   font-weight: 600;
 }
 .mobilemenu {

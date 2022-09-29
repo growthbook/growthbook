@@ -1,0 +1,38 @@
+@use "colors";
+
+@mixin light-theme {
+  color-scheme: light;
+  --background-color: #{colors.$main-background};
+  --surface-background-color: #{colors.$white};
+  --text-color-main: #{colors.$main-black};
+  --border-color: #e0e2eb;
+  --border-color-alt: #cacaca;
+}
+
+@mixin dark-theme {
+  color-scheme: dark;
+  --background-color: #{colors.$main-background-dark};
+  --surface-background-color: #{colors.$surface-background-dark};
+  --text-color-main: #{colors.$white};
+  --border-color: #616161;
+  --border-color-alt: #424242;
+}
+
+.theme--light {
+  @include light-theme();
+}
+
+.theme--dark {
+  @include dark-theme();
+}
+
+// OS default
+:root:not(.theme--light):not(.theme--dark) {
+  @media (prefers-color-scheme: light) {
+    @include light-theme();
+  }
+
+  @media (prefers-color-scheme: dark) {
+    @include dark-theme();
+  }
+}
