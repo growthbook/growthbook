@@ -21,7 +21,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
-  const userIdTypes = dataSource.settings?.userIdTypes || [];
+  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
+    dataSource.settings?.userIdTypes,
+  ]);
 
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
@@ -48,7 +50,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
       onSave(copy);
     },
-    [userIdTypes, onSave, dataSource]
+    [onSave, dataSource]
   );
 
   const handleSave = useCallback(
@@ -61,7 +63,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
       onSave(copy);
     },
-    [dataSource, onSave, uiMode]
+    [dataSource, onSave]
   );
 
   const handleAdd = useCallback(() => {
