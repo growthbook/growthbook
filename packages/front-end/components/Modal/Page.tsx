@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC } from "react";
+import { ReactNode, FC } from "react";
 
 const Page: FC<{
   display: string;

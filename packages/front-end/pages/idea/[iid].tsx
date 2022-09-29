@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { useState, ReactElement } from "react";
+import { useState, ReactElement, useEffect } from "react";
 import { useAuth } from "../../services/auth";
 import DeleteButton from "../../components/DeleteButton";
 import {
@@ -30,7 +30,6 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
 import SelectField from "../../components/Forms/SelectField";
 import useUser from "../../hooks/useUser";
 import SortedTags from "../../components/Tags/SortedTags";

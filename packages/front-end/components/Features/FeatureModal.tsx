@@ -20,6 +20,7 @@ import {
   getDefaultVariationValue,
   useAttributeSchema,
   validateFeatureRule,
+  useEnvironments,
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
@@ -27,7 +28,6 @@ import NamespaceSelector from "./NamespaceSelector";
 import TagsInput from "../Tags/TagsInput";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useEnvironments } from "../../services/features";
 import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
 
