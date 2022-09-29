@@ -1,10 +1,9 @@
-import { FC, Fragment } from "react";
+import { FC, Fragment, useState } from "react";
 import isEqual from "lodash/isEqual";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { useState } from "react";
 import FixVariationIds from "./FixVariationIds";
 import usePermissions from "../../hooks/usePermissions";
 

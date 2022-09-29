@@ -19,6 +19,7 @@ import {
   getRules,
   useFeaturesList,
   useRealtimeData,
+  useEnvironments,
 } from "../../services/features";
 import Tooltip from "../../components/Tooltip";
 import Pagination from "../../components/Pagination";
@@ -26,7 +27,6 @@ import TagsFilter, {
   filterByTags,
   useTagsFilter,
 } from "../../components/Tags/TagsFilter";
-import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Toggle from "../../components/Forms/Toggle";

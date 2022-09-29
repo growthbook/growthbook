@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { FC } from "react";
+import { useState, FC } from "react";
 import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";

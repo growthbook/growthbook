@@ -26,10 +26,10 @@ import {
   getFeatureDefaultValue,
   getRules,
   useEnvironmentState,
+  useEnvironments,
 } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
-import { useEnvironments } from "../../services/features";
 import SortedTags from "../../components/Tags/SortedTags";
 import Modal from "../../components/Modal";
 import HistoryTable from "../../components/HistoryTable";
