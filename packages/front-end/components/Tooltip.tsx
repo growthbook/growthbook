@@ -46,6 +46,7 @@ const Tooltip: FC<Props> = ({
         ref={setTrigger}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
+        onPointerLeave={() => setOpen(false)}
         className={`${className}`}
         {...otherProps}
       >
