@@ -1,4 +1,4 @@
-import React, { FC, Fragment, useCallback, useState } from "react";
+import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import {
   DataSourceInterfaceWithParams,
@@ -39,7 +39,10 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     onCancel();
   }, [onCancel]);
 
-  const experimentExposureQueries = dataSource.settings?.queries.exposure || [];
+  const experimentExposureQueries = useMemo(
+    () => dataSource.settings?.queries.exposure || [],
+    [dataSource.settings?.queries.exposure]
+  );
 
   const handleAdd = useCallback(() => {
     setUiMode("add");
@@ -62,7 +65,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       await onSave(copy);
     },
-    [experimentExposureQueries, onSave, dataSource]
+    [onSave, dataSource]
   );
 
   const handleSave = useCallback(
@@ -71,7 +74,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
     },
-    [dataSource, onSave, uiMode]
+    [dataSource, onSave]
   );
 
   if (!dataSource) {
