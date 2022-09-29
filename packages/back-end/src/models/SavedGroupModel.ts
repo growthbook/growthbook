@@ -64,6 +64,16 @@ export async function getAllSavedGroups(
   return savedGroups.map((value) => value.toJSON()) || [];
 }
 
+export async function getSavedGroupById(
+  savedGroupId: string,
+  organization: string
+): Promise<SavedGroupInterface | null> {
+  return await SavedGroupModel.findOne({
+    id: savedGroupId,
+    organization: organization,
+  });
+}
+
 export async function updateSavedGroup(
   savedGroupId: string,
   organization: string,

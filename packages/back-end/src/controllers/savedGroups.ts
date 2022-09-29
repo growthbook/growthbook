@@ -3,9 +3,12 @@ import { Response } from "express";
 import { getOrgFromReq } from "../services/organizations";
 import {
   createSavedGroup,
+  getSavedGroupById,
   parseSaveGroupString,
   updateSavedGroup,
 } from "../models/SavedGroupModel";
+import { auditDetailsCreate, auditDetailsUpdate } from "../services/audit";
+import { savedGroupUpdated } from "../services/savedGroups";
 
 // IMPORTANT: SavedGroups and Groups are very similar, but serve two different purposes. At the time of development 9/22 we are
 // quietly deprecating Groups. Initially groups were used with experiments to only include people in a group in an experiement.
@@ -35,6 +38,15 @@ export async function postSavedGroup(
     organization: org.id,
   });
 
+  await req.audit({
+    event: "savedGroup.created",
+    entity: {
+      object: "savedGroup",
+      id: org.id,
+    },
+    details: auditDetailsCreate(savedGroup),
+  });
+
   return res.status(200).json({
     status: 200,
     savedGroup,
@@ -60,6 +72,12 @@ export async function putSavedGroup(
 
   req.checkPermissions("createFeatures");
 
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find metric");
+  }
+
   const values = parseSaveGroupString(groupList);
 
   await updateSavedGroup(id, org.id, {
@@ -67,6 +85,22 @@ export async function putSavedGroup(
     groupName,
     owner,
   });
+
+  const updatedSavedGroup = await getSavedGroupById(id, org.id);
+
+  await req.audit({
+    event: "savedGroup.updated",
+    entity: {
+      object: "savedGroup",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
+  });
+
+  // If the values change, we need to invalidate cached feature rules
+  if (savedGroup.values !== values) {
+    savedGroupUpdated(org);
+  }
 
   return res.status(200).json({
     status: 200,
