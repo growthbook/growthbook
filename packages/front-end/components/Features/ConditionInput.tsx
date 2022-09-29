@@ -121,14 +121,11 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
-            const savedGroupOptions = savedGroups.filter((g) => {
-              if (g.attributeKey === field) {
-                return {
-                  label: g.groupName,
-                  value: g.id,
-                };
-              }
-            });
+            const savedGroupOptions = savedGroups
+              // First, limit to groups with the correct attribute
+              .filter((g) => g.attributeKey === field)
+              // Then, transform into the select option format
+              .map((g) => ({ label: g.groupName, value: g.id }));
 
             const onChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
@@ -269,10 +266,7 @@ export default function ConditionInput(props: Props) {
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
                     savedGroups ? (
                     <SelectField
-                      options={savedGroupOptions.map((g) => ({
-                        label: g.groupName,
-                        value: g.id,
-                      }))}
+                      options={savedGroupOptions}
                       value={value}
                       onChange={(v) => {
                         onSelectFieldChange(v, "value");
