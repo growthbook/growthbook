@@ -1,7 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
-import { useState } from "react";
 import { useSearch } from "../../services/search";
 import useUser from "../../hooks/useUser";
 import { useForm } from "react-hook-form";
@@ -9,7 +8,7 @@ import { useAuth } from "../../services/auth";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import Preview from "./Preview";
-import { ago, datetime, getValidDate } from "../../services/dates";
+import { ago, datetime, getValidDate, date } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
@@ -29,7 +28,6 @@ import { HexColorPicker } from "react-colorful";
 import Tooltip from "../Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
-import { date } from "../../services/dates";
 import track from "../../services/track";
 import SortedTags from "../Tags/SortedTags";
 

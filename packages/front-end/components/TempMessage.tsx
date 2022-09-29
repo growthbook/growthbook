@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC, useEffect, useState } from "react";
+import { ReactNode, FC, useEffect, useState } from "react";
 
 const SHOW_TIME = 3000;
 

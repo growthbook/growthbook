@@ -1,7 +1,6 @@
 import { Request } from "express";
-import { OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface, Permissions } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
-import { Permissions } from "../../types/organization";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 // eslint-disable-next-line
