@@ -20,6 +20,7 @@ import {
   getDefaultVariationValue,
   useAttributeSchema,
   validateFeatureRule,
+  validateFeatureValue,
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
@@ -119,9 +120,27 @@ export default function FeatureModal({
         const { rule, defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;
 
+        const newDefaultValue = validateFeatureValue(
+          valueType,
+          defaultValue,
+          "Default Value"
+        );
+        if (newDefaultValue !== defaultValue) {
+          form.setValue("defaultValue", newDefaultValue);
+          throw new Error(
+            "We fixed some errors in the default value. If it looks correct, submit again."
+          );
+        }
+
         if (rule) {
           feature.environmentSettings = cloneDeep(feature.environmentSettings);
-          validateFeatureRule(rule, valueType);
+          const newRule = validateFeatureRule(rule, valueType);
+          if (newRule) {
+            form.setValue("rule", newRule);
+            throw new Error(
+              "We fixed some errors in the feature. If it looks correct, submit again."
+            );
+          }
           Object.keys(feature.environmentSettings).forEach((env) => {
             feature.environmentSettings[env].rules.push(rule);
           });
