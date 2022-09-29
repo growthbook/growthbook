@@ -90,11 +90,13 @@ it("handle extra whitespace and spaces correctly", () => {
   const groupId = "grp_exl5jgrdl8bzy4x4";
   groupMap.set(groupId, ids);
 
-  // eslint-disable-next-line
-  const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
+  /* eslint-disable */
+  const rawCondition =
+    '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
+  /* eslint-enable */
 
   expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"id":{"$nin": ["123","345","678","910"]}}'
+    '{"id":{"$in": ["123","345","678","910"]}}'
   );
 });
 
@@ -104,11 +106,10 @@ it("handle extra newlines and spaces correctly", () => {
   groupMap.set(groupId, ids);
 
   /* eslint-disable */
-  const rawCondition = JSON.stringify({
-    id: {
-      $notInGroup: groupId,
-    },
-  });
+  const rawCondition = `{"id":{"$notInGroup"
+       :
+             "grp_exl5jgrdl8bzy4x4"
+    }}`;
   /* eslint-enable */
 
   expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
