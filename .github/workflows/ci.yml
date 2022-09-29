@@ -49,6 +49,9 @@ jobs:
         run: |
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
+          
+      - name: lint
+        run: |
           yarn lint
           yarn workspace stats lint
 
