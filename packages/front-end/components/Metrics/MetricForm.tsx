@@ -42,7 +42,7 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
-async function validateMetricSQL(
+function validateMetricSQL(
   sql: string,
   type: MetricType,
   userIdTypes: string[]
