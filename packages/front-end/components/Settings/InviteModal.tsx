@@ -10,6 +10,12 @@ import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "./UpgradeModal";
 
+type inviteResult = {
+  email: string;
+  inviteUrl: string;
+  emailSent: boolean | null;
+};
+
 const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
@@ -23,8 +29,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       role: "admin",
     },
   });
-  const [emailSent, setEmailSent] = useState<boolean | null>(null);
-  const [inviteUrl, setInviteUrl] = useState("");
+  const [successfulInvites, setSuccessfulInvites] = useState<inviteResult[]>(
+    []
+  );
+  const [failedInvites, setFailedInvites] = useState<inviteResult[]>([]);
   const { apiCall } = useAuth();
   const {
     freeSeats,
@@ -69,22 +77,33 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       });
 
       if (resp.emailSent) {
-        mutate();
-        close();
+        setSuccessfulInvites((successfulInvites) => [
+          ...successfulInvites,
+          {
+            email: email,
+            inviteUrl: resp.inviteUrl,
+            emailSent: resp.emailSent,
+          },
+        ]);
       } else {
-        setInviteUrl(resp.inviteUrl);
-        setEmailSent(resp.emailSent);
-        mutate();
+        setFailedInvites((failedInvites) => [
+          ...failedInvites,
+          {
+            email: email,
+            inviteUrl: resp.inviteUrl,
+            emailSent: resp.emailSent,
+          },
+        ]);
       }
 
       track("Team Member Invited", {
-        emailSent,
+        emailSent: resp.emailSent,
         role: value.role,
       });
     }
-  });
 
-  const email = form.watch("email");
+    mutate();
+  });
 
   return (
     <Modal
@@ -92,35 +111,86 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      closeCta={
+        successfulInvites.length > 0 || failedInvites.length > 0
+          ? "Close"
+          : "Cancel"
+      }
       autoCloseOnSubmit={false}
-      submit={emailSent === null ? onSubmit : null}
+      submit={
+        successfulInvites.length > 0 || failedInvites.length > 0
+          ? null
+          : onSubmit
+      }
     >
-      {emailSent === false && (
+      {successfulInvites.length > 0 || failedInvites.length > 0 ? (
         <>
-          <div className="alert alert-danger">
-            {email.split(",").length > 1 ? (
-              "Failed to send the invite emails. To manually send the invite link, click the '3 dots' next to each invitee."
-            ) : (
-              <span>
-                Failed to send invite email to <strong>{email}</strong>
-              </span>
-            )}
-          </div>
-          {email.split(",").length === 1 && (
+          {successfulInvites.length === 1 && (
+            <div className="alert alert-success" role="alert">
+              {`Successfully invited ${successfulInvites[0].email}!`}
+            </div>
+          )}
+          {successfulInvites.length > 1 && (
+            <div className="alert alert-success" role="alert">
+              <strong>Successfully invited the following members:</strong>
+              <div className="pt-2">
+                <ul>
+                  {successfulInvites.map((successfulInvite) => {
+                    return (
+                      <li key={successfulInvite.inviteUrl}>
+                        {successfulInvite.email}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
+          {failedInvites.length === 1 && (
             <>
+              <div className="alert alert-danger">
+                Failed to send invite email to{" "}
+                <strong>{failedInvites[0].email}</strong>
+              </div>
               <p>You can manually send them the following invite link:</p>
               <div className="mb-3">
-                <code>{inviteUrl}</code>
+                <code>{failedInvites[0].inviteUrl}</code>
+              </div>
+            </>
+          )}
+          {failedInvites.length > 1 && (
+            <>
+              <div className="alert alert-danger" role="alert">
+                <strong>
+                  Whoops! We weren&apos;t able to email the following members:
+                </strong>
+                <div className="pt-2">
+                  <ul>
+                    {failedInvites.map((failedInvite) => {
+                      return (
+                        <li key={failedInvite.inviteUrl}>
+                          {failedInvite.email}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+              <div className="pl-2 pr-2">
+                To manually send a member their invite link, close this modal
+                and click the 3 dots next to each member and select &apos;Resend
+                Invite&apos;.
               </div>
             </>
           )}
         </>
-      )}
-      {emailSent === null && (
+      ) : (
         <>
           <Field
             label="Email Address"
             required
+            type="email"
+            multiple={true}
             helpText="Enter a comma separated list of emails to invite multiple members at once."
             {...form.register("email")}
           />
