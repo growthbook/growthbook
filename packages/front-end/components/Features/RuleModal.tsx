@@ -71,7 +71,13 @@ export default function RuleModal({
         const rule = values as FeatureRule;
 
         try {
-          validateFeatureRule(rule, feature.valueType);
+          const newRule = validateFeatureRule(rule, feature.valueType);
+          if (newRule) {
+            form.reset(newRule);
+            throw new Error(
+              "We fixed some errors in the rule. If it looks correct, submit again."
+            );
+          }
 
           track("Save Feature Rule", {
             source: ruleAction,
