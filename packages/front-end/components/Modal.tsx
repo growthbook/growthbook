@@ -1,8 +1,14 @@
-import { FC, useRef, useEffect, useState, ReactElement } from "react";
+import {
+  FC,
+  useRef,
+  useEffect,
+  useState,
+  ReactElement,
+  ReactNode,
+} from "react";
 import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
-import { ReactNode } from "react";
 import Tooltip from "./Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 

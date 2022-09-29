@@ -131,13 +131,14 @@ const NewDataSourceForm: FC<{
             },
           }),
         });
-        setDataSourceId(res.id);
         track("Submit Datasource Form", {
           source,
           type: datasource.type,
           schema,
           newDatasourceForm: true,
         });
+        setDataSourceId(res.id);
+        return res.id;
       }
     } catch (e) {
       track("Data Source Form Error", {
@@ -219,17 +220,21 @@ const NewDataSourceForm: FC<{
 
   const hasStep2 = !!selectedSchema?.options;
   const isFinalStep = step === 2 || (!hasStep2 && step === 1);
+  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
 
   const submit =
     step === 0
       ? null
       : async () => {
+          let newDataId = dataSourceId;
           if (step === 1) {
-            await saveDataConnection();
+            newDataId = await saveDataConnection();
+          }
+          if (updateSettingsRequired) {
+            await updateSettings();
           }
           if (isFinalStep) {
-            await updateSettings();
-            await onSuccess(dataSourceId);
+            await onSuccess(newDataId);
             onCancel && onCancel();
           } else {
             setStep(step + 1);

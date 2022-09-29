@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC, HTMLAttributes, useState } from "react";
+import { ReactNode, FC, HTMLAttributes, useState } from "react";
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 
@@ -47,6 +46,7 @@ const Tooltip: FC<Props> = ({
         ref={setTrigger}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
+        onPointerLeave={() => setOpen(false)}
         className={`${className}`}
         {...otherProps}
       >

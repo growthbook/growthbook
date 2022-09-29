@@ -6,11 +6,11 @@ import {
   Children,
   isValidElement,
   cloneElement,
+  ReactNode,
 } from "react";
 import useGlobalMenu from "../../services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";
 import styles from "./Dropdown.module.scss";
-import { ReactNode } from "react";
 
 const Dropdown: FC<{
   uuid: string;

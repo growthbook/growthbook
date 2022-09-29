@@ -793,6 +793,11 @@ pre {
   }
 }
 
+// To make non-password fields look like password fields.
+.password-presentation {
+  -webkit-text-security: disc;
+}
+
 .experiment-compact {
   border-spacing: 0;
   border: 1px solid #ddd;

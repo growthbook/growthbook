@@ -2,9 +2,8 @@ import React, { FC, useState, ReactElement } from "react";
 import ConfirmModal from "../ConfirmModal";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
-import { Invite } from "back-end/types/organization";
+import { Invite, MemberRole } from "back-end/types/organization";
 import { datetime } from "../../services/dates";
-import { MemberRole } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ChangeRoleModal, { ChangeRoleInfo } from "./ChangeRoleModal";
 
