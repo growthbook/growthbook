@@ -43,13 +43,14 @@ export function validateFeatureValue(
   value: string,
   label: string
 ): string {
+  const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
       return value ? "true" : "false";
     }
   } else if (type === "number") {
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
-      throw new Error(label + ": Must be a valid number");
+      throw new Error(prefix + "Must be a valid number");
     }
   } else if (type === "json") {
     try {
@@ -59,7 +60,7 @@ export function validateFeatureValue(
       try {
         return stringify(dJSON.parse(value));
       } catch (e) {
-        throw new Error(label + ": " + e.message);
+        throw new Error(prefix + e.message);
       }
     }
   }
