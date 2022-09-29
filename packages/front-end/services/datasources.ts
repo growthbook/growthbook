@@ -583,7 +583,7 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
   }
 
   const missingCols = requiredColumns.filter(
-    (col) => sql.toLowerCase().indexOf(col) < 0
+    (col) => !sql.toLowerCase().includes(col.toLowerCase())
   );
 
   if (missingCols.length > 0) {
