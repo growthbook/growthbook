@@ -19,6 +19,7 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
+import dJSON from "dirty-json";
 
 export interface Condition {
   field: string;
@@ -32,6 +33,30 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function validateFeatureValue(
+  type: FeatureValueType,
+  value: string
+): string {
+  if (type === "boolean") {
+    if (!["true", "false"].includes(value)) {
+      return value ? "true" : "false";
+    }
+  } else if (type === "number") {
+    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
+      throw new Error("Feature value must be a valid number");
+    }
+  } else if (type === "json") {
+    try {
+      JSON.parse(value);
+    } catch (e) {
+      // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      return stringify(dJSON.parse(value));
+    }
+  }
+
+  return value;
 }
 
 export function useEnvironmentState() {
