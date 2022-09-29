@@ -127,7 +127,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         <>
           {successfulInvites.length === 1 && (
             <div className="alert alert-success" role="alert">
-              {`Successfully invited ${successfulInvites[0].email}!`}
+              Successfully invited <strong>{successfulInvites[0].email}</strong>
+              !
             </div>
           )}
           {successfulInvites.length > 1 && (
