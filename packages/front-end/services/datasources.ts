@@ -574,3 +574,23 @@ export function getInitialMetricQuery(
     schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
 }
+
+export function validateSQL(sql: string, requiredColumns: string[]): void {
+  if (!sql) throw new Error("SQL cannot be empty");
+
+  if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
+    throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
+  }
+
+  const missingCols = requiredColumns.filter(
+    (col) => sql.toLowerCase().indexOf(col) < 0
+  );
+
+  if (missingCols.length > 0) {
+    throw new Error(
+      `Missing the following required columns: ${missingCols
+        .map((col) => '"' + col + '"')
+        .join(", ")}`
+    );
+  }
+}

@@ -20,7 +20,7 @@ import {
 import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import { getInitialMetricQuery } from "../../services/datasources";
+import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useMemo } from "react";
@@ -42,33 +42,17 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
-function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
-  if (!sql.length) {
-    throw new Error("SQL cannot be empty");
-  }
-
-  // require a SELECT statement
-  if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
-    throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
-  }
-
+async function validateMetricSQL(
+  sql: string,
+  type: MetricType,
+  userIdTypes: string[]
+) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
   }
-
-  const missingCols = requiredCols.filter(
-    (col) => sql.toLowerCase().indexOf(col) < 0
-  );
-
-  if (missingCols.length > 0) {
-    throw new Error(
-      `Missing the following required columns: ${missingCols
-        .map((col) => '"' + col + '"')
-        .join(", ")}`
-    );
-  }
+  validateSQL(sql, requiredCols);
 }
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
@@ -89,7 +73,7 @@ function validateQuerySettings(
     return;
   }
   if (sqlInput) {
-    validateSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(value.sql, value.type, value.userIdTypes);
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
