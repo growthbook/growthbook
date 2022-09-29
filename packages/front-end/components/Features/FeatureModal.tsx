@@ -20,6 +20,7 @@ import {
   getDefaultVariationValue,
   useAttributeSchema,
   validateFeatureRule,
+  validateFeatureValue,
   useEnvironments,
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
@@ -119,12 +120,33 @@ export default function FeatureModal({
         const { rule, defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;
 
+        const newDefaultValue = validateFeatureValue(
+          valueType,
+          defaultValue,
+          rule ? "Fallback Value" : "Value"
+        );
+        let hasChanges = false;
+        if (newDefaultValue !== defaultValue) {
+          form.setValue("defaultValue", newDefaultValue);
+          hasChanges = true;
+        }
+
         if (rule) {
           feature.environmentSettings = cloneDeep(feature.environmentSettings);
-          validateFeatureRule(rule, valueType);
+          const newRule = validateFeatureRule(rule, valueType);
+          if (newRule) {
+            form.setValue("rule", newRule);
+            hasChanges = true;
+          }
           Object.keys(feature.environmentSettings).forEach((env) => {
             feature.environmentSettings[env].rules.push(rule);
           });
+        }
+
+        if (hasChanges) {
+          throw new Error(
+            "We fixed some errors in the feature. If it looks correct, submit again."
+          );
         }
 
         const body = {
@@ -348,30 +370,7 @@ export default function FeatureModal({
             }}
           />
           <FeatureValueField
-            label={"Value when included"}
-            id="ruleValue"
-            value={form.watch("rule.value")}
-            setValue={(v) => form.setValue("rule.value", v)}
-            valueType={valueType}
-          />
-          <FeatureValueField
-            label={"Fallback value"}
-            id="defaultValue"
-            value={form.watch("defaultValue")}
-            setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={valueType}
-          />
-        </>
-      ) : rule?.type === "force" ? (
-        <>
-          <ConditionInput
-            defaultValue={rule?.condition}
-            onChange={(cond) => {
-              form.setValue("rule.condition", cond);
-            }}
-          />
-          <FeatureValueField
-            label={"Value When Targeted"}
+            label={"Value to Rollout"}
             id="ruleValue"
             value={form.watch("rule.value")}
             setValue={(v) => form.setValue("rule.value", v)}
@@ -383,6 +382,40 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
+            helpText={"For users not included in the rollout"}
+          />
+        </>
+      ) : rule?.type === "force" ? (
+        <>
+          <ConditionInput
+            defaultValue={rule?.condition}
+            onChange={(cond) => {
+              form.setValue("rule.condition", cond);
+            }}
+          />
+          <FeatureValueField
+            label={"Value to Force"}
+            id="ruleValue"
+            value={form.watch("rule.value")}
+            setValue={(v) => form.setValue("rule.value", v)}
+            valueType={valueType}
+            helpText={
+              <>
+                When targeting conditions are <code>true</code>
+              </>
+            }
+          />
+          <FeatureValueField
+            label={"Fallback Value"}
+            id="defaultValue"
+            value={form.watch("defaultValue")}
+            setValue={(v) => form.setValue("defaultValue", v)}
+            valueType={valueType}
+            helpText={
+              <>
+                When targeting conditions are <code>false</code>
+              </>
+            }
           />
         </>
       ) : (
