@@ -42,23 +42,32 @@ export default function CodeTextArea({
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 
+  const semicolonWarning =
+    "Warning: Please remove any terminating semicolons. GrowthBook uses Common Table Expressions that will break from terminating semicolons.";
+
+  if (language === "sql" && value.includes(";")) {
+    otherProps.error = semicolonWarning;
+  }
+
   return (
     <Field
       {...fieldProps}
       render={(id) => {
         return (
-          <div className="border rounded">
-            <AceEditor
-              name={id}
-              mode={language}
-              theme="textmate"
-              width="inherit"
-              height={`${height}px`}
-              value={value}
-              onChange={(newValue) => setValue(newValue)}
-              placeholder={placeholder}
-            />
-          </div>
+          <>
+            <div className="border rounded">
+              <AceEditor
+                name={id}
+                mode={language}
+                theme="textmate"
+                width="inherit"
+                height={`${height}px`}
+                value={value}
+                onChange={(newValue) => setValue(newValue)}
+                placeholder={placeholder}
+              />
+            </div>
+          </>
         );
       }}
     />
