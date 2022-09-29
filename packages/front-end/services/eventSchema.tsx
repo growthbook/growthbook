@@ -508,6 +508,20 @@ export const dataSourceConnections: {
     },
   },
   {
+    type: "mssql",
+    display: "MS SQL or SQL Server",
+    default: {
+      server: "",
+      port: 1433,
+      database: "",
+      user: "",
+      password: "",
+      options: {
+        trustServerCertificate: true,
+      },
+    },
+  },
+  {
     type: "bigquery",
     display: "BigQuery",
     default: {
