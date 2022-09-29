@@ -13,8 +13,7 @@ import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getRules } from "../../services/features";
-import { useEnvironments } from "../../services/features";
+import { getRules, useEnvironments } from "../../services/features";
 
 interface SortableProps {
   i: number;

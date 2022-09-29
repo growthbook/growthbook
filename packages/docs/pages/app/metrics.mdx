@@ -107,7 +107,7 @@ For example, if you want to look at the Average Order Value (AOV), what you're r
 
 We query Mixpanel data sources using their proprietary JQL language based on Javascript. This allows for extreme flexibility when defining metrics.
 
-All metrics at minimum need to specify an **Event Name** which must exactly match what is used in Mixpanel.
+All metrics at minimum need to specify an **Event Name** which must exactly match what is used in Mixpanel. You can use `OR` to match against multiple events. For example `viewed_cart OR purchased`
 
 You can optionally add **Conditions** which filters the events further based on properties. For example, if Event Name is `Page view`, you can add a condition `path = "/blog"`.
 
@@ -142,7 +142,7 @@ If the aggregation is left blank, we do a sum by default (last example above).
 
 The query builder prompts you for things such as table/column names and constructs a SQL query behind the scenes.
 
-We only recommend this for extremely simple metrics. Inputting raw SQL is more more flexible.
+We only recommend this for extremely simple metrics. Inputting raw SQL is far more flexible.
 
 ## Behavior
 

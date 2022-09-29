@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC, useState, ReactElement } from "react";
+import { ReactNode, FC, useState, ReactElement } from "react";
 import ControlledTabs from "./ControlledTabs";
 
 const Tabs: FC<{
