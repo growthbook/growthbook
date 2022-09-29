@@ -229,7 +229,7 @@ export function validateFeatureRule(
     const newValue = validateFeatureValue(
       valueType,
       rule.value,
-      "Forced value"
+      "Value to Force"
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -249,7 +249,7 @@ export function validateFeatureRule(
       const newValue = validateFeatureValue(
         valueType,
         val.value,
-        "Value #" + (i + 1)
+        "Variation #" + i
       );
       if (newValue !== val.value) {
         hasChanges = true;
@@ -268,7 +268,7 @@ export function validateFeatureRule(
     const newValue = validateFeatureValue(
       valueType,
       rule.value,
-      "Rollout Value"
+      "Value to Rollout"
     );
     if (newValue !== rule.value) {
       hasChanges = true;
