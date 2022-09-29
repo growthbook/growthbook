@@ -49,6 +49,8 @@ function needsValue(operator: string) {
 function getValue(operator: string, value: string): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
+  if (operator === "$regex" || operator === "$notRegex")
+    return value.replace(/\\{2}/g, "\\");
   return value;
 }
 

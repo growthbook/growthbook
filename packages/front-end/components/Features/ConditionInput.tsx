@@ -107,6 +107,9 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
+            if (operator === "$regex" || operator === "$notRegex") {
+              value = value.replace(/\\{2}/g, "\\");
+            }
             const onChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
