@@ -24,6 +24,7 @@ import Field from "../Forms/Field";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip";
+import { isCloud } from "../../services/env";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -214,11 +215,16 @@ const ImportExperimentList: FC<{
               <>
                 from <strong>{date(data.experiments.config.start)}</strong> to{" "}
                 <strong>{date(data.experiments.config.end)}</strong>{" "}
-                <Tooltip
-                  body={
-                    "You can change the lookback window in General Settings."
-                  }
-                />
+                {!isCloud() && (
+                  <Tooltip
+                    body={
+                      <>
+                        You can change the lookback window with the{" "}
+                        <code>IMPORT_LIMIT_DAYS</code> environment variable.
+                      </>
+                    }
+                  />
+                )}
               </>
             )}
             .
