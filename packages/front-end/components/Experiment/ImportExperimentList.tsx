@@ -255,7 +255,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
-                label="Min Length"
+                label="Min Duration"
                 labelClassName="small mb-0"
                 type="number"
                 min={0}
