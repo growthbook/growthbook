@@ -51,7 +51,7 @@ export async function putSavedGroup(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, groupList, attributeKey } = req.body;
+  const { groupName, owner, groupList } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -66,7 +66,6 @@ export async function putSavedGroup(
     values,
     groupName,
     owner,
-    attributeKey,
   });
 
   return res.status(200).json({

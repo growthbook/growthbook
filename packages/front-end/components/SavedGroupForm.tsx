@@ -66,12 +66,14 @@ const SavedGroupForm: FC<{
         label="Attribute Key"
         required
         value={form.watch("attributeKey")}
+        disabled={!!current.attributeKey}
         onChange={(v) => form.setValue("attributeKey", v)}
         placeholder="Choose one..."
         options={attributeSchema.map((a) => ({
           value: a.property,
           label: a.property,
         }))}
+        helpText={current.attributeKey && "This field can not be edited."}
       />
       <Field
         label="Create list of comma separated values"
