@@ -34,12 +34,15 @@ const SavedGroupForm: FC<{
     <Modal
       close={close}
       open={true}
-      header={current.groupName ? "Edit Group" : "New Group"}
+      header={current.id ? "Edit Group" : "New Group"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall("/saved-groups", {
-          method: current.groupName ? "PUT" : "POST",
-          body: JSON.stringify(value),
-        });
+        await apiCall(
+          current.id ? `/saved-groups/${current.id}` : `/saved-groups`,
+          {
+            method: current.id ? "PUT" : "POST",
+            body: JSON.stringify(value),
+          }
+        );
         mutateDefinitions({});
       })}
     >
@@ -76,7 +79,7 @@ const SavedGroupForm: FC<{
         textarea
         {...form.register("groupList")}
       />
-      {current.groupName && (
+      {current.id && (
         <div className="alert alert-warning">
           <b>Warning:</b> Updating this group will automatically update any
           feature that has an override rule that uses this group.

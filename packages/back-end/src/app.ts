@@ -413,7 +413,7 @@ app.delete("/tag/:id", tagsController.deleteTag);
 
 // groups
 app.post("/saved-groups", savedGroupsController.postSavedGroup);
-app.put("/saved-groups", savedGroupsController.putSavedGroup);
+app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

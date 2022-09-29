@@ -43,7 +43,6 @@ export async function postSavedGroup(
 
 export async function putSavedGroup(
   req: AuthRequest<{
-    id: string;
     groupName: string;
     owner: string;
     attributeKey: string;
@@ -52,7 +51,8 @@ export async function putSavedGroup(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { id, groupName, owner, groupList, attributeKey } = req.body;
+  const { groupName, owner, groupList, attributeKey } = req.body;
+  const { id } = req.params;
 
   if (!id) {
     throw new Error("Must specify saved group id");
