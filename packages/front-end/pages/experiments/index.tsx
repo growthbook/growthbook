@@ -21,7 +21,7 @@ import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperim
 import SortedTags from "../../components/Tags/SortedTags";
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project, getMetricById } = useDefinitions();
+  const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
@@ -67,6 +67,7 @@ const ExperimentsPage = (): React.ReactElement => {
     ],
     transforms
   );
+  const experimentsHaveProjects = experiments.some((e) => e.project);
 
   if (error) {
     return (
@@ -190,6 +191,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       <tr>
                         <th></th>
                         <th style={{ width: "99%" }}>Experiment</th>
+                        {experimentsHaveProjects && <th>Project</th>}
                         <th>Tags</th>
                         <th>Owner</th>
                         <th>Phase</th>
@@ -257,6 +259,11 @@ const ExperimentsPage = (): React.ReactElement => {
                                   )}
                                 </div>
                               </td>
+                              {experimentsHaveProjects && (
+                                <td className="nowrap" data-title="Project:">
+                                  {getProjectById(e.project)?.name || ""}
+                                </td>
+                              )}
                               <td className="nowrap" data-title="Tags:">
                                 <SortedTags tags={Object.values(e.tags)} />
                               </td>
@@ -329,6 +336,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 (show all drafts)
                               </a>
                             </th>
+                            {experimentsHaveProjects && <th>Project</th>}
                             <th>Tags</th>
                             <th>Created</th>
                           </tr>
@@ -371,6 +379,14 @@ const ExperimentsPage = (): React.ReactElement => {
                                       )}
                                     </div>
                                   </td>
+                                  {experimentsHaveProjects && (
+                                    <td
+                                      className="nowrap"
+                                      data-title="Project:"
+                                    >
+                                      {getProjectById(e.project)?.name || ""}
+                                    </td>
+                                  )}
                                   <td className="nowrap" data-title="Tags:">
                                     <SortedTags tags={Object.values(e.tags)} />
                                   </td>
@@ -413,6 +429,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                   </span>
                                 )}
                             </th>
+                            {experimentsHaveProjects && <th>Project</th>}
                             <th>Tags</th>
                             <th>Owner</th>
                             <th>Created</th>
@@ -475,6 +492,14 @@ const ExperimentsPage = (): React.ReactElement => {
                                       )}
                                     </div>
                                   </td>
+                                  {experimentsHaveProjects && (
+                                    <td
+                                      className="nowrap"
+                                      data-title="Project:"
+                                    >
+                                      {getProjectById(e.project)?.name || ""}
+                                    </td>
+                                  )}
                                   <td className="nowrap" data-title="Tags:">
                                     <SortedTags tags={Object.values(e.tags)} />
                                   </td>
@@ -530,6 +555,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       <tr>
                         <th></th>
                         <th style={{ width: "99%" }}>Experiment</th>
+                        {experimentsHaveProjects && <th>Project</th>}
                         <th>Tags</th>
                         <th>Owner</th>
                         <th>Ended</th>
@@ -603,6 +629,11 @@ const ExperimentsPage = (): React.ReactElement => {
                                   )}
                                 </div>
                               </td>
+                              {experimentsHaveProjects && (
+                                <td className="nowrap" data-title="Project:">
+                                  {getProjectById(e.project)?.name || ""}
+                                </td>
+                              )}
                               <td className="nowrap" data-title="Tags:">
                                 <SortedTags tags={Object.values(e.tags)} />
                               </td>
@@ -657,6 +688,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     <thead>
                       <tr>
                         <th style={{ width: "99%" }}>Experiment</th>
+                        {experimentsHaveProjects && <th>Project</th>}
                         <th>Tags</th>
                         <th>Owner</th>
                         <th>State</th>
@@ -706,6 +738,11 @@ const ExperimentsPage = (): React.ReactElement => {
                                   )}
                                 </div>
                               </td>
+                              {experimentsHaveProjects && (
+                                <td className="nowrap">
+                                  {getProjectById(e.project)?.name || ""}
+                                </td>
+                              )}
                               <td className="nowrap">
                                 <SortedTags tags={Object.values(e.tags)} />
                               </td>
