@@ -38,14 +38,6 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
     });
   });
 
-  const dataSourceEvents = dataSource.settings.events;
-  if (!dataSourceEvents) {
-    console.error(
-      "ImplementationError: dataSource.settings.events cannot be null"
-    );
-    return null;
-  }
-
   const saveEnabled = !!(
     form.watch("experimentEvent") &&
     form.watch("experimentIdProperty") &&
@@ -66,26 +58,24 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
       <div className="my-2">
         <div className="row">
           <div className="col">
-            {dataSourceEvents && (
-              <div className="">
-                <h4 className="font-weight-bold">Experiments</h4>
-                <Field
-                  label="View Experiment Event"
-                  placeholder="$experiment_started"
-                  {...form.register("experimentEvent")}
-                />
-                <Field
-                  label="Experiment Id Property"
-                  placeholder="Experiment name"
-                  {...form.register("experimentIdProperty")}
-                />
-                <Field
-                  label="Variation Id Property"
-                  placeholder="Variant name"
-                  {...form.register("variationIdProperty")}
-                />
-              </div>
-            )}
+            <div className="">
+              <h4 className="font-weight-bold">Experiments</h4>
+              <Field
+                label="View Experiment Event"
+                placeholder="$experiment_started"
+                {...form.register("experimentEvent")}
+              />
+              <Field
+                label="Experiment Id Property"
+                placeholder="Experiment name"
+                {...form.register("experimentIdProperty")}
+              />
+              <Field
+                label="Variation Id Property"
+                placeholder="Variant name"
+                {...form.register("variationIdProperty")}
+              />
+            </div>
           </div>
         </div>
       </div>

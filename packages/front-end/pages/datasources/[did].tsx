@@ -101,7 +101,7 @@ const DataSourcePage: FC = () => {
 
       <div className="row">
         <div className="col-md-12">
-          <div className="row mb-3">
+          <div className="mb-3">
             {canEdit && permissions.createDatasources && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
@@ -148,7 +148,7 @@ const DataSourcePage: FC = () => {
               This data source does not require any additional configuration.
             </div>
           )}
-          {supportsEvents && d?.settings?.events && (
+          {supportsEvents && (
             <>
               <div className="my-5">
                 <DataSourceViewEditExperimentProperties
@@ -172,12 +172,14 @@ const DataSourcePage: FC = () => {
 const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
-    mixpanel.track(${JSON.stringify(d.settings.events.experimentEvent)}, {
+    mixpanel.track(${JSON.stringify(
+      d.settings?.events?.experimentEvent || "$experiment_started"
+    )}, {
       ${quotePropertyName(
-        d.settings.events.experimentIdProperty
+        d.settings?.events?.experimentIdProperty || "Experiment name"
       )}: experiment.key,
       ${quotePropertyName(
-        d.settings.events.variationIdProperty
+        d.settings?.events?.variationIdProperty || "Variant name"
       )}:  result.variationId,
       $source: 'growthbook'
     })

@@ -26,22 +26,17 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
     onCancel();
   }, [onCancel]);
 
-  const handleSave = useCallback(async (eventProperties: DataSourceEvents) => {
-    const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-    copy.settings.events = eventProperties;
-    await onSave(copy);
-  }, []);
+  const handleSave = useCallback(
+    async (eventProperties: DataSourceEvents) => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      copy.settings.events = eventProperties;
+      await onSave(copy);
+    },
+    [dataSource, onSave]
+  );
 
   if (!dataSource) {
     console.error("ImplementationError: dataSource cannot be null");
-    return null;
-  }
-
-  const dataSourceEvents = dataSource.properties.events;
-  if (!dataSourceEvents) {
-    console.error(
-      "ImplementationError: dataSource.properties.events cannot be null"
-    );
     return null;
   }
 
@@ -65,14 +60,14 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
           <tr>
             <th>Experiment Event</th>
             <td>
-              <code>{dataSource.settings.events.experimentEvent || ""}</code>
+              <code>{dataSource.settings?.events?.experimentEvent || ""}</code>
             </td>
           </tr>
           <tr>
             <th>Experiment Id Property</th>
             <td>
               <code>
-                {dataSource.settings.events.experimentIdProperty || ""}
+                {dataSource.settings?.events?.experimentIdProperty || ""}
               </code>
             </td>
           </tr>
@@ -80,7 +75,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
             <th>Variation Id Property</th>
             <td>
               <code>
-                {dataSource.settings.events.variationIdProperty || ""}
+                {dataSource.settings?.events?.variationIdProperty || ""}
               </code>
             </td>
           </tr>
