@@ -32,6 +32,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
 import WatchButton from "../../components/WatchButton";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const NUM_PER_PAGE = 20;
 
@@ -45,6 +46,11 @@ export default function FeaturesPage() {
   const end = start + NUM_PER_PAGE;
 
   const { features, loading, error, mutate } = useFeaturesList();
+
+  const { project, getProjectById } = useDefinitions();
+
+  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  const showProjectColumn = !project && features.some((f) => f.project);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
   const { usage, usageDomain } = useRealtimeData(
@@ -205,6 +211,7 @@ export default function FeaturesPage() {
               <tr>
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
+                {showProjectColumn && <th>Project</th>}
                 <th>Tags</th>
                 {toggleEnvs.map((en) => (
                   <th key={en.id}>{en.id}</th>
@@ -264,6 +271,9 @@ export default function FeaturesPage() {
                           </a>
                         </Link>
                       </td>
+                      {showProjectColumn && (
+                        <td>{getProjectById(feature.project)?.name || ""}</td>
+                      )}
                       <td>
                         <SortedTags tags={feature?.tags || []} />
                       </td>
