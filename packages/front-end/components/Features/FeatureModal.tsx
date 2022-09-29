@@ -20,6 +20,7 @@ import {
   getDefaultVariationValue,
   useAttributeSchema,
   validateFeatureRule,
+  useEnvironments,
 } from "../../services/features";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
@@ -27,7 +28,6 @@ import NamespaceSelector from "./NamespaceSelector";
 import TagsInput from "../Tags/TagsInput";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { useEnvironments } from "../../services/features";
 import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
 
@@ -119,20 +119,12 @@ export default function FeatureModal({
         const { rule, defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;
 
-        // Validate rule and add to all enabled environments (or just dev if none are enabled)
         if (rule) {
           feature.environmentSettings = cloneDeep(feature.environmentSettings);
           validateFeatureRule(rule, valueType);
-          let envEnabled = false;
           Object.keys(feature.environmentSettings).forEach((env) => {
-            if (feature.environmentSettings[env].enabled) {
-              envEnabled = true;
-              feature.environmentSettings[env].rules.push(rule);
-            }
+            feature.environmentSettings[env].rules.push(rule);
           });
-          if (!envEnabled) {
-            feature.environmentSettings.dev.rules.push(rule);
-          }
         }
 
         const body = {

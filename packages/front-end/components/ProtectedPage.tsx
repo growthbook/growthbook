@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext } from "react";
+import { useEffect, useState, createContext, ReactNode } from "react";
 import {
   useAuth,
   UserOrganizations,
@@ -20,7 +20,6 @@ import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
-import { ReactNode } from "react";
 
 type User = { id: string; email: string; name: string };
 

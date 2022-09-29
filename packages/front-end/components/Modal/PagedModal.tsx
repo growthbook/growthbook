@@ -1,6 +1,12 @@
 import clsx from "clsx";
-import { ReactElement, useState } from "react";
-import { Children, FC, isValidElement, ReactNode } from "react";
+import {
+  ReactElement,
+  useState,
+  Children,
+  FC,
+  isValidElement,
+  ReactNode,
+} from "react";
 import Modal from "../Modal";
 import { MdCheck } from "react-icons/md";
 import { DocSection } from "../DocLink";

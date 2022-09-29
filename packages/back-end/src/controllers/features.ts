@@ -2,7 +2,6 @@ import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
 import {
   FeatureDraftChanges,
-  FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
 } from "../../types/feature";
@@ -97,8 +96,8 @@ export async function postFeatures(
 ) {
   req.checkPermissions("createFeatures");
 
-  const { id, ...otherProps } = req.body;
-  const { org, environments, userId, email, userName } = getOrgFromReq(req);
+  const { id, environmentSettings, ...otherProps } = req.body;
+  const { org, userId, email, userName } = getOrgFromReq(req);
 
   if (!id) {
     throw new Error("Must specify feature key");
@@ -109,14 +108,6 @@ export async function postFeatures(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
-
-  const environmentSettings: Record<string, FeatureEnvironment> = {};
-  environments.forEach((env) => {
-    environmentSettings[env.id] = {
-      enabled: true,
-      rules: [],
-    };
-  });
 
   const feature: FeatureInterface = {
     defaultValue: "",
