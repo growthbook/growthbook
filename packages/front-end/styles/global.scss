@@ -1,4 +1,4 @@
-@use "colors"; // TODO: Remove import
+@use "colors";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -100,7 +100,6 @@ pre {
 }
 
 .btn-outline-primary {
-  //button-outline-variant(colors.$color, colors.$color-hover: color-yiq(colors.$color), colors.$active-background: colors.$color, colors.$active-border: colors.$color
   @include button-outline-variant(
     colors.$highlight-purple,
     #fff,
@@ -1184,9 +1183,6 @@ li.metrics a span img {
 
 .experiments {
   .experiment-table {
-    //border: 1px solid colors.$app-border;
-    //color: colors.$gray-600;
-
     h1,
     h2,
     h3,
