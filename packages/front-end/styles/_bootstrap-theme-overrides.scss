@@ -315,4 +315,57 @@ a.text-dark:focus {
   }
 }
 
+// region d2h differ
+
+// d2h loads CSS at the end of the document so we need to do all these !important
+
+.d2h-file-diff .d2h-del.d2h-change {
+  background-color: var(--diff-removed-background) !important;
+}
+
+.d2h-code-line del, .d2h-code-side-line del {
+  background-color: var(--diff-removed-background-highlight) !important;
+}
+
+.d2h-file-diff .d2h-ins.d2h-change {
+  background-color: var(--diff-added-background) !important;
+}
+
+.d2h-code-line ins, .d2h-code-side-line ins {
+  background-color: var(--diff-added-background-highlight) !important;
+}
+
+.d2h-ins {
+  background-color: var(--diff-added-background) !important;
+}
+
+.d2h-del {
+  background-color: var(--diff-removed-background) !important;
+}
+
+.d2h-code-linenumber {
+  background-color: var(--surface-background-color-alt) !important;
+  color: var(--text-color-muted) !important;
+}
+
+.d2h-file-header {
+  background-color: var(--surface-background-color) !important;
+  border-bottom: 1px solid var(--border-color-300) !important;
+}
+
+.d2h-file-wrapper {
+  border: 1px solid var(--border-color-300) !important;
+}
+
+.d2h-info {
+  color: var(--text-color-main) !important;
+  background-color: var(--surface-background-color-alt) !important;
+}
+
+.d2h-tag {
+  background-color: var(--surface-background-color-alt) !important;
+}
+
+// endregion d2h differ
+
 // endregion Diff Viewer
