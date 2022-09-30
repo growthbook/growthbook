@@ -97,6 +97,11 @@ a.text-dark:focus {
 
 // region Surfaces
 
+.card {
+  background-color: var(--surface-background-color);
+  border-color: var(--border-color-200);
+}
+
 .bg-white {
   background-color: var(--surface-background-color) !important;
 }
