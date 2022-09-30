@@ -2,8 +2,10 @@
 
 @mixin light-theme {
   color-scheme: light;
+
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
+  --surface-background-color-alt: #{colors.$gray-100};
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
 
   --text-color-main: #{colors.$main-black};
@@ -12,15 +14,24 @@
   --text-dark: #343a40; // default Bootstrap .text-dark
   --text-link-color: #007bff; // default Bootstrap
   --text-link-hover-color: #0056b3; // default Bootstrap
+  --text-color-muted: #{colors.$gray-600};
 
-  --border-color: #e0e2eb;
-  --border-color-alt: #cacaca;
+  --form-input-group-background: #e9ecef;
+  --form-input-group-color: #{colors.$gray-700};
+  --form-multivalue-background-color: #f2ecfd;
+  --form-multivalue-text-color: #7c45ea;
+
+  --border-color-100: #e0e2eb;
+  --border-color-200: #dee2e6;
+  --border-color-300: #cacaca;
 }
 
 @mixin dark-theme {
   color-scheme: dark;
+
   --background-color: #{colors.$main-background-dark};
   --surface-background-color: #{colors.$surface-background-dark};
+  --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
 
   --text-color-main: #{colors.$white};
@@ -29,9 +40,16 @@
   --text-dark: #{colors.$gray6};
   --text-link-color: #{lighten(#007bff, 20%)};
   --text-link-hover-color: #{lighten(#007bff, 10%)};
+  --text-color-muted: #{colors.$gray-500};
 
-  --border-color: #616161;
-  --border-color-alt: #424242;
+  --form-input-group-background: #{colors.$gray-800};
+  --form-input-group-color: #{colors.$gray6};
+  --form-multivalue-background-color: #{colors.$highlight-purple-light};
+  --form-multivalue-text-color: #{colors.$black};
+
+  --border-color-100: #616161;
+  --border-color-200: #424242;
+  --border-color-300: #424242;
 }
 
 .theme--light {

@@ -16,6 +16,10 @@ a.text-dark:focus {
   color: var(--text-dark) !important;
 }
 
+.text-muted {
+  color: var(--text-color-muted) !important;
+}
+
 // endregion Typography
 
 // region Forms
@@ -27,10 +31,16 @@ a.text-dark:focus {
 }
 
 .form-control {
-  border-color: var(--border-color-alt);
+  border-color: var(--border-color-300);
 }
 
 .form-control:focus {
+}
+
+.input-group-text {
+  border-color: var(--border-color-300);
+  background-color: var(--form-input-group-background);
+  color: var(--form-input-group-color);
 }
 
 .gb-multi-select {
@@ -44,7 +54,15 @@ a.text-dark:focus {
 
   [class$="-control"] {
     background-color: var(--surface-background-color);
-    border-color: var(--border-color-alt);
+    border-color: var(--border-color-300);
+  }
+
+  [class$="-multiValue"] {
+    background-color: var(--form-multivalue-background-color);
+
+    > * {
+      color: var(--form-multivalue-text-color);
+    }
   }
 }
 
@@ -59,7 +77,7 @@ a.text-dark:focus {
 .table thead th,
 .table th,
 .table td {
-  border-color: var(--border-color);
+  border-color: var(--border-color-100);
 }
 
 .table-hover tbody tr:hover {
@@ -71,3 +89,35 @@ a.text-dark:focus {
 }
 
 // endregion Tables
+
+// region Surfaces
+
+.bg-white {
+  background-color: var(--surface-background-color) !important;
+}
+
+.bg-light {
+  background-color: var(--surface-background-color-alt) !important;
+}
+
+.border {
+  border-color: var(--border-color-200) !important;
+}
+
+.border-bottom {
+  border-bottom-color: var(--border-color-200) !important;
+}
+
+.border-top {
+  border-top-color: var(--border-color-200) !important;
+}
+
+.border-left {
+  border-left-color: var(--border-color-200) !important;
+}
+
+.border-right {
+  border-right-color: var(--border-color-200) !important;
+}
+
+// endregion Surfaces
