@@ -6,4 +6,8 @@ export interface PrestoConnectionParams {
   password: string;
   catalog: string;
   schema: string;
+  ssl?: boolean;
+  caCert?: string;
+  clientCert?: string;
+  clientKey?: string;
 }
