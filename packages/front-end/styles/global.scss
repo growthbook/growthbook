@@ -71,7 +71,7 @@ pre {
   font-weight: 500;
 }
 .uppercase-title {
-  color: colors.$gray1;
+  color: var(--text-color-th);
   text-transform: uppercase;
   font-size: 11px;
   font-weight: 600;
@@ -133,10 +133,10 @@ pre {
   z-index: 99999999;
 }
 .graybox {
-  background-color: colors.$gray6;
+  background-color: var(--surface-background-color-alt);
   padding: 15px 20px 20px;
   border-radius: 3px;
-  border: 1px solid colors.$gray5;
+  border: 1px solid var(--border-color-300);
   label {
     font-weight: 600;
   }
@@ -235,9 +235,9 @@ pre {
     }
 
     tr {
-      border: 1px solid colors.$gray4;
+      border: 1px solid var(--border-color-300);
       margin-bottom: 1em;
-      background-color: white;
+      background-color: var(--surface-background-color);
     }
 
     td {
@@ -245,7 +245,7 @@ pre {
       border: none;
       position: relative;
       min-height: 42px;
-      background-color: white;
+      background-color: var(--surface-background-color);
     }
     tr td:not(:last-child) {
       border-bottom: 1px solid colors.$gray4;
@@ -269,13 +269,13 @@ pre {
       padding-right: 10px;
       white-space: nowrap;
       content: attr(data-title);
-      color: colors.$gray1;
+      color: var(--text-color-muted);
     }
   }
 }
 
 .pagination-area {
-  border-top: 1px solid colors.$gray4;
+  border-top: 1px solid var(--border-color-300);
   padding: 10px;
 
   .pagination {
@@ -287,7 +287,7 @@ pre {
         border: 0;
         margin: 0 5px;
         font-weight: 600;
-        color: colors.$main-black;
+        color: var(--text-color-main);
       }
       .link-number {
         min-width: 30px;
@@ -300,10 +300,10 @@ pre {
         }
       }
       &.active .page-link {
-        color: #fff;
+        color: var(--text-color-on-bright);
       }
       &.disabled .page-link {
-        color: colors.$gray2;
+        color: var(--text-color-muted);
       }
     }
     //.active .page-link
@@ -362,7 +362,7 @@ pre {
   }
   .tab-content {
     border-radius: 3px;
-    border-color: colors.$gray4;
+    border-color: var(--border-color-300);
   }
 }
 .paged-modal-default {
@@ -372,7 +372,7 @@ pre {
   font-weight: 600;
   padding: 0;
   a {
-    color: colors.$main-black;
+    color: var(--text-color-main);
   }
   .step {
     white-space: nowrap;
@@ -647,7 +647,7 @@ pre {
     text-align: center;
   }
   .form-side {
-    background-color: #fff;
+    background-color: var(--surface-background-color);
     .formwrap {
       width: 100%;
       max-width: 500px;
@@ -714,7 +714,7 @@ pre {
     background-color: #fff;
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
-    border: 1px inset rgba(0, 0, 0, 0.1);
+    border: 1px inset var(--border-color-300);
   }
 }
 
@@ -754,7 +754,7 @@ pre {
     left: 2px;
     width: 21px;
     height: 21px;
-    background: #fff;
+    background: var(--surface-background-color);
     border-radius: 90px;
     transition: 0.3s;
   }
@@ -792,17 +792,17 @@ pre {
 
 .experiment-compact {
   border-spacing: 0;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color-100);
 
   td,
   th {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color-100);
   }
 
   thead {
     th {
-      background: #f4f4f4;
-      color: #555;
+      background: var(--surface-background-color-alt);
+      color: var(--text-color-muted);
       font-weight: 600;
 
       &.metric {
@@ -827,7 +827,7 @@ pre {
     }
   }
   .value {
-    border-left: 3px solid #ccc;
+    border-left: 3px solid var(--border-color-300);
   }
 
   thead tr:first-child th:first-child,
@@ -836,15 +836,15 @@ pre {
     left: 0;
     width: auto;
     z-index: 890;
-    border-right: 2px solid #ccc;
+    border-right: 2px solid var(--border-color-300);
   }
 
   tbody {
     tr {
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--border-color-300);
 
       &.all-dimension {
-        border-bottom: 5px solid #ccc;
+        border-bottom: 5px solid var(--border-color-300);
       }
     }
     td,
@@ -867,7 +867,7 @@ pre {
   &.aligned-graph {
     td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
       opacity: 1;
-      color: #999;
+      color: var(--text-color-muted);
     }
   }
   .aligned-graph-row {
@@ -905,7 +905,7 @@ pre {
   .change-container {
     display: flex;
     padding-bottom: 30px;
-    color: #666;
+    color: var(--text-color-muted);
     font-size: 0.9em;
     .left-label {
       flex: 1;
@@ -924,7 +924,7 @@ pre {
         top: 0;
         left: 50%;
         height: 100%;
-        border-left: 2px dotted #000;
+        border-left: 2px dotted var(--text-color-main);
       }
       .expected {
         position: absolute;
@@ -935,10 +935,10 @@ pre {
         margin-left: -50px;
       }
       .win {
-        background-color: #a6edd1;
+        background-color: var(--alert-success-background);
       }
       .lose {
-        background-color: #ff8075;
+        background-color: var(--alert-danger-background);
       }
     }
   }
@@ -1088,7 +1088,7 @@ li.metrics a span img {
 }
 
 .leftBar {
-  background-color: colors.$light-grey;
+  background-color: var(--surface-background-color-alt);
   width: 330px;
   padding: 20px;
   flex-direction: column;
@@ -1104,14 +1104,14 @@ li.metrics a span img {
   color: colors.$highlight-purple;
   text-decoration: none;
   &.notwatching {
-    color: colors.$gray-500;
+    color: var(--text-color-muted);
   }
   &:hover {
     color: lighten(colors.$highlight-purple, 5%);
   }
   &.watch-icon {
     &.notwatching {
-      color: colors.$gray-400;
+      color: var(--text-color-muted);
     }
   }
 }
@@ -1141,7 +1141,7 @@ li.metrics a span img {
     border-radius: 3px;
   }
   .activity-box {
-    background-color: #fff;
+    background-color: var(--surface-background-color);
     border: 1px solid var(--border-color-100);
     padding: 20px;
     border-radius: 4px;
@@ -1157,7 +1157,7 @@ li.metrics a span img {
     border-radius: 100px;
   }
   .no-link-color {
-    color: colors.$main-black;
+    color: var(--text-color-main);
     text-decoration: none;
   }
 
@@ -1206,13 +1206,13 @@ li.metrics a span img {
       padding: 0 4px;
       line-height: 20px;
       vertical-align: top;
-      color: colors.$gray-500;
+      color: var(--text-color-muted);
       cursor: pointer;
     }
     .submenu {
       font-weight: normal;
       position: absolute;
-      background: #fff;
+      background: var(--surface-background-color);
       padding: 10px;
       box-shadow: 1px 1px 3px 3px rgba(0, 0, 0, 0.1);
     }
@@ -1222,7 +1222,7 @@ li.metrics a span img {
   }
   .testname {
     font-weight: 400;
-    color: colors.$main-black;
+    color: var(--text-color-main);
   }
   .hypothesis {
     font-size: 1em;
@@ -1235,7 +1235,7 @@ li.metrics a span img {
     height: 20px;
     margin-right: -17px;
     vertical-align: middle;
-    color: colors.$light-grey;
+    color: var(--text-color-muted);
     background-size: contain;
     background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSIwcHgiIHk9IjBweCIKCSB3aWR0aD0iMC44ZW0iIGhlaWdodD0iMC44ZW0iIHZpZXdCb3g9IjAgMCA0MDEuOTk4IDQwMS45OTgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMS45OTggNDAxLjk5ODsiCgkgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5jbHMtMSB7CiAgICAgICAgZmlsbDogIzk5OTsKICAgICAgICBmaWxsLXJ1bGU6IGV2ZW5vZGQ7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgo8Zz4KCTxnPgoJCTxwYXRoIGNsYXNzPSdjbHMtMScgZD0iTTczLjA5MiwxNjQuNDUyaDI1NS44MTNjNC45NDksMCw5LjIzMy0xLjgwNywxMi44NDgtNS40MjRjMy42MTMtMy42MTYsNS40MjctNy44OTgsNS40MjctMTIuODQ3CgkJCWMwLTQuOTQ5LTEuODEzLTkuMjI5LTUuNDI3LTEyLjg1TDIxMy44NDYsNS40MjRDMjEwLjIzMiwxLjgxMiwyMDUuOTUxLDAsMjAwLjk5OSwwcy05LjIzMywxLjgxMi0xMi44NSw1LjQyNEw2MC4yNDIsMTMzLjMzMQoJCQljLTMuNjE3LDMuNjE3LTUuNDI0LDcuOTAxLTUuNDI0LDEyLjg1YzAsNC45NDgsMS44MDcsOS4yMzEsNS40MjQsMTIuODQ3QzYzLjg2MywxNjIuNjQ1LDY4LjE0NCwxNjQuNDUyLDczLjA5MiwxNjQuNDUyeiIvPgoJCTxwYXRoIGNsYXNzPSdjbHMtMScgZD0iTTMyOC45MDUsMjM3LjU0OUg3My4wOTJjLTQuOTUyLDAtOS4yMzMsMS44MDgtMTIuODUsNS40MjFjLTMuNjE3LDMuNjE3LTUuNDI0LDcuODk4LTUuNDI0LDEyLjg0NwoJCQljMCw0Ljk0OSwxLjgwNyw5LjIzMyw1LjQyNCwxMi44NDhMMTg4LjE0OSwzOTYuNTdjMy42MjEsMy42MTcsNy45MDIsNS40MjgsMTIuODUsNS40MjhzOS4yMzMtMS44MTEsMTIuODQ3LTUuNDI4bDEyNy45MDctMTI3LjkwNgoJCQljMy42MTMtMy42MTQsNS40MjctNy44OTgsNS40MjctMTIuODQ4YzAtNC45NDgtMS44MTMtOS4yMjktNS40MjctMTIuODQ3QzMzOC4xMzksMjM5LjM1MywzMzMuODU0LDIzNy41NDksMzI4LjkwNSwyMzcuNTQ5eiIvPgoJPC9nPgo8L2c+Cjwvc3ZnPg==")
       no-repeat 99%;
@@ -1360,7 +1360,7 @@ li.metrics a span img {
     .upload-btn {
       font-size: 13px;
       padding: 20px 20px;
-      border-color: rgba(0, 0, 0, 0.4);
+      border-color: var(--border-color-300);
       border-width: 2px;
       border-radius: 0.5rem;
       color: rgba(0, 0, 0, 0.5);
@@ -1402,8 +1402,8 @@ li.metrics a span img {
     background-size: contain;
     background: #fafafa url("/images/image-blank.png") no-repeat 50% 50%;
     min-height: 200px;
-    border-top: 1px solid colors.$gray4;
-    border-bottom: 1px solid colors.$gray4;
+    border-top: 1px solid var(--border-color-300);
+    border-bottom: 1px solid var(--border-color-300);
   }
   .experiment-image {
     height: 300px;
@@ -1416,8 +1416,8 @@ li.metrics a span img {
   }
   .results-table {
     font-size: 14px;
-    color: #444;
-    background-color: #fff;
+    color: var(--text-color-muted);
+    background-color: var(--surface-background-color);
 
     .datapoint {
       display: inline-block;
@@ -1425,12 +1425,12 @@ li.metrics a span img {
       .dataname {
         display: block;
         font-size: 0.8rem;
-        color: colors.$gray-600;
+        color: var(--text-color-muted);
       }
     }
 
     .notenoughdata {
-      color: colors.$gray-600;
+      color: var(--text-color-muted);
     }
     .enoughdata {
       &.significant {
@@ -1525,7 +1525,7 @@ html {
 }
 .moremenu {
   svg {
-    fill: colors.$gray-600;
+    fill: var(--text-color-muted);
   }
 }
 .cursor-pointer {
@@ -1536,13 +1536,13 @@ html {
 }
 .dropdownmenu {
   position: absolute;
-  background-color: #fff;
+  background-color: var(--surface-background-color);
   z-index: 1200;
   right: 10px;
   top: 2rem;
   width: 160px;
-  border: rgba(0, 0, 0, 0.3);
-  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.2);
+  border: var(--border-color-300);
+  box-shadow: 1px 1px 4px var(--border-color-100);
 
   a {
     padding: 4px 10px;
@@ -1565,7 +1565,7 @@ html {
 
 .moremenucontents {
   position: absolute;
-  background-color: #fff;
+  background-color: var(--surface-background-color);
   z-index: 1200;
   right: 10px;
   top: 20px;
@@ -1817,21 +1817,22 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  box-shadow: 0 4px 8px 0 var(--border-color-300),
+    0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {
   list-style-type: none;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color-300);
   margin: 0 0 0 0;
   padding: 0;
 }
 .rta__item {
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-color-300);
   padding: 2px 5px;
-  background: #fff;
+  background: var(--surface-background-color);
 }
 .rta__item--selected {
-  background: #f4f4f4;
+  background: var(--surface-background-color-alt);
 }
 
 // Pricing page
@@ -1848,7 +1849,7 @@ html {
     .rangeslider__handle {
       width: 31px;
       height: 31px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 1px 3px var(--border-color-300);
 
       &:after {
         content: "";
@@ -1859,7 +1860,7 @@ html {
         height: 1px;
         background: transparent;
         border-radius: 0;
-        border-left: 6px solid #c0c8cf;
+        border-left: 6px solid var(--border-color-300);
         border-top: 5px solid transparent;
         border-bottom: 5px solid transparent;
         top: 9px;
@@ -1873,7 +1874,7 @@ html {
         height: 1px;
         background: transparent;
         border-radius: 0;
-        border-right: 6px solid #c0c8cf;
+        border-right: 6px solid var(--border-color-300);
         border-top: 5px solid transparent;
         border-bottom: 5px solid transparent;
         top: 9px;
@@ -1886,22 +1887,22 @@ html {
     position: relative;
     padding-top: 3em;
     margin-bottom: 2em;
-    background: #fff;
+    background: var(--surface-background-color);
     border-radius: 10px;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 8px var(--border-color-300);
     margin-top: 3em;
-    color: #4d4d4d;
+    color: var(--text-color-th);
     h1 {
       margin-bottom: 0.7em;
     }
   }
   .pricingbox {
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color-300);
     padding: 3em 3em 3em;
     border-radius: 8px;
-    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 1px 1px 3px var(--border-color-300);
     margin-bottom: 2em;
-    background: #fff;
+    background: var(--surface-background-color);
 
     .boxtitle {
       font-size: 2em;
