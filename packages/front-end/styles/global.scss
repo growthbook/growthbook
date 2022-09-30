@@ -78,6 +78,14 @@ pre {
 }
 // default bootstrap overrides:
 
+.btn:focus {
+  box-shadow: none;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
+}
+
 .btn-primary {
   @include button-variant(
     colors.$highlight-purple,
