@@ -59,7 +59,7 @@ export default function EventSourceList({ onSelect, selected }: Props) {
               e.preventDefault();
               setExpand(true);
             }}
-          ></div>
+          />
         )}
       </div>
       {!expand && (

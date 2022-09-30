@@ -48,6 +48,7 @@ a.text-dark:focus {
   color: var(--form-input-group-color);
 }
 
+.gb-select,
 .gb-multi-select {
   [class$="-menu"] {
     background-color: var(--surface-background-color);

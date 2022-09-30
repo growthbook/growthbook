@@ -139,6 +139,7 @@ const SelectField: FC<
               {...ReactSelectProps}
               id={id}
               ref={ref}
+              className="gb-select"
               isDisabled={disabled || false}
               options={sorted}
               onChange={(selected) => {
