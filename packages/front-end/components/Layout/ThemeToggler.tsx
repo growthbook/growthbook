@@ -54,8 +54,8 @@ export const ThemeToggler: FC = () => {
       if (theme === "system") {
         localStorage.removeItem("gb_ui_theme");
       } else {
-        localStorage.setItem("gb_ui_theme", theme);
         document.documentElement.classList.add(`theme--${theme}`);
+        localStorage.setItem("gb_ui_theme", theme);
       }
     } catch (e) {
       // We are unable to persist the theme changes due to the browser's privacy settings
