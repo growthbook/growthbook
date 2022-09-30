@@ -1,10 +1,15 @@
 @use "colors"; // TODO: Remove import
 @import "theme";
 
-@import "bootstrap-overrides";
+// Bootstrap variable overrides must be loaded BEFORE Bootstrap
+@import "bootstrap-variable-overrides";
+
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
+
+// Bootstrap theme overrides must be loaded AFTER Bootstrap
+@import "_bootstrap-theme-overrides";
 
 html,
 body,
@@ -176,18 +181,16 @@ pre {
   margin: 0 auto;
 }
 .gbtable {
-  color: colors.$main-black;
   margin-bottom: 0;
-  background-color: colors.$white;
-  border: 1px solid colors.$gray4;
+
   thead {
     th {
       font-size: 11px;
       text-transform: uppercase;
       font-weight: 600;
-      color: #52597a;
+      color: var(--text-color-th);
       white-space: nowrap;
-      border-bottom: 1px solid colors.$gray4;
+      border-bottom-width: 1px;
       border-top: 0;
 
       .activesort,
@@ -453,8 +456,8 @@ pre {
 }
 
 .appbox {
-  background-color: #fff;
-  border: 1px solid colors.$app-border;
+  background-color: var(--surface-background-color);
+  border: 1px solid var(--border-color);
   margin-bottom: 1em;
   border-radius: 5px;
 

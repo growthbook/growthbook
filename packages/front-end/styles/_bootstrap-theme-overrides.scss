@@ -1,0 +1,73 @@
+// Global Bootstrap overrides that respect dark/light modes
+
+// region Typography
+
+a {
+  color: var(--text-link-color);
+
+  &:hover {
+    color: var(--text-link-hover-color);
+  }
+}
+
+.text-dark,
+a.text-dark:hover,
+a.text-dark:focus {
+  color: var(--text-dark) !important;
+}
+
+// endregion Typography
+
+// region Forms
+
+.form-control,
+.form-control:focus {
+  background-color: var(--surface-background-color);
+  color: var(--text-color-main);
+}
+
+.form-control {
+  border-color: var(--border-color-alt);
+}
+
+.form-control:focus {
+}
+
+.gb-multi-select {
+  [class$="-menu"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class$="-option"] {
+    color: var(--text-color-main);
+  }
+
+  [class$="-control"] {
+    background-color: var(--surface-background-color);
+    border-color: var(--border-color-alt);
+  }
+}
+
+// endregion Forms
+
+// region Tables
+
+.table {
+  color: var(--text-color-table);
+}
+
+.table thead th,
+.table th,
+.table td {
+  border-color: var(--border-color);
+}
+
+.table-hover tbody tr:hover {
+  color: var(--text-color-main);
+}
+
+.table-hover tbody tr:hover {
+  background-color: var(--table-row-hover-background-color);
+}
+
+// endregion Tables

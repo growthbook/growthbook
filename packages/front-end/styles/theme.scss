@@ -4,7 +4,15 @@
   color-scheme: light;
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
+  --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
+
   --text-color-main: #{colors.$main-black};
+  --text-color-table: #{colors.$gray-900};
+  --text-color-th: #{colors.$gray1};
+  --text-dark: #343a40; // default Bootstrap .text-dark
+  --text-link-color: #007bff; // default Bootstrap
+  --text-link-hover-color: #0056b3; // default Bootstrap
+
   --border-color: #e0e2eb;
   --border-color-alt: #cacaca;
 }
@@ -13,7 +21,15 @@
   color-scheme: dark;
   --background-color: #{colors.$main-background-dark};
   --surface-background-color: #{colors.$surface-background-dark};
+  --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
+
   --text-color-main: #{colors.$white};
+  --text-color-table: #{lighten(colors.$gray2, 10%)};
+  --text-color-th: #{colors.$gray6};
+  --text-dark: #{colors.$gray6};
+  --text-link-color: #{lighten(#007bff, 20%)};
+  --text-link-hover-color: #{lighten(#007bff, 10%)};
+
   --border-color: #616161;
   --border-color-alt: #424242;
 }
