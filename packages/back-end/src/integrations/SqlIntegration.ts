@@ -162,10 +162,6 @@ export default abstract class SqlIntegration
   }
 
   getPastExperimentQuery(params: PastExperimentParams) {
-    const minLength = params.minLength ?? 6;
-
-    const now = new Date();
-
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.settings.queries?.exposure || []
@@ -258,15 +254,8 @@ export default abstract class SqlIntegration
     FROM
       __variations
     WHERE
-      -- Experiment was started recently
-      ${this.dateDiff("start_date", this.toTimestamp(now))} < ${minLength} OR
-      -- OR it ran for long enough and had enough users
-      (
-        ${this.dateDiff("start_date", "end_date")} >= ${minLength} AND
-        users > 100 AND
-        -- Skip experiments at start of date range since it's likely missing data
-        ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
-      )
+      -- Skip experiments at start of date range since it's likely missing data
+      ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
     ORDER BY
       experiment_id ASC, variation_id ASC`
     );

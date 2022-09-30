@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { useState } from "react";
-import { FC } from "react";
+import { useState, FC } from "react";
 import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";

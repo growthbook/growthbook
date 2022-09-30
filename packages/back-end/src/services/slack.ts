@@ -1,5 +1,4 @@
-import { ServerResponse } from "http";
-import { IncomingMessage } from "http";
+import { ServerResponse, IncomingMessage } from "http";
 import crypto from "crypto";
 import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { WebClient } from "@slack/web-api";

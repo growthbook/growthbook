@@ -1,8 +1,7 @@
-import { FC, useMemo, useRef } from "react";
+import { FC, useMemo, useRef, ReactNode } from "react";
 import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
-import { ReactNode } from "react";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };

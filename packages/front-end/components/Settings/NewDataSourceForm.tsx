@@ -189,6 +189,7 @@ const NewDataSourceForm: FC<{
   };
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
+    form.setValue("settings.schemaFormat", s.value);
     track("Selected Event Schema", {
       schema: s.value,
       source,
