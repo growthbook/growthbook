@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
-import { useEffect } from "react";
 import { useRouter } from "next/router";
 
 export default function Home(): React.ReactElement {

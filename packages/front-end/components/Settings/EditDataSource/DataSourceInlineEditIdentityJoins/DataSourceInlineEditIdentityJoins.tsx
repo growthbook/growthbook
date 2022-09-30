@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import Code from "../../../Code";
@@ -41,9 +41,14 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     [openIndexes]
   );
 
-  const userIdTypes = dataSource.settings?.userIdTypes || [];
+  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
+    dataSource.settings?.userIdTypes,
+  ]);
   const addIsDisabled = userIdTypes.length < 2;
-  const identityJoins = dataSource?.settings?.queries?.identityJoins || [];
+  const identityJoins = useMemo(
+    () => dataSource?.settings?.queries?.identityJoins || [],
+    [dataSource?.settings?.queries?.identityJoins]
+  );
 
   const handleAdd = useCallback(() => {
     setUiMode("add");
@@ -64,18 +69,18 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       copy.settings.queries.identityJoins.splice(idx, 1);
 
-      onSave(copy);
+      await onSave(copy);
     },
-    [identityJoins, onSave, dataSource]
+    [onSave, dataSource]
   );
 
   const handleSave = useCallback(
-    (idx: number) => (identityJoin: IdentityJoinQuery) => {
+    (idx: number) => async (identityJoin: IdentityJoinQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.queries.identityJoins[idx] = identityJoin;
-      onSave(copy);
+      await onSave(copy);
     },
-    [dataSource, onSave, uiMode]
+    [dataSource, onSave]
   );
 
   if (!dataSource) {

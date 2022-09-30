@@ -1,8 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import clsx from "clsx";
-import { useMemo } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MdRestore } from "react-icons/md";
 import usePermissions from "../../hooks/usePermissions";
 import { useAuth } from "../../services/auth";

@@ -4,10 +4,9 @@ import Modal from "../Modal";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "../Button";
 import { useAuth } from "../../services/auth";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Field from "../Forms/Field";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {

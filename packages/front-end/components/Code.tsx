@@ -1,6 +1,5 @@
 import clsx from "clsx";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaCompressAlt, FaCopy, FaExpandAlt } from "react-icons/fa";
 import { Prism } from "react-syntax-highlighter";
 import {

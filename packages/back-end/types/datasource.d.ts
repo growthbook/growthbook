@@ -118,6 +118,12 @@ export interface UserIdType {
   description?: string;
 }
 
+export type DataSourceEvents = {
+  experimentEvent?: string;
+  experimentIdProperty?: string;
+  variationIdProperty?: string;
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
@@ -133,11 +139,7 @@ export type DataSourceSettings = {
     // @deprecated
     pageviewsQuery?: string;
   };
-  events?: {
-    experimentEvent?: string;
-    experimentIdProperty?: string;
-    variationIdProperty?: string;
-  };
+  events?: DataSourceEvents;
   default?: {
     timestampColumn?: string;
     userIdColumn?: string;

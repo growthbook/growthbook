@@ -21,7 +21,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
-  const userIdTypes = dataSource.settings?.userIdTypes || [];
+  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
+    dataSource.settings?.userIdTypes,
+  ]);
 
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
@@ -46,22 +48,22 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.userIdTypes.splice(idx, 1);
 
-      onSave(copy);
+      await onSave(copy);
     },
-    [userIdTypes, onSave, dataSource]
+    [onSave, dataSource]
   );
 
   const handleSave = useCallback(
-    (idx: number) => (userIdType: string, description: string) => {
+    (idx: number) => async (userIdType: string, description: string) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.userIdTypes[idx] = {
         userIdType,
         description,
       };
 
-      onSave(copy);
+      await onSave(copy);
     },
-    [dataSource, onSave, uiMode]
+    [dataSource, onSave]
   );
 
   const handleAdd = useCallback(() => {

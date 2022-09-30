@@ -2,6 +2,7 @@ import { MysqlConnectionParams } from "../../types/integrations/mysql";
 import { decryptDataSourceParams } from "../services/datasource";
 import SqlIntegration from "./SqlIntegration";
 import mysql, { RowDataPacket } from "mysql2/promise";
+import { ConnectionOptions } from "mysql2";
 
 export default class Mysql extends SqlIntegration {
   params: MysqlConnectionParams;
@@ -14,13 +15,21 @@ export default class Mysql extends SqlIntegration {
     return ["password"];
   }
   async runQuery(sql: string) {
-    const conn = await mysql.createConnection({
+    const config: ConnectionOptions = {
       host: this.params.host,
       port: this.params.port,
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,
-    });
+    };
+    if (this.params.ssl) {
+      config["ssl"] = {
+        ca: this.params.caCert,
+        cert: this.params.clientCert,
+        key: this.params.clientKey,
+      };
+    }
+    const conn = await mysql.createConnection(config);
 
     const [rows] = await conn.query(sql);
     return rows as RowDataPacket[];

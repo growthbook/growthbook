@@ -1,11 +1,10 @@
-import { FC, useState } from "react";
+import { FC, useState, useMemo } from "react";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface, EventType } from "back-end/types/audit";
 import { ago, datetime } from "../services/dates";
 import Code from "./Code";
 import Link from "next/link";
-import { useMemo } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "./Button";
 import { BsArrowRepeat } from "react-icons/bs";

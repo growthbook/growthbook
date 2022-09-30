@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 
 const getValueFromLocalStorage = (key: string, defaultValue) => {
   let value = defaultValue;

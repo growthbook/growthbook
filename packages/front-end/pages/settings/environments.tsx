@@ -1,6 +1,5 @@
 import Link from "next/link";
-import React, { useState } from "react";
-import { FC } from "react";
+import React, { useState, FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import EnvironmentModal from "../../components/Settings/EnvironmentModal";
