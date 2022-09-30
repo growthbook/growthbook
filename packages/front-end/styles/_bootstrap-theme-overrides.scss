@@ -33,6 +33,10 @@ a.text-dark:focus {
 
 .form-control {
   border-color: var(--border-color-300);
+
+  &[readonly] {
+    background-color: var(--surface-background-color-alt);
+  }
 }
 
 .form-control:focus {
@@ -196,3 +200,25 @@ a.text-dark:focus {
 }
 
 // endregion Modals
+
+// region Tabs
+
+.nav-tabs {
+  border-color: var(--border-color-300);
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  color: var(--text-color-muted);
+  background-color: var(--surface-background-color);
+  border-color: var(--border-color-300) var(--border-color-300)
+    var(--surface-background-color);
+}
+
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus {
+  border-color: var(--border-color-300) var(--border-color-300)
+    var(--surface-background-color);
+}
+
+// endregion Tabs
