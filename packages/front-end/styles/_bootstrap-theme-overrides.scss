@@ -2,7 +2,8 @@
 
 // region Typography
 
-a {
+a,
+.btn-link {
   color: var(--text-link-color);
 
   &:hover {
@@ -148,4 +149,50 @@ a.text-dark:focus {
 
 // endregion Alerts
 
+// region Lists
+
+.list-group-item {
+  background-color: var(--surface-background-color);
+  color: var(--form-input-group-color);
+
+  &.active {
+    background-color: var(--text-link-color);
+    border-color: var(--text-link-color);
+    color: var(--text-color-on-bright);
+  }
+}
+
+.list-group-item-action {
+  &:hover {
+    background-color: var(--surface-background-color-alt);
+    color: var(--form-input-group-color);
+  }
+}
+
+// endregion Lists
+
 // endregion Surfaces
+
+// region Modals
+
+.modal {
+  .close {
+    color: inherit;
+  }
+}
+
+.modal-header {
+  border-color: var(--border-color-300);
+}
+
+.modal-content {
+  background-color: var(--surface-background-color);
+  color: var(--text-color-main);
+  border-color: var(--border-color-300);
+}
+
+.modal-footer {
+  border-color: var(--border-color-300);
+}
+
+// endregion Modals

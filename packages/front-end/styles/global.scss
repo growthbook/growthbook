@@ -169,7 +169,7 @@ pre {
 }
 .modal {
   .modal-header {
-    background-color: colors.$gray5;
+    background-color: var(--surface-background-color-alt);
   }
   .rbt-token {
     background-color: rgba(colors.$highlight-purple, 0.1);
@@ -429,7 +429,7 @@ pre {
 }
 .modal {
   label {
-    color: colors.$gray1;
+    color: var(--text-color-muted);
     font-weight: 500;
   }
 }
