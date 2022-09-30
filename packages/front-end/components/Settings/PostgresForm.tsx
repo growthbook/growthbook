@@ -1,9 +1,7 @@
-import { FC, ChangeEventHandler, useState } from "react";
+import { FC, ChangeEventHandler } from "react";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import Toggle from "../Forms/Toggle";
-import Field from "../Forms/Field";
-import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import HostWarning from "./HostWarning";
+import SSLConnectionFields from "./SSLConnectionFields";
 
 const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
@@ -11,8 +9,6 @@ const PostgresForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
   setParams: (params: { [key: string]: string }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
-  const [certs, setCerts] = useState(false);
-
   return (
     <>
       <HostWarning
@@ -91,68 +87,16 @@ const PostgresForm: FC<{
             placeholder="(optional)"
           />
         </div>
-        <div className="col-md-12">
-          <div className="form-group">
-            <label htmlFor="require-ssl" className="mr-2">
-              Require SSL
-            </label>
-            <Toggle
-              id="require-ssl"
-              label="Require SSL"
-              value={params.ssl === true || params.ssl === "true"}
-              setValue={(value) => {
-                setParams({
-                  ssl: value ? "true" : "",
-                });
-              }}
-            />
-            {params.ssl && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCerts(!certs);
-                }}
-              >
-                Advanced SSL Settings{" "}
-                {certs ? <FaCaretDown /> : <FaCaretRight />}
-              </a>
-            )}
-          </div>
-        </div>
-        {params.ssl && certs && (
-          <div className="col-md-12 mb-3">
-            <div className="p-2 bg-light border">
-              <Field
-                label="CA Cert (optional)"
-                textarea
-                placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
-                minRows={2}
-                value={params.caCert || ""}
-                name="caCert"
-                onChange={onParamChange}
-              />
-              <Field
-                label="Client Cert"
-                textarea
-                placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
-                minRows={2}
-                value={params.clientCert || ""}
-                name="clientCert"
-                onChange={onParamChange}
-              />
-              <Field
-                label="Client Key"
-                textarea
-                placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
-                minRows={2}
-                value={params.clientKey || ""}
-                name="clientKey"
-                onChange={onParamChange}
-              />
-            </div>
-          </div>
-        )}
+        <SSLConnectionFields
+          onParamChange={onParamChange}
+          setSSL={(ssl) => setParams({ ssl: ssl ? "true" : "" })}
+          value={{
+            ssl: params.ssl === true || params.ssl === "true",
+            caCert: params.caCert,
+            clientCert: params.clientCert,
+            clientKey: params.clientKey,
+          }}
+        />
       </div>
     </>
   );
