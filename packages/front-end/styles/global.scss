@@ -739,7 +739,8 @@ pre {
     text-indent: -9999px;
     width: 50px;
     height: 25px;
-    background: colors.$gray-300;
+
+    background: var(--form-switch-background);
     display: block;
     border-radius: 100px;
     margin-bottom: 0;
@@ -764,7 +765,7 @@ pre {
   }
 
   input:checked + label {
-    background: colors.$purple;
+    background: var(--form-switch-background-active);
   }
   &.toggle-featureValue input:checked + label {
     background: colors.$blue;
