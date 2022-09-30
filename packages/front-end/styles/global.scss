@@ -61,11 +61,12 @@ pre {
   color: colors.$indigo;
 }
 .text-gray {
-  color: colors.$gray1;
+  color: var(--text-color-th);
 }
 .text-light-gray {
-  color: colors.$gray2;
+  color: var(--border-color-300);
 }
+
 .font-weight-semibold {
   font-weight: 500;
 }
@@ -554,7 +555,7 @@ pre {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: #fff;
+      background-color: var(--surface-background-color);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -564,8 +565,8 @@ pre {
   }
 
   .body {
-    background: #fff;
-    color: colors.$dark;
+    background-color: var(--surface-background-color);
+    color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
   }
@@ -739,7 +740,6 @@ pre {
     text-indent: -9999px;
     width: 50px;
     height: 25px;
-
     background: var(--form-switch-background);
     display: block;
     border-radius: 100px;
@@ -1000,7 +1000,7 @@ pre {
   }
   .bar-holder {
     width: 120px;
-    background: #f2f2f2;
+    background: var(--background-color);
     border-radius: 4px;
     height: 1em;
     position: relative;
@@ -1685,8 +1685,9 @@ html {
     background-color: rgba(27, 103, 235, 0.036);
   }
   .shared-exp-div {
-    border: 1px solid rgb(230, 230, 230);
-    background-color: #fff;
+    border: 1px solid var(--border-color-300);
+    background-color: var(--surface-background-color);
+
     &:hover {
       .delete-exp {
         visibility: visible;
