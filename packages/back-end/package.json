@@ -11,8 +11,7 @@
     "start": "node dist/server.js",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
-    "generate-dummy-data": "node --stack-size=8192 ./test/data-generator/data-generator.js",
-    "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"
+    "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "5",

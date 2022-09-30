@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { FC } from "react";
+import { useState, FC } from "react";
 import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import DeleteButton from "../components/DeleteButton";

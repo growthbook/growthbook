@@ -66,7 +66,7 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   } else if (type === "clickhouse") {
     obj = new ClickHouse(params, settings);
   } else if (type === "mixpanel") {
-    obj = new Mixpanel(params, settings);
+    obj = new Mixpanel(params, settings ?? {});
   } else if (type === "presto") {
     obj = new Presto(params, settings);
   } else {

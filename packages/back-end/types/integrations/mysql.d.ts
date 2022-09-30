@@ -4,4 +4,8 @@ export interface MysqlConnectionParams {
   database: string;
   password: string;
   port: number;
+  ssl?: boolean;
+  caCert?: string;
+  clientCert?: string;
+  clientKey?: string;
 }

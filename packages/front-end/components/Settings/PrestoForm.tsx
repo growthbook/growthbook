@@ -1,12 +1,13 @@
 import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import HostWarning from "./HostWarning";
+import SSLConnectionFields from "./SSLConnectionFields";
 
 const PrestoForm: FC<{
   params: Partial<PrestoConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <div className="row">
@@ -97,6 +98,16 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
+      <SSLConnectionFields
+        onParamChange={onParamChange}
+        setSSL={(ssl) => setParams({ ssl })}
+        value={{
+          ssl: params.ssl,
+          caCert: params.caCert,
+          clientCert: params.clientCert,
+          clientKey: params.clientKey,
+        }}
+      />
     </div>
   );
 };
