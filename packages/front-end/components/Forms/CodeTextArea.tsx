@@ -58,15 +58,14 @@ export default function CodeTextArea({
 
     try {
       const fromStorage = localStorage.getItem("gb_ui_theme");
-      if (!fromStorage) {
-        if (window.matchMedia("(prefers-color-scheme: dark)")?.matches) {
-          console.log("overriding to dark 1");
-          actualTheme = DARK_THEME;
-        }
+      if (
+        !fromStorage &&
+        window.matchMedia("(prefers-color-scheme: dark)")?.matches
+      ) {
+        actualTheme = DARK_THEME;
       }
 
       if (fromStorage === "dark") {
-        console.log("overriding to dark 2");
         actualTheme = DARK_THEME;
       }
     } catch (e) {
