@@ -26,32 +26,37 @@ export default class Mssql extends SqlIntegration {
     const results = await conn.request().query(sqlStr);
     return results.recordset;
   }
-  dateDiff(startCol: string, endCol: string) {
-    return `DATEDIFF(${endCol}, ${startCol})`;
-  }
-  covariance(y: string, x: string): string {
-    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
-  }
-  stddev(col: string) {
-    return `STDDEV_SAMP(${col})`;
-  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
     amount: number
   ): string {
-    return `DATE_${
-      sign === "+" ? "ADD" : "SUB"
-    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
+    return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
   }
   dateTrunc(col: string) {
-    return `DATE(${col})`;
+    return `DATETRUNC(day, ${col})`;
+  }
+  stddev(col: string) {
+    return `STDEV(${col})`;
+  }
+  avg(col: string) {
+    return `AVG(CAST(${col} as FLOAT))`;
+  }
+  variance(col: string) {
+    return `VAR(${col})`;
+  }
+  covariance(y: string, x: string): string {
+    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
+  }
+  ensureFloat(col: string): string {
+    return `CAST(${col} as FLOAT)`;
   }
   formatDate(col: string): string {
-    return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
+    return `FORMAT(${col}, "yyyy-mm-dd")`;
   }
   castToString(col: string): string {
-    return `cast(${col} as char)`;
+    return `cast(${col} as varchar(256))`;
   }
 }

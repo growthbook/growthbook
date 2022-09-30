@@ -70,8 +70,8 @@ const MssqlForm: FC<{
         <div className="form-group col-md-12">
           <label>Password</label>
           <input
-            type="password"
-            className="form-control"
+            type="text"
+            className="form-control password-presentation"
             name="password"
             required={!existing}
             value={params.password || ""}
@@ -83,7 +83,7 @@ const MssqlForm: FC<{
       <div className="row mt-2">
         <div className="col-md-12">
           <div className="form-group">
-            <label htmlFor="require-ssl" className="mr-2">
+            <label htmlFor="trust-server-cert" className="mr-2">
               Trust server certificate{" "}
               <Tooltip body="Allows for self-signed certificates"></Tooltip>
             </label>
@@ -103,7 +103,7 @@ const MssqlForm: FC<{
             />
           </div>
           <div className="form-group">
-            <label htmlFor="require-ssl" className="mr-2">
+            <label htmlFor="encryption" className="mr-2">
               Enable encryption (for Azure)
             </label>
             <Toggle
