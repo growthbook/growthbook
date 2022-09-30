@@ -1,12 +1,13 @@
 import { FC, ChangeEventHandler } from "react";
 import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
 import HostWarning from "./HostWarning";
+import SSLConnectionFields from "./SSLConnectionFields";
 
 const MysqlForm: FC<{
   params: Partial<MysqlConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
@@ -76,6 +77,16 @@ const MysqlForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
+        <SSLConnectionFields
+          onParamChange={onParamChange}
+          setSSL={(ssl) => setParams({ ssl })}
+          value={{
+            ssl: params.ssl,
+            caCert: params.caCert,
+            clientCert: params.clientCert,
+            clientKey: params.clientKey,
+          }}
+        />
       </div>
     </>
   );

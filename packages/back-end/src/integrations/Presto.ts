@@ -2,7 +2,7 @@
 import { decryptDataSourceParams } from "../services/datasource";
 import SqlIntegration from "./SqlIntegration";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
-import { Client } from "presto-client";
+import { Client, IPrestoClientOptions } from "presto-client";
 
 // eslint-disable-next-line
 type Row = any;
@@ -21,7 +21,7 @@ export default class Presto extends SqlIntegration {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
   runQuery(sql: string) {
-    const client = new Client({
+    const configOptions: IPrestoClientOptions = {
       host: this.params.host,
       port: this.params.port,
       user: "growthbook",
@@ -33,7 +33,16 @@ export default class Presto extends SqlIntegration {
       schema: this.params.schema,
       catalog: this.params.catalog,
       checkInterval: 500,
-    });
+    };
+    if (this.params?.ssl) {
+      configOptions.ssl = {
+        ca: this.params?.caCert,
+        cert: this.params?.clientCert || "",
+        key: this.params?.clientKey,
+        secureProtocol: "SSLv23_method",
+      };
+    }
+    const client = new Client(configOptions);
 
     return new Promise<Row[]>((resolve, reject) => {
       let cols: string[];
