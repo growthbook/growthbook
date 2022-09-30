@@ -43,6 +43,11 @@
   --border-color-100: #e0e2eb;
   --border-color-200: #dee2e6;
   --border-color-300: #cacaca;
+
+  --diff-removed-background: #ffeef0;
+  --diff-removed-background-highlight: #fdb8c0;
+  --diff-added-background: #e6ffed;
+  --diff-added-background-highlight: #acf2bd;
 }
 
 @mixin dark-theme {
@@ -88,6 +93,11 @@
   --border-color-100: #616161;
   --border-color-200: #424242;
   --border-color-300: #424242;
+
+  --diff-removed-background: #{rgba(#721c24, 0.35)};
+  --diff-removed-background-highlight: #721c24;
+  --diff-added-background: #{rgba(#155724, 0.35)};
+  --diff-added-background-highlight: #155724;
 }
 
 .theme--light {

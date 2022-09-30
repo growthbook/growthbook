@@ -323,12 +323,12 @@ pre {
     font-weight: 500;
     font-size: 15px;
     line-height: 22px;
-    border: 1px solid colors.$gray4;
+    border: 1px solid var(--border-color-300);
     border-radius: 0;
     border-right: 0;
     padding: 6px 20px;
-    background-color: #fff;
-    color: colors.$main-black;
+    background-color: var(--surface-background-color);
+    color: var(--text-color-main);
     &:hover {
       background-color: rgba(colors.$highlight-purple, 0.08);
       border: 1px solid rgba(colors.$highlight-purple, 0.15);
@@ -346,7 +346,7 @@ pre {
       border-bottom-left-radius: 3px;
     }
     &.last {
-      border-right: 1px solid colors.$gray4;
+      border-right: 1px solid var(--border-color-300);
       border-top-right-radius: 3px;
       border-bottom-right-radius: 3px;
       &:hover {
@@ -1078,7 +1078,7 @@ pre {
 }
 
 .statuslabel {
-  color: colors.$gray-600;
+  color: var(--text-color-muted);
   font-weight: normal;
 }
 
@@ -1272,9 +1272,9 @@ li.metrics a span img {
 .experiment-details,
 .metric {
   .tab-content {
-    background-color: #fff;
+    background-color: var(--surface-background-color);
     padding: 1rem;
-    border: 1px solid colors.$gray4;
+    border: 1px solid var(--border-color-300);
   }
 
   h5 {

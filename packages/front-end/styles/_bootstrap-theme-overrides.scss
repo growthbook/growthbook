@@ -58,6 +58,14 @@ a.text-dark:focus {
     color: var(--text-color-main);
   }
 
+  [class$="-Input"] {
+    color: var(--text-color-main);
+  }
+
+  [class$="-singleValue"] {
+    color: var(--text-color-muted);
+  }
+
   [class$="-control"] {
     background-color: var(--surface-background-color);
     border-color: var(--border-color-300);
@@ -183,6 +191,29 @@ a.text-dark:focus {
 
 // endregion Surfaces
 
+// region Drop down
+
+.dropdown-menu {
+  background-color: var(--surface-background-color);
+  color: var(--text-color-main);
+  border-color: var(--border-color-300);
+}
+
+.dropdown-item {
+  color: var(--text-color-main);
+
+  &:hover {
+    color: var(--text-color-main);
+    background-color: var(--surface-background-color-alt);
+  }
+}
+
+.dropdown-divider {
+  border-color: var(--border-color-300);
+}
+
+// endregion Drop down
+
 // region Modals
 
 .modal {
@@ -228,3 +259,60 @@ a.text-dark:focus {
 }
 
 // endregion Tabs
+
+// region Diff Viewer
+
+.diff-wrapper {
+  [class*="-gutter"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class*="-diff-container"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class$="-empty-line"] {
+    background-color: var(--surface-background-color);
+    color: var(--text-color-main);
+  }
+
+  [class$="-diff-removed"] {
+    background-color: var(--diff-removed-background);
+    color: var(--text-color-main);
+  }
+
+  [class$="-word-removed"] {
+    background-color: var(--diff-removed-background-highlight);
+    color: var(--text-color-main);
+  }
+
+  [class*="-gutter"][class*="-removed"] {
+    background-color: var(--diff-removed-background-highlight);
+    //color: var(--text-color-main);
+  }
+
+  [class*="-line-number"] {
+    color: var(--text-color-main) !important;
+  }
+
+  pre {
+    color: var(--text-color-main) !important;
+  }
+
+  [class$="-diff-added"] {
+    background-color: var(--diff-added-background);
+    color: var(--text-color-main);
+  }
+
+  [class$="-word-added"] {
+    background-color: var(--diff-added-background-highlight);
+    color: var(--text-color-main);
+  }
+
+  [class*="-gutter"][class*="-added"] {
+    background-color: var(--diff-added-background-highlight);
+    color: var(--text-color-main);
+  }
+}
+
+// endregion Diff Viewer
