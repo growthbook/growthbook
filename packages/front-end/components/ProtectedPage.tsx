@@ -11,8 +11,7 @@ import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
 import { ReactNode } from "react";
-import { Permission } from "back-end/types/permissions";
-import { defaultPermissions } from "shared";
+import { Permissions } from "back-end/types/permissions";
 
 type User = { id: string; email: string; name: string };
 
@@ -50,12 +49,12 @@ export type UserContextValue = {
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
-  permissions: Record<Permission, boolean>;
+  permissions: Permissions;
   settings: OrganizationSettings;
 };
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: defaultPermissions,
+  permissions: [],
   settings: {},
 });
 
@@ -113,15 +112,15 @@ const ProtectedPage: React.FC<{
 
   const orgPermissions = currentOrg?.permissions || [];
 
-  const permissions: Record<Permission, boolean> = defaultPermissions;
+  const permissions: Permissions = [];
   for (const orgPermission of orgPermissions) {
-    permissions[orgPermission] = true;
+    permissions.push(orgPermission);
   }
 
   // Super admins always have some basic permissions
   if (data?.admin) {
-    permissions["organizationSettings"] = true;
-    permissions["editDatasourceSettings"] = true;
+    permissions.push("organizationSettings");
+    permissions.push("editDatasourceSettings");
   }
 
   useEffect(() => {

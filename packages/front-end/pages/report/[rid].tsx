@@ -30,6 +30,7 @@ import { date } from "../../services/dates";
 import useUser from "../../hooks/useUser";
 import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
 import DeleteButton from "../../components/DeleteButton";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -41,7 +42,8 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
-  const { permissions, userId, getUserDisplay } = useUser();
+  const { userId, getUserDisplay } = useUser();
+  const permissions = usePermissions();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 

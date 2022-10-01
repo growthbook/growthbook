@@ -49,7 +49,10 @@ const organizationSchema = new mongoose.Schema({
   },
   roles: {
     type: Map,
-    of: [String],
+    of: {
+      permissions: [String],
+      description: String,
+    },
   },
   connections: {
     slack: {

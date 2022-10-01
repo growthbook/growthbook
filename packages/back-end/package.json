@@ -15,7 +15,6 @@
     "import-dummy-data": "node --stack-size=8192 ./test/data-generator/import.js"
   },
   "dependencies": {
-    "shared": "0.0.1",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
     "@slack/web-api": "^5.14.0",

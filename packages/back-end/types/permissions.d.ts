@@ -1,10 +1,24 @@
-import { permissionsList, envLevelPermissions } from "shared";
+type BasePermissions =
+  | "addComments"
+  | "createPresentations"
+  | "createIdeas"
+  | "createFeatures"
+  | "createFeatureDrafts"
+  | "createAnalyses"
+  | "createMetrics"
+  | "createDimensions"
+  | "createSegments"
+  | "createDatasources"
+  | "editDatasourceSettings"
+  | "organizationSettings"
+  | "runQueries"
+  | "superDelete";
+
+export type EnvPermissions = "publishFeatures";
 
 export type Permission =
-  | typeof permissionsList[number]
-  | typeof envLevelPermissions[number]
-  | `${typeof envLevelPermissions[number]}_${string}`;
-
-export type EnvPermission = typeof envLevelPermissions[number];
+  | BasePermissions
+  | EnvPermissions
+  | `${EnvPermissions}_${string}`;
 
 export type Permissions = Permission[];

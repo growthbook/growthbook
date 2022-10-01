@@ -1,41 +1,27 @@
-import { Permission, Permissions } from "back-end/types/permissions";
-import { permissionsList, envLevelPermissions } from "shared";
+import {
+  EnvPermissions,
+  Permission,
+  Permissions,
+} from "back-end/types/permissions";
 import React, { useState } from "react";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { MemberInfo } from "./MemberList";
-
-const permissionDescritpions: Record<Permission, string> = {
-  addComments: "",
-  createPresentations: "",
-  createIdeas: "",
-  createFeatures: "",
-  createFeatureDrafts: "",
-  createAnalyses: "",
-  createMetrics: "",
-  createDimensions: "",
-  createSegments: "",
-  createDatasources: "",
-  editDatasourceSettings: "",
-  organizationSettings:
-    "Allows member to edit organization settings (e.g. team roles). Essentially the same as being an admin.",
-  publishFeatures:
-    "Allows member to publish features. Filterable by environment if set to false.",
-  runQueries: "",
-  superDelete:
-    "Allows member to delete reports created by anyone in the organization.",
-};
+import {
+  DEFAULT_PERMISSIONS,
+  ENV_PERMISSIONS,
+  PERMISSIONS,
+  isEnvPermission,
+  getEnvPermissionBase,
+  getEnvFromPermission,
+} from "../../hooks/usePermissions";
+import { FormRole } from "./TeamRoles";
 
 interface RoleModalProps {
   type: "create" | "update";
-  role: {
-    name: string;
-    rolePermissions: Permissions;
-    members: MemberInfo[];
-  };
+  role: FormRole;
   close: () => void;
   mutate: () => void;
 }
@@ -48,46 +34,68 @@ export default function RoleModal({
 }: RoleModalProps) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
-  const [roleName, setRoleName] = useState("");
+  const [roleId, setRoleId] = useState(role.id);
+  const [roleDescription, setRoleDescription] = useState(role.description);
 
-  const defaultValues: Record<string, boolean | string> = {};
-  permissionsList.forEach((p) => {
-    defaultValues[p] = role.rolePermissions.includes(p);
-  });
+  const defaultValues: Record<Permission, boolean> = {} as Record<
+    Permission,
+    boolean
+  >;
 
-  settings.environments.forEach((e) => {
-    envLevelPermissions.forEach(
-      (p) =>
-        (defaultValues[`${p}_${e.id}`] = role.rolePermissions.includes(
-          `${p}_${e.id}`
-        ))
-    );
+  // Positions form elements in correct order
+  Object.keys(DEFAULT_PERMISSIONS).forEach((p) => {
+    defaultValues[p] = role.permissions.includes(p as Permission);
+
+    //Checks if the permission is an environment permission, if so it adds the environments to the defaultValues
+    if (ENV_PERMISSIONS.find((ep) => ep === p)) {
+      settings.environments.forEach((e) => {
+        defaultValues[`${p}_${e.id}`] = role.permissions.includes(
+          `${p as EnvPermissions}_${e.id}`
+        );
+      });
+    }
   });
 
   const form = useForm({ defaultValues: { ...defaultValues } });
-  form.watch(envLevelPermissions);
+
+  // Environment permissions are dropdowns that only show if the base permission is false.
+  // We need to watch the base permission to show/hide the dropdowns
+  form.watch(ENV_PERMISSIONS);
 
   async function handleSubmit(data: { [x: string]: boolean | string }) {
+    if (!roleId.match(/^[a-zA-Z0-9-_ ]+$/))
+      throw new Error(
+        "Role ID must be alphanumeric (dashes, underscores, and spaces are allowed)"
+      );
+
+    if (roleDescription && !roleDescription.match(/^[a-zA-Z0-9-_ ]+$/))
+      throw new Error(
+        "Role description must be alphanumeric (dashes, underscores, and spaces are allowed)"
+      );
+
     const permissions: Permissions = [];
     Object.keys(data).forEach((key) => {
       if (data[key]) permissions.push(key as Permission);
     });
 
     if (type === "create") {
-      await apiCall(`/roles/${roleName}`, {
+      await apiCall(`/roles/${roleId}`, {
         method: "POST",
         credentials: "include",
         body: JSON.stringify({
+          description: roleDescription,
           permissions,
         }),
       });
       mutate();
     } else {
-      await apiCall(`/roles/${role.name}`, {
+      await apiCall(`/roles/${role.id}`, {
         method: "PUT",
         credentials: "include",
         body: JSON.stringify({
+          description: roleDescription,
           permissions,
+          newRoleId: roleId,
         }),
       });
       mutate();
@@ -99,7 +107,7 @@ export default function RoleModal({
   return (
     <Modal
       close={close}
-      header={type === "update" ? "Update Role" : "Create Role"}
+      header={type === "update" ? `Update Role '${role.id}'` : `Create Role`}
       open={true}
       autoCloseOnSubmit={false}
       successMessage={type === "update" ? "Role updated" : "Role created"}
@@ -108,46 +116,50 @@ export default function RoleModal({
         await handleSubmit(data);
       })}
     >
-      {type === "update" && (
-        <p>
-          Editing role <strong>{role.name}</strong>
-        </p>
-      )}
-      {type === "create" && (
-        <div className="form-group">
-          <label htmlFor="role-name">Role name:</label>
-          <input
-            id="role-name"
-            type="text"
-            className={"form-control"}
-            value={roleName}
-            onChange={(e) => setRoleName(e.target.value)}
-          />
-        </div>
-      )}
-      {Object.keys(defaultValues)
-        .filter((p) => p !== "name")
-        .sort((a, b) => a.localeCompare(b))
-        .map((permission) => {
-          if (permission.includes("_")) {
-            const basePermission = permission.split("_")[0];
-            if (form.getValues()[basePermission]) {
-              return null;
-            }
-          }
+      <div className="form-group">
+        <label htmlFor="role-name">Role name:</label>
+        <input
+          id="role-name"
+          type="text"
+          className={"form-control"}
+          value={roleId}
+          onChange={(e) => setRoleId(e.target.value)}
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="role-description">Role description:</label>
+        <input
+          id="role-description"
+          type="text"
+          className={"form-control"}
+          value={roleDescription}
+          onChange={(e) => setRoleDescription(e.target.value)}
+        />
+      </div>
+      {Object.keys(defaultValues).map((p) => {
+        let envName = "";
+        if (isEnvPermission(p)) {
+          //If the base permission is set to true, don't show the environment permissions
+          if (form.getValues()[getEnvPermissionBase(p)]) return null;
 
-          return (
+          envName = getEnvFromPermission(p);
+        }
+
+        return (
+          <>
+            {PERMISSIONS[p]?.title && <h4>{PERMISSIONS[p].title}</h4>}
             <Field
               checkBox
-              key={permission}
-              tooltip={permissionDescritpions[permission as Permission]}
-              label={permission}
+              key={p}
+              tooltip={PERMISSIONS[p]?.description || ""}
+              label={isEnvPermission(p) ? envName : PERMISSIONS[p]?.displayName}
               labelClassName="mx-2"
-              containerClassName={permission.includes("_") ? "ml-4" : ""}
-              {...form.register(permission)}
+              containerClassName={`my-1 ${isEnvPermission(p) ? "ml-4" : ""}`}
+              {...form.register(p as Permission)}
             />
-          );
-        })}
+          </>
+        );
+      })}
     </Modal>
   );
 }

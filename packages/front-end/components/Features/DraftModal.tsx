@@ -12,7 +12,6 @@ import Field from "../Forms/Field";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useMemo } from "react";
 import usePermissions from "../../hooks/usePermissions";
-import { checkEnvPermissions } from "../../services/permissions";
 
 export interface Props {
   feature: FeatureInterface;
@@ -104,11 +103,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
       open={true}
       header={"Review Draft Changes"}
       submit={
-        checkEnvPermissions(
-          permissions,
-          "publishFeatures",
-          ...getEnabledEnvironments(feature)
-        )
+        permissions.canPublishFeatures(...getEnabledEnvironments(feature))
           ? async () => {
               try {
                 await apiCall(`/feature/${feature.id}/publish`, {
@@ -165,11 +160,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
           <ExpandableDiff {...diff} key={diff.title} />
         ))}
       </div>
-      {checkEnvPermissions(
-        permissions,
-        "publishFeatures",
-        ...getEnabledEnvironments(feature)
-      ) && (
+      {permissions.canPublishFeatures(...getEnabledEnvironments(feature)) && (
         <Field
           label="Add a Comment (optional)"
           textarea

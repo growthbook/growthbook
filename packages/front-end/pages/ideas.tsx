@@ -12,6 +12,7 @@ import clsx from "clsx";
 import { useDefinitions } from "../services/DefinitionsContext";
 import useUser from "../hooks/useUser";
 import SortedTags from "../components/Tags/SortedTags";
+import usePermissions from "../hooks/usePermissions";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -24,7 +25,8 @@ const IdeasPage = (): React.ReactElement => {
 
   const [current, setCurrent] = useState<Partial<IdeaInterface>>(null);
 
-  const { getUserDisplay, permissions } = useUser();
+  const { getUserDisplay } = useUser();
+  const permissions = usePermissions();
 
   const { list: displayedIdeas, searchInputProps } = useSearch(
     data?.ideas || [],

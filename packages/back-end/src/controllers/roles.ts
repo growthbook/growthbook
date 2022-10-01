@@ -1,45 +1,67 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import { Permission, Permissions } from "../../types/permissions";
+import { Permissions } from "../../types/permissions";
 import { updateOrganization } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 
 export async function postRole(
-  req: AuthRequest<{ permissions: Record<Permission, boolean> }>,
+  req: AuthRequest<{ permissions: Permissions; description: string }>,
   res: Response
-) {
+): Promise<void> {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
 
   const { roleId } = req.params;
-  const { permissions } = req.body;
+  const { permissions, description } = req.body;
 
   if (org.roles[roleId]) throw new Error("Role already exists");
+  if (!roleId) throw new Error("Role ID is required");
 
   await updateOrganization(org.id, {
-    roles: { ...org.roles, [roleId]: permissions },
+    roles: { ...org.roles, [roleId]: { permissions, description } },
   });
 
   res.status(200).json({ status: 200 });
 }
 
-export async function updateRole(req: AuthRequest, res: Response) {
+export async function updateRole(
+  req: AuthRequest<{
+    permissions: Permissions;
+    description: string;
+    newRoleId: string;
+  }>,
+  res: Response
+): Promise<void> {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
 
   const { roleId } = req.params;
-  const { permissions } = req.body;
+  const { permissions, description, newRoleId } = req.body;
+
+  if (!org.roles[roleId]) throw new Error("Role does not exist");
+  if (!newRoleId) throw new Error("Role name is required");
+  if (newRoleId !== roleId && org.roles[newRoleId])
+    throw new Error("Role already exists");
+
+  const newRoles = { ...org.roles };
+  if (newRoleId !== roleId) {
+    newRoles[newRoleId] = newRoles[roleId];
+    delete newRoles[roleId];
+  }
 
   await updateOrganization(org.id, {
-    roles: { ...org.roles, [roleId]: permissions },
+    roles: { ...newRoles, [newRoleId]: { permissions, description } },
   });
 
   res.status(200).json({ status: 200 });
 }
 
-export async function deleteRole(req: AuthRequest, res: Response) {
+export async function deleteRole(
+  req: AuthRequest,
+  res: Response
+): Promise<void> {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
@@ -47,13 +69,14 @@ export async function deleteRole(req: AuthRequest, res: Response) {
 
   const membersWithRole = org.members.find((m) => m.role === roleId);
   if (membersWithRole) throw new Error("Cannot delete role with members");
+  if (roleId === "admin") throw new Error("Cannot delete admin role");
 
-  const newRoles: Record<string, Permissions> = {};
-  for (const [rId, rPermissions] of Object.entries(org.roles)) {
-    if (rId !== roleId) newRoles[rId] = rPermissions;
+  const updatedRoles = { ...org.roles };
+  for (const [rId, role] of Object.entries(org.roles)) {
+    if (rId !== roleId) updatedRoles[rId] = role;
   }
 
-  await updateOrganization(org.id, { roles: { ...newRoles } });
+  await updateOrganization(org.id, { roles: { ...updatedRoles } });
 
   res.status(200).json({ status: 200 });
 }

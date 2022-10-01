@@ -114,6 +114,12 @@ export interface VercelConnection {
   teamId: string | null;
 }
 
+export type Role = {
+  permissions: Permissions;
+  description: string;
+};
+export type Roles = Record<string, Role>;
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -139,7 +145,7 @@ export interface OrganizationInterface {
     priceId?: string;
   };
   members: Member[];
-  roles: Record<string, Permissions>;
+  roles: Roles;
   invites: Invite[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;

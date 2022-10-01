@@ -22,6 +22,7 @@ import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
 import { migrateOrganization } from "../../util/migrations";
+import { EnvPermissions, Permissions } from "back-end/types/permissions";
 
 type JWTInfo = {
   email?: string;
@@ -71,7 +72,7 @@ export async function processJWT(
   req.permissions = [];
 
   // Throw error if permissions don't pass
-  req.checkPermissions = (...permissions) => {
+  req.checkPermissions = (...permissions: Permissions) => {
     for (let i = 0; i < permissions.length; i++) {
       if (!req.permissions.includes(permissions[i])) {
         throw new Error("You do not have permission to complete that action.");
@@ -79,7 +80,10 @@ export async function processJWT(
     }
   };
   // Don't throw error if permissions don't pass, used for optional permissions
-  req.checkEnvPermissions = (envBasePermission, ...environments) => {
+  req.checkEnvPermissions = (
+    envBasePermission: EnvPermissions,
+    ...environments: string[]
+  ) => {
     if (req.permissions.includes(envBasePermission)) return;
     for (let i = 0; i < environments.length; i++) {
       if (

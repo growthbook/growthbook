@@ -18,31 +18,26 @@ const RoleSelector: FC<{
 
   return (
     <div>
-      {Object.entries(data.organization.roles)
-        .sort(
-          ([, aPermissions], [, bPermissions]) =>
-            aPermissions.length - bPermissions.length
-        )
-        .map(([roleId, permissions]) => (
-          <div className="list-group" key={roleId}>
-            <button
-              className={clsx("list-group-item list-group-item-action", {
-                active: role === roleId,
-              })}
-              onClick={(e) => {
-                e.preventDefault();
-                setRole(roleId);
-              }}
-            >
-              <div className="d-flex w-100">
-                <strong style={{ width: 115, wordBreak: "break-word" }}>
-                  {roleId}
-                </strong>
-                <div style={{ flex: 1 }}>{permissions.join(", ")}</div>
-              </div>
-            </button>
-          </div>
-        ))}
+      {Object.entries(data.organization.roles).map(([rId, r]) => (
+        <div className="list-group" key={rId}>
+          <button
+            className={clsx("list-group-item list-group-item-action", {
+              active: role === rId,
+            })}
+            onClick={(e) => {
+              e.preventDefault();
+              setRole(rId);
+            }}
+          >
+            <div className="d-flex w-100">
+              <strong style={{ width: 115, wordBreak: "break-word" }}>
+                {rId}
+              </strong>
+              <div style={{ flex: 1 }}>{r.description}</div>
+            </div>
+          </button>
+        </div>
+      ))}
     </div>
   );
 };

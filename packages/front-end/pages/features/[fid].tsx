@@ -41,7 +41,6 @@ import RevisionDropdown from "../../components/Features/RevisionDropdown";
 import usePermissions from "../../hooks/usePermissions";
 import DiscussionThread from "../../components/DiscussionThread";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
-import { checkEnvPermissions } from "../../services/permissions";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -189,9 +188,7 @@ export default function FeaturePage() {
             }}
           >
             Review
-            {checkEnvPermissions(
-              permissions,
-              "publishFeatures",
+            {permissions.canPublishFeatures(
               ...getEnabledEnvironments(data.feature)
             ) && " and Publish"}
           </button>

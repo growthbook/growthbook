@@ -9,6 +9,7 @@ import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Permissions } from "back-end/types/permissions";
+import usePermissions from "../../hooks/usePermissions";
 
 export type SidebarLinkProps = {
   name: string;
@@ -32,7 +33,9 @@ export type SidebarLinkProps = {
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const growthbook = useGrowthBook();
 
-  const { permissions, admin } = useUser();
+  const { admin } = useUser();
+  const permissions = usePermissions();
+
   const router = useRouter();
 
   const path = router.route.substr(1);

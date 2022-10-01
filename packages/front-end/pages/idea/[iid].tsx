@@ -35,6 +35,7 @@ import SelectField from "../../components/Forms/SelectField";
 import useUser from "../../hooks/useUser";
 import SortedTags from "../../components/Tags/SortedTags";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
+import usePermissions from "../../hooks/usePermissions";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -53,7 +54,8 @@ const IdeaPage = (): ReactElement => {
     getProjectById,
   } = useDefinitions();
 
-  const { permissions, getUserDisplay } = useUser();
+  const { getUserDisplay } = useUser();
+  const permissions = usePermissions();
 
   const { apiCall } = useAuth();
 

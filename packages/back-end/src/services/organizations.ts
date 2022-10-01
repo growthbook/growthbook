@@ -115,7 +115,7 @@ export function getPermissionsByRole(
   role: string
 ): Permissions {
   role = updateRole(role);
-  return org.roles[role] || [];
+  return org.roles[role].permissions || [];
 }
 
 export function getNumberOfMembersAndInvites(

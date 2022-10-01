@@ -25,6 +25,7 @@ import Head from "next/head";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "../Settings/UpgradeModal";
 import Tooltip from "../Tooltip";
+import usePermissions from "../../hooks/usePermissions";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -51,7 +52,8 @@ const TopNav: FC<{
     hasActiveSubscription,
   } = useStripeSubscription();
 
-  const { name, email, update, permissions, role, licence } = useUser();
+  const { name, email, update, role, licence } = useUser();
+  const permissions = usePermissions();
 
   const { datasources } = useDefinitions();
 

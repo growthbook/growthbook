@@ -32,7 +32,6 @@ import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
 import usePermissions from "../../hooks/usePermissions";
 import Tooltip from "../Tooltip";
-import { checkEnvPermissions } from "../../services/permissions";
 
 export type Props = {
   close?: () => void;
@@ -195,11 +194,7 @@ export default function FeatureModal({
       <label>Enabled Environments</label>
       <div className="row">
         {environments.map((env) => {
-          const disabled = !checkEnvPermissions(
-            permissions,
-            "publishFeatures",
-            env.id
-          );
+          const disabled = !permissions.canPublishFeatures(env.id);
           if (disabled) environmentSettings[env.id].enabled = false;
 
           return (

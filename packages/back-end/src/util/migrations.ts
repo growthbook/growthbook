@@ -13,8 +13,8 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import isEqual from "lodash/isEqual";
-import { OrganizationInterface } from "../../types/organization";
-import { Permission, Permissions } from "../../types/permissions";
+import { OrganizationInterface, Roles } from "../../types/organization";
+import { Permission } from "../../types/permissions";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -275,7 +275,7 @@ export function upgradeFeatureInterface(
   return newFeature;
 }
 
-function getDefaultRoles(): Record<string, Permissions> {
+function getDefaultRoles(): Roles {
   const basePermissions: Permission[] = [
     "addComments",
     "createIdeas",
@@ -301,19 +301,31 @@ function getDefaultRoles(): Record<string, Permissions> {
   ];
 
   return {
-    readonly: [],
-    collaborator: basePermissions,
-    designer: basePermissions,
-    analyst: basePermissions.concat(analysisPermissions),
-    developer: basePermissions,
-    engineer: basePermissions.concat(featurePermissions),
-    experimenter: basePermissions
-      .concat(featurePermissions)
-      .concat(analysisPermissions),
-    admin: basePermissions
-      .concat(featurePermissions)
-      .concat(analysisPermissions)
-      .concat(adminPermissions),
+    readonly: { permissions: [], description: "Read-only access" },
+    collaborator: { permissions: basePermissions, description: "Collaborator" },
+    designer: { permissions: basePermissions, description: "Designer" },
+    analyst: {
+      permissions: basePermissions.concat(analysisPermissions),
+      description: "Analyst",
+    },
+    developer: { permissions: basePermissions, description: "Developer" },
+    engineer: {
+      permissions: basePermissions.concat(featurePermissions),
+      description: "Engineer",
+    },
+    experimenter: {
+      permissions: basePermissions
+        .concat(featurePermissions)
+        .concat(analysisPermissions),
+      description: "Experimenter",
+    },
+    admin: {
+      permissions: basePermissions
+        .concat(featurePermissions)
+        .concat(analysisPermissions)
+        .concat(adminPermissions),
+      description: "Admin",
+    },
   };
 }
 
@@ -321,9 +333,20 @@ export function migrateOrganization(
   org: OrganizationInterface
 ): OrganizationInterface {
   const newOrg = { ...org };
+
+  const defaultRoles = getDefaultRoles();
   if (!org.roles) {
-    const roles: Record<string, Permissions> = getDefaultRoles();
-    return { ...newOrg, roles };
+    return { ...newOrg, roles: defaultRoles };
   }
+
+  //If the admin role is not up to date, update it
+  if (
+    !org.roles.admin.permissions.every(
+      (p, i) => p === defaultRoles.admin.permissions[i]
+    )
+  ) {
+    newOrg.roles.admin = defaultRoles.admin;
+  }
+
   return newOrg;
 }

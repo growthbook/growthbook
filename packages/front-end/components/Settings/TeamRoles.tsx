@@ -1,4 +1,4 @@
-import { Permissions } from "back-end/types/permissions";
+import { Permission, Permissions } from "back-end/types/permissions";
 import { useState } from "react";
 import DeleteButton from "../DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -6,20 +6,32 @@ import { GBAddCircle } from "../Icons";
 import RoleModal from "./RoleModal";
 import { MemberInfo } from "./MemberList";
 import { useAuth } from "../../services/auth";
+import { Roles } from "back-end/types/organization";
+import Modal from "../Modal";
+import {
+  getEnvFromPermission,
+  isEnvPermission,
+  PERMISSIONS,
+} from "../../hooks/usePermissions";
+import Field from "../Forms/Field";
 
 interface TeamRolesProps {
-  roles: Record<string, Permissions>;
+  roles: Roles;
   members: MemberInfo[];
   mutate: () => void;
 }
 
+export interface FormRole {
+  id: string;
+  description: string;
+  permissions: Permissions;
+  members: MemberInfo[];
+}
+
 export default function TeamRoles({ roles, members, mutate }: TeamRolesProps) {
   const { apiCall } = useAuth();
-  const [activeRole, setActiveRole] = useState<{
-    name: string;
-    rolePermissions: Permissions;
-    members: MemberInfo[];
-  } | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [activeRole, setActiveRole] = useState<FormRole | null>(null);
 
   const [modalType, setModalType] = useState<"create" | "update" | null>(null);
   const closeModal = () => {
@@ -37,11 +49,52 @@ export default function TeamRoles({ roles, members, mutate }: TeamRolesProps) {
           mutate={mutate}
         />
       )}
+      {showViewModal && activeRole && (
+        <Modal
+          close={() => {
+            setShowViewModal(false);
+            setActiveRole(null);
+          }}
+          header={`Viewing ${activeRole.id}`}
+          open={true}
+          autoCloseOnSubmit={false}
+          cta={""}
+          closeCta={"Close"}
+        >
+          <div className="mb-3">
+            <strong>Description:</strong> {activeRole.description}
+          </div>
+          {Object.keys(PERMISSIONS).map((p) => {
+            let envName = "";
+            if (isEnvPermission(p)) envName = getEnvFromPermission(p);
+
+            return (
+              <>
+                {PERMISSIONS[p]?.title && <h4>{PERMISSIONS[p].title}</h4>}
+                <Field
+                  checkBox
+                  key={p}
+                  tooltip={PERMISSIONS[p]?.description || ""}
+                  label={
+                    isEnvPermission(p) ? envName : PERMISSIONS[p]?.displayName
+                  }
+                  labelClassName="mx-2"
+                  containerClassName={`my-1 ${
+                    isEnvPermission(p) ? "ml-4" : ""
+                  }`}
+                  disabled
+                  checked={activeRole.permissions.includes(p as Permission)}
+                />
+              </>
+            );
+          })}
+        </Modal>
+      )}
       <table className="table appbox gbtable">
         <thead>
           <tr>
             <th>Role</th>
-            <th>Permissions</th>
+            <th>Description</th>
             <th>Members</th>
             <th></th>
           </tr>
@@ -49,17 +102,17 @@ export default function TeamRoles({ roles, members, mutate }: TeamRolesProps) {
         <tbody>
           {Object.entries(roles)
             .sort(
-              ([, aPermissions], [, bPermissions]) =>
-                aPermissions.length - bPermissions.length
+              ([, roleA], [, roleB]) =>
+                roleA.permissions.length - roleB.permissions.length
             )
-            .map(([role, permissions]) => {
+            .map(([role, { permissions, description }]) => {
               const roleMembers = members.filter(
                 (member) => member.role === role
               );
               return (
                 <tr key={role} className="py-2">
                   <td>{role}</td>
-                  <td>{permissions.join(", ")}</td>
+                  <td>{description}</td>
                   <td>{roleMembers.map((member) => member.name).join(", ")}</td>
                   <td>
                     <div className="tr-hover actions">
@@ -69,29 +122,49 @@ export default function TeamRoles({ roles, members, mutate }: TeamRolesProps) {
                           onClick={(e) => {
                             e.preventDefault();
                             setActiveRole({
-                              name: role,
-                              rolePermissions: permissions,
+                              id: role,
+                              description: description,
+                              permissions: permissions,
                               members: roleMembers,
                             });
-                            setModalType("update");
+                            setShowViewModal(true);
                           }}
                         >
-                          Edit Role
+                          View Role
                         </button>
-                        <DeleteButton
-                          link={true}
-                          text="Delete Role"
-                          useIcon={false}
-                          className="dropdown-item"
-                          displayName={role}
-                          onClick={async () => {
-                            await apiCall(`/roles/${role}`, {
-                              method: "DELETE",
-                              credentials: "include",
-                            });
-                            mutate();
-                          }}
-                        />
+                        {role !== "admin" && (
+                          <>
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setActiveRole({
+                                  id: role,
+                                  description: description,
+                                  permissions: permissions,
+                                  members: roleMembers,
+                                });
+                                setModalType("update");
+                              }}
+                            >
+                              Edit Role
+                            </button>
+                            <DeleteButton
+                              link={true}
+                              text="Delete Role"
+                              useIcon={false}
+                              className="dropdown-item"
+                              displayName={role}
+                              onClick={async () => {
+                                await apiCall(`/roles/${role}`, {
+                                  method: "DELETE",
+                                  credentials: "include",
+                                });
+                                mutate();
+                              }}
+                            />
+                          </>
+                        )}
                       </MoreMenu>
                     </div>
                   </td>
@@ -105,8 +178,9 @@ export default function TeamRoles({ roles, members, mutate }: TeamRolesProps) {
         onClick={(e) => {
           e.preventDefault();
           setActiveRole({
-            name: "",
-            rolePermissions: [],
+            id: "",
+            description: "",
+            permissions: [],
             members: [],
           });
           setModalType("create");

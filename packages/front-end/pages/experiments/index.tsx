@@ -19,6 +19,7 @@ import useUser from "../../hooks/useUser";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
 import SortedTags from "../../components/Tags/SortedTags";
+import usePermissions from "../../hooks/usePermissions";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById } = useDefinitions();
@@ -31,7 +32,8 @@ const ExperimentsPage = (): React.ReactElement => {
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId, users } = useUser();
+  const { getUserDisplay, userId, users } = useUser();
+  const permissions = usePermissions();
 
   const [currentPage, setCurrentPage] = useState({
     running: 1,

@@ -12,6 +12,7 @@ import { FaPlus } from "react-icons/fa";
 import Modal from "../components/Modal";
 import CopyToClipboard from "../components/CopyToClipboard";
 import useUser from "../hooks/useUser";
+import usePermissions from "../hooks/usePermissions";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
@@ -30,7 +31,8 @@ const PresentationPage = (): React.ReactElement => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { getUserDisplay, permissions } = useUser();
+  const { getUserDisplay } = useUser();
+  const permissions = usePermissions();
   const { apiCall } = useAuth();
 
   const { data: p, error: error, mutate } = useApi<{
