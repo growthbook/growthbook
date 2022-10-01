@@ -66,10 +66,15 @@ export const UserContext = createContext<UserContextValue>({
   settings: {},
 });
 
-const ProtectedPage: React.FC<{
+export interface ProtectedPageProps {
   organizationRequired: boolean;
   children: ReactNode;
-}> = ({ children, organizationRequired }) => {
+}
+
+const ProtectedPage: React.FC<ProtectedPageProps> = ({
+  children,
+  organizationRequired,
+}) => {
   const {
     isAuthenticated,
     apiCall,

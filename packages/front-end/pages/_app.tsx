@@ -1,16 +1,31 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
-import { AuthProvider } from "../services/auth";
-import ProtectedPage from "../components/ProtectedPage";
 import Head from "next/head";
-import { DefinitionsProvider } from "../services/DefinitionsContext";
 import { useEffect, useState } from "react";
 import track from "../services/track";
 import { initEnv } from "../services/env";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
-import Layout from "../components/Layout/Layout";
+import dynamic from "next/dynamic";
+import type { ProtectedPageProps } from "../components/ProtectedPage";
+
+const Layout = dynamic(() => import("../components/Layout/Layout"), {
+  ssr: false,
+});
+const AuthProvider = dynamic(
+  async () => (await import("../services/auth")).AuthProvider,
+  { ssr: false }
+);
+const DefinitionsProvider = dynamic(
+  async () =>
+    (await import("../services/DefinitionsContext")).DefinitionsProvider,
+  { ssr: false }
+);
+const ProtectedPage = dynamic<ProtectedPageProps>(
+  () => import("../components/ProtectedPage"),
+  { ssr: false }
+);
 
 type ModAppProps = AppProps & {
   Component: {

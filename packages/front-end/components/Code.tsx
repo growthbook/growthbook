@@ -1,11 +1,16 @@
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { FaCompressAlt, FaCopy, FaExpandAlt } from "react-icons/fa";
-import { Prism } from "react-syntax-highlighter";
+import dynamic from "next/dynamic";
 import {
   tomorrow as dark,
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
+
+const Prism = dynamic(
+  async () => (await import("react-syntax-highlighter")).Prism,
+  { ssr: false }
+);
 
 export type Language =
   | "none"

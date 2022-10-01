@@ -45,7 +45,7 @@
     ],
     "./packages/stats/gbstats/**/*.py": [
       "black",
-      "flake8"
+      "flake8 --config=packages/stats/.flake8"
     ]
   },
   "license": "MIT"

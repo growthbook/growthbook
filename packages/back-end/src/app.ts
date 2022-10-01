@@ -28,58 +28,81 @@ import compression from "compression";
 import fs from "fs";
 import path from "path";
 
-// Controllers
-import * as authHandlers from "./controllers/auth";
-const authController = wrapHandler(authHandlers);
-import * as organizationsHandlers from "./controllers/organizations";
-const organizationsController = wrapHandler(organizationsHandlers);
-import * as datasourcesHandlers from "./controllers/datasources";
-const datasourcesController = wrapHandler(datasourcesHandlers);
-import * as experimentsHandlers from "./controllers/experiments";
-const experimentsController = wrapHandler(experimentsHandlers);
-import * as metricsHandlers from "./controllers/metrics";
-const metricsController = wrapHandler(metricsHandlers);
-import * as reportsHandlers from "./controllers/reports";
-const reportsController = wrapHandler(reportsHandlers);
-import * as ideasHandlers from "./controllers/ideas";
-const ideasController = wrapHandler(ideasHandlers);
-import * as presentationHandlers from "./controllers/presentations";
-const presentationController = wrapHandler(presentationHandlers);
-import * as discussionsHandlers from "./controllers/discussions";
-const discussionsController = wrapHandler(discussionsHandlers);
-import * as adminHandlers from "./controllers/admin";
-const adminController = wrapHandler(adminHandlers);
-import * as stripeHandlers from "./controllers/stripe";
-const stripeController = wrapHandler(stripeHandlers);
-import * as vercelHandlers from "./controllers/vercel";
-const vercelController = wrapHandler(vercelHandlers);
-import * as segmentsHandlers from "./controllers/segments";
-const segmentsController = wrapHandler(segmentsHandlers);
-import * as dimensionsHandlers from "./controllers/dimensions";
-const dimensionsController = wrapHandler(dimensionsHandlers);
-import * as projectsHandlers from "./controllers/projects";
-const projectsController = wrapHandler(projectsHandlers);
-import * as featuresHandlers from "./controllers/features";
-const featuresController = wrapHandler(featuresHandlers);
-import * as slackHandlers from "./controllers/slack";
-const slackController = wrapHandler(slackHandlers);
-import * as tagsHandlers from "./controllers/tags";
-const tagsController = wrapHandler(tagsHandlers);
+// Begin Controllers
+import * as authControllerRaw from "./controllers/auth";
+const authController = wrapController(authControllerRaw);
+
+import * as organizationsControllerRaw from "./controllers/organizations";
+const organizationsController = wrapController(organizationsControllerRaw);
+
+import * as datasourcesControllerRaw from "./controllers/datasources";
+const datasourcesController = wrapController(datasourcesControllerRaw);
+
+import * as experimentsControllerRaw from "./controllers/experiments";
+const experimentsController = wrapController(experimentsControllerRaw);
+
+import * as metricsControllerRaw from "./controllers/metrics";
+const metricsController = wrapController(metricsControllerRaw);
+
+import * as reportsControllerRaw from "./controllers/reports";
+const reportsController = wrapController(reportsControllerRaw);
+
+import * as ideasControllerRaw from "./controllers/ideas";
+const ideasController = wrapController(ideasControllerRaw);
+
+import * as presentationControllerRaw from "./controllers/presentations";
+const presentationController = wrapController(presentationControllerRaw);
+
+import * as discussionsControllerRaw from "./controllers/discussions";
+const discussionsController = wrapController(discussionsControllerRaw);
+
+import * as adminControllerRaw from "./controllers/admin";
+const adminController = wrapController(adminControllerRaw);
+
+import * as stripeControllerRaw from "./controllers/stripe";
+const stripeController = wrapController(stripeControllerRaw);
+
+import * as vercelControllerRaw from "./controllers/vercel";
+const vercelController = wrapController(vercelControllerRaw);
+
+import * as segmentsControllerRaw from "./controllers/segments";
+const segmentsController = wrapController(segmentsControllerRaw);
+
+import * as dimensionsControllerRaw from "./controllers/dimensions";
+const dimensionsController = wrapController(dimensionsControllerRaw);
+
+import * as projectsControllerRaw from "./controllers/projects";
+const projectsController = wrapController(projectsControllerRaw);
+
+import * as featuresControllerRaw from "./controllers/features";
+const featuresController = wrapController(featuresControllerRaw);
+
+import * as slackControllerRaw from "./controllers/slack";
+const slackController = wrapController(slackControllerRaw);
+
+import * as tagsControllerRaw from "./controllers/tags";
+const tagsController = wrapController(tagsControllerRaw);
+// End Controllers
+
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
 
-// Wrap every controller function in asyncHandler to catch errors properly
 // eslint-disable-next-line
-function wrapHandler<T extends string>(handler: Record<T, RequestHandler<any>>): Record<T, RequestHandler<any>> {
-  // eslint-disable-next-line
-  const controller: Record<T, RequestHandler<any>> = {} as any;
-  Object.keys(handler).forEach((key: T) => {
-    if (typeof handler[key] === "function") {
-      controller[key] = asyncHandler(handler[key]);
+type Handler = RequestHandler<any>;
+type Controller<T extends string> = Record<T, Handler>;
+
+// Wrap every controller function in asyncHandler to catch errors properly
+function wrapController<T extends string>(
+  controller: Controller<T>
+): Controller<T> {
+  const newController = {} as Controller<T>;
+  Object.keys(controller).forEach((key: T) => {
+    if (typeof controller[key] === "function") {
+      newController[key] = asyncHandler(controller[key]);
     }
   });
-  return controller;
+  return newController;
 }
 
 const app = express();
