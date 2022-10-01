@@ -4,6 +4,7 @@ import {
   conditionToJavascript,
   getMixpanelPropertyColumn,
   expandDenominatorMetrics,
+  format,
 } from "../src/util/sql";
 
 describe("backend", () => {
@@ -177,5 +178,30 @@ describe("backend", () => {
     expect(expandDenominatorMetrics("f", metricMap)).toEqual(["f"]);
     expect(expandDenominatorMetrics("g", metricMap)).toEqual(["g"]);
     expect(expandDenominatorMetrics("h", metricMap)).toEqual([]);
+  });
+
+  it("formats SQL correctly", () => {
+    let inputSQL = `SELECT * FROM mytable`;
+    expect(format(inputSQL)).toEqual(`SELECT\n  *\nFROM\n  mytable`);
+
+    // Snowflake flatten function (=>)
+    inputSQL = `select * from table(flatten(input => parse_json('{"a":1, "b":[77,88]}'), outer => true)) f`;
+    expect(format(inputSQL)).toEqual(
+      `select
+  *
+from
+  table(
+    flatten(
+      input => parse_json('{"a":1, "b":[77,88]}'),
+      outer => true
+    )
+  ) f`
+    );
+
+    // Athena lambda syntax (->)
+    inputSQL = `SELECT transform(numbers, n -> n * n) as sq`;
+    expect(format(inputSQL)).toEqual(
+      `SELECT\n  transform(numbers, n -> n * n) as sq`
+    );
   });
 });

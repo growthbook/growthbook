@@ -2,9 +2,8 @@ import { FeatureInterface } from "back-end/types/feature";
 import Modal from "../Modal";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
-import Code from "../Code";
+import Code, { Language } from "../Code";
 import { useState } from "react";
-import { Language } from "../Code";
 import CodeSnippetModal from "./CodeSnippetModal";
 import { DocLink, DocSection } from "../DocLink";
 

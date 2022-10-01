@@ -45,8 +45,9 @@ const AthenaForm: FC<{
       <div className="form-group col-md-12">
         <label>Access Secret</label>
         <input
-          type="password"
-          className="form-control"
+          type="text"
+          className="form-control password-presentation"
+          autoComplete="off"
           name="secretAccessKey"
           required={!existing}
           value={params.secretAccessKey || ""}

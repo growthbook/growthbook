@@ -1,4 +1,4 @@
-import React, { FC, ReactElement, useState } from "react";
+import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -8,7 +8,6 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEffect } from "react";
 import Code from "../Code";
 import TagsInput from "../Tags/TagsInput";
 import { getDefaultConversionWindowHours } from "../../services/env";
@@ -23,7 +22,6 @@ import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
-import { useMemo } from "react";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const weekAgo = new Date();
@@ -254,14 +252,25 @@ const MetricForm: FC<MetricFormProps> = ({
     return metrics
       .filter((m) => m.id !== current?.id)
       .filter((m) => m.datasource === value.datasource)
-      .filter((m) => m.type === "binomial")
+      .filter((m) => {
+        // Binomial metrics can always be a denominator
+        // That just makes it act like a funnel (or activation) metric
+        if (m.type === "binomial") return true;
+
+        // If the numerator has a value (not binomial),
+        // then count metrics can be used as the denominator as well (as long as they don't have their own denominator)
+        // This makes it act like a true ratio metric
+        return (
+          value.type !== "binomial" && m.type === "count" && !m.denominator
+        );
+      })
       .map((m) => {
         return {
           value: m.id,
           label: m.name,
         };
       });
-  }, [metrics, value.datasource, metricDefaults]);
+  }, [metrics, value.type, value.datasource]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 

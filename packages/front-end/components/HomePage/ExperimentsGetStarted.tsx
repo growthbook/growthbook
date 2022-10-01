@@ -10,7 +10,6 @@ import Tooltip from "../Tooltip";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import { hasFileConfig } from "../../services/env";
-import EditDataSourceSettingsForm from "../Settings/EditDataSourceSettingsForm";
 import ImportExperimentModal from "../Experiment/ImportExperimentModal";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
@@ -35,7 +34,6 @@ const ExperimentsGetStarted = ({
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [experimentsOpen, setExperimentsOpen] = useState(false);
-  const [dataSourceQueriesOpen, setDataSourceQueriesOpen] = useState(false);
   const router = useRouter();
 
   // If this is coming from a feature experiment rule
@@ -90,20 +88,6 @@ const ExperimentsGetStarted = ({
   return (
     <>
       <div>
-        {dataSourceQueriesOpen &&
-          datasources?.[0] &&
-          datasources[0].properties?.hasSettings && (
-            <EditDataSourceSettingsForm
-              firstTime={true}
-              data={datasources[0]}
-              onCancel={() => setDataSourceQueriesOpen(false)}
-              onSuccess={() => {
-                setDataSourceQueriesOpen(false);
-                mutateDefinitions();
-              }}
-              source="onboarding"
-            />
-          )}
         {dataSourceOpen && (
           <NewDataSourceForm
             data={{
@@ -116,7 +100,6 @@ const ExperimentsGetStarted = ({
             onSuccess={async () => {
               await mutateDefinitions();
               setDataSourceOpen(false);
-              setDataSourceQueriesOpen(true);
             }}
             importSampleData={
               !hasDataSource &&

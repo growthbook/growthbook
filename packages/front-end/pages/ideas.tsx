@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import useApi from "../hooks/useApi";
 import Link from "next/link";
-import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "../services/dates";

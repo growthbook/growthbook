@@ -34,8 +34,9 @@ const MixpanelForm: FC<{
         <div className="form-group col-md-12">
           <label>Secret</label>
           <input
-            type="password"
-            className="form-control"
+            type="text"
+            className="form-control password-presentation"
+            autoComplete="off"
             name="secret"
             required={!existing}
             value={params.secret || ""}

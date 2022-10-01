@@ -1,7 +1,6 @@
-import React, { Children, FC } from "react";
+import React, { Children, FC, ReactNode } from "react";
 import styles from "./RightRailSectionGroup.module.scss";
 import SortedTags from "../Tags/SortedTags";
-import { ReactNode } from "react";
 
 const RightRailSectionGroup: FC<{
   title?: string;

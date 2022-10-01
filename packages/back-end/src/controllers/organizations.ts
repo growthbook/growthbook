@@ -41,7 +41,7 @@ import {
 import { WatchModel } from "../models/WatchModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { getExperimentById, ensureWatching } from "../services/experiments";
-import { getFeature } from "../models/FeatureModel";
+import { getFeature, getAllFeatures } from "../models/FeatureModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByOrganization } from "../models/DimensionModel";
 import { IS_CLOUD } from "../util/secrets";
@@ -61,7 +61,6 @@ import {
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
-import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";

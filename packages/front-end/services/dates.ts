@@ -24,6 +24,9 @@ export function subtractMonths(date: string | Date, num: number): Date {
 export function monthYear(date: string | Date): string {
   return format(getValidDate(date), "MMM yyy");
 }
+export function daysBetween(start: string | Date, end: string | Date): number {
+  return differenceInDays(getValidDate(end), getValidDate(start));
+}
 
 export function getValidDate(
   dateStr: string | Date | null | number,

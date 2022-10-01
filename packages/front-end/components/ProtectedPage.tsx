@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext } from "react";
+import { useEffect, useState, createContext, ReactNode } from "react";
 import { useAuth, UserOrganizations, safeLogout } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
@@ -10,7 +10,6 @@ import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Modal from "./Modal";
-import { ReactNode } from "react";
 import { Permissions } from "back-end/types/permissions";
 
 type User = { id: string; email: string; name: string };

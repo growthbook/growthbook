@@ -8,7 +8,7 @@ import React, { useEffect, useState } from "react";
 import RunQueriesButton, {
   getQueryStatus,
 } from "../../components/Queries/RunQueriesButton";
-import { ago, datetime, getValidDate } from "../../services/dates";
+import { ago, datetime, getValidDate, date } from "../../services/dates";
 import DateResults from "../../components/Experiment/DateResults";
 import BreakDownResults from "../../components/Experiment/BreakDownResults";
 import CompactResults from "../../components/Experiment/CompactResults";
@@ -26,7 +26,6 @@ import MarkdownInput from "../../components/Markdown/MarkdownInput";
 import Modal from "../../components/Modal";
 import { useForm } from "react-hook-form";
 import Tooltip from "../../components/Tooltip";
-import { date } from "../../services/dates";
 import useUser from "../../hooks/useUser";
 import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
 import DeleteButton from "../../components/DeleteButton";

@@ -96,7 +96,6 @@ const ImportExperimentModal: FC<{
           }}
           changeDatasource={setDatasourceId}
           importId={importId}
-          hideImported={true}
         />
       )}
     </Modal>

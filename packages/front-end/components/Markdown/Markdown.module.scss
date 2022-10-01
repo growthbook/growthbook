@@ -1,3 +1,5 @@
+@import "../../styles/colors.scss";
+
 .markdown {
   pre {
     padding: 12px;
@@ -38,6 +40,12 @@
       background: #ddd;
       content: "";
     }
+  }
+  mark {
+    background: $blue;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 5px;
   }
   code[class*="language-"] {
     color: #333;
