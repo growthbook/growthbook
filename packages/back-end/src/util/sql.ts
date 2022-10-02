@@ -120,11 +120,14 @@ export function conditionToJavascript({ operator, value, column }: Condition) {
 
   // Some operators map to special javascript syntax
   if (operator === "~") {
-    return `${col}.match(new RegExp(${encoded}))`;
+    return `(${col}||"").match(new RegExp(${encoded}))`;
   } else if (operator === "!~") {
-    return `!${col}.match(new RegExp(${encoded}))`;
+    return `!(${col}||"").match(new RegExp(${encoded}))`;
   } else if (operator === "=") {
     return `${col}+'' == ${encoded}`;
+  } else if (operator === "=>") {
+    // Callback function
+    return `((value) => (${value}))(${col})`;
   } else {
     // If the value is a number, don't use the JSON encoded version for comparison
     const comp = !value || isNaN(Number(value)) ? encoded : value;
