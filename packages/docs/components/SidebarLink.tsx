@@ -4,7 +4,6 @@ interface SidebarLinkProps {
   href: string;
   name: string;
   beta: boolean;
-  auth: boolean;
   active: boolean;
 }
 
@@ -12,7 +11,6 @@ export default function SidebarLink({
   href,
   name,
   beta,
-  auth,
   active,
 }: SidebarLinkProps) {
   return (
@@ -29,13 +27,6 @@ export default function SidebarLink({
           {beta ? (
             <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1">
               beta
-            </span>
-          ) : (
-            ""
-          )}
-          {auth ? (
-            <span className="bg-green-400 dark:bg-green-600 p-1 rounded text-xs ml-1">
-              auth
             </span>
           ) : (
             ""

@@ -181,32 +181,8 @@ const navLinks = [
         name: "Features",
         links: [
           {
-            href: "/apidocs/features/definitions",
-            name: "Definitions",
-          },
-          {
-            href: "/apidocs/features/create",
-            name: "Create",
-            auth: true,
-          },
-          {
-            href: "/apidocs/features/get",
-            name: "Get",
-            auth: true,
-          },
-          {
             href: "/apidocs/features/list",
             name: "List",
-            auth: true,
-          },
-          {
-            href: "/apidocs/features/update",
-            name: "Update",
-            auth: true,
-          },
-          {
-            href: "/apidocs/features/delete",
-            name: "Delete",
             auth: true,
           },
         ],
@@ -354,7 +330,6 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                   href={link.href}
                   name={link.name}
                   beta={false}
-                  auth={false}
                   active={router.pathname === link.href}
                 />
                 {link.links &&
@@ -364,7 +339,6 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                         href={sublink.href}
                         name={sublink.name}
                         beta={sublink.beta}
-                        auth={sublink.auth}
                         active={router.pathname === sublink.href}
                       />
                       {sublink.links &&
@@ -373,8 +347,7 @@ function App({ Component, pageProps, router }: AppProps): React.ReactElement {
                             <SidebarLink
                               href={subsublink.href}
                               name={subsublink.name}
-                              beta={subsublink.beta}
-                              auth={subsublink.auth}
+                              beta={false}
                               active={router.pathname === subsublink.href}
                             />
                           </div>
