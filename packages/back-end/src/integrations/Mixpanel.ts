@@ -627,10 +627,10 @@ const min = (arr) => Math.min(...arr);
 const max = (arr) => Math.max(...arr);
 const avg = (arr) => sum(arr)/count(arr);
 const percentile = (arr, p) => {
-  const sorted = [...arr].sort();
-  const i = (sorted.length-1)*p/100;
-  const r = Math.ceil(i) - i;
-  return sorted[Math.floor(i)]*r + sorted[Math.ceil(i)]*(1-r);
+  const s = [...arr].sort((a,b)=>a-b);
+  const r = (s.length-1)*p/100;
+  const rf = Math.ceil(r) - r;
+  return s[Math.floor(r)]*rf + s[Math.ceil(r)]*(1-rf);
 };
 const median = (arr) => percentile(arr, 50);
     `;
