@@ -6,6 +6,7 @@
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
   --surface-background-color-alt: #{colors.$gray-100};
+  --background-primary-light: #f3eff7;
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
 
   --text-color-main: #{colors.$main-black};
@@ -17,6 +18,7 @@
   --text-color-muted: #{colors.$gray-600};
   --text-color-on-bright: #{colors.$white};
   --text-color-primary: #{colors.$highlight-purple};
+  --text-color-on-background-primary-light: #{colors.$dark-purple};
 
   --form-input-group-background: #e9ecef;
   --form-input-group-color: #{colors.$gray-700};
@@ -58,6 +60,7 @@
   --surface-background-color: #{colors.$surface-background-dark};
   --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
+  --background-primary-light: #{darken(colors.$dark-purple, 13%)};
 
   --text-color-main: #{colors.$white};
   --text-color-table: #{lighten(colors.$gray2, 10%)};
@@ -68,6 +71,7 @@
   --text-color-muted: #{colors.$gray-500};
   --text-color-on-bright: #{colors.$black};
   --text-color-primary: #{colors.$highlight-purple-light};
+  --text-color-on-background-primary-light: #{colors.$highlight-purple-light};
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};

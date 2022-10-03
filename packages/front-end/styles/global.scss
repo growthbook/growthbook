@@ -989,8 +989,8 @@ pre {
     color: var(--alert-warn-color);
   }
   td.draw {
-    background-color: rgba(#d7c9e2, 0.3);
-    color: colors.$dark-purple;
+    background-color: var(--background-primary-light);
+    color: var(--text-color-on-background-primary-light);
   }
 
   .metricname:hover {
