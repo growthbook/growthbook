@@ -400,11 +400,17 @@ const DateGraph: FC<{
             </div>
             <svg width={width} height={height}>
               <Group left={margin[3]} top={margin[0]}>
-                <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
+                <GridRows
+                  scale={yScale}
+                  width={xMax}
+                  numTicks={numYTicks}
+                  stroke="var(--border-color-200)"
+                />
                 <GridColumns
                   scale={xScale}
                   height={graphHeight}
                   numTicks={numXTicks}
+                  stroke="var(--border-color-200)"
                 />
                 {experiments && (
                   <>
