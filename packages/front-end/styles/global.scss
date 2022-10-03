@@ -255,7 +255,7 @@ pre {
       background-color: var(--surface-background-color);
     }
     tr td:not(:last-child) {
-      border-bottom: 1px solid colors.$gray4;
+      border-bottom: 1px solid var(--border-color-300);
     }
 
     &.experiment-table {
@@ -718,7 +718,7 @@ pre {
     transform: rotate(45deg);
     right: -8px;
     top: 70%;
-    background-color: #fff;
+    background-color: var(--surface-background-color);
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
     border: 1px inset var(--border-color-300);
@@ -1414,9 +1414,9 @@ li.metrics a span img {
     width: 100%;
     object-fit: scale-down;
     object-position: 50% 50%;
-    background: colors.$gray1;
-    border-top: 1px solid colors.$gray4;
-    border-bottom: 1px solid colors.$gray4;
+    background: var(--form-switch-background);
+    border-top: 1px solid var(--border-color-200);
+    border-bottom: 1px solid var(--border-color-200);
   }
   .results-table {
     font-size: 14px;
@@ -1781,7 +1781,7 @@ html {
 
 @media (max-width: 850px) {
   .leftBar {
-    background-color: colors.$light-grey;
+    background-color: var(--surface-background-color-alt);
     width: 100%;
     padding: 15px;
     flex-direction: column;
