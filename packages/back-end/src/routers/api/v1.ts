@@ -8,7 +8,7 @@ import {
   postFeatureApi,
   putFeatureApi,
 } from "../../controllers/api/v1";
-import validateAccessTokenApiReq from "../../middleware/validateAccessTokenApiReq";
+import { validateAccessTokenApiReq } from "../../middleware/validateAccessTokenApiReq";
 
 const router = express.Router();
 

@@ -2,9 +2,7 @@ import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
 import {
   FeatureDraftChanges,
-  FeatureEnvironment,
   FeatureInterface,
-  FeatureRevisionInterface,
   FeatureRule,
 } from "../../types/feature/feature";
 import { getOrgFromReq } from "../services/organizations";
@@ -33,6 +31,7 @@ import {
   getFeatureDefinitions,
   fireWebhook,
   verifyDraftsAreEqual,
+  addIdsToRules,
 } from "../services/features";
 import {
   ensureWatching,
@@ -97,17 +96,9 @@ export async function postFeatures(
 ) {
   req.checkPermissions("createFeatures");
   const feature = req.body;
-  const { org, environments, userId, email, userName } = getOrgFromReq(req);
+  const { org, userId, email, userName } = getOrgFromReq(req);
 
-  const environmentSettings: Record<string, FeatureEnvironment> = {};
-  environments.forEach((env) => {
-    environmentSettings[env.id] = {
-      enabled: true,
-      rules: [],
-    };
-  });
-
-  const revision: FeatureRevisionInterface = {
+  feature.revision = {
     version: 1,
     comment: "New feature",
     date: new Date(),
@@ -118,11 +109,9 @@ export async function postFeatures(
     },
   };
 
-  feature.environmentSettings = environmentSettings;
-  feature.revision = revision;
+  addIdsToRules(feature.environmentSettings, feature.id);
 
   const resultFeature = await createFeature(feature, org.id);
-
   await ensureWatching(userId, org.id, resultFeature.id, "features");
 
   await req.audit({
@@ -550,8 +539,8 @@ export async function getFeatureById(
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((r) => {
-        if (r.type === "experiment" && r.trackingKey) {
-          expIds.add(r.trackingKey);
+        if (r.type === "experiment") {
+          expIds.add(r.trackingKey || feature.id);
         }
       });
     });

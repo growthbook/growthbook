@@ -51,6 +51,12 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export interface MetricDefaults {
+  minimumSampleSize?: number;
+  maxPercentageChange?: number;
+  minPercentageChange?: number;
+}
+
 export interface Namespaces {
   name: string;
   description: string;
@@ -94,6 +100,7 @@ export interface OrganizationSettings {
   secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
+  metricDefaults?: MetricDefaults;
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;

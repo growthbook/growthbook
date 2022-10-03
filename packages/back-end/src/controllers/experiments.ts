@@ -17,7 +17,10 @@ import {
 import uniqid from "uniqid";
 import { MetricStats } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
-import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
+import {
+  ExperimentSnapshotDocument,
+  ExperimentSnapshotModel,
+} from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
@@ -41,7 +44,6 @@ import { getMetricById } from "../models/MetricModel";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
-import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
@@ -1311,6 +1313,7 @@ export async function getSnapshotStatus(
         {
           $set: {
             ...updates,
+            hasCorrectedStats: true,
             unknownVariations:
               results?.unknownVariations || snapshot.unknownVariations || [],
             multipleExposures:
@@ -1738,11 +1741,7 @@ export async function postPastExperiments(
   if (!model) {
     const { queries, result } = await startRun(
       {
-        experiments: getPastExperiments(
-          integration,
-          start,
-          org?.settings?.pastExperimentsMinLength
-        ),
+        experiments: getPastExperiments(integration, start),
       },
       processPastExperiments
     );
@@ -1752,6 +1751,10 @@ export async function postPastExperiments(
       datasource: datasource,
       experiments: result || [],
       runStarted: now,
+      config: {
+        start,
+        end: now,
+      },
       error: "",
       queries,
       dateCreated: new Date(),
@@ -1761,17 +1764,17 @@ export async function postPastExperiments(
   } else if (force) {
     const { queries, result } = await startRun(
       {
-        experiments: getPastExperiments(
-          integration,
-          start,
-          org?.settings?.pastExperimentsMinLength
-        ),
+        experiments: getPastExperiments(integration, start),
       },
       processPastExperiments
     );
     model.set("runStarted", now);
     model.set("error", "");
     model.set("queries", queries);
+    model.set("config", {
+      start: start,
+      end: new Date(),
+    });
     if (result) {
       model.set("experiments", result);
     }

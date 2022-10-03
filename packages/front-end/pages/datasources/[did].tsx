@@ -1,24 +1,22 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import React, { FC, useState } from "react";
-import {
-  FaAngleLeft,
-  FaCloudDownloadAlt,
-  FaCode,
-  FaExternalLinkAlt,
-  FaKey,
-} from "react-icons/fa";
+import React, { FC, useCallback, useState } from "react";
+import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
-import Button from "../../components/Button";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
-import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink, DocSection } from "../../components/DocLink";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
+import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
+import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
+import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -29,7 +27,6 @@ function quotePropertyName(name: string) {
 
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
-  const [editSettings, setEditSettings] = useState(false);
 
   const permissions = usePermissions();
 
@@ -48,6 +45,22 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
 
+  /**
+   * Update the data source provided.
+   * Each section is responsible for retaining the rest of the data source and editing its specific section.
+   */
+  const updateDataSource = useCallback(
+    async (dataSource: DataSourceInterfaceWithParams) => {
+      await apiCall(`/datasource/${dataSource.id}`, {
+        method: "PUT",
+        body: JSON.stringify(dataSource),
+      });
+
+      await mutateDefinitions({});
+    },
+    [mutateDefinitions, apiCall]
+  );
+
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
   }
@@ -64,11 +77,6 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
-  const supportsImports = d.properties?.pastExperiments;
-
-  const joinTables = (d.settings?.queries?.identityJoins || []).filter(
-    (j) => j.query.length > 1
-  );
 
   return (
     <div className="container mt-3 pagecontents">
@@ -87,96 +95,67 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-secondary">{d.type}</span>{" "}
           <span className="badge badge-success">connected</span>
         </div>
-        <div style={{ flex: 1 }} />
-        {canEdit && permissions.createDatasources && (
-          <div className="col-auto">
-            <DeleteButton
-              displayName={d.name}
-              text="Delete"
-              onClick={async () => {
-                await apiCall(`/datasource/${d.id}`, {
-                  method: "DELETE",
-                });
-                mutateDefinitions({});
-                router.push("/datasources");
-              }}
-            />
-          </div>
-        )}
       </div>
 
       <div className="row">
-        <div className="col-md-9">
-          <div className="row mb-3">
+        <div className="col-md-12">
+          <div className="mb-3">
             {canEdit && permissions.createDatasources && (
-              <div className="col-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditConn(true);
-                  }}
-                >
-                  <FaKey /> Edit Connection Info
-                </a>
-              </div>
-            )}
-            {(supportsSQL || supportsEvents) &&
-              canEdit &&
-              permissions.editDatasourceSettings && (
-                <div className="col-auto">
-                  <a
-                    href="#"
+              <div className="d-md-flex w-100 justify-content-between">
+                <div>
+                  <button
+                    className="btn btn-outline-primary mb-2 mb-md-0 mr-md-2 font-weight-bold"
                     onClick={(e) => {
                       e.preventDefault();
-                      setEditSettings(true);
+                      setEditConn(true);
                     }}
                   >
-                    <FaCode /> Edit Query Settings
-                  </a>
+                    <FaKey /> Edit Connection Info
+                  </button>
+
+                  <DocLink
+                    className="btn btn-outline-secondary font-weight-bold mb-2 mb-md-0"
+                    docSection={d.type as DocSection}
+                    fallBackSection="datasources"
+                  >
+                    <FaExternalLinkAlt /> View documentation
+                  </DocLink>
                 </div>
-              )}
-            <div className="col-auto ml-auto">
-              <DocLink
-                docSection={d.type as DocSection}
-                fallBackSection="datasources"
-              >
-                <FaExternalLinkAlt /> View documentation
-              </DocLink>
-            </div>
+
+                <div>
+                  {canEdit && permissions.createDatasources && (
+                    <DeleteButton
+                      displayName={d.name}
+                      className="font-weight-bold"
+                      text={`Delete "${d.name}" Datasource`}
+                      onClick={async () => {
+                        await apiCall(`/datasource/${d.id}`, {
+                          method: "DELETE",
+                        });
+                        mutateDefinitions({});
+                        router.push("/datasources");
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
               This data source does not require any additional configuration.
             </div>
           )}
-          {supportsEvents && d?.settings?.events && (
+          {supportsEvents && (
             <>
-              <h3 className="mb-3">Query Settings</h3>
-              <table className="table appbox gbtable mb-5">
-                <tbody>
-                  <tr>
-                    <th>Experiment Event</th>
-                    <td>
-                      <code>{d.settings.events.experimentEvent || ""}</code>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Experiment Id Property</th>
-                    <td>
-                      <code>
-                        {d.settings.events.experimentIdProperty || ""}
-                      </code>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Variation Id Property</th>
-                    <td>
-                      <code>{d.settings.events.variationIdProperty || ""}</code>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="my-5">
+                <DataSourceViewEditExperimentProperties
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                />
+              </div>
+
               {d.type === "mixpanel" && (
                 <div>
                   <h3>Mixpanel Tracking Instructions</h3>
@@ -191,12 +170,14 @@ const DataSourcePage: FC = () => {
 const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
-    mixpanel.track(${JSON.stringify(d.settings.events.experimentEvent)}, {
+    mixpanel.track(${JSON.stringify(
+      d.settings?.events?.experimentEvent || "$experiment_started"
+    )}, {
       ${quotePropertyName(
-        d.settings.events.experimentIdProperty
+        d.settings?.events?.experimentIdProperty || "Experiment name"
       )}: experiment.key,
       ${quotePropertyName(
-        d.settings.events.variationIdProperty
+        d.settings?.events?.variationIdProperty || "Variant name"
       )}:  result.variationId,
       $source: 'growthbook'
     })
@@ -220,137 +201,44 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
-              <div className="mb-4">
-                <h3>Identifier Types</h3>
-                <p>
-                  The different units you use to split traffic in an experiment.
-                </p>
-                {d.settings?.userIdTypes?.map(({ userIdType, description }) => (
-                  <div
-                    className="bg-white border mb-3 p-3 ml-3"
-                    key={userIdType}
-                  >
-                    <h4>{userIdType}</h4>
-                    {description && <div>{description}</div>}
-                  </div>
-                ))}
-              </div>
-              <div className="mb-4">
-                <h3>Experiment Assignment Queries</h3>
-                <p>
-                  Returns a record of which experiment variation was assigned to
-                  each user.
-                </p>
-                {d.settings?.queries?.exposure?.map((e) => (
-                  <div className="bg-white border mb-3 ml-3" key={e.id}>
-                    <div className="px-3 pt-3">
-                      <h4>{e.name}</h4>
-                      {e.description && <p>{e.description}</p>}
-                      <div className="row">
-                        <div className="col-auto">
-                          <strong>Identifier: </strong>
-                          <code>{e.userIdType}</code>
-                        </div>
-                        <div className="col-auto">
-                          <strong>Dimension Columns: </strong>
-                          {e.dimensions.map((d, i) => (
-                            <React.Fragment key={i}>
-                              {i ? ", " : ""}
-                              <code key={d}>{d}</code>
-                            </React.Fragment>
-                          ))}
-                          {!e.dimensions.length && (
-                            <em className="text-muted">none</em>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <Code
-                      language="sql"
-                      theme="light"
-                      code={e.query}
-                      containerClassName="mb-0"
-                      expandable={true}
-                    />
-                  </div>
-                ))}
-              </div>
-              {joinTables.length > 0 && d.settings?.userIdTypes?.length > 1 && (
-                <div className="mb-4">
-                  <h3>Identifier Join Tables</h3>
-                  <p>
-                    Joins different identifier types together when needed during
-                    experiment analysis.
-                  </p>
-                  {joinTables.map((t, i) => (
-                    <div className="bg-white border mb-3" key={i}>
-                      <h4 className="pt-3 px-3">{t.ids.join(", ")}</h4>
-                      <Code
-                        language="sql"
-                        theme="light"
-                        code={t.query}
-                        containerClassName="mb-0"
-                        expandable={true}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="mb-4">
-                <h3>Jupyter Notebook Query Runner</h3>
-                <p>
-                  Tell us how to query this data source from within a Jupyter
-                  notebook environment.
-                </p>
-                {d.settings?.notebookRunQuery ? (
-                  <Code
-                    theme="light"
-                    code={d.settings.notebookRunQuery}
-                    language="python"
-                    expandable={true}
+              <h2 className="mt-4">Identifiers</h2>
+              <p>
+                The different units you use to split traffic in an experiment.
+              </p>
+
+              <div className="card py-3 px-3 mb-4">
+                <DataSourceInlineEditIdentifierTypes
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                  dataSource={d}
+                />
+
+                <div className="mt-4">
+                  <DataSourceInlineEditIdentityJoins
+                    dataSource={d}
+                    onSave={updateDataSource}
+                    onCancel={() => undefined}
                   />
-                ) : (
-                  <div className="alert alert-info">
-                    No query runner defined, Jupyter export is disabled.
-                  </div>
-                )}
+                </div>
+              </div>
+
+              <div className="my-5">
+                <ExperimentAssignmentQueries
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                />
+              </div>
+
+              <div className="my-5">
+                <DataSourceJupyterNotebookQuery
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                />
               </div>
             </>
           )}
-        </div>
-        <div className="col-md-3">
-          {supportsImports &&
-            permissions.runQueries &&
-            permissions.createAnalyses && (
-              <div className="card">
-                <div className="card-body">
-                  <h2>Import Past Experiments</h2>
-                  <p>
-                    If you have past experiments already in your data source,
-                    you can import them to GrowthBook.
-                  </p>
-                  <Button
-                    color="outline-primary"
-                    onClick={async () => {
-                      const res = await apiCall<{ id: string }>(
-                        "/experiments/import",
-                        {
-                          method: "POST",
-                          body: JSON.stringify({
-                            datasource: d.id,
-                          }),
-                        }
-                      );
-                      if (res.id) {
-                        await router.push(`/experiments/import/${res.id}`);
-                      }
-                    }}
-                  >
-                    <FaCloudDownloadAlt /> Import
-                  </Button>
-                </div>
-              </div>
-            )}
         </div>
       </div>
 
@@ -364,19 +252,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           }}
           onCancel={() => {
             setEditConn(false);
-          }}
-        />
-      )}
-
-      {editSettings && (
-        <EditDataSourceSettingsForm
-          data={d}
-          source={"datasource-detail"}
-          onSuccess={() => {
-            mutateDefinitions({});
-          }}
-          onCancel={() => {
-            setEditSettings(false);
           }}
         />
       )}

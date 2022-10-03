@@ -59,7 +59,7 @@ const DataSourceForm: FC<{
       };
       setDatasource(newValue);
     }
-  }, [data]);
+  }, [data, dirty]);
 
   if (!datasource) {
     return null;

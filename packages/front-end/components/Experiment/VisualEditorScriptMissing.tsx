@@ -1,6 +1,5 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import VisualEditorInstructions from "../Settings/VisualEditorInstructions";

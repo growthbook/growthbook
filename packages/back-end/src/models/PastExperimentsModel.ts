@@ -21,6 +21,10 @@ const pastExperimentsSchema = new mongoose.Schema({
       exposureQueryId: String,
     },
   ],
+  config: {
+    start: Date,
+    end: Date,
+  },
   runStarted: Date,
   queries: queriesSchema,
   error: String,

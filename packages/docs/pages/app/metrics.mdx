@@ -80,20 +80,34 @@ WHERE
 
 By default, metrics are evaluated against all users in an experiment: `(# users who converted) / (# users in experiment)`
 
-You can instead choose another metric to use as the denominator. This acts just like an "activation metric" in an experiment to filter the list of users who are included in the analysis to those who first convert on the denominator metric.
+You can instead choose another metric to use as the denominator.
 
-For example, it's common to have multiple metrics related to revenue, all selecting the exact same data but with different denominators:
+##### Funnel Metrics
 
-- **Revenue per User** - default denominator of "All Users in Experiment"
-- **Average Order Value** - denominator set to a metric which only includes paying customers.
+When the denominator is a simple binomial (conversion) metric, then it acts just like an "activation metric" in an experiment. It filters the users who are included in the analysis to those who first convert on this denominator metric.
 
-Another common example is a funnel conversion metric like `Add To Cart -> Start Checkout` or `Signup Completion Rate`.
+For example, if you want to look at what percent of users checkout after viewing a cart, it can be described as `% checkout / % viewed cart`. This requires creating two metrics:
+
+1. `Viewed Cart` - selects all users who viewed a cart
+2. `Viewed Cart -> Checkout` - selects all users who checked out and picks `Viewed Cart` as the denominator.
+
+##### Ratio Metrics
+
+When the denominator is a count metric, then things are a little different. Instead of acting like a filter, we calculate both metrics and treat the value as a ratio.
+
+- The mean is `sum(metric) / sum(denominator)`
+- The standard deviation is calculated using the **Delta method**
+
+For example, if you want to look at the Average Order Value (AOV), what you're really looking for is `total revenue / number of orders`. This also requires creating two metrics:
+
+1. `Orders per User` - selects the count of orders for each user
+2. `AOV` - selects total revenue per user and picks `Orders per User` as the denominator.
 
 ### 2. Javascript (Mixpanel only)
 
 We query Mixpanel data sources using their proprietary JQL language based on Javascript. This allows for extreme flexibility when defining metrics.
 
-All metrics at minimum need to specify an **Event Name** which must exactly match what is used in Mixpanel.
+All metrics at minimum need to specify an **Event Name** which must exactly match what is used in Mixpanel. You can use `OR` to match against multiple events. For example `viewed_cart OR purchased`
 
 You can optionally add **Conditions** which filters the events further based on properties. For example, if Event Name is `Page view`, you can add a condition `path = "/blog"`.
 
@@ -128,7 +142,7 @@ If the aggregation is left blank, we do a sum by default (last example above).
 
 The query builder prompts you for things such as table/column names and constructs a SQL query behind the scenes.
 
-We only recommend this for extremely simple metrics. Inputting raw SQL is more more flexible.
+We only recommend this for extremely simple metrics. Inputting raw SQL is far more flexible.
 
 ## Behavior
 

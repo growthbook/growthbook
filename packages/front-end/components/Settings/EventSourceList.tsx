@@ -62,15 +62,14 @@ export default function EventSourceList({ onSelect, selected }: Props) {
         )}
       </div>
       {!expand && (
-        <div className="text-center mb-3">
-          <a
-            href="#"
-            className="display-block"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpand(true);
-            }}
-          >
+        <div
+          className="text-center mb-3 cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            setExpand(true);
+          }}
+        >
+          <a href="#" className="display-block">
             Show All <MdKeyboardArrowDown />
           </a>
         </div>

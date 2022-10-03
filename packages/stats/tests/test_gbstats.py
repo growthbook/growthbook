@@ -1,6 +1,6 @@
-import pytest
 import numpy as np
 import pandas as pd
+import math
 from gbstats.gbstats import (
     check_srm,
     get_adjusted_stats,
@@ -175,7 +175,61 @@ def test_reduce_dimensionality():
     assert reduced.at[1, "baseline_total"] == 1010
 
 
-def test_analyze_metric_df():
+# New usage (no mean/stddev correction)
+def test_get_metric_df_new():
+    rows = pd.DataFrame(
+        [
+            {
+                "dimension": "one",
+                "variation": "one",
+                "count": 120,
+                "mean": 2.5,
+                "stddev": 1,
+                "users": 120,
+            },
+            {
+                "dimension": "one",
+                "variation": "zero",
+                "count": 100,
+                "mean": 2.7,
+                "stddev": 1.1,
+                "users": 100,
+            },
+            {
+                "dimension": "two",
+                "variation": "one",
+                "count": 220,
+                "mean": 3.5,
+                "stddev": 2,
+                "users": 220,
+            },
+            {
+                "dimension": "two",
+                "variation": "zero",
+                "count": 200,
+                "mean": 3.7,
+                "stddev": 2.1,
+                "users": 200,
+            },
+        ]
+    )
+    df = get_metric_df(
+        rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+    )
+    result = analyze_metric_df(df, [0.5, 0.5], "revenue", False)
+
+    assert len(result.index) == 2
+    assert result.at[0, "dimension"] == "one"
+    assert round_(result.at[0, "baseline_cr"]) == 2.7
+    assert round_(result.at[0, "baseline_risk"]) == 0.0021006
+    assert round_(result.at[0, "v1_cr"]) == 2.5
+    assert round_(result.at[0, "v1_risk"]) == 0.0821006
+    assert round_(result.at[0, "v1_expected"]) == -0.074074074
+    assert round_(result.at[0, "v1_prob_beat_baseline"]) == 0.079755378
+
+
+# Legacy usage needed mean/stddev to be corrected
+def test_analyze_metric_df_legacy():
     rows = pd.DataFrame(
         [
             {
@@ -238,8 +292,8 @@ def test_adjusted_stats_binomial():
     adjusted = get_adjusted_stats(1, 0, 1000, 2000, False, "binomial")
     print(adjusted)
     assert adjusted["users"] == 2000
-    assert adjusted["mean"] == 1
-    assert round_(adjusted["stddev"]) == 0
+    assert adjusted["mean"] == 0.5
+    assert round_(adjusted["stddev"]) == math.sqrt(0.25)
     assert adjusted["total"] == 1000
 
 
@@ -285,7 +339,7 @@ def test_process_metrics():
 
     res = process_metric_rows(rows, var_id_map, users, False, "revenue")
     assert res.loc[0].at["users"] == 1000
-    assert res.loc[0].at["count"] == 100
+    assert res.loc[0].at["count"] == 1000
     assert res.loc[0].at["mean"] == 0.27
     assert round_(res.loc[0].at["stddev"]) == 0.881286938
 
