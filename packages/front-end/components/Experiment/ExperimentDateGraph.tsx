@@ -293,6 +293,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   top={yMax}
                   scale={xScale}
                   numTicks={numXTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  })}
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
@@ -302,6 +307,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   scale={yScale}
                   numTicks={numYTicks}
                   tickFormat={(v) => tickFormat(v as number)}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "end",
+                  })}
                   label={label}
                   labelClassName="h5"
                 />

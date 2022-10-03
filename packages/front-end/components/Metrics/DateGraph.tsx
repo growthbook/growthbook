@@ -481,6 +481,11 @@ const DateGraph: FC<{
                   top={graphHeight}
                   scale={xScale}
                   numTicks={numXTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  })}
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
@@ -488,6 +493,11 @@ const DateGraph: FC<{
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "end",
+                  })}
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
