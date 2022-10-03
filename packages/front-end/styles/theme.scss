@@ -16,6 +16,7 @@
   --text-link-hover-color: #0056b3; // default Bootstrap
   --text-color-muted: #{colors.$gray-600};
   --text-color-on-bright: #{colors.$white};
+  --text-color-primary: #{colors.$highlight-purple};
 
   --form-input-group-background: #e9ecef;
   --form-input-group-color: #{colors.$gray-700};
@@ -66,6 +67,7 @@
   --text-link-hover-color: #{lighten(#007bff, 10%)};
   --text-color-muted: #{colors.$gray-500};
   --text-color-on-bright: #{colors.$black};
+  --text-color-primary: #{colors.$highlight-purple-light};
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};

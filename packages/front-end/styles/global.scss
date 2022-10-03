@@ -859,7 +859,7 @@ pre {
       vertical-align: middle;
     }
     th:first-child {
-      background: #fff;
+      background: var(--surface-background-color);
     }
   }
 
@@ -974,17 +974,19 @@ pre {
   }
 
   td.won {
-    background-color: rgba(#a6edd1, 0.3);
-    color: colors.$dark-green;
+    background-color: var(--alert-success-background);
+    color: var(--alert-success-color);
     .expected {
       font-weight: bold;
     }
   }
   td.lost {
-    background-color: rgba(#edaca6, 0.3);
+    background-color: var(--alert-danger-background);
+    color: var(--alert-danger-color);
   }
   td.warning {
-    background-color: rgba(#eddca6, 0.3);
+    background-color: var(--alert-warn-background);
+    color: var(--alert-warn-color);
   }
   td.draw {
     background-color: rgba(#d7c9e2, 0.3);

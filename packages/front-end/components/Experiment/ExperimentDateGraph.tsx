@@ -29,7 +29,7 @@ export interface ExperimentDateGraphProps {
   tickFormat: (v: number) => string;
 }
 
-const COLORS = ["#772eff", "#039dd1", "#fd7e14", "#e83e8c"];
+const COLORS = ["var(--text-color-primary)", "#039dd1", "#fd7e14", "#e83e8c"];
 
 type TooltipData = { x: number; y: number[]; d: ExperimentDateGraphDataPoint };
 
