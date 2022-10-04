@@ -68,9 +68,11 @@ export const ThemeToggler: FC = () => {
         onClick={() => {
           setThemeDropdownOpen(!themeDropdownOpen);
         }}
-        className="btn mr-1 text-secondary"
+        className="btn mr-1"
       >
-        <FaMoon />
+        <span className="nav-link dropdown-toggle text-main">
+          <FaMoon className="text-secondary mr-2" />
+        </span>
       </button>
 
       <div

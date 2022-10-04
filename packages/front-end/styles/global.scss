@@ -26,6 +26,14 @@ body {
   color: var(--text-color-main);
 }
 
+.text-main {
+  color: var(--text-color-main);
+}
+
+.text-secondary {
+  color: var(--text-color-muted) !important;
+}
+
 #block-menu-container {
   z-index: 990;
 }
