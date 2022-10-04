@@ -56,13 +56,51 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     setPreferredTheme,
   ] = useState<PreferredAppearanceUITheme>("system");
 
+  const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>("light");
+
+  useEffect(() => {
+    let actualTheme: AppearanceUITheme = "light";
+    try {
+      const fromStorage = localStorage.getItem(STORAGE_KEY_THEME);
+      if (
+        !fromStorage &&
+        window.matchMedia("(prefers-color-scheme: dark)")?.matches
+      ) {
+        actualTheme = "dark";
+      }
+
+      if (fromStorage === "dark") {
+        actualTheme = "dark";
+      }
+
+      setSystemTheme(actualTheme);
+    } catch (e) {
+      setSystemTheme(actualTheme);
+    }
+  }, []);
+
+  useEffect(function attachSystemListener() {
+    const listener = (e) => {
+      const colourScheme = e.matches ? "dark" : "light";
+      setSystemTheme(colourScheme);
+    };
+
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", listener);
+
+    return () => {
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .removeEventListener("change", listener);
+    };
+  }, []);
+
   useEffect(() => {
     try {
-      const themeFromStorage = localStorage.getItem(STORAGE_KEY_THEME) as
-        | AppearanceUITheme
-        | undefined;
+      const themeFromStorage = localStorage.getItem(STORAGE_KEY_THEME);
 
-      if (themeFromStorage === "light" || themeFromStorage === "dark") {
+      if (themeFromStorage === "dark" || themeFromStorage === "light") {
         document.documentElement.className = `theme--${themeFromStorage}`;
         setPreferredTheme(themeFromStorage);
       }
@@ -93,32 +131,15 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     []
   );
 
-  const inferredTheme: AppearanceUITheme = useMemo(() => {
-    let actualTheme: AppearanceUITheme = "light";
-
-    try {
-      const fromStorage = localStorage.getItem(STORAGE_KEY_THEME);
-      if (
-        !fromStorage &&
-        window.matchMedia("(prefers-color-scheme: dark)")?.matches
-      ) {
-        actualTheme = "dark";
-      }
-
-      if (fromStorage === "dark") {
-        actualTheme = "dark";
-      }
-    } catch (e) {
-      return actualTheme;
-    }
-
-    return actualTheme;
-  }, []);
+  const theme: AppearanceUITheme = useMemo(
+    () => (preferredTheme === "system" ? systemTheme : preferredTheme),
+    [systemTheme, preferredTheme]
+  );
 
   return (
     <AppearanceUIThemeContext.Provider
       value={{
-        theme: inferredTheme,
+        theme,
         preferredTheme,
         setTheme: handleThemeChange,
       }}
