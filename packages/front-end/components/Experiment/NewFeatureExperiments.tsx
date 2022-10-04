@@ -11,8 +11,10 @@ export default function NewFeatureExperiments() {
   const permissions = usePermissions();
   const { project, datasources } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
-  const [expDef, setExpDef] =
-    useState<null | Partial<ExperimentInterfaceStringDates>>(null);
+  const [
+    expDef,
+    setExpDef,
+  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(null);
   // get a list of all features that do not have an experiment report
   const { data, error } = useApi<{
     features: {

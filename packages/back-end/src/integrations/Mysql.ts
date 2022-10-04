@@ -7,8 +7,9 @@ import { ConnectionOptions } from "mysql2";
 export default class Mysql extends SqlIntegration {
   params: MysqlConnectionParams;
   setParams(encryptedParams: string) {
-    this.params =
-      decryptDataSourceParams<MysqlConnectionParams>(encryptedParams);
+    this.params = decryptDataSourceParams<MysqlConnectionParams>(
+      encryptedParams
+    );
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

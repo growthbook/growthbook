@@ -41,8 +41,12 @@ export default function RestoreConfigYamlButton({
   settings?: OrganizationSettings;
   mutate: () => void;
 }) {
-  const { datasources, metrics, dimensions, mutateDefinitions } =
-    useDefinitions();
+  const {
+    datasources,
+    metrics,
+    dimensions,
+    mutateDefinitions,
+  } = useDefinitions();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);

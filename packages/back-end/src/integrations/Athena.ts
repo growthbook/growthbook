@@ -6,8 +6,9 @@ import { AthenaConnectionParams } from "../../types/integrations/athena";
 export default class Athena extends SqlIntegration {
   params: AthenaConnectionParams;
   setParams(encryptedParams: string) {
-    this.params =
-      decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
+    this.params = decryptDataSourceParams<AthenaConnectionParams>(
+      encryptedParams
+    );
   }
   getSensitiveParamKeys(): string[] {
     return ["accessKeyId", "secretAccessKey"];

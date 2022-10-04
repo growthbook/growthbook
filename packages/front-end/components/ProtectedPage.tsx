@@ -70,8 +70,13 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const { isAuthenticated, apiCall, orgId, organizations, setOrganizations } =
-    useAuth();
+  const {
+    isAuthenticated,
+    apiCall,
+    orgId,
+    organizations,
+    setOrganizations,
+  } = useAuth();
 
   const [data, setData] = useState<UserResponse>(null);
   const [error, setError] = useState("");

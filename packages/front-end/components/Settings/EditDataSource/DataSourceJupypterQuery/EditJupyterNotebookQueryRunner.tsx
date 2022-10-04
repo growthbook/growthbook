@@ -9,9 +9,11 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
 
-export const EditJupyterNotebookQueryRunner: FC<
-  EditJupyterNotebookQueryRunnerProps
-> = ({ dataSource, onSave, onCancel }) => {
+export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerProps> = ({
+  dataSource,
+  onSave,
+  onCancel,
+}) => {
   if (!dataSource) {
     throw new Error("ImplementationError: dataSource cannot be null");
   }

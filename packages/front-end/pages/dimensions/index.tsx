@@ -27,8 +27,10 @@ const DimensionsPage: FC = () => {
 
   const permissions = usePermissions();
 
-  const [dimensionForm, setDimensionForm] =
-    useState<null | Partial<DimensionInterface>>(null);
+  const [
+    dimensionForm,
+    setDimensionForm,
+  ] = useState<null | Partial<DimensionInterface>>(null);
 
   const { apiCall } = useAuth();
 

@@ -8,8 +8,11 @@ const WatchButton: FC<{
   itemType: "feature" | "experiment";
   type?: "button" | "icon" | "link";
 }> = ({ item, itemType, type = "button" }) => {
-  const { watchedExperiments, watchedFeatures, refreshWatching } =
-    useWatching();
+  const {
+    watchedExperiments,
+    watchedFeatures,
+    refreshWatching,
+  } = useWatching();
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
 

@@ -15,8 +15,11 @@ const DimensionForm: FC<{
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const { getDatasourceById, datasources, mutateDefinitions } =
-    useDefinitions();
+  const {
+    getDatasourceById,
+    datasources,
+    mutateDefinitions,
+  } = useDefinitions();
   const form = useForm({
     defaultValues: {
       name: current.name || "",

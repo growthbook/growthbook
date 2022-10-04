@@ -34,8 +34,10 @@ export default function ChanceToWinColumn({
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
 }) {
-  const { getMinSampleSizeForMetric, metricDefaults } =
-    useOrganizationMetricDefaults();
+  const {
+    getMinSampleSizeForMetric,
+    metricDefaults,
+  } = useOrganizationMetricDefaults();
 
   const minSampleSize = getMinSampleSizeForMetric(metric);
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);

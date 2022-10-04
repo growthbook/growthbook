@@ -24,8 +24,7 @@ import { SegmentInterface } from "../../types/segment";
 import { getBaseIdTypeAndJoins, replaceDateVars, format } from "../util/sql";
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface
-{
+  implements SourceIntegrationInterface {
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
@@ -164,9 +163,9 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (this.settings.queries?.exposure || []).map(
-      ({ id }) => this.getExposureQuery(id)
-    );
+    const experimentQueries = (
+      this.settings.queries?.exposure || []
+    ).map(({ id }) => this.getExposureQuery(id));
 
     return format(
       `-- Past Experiments
