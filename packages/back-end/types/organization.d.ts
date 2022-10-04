@@ -116,7 +116,8 @@ export interface OrganizationSettings {
 }
 
 export interface SubscriptionQuote {
-  qty: number;
+  currentSeatsPaidFor: number;
+  activeAndInvitedUsers: number;
   unitPrice: number;
   discountAmount: number;
   discountMessage: string;

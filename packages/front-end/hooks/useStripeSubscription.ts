@@ -31,7 +31,7 @@ export default function useStripeSubscription() {
       .catch((e) => console.error(e));
   }, [freeSeats, isCloud(), permissions.organizationSettings]);
 
-  const activeAndInvitedUsers = quote?.qty || 0;
+  const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
   const subscriptionStatus = data?.organization?.subscription?.status;
 
