@@ -14,7 +14,7 @@ type AddEditIdentityJoinModalProps = {
   identityJoin: IdentityJoinQuery | null;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
-  onSave: (identityJoin: IdentityJoinQuery) => void;
+  onSave: (identityJoin: IdentityJoinQuery) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -54,7 +54,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value);
+    await onSave(value);
 
     form.reset({
       ids: [],

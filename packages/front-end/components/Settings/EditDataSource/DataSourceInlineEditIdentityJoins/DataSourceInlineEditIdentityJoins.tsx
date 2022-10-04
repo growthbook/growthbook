@@ -69,16 +69,16 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       copy.settings.queries.identityJoins.splice(idx, 1);
 
-      onSave(copy);
+      await onSave(copy);
     },
     [onSave, dataSource]
   );
 
   const handleSave = useCallback(
-    (idx: number) => (identityJoin: IdentityJoinQuery) => {
+    (idx: number) => async (identityJoin: IdentityJoinQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       copy.settings.queries.identityJoins[idx] = identityJoin;
-      onSave(copy);
+      await onSave(copy);
     },
     [dataSource, onSave]
   );
