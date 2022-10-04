@@ -68,18 +68,20 @@ export async function getSavedGroupById(
   savedGroupId: string,
   organization: string
 ): Promise<SavedGroupInterface | null> {
-  return await SavedGroupModel.findOne({
+  const savedGroup = await SavedGroupModel.findOne({
     id: savedGroupId,
     organization: organization,
   });
+
+  return savedGroup?.toJSON() || null;
 }
 
 export async function updateSavedGroup(
   savedGroupId: string,
   organization: string,
   group: UpdateSavedGroupProps
-): Promise<void> {
-  await SavedGroupModel.updateOne(
+): Promise<SavedGroupInterface | null> {
+  const updatedGroup = await SavedGroupModel.findOneAndUpdate(
     {
       id: savedGroupId,
       organization: organization,
@@ -87,6 +89,9 @@ export async function updateSavedGroup(
     {
       ...group,
       dateUpdated: new Date(),
-    }
+    },
+    { useFindAndModify: false }
   );
+
+  return updatedGroup?.toJSON() || null;
 }

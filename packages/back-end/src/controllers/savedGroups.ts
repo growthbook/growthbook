@@ -42,7 +42,7 @@ export async function postSavedGroup(
     event: "savedGroup.created",
     entity: {
       object: "savedGroup",
-      id: org.id,
+      id: savedGroup.id,
     },
     details: auditDetailsCreate(savedGroup),
   });
@@ -54,12 +54,17 @@ export async function postSavedGroup(
 }
 
 export async function putSavedGroup(
-  req: AuthRequest<{
-    groupName: string;
-    owner: string;
-    attributeKey: string;
-    groupList: string;
-  }>,
+  req: AuthRequest<
+    {
+      groupName: string;
+      owner: string;
+      attributeKey: string;
+      groupList: string;
+    },
+    {
+      id: string;
+    }
+  >,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -75,24 +80,26 @@ export async function putSavedGroup(
   const savedGroup = await getSavedGroupById(id, org.id);
 
   if (!savedGroup) {
-    throw new Error("Could not find metric");
+    throw new Error("Could not find saved group");
   }
 
   const values = parseSaveGroupString(groupList);
 
-  await updateSavedGroup(id, org.id, {
+  const updatedSavedGroup = await updateSavedGroup(id, org.id, {
     values,
     groupName,
     owner,
   });
 
-  const updatedSavedGroup = await getSavedGroupById(id, org.id);
+  if (!updatedSavedGroup) {
+    throw new Error("Could not find saved group to update");
+  }
 
   await req.audit({
     event: "savedGroup.updated",
     entity: {
       object: "savedGroup",
-      id: org.id,
+      id: updatedSavedGroup.id,
     },
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
