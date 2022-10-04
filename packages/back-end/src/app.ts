@@ -98,6 +98,7 @@ function wrapController<T extends string>(
 ): Controller<T> {
   const newController = {} as Controller<T>;
   Object.keys(controller).forEach((key: T) => {
+    // Sanity check in case someone exports a non-function from the controller file
     if (typeof controller[key] === "function") {
       newController[key] = asyncHandler(controller[key]);
     }
