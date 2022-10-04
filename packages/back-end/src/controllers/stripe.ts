@@ -108,12 +108,15 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   // TODO: handle pricing tiers
   const additionalSeatPrice = unitPrice;
-  const qty = (org.members?.length || 0) + (org.invites?.length || 0);
-  const subtotal = qty * unitPrice;
+  const activeAndInvitedUsers =
+    (org.members?.length || 0) + (org.invites?.length || 0);
+  const currentSeatsPaidFor = org.subscription?.qty || 0;
+  const subtotal = currentSeatsPaidFor * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);
 
   const quote: SubscriptionQuote = {
-    qty,
+    activeAndInvitedUsers,
+    currentSeatsPaidFor,
     unitPrice,
     discountAmount,
     discountMessage,
