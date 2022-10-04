@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { useEffect, useState, Suspense } from "react";
 import { FaCompressAlt, FaCopy, FaExpandAlt } from "react-icons/fa";
+import cloneDeep from "lodash/cloneDeep";
 import dynamic from "next/dynamic";
 import {
   tomorrow as dark,
@@ -61,10 +62,9 @@ export default function Code({
 
   const enoughLines = code.split("\n").length > 8;
 
-  light['code[class*="language-"]'].fontSize = "1em";
-  light['code[class*="language-"]'].fontWeight = 600;
-
-  const style = theme === "light" ? light : dark;
+  const style = cloneDeep(theme === "light" ? light : dark);
+  style['code[class*="language-"]'].fontSize = "1em";
+  style['code[class*="language-"]'].fontWeight = 600;
 
   return (
     <div
