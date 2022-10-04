@@ -104,7 +104,7 @@ const MssqlForm: FC<{
           </div>
           <div className="form-group">
             <label htmlFor="encryption" className="mr-2">
-              Enable encryption (for Azure)
+              Enable encryption
             </label>
             <Toggle
               id="encryption"

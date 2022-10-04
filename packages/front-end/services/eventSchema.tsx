@@ -518,6 +518,7 @@ export const dataSourceConnections: {
       password: "",
       options: {
         trustServerCertificate: true,
+        encrypt: true,
       },
     },
   },
