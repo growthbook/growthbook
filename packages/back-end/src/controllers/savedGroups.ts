@@ -4,7 +4,7 @@ import { getOrgFromReq } from "../services/organizations";
 import {
   createSavedGroup,
   getSavedGroupById,
-  parseSaveGroupString,
+  parseSavedGroupString,
   updateSavedGroup,
 } from "../models/SavedGroupModel";
 import { auditDetailsCreate, auditDetailsUpdate } from "../services/audit";
@@ -28,7 +28,7 @@ export async function postSavedGroup(
 
   req.checkPermissions("createFeatures");
 
-  const values = parseSaveGroupString(groupList);
+  const values = parseSavedGroupString(groupList);
 
   const savedGroup = await createSavedGroup({
     values,
@@ -83,7 +83,7 @@ export async function putSavedGroup(
     throw new Error("Could not find saved group");
   }
 
-  const values = parseSaveGroupString(groupList);
+  const values = parseSavedGroupString(groupList);
 
   const updatedSavedGroup = await updateSavedGroup(id, org.id, {
     values,

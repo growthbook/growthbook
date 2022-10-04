@@ -36,7 +36,7 @@ type UpdateSavedGroupProps = Omit<
   "dateCreated" | "dateUpdated" | "id" | "organization" | "attributeKey"
 >;
 
-export function parseSaveGroupString(list: string) {
+export function parseSavedGroupString(list: string) {
   const values = list
     .split(",")
     .map((value) => value.trim())
