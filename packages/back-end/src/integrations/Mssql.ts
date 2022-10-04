@@ -6,9 +6,8 @@ import mssql from "mssql";
 export default class Mssql extends SqlIntegration {
   params: MssqlConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MssqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

@@ -135,25 +135,18 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const [
-    metrics,
-    datasources,
-    dimensions,
-    segments,
-    tags,
-    groups,
-    projects,
-  ] = await Promise.all([
-    getMetricsByOrganization(orgId),
-    getDataSourcesByOrganization(orgId),
-    findDimensionsByOrganization(orgId),
-    SegmentModel.find({
-      organization: orgId,
-    }),
-    getAllTags(orgId),
-    getAllGroups(orgId),
-    findAllProjectsByOrganization(orgId),
-  ]);
+  const [metrics, datasources, dimensions, segments, tags, groups, projects] =
+    await Promise.all([
+      getMetricsByOrganization(orgId),
+      getDataSourcesByOrganization(orgId),
+      findDimensionsByOrganization(orgId),
+      SegmentModel.find({
+        organization: orgId,
+      }),
+      getAllTags(orgId),
+      getAllGroups(orgId),
+      findAllProjectsByOrganization(orgId),
+    ]);
 
   return res.status(200).json({
     status: 200,

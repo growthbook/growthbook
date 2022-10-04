@@ -17,9 +17,8 @@ export default function VercelIntegrationPage() {
   const { environments } = useOrgSettings();
 
   const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
-  const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(
-    false
-  );
+  const [integrationAlreadyExists, setIntegrationAlreadyExists] =
+    useState(false);
 
   const [envModalOpen, setEnvModalOpen] = useState<Partial<Environment> | null>(
     null

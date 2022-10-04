@@ -50,9 +50,8 @@ const NewDataSourceForm: FC<{
     dataSourceConnections.map((d) => d.type)
   );
 
-  const [datasource, setDatasource] = useState<
-    Partial<DataSourceInterfaceWithParams>
-  >(data);
+  const [datasource, setDatasource] =
+    useState<Partial<DataSourceInterfaceWithParams>>(data);
   const [lastError, setLastError] = useState("");
   const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     name: "My Datasource",

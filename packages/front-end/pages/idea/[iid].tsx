@@ -58,7 +58,11 @@ const IdeaPage = (): ReactElement => {
 
   const { push } = useRouter();
 
-  const { data, error: dataError, mutate } = useApi<{
+  const {
+    data,
+    error: dataError,
+    mutate,
+  } = useApi<{
     status: number;
     message: string;
     idea: IdeaInterface;

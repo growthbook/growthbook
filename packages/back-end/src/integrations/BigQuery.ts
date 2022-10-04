@@ -8,9 +8,8 @@ import { IS_CLOUD } from "../util/secrets";
 export default class BigQuery extends SqlIntegration {
   params: BigQueryConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<BigQueryConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
   }
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];

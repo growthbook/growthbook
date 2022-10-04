@@ -361,50 +361,51 @@ const ImportExperimentList: FC<{
                           className={`btn btn-primary`}
                           onClick={(ev) => {
                             ev.preventDefault();
-                            const importObj: Partial<ExperimentInterfaceStringDates> = {
-                              name: e.experimentName || e.trackingKey,
-                              trackingKey: e.trackingKey,
-                              datasource: data?.experiments?.datasource,
-                              exposureQueryId: e.exposureQueryId || "",
-                              variations: e.variationKeys.map((vKey, i) => {
-                                let vName = e.variationNames[i] || vKey;
-                                // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
-                                if (vName.match(/^[0-9]{1,2}$/)) {
-                                  vName =
-                                    vName === "0"
-                                      ? "Control"
-                                      : `Variation ${vName}`;
-                                }
-                                return {
-                                  name: vName,
-                                  screenshots: [],
-                                  description: "",
-                                  key: vKey,
-                                };
-                              }),
-                              phases: [
-                                {
-                                  coverage: 1,
-                                  phase: "main",
-                                  reason: "",
-                                  variationWeights: e.weights,
-                                  dateStarted:
-                                    getValidDate(e.startDate)
-                                      .toISOString()
-                                      .substr(0, 10) + "T00:00:00Z",
-                                  dateEnded:
-                                    getValidDate(e.endDate)
-                                      .toISOString()
-                                      .substr(0, 10) + "T23:59:59Z",
-                                },
-                              ],
-                              // Default to stopped if the last data was more than 3 days ago
-                              status:
-                                getValidDate(e.endDate).getTime() <
-                                Date.now() - 72 * 60 * 60 * 1000
-                                  ? "stopped"
-                                  : "running",
-                            };
+                            const importObj: Partial<ExperimentInterfaceStringDates> =
+                              {
+                                name: e.experimentName || e.trackingKey,
+                                trackingKey: e.trackingKey,
+                                datasource: data?.experiments?.datasource,
+                                exposureQueryId: e.exposureQueryId || "",
+                                variations: e.variationKeys.map((vKey, i) => {
+                                  let vName = e.variationNames[i] || vKey;
+                                  // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
+                                  if (vName.match(/^[0-9]{1,2}$/)) {
+                                    vName =
+                                      vName === "0"
+                                        ? "Control"
+                                        : `Variation ${vName}`;
+                                  }
+                                  return {
+                                    name: vName,
+                                    screenshots: [],
+                                    description: "",
+                                    key: vKey,
+                                  };
+                                }),
+                                phases: [
+                                  {
+                                    coverage: 1,
+                                    phase: "main",
+                                    reason: "",
+                                    variationWeights: e.weights,
+                                    dateStarted:
+                                      getValidDate(e.startDate)
+                                        .toISOString()
+                                        .substr(0, 10) + "T00:00:00Z",
+                                    dateEnded:
+                                      getValidDate(e.endDate)
+                                        .toISOString()
+                                        .substr(0, 10) + "T23:59:59Z",
+                                  },
+                                ],
+                                // Default to stopped if the last data was more than 3 days ago
+                                status:
+                                  getValidDate(e.endDate).getTime() <
+                                  Date.now() - 72 * 60 * 60 * 1000
+                                    ? "stopped"
+                                    : "running",
+                              };
                             onImport(importObj);
                           }}
                         >

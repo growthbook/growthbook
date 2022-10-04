@@ -182,8 +182,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
   await SegmentModel.create({
     datasource: datasource.id,
     name: "Male",
-    sql:
-      "SELECT user_id, '2020-01-01 00:00:00'::timestamp as date from users where gender='male'",
+    sql: "SELECT user_id, '2020-01-01 00:00:00'::timestamp as date from users where gender='male'",
     id: uniqid("seg_"),
     userIdType: "user_id",
     dateCreated: new Date(),
@@ -267,8 +266,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           name: "Control",
           screenshots: [
             {
-              path:
-                "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpd19kf/img_1p41rrkhupwkl9.png",
+              path: "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpd19kf/img_1p41rrkhupwkl9.png",
             },
           ],
         },
@@ -276,8 +274,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           name: "Google Login",
           screenshots: [
             {
-              path:
-                "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpd19kf/img_1p41rrkhupwosz.png",
+              path: "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpd19kf/img_1p41rrkhupwosz.png",
             },
           ],
         },
@@ -298,8 +295,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           name: "Control",
           screenshots: [
             {
-              path:
-                "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpckzk1/img_1p41rrkhupx408.png",
+              path: "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpckzk1/img_1p41rrkhupx408.png",
             },
           ],
         },
@@ -307,8 +303,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           name: "Price in CTA",
           screenshots: [
             {
-              path:
-                "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpckzk1/img_1p41rrkhupx92w.png",
+              path: "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpckzk1/img_1p41rrkhupx92w.png",
             },
           ],
         },
@@ -326,8 +321,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           name: "Control",
           screenshots: [
             {
-              path:
-                "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpcphqw/img_1p41rrkhupxr9f.png",
+              path: "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpcphqw/img_1p41rrkhupxr9f.png",
             },
           ],
         },
@@ -335,8 +329,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
           name: "Shorter Reg Modal",
           screenshots: [
             {
-              path:
-                "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpcphqw/img_1p41rrkhupxuup.png",
+              path: "https://cdn.growthbook.io/org_a919vk7kc59purn/exp_21e16hskhpcphqw/img_1p41rrkhupxuup.png",
             },
           ],
         },

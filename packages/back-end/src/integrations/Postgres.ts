@@ -6,9 +6,8 @@ import SqlIntegration from "./SqlIntegration";
 export default class Postgres extends SqlIntegration {
   params: PostgresConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
