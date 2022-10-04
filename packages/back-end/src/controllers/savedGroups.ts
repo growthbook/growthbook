@@ -85,15 +85,13 @@ export async function putSavedGroup(
 
   const values = parseSavedGroupString(groupList);
 
-  const updatedSavedGroup = await updateSavedGroup(id, org.id, {
+  const changes = await updateSavedGroup(id, org.id, {
     values,
     groupName,
     owner,
   });
 
-  if (!updatedSavedGroup) {
-    throw new Error("Could not find saved group to update");
-  }
+  const updatedSavedGroup = { ...savedGroup, ...changes };
 
   await req.audit({
     event: "savedGroup.updated",

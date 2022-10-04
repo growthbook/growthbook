@@ -80,18 +80,19 @@ export async function updateSavedGroup(
   savedGroupId: string,
   organization: string,
   group: UpdateSavedGroupProps
-): Promise<SavedGroupInterface | null> {
-  const updatedGroup = await SavedGroupModel.findOneAndUpdate(
+): Promise<UpdateSavedGroupProps> {
+  const changes = {
+    ...group,
+    dateUpdated: new Date(),
+  };
+
+  await SavedGroupModel.update(
     {
       id: savedGroupId,
       organization: organization,
     },
-    {
-      ...group,
-      dateUpdated: new Date(),
-    },
-    { useFindAndModify: false }
+    changes
   );
 
-  return updatedGroup?.toJSON() || null;
+  return changes;
 }
