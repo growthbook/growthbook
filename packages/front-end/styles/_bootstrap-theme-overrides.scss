@@ -288,6 +288,10 @@ pre {
     background-color: var(--surface-background-color);
   }
 
+  [class*="-code-fold"] {
+    background-color: var(--surface-background-color);
+  }
+
   [class*="-diff-container"] {
     background-color: var(--surface-background-color);
   }
