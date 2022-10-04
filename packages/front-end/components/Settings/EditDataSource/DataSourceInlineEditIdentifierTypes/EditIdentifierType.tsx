@@ -10,7 +10,7 @@ type EditIdentifierTypeProps = {
   onCancel: () => void;
   userIdType: string;
   description: string;
-  onSave: (name: string, description: string) => void;
+  onSave: (name: string, description: string) => Promise<void>;
 };
 
 export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
@@ -33,7 +33,8 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value.userIdType, value.description);
+    await onSave(value.userIdType, value.description);
+
     form.reset({
       userIdType: "",
       description: "",
@@ -65,39 +66,37 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="max"
+      size="lg"
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
       cta="Save"
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identifier-type"
     >
-      <div className="row">
-        <div className="col-md-7 col-lg-8">
-          <h4 id="id-modal-identifier-type">Identifier Type</h4>
-          <div>
-            Define all the different units you use to split traffic in an
-            experiment. Some examples: user_id, device_id, ip_address.
-          </div>
-
-          <Field
-            label="Identifier Type"
-            {...form.register("userIdType")}
-            pattern="^[a-z_]+$"
-            title="Only lowercase letters and underscores allowed"
-            readOnly={mode === "edit"}
-            required
-            error={fieldError}
-            helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
-          />
-          <Field
-            label="Description (optional)"
-            {...form.register("description")}
-            minRows={1}
-            maxRows={5}
-            textarea
-          />
+      <>
+        <h4 id="id-modal-identifier-type">Identifier Type</h4>
+        <div>
+          Define all the different units you use to split traffic in an
+          experiment. Some examples: user_id, device_id, ip_address.
         </div>
-      </div>
+
+        <Field
+          label="Identifier Type"
+          {...form.register("userIdType")}
+          pattern="^[a-z_]+$"
+          title="Only lowercase letters and underscores allowed"
+          readOnly={mode === "edit"}
+          required
+          error={fieldError}
+          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+        />
+        <Field
+          label="Description (optional)"
+          {...form.register("description")}
+          minRows={1}
+          maxRows={5}
+          textarea
+        />
+      </>
     </Modal>
   );
 };

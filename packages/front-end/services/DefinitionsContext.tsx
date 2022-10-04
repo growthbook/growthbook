@@ -3,11 +3,10 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
-import { useContext, useMemo, createContext, FC } from "react";
+import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { TagInterface } from "back-end/types/tag";
-import { ReactNode } from "react";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 
 type Definitions = {

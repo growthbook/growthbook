@@ -10,6 +10,8 @@ import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
+  ForceRule,
+  RolloutRule,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -19,6 +21,8 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
+import dJSON from "dirty-json";
+import cloneDeep from "lodash/cloneDeep";
 
 export interface Condition {
   field: string;
@@ -32,6 +36,36 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+}
+
+export function validateFeatureValue(
+  type: FeatureValueType,
+  value: string,
+  label: string
+): string {
+  const prefix = label ? label + ": " : "";
+  if (type === "boolean") {
+    if (!["true", "false"].includes(value)) {
+      return value ? "true" : "false";
+    }
+  } else if (type === "number") {
+    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
+      throw new Error(prefix + "Must be a valid number");
+    }
+  } else if (type === "json") {
+    try {
+      JSON.parse(value);
+    } catch (e) {
+      // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      try {
+        return stringify(dJSON.parse(value));
+      } catch (e) {
+        throw new Error(prefix + e.message);
+      }
+    }
+  }
+
+  return value;
 }
 
 export function useEnvironmentState() {
@@ -179,7 +213,9 @@ export function useAttributeSchema() {
 export function validateFeatureRule(
   rule: FeatureRule,
   valueType: FeatureValueType
-) {
+): null | FeatureRule {
+  let hasChanges = false;
+  const ruleCopy = cloneDeep(rule);
   if (rule.condition) {
     try {
       const res = JSON.parse(rule.condition);
@@ -191,7 +227,15 @@ export function validateFeatureRule(
     }
   }
   if (rule.type === "force") {
-    isValidValue(valueType, rule.value, "Forced value");
+    const newValue = validateFeatureValue(
+      valueType,
+      rule.value,
+      "Value to Force"
+    );
+    if (newValue !== rule.value) {
+      hasChanges = true;
+      (ruleCopy as ForceRule).value = newValue;
+    }
   } else if (rule.type === "experiment") {
     const ruleValues = rule.values;
     if (!ruleValues || !ruleValues.length) {
@@ -199,10 +243,19 @@ export function validateFeatureRule(
     }
     let totalWeight = 0;
     ruleValues.forEach((val, i) => {
-      if (val.weight < 0) throw new Error("Percents cannot be negative");
+      if (val.weight < 0)
+        throw new Error("Variation weights cannot be negative");
       val.weight = roundVariationWeight(val.weight);
       totalWeight += val.weight;
-      isValidValue(valueType, val.value, "Value #" + (i + 1));
+      const newValue = validateFeatureValue(
+        valueType,
+        val.value,
+        "Variation #" + i
+      );
+      if (newValue !== val.value) {
+        hasChanges = true;
+        (ruleCopy as ExperimentRule).values[i].value = newValue;
+      }
     });
     // Without this rounding here, JS floating point messes up simple addition.
     totalWeight = roundVariationWeight(totalWeight);
@@ -213,12 +266,22 @@ export function validateFeatureRule(
       );
     }
   } else {
-    isValidValue(valueType, rule.value, "Rollout value");
+    const newValue = validateFeatureValue(
+      valueType,
+      rule.value,
+      "Value to Rollout"
+    );
+    if (newValue !== rule.value) {
+      hasChanges = true;
+      (ruleCopy as RolloutRule).value = newValue;
+    }
 
     if (rule.type === "rollout" && (rule.coverage < 0 || rule.coverage > 1)) {
       throw new Error("Rollout percent must be between 0 and 1");
     }
   }
+
+  return hasChanges ? ruleCopy : null;
 }
 
 export function getDefaultValue(valueType: FeatureValueType): string {
@@ -323,29 +386,6 @@ export function getDefaultRuleValue({
     enabled: true,
     condition,
   };
-}
-
-export function isValidValue(
-  type: FeatureValueType,
-  value: string,
-  label: string
-) {
-  try {
-    if (type === "boolean") {
-      if (value !== "true" && value !== "false") {
-        throw new Error(
-          `Value must be either true or false. "${value}" given instead.`
-        );
-      }
-    } else if (type === "number") {
-      const parsed = parseFloat(value);
-      if (isNaN(parsed)) throw new Error(`Invalid number: "${value}"`);
-    } else if (type === "json") {
-      JSON.parse(value);
-    }
-  } catch (e) {
-    throw new Error(label + ": " + e.message);
-  }
 }
 
 export function jsonToConds(

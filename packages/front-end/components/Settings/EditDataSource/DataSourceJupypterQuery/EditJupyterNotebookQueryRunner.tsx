@@ -1,10 +1,10 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import CodeTextArea from "../../Forms/CodeTextArea";
+import CodeTextArea from "../../../Forms/CodeTextArea";
 import cloneDeep from "lodash/cloneDeep";
-import Code from "../../Code";
-import Modal from "../../Modal";
-import { DataSourceQueryEditingModalBaseProps } from "./types";
+import Code from "../../../Code";
+import Modal from "../../../Modal";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
@@ -27,7 +27,7 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
   const handleSubmit = form.handleSubmit(async (value) => {
     const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
     copy.settings.notebookRunQuery = value.query;
-    onSave(copy);
+    await onSave(copy);
   });
 
   return (

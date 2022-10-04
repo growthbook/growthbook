@@ -1,9 +1,8 @@
-import { useState, useMemo, ChangeEvent, FC } from "react";
+import { useState, useMemo, ChangeEvent, FC, ReactNode } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import { ReactNode } from "react";
 
 export type IndexedObject<T> = {
   index: Record<string, string[]>;
@@ -38,6 +37,7 @@ export function useSearch<T>(
 ): {
   list: T[];
   isFiltered: boolean;
+  clear: () => void;
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -55,6 +55,9 @@ export function useSearch<T>(
   return {
     list,
     isFiltered,
+    clear: () => {
+      setValue("");
+    },
     searchInputProps: {
       value,
       onChange: (e: ChangeEvent<HTMLInputElement>): void => {

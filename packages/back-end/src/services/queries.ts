@@ -137,14 +137,12 @@ async function getQueryDoc<T, P>(
 //called by postPastExperiments in experiments.ts
 export async function getPastExperiments(
   integration: SourceIntegrationInterface,
-  from: Date,
-  minLength?: number
+  from: Date
 ): Promise<QueryDocument> {
   return getQueryDoc(
     integration,
     integration.getPastExperimentQuery({
       from,
-      minLength,
     }),
     (query) => integration.runPastExperimentQuery(query),
     processPastExperimentQueryResponse

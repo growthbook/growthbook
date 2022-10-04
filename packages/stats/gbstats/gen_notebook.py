@@ -39,6 +39,7 @@ def create_notebook(
     weights=[],
     run_query="",
     metrics=[],
+    needs_correction=False,
 ):
     summary_cols = [
         "dimension",
@@ -126,6 +127,7 @@ def create_notebook(
             var_names=var_names,
             ignore_nulls=ignore_nulls,
             type=type,
+            needs_correction=needs_correction,
         )
         cells.append(
             code_cell_df(
@@ -137,7 +139,8 @@ def create_notebook(
                     f"    var_id_map=var_id_map,\n"
                     f"    var_names=var_names,\n"
                     f"    ignore_nulls={ignore_nulls},\n"
-                    f'    type="{type}"\n'
+                    f'    type="{type}",\n'
+                    f'    needs_correction="{needs_correction}"\n'
                     f")\n"
                     f"display(m{i})"
                 ),
