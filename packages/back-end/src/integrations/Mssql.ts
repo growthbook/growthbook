@@ -54,7 +54,7 @@ export default class Mssql extends SqlIntegration {
     return `CAST(${col} as FLOAT)`;
   }
   formatDate(col: string): string {
-    return `FORMAT(${col}, "yyyy-mm-dd")`;
+    return `FORMAT(${col}, "yyyy-MM-dd")`;
   }
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
