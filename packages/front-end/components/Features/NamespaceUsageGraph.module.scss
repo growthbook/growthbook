@@ -16,7 +16,7 @@
   background-color: $gray1;
 }
 .unused {
-  background-color: $light-green;
+  background-color: var(--alert-success-background);
 }
 
 .bar {
