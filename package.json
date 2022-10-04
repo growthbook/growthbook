@@ -3,7 +3,7 @@
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
   "scripts": {
-    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache",
+    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
     "test": "wsrun -m test",
