@@ -36,7 +36,8 @@ export default class Mssql extends SqlIntegration {
     return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
   }
   dateTrunc(col: string) {
-    return `DATETRUNC(day, ${col})`;
+    //return `DATETRUNC(day, ${col})`; <- this is only supported in SQL Server 2022 preview.
+    return `cast(${col} as DATE)`;
   }
   stddev(col: string) {
     return `STDEV(${col})`;
