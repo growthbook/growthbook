@@ -116,6 +116,8 @@
 
 // OS default
 :root:not(.theme--light):not(.theme--dark) {
+  @include light-theme();
+
   @media (prefers-color-scheme: light) {
     @include light-theme();
   }
