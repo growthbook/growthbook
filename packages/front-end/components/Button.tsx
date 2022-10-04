@@ -1,7 +1,12 @@
-import { FC, useState, ButtonHTMLAttributes, DetailedHTMLProps } from "react";
+import {
+  FC,
+  useState,
+  ButtonHTMLAttributes,
+  DetailedHTMLProps,
+  ReactNode,
+} from "react";
 import clsx from "clsx";
 import LoadingSpinner from "./LoadingSpinner";
-import { ReactNode } from "react";
 
 interface Props
   extends DetailedHTMLProps<

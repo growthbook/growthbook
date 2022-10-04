@@ -1,12 +1,17 @@
 import clsx from "clsx";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { FaCompressAlt, FaCopy, FaExpandAlt } from "react-icons/fa";
-import { Prism } from "react-syntax-highlighter";
+import dynamic from "next/dynamic";
 import {
   tomorrow as dark,
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import PrismFallback from "./SyntaxHighlighting/PrismFallback";
+
+// Lazy-load syntax highlighting to improve page load time
+const Prism = dynamic(() => import("./SyntaxHighlighting/Prism"), {
+  suspense: true,
+});
 
 export type Language =
   | "none"
@@ -59,6 +64,8 @@ export default function Code({
   light['code[class*="language-"]'].fontSize = "1em";
   light['code[class*="language-"]'].fontWeight = 600;
 
+  const style = theme === "light" ? light : dark;
+
   return (
     <div
       className={clsx(`code-holder position-relative`, containerClassName, {
@@ -105,14 +112,25 @@ export default function Code({
         </div>
       )}
       <div className="code">
-        <Prism
-          language={language}
-          style={theme === "light" ? light : dark}
-          className={className}
-          showLineNumbers={lineNumbers}
+        <Suspense
+          fallback={
+            <PrismFallback
+              language={language}
+              style={style}
+              className={className}
+              code={code}
+            />
+          }
         >
-          {code}
-        </Prism>
+          <Prism
+            language={language}
+            style={style}
+            className={className}
+            showLineNumbers={lineNumbers}
+          >
+            {code}
+          </Prism>
+        </Suspense>
       </div>
     </div>
   );

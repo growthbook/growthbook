@@ -1,32 +1,22 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import {
-  FaAngleLeft,
-  FaCode,
-  FaExternalLinkAlt,
-  FaKey,
-  FaPencilAlt,
-  FaPlus,
-} from "react-icons/fa";
+import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
-import EditDataSourceSettingsForm from "../../components/Settings/EditDataSourceSettingsForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Code from "../../components/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink, DocSection } from "../../components/DocLink";
-import {
-  DataSourceEditingResourceType,
-  DataSourceUIMode,
-} from "../../components/Settings/EditDataSource/types";
-import { EditJupyterNotebookQueryRunner } from "../../components/Settings/EditDataSource/EditJupyterNotebookQueryRunner";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
+import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
+import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -37,7 +27,6 @@ function quotePropertyName(name: string) {
 
 const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
-  const [editSettings, setEditSettings] = useState(false);
 
   const permissions = usePermissions();
 
@@ -56,14 +45,10 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
 
-  // region New Editing by section
-
-  const [uiMode, setUiMode] = useState<DataSourceUIMode>("view");
-  const [
-    editingResource,
-    setEditingResource,
-  ] = useState<DataSourceEditingResourceType | null>(null);
-
+  /**
+   * Update the data source provided.
+   * Each section is responsible for retaining the rest of the data source and editing its specific section.
+   */
   const updateDataSource = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
       await apiCall(`/datasource/${dataSource.id}`, {
@@ -72,19 +57,9 @@ const DataSourcePage: FC = () => {
       });
 
       await mutateDefinitions({});
-
-      setUiMode("view");
-      setEditingResource(null);
     },
     [mutateDefinitions, apiCall]
   );
-
-  const cancelUpdateDataSource = useCallback(() => {
-    setUiMode("view");
-    setEditingResource(null);
-  }, []);
-
-  // endregion New Editing by section
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -120,97 +95,67 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-secondary">{d.type}</span>{" "}
           <span className="badge badge-success">connected</span>
         </div>
-        <div style={{ flex: 1 }} />
-        {canEdit && permissions.createDatasources && (
-          <div className="col-auto">
-            <DeleteButton
-              displayName={d.name}
-              className="font-weight-bold"
-              text="Delete"
-              onClick={async () => {
-                await apiCall(`/datasource/${d.id}`, {
-                  method: "DELETE",
-                });
-                mutateDefinitions({});
-                router.push("/datasources");
-              }}
-            />
-          </div>
-        )}
       </div>
 
       <div className="row">
         <div className="col-md-12">
-          <div className="row mb-3">
+          <div className="mb-3">
             {canEdit && permissions.createDatasources && (
-              <div className="col-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditConn(true);
-                  }}
-                >
-                  <FaKey /> Edit Connection Info
-                </a>
-              </div>
-            )}
-            {(supportsSQL || supportsEvents) &&
-              canEdit &&
-              permissions.editDatasourceSettings && (
-                <div className="col-auto">
-                  <a
-                    href="#"
+              <div className="d-md-flex w-100 justify-content-between">
+                <div>
+                  <button
+                    className="btn btn-outline-primary mb-2 mb-md-0 mr-md-2 font-weight-bold"
                     onClick={(e) => {
                       e.preventDefault();
-                      setEditSettings(true);
+                      setEditConn(true);
                     }}
                   >
-                    <FaCode /> Edit Query Settings
-                  </a>
+                    <FaKey /> Edit Connection Info
+                  </button>
+
+                  <DocLink
+                    className="btn btn-outline-secondary font-weight-bold mb-2 mb-md-0"
+                    docSection={d.type as DocSection}
+                    fallBackSection="datasources"
+                  >
+                    <FaExternalLinkAlt /> View documentation
+                  </DocLink>
                 </div>
-              )}
-            <div className="col-auto ml-auto">
-              <DocLink
-                docSection={d.type as DocSection}
-                fallBackSection="datasources"
-              >
-                <FaExternalLinkAlt /> View documentation
-              </DocLink>
-            </div>
+
+                <div>
+                  {canEdit && permissions.createDatasources && (
+                    <DeleteButton
+                      displayName={d.name}
+                      className="font-weight-bold"
+                      text={`Delete "${d.name}" Datasource`}
+                      onClick={async () => {
+                        await apiCall(`/datasource/${d.id}`, {
+                          method: "DELETE",
+                        });
+                        mutateDefinitions({});
+                        router.push("/datasources");
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
               This data source does not require any additional configuration.
             </div>
           )}
-          {supportsEvents && d?.settings?.events && (
+          {supportsEvents && (
             <>
-              <h3 className="mb-3">Query Settings</h3>
-              <table className="table appbox gbtable mb-5">
-                <tbody>
-                  <tr>
-                    <th>Experiment Event</th>
-                    <td>
-                      <code>{d.settings.events.experimentEvent || ""}</code>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Experiment Id Property</th>
-                    <td>
-                      <code>
-                        {d.settings.events.experimentIdProperty || ""}
-                      </code>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Variation Id Property</th>
-                    <td>
-                      <code>{d.settings.events.variationIdProperty || ""}</code>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="my-5">
+                <DataSourceViewEditExperimentProperties
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                />
+              </div>
+
               {d.type === "mixpanel" && (
                 <div>
                   <h3>Mixpanel Tracking Instructions</h3>
@@ -225,12 +170,14 @@ const DataSourcePage: FC = () => {
 const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
-    mixpanel.track(${JSON.stringify(d.settings.events.experimentEvent)}, {
+    mixpanel.track(${JSON.stringify(
+      d.settings?.events?.experimentEvent || "$experiment_started"
+    )}, {
       ${quotePropertyName(
-        d.settings.events.experimentIdProperty
+        d.settings?.events?.experimentIdProperty || "Experiment name"
       )}: experiment.key,
       ${quotePropertyName(
-        d.settings.events.variationIdProperty
+        d.settings?.events?.variationIdProperty || "Variant name"
       )}:  result.variationId,
       $source: 'growthbook'
     })
@@ -260,123 +207,36 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </p>
 
               <div className="card py-3 px-3 mb-4">
-                {/* TODO: design changes for Identity Joins nested */}
-                {/* region Identifier Types */}
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSource}
-                  onCancel={cancelUpdateDataSource}
+                  onCancel={() => undefined}
                   dataSource={d}
                 />
-                {/* endregion Identifier Types */}
 
                 <div className="mt-4">
-                  {/* region Identity Joins */}
                   <DataSourceInlineEditIdentityJoins
                     dataSource={d}
                     onSave={updateDataSource}
-                    onCancel={cancelUpdateDataSource}
+                    onCancel={() => undefined}
                   />
                 </div>
-                {/* endregion Identity Joins */}
               </div>
 
-              <div className="mb-4">
-                <h3>Experiment Assignment Queries</h3>
-                <p>
-                  Returns a record of which experiment variation was assigned to
-                  each user.
-                </p>
-                {d.settings?.queries?.exposure?.map((e) => (
-                  <div className="bg-white border mb-3 ml-3" key={e.id}>
-                    <div className="px-3 pt-3">
-                      <h4>{e.name}</h4>
-                      {e.description && <p>{e.description}</p>}
-                      <div className="row">
-                        <div className="col-auto">
-                          <strong>Identifier: </strong>
-                          <code>{e.userIdType}</code>
-                        </div>
-                        <div className="col-auto">
-                          <strong>Dimension Columns: </strong>
-                          {e.dimensions.map((d, i) => (
-                            <React.Fragment key={i}>
-                              {i ? ", " : ""}
-                              <code key={d}>{d}</code>
-                            </React.Fragment>
-                          ))}
-                          {!e.dimensions.length && (
-                            <em className="text-muted">none</em>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <Code
-                      language="sql"
-                      theme="light"
-                      code={e.query}
-                      containerClassName="mb-0"
-                      expandable={true}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* region Jupyter Notebook */}
-              <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div className="">
-                    <h3>Jupyter Notebook Query Runner</h3>
-                  </div>
-
-                  <div className="">
-                    <button
-                      className="btn btn-outline-primary font-weight-bold"
-                      onClick={() => {
-                        setUiMode("edit");
-                        setEditingResource("jupyter_notebook");
-                      }}
-                    >
-                      {d.settings.notebookRunQuery ? (
-                        <>
-                          <FaPencilAlt className="mr-1" /> Edit
-                        </>
-                      ) : (
-                        <>
-                          <FaPlus className="mr-1" /> Add
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                <p>
-                  Tell us how to query this data source from within a Jupyter
-                  notebook environment.
-                </p>
-                {d.settings?.notebookRunQuery ? (
-                  <Code
-                    theme="light"
-                    code={d.settings.notebookRunQuery}
-                    language="python"
-                    expandable={true}
-                  />
-                ) : (
-                  <div className="alert alert-info">
-                    Used when exporting experiment results to a Jupyter notebook
-                  </div>
-                )}
-              </div>
-
-              {d &&
-              uiMode === "edit" &&
-              editingResource === "jupyter_notebook" ? (
-                <EditJupyterNotebookQueryRunner
-                  onSave={updateDataSource}
-                  onCancel={cancelUpdateDataSource}
+              <div className="my-5">
+                <ExperimentAssignmentQueries
                   dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
                 />
-              ) : null}
+              </div>
 
-              {/* endregion Jupyter Notebook */}
+              <div className="my-5">
+                <DataSourceJupyterNotebookQuery
+                  dataSource={d}
+                  onSave={updateDataSource}
+                  onCancel={() => undefined}
+                />
+              </div>
             </>
           )}
         </div>
@@ -392,19 +252,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           }}
           onCancel={() => {
             setEditConn(false);
-          }}
-        />
-      )}
-
-      {editSettings && (
-        <EditDataSourceSettingsForm
-          data={d}
-          source={"datasource-detail"}
-          onSuccess={() => {
-            mutateDefinitions({});
-          }}
-          onCancel={() => {
-            setEditSettings(false);
           }}
         />
       )}

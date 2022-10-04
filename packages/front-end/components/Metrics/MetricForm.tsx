@@ -1,4 +1,4 @@
-import React, { FC, ReactElement, useState } from "react";
+import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
 import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -8,7 +8,6 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEffect } from "react";
 import Code from "../Code";
 import TagsInput from "../Tags/TagsInput";
 import { getDefaultConversionWindowHours } from "../../services/env";
@@ -23,7 +22,6 @@ import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
-import { useMemo } from "react";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const weekAgo = new Date();

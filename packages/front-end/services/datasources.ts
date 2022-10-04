@@ -519,6 +519,7 @@ export function getInitialSettings(
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
   return {
+    schemaFormat: type,
     userIdTypes: userIdTypes.map((type) => {
       return {
         userIdType: type,
