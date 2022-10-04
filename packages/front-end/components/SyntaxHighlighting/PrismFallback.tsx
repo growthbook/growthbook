@@ -18,7 +18,7 @@ export default function PrismFallback({
   code,
 }: Props) {
   // This is a fallback while the full syntax highlighter loads
-  // Since we have the exact same styles, it shouldn't cause any layout shifts
+  // Since we have the exact same styles, it shouldn't cause any layout shifts.
   return (
     <pre
       className={clsx(className, `language-${language}`)}
