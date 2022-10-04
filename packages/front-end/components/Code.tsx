@@ -64,7 +64,8 @@ export default function Code({
   const enoughLines = code.split("\n").length > 8;
 
   const style = cloneDeep(theme === "light" ? light : dark);
-  style['code[class*="language-"]'].fontSize = "1em";
+  style['code[class*="language-"]'].fontSize = "0.85rem";
+  style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;
 
   return (
