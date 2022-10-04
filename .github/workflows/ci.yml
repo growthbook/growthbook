@@ -32,18 +32,12 @@ jobs:
       - name: Cache yarn packages
         uses: actions/cache@v1
         with:
-          path: ${{ steps.yarn-cache.outputs.dir }}
+          path: |
+            ${{ steps.yarn-cache.outputs.dir }}
+            ./.eslintcache
           key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-node-
-
-      - name: Cache eslint
-        uses: actions/cache@v1
-        with:
-          path: "**/.eslintcache"
-          key: ${{ runner.os }}-eslint-${{ hashFiles('**/.eslintcache') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-
 
       - name: install dependencies
         run: |
