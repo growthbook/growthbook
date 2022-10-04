@@ -8,6 +8,7 @@ import {
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import PrismFallback from "./SyntaxHighlighting/PrismFallback";
+import { useAppearanceUITheme } from "../services/AppearanceUIThemeProvider";
 
 // Lazy-load syntax highlighting to improve page load time
 const Prism = dynamic(() => import("./SyntaxHighlighting/Prism"), {
@@ -34,7 +35,6 @@ export type Language =
 export default function Code({
   code,
   language,
-  theme = "dark",
   className = "",
   expandable = false,
   containerClassName,
@@ -43,7 +43,6 @@ export default function Code({
 }: {
   code: string;
   language: Language;
-  theme?: "light" | "dark";
   className?: string;
   expandable?: boolean;
   containerClassName?: string;
@@ -59,6 +58,8 @@ export default function Code({
     }, 1500);
     return () => clearTimeout(timer);
   }, [copied]);
+
+  const { theme } = useAppearanceUITheme();
 
   const enoughLines = code.split("\n").length > 8;
 

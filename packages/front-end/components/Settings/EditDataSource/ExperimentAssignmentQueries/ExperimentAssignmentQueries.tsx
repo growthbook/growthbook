@@ -193,7 +193,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               <div className="mb-2">
                 <Code
                   language="sql"
-                  theme="light"
                   code={query.query}
                   containerClassName="mb-0"
                   expandable={true}

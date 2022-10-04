@@ -731,17 +731,12 @@ const MetricForm: FC<MetricFormProps> = ({
                 <>
                   <h4>Query Preview</h4>
                   SQL:
-                  <Code
-                    language="sql"
-                    theme="dark"
-                    code={getRawSQLPreview(value)}
-                  />
+                  <Code language="sql" code={getRawSQLPreview(value)} />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
                       <Code
                         language="sql"
-                        theme="dark"
                         code={getAggregateSQLPreview(value)}
                       />
                       <small className="text-muted">

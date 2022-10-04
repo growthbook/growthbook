@@ -1,6 +1,8 @@
-import React, { useMemo } from "react";
+import React from "react";
 import Field, { FieldProps } from "./Field";
 import dynamic from "next/dynamic";
+import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
+
 const AceEditor = dynamic(
   async () => {
     const reactAce = await import("react-ace");
@@ -53,27 +55,7 @@ export default function CodeTextArea({
     otherProps.error = semicolonWarning;
   }
 
-  const theme = useMemo(() => {
-    let actualTheme = LIGHT_THEME;
-
-    try {
-      const fromStorage = localStorage.getItem("gb_ui_theme");
-      if (
-        !fromStorage &&
-        window.matchMedia("(prefers-color-scheme: dark)")?.matches
-      ) {
-        actualTheme = DARK_THEME;
-      }
-
-      if (fromStorage === "dark") {
-        actualTheme = DARK_THEME;
-      }
-    } catch (e) {
-      return actualTheme;
-    }
-
-    return actualTheme;
-  }, []);
+  const { theme } = useAppearanceUITheme();
 
   return (
     <Field
@@ -85,7 +67,7 @@ export default function CodeTextArea({
               <AceEditor
                 name={id}
                 mode={language}
-                theme={theme}
+                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
                 height={`${height}px`}
                 value={value}

@@ -11,6 +11,7 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import Layout from "../components/Layout/Layout";
+import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -84,20 +85,22 @@ function App({
           <Component {...pageProps} />
         ) : (
           <AuthProvider>
-            <GrowthBookProvider growthbook={growthbook}>
-              <ProtectedPage organizationRequired={organizationRequired}>
-                {organizationRequired ? (
-                  <DefinitionsProvider>
-                    {!liteLayout && <Layout />}
-                    <main className={`main ${parts[0]}`}>
-                      <Component {...pageProps} />
-                    </main>
-                  </DefinitionsProvider>
-                ) : (
-                  <Component {...pageProps} />
-                )}
-              </ProtectedPage>
-            </GrowthBookProvider>
+            <AppearanceUIThemeProvider>
+              <GrowthBookProvider growthbook={growthbook}>
+                <ProtectedPage organizationRequired={organizationRequired}>
+                  {organizationRequired ? (
+                    <DefinitionsProvider>
+                      {!liteLayout && <Layout />}
+                      <main className={`main ${parts[0]}`}>
+                        <Component {...pageProps} />
+                      </main>
+                    </DefinitionsProvider>
+                  ) : (
+                    <Component {...pageProps} />
+                  )}
+                </ProtectedPage>
+              </GrowthBookProvider>
+            </AppearanceUIThemeProvider>
           </AuthProvider>
         )
       ) : error ? (

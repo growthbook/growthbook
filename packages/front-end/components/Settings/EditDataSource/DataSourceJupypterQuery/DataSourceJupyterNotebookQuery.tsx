@@ -53,7 +53,6 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
       </p>
       {dataSource.settings?.notebookRunQuery ? (
         <Code
-          theme="light"
           code={dataSource.settings.notebookRunQuery}
           language="python"
           expandable={true}

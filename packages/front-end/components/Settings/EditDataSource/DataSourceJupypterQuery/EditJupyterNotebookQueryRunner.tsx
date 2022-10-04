@@ -69,7 +69,6 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
               <p>Example for postgres/redshift:</p>
               <Code
                 language="python"
-                theme="light"
                 code={`import os
 import psycopg2
 import pandas as pd

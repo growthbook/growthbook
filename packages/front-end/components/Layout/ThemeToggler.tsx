@@ -1,9 +1,11 @@
-import { FC, useCallback, useEffect, useState } from "react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { FaLightbulb, FaMoon } from "react-icons/fa";
 import clsx from "clsx";
 import useGlobalMenu from "../../services/useGlobalMenu";
-
-type UIAppearanceMode = "system" | "dark" | "light";
+import {
+  PreferredAppearanceUITheme,
+  useAppearanceUITheme,
+} from "../../services/AppearanceUIThemeProvider";
 
 const HalfCircleIcon: FC = () => (
   <svg
@@ -22,45 +24,35 @@ const HalfCircleIcon: FC = () => (
 
 export const ThemeToggler: FC = () => {
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
-  const [activeTheme, setActiveTheme] = useState<UIAppearanceMode>("system");
+
+  const { setTheme, preferredTheme } = useAppearanceUITheme();
 
   useGlobalMenu(".top-nav-theme-menu", () => setThemeDropdownOpen(false));
 
-  useEffect(() => {
-    try {
-      const themeFromStorage = localStorage.getItem("gb_ui_theme") as
-        | UIAppearanceMode
-        | undefined;
+  const handleThemeChange = useCallback(
+    (theme: PreferredAppearanceUITheme) => {
+      setTheme(theme);
+      setThemeDropdownOpen(false);
+    },
+    [setTheme]
+  );
 
-      if (themeFromStorage === "light" || themeFromStorage === "dark") {
-        document.documentElement.className = `theme--${themeFromStorage}`;
-        setActiveTheme(themeFromStorage);
-      }
-    } catch (e) {
-      // We are unable to retrieve the theme changes due to the browser's privacy settings
+  const activeIcon = useMemo(() => {
+    switch (preferredTheme) {
+      case "dark":
+        return <FaMoon className="text-secondary mr-2" />;
+
+      case "light":
+        return <FaLightbulb className="text-secondary mr-2" />;
+
+      case "system":
+        return (
+          <span className="mr-2 text-secondary">
+            <HalfCircleIcon />
+          </span>
+        );
     }
-  }, []);
-
-  const handleThemeChange = useCallback((theme: UIAppearanceMode) => {
-    ["theme--dark", "theme--light"].forEach((c) => {
-      document.documentElement.classList.remove(c);
-    });
-
-    setActiveTheme(theme);
-
-    setThemeDropdownOpen(false);
-
-    try {
-      if (theme === "system") {
-        localStorage.removeItem("gb_ui_theme");
-      } else {
-        document.documentElement.classList.add(`theme--${theme}`);
-        localStorage.setItem("gb_ui_theme", theme);
-      }
-    } catch (e) {
-      // We are unable to persist the theme changes due to the browser's privacy settings
-    }
-  }, []);
+  }, [preferredTheme]);
 
   return (
     <div className="dropdown top-nav-theme-menu">
@@ -70,9 +62,7 @@ export const ThemeToggler: FC = () => {
         }}
         className="btn mr-1"
       >
-        <span className="nav-link dropdown-toggle text-main">
-          <FaMoon className="text-secondary mr-2" />
-        </span>
+        <span className="nav-link dropdown-toggle text-main">{activeIcon}</span>
       </button>
 
       <div
@@ -83,7 +73,7 @@ export const ThemeToggler: FC = () => {
         <button
           onClick={() => handleThemeChange("system")}
           className={clsx("dropdown-item", {
-            "text-primary": activeTheme !== "light" && activeTheme !== "dark",
+            "text-primary": preferredTheme === "system",
           })}
         >
           <span className="mr-2">
@@ -94,7 +84,7 @@ export const ThemeToggler: FC = () => {
         <button
           onClick={() => handleThemeChange("light")}
           className={clsx("dropdown-item", {
-            "text-primary": activeTheme === "light",
+            "text-primary": preferredTheme === "light",
           })}
         >
           <FaLightbulb className="mr-1" /> Light mode
@@ -103,7 +93,7 @@ export const ThemeToggler: FC = () => {
         <button
           onClick={() => handleThemeChange("dark")}
           className={clsx("dropdown-item", {
-            "text-primary": activeTheme === "dark",
+            "text-primary": preferredTheme === "dark",
           })}
         >
           <FaMoon className="mr-1" /> Dark mode
