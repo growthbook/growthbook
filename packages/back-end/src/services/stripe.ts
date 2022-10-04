@@ -53,38 +53,6 @@ export async function updateSubscriptionInDb(
   });
 }
 
-/**
- * @name updateSubscriptionInStripe
- * @description This function updates the subscription in Stripe's system via Stripe's API.
- */
-export async function updateSubscriptionInStripe(
-  subscriptionId: string,
-  qty: number
-) {
-  if (!STRIPE_SECRET) {
-    console.error("Missing STRIPE_SECRET");
-    return;
-  }
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-  // Only update subscription if the qty is different than what Stripe currently has
-  if (qty !== subscription.items.data[0].quantity) {
-    const updatedSubscription = await stripe.subscriptions.update(
-      subscriptionId,
-      {
-        items: [
-          {
-            id: subscription.items.data[0].id,
-            quantity: qty,
-          },
-        ],
-      }
-    );
-
-    await updateSubscriptionInDb(updatedSubscription);
-  }
-}
-
 const priceData: {
   [key: string]: Stripe.Price;
 } = {};
