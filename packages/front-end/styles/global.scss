@@ -1414,7 +1414,8 @@ li.metrics a span img {
   }
   .image-blank {
     background-size: contain;
-    background: #fafafa url("/images/image-blank.png") no-repeat 50% 50%;
+    background: var(--surface-background-color-alt)
+      url("/images/image-blank.png") no-repeat 50% 50%;
     min-height: 200px;
     border-top: 1px solid var(--border-color-300);
     border-bottom: 1px solid var(--border-color-300);
