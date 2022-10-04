@@ -32,12 +32,18 @@ jobs:
       - name: Cache yarn packages
         uses: actions/cache@v1
         with:
-          path: |
-            ${{ steps.yarn-cache.outputs.dir }}
-            ./.eslintcache
+          path: ${{ steps.yarn-cache.outputs.dir }}
           key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-node-
+
+      - name: Cache eslint
+        uses: actions/cache@v1
+        with:
+          path: ${{ github.workspace }}/.eslintcache
+          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-eslint-
 
       - name: install dependencies
         run: |
@@ -55,6 +61,7 @@ jobs:
       - name: lint
         run: |
           yarn lint
+          ls -lah
           yarn workspace stats lint
 
       - name: type-check
