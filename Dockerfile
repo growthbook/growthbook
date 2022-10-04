@@ -11,15 +11,16 @@ RUN \
 # Build the nodejs app
 FROM node:14-slim AS nodebuild
 WORKDIR /usr/local/src/app
-COPY packages ./packages
+# Yarn install with dev dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
+COPY packages/front-end/package.json ./packages/front-end/package.json
+COPY packages/back-end/package.json ./packages/back-end/package.json
+RUN yarn install --frozen-lockfile --ignore-optional
+# Build the app and do a clean install with only production dependencies
+COPY packages ./packages
 RUN \
-  # Install app with dev dependencies
-  yarn install --frozen-lockfile --ignore-optional \
-  # Build the app
-  && yarn build \
-  # Then do a clean install with only production dependencies
+  yarn build \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
