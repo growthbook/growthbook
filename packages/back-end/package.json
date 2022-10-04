@@ -6,7 +6,7 @@
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "build:clean": "rm -rf dist",
     "build:typescript": "tsc",
-    "dev": "concurrently \"yarn watch-compile\" \"yarn watch-dev\"",
+    "dev": "yarn build:clean && concurrently \"yarn watch-compile\" \"yarn watch-dev\"",
     "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
     "start": "node dist/server.js",
     "test": "jest --forceExit --verbose --detectOpenHandles",

@@ -37,6 +37,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      - name: Cache eslint
+        uses: actions/cache@v1
+        with:
+          path: "**/.eslintcache"
+          key: ${{ runner.os }}-eslint-${{ hashFiles('**/.eslintcache') }}
+          restore-keys: |
+            ${{ runner.os }}-eslint-
+
       - name: install dependencies
         run: |
           yarn
