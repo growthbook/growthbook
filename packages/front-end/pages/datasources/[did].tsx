@@ -49,11 +49,14 @@ const DataSourcePage: FC = () => {
    * Update the data source provided.
    * Each section is responsible for retaining the rest of the data source and editing its specific section.
    */
-  const updateDataSource = useCallback(
+  const updateDataSourceSettings = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
+      const updates = {
+        settings: dataSource.settings,
+      };
       await apiCall(`/datasource/${dataSource.id}`, {
         method: "PUT",
-        body: JSON.stringify(dataSource),
+        body: JSON.stringify(updates),
       });
 
       await mutateDefinitions({});
@@ -151,7 +154,7 @@ const DataSourcePage: FC = () => {
               <div className="my-5">
                 <DataSourceViewEditExperimentProperties
                   dataSource={d}
-                  onSave={updateDataSource}
+                  onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                 />
               </div>
@@ -208,7 +211,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
 
               <div className="card py-3 px-3 mb-4">
                 <DataSourceInlineEditIdentifierTypes
-                  onSave={updateDataSource}
+                  onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
                 />
@@ -216,7 +219,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 <div className="mt-4">
                   <DataSourceInlineEditIdentityJoins
                     dataSource={d}
-                    onSave={updateDataSource}
+                    onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
                   />
                 </div>
@@ -225,7 +228,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               <div className="my-5">
                 <ExperimentAssignmentQueries
                   dataSource={d}
-                  onSave={updateDataSource}
+                  onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                 />
               </div>
@@ -233,7 +236,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               <div className="my-5">
                 <DataSourceJupyterNotebookQuery
                   dataSource={d}
-                  onSave={updateDataSource}
+                  onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                 />
               </div>

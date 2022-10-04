@@ -12,6 +12,7 @@ import CodeTextArea from "../../../Forms/CodeTextArea";
 import Tooltip from "../../../Tooltip";
 import Toggle from "../../../Forms/Toggle";
 import StringArrayField from "../../../Forms/StringArrayField";
+import { validateSQL } from "../../../../services/datasources";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -62,6 +63,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredDimensions = form.watch("dimensions");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    const requiredColumns = [
+      "experiment_id",
+      "variation_id",
+      "timestamp",
+      value.userIdType,
+      ...(value.dimensions || []),
+      ...(value.hasNameCol ? ["experiment_name", "variation_name"] : []),
+    ];
+    validateSQL(value.query, requiredColumns);
+
     await onSave(value);
 
     form.reset({
