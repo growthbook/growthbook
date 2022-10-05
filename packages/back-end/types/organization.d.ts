@@ -150,10 +150,12 @@ export interface OrganizationInterface {
   ownerEmail: string;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
+  restrictAuthSubPrefix?: string;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  enterprise?: boolean;
   subscription?: {
     id: string;
     qty: number;

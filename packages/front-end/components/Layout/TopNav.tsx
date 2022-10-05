@@ -52,7 +52,15 @@ const TopNav: FC<{
     hasActiveSubscription,
   } = useStripeSubscription();
 
-  const { name, email, update, permissions, role, licence } = useUser();
+  const {
+    name,
+    email,
+    update,
+    permissions,
+    role,
+    licence,
+    enterprise,
+  } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -251,7 +259,7 @@ const TopNav: FC<{
               </div>
             )}
 
-            {licence && (
+            {(licence || enterprise) && (
               <div className="ml-2">
                 <span className="badge badge-pill badge-dark mr-1">
                   ENTERPRISE

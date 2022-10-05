@@ -53,6 +53,7 @@ export type UserContextValue = {
   admin?: boolean;
   role?: string;
   licence?: LicenceData;
+  enterprise?: boolean;
   users?: Map<string, User>;
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
@@ -155,6 +156,7 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      enterprise: currentOrg?.enterprise || false,
       hasLicenceKey: !!data?.licence,
       freeSeats: currentOrg?.freeSeats || 3,
       discountCode: currentOrg?.discountCode || "",
@@ -215,6 +217,7 @@ const ProtectedPage: React.FC<{
     role,
     permissions,
     settings: currentOrg?.settings || {},
+    enterprise: currentOrg?.enterprise || false,
     licence: data?.licence,
   };
 

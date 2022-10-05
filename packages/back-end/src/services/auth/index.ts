@@ -60,7 +60,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 
 export async function processJWT(
   // eslint-disable-next-line
-  req: AuthRequest & { user: any },
+  req: AuthRequest & { user: IdToken },
   res: Response,
   next: NextFunction
 ) {
@@ -126,6 +126,20 @@ export async function processJWT(
             return res.status(403).json({
               status: 403,
               message: "Must login with Enterprise SSO.",
+            });
+          }
+        }
+
+        // If the org requires a specific subject in the IdToken
+        // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
+        // For that, we set `restrictAuthSubPrefix` to "google"
+        if (req.organization.restrictAuthSubPrefix) {
+          if (
+            !req.user.sub?.startsWith(req.organization.restrictAuthSubPrefix)
+          ) {
+            throw res.status(403).json({
+              status: 403,
+              message: `Must login with ${req.organization.restrictAuthSubPrefix}`,
             });
           }
         }
