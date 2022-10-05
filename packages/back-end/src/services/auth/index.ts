@@ -7,6 +7,7 @@ import {
   getOrganizationById,
   getPermissionsByRole,
   getRole,
+  validateLoginMethod,
 } from "../organizations";
 import { MemberRole } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
@@ -66,6 +67,7 @@ export async function processJWT(
 ) {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
 
+  req.authSubject = req.user.sub || "";
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
@@ -121,27 +123,13 @@ export async function processJWT(
         }
 
         // Make sure this is a valid login method for the organization
-        if (req.organization.restrictLoginMethod) {
-          if (req.loginMethod?.id !== req.organization.restrictLoginMethod) {
-            return res.status(403).json({
-              status: 403,
-              message: "Must login with Enterprise SSO.",
-            });
-          }
-        }
-
-        // If the org requires a specific subject in the IdToken
-        // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
-        // For that, we set `restrictAuthSubPrefix` to "google"
-        if (req.organization.restrictAuthSubPrefix) {
-          if (
-            !req.user.sub?.startsWith(req.organization.restrictAuthSubPrefix)
-          ) {
-            throw res.status(403).json({
-              status: 403,
-              message: `Must login with ${req.organization.restrictAuthSubPrefix}`,
-            });
-          }
+        try {
+          validateLoginMethod(req.organization, req);
+        } catch (e) {
+          return res.status(403).json({
+            status: 403,
+            message: e.message,
+          });
         }
 
         const role: MemberRole = req.admin

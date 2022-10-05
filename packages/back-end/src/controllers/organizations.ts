@@ -13,6 +13,7 @@ import {
   updateRole,
   addMemberFromSSOConnection,
   isEnterpriseSSO,
+  validateLoginMethod,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -95,14 +96,20 @@ export async function getUser(req: AuthRequest, res: Response) {
   }
 
   // Filter out orgs that the user can't log in to
-  const validOrgs = orgs.filter(
-    (org) =>
-      !org.restrictLoginMethod ||
-      req.loginMethod?.id === org.restrictLoginMethod
-  );
+  let lastError = "";
+  const validOrgs = orgs.filter((org) => {
+    try {
+      validateLoginMethod(org, req);
+      return true;
+    } catch (e) {
+      lastError = e;
+      return false;
+    }
+  });
+
   // If all of a user's orgs were filtered out, throw an error
   if (orgs.length && !validOrgs.length) {
-    throw new Error("Must login with Enterprise SSO");
+    throw new Error(lastError || "Must login with SSO");
   }
 
   return res.status(200).json({

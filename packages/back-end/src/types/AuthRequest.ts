@@ -9,6 +9,7 @@ export type AuthRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
   verified?: boolean;
   userId?: string;
   loginMethod?: SSOConnectionInterface;
+  authSubject?: string;
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;

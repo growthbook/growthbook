@@ -48,6 +48,34 @@ export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
 
+export function validateLoginMethod(
+  org: OrganizationInterface,
+  req: AuthRequest
+) {
+  if (
+    org.restrictLoginMethod &&
+    req.loginMethod?.id !== org.restrictLoginMethod
+  ) {
+    throw new Error(
+      "Your organization requires you to login with Enterprise SSO"
+    );
+  }
+
+  // If the org requires a specific subject in the IdToken
+  // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
+  // For that, we set `restrictAuthSubPrefix` to "google"
+  if (
+    org.restrictAuthSubPrefix &&
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+  ) {
+    throw new Error(
+      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`
+    );
+  }
+
+  return true;
+}
+
 export function getOrgFromReq(req: AuthRequest) {
   if (!req.organization) {
     throw new Error("Must be part of an organization to make that request");
