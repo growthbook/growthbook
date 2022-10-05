@@ -1,18 +1,14 @@
 import { ApiV1Feature } from "../../../types/api/v1/feature";
-import {
-  FeatureDraftChanges,
-  FeatureEnvironment,
-  FeatureInterface,
-  FeatureRevisionInterface,
-} from "../../../types/feature";
-import { getFeatureDefinitions } from "../features";
+import { FeatureEnvironment, FeatureInterface } from "../../../types/feature";
 import cloneDeep from "lodash/cloneDeep";
+import { FeatureDefinition } from "../../../types/api";
 
 function transformDraftToEnvironments(
   feature: FeatureInterface
 ): Record<string, FeatureEnvironment> {
-  let envSettings: Record<string, FeatureEnvironment> = {};
+  if (!feature.draft?.active) return {};
 
+  let envSettings: Record<string, FeatureEnvironment> = {};
   const changes: Partial<FeatureInterface> = {};
   if (feature.draft?.rules) {
     changes.environmentSettings = cloneDeep(feature.environmentSettings || {});
@@ -28,29 +24,25 @@ function transformDraftToEnvironments(
   return envSettings;
 }
 
-export async function formatApiFeature(
-  feature: FeatureInterface
-): Promise<ApiV1Feature> {
-  const retFeature: Partial<
-    ApiV1Feature & {
-      organization: string;
-      environmentSettings?: Record<string, FeatureEnvironment>;
-      draft?: FeatureDraftChanges;
-      revision?: FeatureRevisionInterface;
-    }
-  > = {
-    environments: feature.environmentSettings ?? {},
+export function formatApiFeature(
+  feature: FeatureInterface,
+  featureDefinitions: Record<string, FeatureDefinition>
+): ApiV1Feature {
+  const retFeature: ApiV1Feature = {
+    id: feature.id,
+    archived: feature.archived,
+    description: feature.description,
+    owner: feature.owner,
+    project: feature.project,
+    dateCreated: feature.dateCreated,
+    dateUpdated: feature.dateUpdated,
+    valueType: feature.valueType,
+    defaultValue: feature.defaultValue,
+    tags: feature.tags,
+    environments: feature.environmentSettings || {},
     draftEnvironments: transformDraftToEnvironments(feature),
-    definition: (await getFeatureDefinitions(feature.organization)).features[
-      feature.id
-    ],
-    ...feature,
+    definition: featureDefinitions[feature.id] || {},
   };
-
-  delete retFeature.organization;
-  delete retFeature.environmentSettings;
-  delete retFeature.draft;
-  delete retFeature.revision;
 
   return retFeature as ApiV1Feature;
 }
