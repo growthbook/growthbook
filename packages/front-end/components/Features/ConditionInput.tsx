@@ -9,6 +9,7 @@ import Field from "../Forms/Field";
 import styles from "./ConditionInput.module.scss";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 interface Props {
   defaultValue: string;
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
+  const { savedGroups } = useDefinitions();
+
   const attributes = useAttributeMap();
 
   const [advanced, setAdvanced] = useState(
@@ -38,6 +41,17 @@ export default function ConditionInput(props: Props) {
     props.onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
+
+  const savedGroupOperators = [
+    {
+      label: "is in the saved group",
+      value: "$inGroup",
+    },
+    {
+      label: "is not in the saved group",
+      value: "$notInGroup",
+    },
+  ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
     return (
@@ -106,6 +120,12 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
+            const savedGroupOptions = savedGroups
+              // First, limit to groups with the correct attribute
+              .filter((g) => g.attributeKey === field)
+              // Then, transform into the select option format
+              .map((g) => ({ label: g.groupName, value: g.id }));
+
             const onChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
@@ -165,6 +185,9 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
+                    ...(savedGroupOptions.length > 0
+                      ? savedGroupOperators
+                      : []),
                   ]
                 : attribute.datatype === "number"
                 ? [
@@ -178,6 +201,9 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
+                    ...(savedGroupOptions.length > 0
+                      ? savedGroupOperators
+                      : []),
                   ]
                 : [];
 
@@ -236,6 +262,18 @@ export default function ConditionInput(props: Props) {
                     "$notEmpty",
                   ].includes(operator) ? (
                     ""
+                  ) : ["$inGroup", "$notInGroup"].includes(operator) &&
+                    savedGroups ? (
+                    <SelectField
+                      options={savedGroupOptions}
+                      value={value}
+                      onChange={(v) => {
+                        onSelectFieldChange(v, "value");
+                      }}
+                      name="value"
+                      initialOption="Choose group..."
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <Field
                       textarea

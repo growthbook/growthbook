@@ -27,9 +27,38 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^features/,
-    beta: false,
-    className: styles.first,
+    path: /^(features|attributes|namespaces|environments|saved-groups)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "All Features",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Attributes",
+        href: "/attributes",
+        path: /^attributes/,
+        permissions: ["organizationSettings"],
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+        permissions: ["organizationSettings"],
+      },
+      {
+        name: "Environments",
+        href: "/environments",
+        path: /^environments/,
+        permissions: ["organizationSettings"],
+      },
+      {
+        name: "Saved Groups",
+        href: "/saved-groups",
+        path: /^saved-groups/,
+      },
+    ],
   },
   {
     name: "Analysis",
@@ -94,7 +123,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects|namespaces)/,
+    path: /^(settings|admin|projects)/,
     permissions: ["organizationSettings"],
     autoClose: true,
     subLinks: [
@@ -119,16 +148,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^projects/,
       },
       {
-        name: "Attributes",
-        href: "/settings/attributes",
-        path: /^settings\/attributes/,
-      },
-      {
-        name: "Environments",
-        href: "/settings/environments",
-        path: /^settings\/environments/,
-      },
-      {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
@@ -137,11 +156,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
       },
       {
         name: "Billing",
