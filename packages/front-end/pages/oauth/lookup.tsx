@@ -39,7 +39,8 @@ export default function OAuthLookup() {
     },
   });
 
-  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const leftside = (
     <>
@@ -48,12 +49,19 @@ export default function OAuthLookup() {
     </>
   );
   return (
-    <WelcomeFrame leftside={leftside} loading={!open}>
+    <WelcomeFrame leftside={leftside} loading={loading}>
       <form
         onSubmit={form.handleSubmit(async ({ email }) => {
-          // This will lookup the SSO config id and store it in a cookie
-          await lookupByEmail(email);
-          await redirectWithTimeout(window.location.origin);
+          try {
+            setLoading(true);
+            // This will lookup the SSO config id and store it in a cookie
+            await lookupByEmail(email);
+            await redirectWithTimeout(window.location.origin);
+            setLoading(false);
+          } catch (e) {
+            setError(e.message);
+            setLoading(false);
+          }
         })}
       >
         <div>
@@ -71,6 +79,7 @@ export default function OAuthLookup() {
           autoFocus={true}
           autoComplete="username"
         />
+        {error && <div className="alert alert-danger mr-auto">{error}</div>}
         <button className={`btn btn-primary btn-block btn-lg`} type="submit">
           Continue
         </button>
@@ -82,7 +91,7 @@ export default function OAuthLookup() {
             href="#"
             onClick={async (e) => {
               e.preventDefault();
-              setOpen(false);
+              setLoading(true);
               await safeLogout();
             }}
           >
