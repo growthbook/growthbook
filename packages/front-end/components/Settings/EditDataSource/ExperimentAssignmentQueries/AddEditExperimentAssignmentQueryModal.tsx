@@ -88,7 +88,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const identityTypes = dataSource.settings.userIdTypes || [];
 
-  const saveEnabled = userEnteredUserIdType && userEnteredQuery;
+  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
   if (!exposureQuery && mode === "edit") {
     console.error(
