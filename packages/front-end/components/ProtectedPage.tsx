@@ -19,7 +19,8 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
-import Modal from "./Modal";
+import Button from "./Button";
+import { ThemeToggler } from "./Layout/ThemeToggler";
 
 type User = { id: string; email: string; name: string };
 
@@ -53,6 +54,7 @@ export type UserContextValue = {
   admin?: boolean;
   role?: string;
   licence?: LicenceData;
+  enterprise?: boolean;
   users?: Map<string, User>;
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
@@ -155,6 +157,7 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      enterprise: currentOrg?.enterprise || false,
       hasLicenceKey: !!data?.licence,
       freeSeats: currentOrg?.freeSeats || 3,
       discountCode: currentOrg?.discountCode || "",
@@ -164,23 +167,57 @@ const ProtectedPage: React.FC<{
 
   if (error) {
     return (
-      <Modal
-        inline={true}
-        open={true}
-        cta="Log Out"
-        submit={async () => {
-          await safeLogout();
-        }}
-        submitColor="danger"
-        closeCta="Reload"
-        close={() => {
-          window.location.reload();
-        }}
-        autoCloseOnSubmit={false}
-      >
-        <h3>Error signing in</h3>
-        <div className="alert alert-danger">{error}</div>
-      </Modal>
+      <div>
+        <div className="navbar bg-white border-bottom">
+          <div>
+            <img
+              alt="GrowthBook"
+              src="/logo/growthbook-logo.png"
+              style={{ height: 36 }}
+            />
+          </div>
+          <div className="ml-auto">
+            <ThemeToggler />
+          </div>
+          <div>
+            <Button
+              className="ml-auto"
+              onClick={async () => {
+                await safeLogout();
+              }}
+              color="danger"
+            >
+              Log Out
+            </Button>
+          </div>
+        </div>
+        <div className="container mt-5">
+          <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
+            <h3 className="mb-3">Error Signing In</h3>
+            <div className="alert alert-danger">{error}</div>
+            <div className="d-flex">
+              <Button
+                className="ml-auto"
+                onClick={async () => {
+                  await safeLogout();
+                }}
+                color="danger"
+              >
+                Log Out
+              </Button>
+              <button
+                className="btn btn-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.reload();
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -215,6 +252,7 @@ const ProtectedPage: React.FC<{
     role,
     permissions,
     settings: currentOrg?.settings || {},
+    enterprise: currentOrg?.enterprise || false,
     licence: data?.licence,
   };
 
