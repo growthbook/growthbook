@@ -21,7 +21,10 @@ export async function listFeaturesApi(req: AccessTokenRequest, res: Response) {
 
   const features = await getAllFeatures(organization.id, project);
 
-  const retFeatures: ApiV1Feature[] = features.map((f) => formatApiFeature(f));
+  const retFeatures: ApiV1Feature[] = [];
+  for (const f of features) {
+    retFeatures.push(await formatApiFeature(f));
+  }
 
   res.status(200).json({
     status: 200,

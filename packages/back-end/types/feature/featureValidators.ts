@@ -87,15 +87,7 @@ export const vFeatureInterface = z.object({
   valueType: vFeatureValueType,
   defaultValue: z.string(),
   tags: z.array(z.string()).optional(),
-  environmentSettings: z
-    .record(
-      z.string(),
-      z.object({
-        enabled: z.boolean(),
-        rules: z.array(vFeatureRule),
-      })
-    )
-    .optional(),
+  environmentSettings: z.record(z.string(), vFeatureEnvironment).optional(),
   draft: vFeatureDraftChanges.optional(),
   revision: vFeatureRevisionInterface.optional(),
 });

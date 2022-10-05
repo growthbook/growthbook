@@ -10,7 +10,7 @@
   "valueType": "string",
   "defaultValue": "success",
   "tags": ["onboarding", "CTA"],
-  "environmentSettings": {
+  "environments": {
     "production": {
       "enabled": true,
       "rules": [
@@ -21,6 +21,29 @@
         }
       ]
     }
+  },
+  "draftEnvironments": {
+    "production": {
+      "enabled": false,
+      "rules": [
+        {
+          "description": "test rule 1",
+          "id": "test rule-1",
+          "enabled": false
+        }
+      ]
+    }
+  },
+  "definition": {
+    "defaultValue": false,
+    "rules": [
+      {
+        "condition": {
+          "id": "test"
+        },
+        "force": true
+      }
+    ]
   }
 }
 ```
