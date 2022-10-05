@@ -8,9 +8,9 @@ import { daysLeft } from "../../services/dates";
 import Modal from "../Modal";
 import {
   FaBars,
-  FaExclamationTriangle,
   FaBell,
   FaBuilding,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import Link from "next/link";
 import Avatar from "../Avatar";
@@ -25,6 +25,7 @@ import Head from "next/head";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "../Settings/UpgradeModal";
 import Tooltip from "../Tooltip";
+import { ThemeToggler } from "./ThemeToggler";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -140,6 +141,8 @@ const TopNav: FC<{
         <span className={styles.pagetitle}>{pageTitle}</span>
 
         <div style={{ flex: 1 }} />
+
+        <ThemeToggler />
 
         {showNotices && (
           <>

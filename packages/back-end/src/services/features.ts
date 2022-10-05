@@ -10,6 +10,12 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import { replaceSavedGroupsInCondition } from "../util/features";
+import { getAllSavedGroups } from "../models/SavedGroupModel";
+import { getOrganizationById } from "./organizations";
+
+export type GroupMap = Map<string, string[] | number[]>;
+export type AttributeMap = Map<string, string>;
 import { findProjectById } from "../models/ProjectModel";
 
 function roundVariationWeight(num: number): number {
@@ -37,6 +43,36 @@ export async function getFeatureDefinitions(
 ) {
   const features = await getAllFeatures(organization, project);
 
+  const org = await getOrganizationById(organization);
+
+  const attributes = org?.settings?.attributeSchema;
+
+  const attributeMap: AttributeMap = new Map();
+  attributes?.forEach((attribute) => {
+    attributeMap.set(attribute.property, attribute.datatype);
+  });
+
+  // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
+  const allGroups = await getAllSavedGroups(organization);
+
+  function getGroupValues(
+    values: string[],
+    type?: string
+  ): string[] | number[] {
+    if (type === "number") {
+      return values.map((v) => parseFloat(v));
+    }
+    return values;
+  }
+
+  const groupMap: GroupMap = new Map(
+    allGroups.map((group) => {
+      const attributeType = attributeMap?.get(group.attributeKey);
+      const values = getGroupValues(group.values, attributeType);
+      return [group.id, values];
+    })
+  );
+
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
   features.forEach((feature) => {
@@ -60,7 +96,9 @@ export async function getFeatureDefinitions(
             const rule: FeatureDefinitionRule = {};
             if (r.condition && r.condition !== "{}") {
               try {
-                rule.condition = JSON.parse(r.condition);
+                rule.condition = JSON.parse(
+                  replaceSavedGroupsInCondition(r.condition, groupMap)
+                );
               } catch (e) {
                 // ignore condition parse errors here
               }

@@ -63,10 +63,14 @@ export const ReactSelectProps = {
       paddingTop: 0,
       paddingBottom: 0,
     }),
-    option: (base) => ({
-      ...base,
-      padding: "6px 17px",
-    }),
+    option: (base, state) => {
+      const { isFocused } = state;
+      return {
+        ...base,
+        backgroundColor: isFocused ? "rgba(222, 235, 255, 0.4)" : "transparent",
+        padding: "6px 17px",
+      };
+    },
     multiValue: (styles) => {
       return {
         ...styles,
@@ -135,6 +139,7 @@ const SelectField: FC<
               {...ReactSelectProps}
               id={id}
               ref={ref}
+              className="gb-select"
               isDisabled={disabled || false}
               options={sorted}
               onChange={(selected) => {

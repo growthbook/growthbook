@@ -159,7 +159,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                     </MoreMenu>
 
                     <button
-                      className="btn ml-3"
+                      className="btn ml-3 text-dark"
                       onClick={handleExpandCollapseForIndex(idx)}
                     >
                       <FaChevronRight
@@ -174,7 +174,6 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                   {isOpen && (
                     <Code
                       language="sql"
-                      theme="light"
                       code={identityJoin.query}
                       containerClassName="mb-0"
                       expandable={true}

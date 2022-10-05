@@ -153,7 +153,7 @@ const ApiKeys: FC = () => {
               <tr key={key.key}>
                 <td>{key.key}</td>
                 <td>
-                  <Link href={`/settings/environments`}>
+                  <Link href={`/environments`}>
                     <a>{key.environment ?? "production"}</a>
                   </Link>
                 </td>
@@ -186,7 +186,7 @@ const ApiKeys: FC = () => {
       >
         <FaKey /> Create New Key
       </button>
-      <Link href={`/settings/environments`}>
+      <Link href={`/environments`}>
         <a className="btn btn-outline-primary ml-3">Manage environments</a>
       </Link>
     </div>

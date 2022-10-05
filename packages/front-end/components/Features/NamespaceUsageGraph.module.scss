@@ -2,7 +2,7 @@
 
 .legend {
   font-size: 0.8em;
-  color: $gray1;
+  color: var(--text-color-muted);
 }
 
 .legend_box {
@@ -10,13 +10,13 @@
   height: 14px;
   display: inline-block;
   vertical-align: middle;
-  border: 1px solid $gray3;
+  border: 1px solid var(--border-color-100);
 }
 .used {
   background-color: $gray1;
 }
 .unused {
-  background-color: $light-green;
+  background-color: var(--alert-success-background);
 }
 
 .bar {
@@ -27,7 +27,7 @@
 
 .bar_holder {
   position: relative;
-  border: 1px solid $gray3;
+  border: 1px solid var(--border-color-100);
   height: 30px;
   margin: 5px 0 30px 0;
   background-color: $gray1;

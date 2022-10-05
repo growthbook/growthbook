@@ -1,3 +1,5 @@
+import { SavedGroupInterface } from "back-end/types/saved-group";
+import { useDefinitions } from "../../services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "../../services/features";
 import Code from "../Code";
 
@@ -31,6 +33,10 @@ function operatorToText(operator: string): string {
       return `is in the list`;
     case "$nin":
       return `is not in the list`;
+    case "$inGroup":
+      return `is in the saved group`;
+    case "$notInGroup":
+      return `is not in the saved group`;
     case "$true":
       return "is";
     case "$false":
@@ -46,13 +52,26 @@ function operatorToText(operator: string): string {
 function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
-function getValue(operator: string, value: string): string {
+function getValue(
+  operator: string,
+  value: string,
+  savedGroups?: SavedGroupInterface[]
+): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
+
+  // Get the groupName from the associated group.id to display a human readable name.
+  if (operator === ("$inGroup" || "$notInGroup") && savedGroups) {
+    const index = savedGroups.find((i) => i.id === value);
+
+    return index?.groupName || "Group was Deleted";
+  }
   return value;
 }
 
 export default function ConditionDisplay({ condition }: { condition: string }) {
+  const { savedGroups } = useDefinitions();
+
   const conds = jsonToConds(condition);
 
   const attributes = useAttributeMap();
@@ -63,7 +82,6 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
       <Code
         language="json"
         code={condition}
-        theme="light"
         className="p-0 border-0"
         actionBar={false}
         containerClassName="m-0"
@@ -80,7 +98,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
           <span className="mr-1">{operatorToText(operator)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value)}
+              {getValue(operator, value, savedGroups)}
             </span>
           ) : (
             ""

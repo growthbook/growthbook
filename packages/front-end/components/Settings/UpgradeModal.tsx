@@ -24,7 +24,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
   useEffect(() => {
     track("View Upgrade Modal", {
       source,
-      qty: quote?.qty || 0,
+      qty: quote?.activeAndInvitedUsers || 0,
       unitPrice: quote?.unitPrice || 0,
       discountAmount: quote?.discountAmount || 0,
       discountMessage: quote?.discountMessage || "",
@@ -45,7 +45,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       }>(`/subscription/checkout`, {
         method: "POST",
         body: JSON.stringify({
-          qty: quote?.qty || 0,
+          qty: quote?.activeAndInvitedUsers || 0,
           returnUrl: window.location.pathname,
         }),
       });
@@ -53,7 +53,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       if (resp.session?.url) {
         track("Start Checkout", {
           source,
-          qty: quote?.qty || 0,
+          qty: quote?.activeAndInvitedUsers || 0,
           unitPrice: quote?.unitPrice || 0,
           discountAmount: quote?.discountAmount || 0,
           discountMessage: quote?.discountMessage || "",
@@ -120,7 +120,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
             <div className="d-flex">
               <div>Current team size</div>
               <div className="ml-auto">
-                <strong>{quote?.qty || 0}</strong> users
+                <strong>{quote?.activeAndInvitedUsers || 0}</strong> users
               </div>
             </div>
             <div className="d-flex border-bottom py-2 mb-2">
@@ -175,7 +175,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           onClick={() => {
             track("Click Enterprise Upgrade Link", {
               source,
-              qty: quote?.qty || 0,
+              qty: quote?.activeAndInvitedUsers || 0,
               unitPrice: quote?.unitPrice || 0,
               discountAmount: quote?.discountAmount || 0,
               discountMessage: quote?.discountMessage || "",

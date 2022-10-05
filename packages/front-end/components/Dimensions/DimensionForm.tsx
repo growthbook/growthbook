@@ -8,6 +8,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
+import { validateSQL } from "../../services/datasources";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -43,17 +44,8 @@ const DimensionForm: FC<{
       open={true}
       header={current ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
-        if (sql && !value.sql.toLowerCase().includes("select")) {
-          throw new Error(`Invalid SELECT statement`);
-        }
-        if (
-          sql &&
-          !value.sql.toLowerCase().includes(value.userIdType.toLowerCase())
-        ) {
-          throw new Error(`Must select a column named '${value.userIdType}'`);
-        }
-        if (sql && !value.sql.toLowerCase().includes("value")) {
-          throw new Error("Must select a column named 'value'");
+        if (sql) {
+          validateSQL(value.sql, [value.userIdType, "value"]);
         }
 
         await apiCall(

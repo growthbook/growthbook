@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import Tooltip from "../../components/Tooltip";
+import Tooltip from "../components/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
-import { GBEdit } from "../../components/Icons";
-import EditAttributesModal from "../../components/Features/EditAttributesModal";
-import { useAttributeSchema } from "../../services/features";
-import usePermissions from "../../hooks/usePermissions";
+import { GBEdit } from "../components/Icons";
+import EditAttributesModal from "../components/Features/EditAttributesModal";
+import { useAttributeSchema } from "../services/features";
+import usePermissions from "../hooks/usePermissions";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);

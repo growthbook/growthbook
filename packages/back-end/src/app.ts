@@ -26,48 +26,88 @@ import path from "path";
 import { apiV1Router } from "./routers/api/v1";
 import { accessTokenRouter } from "./routers/access-tokens";
 
-// Controllers
-import * as authController from "./controllers/auth";
-import * as organizationsController from "./controllers/organizations";
-import * as datasourcesController from "./controllers/datasources";
-import * as experimentsController from "./controllers/experiments";
-import * as metricsController from "./controllers/metrics";
-import * as reportsController from "./controllers/reports";
-import * as ideasController from "./controllers/ideas";
-import * as presentationController from "./controllers/presentations";
-import * as discussionsController from "./controllers/discussions";
-import * as adminController from "./controllers/admin";
-import * as stripeController from "./controllers/stripe";
-import * as vercelController from "./controllers/vercel";
-import * as segmentsController from "./controllers/segments";
-import * as dimensionsController from "./controllers/dimensions";
-import * as projectsController from "./controllers/projects";
-import * as featuresController from "./controllers/features";
-import * as slackController from "./controllers/slack";
-import * as tagsController from "./controllers/tags";
+// Begin Controllers
+import * as authControllerRaw from "./controllers/auth";
+const authController = wrapController(authControllerRaw);
+
+import * as organizationsControllerRaw from "./controllers/organizations";
+const organizationsController = wrapController(organizationsControllerRaw);
+
+import * as datasourcesControllerRaw from "./controllers/datasources";
+const datasourcesController = wrapController(datasourcesControllerRaw);
+
+import * as experimentsControllerRaw from "./controllers/experiments";
+const experimentsController = wrapController(experimentsControllerRaw);
+
+import * as metricsControllerRaw from "./controllers/metrics";
+const metricsController = wrapController(metricsControllerRaw);
+
+import * as reportsControllerRaw from "./controllers/reports";
+const reportsController = wrapController(reportsControllerRaw);
+
+import * as ideasControllerRaw from "./controllers/ideas";
+const ideasController = wrapController(ideasControllerRaw);
+
+import * as presentationControllerRaw from "./controllers/presentations";
+const presentationController = wrapController(presentationControllerRaw);
+
+import * as discussionsControllerRaw from "./controllers/discussions";
+const discussionsController = wrapController(discussionsControllerRaw);
+
+import * as adminControllerRaw from "./controllers/admin";
+const adminController = wrapController(adminControllerRaw);
+
+import * as stripeControllerRaw from "./controllers/stripe";
+const stripeController = wrapController(stripeControllerRaw);
+
+import * as vercelControllerRaw from "./controllers/vercel";
+const vercelController = wrapController(vercelControllerRaw);
+
+import * as segmentsControllerRaw from "./controllers/segments";
+const segmentsController = wrapController(segmentsControllerRaw);
+
+import * as dimensionsControllerRaw from "./controllers/dimensions";
+const dimensionsController = wrapController(dimensionsControllerRaw);
+
+import * as projectsControllerRaw from "./controllers/projects";
+const projectsController = wrapController(projectsControllerRaw);
+
+import * as featuresControllerRaw from "./controllers/features";
+const featuresController = wrapController(featuresControllerRaw);
+
+import * as slackControllerRaw from "./controllers/slack";
+const slackController = wrapController(slackControllerRaw);
+
+import * as tagsControllerRaw from "./controllers/tags";
+const tagsController = wrapController(tagsControllerRaw);
+
+import * as savedGroupsControllerRaw from "./controllers/savedGroups";
+const savedGroupsController = wrapController(savedGroupsControllerRaw);
+
+// End Controllers
+
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
 import { wrapController } from "./services/routers";
 
-wrapController(authController);
-wrapController(organizationsController);
-wrapController(datasourcesController);
-wrapController(experimentsController);
-wrapController(metricsController);
-wrapController(ideasController);
-wrapController(presentationController);
-wrapController(discussionsController);
-wrapController(adminController);
-wrapController(stripeController);
-wrapController(vercelController);
-wrapController(segmentsController);
-wrapController(dimensionsController);
-wrapController(projectsController);
-wrapController(featuresController);
-wrapController(slackController);
-wrapController(reportsController);
-wrapController(tagsController);
+// eslint-disable-next-line
+type Handler = RequestHandler<any>;
+type Controller<T extends string> = Record<T, Handler>;
+
+// Wrap every controller function in asyncHandler to catch errors properly
+function wrapController<T extends string>(
+  controller: Controller<T>
+): Controller<T> {
+  const newController = {} as Controller<T>;
+  Object.keys(controller).forEach((key: T) => {
+    // Sanity check in case someone exports a non-function from the controller file
+    if (typeof controller[key] === "function") {
+      newController[key] = asyncHandler(controller[key]);
+    }
+  });
+  return newController;
+}
 
 const app = express();
 
@@ -401,6 +441,10 @@ if (IS_CLOUD) {
 // tags
 app.post("/tag", tagsController.postTag);
 app.delete("/tag/:id", tagsController.deleteTag);
+
+// groups
+app.post("/saved-groups", savedGroupsController.postSavedGroup);
+app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
