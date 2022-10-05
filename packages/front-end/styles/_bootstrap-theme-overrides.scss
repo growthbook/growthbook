@@ -1,0 +1,398 @@
+// Global Bootstrap overrides that respect dark/light modes
+
+// region Typography
+
+a,
+.btn-link {
+  color: var(--text-link-color);
+
+  &:hover {
+    color: var(--text-link-hover-color);
+  }
+}
+
+.text-dark,
+a.text-dark:hover,
+a.text-dark:focus {
+  color: var(--text-dark) !important;
+}
+
+pre {
+  color: var(--text-color-main);
+}
+
+.text-muted {
+  color: var(--text-color-muted) !important;
+}
+
+// endregion Typography
+
+// region Forms
+
+.form-control,
+.form-control:focus {
+  background-color: var(--surface-background-color);
+  color: var(--text-color-main);
+}
+
+.form-control {
+  border-color: var(--border-color-300);
+
+  &[readonly] {
+    background-color: var(--surface-background-color-alt);
+  }
+}
+
+.form-control:focus {
+}
+
+.input-group-text {
+  border-color: var(--border-color-300);
+  background-color: var(--form-input-group-background);
+  color: var(--form-input-group-color);
+}
+
+.form-group,
+.gb-select,
+.gb-multi-select {
+  [class$="-menu"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class$="-option"] {
+    color: var(--text-color-main);
+  }
+
+  [class$="-Input"] {
+    color: var(--text-color-main);
+  }
+
+  [class$="-singleValue"] {
+    color: var(--text-color-muted);
+  }
+
+  [class$="-control"] {
+    background-color: var(--surface-background-color);
+    border-color: var(--border-color-300);
+  }
+
+  [class$="-multiValue"] {
+    background-color: var(--form-multivalue-background-color);
+
+    > * {
+      color: var(--form-multivalue-text-color);
+    }
+  }
+}
+
+// endregion Forms
+
+// region Tables
+
+.table {
+  color: var(--text-color-table);
+}
+
+.table thead th,
+.table th,
+.table td {
+  border-color: var(--border-color-100);
+}
+
+.table-hover tbody tr:hover {
+  color: var(--text-color-main);
+}
+
+.table-hover tbody tr:hover {
+  background-color: var(--table-row-hover-background-color);
+}
+
+// endregion Tables
+
+// region Surfaces
+
+.card {
+  background-color: var(--surface-background-color);
+  border-color: var(--border-color-200);
+}
+
+.bg-white {
+  background-color: var(--surface-background-color) !important;
+}
+
+.bg-light {
+  background-color: var(--surface-background-color-alt) !important;
+}
+
+.border {
+  border-color: var(--border-color-200) !important;
+}
+
+.border-bottom {
+  border-bottom-color: var(--border-color-200) !important;
+}
+
+.border-top {
+  border-top-color: var(--border-color-200) !important;
+}
+
+.border-left {
+  border-left-color: var(--border-color-200) !important;
+}
+
+.border-right {
+  border-right-color: var(--border-color-200) !important;
+}
+
+// region Alerts
+
+.alert-info {
+  background-color: var(--alert-info-background);
+  border-color: var(--alert-info-border-color);
+  color: var(--alert-info-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+.alert-danger {
+  background-color: var(--alert-danger-background);
+  border-color: var(--alert-danger-border-color);
+  color: var(--alert-danger-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+.alert-warning {
+  background-color: var(--alert-warn-background);
+  border-color: var(--alert-warn-border-color);
+  color: var(--alert-warn-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+.alert-success {
+  background-color: var(--alert-success-background);
+  border-color: var(--alert-success-border-color);
+  color: var(--alert-success-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+// endregion Alerts
+
+// region Lists
+
+.list-group-item {
+  background-color: var(--surface-background-color);
+  color: var(--form-input-group-color);
+
+  &.active {
+    background-color: var(--text-link-color);
+    border-color: var(--text-link-color);
+    color: var(--text-color-on-bright);
+  }
+}
+
+.list-group-item-action {
+  &:hover {
+    background-color: var(--surface-background-color-alt);
+    color: var(--form-input-group-color);
+  }
+}
+
+// endregion Lists
+
+// endregion Surfaces
+
+// region Drop down
+
+.dropdown-menu {
+  background-color: var(--surface-background-color);
+  color: var(--text-color-main);
+  border-color: var(--border-color-300);
+}
+
+.dropdown-item {
+  color: var(--text-color-main);
+
+  &:hover {
+    color: var(--text-color-main);
+    background-color: var(--surface-background-color-alt);
+  }
+}
+
+.dropdown-divider {
+  border-color: var(--border-color-300);
+}
+
+// endregion Drop down
+
+// region Modals
+
+.modal {
+  .close {
+    color: inherit;
+  }
+}
+
+.modal-header {
+  border-color: var(--border-color-300);
+}
+
+.modal-content {
+  background-color: var(--surface-background-color);
+  color: var(--text-color-main);
+  border-color: var(--border-color-300);
+}
+
+.modal-footer {
+  border-color: var(--border-color-300);
+}
+
+// endregion Modals
+
+// region Tabs
+
+.nav-tabs {
+  border-color: var(--border-color-300);
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  color: var(--text-color-muted);
+  background-color: var(--surface-background-color);
+  border-color: var(--border-color-300) var(--border-color-300)
+    var(--surface-background-color);
+}
+
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus {
+  border-color: var(--border-color-300) var(--border-color-300)
+    var(--surface-background-color);
+}
+
+// endregion Tabs
+
+// region Diff Viewer
+
+.diff-wrapper {
+  [class*="-gutter"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class*="-code-fold"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class*="-diff-container"] {
+    background-color: var(--surface-background-color);
+  }
+
+  [class$="-empty-line"] {
+    background-color: var(--surface-background-color);
+    color: var(--text-color-main);
+  }
+
+  [class$="-diff-removed"] {
+    background-color: var(--diff-removed-background);
+    color: var(--text-color-main);
+  }
+
+  [class$="-word-removed"] {
+    background-color: var(--diff-removed-background-highlight);
+    color: var(--text-color-main);
+  }
+
+  [class*="-gutter"][class*="-removed"] {
+    background-color: var(--diff-removed-background-highlight);
+    //color: var(--text-color-main);
+  }
+
+  [class*="-line-number"] {
+    color: var(--text-color-main) !important;
+  }
+
+  pre {
+    color: var(--text-color-main) !important;
+  }
+
+  [class$="-diff-added"] {
+    background-color: var(--diff-added-background);
+    color: var(--text-color-main);
+  }
+
+  [class$="-word-added"] {
+    background-color: var(--diff-added-background-highlight);
+    color: var(--text-color-main);
+  }
+
+  [class*="-gutter"][class*="-added"] {
+    background-color: var(--diff-added-background-highlight);
+    color: var(--text-color-main);
+  }
+}
+
+// region d2h differ
+
+// d2h loads CSS at the end of the document so we need to do all these !important
+
+.d2h-file-diff .d2h-del.d2h-change {
+  background-color: var(--diff-removed-background) !important;
+}
+
+.d2h-code-line del,
+.d2h-code-side-line del {
+  background-color: var(--diff-removed-background-highlight) !important;
+}
+
+.d2h-file-diff .d2h-ins.d2h-change {
+  background-color: var(--diff-added-background) !important;
+}
+
+.d2h-code-line ins,
+.d2h-code-side-line ins {
+  background-color: var(--diff-added-background-highlight) !important;
+}
+
+.d2h-ins {
+  background-color: var(--diff-added-background) !important;
+}
+
+.d2h-del {
+  background-color: var(--diff-removed-background) !important;
+}
+
+.d2h-code-linenumber {
+  background-color: var(--surface-background-color-alt) !important;
+  color: var(--text-color-muted) !important;
+}
+
+.d2h-file-header {
+  background-color: var(--surface-background-color) !important;
+  border-bottom: 1px solid var(--border-color-300) !important;
+}
+
+.d2h-file-wrapper {
+  border: 1px solid var(--border-color-300) !important;
+}
+
+.d2h-info {
+  color: var(--text-color-main) !important;
+  background-color: var(--surface-background-color-alt) !important;
+}
+
+.d2h-tag {
+  background-color: var(--surface-background-color-alt) !important;
+}
+
+// endregion d2h differ
+
+// endregion Diff Viewer

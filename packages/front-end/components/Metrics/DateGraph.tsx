@@ -400,11 +400,17 @@ const DateGraph: FC<{
             </div>
             <svg width={width} height={height}>
               <Group left={margin[3]} top={margin[0]}>
-                <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
+                <GridRows
+                  scale={yScale}
+                  width={xMax}
+                  numTicks={numYTicks}
+                  stroke="var(--border-color-200)"
+                />
                 <GridColumns
                   scale={xScale}
                   height={graphHeight}
                   numTicks={numXTicks}
+                  stroke="var(--border-color-200)"
                 />
                 {experiments && (
                   <>
@@ -475,6 +481,11 @@ const DateGraph: FC<{
                   top={graphHeight}
                   scale={xScale}
                   numTicks={numXTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  })}
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
@@ -482,6 +493,11 @@ const DateGraph: FC<{
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "end",
+                  })}
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()

@@ -8,6 +8,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../../components/Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
+import { validateSQL } from "../../services/datasources";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -43,17 +44,8 @@ const SegmentForm: FC<{
       open={true}
       header={current ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
-        if (sql && !value.sql.toLowerCase().includes("select")) {
-          throw new Error(`Invalid SELECT statement`);
-        }
-        if (
-          sql &&
-          !value.sql.toLowerCase().includes(value.userIdType.toLowerCase())
-        ) {
-          throw new Error(`Must select a column named '${value.userIdType}'`);
-        }
-        if (sql && !value.sql.toLowerCase().includes("date")) {
-          throw new Error("Must select a column named 'date'");
+        if (sql) {
+          validateSQL(value.sql, [value.userIdType, "date"]);
         }
 
         await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {

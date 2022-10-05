@@ -117,6 +117,7 @@ const MultiSelectField: FC<
         return (
           <Component
             useDragHandle
+            className="gb-multi-select"
             helperClass="multi-select-container"
             axis="xy"
             onSortEnd={onSortEnd}

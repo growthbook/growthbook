@@ -82,7 +82,6 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
       <Code
         language="json"
         code={condition}
-        theme="light"
         className="p-0 border-0"
         actionBar={false}
         containerClassName="m-0"

@@ -175,7 +175,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                 </MoreMenu>
 
                 <button
-                  className="btn ml-3"
+                  className="btn ml-3 text-dark"
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
                   <FaChevronRight
@@ -193,7 +193,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               <div className="mb-2">
                 <Code
                   language="sql"
-                  theme="light"
                   code={query.query}
                   containerClassName="mb-0"
                   expandable={true}
