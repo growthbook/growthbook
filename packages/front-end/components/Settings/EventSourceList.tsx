@@ -50,7 +50,8 @@ export default function EventSourceList({ onSelect, selected }: Props) {
               right: 0,
               height: 50,
               textAlign: "center",
-              background: "linear-gradient(transparent, #fff)",
+              background:
+                "linear-gradient(transparent, var(--surface-background-color))",
               cursor: "pointer",
             }}
             className="text-primary"
@@ -58,7 +59,7 @@ export default function EventSourceList({ onSelect, selected }: Props) {
               e.preventDefault();
               setExpand(true);
             }}
-          ></div>
+          />
         )}
       </div>
       {!expand && (

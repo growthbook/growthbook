@@ -60,16 +60,13 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
   // Could not parse into simple conditions
   if (conds === null || !attributes.size) {
     return (
-      <div style={{ marginTop: "0.2em" }}>
-        <Code
-          language="json"
-          code={condition}
-          theme="light"
-          className="p-0 border-0"
-          actionBar={false}
-          containerClassName="m-0"
-        />
-      </div>
+      <Code
+        language="json"
+        code={condition}
+        className="p-0 border-0"
+        actionBar={false}
+        containerClassName="m-0"
+      />
     );
   }
 

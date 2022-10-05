@@ -1,5 +1,4 @@
 import React, { Children, FC, ReactNode } from "react";
-import styles from "./RightRailSectionGroup.module.scss";
 import SortedTags from "../Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{
@@ -33,7 +32,7 @@ const RightRailSectionGroup: FC<{
 
   return (
     <div className={`mb-2 ${className}`}>
-      {title && <span className={`mr-2 ${styles.title}`}>{title}:</span>}
+      {title && <span className="mr-2 text-muted">{title}:</span>}
       {hasChildren ? (
         <>
           {type === "tags" && (

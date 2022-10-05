@@ -174,7 +174,6 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                   {isOpen && (
                     <Code
                       language="sql"
-                      theme="light"
                       code={identityJoin.query}
                       containerClassName="mb-0"
                       expandable={true}

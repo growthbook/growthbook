@@ -483,7 +483,6 @@ export default function SinglePage({
                 <RightRailSectionGroup title="Custom Filter" type="custom">
                   <Code
                     language={datasource?.properties?.queryLanguage}
-                    theme="light"
                     code={experiment.queryFilter}
                     expandable={true}
                   />

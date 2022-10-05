@@ -6,7 +6,7 @@
 }
 
 .blackTitle {
-  color: $gray-900;
+  color: var(--text-color-main);
   font-weight: bold;
 }
 
@@ -16,14 +16,14 @@
 }
 
 .nextStepWrapper {
-  color: $dark-blue;
+  color: var(--text-color-main);
 }
 
 .nextStepLink {
-  border: 2px solid $dark-blue;
+  border: 2px solid var(--text-color-main);
   border-radius: 5px;
-  color: $dark-blue;
-  background-color: white;
+  color: var(--text-color-main);
+  background-color: var(--surface-background-color);
 }
 
 .nextStepLink:hover {
@@ -37,5 +37,5 @@
 }
 
 .videoPreview {
-  box-shadow: $gray-500 4px 4px 12px 0px;
+  box-shadow: var(--surface-background-color-alt) 4px 4px 12px 0px;
 }
