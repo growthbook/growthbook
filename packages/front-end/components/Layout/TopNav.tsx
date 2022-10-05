@@ -64,6 +64,8 @@ const TopNav: FC<{
 
   const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
 
+  const licenceTrialRemaining = licence?.trial ? daysLeft(licence.eat) : -1;
+
   const onSubmitEditName = form.handleSubmit(async (value) => {
     await apiCall(`/user/name`, {
       method: "PUT",
@@ -189,7 +191,24 @@ const TopNav: FC<{
                   <FaExclamationTriangle /> free tier exceded
                 </button>
               )}
-
+            {licenceTrialRemaining >= 0 && (
+              <Tooltip
+                body={
+                  <>
+                    Contact sales@growthbook.io if you need more time or would
+                    like to upgrade
+                  </>
+                }
+              >
+                <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
+                  <span className="badge badge-warning">
+                    {licenceTrialRemaining}
+                  </span>{" "}
+                  day
+                  {licenceTrialRemaining === 1 ? "" : "s"} left in trial
+                </div>
+              </Tooltip>
+            )}
             {licence &&
               permissions.organizationSettings &&
               licence.eat < new Date().toISOString().substring(0, 10) && (
