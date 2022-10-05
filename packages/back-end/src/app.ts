@@ -1,6 +1,10 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, { ErrorRequestHandler, Response } from "express";
+import express, {
+  ErrorRequestHandler,
+  RequestHandler,
+  Response,
+} from "express";
 import mongoInit from "./init/mongo";
 import licenceInit from "./init/licence";
 import { usingFileConfig } from "./init/config";
@@ -89,7 +93,6 @@ const savedGroupsController = wrapController(savedGroupsControllerRaw);
 import { getUploadsDir } from "./services/files";
 import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
-import { wrapController } from "./services/routers";
 
 // eslint-disable-next-line
 type Handler = RequestHandler<any>;
