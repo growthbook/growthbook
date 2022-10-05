@@ -175,7 +175,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                 </MoreMenu>
 
                 <button
-                  className="btn ml-3"
+                  className="btn ml-3 text-dark"
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
                   <FaChevronRight

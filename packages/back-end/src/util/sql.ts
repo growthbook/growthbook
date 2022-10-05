@@ -51,7 +51,15 @@ export function getBaseIdTypeAndJoins(
 }
 
 // Replace vars in SQL queries (e.g. '{{startDate}}')
-export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+export type SQLVars = {
+  startDate: Date;
+  endDate?: Date;
+  experimentId?: string;
+};
+export function replaceSQLVars(
+  sql: string,
+  { startDate, endDate, experimentId }: SQLVars
+) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
   // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
@@ -68,6 +76,12 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     );
   }
 
+  // If we don't have an experimentId, fall back to using a percent sign
+  // This way it can be used in a LIKE clause to match all experiment ids
+  if (!experimentId) {
+    experimentId = "%";
+  }
+
   const replacements: Record<string, string> = {
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
@@ -79,6 +93,7 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     endYear: endDate.toISOString().substr(0, 4),
     endMonth: endDate.toISOString().substr(5, 2),
     endDay: endDate.toISOString().substr(8, 2),
+    experimentId,
   };
 
   Object.keys(replacements).forEach((key) => {
