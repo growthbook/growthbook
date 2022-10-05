@@ -48,7 +48,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/datasources": "datasources",
   "/dashboard": "experiments",
   "/settings/keys": "api",
-  "/settings/environments": "api",
+  "/environments": "api",
   "/settings/webhooks": "webhooks",
 };
 

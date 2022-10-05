@@ -82,6 +82,10 @@ const slackController = wrapController(slackControllerRaw);
 
 import * as tagsControllerRaw from "./controllers/tags";
 const tagsController = wrapController(tagsControllerRaw);
+
+import * as savedGroupsControllerRaw from "./controllers/savedGroups";
+const savedGroupsController = wrapController(savedGroupsControllerRaw);
+
 // End Controllers
 
 import { getUploadsDir } from "./services/files";
@@ -435,6 +439,10 @@ if (IS_CLOUD) {
 // tags
 app.post("/tag", tagsController.postTag);
 app.delete("/tag/:id", tagsController.deleteTag);
+
+// groups
+app.post("/saved-groups", savedGroupsController.postSavedGroup);
+app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

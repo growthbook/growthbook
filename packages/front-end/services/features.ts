@@ -535,6 +535,13 @@ export function jsonToConds(
           });
         }
 
+        if (operator === ("$inGroup" || "$notInGroup")) {
+          return conds.push({
+            field,
+            operator,
+            value: v,
+          });
+        }
         valid = false;
       });
     });
@@ -585,6 +592,8 @@ export function condToJson(
         .split(",")
         .map((x) => x.trim())
         .map((x) => parseValue(x, attributes.get(field)?.datatype));
+    } else if (operator === "$inGroup" || operator === "$notInGroup") {
+      obj[field][operator] = value;
     } else {
       obj[field][operator] = parseValue(value, attributes.get(field)?.datatype);
     }
