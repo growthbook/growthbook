@@ -478,17 +478,11 @@ In addition, there are a few other settings that only really make sense for inli
 A call to `growthbook.run(experiment)` returns an object with a few useful properties:
 
 ```ts
-const {
-  inExperiment,
-  hashUsed,
-  variationId,
-  value,
-  hashAttribute,
-  hashValue,
-} = growthbook.run({
-  key: "my-experiment",
-  variations: ["A", "B"],
-});
+const { inExperiment, hashUsed, variationId, value, hashAttribute, hashValue } =
+  growthbook.run({
+    key: "my-experiment",
+    variations: ["A", "B"],
+  });
 
 // If user is included in the experiment
 console.log(inExperiment); // true or false
