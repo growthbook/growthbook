@@ -1,8 +1,6 @@
 import {
   getBaseIdTypeAndJoins,
   replaceSQLVars,
-  conditionToJavascript,
-  getMixpanelPropertyColumn,
   expandDenominatorMetrics,
   format,
 } from "../src/util/sql";
@@ -88,7 +86,11 @@ describe("backend", () => {
 
     // Ignores empty objects
     expect(
-      getBaseIdTypeAndJoins([["user_id"], [], [null, null, null]])
+      getBaseIdTypeAndJoins([
+        ["user_id"],
+        [],
+        ([null, null, null] as unknown) as string[],
+      ])
     ).toEqual({
       baseIdType: "user_id",
       joinsRequired: [],
@@ -118,56 +120,6 @@ describe("backend", () => {
       baseIdType: "anonymous_id",
       joinsRequired: ["user_id"],
     });
-  });
-
-  it("detects mixpanel property columns", () => {
-    expect(getMixpanelPropertyColumn("abc")).toEqual(`event.properties["abc"]`);
-
-    expect(getMixpanelPropertyColumn("a.b.c")).toEqual(
-      `event.properties["a"]["b"]["c"]`
-    );
-
-    expect(getMixpanelPropertyColumn("a.[10].c")).toEqual(
-      `event.properties["a"][10]["c"]`
-    );
-
-    expect(getMixpanelPropertyColumn("event.time")).toEqual(`event.time`);
-
-    expect(getMixpanelPropertyColumn("eventDays")).toEqual(
-      `event.properties["eventDays"]`
-    );
-  });
-
-  it("converts conditions to javascript", () => {
-    // Cast left side to string
-    expect(
-      conditionToJavascript({ column: "v", operator: "=", value: "true" })
-    ).toEqual(`event.properties["v"]+'' == "true"`);
-
-    // Use number when right side is numeric
-    expect(
-      conditionToJavascript({ column: "v", operator: "<", value: "10" })
-    ).toEqual(`event.properties["v"]+'' < 10`);
-
-    // Detect numbers correctly
-    expect(
-      conditionToJavascript({ column: "v", operator: "<", value: "10px" })
-    ).toEqual(`event.properties["v"]+'' < "10px"`);
-
-    // Always use strings for equals
-    expect(
-      conditionToJavascript({ column: "v", operator: "=", value: "10" })
-    ).toEqual(`event.properties["v"]+'' == "10"`);
-
-    // Regex
-    expect(
-      conditionToJavascript({ column: "v", operator: "~", value: "abc.*" })
-    ).toEqual(`event.properties["v"].match(new RegExp("abc.*"))`);
-
-    // Negative regex
-    expect(
-      conditionToJavascript({ column: "v", operator: "!~", value: "abc.*" })
-    ).toEqual(`!event.properties["v"].match(new RegExp("abc.*"))`);
   });
 
   it("expands denominator metrics", () => {
