@@ -68,7 +68,7 @@ import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
-import { getLicence } from "../init/licence";
+import { getLicense } from "../init/license";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -119,7 +119,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
-    licence: !IS_CLOUD && getLicence(),
+    license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
       return {

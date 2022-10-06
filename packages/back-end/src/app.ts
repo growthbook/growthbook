@@ -6,7 +6,7 @@ import express, {
   Response,
 } from "express";
 import mongoInit from "./init/mongo";
-import licenceInit from "./init/licence";
+import licenseInit from "./init/license";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -118,7 +118,7 @@ async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
-      await licenceInit();
+      await licenseInit();
     })();
   }
   try {
