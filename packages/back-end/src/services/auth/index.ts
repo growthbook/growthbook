@@ -7,6 +7,7 @@ import {
   getOrganizationById,
   getPermissionsByRole,
   getRole,
+  validateLoginMethod,
 } from "../organizations";
 import { MemberRole } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
@@ -60,12 +61,13 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 
 export async function processJWT(
   // eslint-disable-next-line
-  req: AuthRequest & { user: any },
+  req: AuthRequest & { user: IdToken },
   res: Response,
   next: NextFunction
 ) {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
 
+  req.authSubject = req.user.sub || "";
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
@@ -121,13 +123,13 @@ export async function processJWT(
         }
 
         // Make sure this is a valid login method for the organization
-        if (req.organization.restrictLoginMethod) {
-          if (req.loginMethod?.id !== req.organization.restrictLoginMethod) {
-            return res.status(403).json({
-              status: 403,
-              message: "Must login with Enterprise SSO.",
-            });
-          }
+        try {
+          validateLoginMethod(req.organization, req);
+        } catch (e) {
+          return res.status(403).json({
+            status: 403,
+            message: e.message,
+          });
         }
 
         const role: MemberRole = req.admin

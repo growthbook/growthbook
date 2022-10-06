@@ -5,7 +5,8 @@ export type EntityType =
   | "datasource"
   | "comment"
   | "user"
-  | "organization";
+  | "organization"
+  | "savedGroup";
 
 export type EventType =
   | "experiment.create"
@@ -46,7 +47,9 @@ export type EventType =
   | "user.invite"
   | "organization.create"
   | "organization.update"
-  | "organization.delete";
+  | "organization.delete"
+  | "savedGroup.created"
+  | "savedGroup.updated";
 
 export interface AuditInterface {
   id: string;

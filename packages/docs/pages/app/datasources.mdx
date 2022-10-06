@@ -12,7 +12,8 @@ Below are the currently supported Data Sources:
 - ClickHouse
 - AWS Athena
 - Postgres
-- MySQL/MariaDB
+- MySQL/MariaDB'
+- MsSQL/SQL Server
 - PrestoDB (and Trino)
 - [Mixpanel](/guide/mixpanel)
 - Google Analytics
@@ -129,6 +130,7 @@ The variables are:
 - **endMonth** - Just the `MM` of the endDate
 - **endDay** - Just the `DD` of the endDate
 - **endDateUnix** - Unix timestamp of the endDate (seconds since Jan 1, 1970)
+- **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
 
 For example:
 
@@ -143,6 +145,7 @@ FROM
   experiment_viewed
 WHERE
   received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
+  AND experiment_id LIKE '{{ experimentId }}'
 ```
 
 **Note:** The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)

@@ -9,6 +9,7 @@ import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
+import MssqlForm from "./MssqlForm";
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -79,6 +80,15 @@ export default function ConnectionSettings({
   } else if (datasource.type === "mysql") {
     return (
       <MysqlForm
+        existing={existing}
+        onParamChange={onParamChange}
+        setParams={setParams}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "mssql") {
+    return (
+      <MssqlForm
         existing={existing}
         onParamChange={onParamChange}
         setParams={setParams}

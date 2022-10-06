@@ -28,6 +28,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "Snowflake", value: "snowflake" },
     { display: "Postgres", value: "postgres" },
     { display: "MySQL or MariaDB", value: "mysql" },
+    { display: "MS SQL/SQL Server", value: "mssql" },
     { display: "BigQuery", value: "bigquery" },
     { display: "Mixpanel", value: "mixpanel" },
     { display: "ClickHouse", value: "clickhouse" },

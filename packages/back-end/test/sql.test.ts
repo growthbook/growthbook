@@ -1,6 +1,6 @@
 import {
   getBaseIdTypeAndJoins,
-  replaceDateVars,
+  replaceSQLVars,
   conditionToJavascript,
   getMixpanelPropertyColumn,
   expandDenominatorMetrics,
@@ -9,40 +9,53 @@ import {
 
 describe("backend", () => {
   it("replaces vars in SQL", () => {
-    const start = new Date(Date.UTC(2021, 0, 5, 10, 20, 15));
-    const end = new Date(Date.UTC(2022, 1, 9, 11, 30, 12));
+    const startDate = new Date(Date.UTC(2021, 0, 5, 10, 20, 15));
+    const endDate = new Date(Date.UTC(2022, 1, 9, 11, 30, 12));
+    const experimentId = "my-experiment";
 
     expect(
-      replaceDateVars(
+      replaceSQLVars(
         `SELECT '{{ startDate }}' as full, '{{startYear}}' as year, '{{ startMonth}}' as month, '{{startDay }}' as day`,
-        start,
-        end
+        { startDate, endDate }
       )
     ).toEqual(
       "SELECT '2021-01-05 10:20:15' as full, '2021' as year, '01' as month, '05' as day"
     );
 
-    expect(replaceDateVars(`SELECT {{ unknown }}`, start, end)).toEqual(
-      "SELECT {{ unknown }}"
-    );
+    expect(
+      replaceSQLVars(`SELECT {{ unknown }}`, { startDate, endDate })
+    ).toEqual("SELECT {{ unknown }}");
 
     expect(
-      replaceDateVars(
+      replaceSQLVars(
         `SELECT '{{ endDate }}' as full, '{{endYear}}' as year, '{{ endMonth}}' as month, '{{endDay }}' as day`,
-        start,
-        end
+        { startDate, endDate }
       )
     ).toEqual(
       "SELECT '2022-02-09 11:30:12' as full, '2022' as year, '02' as month, '09' as day"
     );
 
     expect(
-      replaceDateVars(
-        `time > {{startDateUnix}} && time < {{ endDateUnix }}`,
-        start,
-        end
-      )
+      replaceSQLVars(`time > {{startDateUnix}} && time < {{ endDateUnix }}`, {
+        startDate,
+        endDate,
+      })
     ).toEqual(`time > 1609842015 && time < 1644406212`);
+
+    expect(
+      replaceSQLVars(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+        startDate,
+        endDate,
+      })
+    ).toEqual(`SELECT * WHERE expid LIKE '%'`);
+
+    expect(
+      replaceSQLVars(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+        startDate,
+        endDate,
+        experimentId,
+      })
+    ).toEqual(`SELECT * WHERE expid LIKE 'my-experiment'`);
   });
 
   it("determines identifier joins correctly", () => {

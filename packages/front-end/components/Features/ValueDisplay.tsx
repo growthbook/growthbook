@@ -62,7 +62,6 @@ export default function ValueDisplay({
       <Code
         language="json"
         code={formatted}
-        theme="light"
         className="p-0 border-0 bg-transparent"
         actionBar={false}
         containerClassName="m-0"

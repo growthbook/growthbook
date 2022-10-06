@@ -11,22 +11,22 @@
 
 .stepBubble {
   color: $highlight-purple;
-  background-color: $white;
+  background-color: var(--surface-background-color);
   font-weight: bold;
   border-radius: 50%;
   outline: 4px solid $highlight-purple;
   width: 43px;
   height: 43px;
-  box-shadow: $gray-500 4px 4px 12px 0px;
+  box-shadow: var(--surface-background-color-alt) 4px 4px 12px 0px;
   z-index: 3;
   box-sizing: border-box;
 }
 .completed {
   background-color: $highlight-purple;
-  color: $white;
+  color: var(--surface-background-color);
 }
 
 .selected {
-  background-color: #e2ddf9;
-  color: $highlight-purple;
+  background-color: var(--form-multivalue-background-color);
+  color: var(--form-multivalue-text-color);
 }

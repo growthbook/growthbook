@@ -20,7 +20,7 @@ import {
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import {
   conditionToJavascript,
-  replaceDateVars,
+  replaceSQLVars,
   getMixpanelPropertyColumn,
 } from "../util/sql";
 
@@ -180,7 +180,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
                   ? `state.dimension = (${this.getDimensionColumn(
                       dimension.sql,
                       phase.dateStarted,
-                      phase.dateEnded
+                      phase.dateEnded,
+                      experiment.trackingKey
                     )}) || null;`
                   : ""
               }
@@ -561,8 +562,17 @@ function is${name}(event) {
 
     return `Events(${JSON.stringify(filter, null, 2)})`;
   }
-  private getDimensionColumn(col: string, startDate: Date, endDate?: Date) {
-    return replaceDateVars(getMixpanelPropertyColumn(col), startDate, endDate);
+  private getDimensionColumn(
+    col: string,
+    startDate: Date,
+    endDate?: Date,
+    experimentId?: string
+  ) {
+    return replaceSQLVars(getMixpanelPropertyColumn(col), {
+      startDate,
+      endDate,
+      experimentId,
+    });
   }
 
   private getConversionWindowCondition(
