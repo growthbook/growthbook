@@ -9,11 +9,9 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
 
-export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-}) => {
+export const EditJupyterNotebookQueryRunner: FC<
+  EditJupyterNotebookQueryRunnerProps
+> = ({ dataSource, onSave, onCancel }) => {
   if (!dataSource) {
     throw new Error("ImplementationError: dataSource cannot be null");
   }
@@ -69,7 +67,6 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
               <p>Example for postgres/redshift:</p>
               <Code
                 language="python"
-                theme="light"
                 code={`import os
 import psycopg2
 import pandas as pd

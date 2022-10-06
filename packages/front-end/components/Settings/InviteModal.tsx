@@ -32,11 +32,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const {
-    freeSeats,
-    canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
+  const { freeSeats, canSubscribe, activeAndInvitedUsers } =
+    useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     canSubscribe && activeAndInvitedUsers >= freeSeats
   );

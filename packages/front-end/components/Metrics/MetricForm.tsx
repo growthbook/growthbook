@@ -19,7 +19,7 @@ import {
 import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import { getInitialMetricQuery } from "../../services/datasources";
+import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
@@ -40,33 +40,17 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
-function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
-  if (!sql.length) {
-    throw new Error("SQL cannot be empty");
-  }
-
-  // require a SELECT statement
-  if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
-    throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
-  }
-
+function validateMetricSQL(
+  sql: string,
+  type: MetricType,
+  userIdTypes: string[]
+) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
   }
-
-  const missingCols = requiredCols.filter(
-    (col) => sql.toLowerCase().indexOf(col) < 0
-  );
-
-  if (missingCols.length > 0) {
-    throw new Error(
-      `Missing the following required columns: ${missingCols
-        .map((col) => '"' + col + '"')
-        .join(", ")}`
-    );
-  }
+  validateSQL(sql, requiredCols);
 }
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
@@ -87,7 +71,7 @@ function validateQuerySettings(
     return;
   }
   if (sqlInput) {
-    validateSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(value.sql, value.type, value.userIdTypes);
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
@@ -286,6 +270,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const conversionWindowSupported = capSupported;
 
   const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
+  const supportsJS =
+    currentDataSource?.properties?.queryLanguage === "javascript";
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
@@ -575,7 +561,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 {value.type !== "binomial" && !supportsSQL && (
                   <Field
                     label="User Value Aggregation"
-                    placeholder="values.reduce((sum,n)=>sum+n, 0)"
+                    placeholder="sum(values)"
                     textarea
                     minRows={1}
                     {...form.register("aggregation")}
@@ -604,21 +590,29 @@ const MetricForm: FC<MetricFormProps> = ({
                             className="form-control"
                             {...form.register(`conditions.${i}.operator`)}
                           >
-                            <option value="=">=</option>
-                            <option value="!=">!=</option>
-                            <option value="~">~</option>
-                            <option value="!~">!~</option>
-                            <option value="<">&lt;</option>
-                            <option value=">">&gt;</option>
-                            <option value="<=">&lt;=</option>
-                            <option value=">=">&gt;=</option>
+                            <option value="=">equals</option>
+                            <option value="!=">does not equal</option>
+                            <option value="~">matches the regex</option>
+                            <option value="!~">does not match the regex</option>
+                            <option value="<">is less than</option>
+                            <option value=">">is greater than</option>
+                            <option value="<=">is less than or equal to</option>
+                            <option value=">=">
+                              is greater than or equal to
+                            </option>
+                            {supportsJS && (
+                              <option value="=>">custom javascript</option>
+                            )}
                           </select>
                         </div>
                         <div className="col-auto">
-                          <input
+                          <Field
                             required
-                            className="form-control"
                             placeholder="Value"
+                            textarea={
+                              form.watch(`conditions.${i}.operator`) === "=>"
+                            }
+                            minRows={1}
                             {...form.register(`conditions.${i}.value`)}
                           />
                         </div>
@@ -731,17 +725,12 @@ const MetricForm: FC<MetricFormProps> = ({
                 <>
                   <h4>Query Preview</h4>
                   SQL:
-                  <Code
-                    language="sql"
-                    theme="dark"
-                    code={getRawSQLPreview(value)}
-                  />
+                  <Code language="sql" code={getRawSQLPreview(value)} />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
                       <Code
                         language="sql"
-                        theme="dark"
                         code={getAggregateSQLPreview(value)}
                       />
                       <small className="text-muted">

@@ -8,6 +8,7 @@ on:
     paths:
       - "packages/front-end/**"
       - "packages/back-end/**"
+      - "packages/stats/**"
       - "!**.md"
       - "yarn.lock"
       - "Dockerfile"

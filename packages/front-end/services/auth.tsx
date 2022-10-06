@@ -25,6 +25,7 @@ export type OrganizationMember = {
   name: string;
   role: string;
   permissions?: Permissions;
+  enterprise: boolean;
   settings?: OrganizationSettings;
   freeSeats?: number;
   discountCode?: string;
@@ -153,10 +154,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -221,6 +220,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       id: specialOrg.id,
       name: specialOrg.name,
       role: "admin",
+      enterprise: specialOrg.enterprise,
     });
   }
 

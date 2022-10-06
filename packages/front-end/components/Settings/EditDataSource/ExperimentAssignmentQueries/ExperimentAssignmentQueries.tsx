@@ -13,11 +13,9 @@ import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssign
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-}) => {
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
@@ -175,7 +173,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                 </MoreMenu>
 
                 <button
-                  className="btn ml-3"
+                  className="btn ml-3 text-dark"
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
                   <FaChevronRight
@@ -193,7 +191,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               <div className="mb-2">
                 <Code
                   language="sql"
-                  theme="light"
                   code={query.query}
                   containerClassName="mb-0"
                   expandable={true}

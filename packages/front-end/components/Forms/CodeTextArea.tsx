@@ -1,6 +1,8 @@
 import React from "react";
 import Field, { FieldProps } from "./Field";
 import dynamic from "next/dynamic";
+import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
+
 const AceEditor = dynamic(
   async () => {
     const reactAce = await import("react-ace");
@@ -11,6 +13,7 @@ const AceEditor = dynamic(
     await import("ace-builds/src-noconflict/mode-yaml");
     await import("ace-builds/src-noconflict/mode-json");
     await import("ace-builds/src-noconflict/theme-textmate");
+    await import("ace-builds/src-noconflict/theme-tomorrow_night");
 
     return reactAce;
   },
@@ -31,6 +34,9 @@ export type Props = Omit<
   setValue: (value: string) => void;
 };
 
+const LIGHT_THEME = "textmate";
+const DARK_THEME = "tomorrow_night";
+
 export default function CodeTextArea({
   language,
   value,
@@ -49,6 +55,8 @@ export default function CodeTextArea({
     otherProps.error = semicolonWarning;
   }
 
+  const { theme } = useAppearanceUITheme();
+
   return (
     <Field
       {...fieldProps}
@@ -59,7 +67,7 @@ export default function CodeTextArea({
               <AceEditor
                 name={id}
                 mode={language}
-                theme="textmate"
+                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
                 height={`${height}px`}
                 value={value}

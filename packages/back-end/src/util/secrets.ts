@@ -105,16 +105,16 @@ export const IMPORT_LIMIT_DAYS =
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
 
-// Self-hosted Enterprise licence key
-export const LICENCE_KEY = process.env.LICENCE_KEY || "";
+// Self-hosted Enterprise license key
+export const LICENSE_KEY = process.env.LICENSE_KEY || "";
 
 // Self-hosted SSO
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
 
-  if (!IS_CLOUD && !LICENCE_KEY) {
+  if (!IS_CLOUD && !LICENSE_KEY) {
     throw new Error(
-      "Must have an Enterprise Licence Key to use self-hosted SSO"
+      "Must have an Enterprise License Key to use self-hosted SSO"
     );
   }
 

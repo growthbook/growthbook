@@ -4,12 +4,13 @@ import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import track from "../services/track";
-import { OrganizationSettings, LicenceData } from "back-end/types/organization";
+import { OrganizationSettings, LicenseData } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { isCloud } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
-import Modal from "./Modal";
+import Button from "./Button";
+import { ThemeToggler } from "./Layout/ThemeToggler";
 import { Permissions } from "back-end/types/permissions";
 
 type User = { id: string; email: string; name: string };
@@ -21,7 +22,7 @@ interface UserResponse {
   email: string;
   admin: boolean;
   organizations?: UserOrganizations;
-  licence?: LicenceData;
+  license?: LicenseData;
 }
 
 interface MembersResponse {
@@ -43,7 +44,8 @@ export type UserContextValue = {
   email?: string;
   admin?: boolean;
   role?: string;
-  licence?: LicenceData;
+  license?: LicenseData;
+  enterprise?: boolean;
   users?: Map<string, User>;
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
@@ -61,13 +63,8 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const {
-    isAuthenticated,
-    apiCall,
-    orgId,
-    organizations,
-    setOrganizations,
-  } = useAuth();
+  const { isAuthenticated, apiCall, orgId, organizations, setOrganizations } =
+    useAuth();
 
   const [data, setData] = useState<UserResponse>(null);
   const [error, setError] = useState("");
@@ -152,7 +149,8 @@ const ProtectedPage: React.FC<{
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
-      hasLicenceKey: !!data?.licence,
+      enterprise: currentOrg?.enterprise || false,
+      hasLicenseKey: !!data?.license,
       freeSeats: currentOrg?.freeSeats || 3,
       discountCode: currentOrg?.discountCode || "",
       hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
@@ -161,23 +159,57 @@ const ProtectedPage: React.FC<{
 
   if (error) {
     return (
-      <Modal
-        inline={true}
-        open={true}
-        cta="Log Out"
-        submit={async () => {
-          await safeLogout();
-        }}
-        submitColor="danger"
-        closeCta="Reload"
-        close={() => {
-          window.location.reload();
-        }}
-        autoCloseOnSubmit={false}
-      >
-        <h3>Error signing in</h3>
-        <div className="alert alert-danger">{error}</div>
-      </Modal>
+      <div>
+        <div className="navbar bg-white border-bottom">
+          <div>
+            <img
+              alt="GrowthBook"
+              src="/logo/growthbook-logo.png"
+              style={{ height: 36 }}
+            />
+          </div>
+          <div className="ml-auto">
+            <ThemeToggler />
+          </div>
+          <div>
+            <Button
+              className="ml-auto"
+              onClick={async () => {
+                await safeLogout();
+              }}
+              color="danger"
+            >
+              Log Out
+            </Button>
+          </div>
+        </div>
+        <div className="container mt-5">
+          <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
+            <h3 className="mb-3">Error Signing In</h3>
+            <div className="alert alert-danger">{error}</div>
+            <div className="d-flex">
+              <Button
+                className="ml-auto"
+                onClick={async () => {
+                  await safeLogout();
+                }}
+                color="danger"
+              >
+                Log Out
+              </Button>
+              <button
+                className="btn btn-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.reload();
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -212,7 +244,8 @@ const ProtectedPage: React.FC<{
     role,
     permissions,
     settings: currentOrg?.settings || {},
-    licence: data?.licence,
+    enterprise: currentOrg?.enterprise || false,
+    license: data?.license,
   };
 
   return (

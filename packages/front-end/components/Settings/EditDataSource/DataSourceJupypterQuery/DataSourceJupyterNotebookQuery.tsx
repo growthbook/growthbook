@@ -6,10 +6,9 @@ import Code from "../../../Code";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
-  onSave,
-  dataSource,
-}) => {
+export const DataSourceJupyterNotebookQuery: FC<
+  DataSourceJupyterNotebookQueryProps
+> = ({ onSave, dataSource }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
 
   const handleCancel = useCallback(() => {
@@ -53,7 +52,6 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
       </p>
       {dataSource.settings?.notebookRunQuery ? (
         <Code
-          theme="light"
           code={dataSource.settings.notebookRunQuery}
           language="python"
           expandable={true}

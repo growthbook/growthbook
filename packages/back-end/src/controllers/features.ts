@@ -630,8 +630,8 @@ export async function getFeatureById(
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((r) => {
-        if (r.type === "experiment" && r.trackingKey) {
-          expIds.add(r.trackingKey);
+        if (r.type === "experiment") {
+          expIds.add(r.trackingKey || feature.id);
         }
       });
     });

@@ -8,6 +8,7 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { MetricType } from "./metric";
+import { MssqlConnectionParams } from "./integrations/mssql";
 
 export type DataSourceType =
   | "redshift"
@@ -16,6 +17,7 @@ export type DataSourceType =
   | "snowflake"
   | "postgres"
   | "mysql"
+  | "mssql"
   | "bigquery"
   | "clickhouse"
   | "presto"
@@ -24,6 +26,7 @@ export type DataSourceType =
 export type DataSourceParams =
   | PostgresConnectionParams
   | MysqlConnectionParams
+  | MssqlConnectionParams
   | AthenaConnectionParams
   | PrestoConnectionParams
   | GoogleAnalyticsParams
@@ -195,6 +198,10 @@ interface MysqlDataSource extends DataSourceBase {
   type: "mysql";
 }
 
+interface MssqlDataSource extends DataSourceBase {
+  type: "mssql";
+}
+
 interface PostgresDataSource extends DataSourceBase {
   type: "postgres";
 }
@@ -239,6 +246,10 @@ export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
 >;
+export type MssqlDataSourceWithParams = WithParams<
+  MssqlDataSource,
+  MssqlConnectionParams
+>;
 export type BigQueryDataSourceWithParams = WithParams<
   BigQueryDataSource,
   BigQueryConnectionParams
@@ -260,6 +271,7 @@ export type DataSourceInterface =
   | SnowflakeDataSource
   | PostgresDataSource
   | MysqlDataSource
+  | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
   | MixpanelDataSource;
@@ -272,6 +284,7 @@ export type DataSourceInterfaceWithParams =
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams
   | MysqlDataSourceWithParams
+  | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
   | MixpanelDataSourceWithParams;

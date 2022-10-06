@@ -13,6 +13,7 @@ import {
   updateRole,
   addMemberFromSSOConnection,
   isEnterpriseSSO,
+  validateLoginMethod,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -48,6 +49,7 @@ import { IS_CLOUD } from "../util/secrets";
 import { sendInviteEmail, sendNewOrgEmail } from "../services/email";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
 import { getAllGroups } from "../services/group";
+import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { uploadFile } from "../services/files";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { WebhookModel } from "../models/WebhookModel";
@@ -65,7 +67,7 @@ import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
-import { getLicence } from "../init/licence";
+import { getLicense } from "../init/license";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
 import { migrateOrganization } from "../util/migrations";
 
@@ -95,14 +97,20 @@ export async function getUser(req: AuthRequest, res: Response) {
   }
 
   // Filter out orgs that the user can't log in to
-  const validOrgs = orgs.filter(
-    (org) =>
-      !org.restrictLoginMethod ||
-      req.loginMethod?.id === org.restrictLoginMethod
-  );
+  let lastError = "";
+  const validOrgs = orgs.filter((org) => {
+    try {
+      validateLoginMethod(org, req);
+      return true;
+    } catch (e) {
+      lastError = e;
+      return false;
+    }
+  });
+
   // If all of a user's orgs were filtered out, throw an error
   if (orgs.length && !validOrgs.length) {
-    throw new Error("Must login with Enterprise SSO");
+    throw new Error(lastError || "Must login with SSO");
   }
 
   return res.status(200).json({
@@ -111,7 +119,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
-    licence: !IS_CLOUD && getLicence(),
+    license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
       const migOrg = migrateOrganization(org);
@@ -120,6 +128,7 @@ export async function getUser(req: AuthRequest, res: Response) {
         name: migOrg.name,
         role,
         permissions: getPermissionsByRole(migOrg, role),
+        enterprise: org.enterprise || false,
         settings: migOrg.settings || {},
         freeSeats: migOrg.freeSeats || 3,
         discountCode: migOrg.discountCode || "",
@@ -143,6 +152,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     groups,
+    savedGroups,
     projects,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
@@ -153,6 +163,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     }),
     getAllTags(orgId),
     getAllGroups(orgId),
+    getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
   ]);
 
@@ -174,6 +185,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     groups,
+    savedGroups,
     projects,
   });
 }
@@ -510,6 +522,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     roles,
     settings,
     disableSelfServeBilling,
+    enterprise,
   } = org;
 
   const roleMapping: Map<string, string> = new Map();
@@ -536,6 +549,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       url,
       subscription,
       freeSeats,
+      enterprise,
       disableSelfServeBilling,
       slackTeam: connections?.slack?.team,
       members: users.map(({ id, email, name }) => {

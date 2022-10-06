@@ -26,6 +26,7 @@ $second-blue: #267ba5;
 // redesign colors:
 $dark-blue: #050549;
 $highlight-purple: #7c45ea;
+$highlight-purple-light: lighten($highlight-purple, 20%);
 $purple-tint: #a3a8c2;
 $dark-purple2: #1c0555;
 $main-black: #171221;
@@ -38,6 +39,8 @@ $gray5: #f0f1f5;
 $gray6: #f6f7f9;
 
 $main-background: #f5f7fa;
+$main-background-dark: #121212;
+$surface-background-dark: $gray-900;
 $dark-purple: #391c6d;
 $light-grey: #fafafa;
 $light-green: #d2f2db;

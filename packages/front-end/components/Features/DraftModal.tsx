@@ -33,7 +33,7 @@ function ExpandableDiff({
   if (a === b) return null;
 
   return (
-    <>
+    <div className="diff-wrapper">
       <div
         className="list-group-item list-group-item-action d-flex"
         onClick={(e) => {
@@ -56,7 +56,7 @@ function ExpandableDiff({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }
 

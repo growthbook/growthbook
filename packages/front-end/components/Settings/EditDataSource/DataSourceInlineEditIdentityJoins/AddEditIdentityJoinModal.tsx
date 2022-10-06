@@ -9,6 +9,7 @@ import Modal from "../../../Modal";
 import MultiSelectField from "../../../Forms/MultiSelectField";
 import CodeTextArea from "../../../Forms/CodeTextArea";
 import { isDuplicateIdentityJoin } from "./utils";
+import { validateSQL } from "../../../../services/datasources";
 
 type AddEditIdentityJoinModalProps = {
   identityJoin: IdentityJoinQuery | null;
@@ -25,9 +26,10 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   onCancel,
   onSave,
 }) => {
-  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
-    dataSource.settings.userIdTypes,
-  ]);
+  const identityTypes = useMemo(
+    () => dataSource.settings.userIdTypes || [],
+    [dataSource.settings.userIdTypes]
+  );
   const existingIdentityJoins = useMemo(
     () => dataSource.settings.queries.identityJoins || [],
     [dataSource.settings.queries.identityJoins]
@@ -54,6 +56,8 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    validateSQL(value.query, value.ids);
+
     await onSave(value);
 
     form.reset({

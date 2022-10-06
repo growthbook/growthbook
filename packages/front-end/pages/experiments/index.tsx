@@ -50,7 +50,11 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }, [getMetricById, users.size]);
 
-  const { list: experiments, searchInputProps, isFiltered } = useSearch(
+  const {
+    list: experiments,
+    searchInputProps,
+    isFiltered,
+  } = useSearch(
     data?.experiments || [],
     [
       "name",

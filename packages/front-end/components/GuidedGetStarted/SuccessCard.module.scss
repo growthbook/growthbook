@@ -1,9 +1,9 @@
 @import "../../styles/colors.scss";
 
 .wrapper {
-  border: 1px solid $gray-500;
+  border: 1px solid var(--border-color-300);
   border-radius: 5px;
-  background: $white;
+  background: var(--surface-background-color);
 }
 
 .successBubble {

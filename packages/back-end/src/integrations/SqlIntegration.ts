@@ -21,10 +21,11 @@ import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
-import { getBaseIdTypeAndJoins, replaceDateVars, format } from "../util/sql";
+import { getBaseIdTypeAndJoins, replaceSQLVars, format } from "../util/sql";
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface {
+  implements SourceIntegrationInterface
+{
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
@@ -163,9 +164,9 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (
-      this.settings.queries?.exposure || []
-    ).map(({ id }) => this.getExposureQuery(id));
+    const experimentQueries = (this.settings.queries?.exposure || []).map(
+      ({ id }) => this.getExposureQuery(id)
+    );
 
     return format(
       `-- Past Experiments
@@ -191,7 +192,7 @@ export default abstract class SqlIntegration
             count(distinct ${q.userIdType}) as users
           FROM
             (
-              ${replaceDateVars(q.query, params.from)}
+              ${replaceSQLVars(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
             ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
@@ -425,7 +426,8 @@ export default abstract class SqlIntegration
     objects: string[][],
     from: Date,
     to?: Date,
-    forcedBaseIdType?: string
+    forcedBaseIdType?: string,
+    experimentId?: string
   ) {
     const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
       objects,
@@ -442,7 +444,14 @@ export default abstract class SqlIntegration
       idJoinMap[idType] = table;
       joins.push(
         `${table} as (
-        ${this.getIdentitiesQuery(this.settings, baseIdType, idType, from, to)}
+        ${this.getIdentitiesQuery(
+          this.settings,
+          baseIdType,
+          idType,
+          from,
+          to,
+          experimentId
+        )}
       ),`
       );
     });
@@ -608,7 +617,8 @@ export default abstract class SqlIntegration
       ],
       phase.dateStarted,
       phase.dateEnded,
-      exposureQuery.userIdType
+      exposureQuery.userIdType,
+      experiment.trackingKey
     );
 
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
@@ -640,11 +650,11 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       __rawExperiment as (
-        ${replaceDateVars(
-          exposureQuery.query,
-          phase.dateStarted,
-          phase.dateEnded
-        )}
+        ${replaceSQLVars(exposureQuery.query, {
+          startDate: phase.dateStarted,
+          endDate: phase.dateEnded,
+          experimentId: experiment.trackingKey,
+        })}
       ),
       __experiment as (${this.getExperimentCTE({
         experiment,
@@ -661,6 +671,7 @@ export default abstract class SqlIntegration
         idJoinMap,
         startDate: metricStart,
         endDate: metricEnd,
+        experimentId: experiment.trackingKey,
       })})
       ${
         segment
@@ -694,6 +705,7 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: metricStart,
             endDate: metricEnd,
+            experimentId: experiment.trackingKey,
           })})`;
         })
         .join("\n")}
@@ -718,6 +730,7 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: metricStart,
             endDate: metricEnd,
+            experimentId: experiment.trackingKey,
           })})`;
         })
         .join("\n")}
@@ -1037,6 +1050,7 @@ export default abstract class SqlIntegration
     idJoinMap,
     startDate,
     endDate,
+    experimentId,
   }: {
     metric: MetricInterface;
     conversionWindowHours?: number;
@@ -1045,6 +1059,7 @@ export default abstract class SqlIntegration
     idJoinMap: Record<string, string>;
     startDate: Date;
     endDate: Date | null;
+    experimentId?: string;
   }) {
     const queryFormat = this.getMetricQueryFormat(metric);
 
@@ -1103,11 +1118,11 @@ export default abstract class SqlIntegration
         ${
           queryFormat === "sql"
             ? `(
-              ${replaceDateVars(
-                metric.sql || "",
+              ${replaceSQLVars(metric.sql || "", {
                 startDate,
-                endDate || undefined
-              )}
+                endDate: endDate || undefined,
+                experimentId,
+              })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
@@ -1339,7 +1354,8 @@ export default abstract class SqlIntegration
     id1: string,
     id2: string,
     from: Date,
-    to: Date | undefined
+    to: Date | undefined,
+    experimentId?: string
   ) {
     if (settings?.queries?.identityJoins) {
       for (let i = 0; i < settings.queries.identityJoins.length; i++) {
@@ -1355,7 +1371,11 @@ export default abstract class SqlIntegration
             ${id2}
           FROM
             (
-              ${replaceDateVars(join.query, from, to)}
+              ${replaceSQLVars(join.query, {
+                startDate: from,
+                endDate: to,
+                experimentId,
+              })}
             ) i
           GROUP BY
             ${id1}, ${id2}
@@ -1376,7 +1396,11 @@ export default abstract class SqlIntegration
           user_id,
           anonymous_id
         FROM
-          (${replaceDateVars(settings.queries.pageviewsQuery, from, to)}) i
+          (${replaceSQLVars(settings.queries.pageviewsQuery, {
+            startDate: from,
+            endDate: to,
+            experimentId,
+          })}) i
         WHERE
           ${timestampColumn} >= ${this.toTimestamp(from)}
           ${to ? `AND ${timestampColumn} <= ${this.toTimestamp(to)}` : ""}

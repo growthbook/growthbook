@@ -38,12 +38,39 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
-import { updateSubscriptionInStripe } from "./stripe";
 import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
+}
+
+export function validateLoginMethod(
+  org: OrganizationInterface,
+  req: AuthRequest
+) {
+  if (
+    org.restrictLoginMethod &&
+    req.loginMethod?.id !== org.restrictLoginMethod
+  ) {
+    throw new Error(
+      "Your organization requires you to login with Enterprise SSO"
+    );
+  }
+
+  // If the org requires a specific subject in the IdToken
+  // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
+  // For that, we set `restrictAuthSubPrefix` to "google"
+  if (
+    org.restrictAuthSubPrefix &&
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+  ) {
+    throw new Error(
+      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`
+    );
+  }
+
+  return true;
 }
 
 export function getOrgFromReq(req: AuthRequest) {
@@ -153,19 +180,6 @@ export async function removeMember(
     members,
   });
 
-  // Update Stripe subscription if org has subscription
-  if (organization.subscription?.id) {
-    // Get the updated organization
-    const updatedOrganization = await getOrganizationById(organization.id);
-
-    if (updatedOrganization?.subscription) {
-      await updateSubscriptionInStripe(
-        updatedOrganization.subscription.id,
-        getNumberOfMembersAndInvites(updatedOrganization)
-      );
-    }
-  }
-
   return organization;
 }
 
@@ -178,19 +192,6 @@ export async function revokeInvite(
   await updateOrganization(organization.id, {
     invites,
   });
-
-  // Update Stripe subscription if org has subscription
-  if (organization.subscription?.id) {
-    // Get the updated organization
-    const updatedOrganization = await getOrganizationById(organization.id);
-
-    if (updatedOrganization?.subscription) {
-      await updateSubscriptionInStripe(
-        updatedOrganization.subscription.id,
-        getNumberOfMembersAndInvites(updatedOrganization)
-      );
-    }
-  }
 
   return organization;
 }
@@ -218,19 +219,6 @@ export async function addMemberToOrg(
   ];
 
   await updateOrganization(org.id, { members });
-
-  // Update Stripe subscription if org has subscription
-  if (org.subscription?.id) {
-    // Get the updated organization
-    const updatedOrganization = await getOrganizationById(org.id);
-
-    if (updatedOrganization?.subscription) {
-      await updateSubscriptionInStripe(
-        updatedOrganization.subscription.id,
-        getNumberOfMembersAndInvites(updatedOrganization)
-      );
-    }
-  }
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -315,14 +303,6 @@ export async function inviteUser(
 
   // append the new invites to the existin object (or refetch)
   organization.invites = invites;
-
-  // Update Stripe subscription if org has subscription
-  if (organization.subscription?.id) {
-    await updateSubscriptionInStripe(
-      organization.subscription.id,
-      getNumberOfMembersAndInvites(organization)
-    );
-  }
 
   let emailSent = false;
   if (isEmailEnabled()) {
