@@ -186,10 +186,10 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type LicenceData = {
-  // Unique id for the licence key
+export type LicenseData = {
+  // Unique id for the license key
   ref: string;
-  // Name of organization on the licence
+  // Name of organization on the license
   sub: string;
   // Max number of seats
   qty: number;
