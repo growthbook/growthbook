@@ -4,7 +4,6 @@ import {
   expandDenominatorMetrics,
   format,
 } from "../src/util/sql";
-import {} from "../src/util/mixpanel";
 
 describe("backend", () => {
   it("replaces vars in SQL", () => {
