@@ -48,9 +48,24 @@ async function getVerifiedLicenceData(key: string) {
 
   const decodedLicence: LicenceData = JSON.parse(licence.toString());
 
+  // If it's a trial licence key, make sure it's not expired yet
+  // For real licence keys, we show an "expired" banner in the app instead of throwing an error
+  // We want to be strict for trial keys, but lenient for real Enterprise customers
+  if (decodedLicence.trial && decodedLicence.eat < new Date().toISOString()) {
+    throw new Error(
+      `Your Enterprise Licence Key trial expired on ${decodedLicence.eat}.`
+    );
+  }
+
   // If the public key failed to load, just assume the licence is valid
   const publicKey = await getPublicKey();
-  if (!publicKey) return decodedLicence;
+  if (!publicKey) {
+    console.log(
+      "Could not contact licence verification server",
+      decodedLicence
+    );
+    return decodedLicence;
+  }
 
   const isVerified = crypto.verify(
     "sha256",

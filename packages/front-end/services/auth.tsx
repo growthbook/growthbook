@@ -26,6 +26,7 @@ export type OrganizationMember = {
   name: string;
   role: MemberRole;
   permissions?: Permissions;
+  enterprise: boolean;
   settings?: OrganizationSettings;
   freeSeats?: number;
   discountCode?: string;
@@ -240,6 +241,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       id: specialOrg.id,
       name: specialOrg.name,
       role: "admin",
+      enterprise: specialOrg.enterprise,
     });
   }
 

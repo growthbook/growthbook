@@ -9,6 +9,7 @@ export type AuthRequest<Body = any, Params = any, Query = any> = Request<Params,
   verified?: boolean;
   userId?: string;
   loginMethod?: SSOConnectionInterface;
+  authSubject?: string;
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;

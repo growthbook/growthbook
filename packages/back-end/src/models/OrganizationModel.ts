@@ -13,6 +13,7 @@ const organizationSchema = new mongoose.Schema({
   name: String,
   ownerEmail: String,
   restrictLoginMethod: String,
+  restrictAuthSubPrefix: String,
   members: [
     {
       _id: false,
@@ -34,6 +35,7 @@ const organizationSchema = new mongoose.Schema({
   priceId: String,
   freeSeats: Number,
   disableSelfServeBilling: Boolean,
+  enterprise: Boolean,
   subscription: {
     id: String,
     qty: Number,

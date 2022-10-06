@@ -197,6 +197,7 @@ pre {
   margin: 0 auto;
 }
 .gbtable {
+  background-color: var(--surface-background-color);
   margin-bottom: 0;
 
   thead {
@@ -663,9 +664,14 @@ pre {
   }
   .form-side {
     background-color: var(--surface-background-color);
+    font-size: 0.875rem; //14px
     .formwrap {
       width: 100%;
       max-width: 500px;
+
+      label {
+        color: var(--form-input-group-color);
+      }
     }
   }
   h1,
