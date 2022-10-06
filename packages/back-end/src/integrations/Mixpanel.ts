@@ -20,9 +20,10 @@ import {
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import {
   conditionToJavascript,
-  replaceSQLVars,
+  getAggregateFunctions,
   getMixpanelPropertyColumn,
-} from "../util/sql";
+} from "../util/mixpanel";
+import { replaceSQLVars } from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   datasource: string;
@@ -630,19 +631,8 @@ function is${name}(event) {
   private getMathHelperFunctions() {
     return `
 // Helper aggregation functions
-const sum = (arr) => arr.reduce((sum, x) => sum + x, 0);
-const count = (arr) => arr.length;
-const countDistinct = (arr) => new Set(arr).size;
-const min = (arr) => Math.min(...arr);
-const max = (arr) => Math.max(...arr);
-const avg = (arr) => sum(arr)/count(arr);
-const percentile = (arr, p) => {
-  const s = [...arr].sort((a,b)=>a-b);
-  const r = (s.length-1)*p/100;
-  const rf = Math.ceil(r) - r;
-  return s[Math.floor(r)]*rf + s[Math.ceil(r)]*(1-rf);
-};
-const median = (arr) => percentile(arr, 50);
+${getAggregateFunctions()}
+
     `;
   }
 }
