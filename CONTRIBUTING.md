@@ -45,9 +45,9 @@ Now you have the basic Linux system set up, and can follow along with all the ot
 3. Run `cd growthbook`
 4. Run `yarn` to install dependencies
 5. Install [poetry](https://python-poetry.org/docs/)
-   - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
+   - Run `curl -sSL https://install.python-poetry.org | python3 -`
    - Close and reopen your terminal
-   - Run `poetry --v` to confirm a successful install
+   - Run `poetry --version` to confirm a successful install
    - If unsuccessful add the Poetry path (ex. `$HOME/.poetry/bin`) to your global path (ex. `/etc/profile`, `/etc/environment`, `~/.bashrc`, `~/.zshrc`)
 6. Run `yarn setup` to do the initial build
 7. If you have Docker installed, start MongoDB in Docker:
