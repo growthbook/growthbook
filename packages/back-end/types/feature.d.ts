@@ -14,7 +14,7 @@ import {
   vFeatureInterface,
   vUpdateFeatureInterface,
   vCreateFeatureInterface,
-} from "./featureValidators";
+} from "../src/validators/feature";
 
 export type LegacyFeatureInterface = FeatureInterface & {
   /** @deprecated */

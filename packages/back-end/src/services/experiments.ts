@@ -756,22 +756,7 @@ export async function processPastExperiments(
 
   // Round the weights
   const possibleWeights = [
-    5,
-    10,
-    16,
-    20,
-    25,
-    30,
-    33,
-    40,
-    50,
-    60,
-    67,
-    70,
-    75,
-    80,
-    90,
-    95,
+    5, 10, 16, 20, 25, 30, 33, 40, 50, 60, 67, 70, 75, 80, 90, 95,
   ];
   experimentMap.forEach((exp) => {
     const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);

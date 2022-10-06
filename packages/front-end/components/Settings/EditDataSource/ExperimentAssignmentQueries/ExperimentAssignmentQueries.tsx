@@ -13,11 +13,9 @@ import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssign
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-}) => {
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);

@@ -82,12 +82,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
 
-  const {
-    datasources,
-    getDatasourceById,
-    refreshTags,
-    project,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, refreshTags, project } =
+    useDefinitions();
   const { refreshWatching } = useWatching();
 
   useEffect(() => {

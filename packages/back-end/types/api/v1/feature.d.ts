@@ -15,4 +15,4 @@ export type ApiV1Feature = {
   environments: Record<string, FeatureEnvironment>;
   draftEnvironments: Record<string, FeatureEnvironment>;
   definition: FeatureDefinition;
-}
+};

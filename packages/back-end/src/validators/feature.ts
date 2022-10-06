@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { vUserRef } from "../user/userValidators";
+import { vUserRef } from "../validators/user";
 
 export const vFeatureValueType = z.union([
   z.literal("boolean"),

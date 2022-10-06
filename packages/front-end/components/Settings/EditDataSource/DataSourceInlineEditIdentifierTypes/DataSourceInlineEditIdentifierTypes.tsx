@@ -11,19 +11,19 @@ import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import DeleteButton from "../../../DeleteButton";
 import Tooltip from "../../../Tooltip";
 
-type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentifierTypesProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentifierTypesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-}) => {
+export const DataSourceInlineEditIdentifierTypes: FC<
+  DataSourceInlineEditIdentifierTypesProps
+> = ({ dataSource, onSave, onCancel }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes]
+  );
 
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;

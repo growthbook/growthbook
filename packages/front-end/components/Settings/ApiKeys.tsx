@@ -18,9 +18,11 @@ const ApiKeys: FC = () => {
   const [accessToken, setAccessToken] = useState("");
   const [showAccessToken, setShowAccessToken] = useState(false);
 
-  const { data, error: keyError, mutate } = useApi<{ keys: ApiKeyInterface[] }>(
-    "/keys"
-  );
+  const {
+    data,
+    error: keyError,
+    mutate,
+  } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const {
     data: hasAccessTokenData,
     error: hasAccessTokenError,

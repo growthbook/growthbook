@@ -6,9 +6,8 @@ import SqlIntegration from "./SqlIntegration";
 export default class Snowflake extends SqlIntegration {
   params: SnowflakeConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<SnowflakeConnectionParams>(encryptedParams);
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

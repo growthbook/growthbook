@@ -22,7 +22,7 @@ import {
   vCreateFeatureInterface,
   vFeatureInterface,
   vUpdateFeatureInterface,
-} from "../../types/feature/featureValidators";
+} from "../validators/feature";
 
 const featureSchema = new mongoose.Schema({
   id: String,

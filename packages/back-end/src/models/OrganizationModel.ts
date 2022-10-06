@@ -76,9 +76,8 @@ function toInterface(doc: OrganizationDocument): OrganizationInterface {
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (json.settings?.implementationTypes) {
     if (!("visualEditorEnabled" in json.settings)) {
-      json.settings.visualEditorEnabled = json.settings.implementationTypes.includes(
-        "visual"
-      );
+      json.settings.visualEditorEnabled =
+        json.settings.implementationTypes.includes("visual");
     }
     delete json.settings.implementationTypes;
   }

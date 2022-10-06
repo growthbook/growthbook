@@ -22,12 +22,13 @@ export async function listFeaturesApi(req: AccessTokenRequest, res: Response) {
   }
 
   const features = await getAllFeatures(organization.id, project);
-  const featureDefinitions: Record<string, FeatureDefinition> =
-    (await getFeatureDefinitions(organization.id)).features;
+  const featureDefinitions: Record<string, FeatureDefinition> = (
+    await getFeatureDefinitions(organization.id)
+  ).features;
 
   const retFeatures: ApiV1Feature[] = [];
   for (const f of features) {
-    retFeatures.push(await formatApiFeature(f, featureDefinitions));
+    retFeatures.push(formatApiFeature(f, featureDefinitions));
   }
 
   res.status(200).json({

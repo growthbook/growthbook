@@ -22,13 +22,9 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
-  exposureQuery,
-  dataSource,
-  mode,
-  onSave,
-  onCancel,
-}) => {
+export const AddEditExperimentAssignmentQueryModal: FC<
+  EditExperimentAssignmentQueryProps
+> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"

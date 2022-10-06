@@ -105,9 +105,8 @@ const DateGraph: FC<{
             }[],
             { d, v, s, c }
           ) => {
-            const key = (groupby === "day"
-              ? getValidDate(d)
-              : setDay(getValidDate(d), 0)
+            const key = (
+              groupby === "day" ? getValidDate(d) : setDay(getValidDate(d), 0)
             ).getTime();
 
             const count = c || 1;
@@ -216,10 +215,8 @@ const DateGraph: FC<{
   const [toolTipTimer, setToolTipTimer] = useState<null | ReturnType<
     typeof setTimeout
   >>(null);
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
+  const [highlightExp, setHighlightExp] =
+    useState<null | ExperimentDisplayData>(null);
 
   // in future we might want to mark the different phases or percent traffic in this as different colors
   const experimentDates: ExperimentDisplayData[] = [];

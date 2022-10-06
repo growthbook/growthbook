@@ -4,7 +4,7 @@ import {
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
-} from "../../types/feature/feature";
+} from "../../types/feature";
 import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,

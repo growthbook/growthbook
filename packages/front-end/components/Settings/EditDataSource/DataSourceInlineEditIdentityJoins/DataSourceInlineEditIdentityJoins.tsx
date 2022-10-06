@@ -12,13 +12,12 @@ import {
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 import Tooltip from "../../../Tooltip";
 
-type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentityJoinsProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJoinsProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-}) => {
+export const DataSourceInlineEditIdentityJoins: FC<
+  DataSourceInlineEditIdentityJoinsProps
+> = ({ dataSource, onSave, onCancel }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
@@ -41,9 +40,10 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     [openIndexes]
   );
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes]
+  );
   const addIsDisabled = userIdTypes.length < 2;
   const identityJoins = useMemo(
     () => dataSource?.settings?.queries?.identityJoins || [],

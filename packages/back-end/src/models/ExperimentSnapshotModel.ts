@@ -81,7 +81,8 @@ experimentSnapshotSchema.index({
 export type ExperimentSnapshotDocument = mongoose.Document &
   ExperimentSnapshotInterface;
 
-export const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
-  "ExperimentSnapshot",
-  experimentSnapshotSchema
-);
+export const ExperimentSnapshotModel =
+  mongoose.model<ExperimentSnapshotDocument>(
+    "ExperimentSnapshot",
+    experimentSnapshotSchema
+  );
