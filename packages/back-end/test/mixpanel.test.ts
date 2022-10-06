@@ -82,10 +82,19 @@ describe("backend", () => {
     })()`)
     ).toEqual(5);
     expect(
+      eval(`(() => {
+      const sum=${AGGREGATE_JS_FUNCTIONS.sum};
+      const count=${AGGREGATE_JS_FUNCTIONS.count};
+      return (${AGGREGATE_JS_FUNCTIONS.avg})([])
+    })()`)
+    ).toEqual(0);
+    expect(
       eval(
         `(${AGGREGATE_JS_FUNCTIONS.percentile})([0,1,2,3,4,5,6,7,8,9,10],20)`
       )
     ).toEqual(2);
+    expect(eval(`(${AGGREGATE_JS_FUNCTIONS.percentile})([5],50)`)).toEqual(5);
+    expect(eval(`(${AGGREGATE_JS_FUNCTIONS.percentile})([],50)`)).toEqual(0);
     expect(
       eval(
         `(${AGGREGATE_JS_FUNCTIONS.percentile})([0,1,2,3,4,5,6,7,8,9,10],56)`

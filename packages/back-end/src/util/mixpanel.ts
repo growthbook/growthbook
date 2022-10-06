@@ -42,7 +42,7 @@ export const AGGREGATE_JS_FUNCTIONS = {
   countDistinct: `(arr) => new Set(arr).size`,
   min: `(arr) => Math.min(...arr)`,
   max: `(arr) => Math.max(...arr)`,
-  avg: `(arr) => sum(arr)/count(arr)`,
+  avg: `(arr) => count(arr)>0?(sum(arr)/count(arr)):0`,
   percentile: `(arr, p) => {
     const s = [...arr].sort((a,b)=>a-b);
     if(!s.length) return 0;
