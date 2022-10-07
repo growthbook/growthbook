@@ -14,10 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Use Node.js 14.x
+      - name: Use Node.js 16.x
         uses: actions/setup-node@v1
         with:
-          node-version: 14.x
+          node-version: 16.x
 
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
@@ -57,7 +57,7 @@ jobs:
         run: |
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
-          
+
       - name: lint
         run: |
           yarn lint

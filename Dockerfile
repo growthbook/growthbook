@@ -9,7 +9,7 @@ RUN \
 
 
 # Build the nodejs app
-FROM node:14-slim AS nodebuild
+FROM node:16-slim AS nodebuild
 WORKDIR /usr/local/src/app
 # Yarn install with dev dependencies
 COPY package.json ./package.json
