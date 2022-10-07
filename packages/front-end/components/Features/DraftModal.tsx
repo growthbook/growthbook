@@ -120,7 +120,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
       cta="Publish"
       close={close}
       closeCta="close"
-      size="lg"
+      size="max"
       secondaryCTA={
         permissions.createFeatureDrafts ? (
           <Button

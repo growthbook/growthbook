@@ -21,7 +21,7 @@ export async function postTag(req: AuthRequest<TagInterface>, res: Response) {
 }
 
 export async function deleteTag(
-  req: AuthRequest<{ id: string }>,
+  req: AuthRequest<{ id: string }, { id: string }>,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");
