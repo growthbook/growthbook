@@ -14,6 +14,7 @@ import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
   IS_CLOUD,
+  SENTRY_DSN,
   UPLOAD_METHOD,
 } from "./util/secrets";
 import {
@@ -27,6 +28,11 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
+import * as Sentry from "@sentry/node";
+
+if (SENTRY_DSN) {
+  Sentry.init({ dsn: SENTRY_DSN });
+}
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -111,6 +117,14 @@ function wrapController<T extends string>(
 }
 
 const app = express();
+
+if (SENTRY_DSN) {
+  app.use(
+    Sentry.Handlers.requestHandler({
+      user: ["email", "sub"],
+    })
+  );
+}
 
 let initPromise: Promise<void>;
 async function init() {
@@ -651,8 +665,17 @@ app.use(function (req, res) {
   });
 });
 
-// eslint-disable-next-line
-const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+if (SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
+const errorHandler: ErrorRequestHandler = (
+  err,
+  req,
+  res: Response & { sentry?: string },
+  // eslint-disable-next-line
+  next
+) => {
   const status = err.status || 400;
 
   if (req.log) {
@@ -664,6 +687,7 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   res.status(status).json({
     status: status,
     message: err.message || "An error occurred",
+    errorId: SENTRY_DSN ? res.sentry : undefined,
   });
 };
 app.use(errorHandler);
