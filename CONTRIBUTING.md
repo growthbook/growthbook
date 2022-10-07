@@ -15,7 +15,7 @@ The fastest way to start contributing to GrowthBook is by using our pre configur
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) 14.x or higher
+- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or higher
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 - [Python](https://www.python.org/downloads/) 3.6+ (for the stats engine)

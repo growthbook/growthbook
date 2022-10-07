@@ -2,6 +2,9 @@
   "name": "back-end",
   "version": "0.0.1",
   "private": true,
+  "engines": {
+    "node": ">=16"
+  },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "build:clean": "rm -rf dist",
