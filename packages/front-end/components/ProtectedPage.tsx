@@ -17,10 +17,11 @@ import {
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
-import { isCloud } from "../services/env";
+import { isCloud, isSentryEnabled } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import { ThemeToggler } from "./Layout/ThemeToggler";
+import * as Sentry from "@sentry/react";
 
 type User = { id: string; email: string; name: string };
 
@@ -164,6 +165,15 @@ const ProtectedPage: React.FC<{
       hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
   }, [data, router?.pathname]);
+
+  useEffect(() => {
+    if (!data?.email) return;
+
+    // Error tracking only enabled on GrowthBook Cloud
+    if (isSentryEnabled()) {
+      Sentry.setUser({email: data.email, id: data.userId});
+    }
+  }, [data?.email]);
 
   if (error) {
     return (

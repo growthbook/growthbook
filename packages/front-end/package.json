@@ -15,7 +15,7 @@
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
-    "@sentry/react": "^6.17.9",
+    "@sentry/react": "^7.14.2",
     "@visx/axis": "^2.1.0",
     "@visx/curve": "^2.1.0",
     "@visx/event": "^2.6.0",

@@ -155,3 +155,5 @@ function getSSOConfig() {
 export const SSO_CONFIG = getSSOConfig();
 export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
+
+export const SENTRY_DSN = process.env.SENTRY_DSN || "";
