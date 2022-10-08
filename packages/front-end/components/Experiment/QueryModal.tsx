@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { QueryLanguage } from "back-end/types/datasource";
 import Modal from "../Modal";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 
 const QueryModal: FC<{
   queries: string[];
@@ -17,7 +17,7 @@ const QueryModal: FC<{
       closeCta="Close"
     >
       {queries.map((query, i) => (
-        <Code language={language} key={i} code={query} lineNumbers={true} />
+        <Code language={language} key={i} code={query} />
       ))}
     </Modal>
   );

@@ -7,7 +7,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
-import Code, { Language } from "../Code";
+import Code, { Language } from "../SyntaxHighlighting/Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import { useAttributeSchema, useEnvironments } from "../../services/features";
@@ -428,6 +428,7 @@ func main() {
           </p>
           <Code
             language="javascript"
+            filename="build.gradle"
             code={`repositories {
     mavenCentral()
 }

@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import Modal from "../Modal";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
-import Code, { Language } from "../Code";
+import Code, { Language } from "../SyntaxHighlighting/Code";
 import { useState } from "react";
 import CodeSnippetModal from "./CodeSnippetModal";
 import { DocLink, DocSection } from "../DocLink";
@@ -38,40 +38,34 @@ export default function FeatureImplementationModal({
       language: "tsx",
       boolean: `import { useFeature, IfFeatureEnabled } from "@growthbook/growthbook-react";
 
-//...
-
-<IfFeatureEnabled feature=${JSON.stringify(feature.id)}>
-  <p>Welcome to our site!</p>
-</IfFeatureEnabled>
-
-// or 
-const myFeature = useFeature(${JSON.stringify(feature.id)}).on;
-if (myFeature) { ...
+// Option 1: The useFeature hook
+function MyComponent() {
+  const isEnabled = useFeature(${JSON.stringify(feature.id)}).on;
+  return (
+    <div>{isEnabled ? "ON" : "OFF"}</div>
+  )
 }
-`,
-      value: `
-console.log(growthbook.getFeatureValue(${JSON.stringify(
-        feature.id
-      )}), "fallback value");`,
+
+// Option 2: The <IfFeatureEnabled> component
+function MyOtherComponent() {
+  return (
+    <IfFeatureEnabled feature=${JSON.stringify(feature.id)}>
+      The feature is <strong>ON</strong>
+    </IfFeatureEnabled>
+  )
+}`,
+      value: `import { useGrowthBook } from "@growthbook/growthbook-react";
+
+function MyComponent() {
+  const growthbook = useGrowthBook();
+  return (
+    <div>{growthbook.getFeatureValue(${JSON.stringify(
+      feature.id
+    )}, "fallback value")}</div>
+  )
+}`,
       docSection: "tsx",
     },
-
-    {
-      id: "typescript",
-      display: "Typescript",
-      language: "tsx",
-      boolean: `if (growthbook.isOn(${JSON.stringify(feature.id)})) {
-  console.log("Feature is enabled!")
-} else {
-  console.log("fallback")
-}`,
-      value: `
-console.log(growthbook.getFeatureValue(${JSON.stringify(
-        feature.id
-      )}), "fallback value");`,
-      docSection: "javascript",
-    },
-
     {
       id: "javascript",
       display: "Javascript",

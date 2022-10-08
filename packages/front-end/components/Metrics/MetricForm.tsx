@@ -8,7 +8,7 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 import TagsInput from "../Tags/TagsInput";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import {

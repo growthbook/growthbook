@@ -1,7 +1,7 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "../../services/features";
-import Code from "../Code";
+import InlineCode from "../SyntaxHighlighting/InlineCode";
 
 function operatorToText(operator: string): string {
   switch (operator) {
@@ -78,15 +78,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
 
   // Could not parse into simple conditions
   if (conds === null || !attributes.size) {
-    return (
-      <Code
-        language="json"
-        code={condition}
-        className="p-0 border-0"
-        actionBar={false}
-        containerClassName="m-0"
-      />
-    );
+    return <InlineCode language="json" code={condition} />;
   }
 
   return (
