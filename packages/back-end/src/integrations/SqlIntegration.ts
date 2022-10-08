@@ -921,8 +921,7 @@ export default abstract class SqlIntegration
           ${this.ensureFloat("COUNT(*)")} as count,
           ${this.avg("m.value")} as m_mean,
           ${this.variance("m.value")} as m_var,
-          ${this.ensureFloat("sum(m.value)")} as m_sum,
-          ${this.stddev("m.value")} as m_sd
+          ${this.ensureFloat("sum(m.value)")} as m_sum
           ${
             isRatio
               ? `,
@@ -1041,7 +1040,7 @@ export default abstract class SqlIntegration
     // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
     return this.ifElse(
       "u.users>1",
-      `(s.count-1)*power(s.m_sd,2)/(u.users-1)
+      `(s.count-1)*s.m_var/(u.users-1)
         + s.count*(u.users-s.count)*power(s.m_mean,2)/(u.users*(u.users-1))`,
       "0"
     );
