@@ -33,6 +33,21 @@ export default function FeatureImplementationModal({
     docSection: DocSection;
   }[] = [
     {
+      id: "javascript",
+      display: "Javascript",
+      language: "javascript",
+      boolean: `if (growthbook.isOn(${JSON.stringify(feature.id)})) {
+  console.log("Feature is enabled!")
+} else {
+  console.log("fallback")
+}`,
+      value: `
+console.log(growthbook.getFeatureValue(${JSON.stringify(
+        feature.id
+      )}), "fallback value");`,
+      docSection: "javascript",
+    },
+    {
       id: "react",
       display: "React",
       language: "tsx",
@@ -67,21 +82,31 @@ function MyComponent() {
       docSection: "tsx",
     },
     {
-      id: "javascript",
-      display: "Javascript",
-      language: "javascript",
-      boolean: `if (growthbook.isOn(${JSON.stringify(feature.id)})) {
-  console.log("Feature is enabled!")
-} else {
-  console.log("fallback")
+      id: "kotlin",
+      display: "Kotlin (Android)",
+      language: "kotlin",
+      boolean: `if (gb.feature(${JSON.stringify(feature.id)}).on) {
+  // Feature is enabled!
 }`,
-      value: `
-console.log(growthbook.getFeatureValue(${JSON.stringify(
-        feature.id
-      )}), "fallback value");`,
-      docSection: "javascript",
+      value: `val feature = gb.feature(${JSON.stringify(feature.id)})
+println(feature.value)
+`,
+      docSection: "kotlin",
     },
-
+    {
+      id: "swift",
+      display: "Swift (iOS)",
+      language: "swift",
+      boolean: `if (gb.isOn(${JSON.stringify(feature.id)})) {
+  // Feature is enabled!
+}`,
+      value: `var value = gb.getFeatureValue(${JSON.stringify(
+        feature.id
+      )}, "default value")
+print(value)
+`,
+      docSection: "sdks",
+    },
     {
       id: "go",
       display: "Go",
@@ -107,18 +132,6 @@ end`,
       )}, 'default value')
 puts(value)`,
       docSection: "ruby",
-    },
-    {
-      id: "kotlin",
-      display: "Kotlin (Android)",
-      language: "kotlin",
-      boolean: `if (gb.feature(${JSON.stringify(feature.id)}).on) {
-  // Feature is enabled!
-}`,
-      value: `val feature = gb.feature(${JSON.stringify(feature.id)})
-println(feature.value)
-`,
-      docSection: "kotlin",
     },
     {
       id: "php",
@@ -175,7 +188,7 @@ echo $value;`,
       close={close}
       size="lg"
       closeCta="Close"
-      header="Feature implementation"
+      header="Feature Implementation"
     >
       <p>
         {first && <>Congratulations on adding your first feature! </>}

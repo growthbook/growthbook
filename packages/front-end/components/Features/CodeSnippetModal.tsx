@@ -22,6 +22,10 @@ function phpArrayFormat(json: unknown) {
     .replace(/:/g, " =>");
 }
 
+function swiftArrayFormat(json: unknown) {
+  return stringify(json).replace(/\{/, "[").replace(/\}/g, "]");
+}
+
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
@@ -347,6 +351,119 @@ function MyComponent() {
             `.trim()}
           />
         </Tab>
+        <Tab display="Kotlin (Android)" id="kotlin">
+          <p>
+            Read the{" "}
+            <DocLink docSection="kotlin">
+              full Kotlin (Android) SDK docs
+            </DocLink>{" "}
+            for more details.
+          </p>
+          <Code
+            language="javascript"
+            filename="build.gradle"
+            code={`repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'io.growthbook.sdk:GrowthBook:1.+'
+}`}
+          />
+          <Code
+            language="kotlin"
+            code={`
+import com.sdk.growthbook.GBSDKBuilder
+
+// TODO: Real user attributes
+val attrs = HashMap<String, Any>()
+${Object.keys(exampleAttributes)
+  .map((k) => {
+    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
+  })
+  .join("\n")}
+
+val gb = GBSDKBuilder(
+  // Fetch and cache feature definitions from GrowthBook API${
+    !isCloud() ? "\n  // We recommend using a CDN in production" : ""
+  }
+  apiKey = "${apiKey || "<your api key here>"}",
+  hostURL = "${getApiBaseUrl()}",
+  attributes = attrs,
+  trackingCallback = { gbExperiment, gbExperimentResult ->
+    // TODO: track in your analytics system
+  }
+).initialize()
+
+if (gb.feature(${JSON.stringify(featureId)}).on) {
+  // Feature is enabled!
+}
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Swift (iOS)" id="swift">
+          <p>
+            View the{" "}
+            <a
+              href="https://github.com/growthbook/growthbook-swift"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub repo
+            </a>{" "}
+            for more details.
+          </p>
+          <div className="mb-3">
+            <strong>Cocoapods Installation</strong>
+            <Code
+              language="javascript"
+              filename="Podfile"
+              code={`
+source 'https://github.com/CocoaPods/Specs.git'
+
+target 'MyApp' do
+  pod 'GrowthBook-IOS'
+end
+          `.trim()}
+            />
+            <Code language="sh" code={"pod install"} />
+          </div>
+          <div className="mb-3">
+            <strong>Swift Package Manager (SPM) Installation</strong>
+            <Code
+              language="swift"
+              filename="Package.swift"
+              code={`
+dependencies: [
+  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+]
+            `.trim()}
+            />
+          </div>
+          <strong>Usage Instructions</strong>
+          <Code
+            language="swift"
+            code={`
+// TODO: Real user attributes
+var attrs = ${swiftArrayFormat(exampleAttributes)}
+
+// Fetch and cache feature definitions from GrowthBook API${
+              !isCloud() ? "\n// We recommend using a CDN in production" : ""
+            }
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  url: "${getFeaturesUrl(apiKey)}",
+  attributes: attrs,
+  trackingCallback: { experiment, experimentResult in 
+    // TODO: track in your analytics system
+  }
+).initializer()
+
+if (gb.isOn(${JSON.stringify(featureId)})) {
+  // Feature is enabled!
+}
+          `.trim()}
+          />
+        </Tab>
         <Tab display="Go" id="go">
           <p>
             Read the <DocLink docSection="go">full Golang SDK docs</DocLink> for
@@ -414,56 +531,6 @@ func main() {
 	if gb.Feature(${JSON.stringify(featureId)}).On {
 		// ...
 	}
-}
-            `.trim()}
-          />
-        </Tab>{" "}
-        <Tab display="Kotlin (Android)" id="kotlin">
-          <p>
-            Read the{" "}
-            <DocLink docSection="kotlin">
-              full Kotlin (Android) SDK docs
-            </DocLink>{" "}
-            for more details.
-          </p>
-          <Code
-            language="javascript"
-            filename="build.gradle"
-            code={`repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.+'
-}`}
-          />
-          <Code
-            language="kotlin"
-            code={`
-import com.sdk.growthbook.GBSDKBuilder
-
-// TODO: Real user attributes
-val attrs = HashMap<String, Any>()
-${Object.keys(exampleAttributes)
-  .map((k) => {
-    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
-  })
-  .join("\n")}
-
-val gb = GBSDKBuilder(
-  // Fetch and cache feature definitions from GrowthBook API${
-    !isCloud() ? "\n  // We recommend using a CDN in production" : ""
-  }
-  apiKey = "${apiKey || "<your api key here>"}",
-  hostURL = "${getApiBaseUrl()}",
-  attributes = attrs,
-  trackingCallback = { gbExperiment, gbExperimentResult ->
-    // TODO: track in your analytics system
-  }
-).initialize()
-
-if (gb.feature(${JSON.stringify(featureId)}).on) {
-  // Feature is enabled!
 }
             `.trim()}
           />

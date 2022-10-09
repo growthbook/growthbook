@@ -26,6 +26,7 @@ export type Language =
   | "css"
   | "php"
   | "python"
+  | "swift"
   | "go"
   | "sh"
   | "yml"
@@ -87,10 +88,13 @@ export default function Code({
 
   return (
     <div
-      className={clsx(`code-holder position-relative`, containerClassName, {
+      className={clsx(`code-holder d-flex flex-column`, containerClassName, {
         collapsible: expandable && enoughLines,
         collapsed: !expanded,
       })}
+      style={{
+        maxWidth: "100%",
+      }}
     >
       <div className="action-buttons bg-light border border-bottom-0 d-flex align-items-center rounded-top">
         <div>
@@ -132,27 +136,25 @@ export default function Code({
           </div>
         )}
       </div>
-      <div className="code">
-        <Suspense
-          fallback={
-            <PrismFallback
-              language={language}
-              style={style}
-              className={clsx("rounded-bottom", className)}
-              code={code}
-            />
-          }
-        >
-          <Prism
+      <Suspense
+        fallback={
+          <PrismFallback
             language={language}
             style={style}
             className={clsx("rounded-bottom", className)}
-            showLineNumbers={true}
-          >
-            {code}
-          </Prism>
-        </Suspense>
-      </div>
+            code={code}
+          />
+        }
+      >
+        <Prism
+          language={language}
+          style={style}
+          className={clsx("rounded-bottom", className)}
+          showLineNumbers={true}
+        >
+          {code}
+        </Prism>
+      </Suspense>
     </div>
   );
 }

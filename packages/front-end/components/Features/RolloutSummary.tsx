@@ -48,7 +48,7 @@ export default function RolloutSummary({
           </div>
         </div>
       </div>
-      <div className="row align-items-center">
+      <div className="row align-items-top">
         <div className="col-auto">
           <strong>SERVE</strong>
         </div>

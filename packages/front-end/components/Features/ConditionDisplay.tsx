@@ -2,6 +2,8 @@ import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "../../services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import stringify from "json-stringify-pretty-compact";
+import { useMemo } from "react";
 
 function operatorToText(operator: string): string {
   switch (operator) {
@@ -72,13 +74,23 @@ function getValue(
 export default function ConditionDisplay({ condition }: { condition: string }) {
   const { savedGroups } = useDefinitions();
 
+  const jsonFormatted = useMemo(() => {
+    try {
+      const parsed = JSON.parse(condition);
+      return stringify(parsed);
+    } catch (e) {
+      console.error(e);
+      return condition;
+    }
+  }, [condition]);
+
   const conds = jsonToConds(condition);
 
   const attributes = useAttributeMap();
 
   // Could not parse into simple conditions
   if (conds === null || !attributes.size) {
-    return <InlineCode language="json" code={condition} />;
+    return <InlineCode language="json" code={jsonFormatted} />;
   }
 
   return (
