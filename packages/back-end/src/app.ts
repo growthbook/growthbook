@@ -104,7 +104,8 @@ type Controller<T extends string> = Record<T, Handler>;
 
 // Wrap every controller function in asyncHandler to catch errors properly
 function wrapController<T extends string>(
-  controller: Controller<T>
+  // eslint-disable-next-line
+  controller: Record<T, any>
 ): Controller<T> {
   const newController = {} as Controller<T>;
   Object.keys(controller).forEach((key: T) => {
@@ -284,7 +285,7 @@ app.get(
   getExperimentConfig
 );
 app.get(
-  "/api/features/:key",
+  "/api/features/:key?",
   cors({
     credentials: false,
     origin: "*",
@@ -293,7 +294,7 @@ app.get(
 );
 // For preflight requests
 app.options(
-  "/api/features/:key",
+  "/api/features/:key?",
   cors({
     credentials: false,
     origin: "*",

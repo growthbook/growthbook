@@ -8,7 +8,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -195,7 +195,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
-                  expandable={true}
                 />
               </div>
             )}

@@ -3,7 +3,7 @@ import stringify from "json-stringify-pretty-compact";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight, FaCode } from "react-icons/fa";
 import Link from "next/link";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 import usePermissions from "../../hooks/usePermissions";
 
 export default function VisualCode({

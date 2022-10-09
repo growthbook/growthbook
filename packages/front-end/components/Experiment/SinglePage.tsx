@@ -37,7 +37,7 @@ import ResultsIndicator from "./ResultsIndicator";
 import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 function getColWidth(v: number) {

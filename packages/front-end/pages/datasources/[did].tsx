@@ -7,7 +7,7 @@ import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import Code from "../../components/Code";
+import Code from "../../components/SyntaxHighlighting/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink, DocSection } from "../../components/DocLink";

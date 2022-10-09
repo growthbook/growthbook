@@ -3,7 +3,7 @@ import useApi from "../hooks/useApi";
 import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface, EventType } from "back-end/types/audit";
 import { ago, datetime } from "../services/dates";
-import Code from "./Code";
+import Code from "./SyntaxHighlighting/Code";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "./Button";
