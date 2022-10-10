@@ -50,37 +50,39 @@ const ApiKeys: FC = () => {
         Use API keys to fetch feature definitions for our SDKs and interact with
         our REST API. <DocLink docSection="api">View Documentation</DocLink>
       </p>
-      <div className="mb-5">
-        <div className="row align-items-center mb-2">
-          <div className="col">
-            <h2>Publishable API Keys</h2>
+      <div className="mb-5 appbox">
+        <div className="p-3">
+          <div className="row align-items-center">
+            <div className="col">
+              <h2>Publishable API Keys</h2>
+            </div>
+            <div className="col-auto">
+              <button
+                className="btn btn-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen("publishable");
+                }}
+              >
+                <FaKey /> Create New Publishable Key
+              </button>
+            </div>
           </div>
-          <div className="col-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpen("publishable");
-              }}
-            >
-              <FaKey /> Create New Publishable Key
-            </button>
-          </div>
+          <p>
+            Publishable keys have extremely restricted readonly access to your
+            account and can be safely exposed to users (e.g. in your HTML source
+            code).
+          </p>
+          <p>
+            Publishable keys are scoped to a specific environment.{" "}
+            <Link href={`/environments`}>
+              <a>Manage environments</a>
+            </Link>
+          </p>
         </div>
-        <p>
-          Publishable keys have extremely restricted readonly access to your
-          account and can be safely exposed to users (e.g. in your HTML source
-          code).
-        </p>
-        <p>
-          Publishable keys are scoped to a specific environment.{" "}
-          <Link href={`/environments`}>
-            <a>Manage environments</a>
-          </Link>
-        </p>
 
         {publishableKeys.length > 0 && (
-          <table className="table mb-3 appbox gbtable">
+          <table className="table mb-0 appbox gbtable">
             <thead>
               <tr>
                 <th>Description</th>
@@ -126,31 +128,33 @@ const ApiKeys: FC = () => {
           </table>
         )}
       </div>
-      <div className="mb-3">
-        <div className="row mb-2 align-items-center">
-          <div className="col">
-            <h2>Secret API Keys</h2>
+      <div className="mb-3 appbox">
+        <div className="p-3">
+          <div className="row align-items-center">
+            <div className="col">
+              <h2>Secret API Keys</h2>
+            </div>
+            <div className="col-auto">
+              <button
+                className="btn btn-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen("secret");
+                }}
+              >
+                <FaKey /> Create New Secret Key
+              </button>
+            </div>
           </div>
-          <div className="col-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpen("secret");
-              }}
-            >
-              <FaKey /> Create New Secret Key
-            </button>
-          </div>
+          <p>
+            Secret keys have full read and write access to your account. Because
+            of this, they must be kept secure and{" "}
+            <strong>must not be exposed to users</strong>.
+          </p>
         </div>
-        <p>
-          Secret keys have full read and write access to your account. Because
-          of this, they must be kept secure and{" "}
-          <strong>must not be exposed to users</strong>.
-        </p>
 
         {secretKeys.length > 0 && (
-          <table className="table mb-3 appbox gbtable">
+          <table className="table mb-0 appbox gbtable">
             <thead>
               <tr>
                 <th>Description</th>
