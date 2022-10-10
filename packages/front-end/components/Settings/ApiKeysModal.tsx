@@ -10,7 +10,8 @@ const ApiKeysModal: FC<{
   close: () => void;
   onCreate: () => void;
   defaultDescription?: string;
-}> = ({ close, onCreate, defaultDescription = "" }) => {
+  secret?: boolean;
+}> = ({ close, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
 
@@ -24,10 +25,14 @@ const ApiKeysModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     await apiCall("/keys", {
       method: "POST",
-      body: JSON.stringify(value),
+      body: JSON.stringify({
+        ...value,
+        secret,
+      }),
     });
     track("Create API Key", {
       environment: value.environment,
+      isSecret: secret,
     });
     onCreate();
   });
@@ -35,26 +40,29 @@ const ApiKeysModal: FC<{
   return (
     <Modal
       close={close}
-      header="Create New Key"
+      header={secret ? "Create Secret Key" : "Create Publishable Key"}
       open={true}
       submit={onSubmit}
       cta="Create"
     >
       <Field
-        label="Description (optional)"
+        label="Description"
         textarea
+        required
         {...form.register("description")}
       />
-      <Field
-        label="Environment"
-        options={environments.map((e) => {
-          return {
-            value: e.id,
-            display: e.id,
-          };
-        })}
-        {...form.register("environment")}
-      />
+      {!secret && (
+        <Field
+          label="Environment"
+          options={environments.map((e) => {
+            return {
+              value: e.id,
+              display: e.id,
+            };
+          })}
+          {...form.register("environment")}
+        />
+      )}
     </Modal>
   );
 };

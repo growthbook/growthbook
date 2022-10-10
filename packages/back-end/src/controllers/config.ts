@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { getExperimentsByOrganization } from "../services/experiments";
-import { lookupOrganizationByApiKey } from "../services/apiKey";
+import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import fs from "fs";
 import path from "path";
 import { APP_ORIGIN } from "../util/secrets";
@@ -27,11 +27,19 @@ export async function getExperimentConfig(
   const { key } = req.params;
 
   try {
-    const { organization } = await lookupOrganizationByApiKey(key);
-    if (!organization) {
+    const { organization, key: keyData } = await lookupOrganizationByApiKey(
+      key
+    );
+    if (!organization || !keyData) {
       return res.status(400).json({
         status: 400,
         error: "Invalid API key",
+      });
+    }
+    if (keyData.secret) {
+      return res.status(400).json({
+        status: 400,
+        error: "Must use a Publishable API key to get experiment config",
       });
     }
 
@@ -89,11 +97,20 @@ export async function getExperimentsScript(
   const { key } = req.params;
 
   try {
-    const { organization } = await lookupOrganizationByApiKey(key);
-    if (!organization) {
+    const { organization, key: keyData } = await lookupOrganizationByApiKey(
+      key
+    );
+    if (!organization || !keyData) {
       return res
         .status(400)
         .send(`console.error("Invalid GrowthBook API key");`);
+    }
+    if (keyData.secret) {
+      return res.status(400).json({
+        status: 400,
+        error:
+          "Must use a Publishable API key to load the visual editor script",
+      });
     }
     const experiments = await getExperimentsByOrganization(organization);
 

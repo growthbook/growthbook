@@ -24,7 +24,7 @@ import {
   updateDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "../services/apiKey";
+import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
@@ -62,18 +62,26 @@ export async function getFeaturesPublic(req: Request, res: Response) {
   }
 
   try {
-    const { organization, environment } = await lookupOrganizationByApiKey(key);
-    if (!organization) {
+    const { organization, key: keyData } = await lookupOrganizationByApiKey(
+      key
+    );
+    if (!organization || !keyData) {
       return res.status(400).json({
         status: 400,
         error: "Invalid API key",
+      });
+    }
+    if (keyData.secret) {
+      return res.status(400).json({
+        status: 400,
+        error: "Must use a Publishable API key to get feature definitions",
       });
     }
 
     //Archived features not to be shown
     const { features, dateUpdated } = await getFeatureDefinitions(
       organization,
-      environment,
+      keyData.environment,
       project
     );
 

@@ -21,12 +21,6 @@ import {
 } from "../services/datasource";
 import { createUser, getUsersByIds, updatePassword } from "../services/users";
 import { getAllTags } from "../models/TagModel";
-import {
-  getAllApiKeysByOrganization,
-  createApiKey,
-  deleteByOrganizationAndApiKey,
-  getFirstApiKey,
-} from "../services/apiKey";
 import { UserModel } from "../models/UserModel";
 import {
   Invite,
@@ -70,6 +64,15 @@ import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
 import { getLicense } from "../init/license";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
+import {
+  createPublishableApiKey,
+  createSecretApiKey,
+  deleteApiKeyById,
+  deleteApiKeyByKey,
+  getAllApiKeysByOrganization,
+  getFirstPublishableApiKey,
+  getUnredactedSecretKey,
+} from "../models/ApiKeyModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -977,46 +980,92 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 }
 
 export async function postApiKey(
-  req: AuthRequest<{ description?: string; environment: string }>,
+  req: AuthRequest<{
+    description?: string;
+    environment: string;
+    secret: boolean;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment } = req.body;
+  const { description, environment, secret } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
-    const existing = await getFirstApiKey(org.id, environment);
+    if (secret) {
+      throw new Error("Cannot use 'preferExisting' for secret API keys");
+    }
+    const existing = await getFirstPublishableApiKey(org.id, environment);
     if (existing) {
       return res.status(200).json({
         status: 200,
-        key: existing.key,
+        key: existing,
       });
     }
   }
 
   // Only require permissions if we are creating a new API key
   req.checkPermissions("organizationSettings");
-  const key = await createApiKey(org.id, environment, description);
 
-  res.status(200).json({
-    status: 200,
-    key,
-  });
+  if (secret) {
+    const key = await createSecretApiKey({
+      organization: org.id,
+      description: description || "",
+    });
+    res.status(200).json({
+      status: 200,
+      key,
+    });
+  } else {
+    const key = await createPublishableApiKey({
+      organization: org.id,
+      environment,
+      description: description || "",
+    });
+    res.status(200).json({
+      status: 200,
+      key,
+    });
+  }
 }
 
 export async function deleteApiKey(
-  req: AuthRequest<null, { key: string }>,
+  req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
-  const { key } = req.params;
+  // Old API keys did not have an id, so we need to delete by the key value itself
+  const { key, id } = req.body;
 
-  await deleteByOrganizationAndApiKey(org.id, key);
+  if (id) {
+    await deleteApiKeyById(org.id, id);
+  } else if (key) {
+    await deleteApiKeyByKey(org.id, key);
+  } else {
+    throw new Error("Must provide either an API key or id in order to delete");
+  }
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postApiKeyReveal(
+  req: AuthRequest<{ id: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { id } = req.body;
+
+  const key = await getUnredactedSecretKey(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    key,
   });
 }
 

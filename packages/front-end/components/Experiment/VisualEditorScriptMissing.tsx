@@ -24,7 +24,7 @@ export default function VisualEditorScriptMissing({
     const res = await apiCall<{ keys: ApiKeyInterface[] }>(`/keys`, {
       method: "GET",
     });
-    setApiKeys(res.keys);
+    setApiKeys(res.keys.filter((k) => !k.secret));
   }
 
   useEffect(() => {

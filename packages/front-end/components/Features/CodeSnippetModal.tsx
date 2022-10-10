@@ -14,6 +14,7 @@ import { useAttributeSchema, useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
+import { PublishableApiKey } from "back-end/types/apikey";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -149,17 +150,18 @@ export default function CodeSnippetModal({
 
       try {
         setApiKey("...");
-        const key = await apiCall<{ key: string }>(
+        const res = await apiCall<{ key: PublishableApiKey }>(
           `/keys?preferExisting=true`,
           {
             method: "POST",
             body: JSON.stringify({
               description: `${environment} Features SDK`,
               environment: environment,
+              secret: false,
             }),
           }
         );
-        setApiKey(key.key || "");
+        setApiKey(res.key?.key || "");
       } catch (e) {
         // Happens when user doesn't have permission to create new API keys
         console.error(e);

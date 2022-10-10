@@ -3,7 +3,7 @@ import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import { updateOrganization } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
-import { getAllApiKeysByOrganization } from "../services/apiKey";
+import { getAllApiKeysByOrganization } from "../models/ApiKeyModel";
 import {
   GbVercelEnvMap,
   ApiKeyRow,
