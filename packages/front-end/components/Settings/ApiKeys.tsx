@@ -11,6 +11,7 @@ import { DocLink } from "../DocLink";
 import CopyToClipboard from "../CopyToClipboard";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "./ClickToReveal";
+import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -128,90 +129,92 @@ const ApiKeys: FC = () => {
           </table>
         )}
       </div>
-      <div className="mb-3 appbox">
-        <div className="p-3">
-          <div className="row align-items-center">
-            <div className="col">
-              <h2>Secret API Keys</h2>
+      <IfFeatureEnabled feature="secret-api-keys">
+        <div className="mb-3 appbox">
+          <div className="p-3">
+            <div className="row align-items-center">
+              <div className="col">
+                <h2>Secret API Keys</h2>
+              </div>
+              <div className="col-auto">
+                <button
+                  className="btn btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpen("secret");
+                  }}
+                >
+                  <FaKey /> Create New Secret Key
+                </button>
+              </div>
             </div>
-            <div className="col-auto">
-              <button
-                className="btn btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setOpen("secret");
-                }}
-              >
-                <FaKey /> Create New Secret Key
-              </button>
-            </div>
+            <p>
+              Secret keys have full read and write access to your account.
+              Because of this, they must be kept secure and{" "}
+              <strong>must not be exposed to users</strong>.
+            </p>
           </div>
-          <p>
-            Secret keys have full read and write access to your account. Because
-            of this, they must be kept secure and{" "}
-            <strong>must not be exposed to users</strong>.
-          </p>
-        </div>
 
-        {secretKeys.length > 0 && (
-          <table className="table mb-0 appbox gbtable">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Key</th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {secretKeys.map((key) => (
-                <tr key={key.id}>
-                  <td>{key.description}</td>
-                  <td>
-                    <ClickToReveal
-                      valueWhenHidden="Reveal key"
-                      getValue={async () => {
-                        const res = await apiCall<{ key: SecretApiKey }>(
-                          `/keys/reveal`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({
-                              id: key.id,
-                            }),
-                          }
-                        );
-                        if (!res.key?.key) {
-                          throw new Error("Could not load secret key value");
-                        }
-                        return res.key.key;
-                      }}
-                    >
-                      {(value) => <CopyToClipboard text={value} />}
-                    </ClickToReveal>
-                  </td>
-                  <td>
-                    <MoreMenu id={key.key + "_actions"}>
-                      <DeleteButton
-                        onClick={async () => {
-                          await apiCall(`/keys`, {
-                            method: "DELETE",
-                            body: JSON.stringify({
-                              id: key.id,
-                            }),
-                          });
-                          mutate();
-                        }}
-                        className="dropdown-item"
-                        displayName="Secret Api Key"
-                        text="Delete key"
-                      />
-                    </MoreMenu>
-                  </td>
+          {secretKeys.length > 0 && (
+            <table className="table mb-0 appbox gbtable">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Key</th>
+                  <th style={{ width: 30 }}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {secretKeys.map((key) => (
+                  <tr key={key.id}>
+                    <td>{key.description}</td>
+                    <td>
+                      <ClickToReveal
+                        valueWhenHidden="Reveal key"
+                        getValue={async () => {
+                          const res = await apiCall<{ key: SecretApiKey }>(
+                            `/keys/reveal`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({
+                                id: key.id,
+                              }),
+                            }
+                          );
+                          if (!res.key?.key) {
+                            throw new Error("Could not load secret key value");
+                          }
+                          return res.key.key;
+                        }}
+                      >
+                        {(value) => <CopyToClipboard text={value} />}
+                      </ClickToReveal>
+                    </td>
+                    <td>
+                      <MoreMenu id={key.key + "_actions"}>
+                        <DeleteButton
+                          onClick={async () => {
+                            await apiCall(`/keys`, {
+                              method: "DELETE",
+                              body: JSON.stringify({
+                                id: key.id,
+                              }),
+                            });
+                            mutate();
+                          }}
+                          className="dropdown-item"
+                          displayName="Secret Api Key"
+                          text="Delete key"
+                        />
+                      </MoreMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </IfFeatureEnabled>
     </div>
   );
 };
