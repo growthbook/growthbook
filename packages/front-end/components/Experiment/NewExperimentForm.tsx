@@ -236,7 +236,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               supportsSQL ? (
                 <>
                   Must match the <code>experiment_id</code> field in your
-                  datasource
+                  database table
                 </>
               ) : (
                 "Must match the experiment id in your tracking callback"
