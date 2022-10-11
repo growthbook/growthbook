@@ -140,6 +140,7 @@ export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
   settings: DataSourceSettings;
+  decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
   getSensitiveParamKeys(): string[];

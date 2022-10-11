@@ -293,6 +293,11 @@ export async function refreshMetric(
       throw new Error("Could not load metric datasource");
     }
     const integration = getSourceIntegrationObject(datasource);
+    if (integration.decryptionError) {
+      throw new Error(
+        "Could not decrypt data source credentials. View the data source settings for more info."
+      );
+    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
