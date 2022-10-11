@@ -26,7 +26,7 @@ async function run() {
   await init();
   if (usingFileConfig()) {
     console.error(
-      "============\n== ERROR: == Cannot migration encryption keys when using config.yml\n============\n"
+      "============\n== ERROR: == Cannot migrate encryption keys when using config.yml\n============\n"
     );
     process.exit(1);
   }

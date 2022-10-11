@@ -162,6 +162,8 @@ export async function updateDataSource(
   );
 }
 
+// WARNING: This does not restrict by organization
+// Only use for deployment-wide actions like migration scripts or superadmin tools
 export async function _dangerousGetAllDatasources(): Promise<
   DataSourceInterface[]
 > {
