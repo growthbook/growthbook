@@ -63,6 +63,11 @@ pre {
 
   [class$="-Input"] {
     color: var(--text-color-main);
+
+    // to avoid issues with react-select adding `color: inherit`
+    input {
+      color: var(--text-color-main) !important;
+    }
   }
 
   [class$="-singleValue"] {
