@@ -83,14 +83,6 @@ pre {
       background-color: var(--surface-background-color-alt);
     }
   }
-
-  [class$="-multiValue"] {
-    background-color: var(--form-multivalue-background-color);
-
-    > * {
-      color: var(--form-multivalue-text-color);
-    }
-  }
 }
 
 // endregion Forms
