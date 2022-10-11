@@ -90,6 +90,14 @@ const DataSourcePage: FC = () => {
           </a>
         </Link>
       </div>
+      {d.decryptionError && (
+        <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
+          <strong>Error Decrypting Data Source Credentials.</strong>{" "}
+          <DocLink docSection="env_prod" className="btn btn-primary">
+            View instructions for fixing
+          </DocLink>
+        </div>
+      )}
       <div className="row mb-3 align-items-center">
         <div className="col-auto">
           <h1 className="mb-0">{d.name}</h1>
