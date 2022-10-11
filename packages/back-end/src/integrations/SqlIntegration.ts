@@ -28,6 +28,7 @@ export default abstract class SqlIntegration
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
+  decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
   abstract setParams(encryptedParams: string): void;
@@ -36,7 +37,12 @@ export default abstract class SqlIntegration
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
-    this.setParams(encryptedParams);
+    try {
+      this.setParams(encryptedParams);
+    } catch (e) {
+      this.params = {};
+      this.decryptionError = true;
+    }
     this.settings = {
       ...settings,
     };

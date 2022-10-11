@@ -161,3 +161,10 @@ export async function updateDataSource(
     }
   );
 }
+
+export async function _dangerousGetAllDatasources(): Promise<
+  DataSourceInterface[]
+> {
+  const all = await DataSourceModel.find();
+  return all.map(toInterface);
+}
