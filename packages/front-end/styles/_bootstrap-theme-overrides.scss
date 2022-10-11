@@ -262,6 +262,19 @@ pre {
 
 // endregion Modals
 
+// region Pagination
+
+.pagination {
+  .page-link {
+    background-color: var(--surface-background-color);
+  }
+}
+.page-item.disabled .page-link {
+  background-color: var(--surface-background-color);
+}
+
+// endregion Pagination
+
 // region Tabs
 
 .nav-tabs {
