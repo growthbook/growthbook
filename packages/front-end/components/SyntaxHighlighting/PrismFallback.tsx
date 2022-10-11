@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { CSSProperties } from "react";
-import { Language } from "../Code";
+import { Language } from "./Code";
 
 export interface Props {
   code: string;

@@ -60,7 +60,7 @@ export async function postSegments(
   });
 }
 export async function putSegment(
-  req: AuthRequest<Partial<SegmentInterface>>,
+  req: AuthRequest<Partial<SegmentInterface>, { id: string }>,
   res: Response
 ) {
   req.checkPermissions("createSegments");

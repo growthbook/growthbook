@@ -10,6 +10,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { getExposureQuery } from "../../services/datasources";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import { FaQuestionCircle } from "react-icons/fa";
+import Code from "../SyntaxHighlighting/Code";
 
 const FilterSummary: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -162,7 +163,11 @@ const FilterSummary: FC<{
               </div>
               <div className="col">
                 {snapshot.queryFilter ? (
-                  <code>{snapshot.queryFilter}</code>
+                  <Code
+                    language="sql"
+                    code={snapshot.queryFilter}
+                    expandable={true}
+                  />
                 ) : (
                   <em>none</em>
                 )}

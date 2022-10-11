@@ -127,7 +127,7 @@ export default function FeaturePage() {
           open={true}
           header="Audit Log"
           close={() => setAuditModal(false)}
-          size="lg"
+          size="max"
           closeCta="Close"
         >
           <HistoryTable type="feature" id={data.feature.id} />

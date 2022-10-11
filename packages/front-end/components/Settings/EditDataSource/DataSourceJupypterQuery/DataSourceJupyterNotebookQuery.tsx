@@ -2,7 +2,7 @@ import React, { FC, useCallback, useState } from "react";
 import { EditJupyterNotebookQueryRunner } from "./EditJupyterNotebookQueryRunner";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
