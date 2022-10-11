@@ -6,7 +6,7 @@ import express, {
   Response,
 } from "express";
 import mongoInit from "./init/mongo";
-import licenceInit from "./init/licence";
+import licenseInit from "./init/license";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -14,6 +14,7 @@ import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
   IS_CLOUD,
+  SENTRY_DSN,
   UPLOAD_METHOD,
 } from "./util/secrets";
 import {
@@ -27,6 +28,11 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
+import * as Sentry from "@sentry/node";
+
+if (SENTRY_DSN) {
+  Sentry.init({ dsn: SENTRY_DSN });
+}
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -82,6 +88,10 @@ const slackController = wrapController(slackControllerRaw);
 
 import * as tagsControllerRaw from "./controllers/tags";
 const tagsController = wrapController(tagsControllerRaw);
+
+import * as savedGroupsControllerRaw from "./controllers/savedGroups";
+const savedGroupsController = wrapController(savedGroupsControllerRaw);
+
 // End Controllers
 
 import { getUploadsDir } from "./services/files";
@@ -94,7 +104,8 @@ type Controller<T extends string> = Record<T, Handler>;
 
 // Wrap every controller function in asyncHandler to catch errors properly
 function wrapController<T extends string>(
-  controller: Controller<T>
+  // eslint-disable-next-line
+  controller: Record<T, any>
 ): Controller<T> {
   const newController = {} as Controller<T>;
   Object.keys(controller).forEach((key: T) => {
@@ -108,13 +119,21 @@ function wrapController<T extends string>(
 
 const app = express();
 
+if (SENTRY_DSN) {
+  app.use(
+    Sentry.Handlers.requestHandler({
+      user: ["email", "sub"],
+    })
+  );
+}
+
 let initPromise: Promise<void>;
 async function init() {
   if (!initPromise) {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
-      await licenceInit();
+      await licenseInit();
     })();
   }
   try {
@@ -266,7 +285,7 @@ app.get(
   getExperimentConfig
 );
 app.get(
-  "/api/features/:key",
+  "/api/features/:key?",
   cors({
     credentials: false,
     origin: "*",
@@ -275,7 +294,7 @@ app.get(
 );
 // For preflight requests
 app.options(
-  "/api/features/:key",
+  "/api/features/:key?",
   cors({
     credentials: false,
     origin: "*",
@@ -435,6 +454,10 @@ if (IS_CLOUD) {
 // tags
 app.post("/tag", tagsController.postTag);
 app.delete("/tag/:id", tagsController.deleteTag);
+
+// groups
+app.post("/saved-groups", savedGroupsController.postSavedGroup);
+app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -643,8 +666,17 @@ app.use(function (req, res) {
   });
 });
 
-// eslint-disable-next-line
-const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+if (SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
+const errorHandler: ErrorRequestHandler = (
+  err,
+  req,
+  res: Response & { sentry?: string },
+  // eslint-disable-next-line
+  next
+) => {
   const status = err.status || 400;
 
   if (req.log) {
@@ -656,6 +688,7 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   res.status(status).json({
     status: status,
     message: err.message || "An error occurred",
+    errorId: SENTRY_DSN ? res.sentry : undefined,
   });
 };
 app.use(errorHandler);

@@ -8,7 +8,7 @@ import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 import TagsInput from "../Tags/TagsInput";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import {
@@ -270,6 +270,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const conversionWindowSupported = capSupported;
 
   const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
+  const supportsJS =
+    currentDataSource?.properties?.queryLanguage === "javascript";
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
@@ -559,7 +561,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 {value.type !== "binomial" && !supportsSQL && (
                   <Field
                     label="User Value Aggregation"
-                    placeholder="values.reduce((sum,n)=>sum+n, 0)"
+                    placeholder="sum(values)"
                     textarea
                     minRows={1}
                     {...form.register("aggregation")}
@@ -588,21 +590,29 @@ const MetricForm: FC<MetricFormProps> = ({
                             className="form-control"
                             {...form.register(`conditions.${i}.operator`)}
                           >
-                            <option value="=">=</option>
-                            <option value="!=">!=</option>
-                            <option value="~">~</option>
-                            <option value="!~">!~</option>
-                            <option value="<">&lt;</option>
-                            <option value=">">&gt;</option>
-                            <option value="<=">&lt;=</option>
-                            <option value=">=">&gt;=</option>
+                            <option value="=">equals</option>
+                            <option value="!=">does not equal</option>
+                            <option value="~">matches the regex</option>
+                            <option value="!~">does not match the regex</option>
+                            <option value="<">is less than</option>
+                            <option value=">">is greater than</option>
+                            <option value="<=">is less than or equal to</option>
+                            <option value=">=">
+                              is greater than or equal to
+                            </option>
+                            {supportsJS && (
+                              <option value="=>">custom javascript</option>
+                            )}
                           </select>
                         </div>
                         <div className="col-auto">
-                          <input
+                          <Field
                             required
-                            className="form-control"
                             placeholder="Value"
+                            textarea={
+                              form.watch(`conditions.${i}.operator`) === "=>"
+                            }
+                            minRows={1}
                             {...form.register(`conditions.${i}.value`)}
                           />
                         </div>

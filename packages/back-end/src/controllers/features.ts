@@ -49,6 +49,13 @@ import { getRevisions } from "../models/FeatureRevisionModel";
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
 
+  if (!key) {
+    return res.status(400).json({
+      status: 400,
+      error: "Missing API key",
+    });
+  }
+
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
@@ -568,7 +575,10 @@ export async function postFeatureArchive(
   });
 }
 
-export async function getFeatures(req: AuthRequest, res: Response) {
+export async function getFeatures(
+  req: AuthRequest<unknown, unknown, { project?: string }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
 
   let project = "";

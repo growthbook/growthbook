@@ -13,19 +13,21 @@ import {
   Permissions,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import { getApiHost, getAppOrigin, isCloud } from "./env";
+import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
 import Welcome from "../components/Auth/Welcome";
+import * as Sentry from "@sentry/react";
 
 export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
   permissions?: Permissions;
+  enterprise: boolean;
   settings?: OrganizationSettings;
   freeSeats?: number;
   discountCode?: string;
@@ -242,6 +244,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       id: specialOrg.id,
       name: specialOrg.name,
       role: "admin",
+      enterprise: specialOrg.enterprise,
     });
   }
 
@@ -333,6 +336,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          if (isSentryEnabled()) {
+            Sentry.setUser(null);
+          }
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,

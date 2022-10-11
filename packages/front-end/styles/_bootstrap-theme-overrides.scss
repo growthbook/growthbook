@@ -38,12 +38,10 @@ pre {
 .form-control {
   border-color: var(--border-color-300);
 
-  &[readonly] {
+  &[readonly],
+  &:disabled {
     background-color: var(--surface-background-color-alt);
   }
-}
-
-.form-control:focus {
 }
 
 .input-group-text {
@@ -74,6 +72,11 @@ pre {
   [class$="-control"] {
     background-color: var(--surface-background-color);
     border-color: var(--border-color-300);
+
+    &[readonly],
+    &:disabled {
+      background-color: var(--surface-background-color-alt);
+    }
   }
 
   [class$="-multiValue"] {

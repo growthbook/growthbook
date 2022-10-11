@@ -150,10 +150,12 @@ export interface OrganizationInterface {
   ownerEmail: string;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
+  restrictAuthSubPrefix?: string;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  enterprise?: boolean;
   subscription?: {
     id: string;
     qty: number;
@@ -184,10 +186,17 @@ export type NamespaceUsage = Record<
   }[]
 >;
 
-export type LicenceData = {
+export type LicenseData = {
+  // Unique id for the license key
   ref: string;
+  // Name of organization on the license
   sub: string;
+  // Max number of seats
   qty: number;
+  // Date issued
   iat: string;
+  // Expiration date
   eat: string;
+  // If it's a trial or not
+  trial?: boolean;
 };

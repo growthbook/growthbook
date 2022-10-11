@@ -7,6 +7,7 @@ import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import useApi from "../hooks/useApi";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { TagInterface } from "back-end/types/tag";
+import { SavedGroupInterface } from "back-end/types/saved-group";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -15,6 +16,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   groups: string[];
+  savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
 };
 
@@ -55,6 +57,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   groups: [],
+  savedGroups: [],
   projects: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
@@ -132,6 +135,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: data.tags,
       groups: data.groups,
+      savedGroups: data.savedGroups,
       projects: data.projects,
       project:
         data.projects && data.projects.map((p) => p.id).includes(project)

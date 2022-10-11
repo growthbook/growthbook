@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";
 import cloneDeep from "lodash/cloneDeep";
@@ -176,7 +176,6 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                       language="sql"
                       code={identityJoin.query}
                       containerClassName="mb-0"
-                      expandable={true}
                     />
                   )}
                 </div>

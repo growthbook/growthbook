@@ -86,7 +86,16 @@ export async function postReportFromSnapshot(
   });
 }
 
-export async function getReports(req: AuthRequest, res: Response) {
+export async function getReports(
+  req: AuthRequest<
+    unknown,
+    unknown,
+    {
+      project?: string;
+    }
+  >,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -116,7 +125,10 @@ export async function getReports(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getReportsOnExperiment(req: AuthRequest, res: Response) {
+export async function getReportsOnExperiment(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -172,7 +184,7 @@ export async function deleteReport(
 }
 
 export async function refreshReport(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
   req.checkPermissions("runQueries");

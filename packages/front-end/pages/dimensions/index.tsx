@@ -14,6 +14,7 @@ import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../../components/DocLink";
+import Code, { Language } from "../../components/SyntaxHighlighting/Code";
 
 const DimensionsPage: FC = () => {
   const {
@@ -138,6 +139,8 @@ const DimensionsPage: FC = () => {
               <tbody>
                 {dimensions.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
+                  const language: Language =
+                    datasource?.properties?.queryLanguage || "sql";
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
@@ -150,14 +153,15 @@ const DimensionsPage: FC = () => {
                           ? s.userIdType || "user_id"
                           : ""}
                       </td>
-                      <td className="d-none d-lg-table-cell">
-                        {datasource?.properties?.events ? (
-                          <div>
-                            Event property: <code>{s.sql}</code>
-                          </div>
-                        ) : (
-                          <code>{s.sql}</code>
-                        )}
+                      <td
+                        className="d-none d-lg-table-cell"
+                        style={{ maxWidth: "30em" }}
+                      >
+                        <Code
+                          language={language}
+                          code={s.sql}
+                          expandable={true}
+                        />
                       </td>
                       {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
                       {!hasFileConfig() && permissions.createDimensions && (
