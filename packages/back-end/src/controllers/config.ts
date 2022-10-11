@@ -27,16 +27,14 @@ export async function getExperimentConfig(
   const { key } = req.params;
 
   try {
-    const { organization, key: keyData } = await lookupOrganizationByApiKey(
-      key
-    );
-    if (!organization || !keyData) {
+    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    if (!organization) {
       return res.status(400).json({
         status: 400,
         error: "Invalid API key",
       });
     }
-    if (keyData.secret) {
+    if (secret) {
       return res.status(400).json({
         status: 400,
         error: "Must use a Publishable API key to get experiment config",
@@ -97,15 +95,13 @@ export async function getExperimentsScript(
   const { key } = req.params;
 
   try {
-    const { organization, key: keyData } = await lookupOrganizationByApiKey(
-      key
-    );
-    if (!organization || !keyData) {
+    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    if (!organization) {
       return res
         .status(400)
         .send(`console.error("Invalid GrowthBook API key");`);
     }
-    if (keyData.secret) {
+    if (secret) {
       return res.status(400).json({
         status: 400,
         error:

@@ -24,60 +24,38 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
-async function createKey<T>(
-  data: Omit<ApiKeyInterface, "id" | "dateCreated">
-): Promise<T> {
-  const id = uniqid("key_");
-
-  const doc = await ApiKeyModel.create({
-    ...data,
-    id,
-    dateCreated: new Date(),
-  });
-
-  return doc.toJSON() as T;
-}
-
-export async function createPublishableApiKey({
+export async function createApiKey({
   environment,
   organization,
   description,
+  secret,
 }: {
   environment: string;
   organization: string;
   description: string;
-}): Promise<PublishableApiKey> {
-  const key =
-    "pk_" +
-    environment.substring(0, 4) +
-    "_" +
-    crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
+  secret: boolean;
+}): Promise<ApiKeyInterface> {
+  if (!secret && !environment) {
+    throw new Error("Publishable API keys must have an environment set");
+  }
 
-  return createKey<PublishableApiKey>({
+  const prefix = secret ? "sk_" : `pk_${environment.substring(0, 4)}_`;
+  const key =
+    prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
+
+  const id = uniqid("key_");
+
+  const doc = await ApiKeyModel.create({
     environment,
     organization,
     description,
     key,
-    secret: false,
+    secret,
+    id,
+    dateCreated: new Date(),
   });
-}
 
-export async function createSecretApiKey({
-  organization,
-  description,
-}: {
-  organization: string;
-  description: string;
-}): Promise<SecretApiKey> {
-  const key =
-    "sk_" + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
-
-  return createKey<SecretApiKey>({
-    organization,
-    description,
-    key,
-    secret: true,
-  });
+  return doc.toJSON();
 }
 
 export async function deleteApiKeyById(organization: string, id: string) {
@@ -96,13 +74,13 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 
 export async function lookupOrganizationByApiKey(
   key: string
-): Promise<{ organization?: string; key?: ApiKeyInterface }> {
+): Promise<Partial<ApiKeyInterface>> {
   const doc = await ApiKeyModel.findOne({
     key,
   });
 
   if (!doc || !doc.organization) return {};
-  return { organization: doc.organization, key: doc.toJSON() };
+  return doc.toJSON();
 }
 
 export async function getAllApiKeysByOrganization(

@@ -62,16 +62,18 @@ export async function getFeaturesPublic(req: Request, res: Response) {
   }
 
   try {
-    const { organization, key: keyData } = await lookupOrganizationByApiKey(
-      key
-    );
-    if (!organization || !keyData) {
+    const {
+      organization,
+      secret,
+      environment,
+    } = await lookupOrganizationByApiKey(key);
+    if (!organization) {
       return res.status(400).json({
         status: 400,
         error: "Invalid API key",
       });
     }
-    if (keyData.secret) {
+    if (secret) {
       return res.status(400).json({
         status: 400,
         error: "Must use a Publishable API key to get feature definitions",
@@ -81,7 +83,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     //Archived features not to be shown
     const { features, dateUpdated } = await getFeatureDefinitions(
       organization,
-      keyData.environment,
+      environment,
       project
     );
 

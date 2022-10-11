@@ -65,8 +65,7 @@ import { cloneDeep } from "lodash";
 import { getLicense } from "../init/license";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
 import {
-  createPublishableApiKey,
-  createSecretApiKey,
+  createApiKey,
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
@@ -1007,26 +1006,17 @@ export async function postApiKey(
   // Only require permissions if we are creating a new API key
   req.checkPermissions("organizationSettings");
 
-  if (secret) {
-    const key = await createSecretApiKey({
-      organization: org.id,
-      description: description || "",
-    });
-    res.status(200).json({
-      status: 200,
-      key,
-    });
-  } else {
-    const key = await createPublishableApiKey({
-      organization: org.id,
-      environment,
-      description: description || "",
-    });
-    res.status(200).json({
-      status: 200,
-      key,
-    });
-  }
+  const key = await createApiKey({
+    organization: org.id,
+    description: description || "",
+    environment: environment || "",
+    secret: !!secret,
+  });
+
+  res.status(200).json({
+    status: 200,
+    key,
+  });
 }
 
 export async function deleteApiKey(

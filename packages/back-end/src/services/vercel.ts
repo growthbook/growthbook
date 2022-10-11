@@ -6,7 +6,7 @@ import {
   VercelProject,
   VercelTarget,
 } from "../../types/vercel";
-import { createPublishableApiKey } from "../models/ApiKeyModel";
+import { createApiKey } from "../models/ApiKeyModel";
 
 interface VercelApiCallProps {
   token: string;
@@ -64,8 +64,9 @@ export async function createOrgGbKeys(
 ) {
   const orgGbKeys = [];
   for (const envMapEntry of gbVercelEnvMap) {
-    const createdKeyVal = await createPublishableApiKey({
+    const createdKeyVal = await createApiKey({
       organization: orgId,
+      secret: false,
       environment: envMapEntry.gb,
       description:
         "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API.",
