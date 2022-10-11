@@ -442,6 +442,23 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 **Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
 
+### Encrypting Features list
+
+When creating an API key, you have the option to enable encryption. When enabled, GrowthBook will encrypt the list of features in the API response.
+
+With encryption enabled, the response would be:
+
+```js
+  {
+    status: 200,
+    features: {},
+    encryptedFeatures: {
+      content: "encryptedFeatures",
+      iv: "hash"
+    }
+  }
+```
+
 ## Inline Experiments
 
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
