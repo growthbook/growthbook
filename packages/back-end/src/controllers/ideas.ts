@@ -112,10 +112,10 @@ export async function postIdeas(
 }
 
 export async function getIdea(
-  req: AuthRequest<Partial<IdeaInterface>>,
+  req: AuthRequest<Partial<IdeaInterface>, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   //const data = req.body;
 
   const idea = await getIdeaById(id);
@@ -332,7 +332,7 @@ export async function postVote(
 }
 
 export async function getRecentIdeas(
-  req: AuthRequest<null, { num: string }>,
+  req: AuthRequest<unknown, { num: string }, { project?: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);

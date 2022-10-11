@@ -32,7 +32,7 @@ import InlineForm from "../../components/Forms/InlineForm";
 import EditableH1 from "../../components/Forms/EditableH1";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Code from "../../components/Code";
+import Code from "../../components/SyntaxHighlighting/Code";
 import {
   getDefaultConversionWindowHours,
   hasFileConfig,

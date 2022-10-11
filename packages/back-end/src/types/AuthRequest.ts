@@ -4,7 +4,11 @@ import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 // eslint-disable-next-line
-export type AuthRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
+export type AuthRequest<
+  Body = unknown,
+  Params = unknown,
+  QueryParams = unknown
+> = Request<Params, unknown, Body, QueryParams> & {
   email: string;
   verified?: boolean;
   userId?: string;

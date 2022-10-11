@@ -112,7 +112,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { connection } = await getConnectionFromRequest(req);
+      const { connection } = await getConnectionFromRequest(req as Request);
 
       // Store the ssoConnectionId in the request
       req.loginMethod = connection;
@@ -140,7 +140,7 @@ export class OpenIdAuthConnection implements AuthConnection {
         issuer,
         algorithms,
       });
-      middleware(req, res, next);
+      middleware(req as Request, res, next);
     } catch (e) {
       next(e);
     }

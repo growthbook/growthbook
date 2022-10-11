@@ -517,22 +517,17 @@ pre {
 .code-holder {
   margin: 0.5em 0;
 
-  &.collapsible .code {
+  &.collapsible pre {
     transition: max-height 0.2s;
-    max-height: 45em;
+    max-height: 60em;
     overflow-y: scroll;
   }
 
-  &.collapsed .code {
+  &.collapsed pre {
     max-height: 10em;
   }
 
   .action-buttons {
-    z-index: 999;
-    position: absolute;
-    top: 8px;
-    right: 8px;
-
     .message {
       padding: 2px 6px;
       background: colors.$highlight-purple;
