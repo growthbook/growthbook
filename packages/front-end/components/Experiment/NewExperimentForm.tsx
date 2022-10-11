@@ -155,6 +155,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   const implementation = form.watch("implementation");
 
@@ -227,6 +228,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
+        {!isImport && !fromFeature && datasource && (
+          <Field
+            label="Experiment Id"
+            {...form.register("trackingKey")}
+            helpText={
+              supportsSQL ? (
+                <>
+                  Must match the <code>experiment_id</code> field in your
+                  datasource
+                </>
+              ) : (
+                "Must match the experiment id in your tracking callback"
+              )
+            }
+          />
+        )}
         {visualEditorEnabled && !isImport && (
           <Field
             label="Use Visual Editor"
