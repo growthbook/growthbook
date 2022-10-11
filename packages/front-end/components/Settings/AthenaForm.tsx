@@ -26,7 +26,7 @@ const AthenaForm: FC<{
               },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and instance metadata."
-            value={params.authType || "json"}
+            value={params.authType || "accessKey"}
             onChange={(e) => {
               setParams({
                 authType: e.target.value,

@@ -146,6 +146,20 @@ params:
 
 #### AWS Athena
 
+If you want GrowthBook to auto-discover credentials from environment variables or instance metadata, use the following format:
+
+```yml
+type: athena
+params:
+  authType: auto
+  region: us-east-1
+  database: growthbook
+  bucketUri: aws-athena-query-results-growthbook
+  workGroup: primary
+```
+
+If you prefer to specify access key and secret directly instead, use the following format:
+
 ```yml
 type: athena
 params:
