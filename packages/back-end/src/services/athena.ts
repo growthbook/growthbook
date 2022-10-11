@@ -1,25 +1,29 @@
 import { Athena } from "aws-sdk";
 import { ResultSet } from "aws-sdk/clients/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
+import { IS_CLOUD } from "../util/secrets";
+
+function getAthenaInstance(params: AthenaConnectionParams) {
+  if (!IS_CLOUD && params.authType === "auto") {
+    return new Athena({
+      region: params.region,
+    });
+  }
+
+  return new Athena({
+    accessKeyId: params.accessKeyId,
+    secretAccessKey: params.secretAccessKey,
+    region: params.region,
+  });
+}
 
 export async function runAthenaQuery<T>(
   conn: AthenaConnectionParams,
   sql: string
 ): Promise<T[]> {
-  const {
-    database,
-    bucketUri,
-    workGroup,
-    accessKeyId,
-    secretAccessKey,
-    region,
-  } = conn;
+  const athena = getAthenaInstance(conn);
 
-  const athena = new Athena({
-    accessKeyId,
-    secretAccessKey,
-    region,
-  });
+  const { database, bucketUri, workGroup } = conn;
 
   const { QueryExecutionId } = await athena
     .startQueryExecution({
@@ -41,7 +45,7 @@ export async function runAthenaQuery<T>(
     throw new Error("Failed to start query");
   }
 
-  const waitAndCheck = () => {
+  const waitAndCheck = (delay: number) => {
     return new Promise<false | ResultSet>((resolve, reject) => {
       setTimeout(() => {
         athena
@@ -77,13 +81,14 @@ export async function runAthenaQuery<T>(
             console.error(e);
             reject(e);
           });
-      }, 500);
+      }, delay);
     });
   };
 
-  // Timeout after 300 seconds
-  for (let i = 0; i < 600; i++) {
-    const result = await waitAndCheck();
+  // Check for results with an exponential back-off
+  // Max time waiting = ~30 minutes
+  for (let i = 0; i < 62; i++) {
+    const result = await waitAndCheck(500 * Math.pow(1.1, i));
     if (result && result.Rows && result.ResultSetMetadata?.ColumnInfo) {
       const keys = result.ResultSetMetadata.ColumnInfo.map((info) => info.Name);
       return result.Rows.slice(1).map((row) => {
