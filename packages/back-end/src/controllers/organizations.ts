@@ -782,7 +782,7 @@ export async function postInviteAccept(
 export async function postInvite(
   req: AuthRequest<{
     email: string;
-    role: MemberRole;
+    role: string;
   }>,
   res: Response
 ) {
