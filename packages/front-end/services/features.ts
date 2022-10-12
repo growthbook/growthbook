@@ -499,6 +499,17 @@ export function jsonToConds(
       });
     });
     if (!valid) return null;
+    // fix slashes:
+    conds.map((c) => {
+      if (
+        c.operator === "$regex" ||
+        c.operator === "$notRegex" ||
+        c.operator === "$eq" ||
+        c.operator === "$ne"
+      ) {
+        c.value = c.value.replace(/\\{2}/g, "\\");
+      }
+    });
     return conds;
   } catch (e) {
     return null;
@@ -589,7 +600,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
         identifier: !!schema.hashAttribute,
       });
     });
-
+    console.log("map", map);
     return map;
   }, [attributeSchema]);
 }
