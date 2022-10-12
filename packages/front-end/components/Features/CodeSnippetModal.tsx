@@ -251,6 +251,8 @@ import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
   trackingCallback: (experiment, result) => {
     ${indentLines(
       getTrackingCallback(
@@ -306,6 +308,8 @@ import { useEffect } from "react";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
   trackingCallback: (experiment, result) => {
     ${indentLines(
       getTrackingCallback(
