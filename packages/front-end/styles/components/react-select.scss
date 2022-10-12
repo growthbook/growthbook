@@ -1,0 +1,62 @@
+@use "../colors";
+@import "../theme";
+
+.gb-multi-select__control,
+.gb-select__control {
+  border-color: var(--border-color-200) !important;
+  background-color: var(--surface-background-color) !important;
+}
+
+.gb-multi-select__menu,
+.gb-select__menu {
+  min-width: 100%;
+  width: max-content;
+  background-color: var(--surface-background-color) !important;
+}
+
+.gb-multi-select__option,
+.gb-select__option {
+  color: var(--text-color-main) !important;
+  background-color: transparent !important;
+
+  &--is-selected {
+  }
+
+  &--is-focused {
+    background-color: var(--table-row-hover-background-color) !important;
+  }
+}
+
+.gb-multi-select__group,
+.gb-select__group {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.gb-multi-select__input-container,
+.gb-select__input-container {
+  color: var(--text-color-main) !important;
+}
+
+.gb-multi-select__input,
+.gb-select__input {
+  color: var(--text-color-main) !important;
+}
+
+.gb-select__single-value {
+  color: var(--text-color-main) !important;
+}
+.gb-multi-select__multi-value {
+  // This one is dynamic. Style it in JS.
+}
+
+.gb-multi-select__multi-value__remove,
+.gb-multi-select__multi-value__label {
+  // This one is dynamic. Style it in JS.
+  font-weight: 600;
+}
+
+.gb-multi-select__menu-portal,
+.gb-select__menu-portal {
+  z-index: 200;
+}
