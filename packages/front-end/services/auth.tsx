@@ -210,6 +210,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           </Modal>
         );
       } else {
+        try {
+          window.sessionStorage.setItem(
+            "postAuthRedirectPath",
+            window.location.pathname
+          );
+        } catch (e) {
+          // ignore
+        }
         // Don't need to confirm, just redirect immediately
         window.location.href = resp.redirectURI;
       }
