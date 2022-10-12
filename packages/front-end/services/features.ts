@@ -600,7 +600,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
         identifier: !!schema.hashAttribute,
       });
     });
-    console.log("map", map);
+
     return map;
   }, [attributeSchema]);
 }

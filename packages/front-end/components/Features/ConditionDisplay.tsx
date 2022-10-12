@@ -49,7 +49,6 @@ function needsValue(operator: string) {
 function getValue(operator: string, value: string): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
-
   return value;
 }
 
