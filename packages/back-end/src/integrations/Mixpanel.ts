@@ -30,10 +30,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
   params: MixpanelConnectionParams;
   organization: string;
   settings: DataSourceSettings;
+  decryptionError: boolean;
   constructor(encryptedParams: string, settings: DataSourceSettings) {
-    this.params = decryptDataSourceParams<MixpanelConnectionParams>(
-      encryptedParams
-    );
+    try {
+      this.params = decryptDataSourceParams<MixpanelConnectionParams>(
+        encryptedParams
+      );
+    } catch (e) {
+      this.params = { projectId: "", secret: "", username: "" };
+      this.decryptionError = true;
+    }
     this.settings = {
       events: {
         experimentEvent: "$experiment_started",

@@ -16,7 +16,8 @@
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
     "watch-compile": "swc src -w --out-dir dist",
-    "watch-dev": "sleep 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js"
+    "watch-dev": "sleep 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
+    "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js"
   },
   "dependencies": {
     "@google-cloud/bigquery": "5",

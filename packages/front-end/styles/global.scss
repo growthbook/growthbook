@@ -951,10 +951,10 @@ pre {
         margin-left: -50px;
       }
       .win {
-        background-color: var(--alert-success-background);
+        background-color: var(--win-background);
       }
       .lose {
-        background-color: var(--alert-danger-background);
+        background-color: var(--lose-background);
       }
     }
   }
@@ -983,18 +983,18 @@ pre {
   }
 
   td.won {
-    background-color: var(--alert-success-background);
+    background-color: var(--win-background);
     color: var(--alert-success-color);
     .expected {
       font-weight: bold;
     }
   }
   td.lost {
-    background-color: var(--alert-danger-background);
+    background-color: var(--lose-background);
     color: var(--alert-danger-color);
   }
   td.warning {
-    background-color: var(--alert-warn-background);
+    background-color: var(--warn-background);
     color: var(--alert-warn-color);
   }
   td.draw {

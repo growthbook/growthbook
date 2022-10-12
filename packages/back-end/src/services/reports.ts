@@ -104,6 +104,11 @@ export async function startExperimentAnalysis(
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
+  if (integration.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
 
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
