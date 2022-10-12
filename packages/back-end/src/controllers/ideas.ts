@@ -44,7 +44,8 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "runQueries");
+  req.checkPermissions("runQueries");
+  req.checkPermissions("createIdeas");
 
   const { metric, segment } = req.body;
 
@@ -66,7 +67,8 @@ export async function postEstimatedImpactManual(
   req: AuthRequest<ImpactEstimateInterface>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "runQueries");
+  req.checkPermissions("runQueries");
+  req.checkPermissions("createIdeas");
 
   const { org } = getOrgFromReq(req);
   const { conversionsPerDay, metric } = req.body;

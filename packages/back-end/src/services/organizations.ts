@@ -119,21 +119,10 @@ export async function getConfidenceLevelsForOrg(id: string) {
   };
 }
 
-// Handle old roles in a backwards-compatible way
-export function updateRole(role: string): string {
-  if (role === "designer") {
-    return "collaborator";
-  }
-  if (role === "developer") {
-    return "experimenter";
-  }
-  return role;
-}
-
 export function getRole(org: OrganizationInterface, userId: string): string {
-  return updateRole(
+  return (
     org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
-      "readonly"
+    "readonly"
   );
 }
 
@@ -141,8 +130,7 @@ export function getPermissionsByRole(
   org: OrganizationInterface,
   role: string
 ): Permissions {
-  role = updateRole(role);
-  return org.roles[role].permissions || [];
+  return org.roles[role]?.permissions || [];
 }
 
 export function getNumberOfMembersAndInvites(

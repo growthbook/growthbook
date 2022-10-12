@@ -101,25 +101,22 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     <Modal
       open={true}
       header={"Review Draft Changes"}
-      submit={
-        permissions.canPublishFeatures(...getEnabledEnvironments(feature))
-          ? async () => {
-              try {
-                await apiCall(`/feature/${feature.id}/publish`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    draft: feature.draft,
-                    comment,
-                  }),
-                });
-              } catch (e) {
-                await mutate();
-                throw e;
-              }
-              await mutate();
-            }
-          : null
-      }
+      submit={async () => {
+        try {
+          await apiCall(`/feature/${feature.id}/publish`, {
+            method: "POST",
+            body: JSON.stringify({
+              draft: feature.draft,
+              comment,
+              environmentSettings: feature.environmentSettings,
+            }),
+          });
+        } catch (e) {
+          await mutate();
+          throw e;
+        }
+        await mutate();
+      }}
       cta="Publish"
       close={close}
       closeCta="close"

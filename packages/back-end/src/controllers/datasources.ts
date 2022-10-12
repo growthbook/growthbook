@@ -38,7 +38,8 @@ import {
 import uniqid from "uniqid";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
-  req.checkPermissions("createMetrics", "createAnalyses");
+  req.checkPermissions("createMetrics");
+  req.checkPermissions("createAnalyses");
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;

@@ -10,7 +10,6 @@ import {
 import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
-import Tooltip from "../Tooltip";
 
 export type SelectOptions =
   | (
@@ -26,7 +25,6 @@ export type SelectOptions =
 
 export type BaseFieldProps = {
   label?: ReactNode;
-  tooltip?: string;
   error?: ReactNode;
   helpText?: ReactNode;
   containerClassName?: string;
@@ -42,7 +40,6 @@ export type BaseFieldProps = {
   prepend?: string;
   append?: string;
   comboBox?: boolean;
-  checkBox?: boolean;
 };
 
 export type FieldProps = BaseFieldProps &
@@ -51,7 +48,7 @@ export type FieldProps = BaseFieldProps &
     HTMLInputElement
   >;
 
-export function Options({ options }: { options: SelectOptions }) {
+function Options({ options }: { options: SelectOptions }) {
   if (Array.isArray(options)) {
     return (
       <>
@@ -98,7 +95,6 @@ const Field = forwardRef(
       containerClassName,
       labelClassName,
       label,
-      tooltip,
       prepend,
       append,
       render,
@@ -110,7 +106,6 @@ const Field = forwardRef(
       type = "text",
       initialOption,
       comboBox,
-      checkBox,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -177,10 +172,6 @@ const Field = forwardRef(
             })}
         </select>
       );
-    } else if (checkBox) {
-      component = (
-        <input type="checkbox" ref={ref} id={fieldId} {...otherProps} />
-      );
     } else {
       component = (
         <input
@@ -217,7 +208,6 @@ const Field = forwardRef(
           "mb-0": !label,
         })}
       >
-        {tooltip && <Tooltip body={tooltip} tipPosition="top" />}
         {label && (
           <label htmlFor={fieldId} className={clsx(labelClassName)}>
             {label}

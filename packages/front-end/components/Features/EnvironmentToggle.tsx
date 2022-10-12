@@ -31,7 +31,7 @@ export default function EnvironmentToggle({
     <Toggle
       value={env?.enabled ?? false}
       id={id}
-      disabled={!permissions[`publishFeatures_${environment}`]}
+      disabled={!permissions.canPublishFeatures(environment)}
       setValue={async (on) => {
         if (toggling) return;
         if (on && env?.enabled) return;

@@ -22,8 +22,7 @@ import {
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
-import { migrateOrganization } from "../../util/migrations";
-import { EnvPermissions, Permissions } from "back-end/types/permissions";
+import { BasePermission, EnvPermission } from "back-end/types/permissions";
 
 type JWTInfo = {
   email?: string;
@@ -73,26 +72,21 @@ export async function processJWT(
   req.verified = verified || false;
   req.permissions = [];
 
-  // Throw error if permissions don't pass
-  req.checkPermissions = (...permissions: Permissions) => {
-    for (let i = 0; i < permissions.length; i++) {
-      if (!req.permissions.includes(permissions[i])) {
-        throw new Error("You do not have permission to complete that action.");
-      }
-    }
-  };
-  // Don't throw error if permissions don't pass, used for optional permissions
-  req.checkEnvPermissions = (
-    envBasePermission: EnvPermissions,
-    ...environments: string[]
+  req.checkPermissions = (
+    permission: BasePermission | EnvPermission,
+    envs?: string[]
   ) => {
-    if (req.permissions.includes(envBasePermission)) return;
-    for (let i = 0; i < environments.length; i++) {
-      if (
-        !req.permissions.includes(`${envBasePermission}_${environments[i]}`)
-      ) {
-        throw new Error("You do not have permission to complete that action.");
-      }
+    //If they have the top level permission, we don't need to check anything else
+    if (req.permissions.includes(permission)) return;
+    if (envs) {
+      const envPermission = permission as EnvPermission;
+      envs.forEach((env) => {
+        if (!req.permissions.includes(`${envPermission}_${env}`))
+          throw new Error("You do not have permissions to perform this action");
+      });
+    } else {
+      //If they don't have the top level permission and it is not an env permission, throw an error
+      throw new Error("You do not have permissions to perform this action");
     }
   };
 
@@ -125,7 +119,6 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
-        req.organization = migrateOrganization(req.organization);
         // Make sure member is part of the organization
         if (
           !req.admin &&

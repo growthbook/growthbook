@@ -209,7 +209,6 @@ export default function FeatureModal({
       <div className="row">
         {environments.map((env) => {
           const disabled = !permissions.canPublishFeatures(env.id);
-          if (disabled) environmentSettings[env.id].enabled = false;
 
           return (
             <div className="col-auto" key={env.id}>

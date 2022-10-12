@@ -10,7 +10,6 @@ import {
   importConfig,
   getOrgFromReq,
   getPermissionsByRole,
-  updateRole,
   addMemberFromSSOConnection,
   isEnterpriseSSO,
   validateLoginMethod,
@@ -69,7 +68,6 @@ import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
 import { getLicense } from "../init/license";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
-import { migrateOrganization } from "../util/migrations";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -122,17 +120,16 @@ export async function getUser(req: AuthRequest, res: Response) {
     license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
-      const migOrg = migrateOrganization(org);
       return {
-        id: migOrg.id,
-        name: migOrg.name,
+        id: org.id,
+        name: org.name,
         role,
-        permissions: getPermissionsByRole(migOrg, role),
+        permissions: getPermissionsByRole(org, role),
         enterprise: org.enterprise || false,
-        settings: migOrg.settings || {},
-        freeSeats: migOrg.freeSeats || 3,
-        discountCode: migOrg.discountCode || "",
-        hasActiveSubscription: hasActiveSubscription(migOrg),
+        settings: org.settings || {},
+        freeSeats: org.freeSeats || 3,
+        discountCode: org.discountCode || "",
+        hasActiveSubscription: hasActiveSubscription(org),
       };
     }),
   });
@@ -527,7 +524,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const roleMapping: Map<string, string> = new Map();
   members.forEach((m) => {
-    roleMapping.set(m.id, updateRole(m.role));
+    roleMapping.set(m.id, m.role);
   });
 
   const users = await getUsersByIds(members.map((m) => m.id));

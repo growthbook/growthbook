@@ -198,7 +198,8 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses", "runQueries");
+  req.checkPermissions("createAnalyses");
+  req.checkPermissions("runQueries");
 
   const { org } = getOrgFromReq(req);
 

@@ -303,12 +303,10 @@ function getDefaultRoles(): Roles {
   return {
     readonly: { permissions: [], description: "Read-only access" },
     collaborator: { permissions: basePermissions, description: "Collaborator" },
-    designer: { permissions: basePermissions, description: "Designer" },
     analyst: {
       permissions: basePermissions.concat(analysisPermissions),
       description: "Analyst",
     },
-    developer: { permissions: basePermissions, description: "Developer" },
     engineer: {
       permissions: basePermissions.concat(featurePermissions),
       description: "Engineer",
@@ -336,17 +334,20 @@ export function migrateOrganization(
 
   const defaultRoles = getDefaultRoles();
   if (!org.roles) {
+    for (const member of org.members) {
+      // Add the legacy roles if they don't exist and the organization is still using them
+      if (member.role === "designer") {
+        defaultRoles.designer = defaultRoles.collaborator;
+      }
+      if (member.role === "developer") {
+        defaultRoles.developer = defaultRoles.experimenter;
+      }
+    }
     return { ...newOrg, roles: defaultRoles };
   }
 
-  //If the admin role is not up to date, update it
-  if (
-    !org.roles.admin.permissions.every(
-      (p, i) => p === defaultRoles.admin.permissions[i]
-    )
-  ) {
-    newOrg.roles.admin = defaultRoles.admin;
-  }
+  // Always make sure the admin role has all permissions
+  newOrg.roles.admin = defaultRoles.admin;
 
   return newOrg;
 }

@@ -27,7 +27,7 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
 import path from "path";
-import { rolesRouter } from "./routers/roles.r";
+import { rolesRouter } from "./routers/roles.router";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";

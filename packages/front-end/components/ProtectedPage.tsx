@@ -12,6 +12,10 @@ import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import { ThemeToggler } from "./Layout/ThemeToggler";
 import { Permissions } from "back-end/types/permissions";
+import {
+  generatePermissions,
+  UsePermissionsReturn,
+} from "../hooks/usePermissions";
 
 type User = { id: string; email: string; name: string };
 
@@ -50,12 +54,12 @@ export type UserContextValue = {
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
-  permissions: Permissions;
+  permissions: UsePermissionsReturn;
   settings: OrganizationSettings;
 };
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: [],
+  permissions: generatePermissions([]),
   settings: {},
 });
 
@@ -242,7 +246,7 @@ const ProtectedPage: React.FC<{
     },
     refreshUsers,
     role,
-    permissions,
+    permissions: generatePermissions(permissions),
     settings: currentOrg?.settings || {},
     enterprise: currentOrg?.enterprise || false,
     license: data?.license,

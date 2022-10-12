@@ -1,4 +1,4 @@
-type BasePermissions =
+type BasePermission =
   | "addComments"
   | "createPresentations"
   | "createIdeas"
@@ -14,11 +14,11 @@ type BasePermissions =
   | "runQueries"
   | "superDelete";
 
-export type EnvPermissions = "publishFeatures";
+export type EnvPermission = "publishFeatures";
 
 export type Permission =
-  | BasePermissions
-  | EnvPermissions
-  | `${EnvPermissions}_${string}`;
+  | BasePermission
+  | EnvPermission
+  | `${EnvPermission}_${string}`;
 
 export type Permissions = Permission[];

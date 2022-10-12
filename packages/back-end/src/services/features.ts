@@ -157,6 +157,27 @@ export function getEnabledEnvironments(feature: FeatureInterface) {
   });
 }
 
+//Creates a list of environments that have been altered between the original feature and the revised feature
+export function getDifferingEnvironments(
+  environmentSettings: Record<string, FeatureEnvironment>,
+  revisedEnvironmentSettings: Record<string, FeatureEnvironment>
+) {
+  let differingEnvironments = Object.keys(environmentSettings).filter((env) => {
+    return !isEqual(environmentSettings[env], revisedEnvironmentSettings[env]);
+  });
+  differingEnvironments = differingEnvironments.concat(
+    Object.keys(revisedEnvironmentSettings).filter((env) => {
+      return !isEqual(
+        environmentSettings[env],
+        revisedEnvironmentSettings[env]
+      );
+    })
+  );
+
+  //removes duplicate entries from the array
+  return [...new Set(differingEnvironments)];
+}
+
 export function generateRuleId() {
   return uniqid("fr_");
 }

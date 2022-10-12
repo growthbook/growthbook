@@ -5,7 +5,10 @@ import { updateOrganization } from "../models/OrganizationModel";
 import { getOrgFromReq } from "../services/organizations";
 
 export async function postRole(
-  req: AuthRequest<{ permissions: Permissions; description: string }>,
+  req: AuthRequest<
+    { permissions: Permissions; description: string },
+    { roleId: string }
+  >,
   res: Response
 ): Promise<void> {
   req.checkPermissions("organizationSettings");
@@ -59,21 +62,21 @@ export async function updateRole(
 }
 
 export async function deleteRole(
-  req: AuthRequest,
+  req: AuthRequest<null, { roleId: string }>,
   res: Response
 ): Promise<void> {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
-  const { roleId } = req.params;
+  const { roleId: deletionRoleId } = req.params;
 
-  const membersWithRole = org.members.find((m) => m.role === roleId);
+  const membersWithRole = org.members.find((m) => m.role === deletionRoleId);
   if (membersWithRole) throw new Error("Cannot delete role with members");
-  if (roleId === "admin") throw new Error("Cannot delete admin role");
+  if (deletionRoleId === "admin") throw new Error("Cannot delete admin role");
 
   const updatedRoles = { ...org.roles };
-  for (const [rId, role] of Object.entries(org.roles)) {
-    if (rId !== roleId) updatedRoles[rId] = role;
+  for (const [roleId, role] of Object.entries(org.roles)) {
+    if (roleId !== deletionRoleId) updatedRoles[roleId] = role;
   }
 
   await updateOrganization(org.id, { roles: { ...updatedRoles } });

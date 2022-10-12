@@ -1,10 +1,9 @@
 import {
-  EnvPermissions,
+  EnvPermission,
   Permission,
   Permissions,
 } from "back-end/types/permissions";
 import React, { useState } from "react";
-import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
@@ -18,6 +17,7 @@ import {
   getEnvFromPermission,
 } from "../../hooks/usePermissions";
 import { FormRole } from "./TeamRoles";
+import CheckBoxField from "../Forms/CheckBoxField";
 
 interface RoleModalProps {
   type: "create" | "update";
@@ -50,7 +50,7 @@ export default function RoleModal({
     if (ENV_PERMISSIONS.find((ep) => ep === p)) {
       settings.environments.forEach((e) => {
         defaultValues[`${p}_${e.id}`] = role.permissions.includes(
-          `${p as EnvPermissions}_${e.id}`
+          `${p as EnvPermission}_${e.id}`
         );
       });
     }
@@ -148,9 +148,9 @@ export default function RoleModal({
         return (
           <>
             {PERMISSIONS[p]?.title && <h4>{PERMISSIONS[p].title}</h4>}
-            <Field
-              checkBox
+            <CheckBoxField
               key={p}
+              id={`role-${p}`}
               tooltip={PERMISSIONS[p]?.description || ""}
               label={isEnvPermission(p) ? envName : PERMISSIONS[p]?.displayName}
               labelClassName="mx-2"

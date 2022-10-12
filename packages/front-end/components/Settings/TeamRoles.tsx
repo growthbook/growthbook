@@ -13,7 +13,7 @@ import {
   isEnvPermission,
   PERMISSIONS,
 } from "../../hooks/usePermissions";
-import Field from "../Forms/Field";
+import CheckBoxField from "../Forms/CheckBoxField";
 
 interface TeamRolesProps {
   roles: Roles;
@@ -71,9 +71,9 @@ export default function TeamRoles({ roles, members, mutate }: TeamRolesProps) {
             return (
               <>
                 {PERMISSIONS[p]?.title && <h4>{PERMISSIONS[p].title}</h4>}
-                <Field
-                  checkBox
+                <CheckBoxField
                   key={p}
+                  id={`role-${p}`}
                   tooltip={PERMISSIONS[p]?.description || ""}
                   label={
                     isEnvPermission(p) ? envName : PERMISSIONS[p]?.displayName

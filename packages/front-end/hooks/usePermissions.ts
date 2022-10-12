@@ -1,4 +1,8 @@
-import { EnvPermissions, Permission } from "back-end/types/permissions";
+import {
+  EnvPermission,
+  Permission,
+  Permissions,
+} from "back-end/types/permissions";
 import useUser from "./useUser";
 
 type PermissionDescriptors = {
@@ -81,17 +85,19 @@ export const DEFAULT_PERMISSIONS: Record<Permission, boolean> = Object.keys(
   return permission;
 }, {} as Record<Permission, boolean>);
 
-export const ENV_PERMISSIONS: EnvPermissions[] = ["publishFeatures"];
+export const ENV_PERMISSIONS: EnvPermission[] = ["publishFeatures"];
 
 export const isEnvPermission = (p: string) => p.includes("_");
 export const getEnvPermissionBase = (p: string) => p.split("_")[0];
 export const getEnvFromPermission = (p: string) => p.split("_")[1];
 
-type UsePermissionsReturn = Record<Permission, boolean> &
-  Record<"canPublishFeatures", (...evns: string[]) => boolean>;
+export type UsePermissionsReturn = Record<Permission, boolean> &
+  Record<"canPublishFeatures", (...envs: string[]) => boolean>;
 
-export default function usePermissions(): UsePermissionsReturn {
-  const permissions = new Set(useUser().permissions);
+export function generatePermissions(
+  rawPermissions: Permissions
+): UsePermissionsReturn {
+  const permissions = new Set(rawPermissions);
 
   return {
     addComments: permissions.has("addComments"),
@@ -116,4 +122,8 @@ export default function usePermissions(): UsePermissionsReturn {
       return false;
     },
   };
+}
+
+export default function usePermissions(): UsePermissionsReturn {
+  return useUser().permissions;
 }
