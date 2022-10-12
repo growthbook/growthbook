@@ -25,7 +25,9 @@ export default function OAuthCallbackPage() {
         if (json?.status !== 200) {
           setError(json?.message || "An unknown error occurred");
         } else {
-          router.replace("/");
+          const redirect =
+            window.sessionStorage.getItem("postAuthRedirectPath") ?? "/";
+          router.replace(redirect);
         }
       })
       .catch((e) => {
