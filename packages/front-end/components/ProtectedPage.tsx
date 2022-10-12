@@ -171,7 +171,7 @@ const ProtectedPage: React.FC<{
 
     // Error tracking only enabled on GrowthBook Cloud
     if (isSentryEnabled()) {
-      Sentry.setUser({email: data.email, id: data.userId});
+      Sentry.setUser({ email: data.email, id: data.userId });
     }
   }, [data?.email]);
 
