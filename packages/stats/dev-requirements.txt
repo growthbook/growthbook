@@ -189,7 +189,7 @@ mccabe==0.6.1; python_version >= "2.7" and python_full_version < "3.0.0" or pyth
 mypy-extensions==0.4.3; python_version >= "3.6" \
     --hash=sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d \
     --hash=sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8
-numpy==1.19.5; python_version >= "3.6" and python_full_version >= "3.6.1" \
+numpy==1.22.2; python_version >= "3.6" and python_full_version >= "3.6.1" \
     --hash=sha256:cc6bd4fd593cb261332568485e20a0712883cf631f6f5e8e86a52caa8b2b50ff \
     --hash=sha256:aeb9ed923be74e659984e321f609b9ba54a48354bfd168d21a2b072ed1e833ea \
     --hash=sha256:8b5e972b43c8fc27d56550b4120fe6257fdc15f9301914380b27f74856299fea \
