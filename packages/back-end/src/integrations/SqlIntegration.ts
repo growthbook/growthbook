@@ -24,11 +24,11 @@ import { SegmentInterface } from "../../types/segment";
 import { getBaseIdTypeAndJoins, replaceSQLVars, format } from "../util/sql";
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface
-{
+  implements SourceIntegrationInterface {
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
+  decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
   abstract setParams(encryptedParams: string): void;
@@ -37,7 +37,12 @@ export default abstract class SqlIntegration
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
-    this.setParams(encryptedParams);
+    try {
+      this.setParams(encryptedParams);
+    } catch (e) {
+      this.params = {};
+      this.decryptionError = true;
+    }
     this.settings = {
       ...settings,
     };
@@ -164,9 +169,9 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (this.settings.queries?.exposure || []).map(
-      ({ id }) => this.getExposureQuery(id)
-    );
+    const experimentQueries = (
+      this.settings.queries?.exposure || []
+    ).map(({ id }) => this.getExposureQuery(id));
 
     return format(
       `-- Past Experiments
@@ -922,8 +927,7 @@ export default abstract class SqlIntegration
           ${this.ensureFloat("COUNT(*)")} as count,
           ${this.avg("m.value")} as m_mean,
           ${this.variance("m.value")} as m_var,
-          ${this.ensureFloat("sum(m.value)")} as m_sum,
-          ${this.stddev("m.value")} as m_sd
+          ${this.ensureFloat("sum(m.value)")} as m_sum
           ${
             isRatio
               ? `,
@@ -946,20 +950,30 @@ export default abstract class SqlIntegration
         GROUP BY
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension
+      ),
+      __overall as (
+        SELECT
+          u.variation,
+          u.dimension,
+          ${this.getVariationDenominator(isRatio, metric)} as count,
+          ${this.getVariationMean(isRatio, metric)} as mean,
+          ${this.getVariationVariance(isRatio, metric)} as variance,
+          ${this.getVariationUsers(metric)} as users
+        FROM
+          __overallUsers u
+          LEFT JOIN __stats s ON (
+            s.variation = u.variation
+            AND s.dimension = u.dimension
+          )
       )
     SELECT
-      u.variation,
-      u.dimension,
-      ${this.getVariationDenominator(isRatio, metric)} as count,
-      ${this.getVariationMean(isRatio, metric)} as mean,
-      ${this.getVariationStddev(isRatio, metric)} as stddev,
-      ${this.getVariationUsers(metric)} as users
-    FROM
-      __overallUsers u
-      LEFT JOIN __stats s ON (
-        s.variation = u.variation
-        AND s.dimension = u.dimension
-      )
+      variation,
+      dimension,
+      count,
+      mean,
+      ${this.ifElse(`variance > 0`, `sqrt(variance)`, `0`)} as stddev,
+      users
+    FROM __overall
     `
     );
   }
@@ -1005,11 +1019,11 @@ export default abstract class SqlIntegration
     // We need to adjust to include all users
     return `s.m_mean * s.count / u.users`;
   }
-  private getVariationStddev(isRatio: boolean, metric: MetricInterface) {
+  private getVariationVariance(isRatio: boolean, metric: MetricInterface) {
     // For binomial metrics, we use the normal approximation for a bernouli random variable
     // variance = p*(1-p) where p is the conversion rate (count/users)
     if (metric.type === "binomial") {
-      return `sqrt((s.count/u.users)*(1-s.count/u.users))`;
+      return `(s.count/u.users)*(1-s.count/u.users)`;
     }
     // For ratio metrics (e.g. pages/session) the units are correlated.
     // We need to use the Delta method to get the correct variance
@@ -1017,27 +1031,23 @@ export default abstract class SqlIntegration
     if (isRatio) {
       return this.ifElse(
         "s.d_mean>0",
-        `sqrt(
-        s.m_var/power(s.d_mean,2)
+        `s.m_var/power(s.d_mean,2)
         - 2*s.m_mean*s.covar/power(s.d_mean,3)
-        + power(s.m_mean,2)*s.d_var/power(s.d_mean,4)
-      )`,
+        + power(s.m_mean,2)*s.d_var/power(s.d_mean,4)`,
         "0"
       );
     }
-    // If we're ignoring non-converting users, the standard deviation is already correct
+    // If we're ignoring non-converting users, the variance is already correct
     if (metric.ignoreNulls) {
-      return `s.m_sd`;
+      return `s.m_var`;
     }
-    // For all other metrics, stddev only considers converted users.
-    // Need to adjust it to include all users (non-converted have a mean/stddev of 0)
+    // For all other metrics, variance only considers converted users.
+    // Need to adjust it to include all users (non-converted have a mean/variance of 0)
     // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
     return this.ifElse(
       "u.users>1",
-      `sqrt(
-        (s.count-1)*power(s.m_sd,2)/(u.users-1)
-        + s.count*(u.users-s.count)*power(s.m_mean,2)/(u.users*(u.users-1))
-      )`,
+      `(s.count-1)*s.m_var/(u.users-1)
+        + s.count*(u.users-s.count)*power(s.m_mean,2)/(u.users*(u.users-1))`,
       "0"
     );
   }

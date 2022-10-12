@@ -7,10 +7,11 @@ import track from "../services/track";
 import { OrganizationSettings, LicenseData } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
-import { isCloud } from "../services/env";
+import { isCloud, isSentryEnabled } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import { ThemeToggler } from "./Layout/ThemeToggler";
+import * as Sentry from "@sentry/react";
 import { Permissions } from "back-end/types/permissions";
 import {
   generatePermissions,
@@ -67,8 +68,13 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const { isAuthenticated, apiCall, orgId, organizations, setOrganizations } =
-    useAuth();
+  const {
+    isAuthenticated,
+    apiCall,
+    orgId,
+    organizations,
+    setOrganizations,
+  } = useAuth();
 
   const [data, setData] = useState<UserResponse>(null);
   const [error, setError] = useState("");
@@ -160,6 +166,15 @@ const ProtectedPage: React.FC<{
       hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
     });
   }, [data, router?.pathname]);
+
+  useEffect(() => {
+    if (!data?.email) return;
+
+    // Error tracking only enabled on GrowthBook Cloud
+    if (isSentryEnabled()) {
+      Sentry.setUser({ email: data.email, id: data.userId });
+    }
+  }, [data?.email]);
 
   if (error) {
     return (

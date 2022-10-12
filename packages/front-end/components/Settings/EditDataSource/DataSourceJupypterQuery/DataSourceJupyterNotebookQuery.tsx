@@ -2,13 +2,14 @@ import React, { FC, useCallback, useState } from "react";
 import { EditJupyterNotebookQueryRunner } from "./EditJupyterNotebookQueryRunner";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceJupyterNotebookQuery: FC<
-  DataSourceJupyterNotebookQueryProps
-> = ({ onSave, dataSource }) => {
+export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
+  onSave,
+  dataSource,
+}) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
 
   const handleCancel = useCallback(() => {

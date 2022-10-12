@@ -7,7 +7,7 @@ import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import DataSourceForm from "../../components/Settings/DataSourceForm";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import Code from "../../components/Code";
+import Code from "../../components/SyntaxHighlighting/Code";
 import { hasFileConfig } from "../../services/env";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink, DocSection } from "../../components/DocLink";
@@ -34,8 +34,12 @@ const DataSourcePage: FC = () => {
 
   const router = useRouter();
 
-  const { getDatasourceById, mutateDefinitions, ready, error } =
-    useDefinitions();
+  const {
+    getDatasourceById,
+    mutateDefinitions,
+    ready,
+    error,
+  } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
 
@@ -86,6 +90,14 @@ const DataSourcePage: FC = () => {
           </a>
         </Link>
       </div>
+      {d.decryptionError && (
+        <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
+          <strong>Error Decrypting Data Source Credentials.</strong>{" "}
+          <DocLink docSection="env_prod" className="btn btn-primary">
+            View instructions for fixing
+          </DocLink>
+        </div>
+      )}
       <div className="row mb-3 align-items-center">
         <div className="col-auto">
           <h1 className="mb-0">{d.name}</h1>

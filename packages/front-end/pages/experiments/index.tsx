@@ -50,11 +50,7 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }, [getMetricById, users.size]);
 
-  const {
-    list: experiments,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(
+  const { list: experiments, searchInputProps, isFiltered } = useSearch(
     data?.experiments || [],
     [
       "name",
@@ -193,7 +189,7 @@ const ExperimentsPage = (): React.ReactElement => {
             >
               {byStatus.running.length > 0 ? (
                 <>
-                  <table className="table experiment-table gbtable responsive-table">
+                  <table className="appbox table experiment-table gbtable responsive-table">
                     <thead>
                       <tr>
                         <th></th>
@@ -329,7 +325,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 <>
                   {byStatus.myDrafts.length > 0 && (
                     <>
-                      <table className="table experiment-table gbtable responsive-table">
+                      <table className="appbox table experiment-table gbtable responsive-table">
                         <thead>
                           <tr>
                             <th style={{ width: "99%" }}>
@@ -416,7 +412,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 <>
                   {byStatus.draft.length > 0 ? (
                     <>
-                      <table className="table experiment-table gbtable responsive-table">
+                      <table className="appbox table experiment-table gbtable responsive-table">
                         <thead>
                           <tr>
                             <th></th>

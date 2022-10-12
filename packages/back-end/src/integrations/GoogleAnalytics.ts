@@ -47,16 +47,22 @@ function convertDate(rawDate: string): string {
 }
 
 const GoogleAnalytics: SourceIntegrationConstructor = class
-  implements SourceIntegrationInterface
-{
+  implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
   datasource: string;
   organization: string;
   settings: DataSourceSettings;
+  decryptionError: boolean;
 
   constructor(encryptedParams: string) {
-    this.params =
-      decryptDataSourceParams<GoogleAnalyticsParams>(encryptedParams);
+    try {
+      this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
+        encryptedParams
+      );
+    } catch (e) {
+      this.params = { customDimension: "", refreshToken: "", viewId: "" };
+      this.decryptionError = true;
+    }
     this.settings = {};
   }
   getExperimentMetricQuery(): string {

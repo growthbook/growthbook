@@ -14,7 +14,12 @@ export interface AuthConnection {
     req: Request,
     res: Response
   ): Promise<UnauthenticatedResponse>;
-  middleware(req: AuthRequest, res: Response, next: NextFunction): void;
+  middleware(
+    // eslint-disable-next-line
+    req: AuthRequest<any, any, any>,
+    res: Response,
+    next: NextFunction
+  ): void;
   processCallback(
     req: Request,
     res: Response,

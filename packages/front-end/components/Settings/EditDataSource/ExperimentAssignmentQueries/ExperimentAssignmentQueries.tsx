@@ -8,14 +8,16 @@ import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
-export const ExperimentAssignmentQueries: FC<
-  ExperimentAssignmentQueriesProps
-> = ({ dataSource, onSave, onCancel }) => {
+export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
+  dataSource,
+  onSave,
+  onCancel,
+}) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
@@ -193,7 +195,6 @@ export const ExperimentAssignmentQueries: FC<
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
-                  expandable={true}
                 />
               </div>
             )}

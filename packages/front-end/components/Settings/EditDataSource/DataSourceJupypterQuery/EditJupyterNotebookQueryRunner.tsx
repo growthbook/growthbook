@@ -2,16 +2,18 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import CodeTextArea from "../../../Forms/CodeTextArea";
 import cloneDeep from "lodash/cloneDeep";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 import Modal from "../../../Modal";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
 
-export const EditJupyterNotebookQueryRunner: FC<
-  EditJupyterNotebookQueryRunnerProps
-> = ({ dataSource, onSave, onCancel }) => {
+export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerProps> = ({
+  dataSource,
+  onSave,
+  onCancel,
+}) => {
   if (!dataSource) {
     throw new Error("ImplementationError: dataSource cannot be null");
   }

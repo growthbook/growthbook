@@ -176,6 +176,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         settings: d.settings,
         params: getNonSensitiveParams(integration),
         properties: integration.getSourceProperties(),
+        decryptionError: integration.decryptionError || false,
       };
     }),
     dimensions,
@@ -754,7 +755,10 @@ export async function deleteNamespace(
   });
 }
 
-export async function postInviteAccept(req: AuthRequest, res: Response) {
+export async function postInviteAccept(
+  req: AuthRequest<{ key: string }>,
+  res: Response
+) {
   const { key } = req.body;
 
   try {
@@ -775,7 +779,13 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
   }
 }
 
-export async function postInvite(req: AuthRequest, res: Response) {
+export async function postInvite(
+  req: AuthRequest<{
+    email: string;
+    role: MemberRole;
+  }>,
+  res: Response
+) {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
@@ -1107,11 +1117,16 @@ export async function deleteWebhook(
   });
 }
 
-export async function postImportConfig(req: AuthRequest, res: Response) {
+export async function postImportConfig(
+  req: AuthRequest<{
+    contents: string;
+  }>,
+  res: Response
+) {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
-  const { contents }: { contents: string } = req.body;
+  const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
   if (!config) {
@@ -1135,10 +1150,15 @@ export async function putUpload(req: Request, res: Response) {
 }
 
 export async function putAdminResetUserPassword(
-  req: AuthRequest<{
-    userToUpdateId: string;
-    updatedPassword: string;
-  }>,
+  req: AuthRequest<
+    {
+      userToUpdateId: string;
+      updatedPassword: string;
+    },
+    {
+      id: string;
+    }
+  >,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");

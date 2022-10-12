@@ -9,7 +9,7 @@ export default function ForceSummary({
   type: FeatureValueType;
 }) {
   return (
-    <div className="row align-items-center">
+    <div className="row align-items-top">
       <div className="col-auto">
         <strong>SERVE</strong>
       </div>

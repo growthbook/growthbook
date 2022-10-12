@@ -293,6 +293,11 @@ export async function refreshMetric(
       throw new Error("Could not load metric datasource");
     }
     const integration = getSourceIntegrationObject(datasource);
+    if (integration.decryptionError) {
+      throw new Error(
+        "Could not decrypt data source credentials. View the data source settings for more info."
+      );
+    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
@@ -756,7 +761,22 @@ export async function processPastExperiments(
 
   // Round the weights
   const possibleWeights = [
-    5, 10, 16, 20, 25, 30, 33, 40, 50, 60, 67, 70, 75, 80, 90, 95,
+    5,
+    10,
+    16,
+    20,
+    25,
+    30,
+    33,
+    40,
+    50,
+    60,
+    67,
+    70,
+    75,
+    80,
+    90,
+    95,
   ];
   experimentMap.forEach((exp) => {
     const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);

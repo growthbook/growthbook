@@ -11,13 +11,14 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
-import { getApiHost, getAppOrigin, isCloud } from "./env";
+import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
 import Welcome from "../components/Auth/Welcome";
+import * as Sentry from "@sentry/react";
 import { Permissions } from "back-end/types/permissions";
 
 export type OrganizationMember = {
@@ -154,8 +155,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [specialOrg, setSpecialOrg] =
-    useState<Partial<OrganizationInterface> | null>(null);
+  const [
+    specialOrg,
+    setSpecialOrg,
+  ] = useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -186,6 +189,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           </Modal>
         );
       } else {
+        try {
+          window.sessionStorage.setItem(
+            "postAuthRedirectPath",
+            window.location.pathname
+          );
+        } catch (e) {
+          // ignore
+        }
         // Don't need to confirm, just redirect immediately
         window.location.href = resp.redirectURI;
       }
@@ -312,6 +323,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          if (isSentryEnabled()) {
+            Sentry.setUser(null);
+          }
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,

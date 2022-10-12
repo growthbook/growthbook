@@ -51,6 +51,10 @@
   --diff-removed-background-highlight: #fdb8c0;
   --diff-added-background: #e6ffed;
   --diff-added-background-highlight: #acf2bd;
+
+  --win-background: #d4edda;
+  --lose-background: #f8d7da;
+  --warn-background: #fff3cd;
 }
 
 @mixin dark-theme {
@@ -104,6 +108,10 @@
   --diff-removed-background-highlight: #721c24;
   --diff-added-background: #{rgba(#155724, 0.35)};
   --diff-added-background-highlight: #155724;
+
+  --win-background: #0a4947;
+  --lose-background: #4f1b1b;
+  --warn-background: #505518;
 }
 
 .theme--light {

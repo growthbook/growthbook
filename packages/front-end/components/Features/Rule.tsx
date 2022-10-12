@@ -194,7 +194,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           </div>
         </div>
         <div className="d-flex">
-          <div style={{ flex: 1 }} className="pt-1 position-relative">
+          <div
+            style={{ flex: 1, maxWidth: "100%" }}
+            className="pt-1 position-relative"
+          >
             {!rule.enabled && (
               <div
                 style={{
@@ -247,8 +250,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 );
 
 export function SortableRule(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.rule.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    active,
+  } = useSortable({ id: props.rule.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

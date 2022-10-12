@@ -38,12 +38,10 @@ pre {
 .form-control {
   border-color: var(--border-color-300);
 
-  &[readonly] {
+  &[readonly],
+  &:disabled {
     background-color: var(--surface-background-color-alt);
   }
-}
-
-.form-control:focus {
 }
 
 .input-group-text {
@@ -65,6 +63,11 @@ pre {
 
   [class$="-Input"] {
     color: var(--text-color-main);
+
+    // to avoid issues with react-select adding `color: inherit`
+    input {
+      color: var(--text-color-main) !important;
+    }
   }
 
   [class$="-singleValue"] {
@@ -74,13 +77,10 @@ pre {
   [class$="-control"] {
     background-color: var(--surface-background-color);
     border-color: var(--border-color-300);
-  }
 
-  [class$="-multiValue"] {
-    background-color: var(--form-multivalue-background-color);
-
-    > * {
-      color: var(--form-multivalue-text-color);
+    &[readonly],
+    &:disabled {
+      background-color: var(--surface-background-color-alt);
     }
   }
 }
@@ -258,6 +258,19 @@ pre {
 }
 
 // endregion Modals
+
+// region Pagination
+
+.pagination {
+  .page-link {
+    background-color: var(--surface-background-color);
+  }
+}
+.page-item.disabled .page-link {
+  background-color: var(--surface-background-color);
+}
+
+// endregion Pagination
 
 // region Tabs
 
