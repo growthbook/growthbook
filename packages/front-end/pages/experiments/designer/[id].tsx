@@ -897,11 +897,12 @@ const EditorPage: FC = () => {
                   try {
                     // eslint-disable-next-line
                       // @ts-ignore
-                    const captureStream =
-                      await navigator.mediaDevices.getDisplayMedia({
+                    const captureStream = await navigator.mediaDevices.getDisplayMedia(
+                      {
                         video: {},
                         audio: false,
-                      });
+                      }
+                    );
                     const settings = captureStream
                       .getVideoTracks()[0]
                       .getSettings();

@@ -42,8 +42,9 @@ const ExperimentsGetStarted = ({
       return null;
     }
     try {
-      const initialExperiment: Partial<ExperimentInterfaceStringDates> =
-        JSON.parse(router?.query?.featureExperiment as string);
+      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
+        router?.query?.featureExperiment as string
+      );
       window.history.replaceState(null, null, window.location.pathname);
       return initialExperiment;
     } catch (e) {

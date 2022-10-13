@@ -58,11 +58,7 @@ const ReportsPage = (): React.ReactElement => {
     };
   }, [getUserDisplay, users.size, experiments]);
 
-  const {
-    list: filteredReports,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(
+  const { list: filteredReports, searchInputProps, isFiltered } = useSearch(
     data?.reports || [],
     ["title", "description", "experimentId", "userId", "dateUpdated"],
     transforms

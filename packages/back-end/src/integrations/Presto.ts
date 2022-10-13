@@ -10,8 +10,9 @@ type Row = any;
 export default class Presto extends SqlIntegration {
   params: PrestoConnectionParams;
   setParams(encryptedParams: string) {
-    this.params =
-      decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
+    this.params = decryptDataSourceParams<PrestoConnectionParams>(
+      encryptedParams
+    );
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

@@ -14,12 +14,16 @@ import useUser from "../hooks/useUser";
 import usePermissions from "../hooks/usePermissions";
 
 const PresentationPage = (): React.ReactElement => {
-  const [openNewPresentationModal, setOpenNewPresentationModal] =
-    useState(false);
-  const [specificPresentation, setSpecificPresentation] =
-    useState<PresentationInterface | null>(null);
-  const [openEditPresentationModal, setOpenEditPresentationModal] =
-    useState(false);
+  const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
+    false
+  );
+  const [
+    specificPresentation,
+    setSpecificPresentation,
+  ] = useState<PresentationInterface | null>(null);
+  const [openEditPresentationModal, setOpenEditPresentationModal] = useState(
+    false
+  );
   const [sharableLinkModal, setSharableLinkModal] = useState(false);
   const [sharableLink, setSharableLink] = useState("");
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<boolean>(false);
@@ -30,11 +34,7 @@ const PresentationPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
 
-  const {
-    data: p,
-    error: error,
-    mutate,
-  } = useApi<{
+  const { data: p, error: error, mutate } = useApi<{
     presentations: PresentationInterface[];
     numExperiments: number;
   }>("/presentations");

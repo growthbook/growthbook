@@ -10,8 +10,10 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
 
 export default function SavedGroupsPage() {
-  const [savedGroupForm, setSavedGroupForm] =
-    useState<null | Partial<SavedGroupInterface>>(null);
+  const [
+    savedGroupForm,
+    setSavedGroupForm,
+  ] = useState<null | Partial<SavedGroupInterface>>(null);
   const permissions = usePermissions();
 
   const { savedGroups, error } = useDefinitions();

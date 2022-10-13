@@ -20,8 +20,10 @@ const ImportExperimentModal: FC<{
   fromFeature = false,
 }) => {
   const { datasources } = useDefinitions();
-  const [selected, setSelected] =
-    useState<null | Partial<ExperimentInterfaceStringDates>>(initialValue);
+  const [
+    selected,
+    setSelected,
+  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(initialValue);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
     if (!datasources) return null;

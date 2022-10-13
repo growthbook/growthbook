@@ -16,8 +16,11 @@ const SegmentForm: FC<{
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const { datasources, getDatasourceById, mutateDefinitions } =
-    useDefinitions();
+  const {
+    datasources,
+    getDatasourceById,
+    mutateDefinitions,
+  } = useDefinitions();
   const form = useForm({
     defaultValues: {
       name: current.name || "",

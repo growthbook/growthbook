@@ -5,8 +5,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 
 const ImportPage: FC = () => {
-  const [create, setCreate] =
-    useState<null | Partial<ExperimentInterfaceStringDates>>(null);
+  const [
+    create,
+    setCreate,
+  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(null);
   const router = useRouter();
   const { id } = router.query;
   const importId = Array.isArray(id) ? id[0] : id;

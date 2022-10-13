@@ -40,8 +40,9 @@ const DataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const [dirty, setDirty] = useState(false);
-  const [datasource, setDatasource] =
-    useState<Partial<DataSourceInterfaceWithParams>>(null);
+  const [datasource, setDatasource] = useState<
+    Partial<DataSourceInterfaceWithParams>
+  >(null);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {

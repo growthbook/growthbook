@@ -8,12 +8,13 @@ import {
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 
-type DataSourceViewEditExperimentPropertiesProps =
-  DataSourceQueryEditingModalBaseProps;
+type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceViewEditExperimentProperties: FC<
-  DataSourceViewEditExperimentPropertiesProps
-> = ({ onSave, onCancel, dataSource }) => {
+export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperimentPropertiesProps> = ({
+  onSave,
+  onCancel,
+  dataSource,
+}) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
 
   const handleEdit = useCallback(() => {

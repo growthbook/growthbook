@@ -24,8 +24,9 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
-  const [passwordResetModal, setPasswordResetModal] =
-    useState<MemberInfo>(null);
+  const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
+    null
+  );
 
   const onInvite = () => {
     setInviting(true);
