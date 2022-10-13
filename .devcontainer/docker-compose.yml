@@ -1,12 +1,12 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
       args:
-        VARIANT: 14-buster
+        VARIANT: 16-buster
     volumes:
       - ..:/workspace:cached
     # Overrides default command so things don't shut down after the process ends.
@@ -21,7 +21,7 @@ services:
     volumes:
       - mongodb-data:/data/db
     environment:
-     MONGO_INITDB_ROOT_USERNAME: root
-     MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
 volumes:
   mongodb-data:
