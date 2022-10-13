@@ -71,7 +71,7 @@
     "@types/lodash": "^4.14.155",
     "@types/markdown-it": "^10.0.2",
     "@types/md5": "^2.2.0",
-    "@types/node": "^14.0.5",
+    "@types/node": "^16.11.65",
     "@types/prismjs": "^1.26.0",
     "@types/react": "^18.0.15",
     "@types/react-bootstrap-typeahead": "^5.1.8",
