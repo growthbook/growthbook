@@ -1745,6 +1745,11 @@ export async function postPastExperiments(
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
+  if (integration.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
   const now = new Date();

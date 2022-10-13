@@ -9,6 +9,8 @@ import { GBAddCircle } from "../Icons";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import NewDataSourceForm from "./NewDataSourceForm";
+import Tooltip from "../Tooltip";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -48,7 +50,20 @@ const DataSources: FC = () => {
                 }}
               >
                 <td>
-                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>
+                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>{" "}
+                  {d.decryptionError && (
+                    <Tooltip
+                      body={
+                        <>
+                          Could not decrypt the connection settings for this
+                          data source. Click on the data source name for more
+                          info.
+                        </>
+                      }
+                    >
+                      <FaExclamationTriangle className="text-danger" />
+                    </Tooltip>
+                  )}
                 </td>
                 <td>{d.type}</td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}

@@ -178,6 +178,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         settings: d.settings,
         params: getNonSensitiveParams(integration),
         properties: integration.getSourceProperties(),
+        decryptionError: integration.decryptionError || false,
       };
     }),
     dimensions,

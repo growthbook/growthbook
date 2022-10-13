@@ -96,6 +96,7 @@ export interface DataSourceProperties {
 type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
+  decryptionError: boolean;
 };
 
 export type IdentityJoinQuery = {
