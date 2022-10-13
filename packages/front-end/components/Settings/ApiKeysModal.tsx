@@ -23,6 +23,10 @@ const ApiKeysModal: FC<{
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (!secret && !value.description) {
+      value.description = value.environment;
+    }
+
     await apiCall("/keys", {
       method: "POST",
       body: JSON.stringify({
@@ -45,12 +49,6 @@ const ApiKeysModal: FC<{
       submit={onSubmit}
       cta="Create"
     >
-      <Field
-        label="Description"
-        textarea
-        required
-        {...form.register("description")}
-      />
       {!secret && (
         <Field
           label="Environment"
@@ -63,6 +61,12 @@ const ApiKeysModal: FC<{
           {...form.register("environment")}
         />
       )}
+      <Field
+        label="Description"
+        required={secret}
+        placeholder={secret ? "" : form.watch("environment")}
+        {...form.register("description")}
+      />
     </Modal>
   );
 };

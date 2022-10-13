@@ -24,6 +24,18 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
+function getShortEnvName(env: string) {
+  env = env.toLowerCase();
+  if (env.startsWith("dev")) return "dev";
+  if (env.startsWith("local")) return "local";
+  if (env.startsWith("staging")) return "staging";
+  if (env.startsWith("stage")) return "stage";
+  if (env.startsWith("qa")) return "qa";
+  // Default to first 4 characters
+  // Will work for "production" and "testing"
+  return env.substring(0, 4);
+}
+
 export async function createApiKey({
   environment,
   organization,
@@ -36,10 +48,10 @@ export async function createApiKey({
   secret: boolean;
 }): Promise<ApiKeyInterface> {
   if (!secret && !environment) {
-    throw new Error("Publishable API keys must have an environment set");
+    throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const prefix = secret ? "sk_" : `pk_${environment.substring(0, 4)}_`;
+  const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
   const key =
     prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
 
