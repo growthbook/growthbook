@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
+import usePermissions from "../../hooks/usePermissions";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useEnvironments } from "../../services/features";
@@ -31,6 +32,9 @@ export default function SDKEndpointSelector({
   const hasKeys = keys.length > 0;
   const hasData = !!data;
   const hasError = !!error;
+
+  const permissions = usePermissions();
+  const canEditEnvironmentsProjects = permissions.organizationSettings;
 
   useEffect(() => {
     setApiKey(keys[0]?.key || "");
@@ -100,14 +104,13 @@ export default function SDKEndpointSelector({
             value={apiKey}
             onChange={setApiKey}
             helpText={
-              <>
-                Manage your{" "}
+              canEditEnvironmentsProjects && (
                 <Link href="/environments">
                   <a>
-                    Environments and SDK Endpoints <FaExternalLinkAlt />
+                    Manage environments and endpoints <FaExternalLinkAlt />
                   </a>
                 </Link>
-              </>
+              )
             }
             options={keys.map((k) => {
               return {
@@ -135,6 +138,15 @@ export default function SDKEndpointSelector({
             <SelectField
               label="Project"
               value={project}
+              helpText={
+                canEditEnvironmentsProjects && (
+                  <Link href="/projects">
+                    <a>
+                      Manage projects <FaExternalLinkAlt />
+                    </a>
+                  </Link>
+                )
+              }
               onChange={setProject}
               initialOption="All Projects"
               options={projects.map((p) => ({
