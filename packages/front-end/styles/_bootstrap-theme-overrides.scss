@@ -50,41 +50,6 @@ pre {
   color: var(--form-input-group-color);
 }
 
-.form-group,
-.gb-select,
-.gb-multi-select {
-  [class$="-menu"] {
-    background-color: var(--surface-background-color);
-  }
-
-  [class$="-option"] {
-    color: var(--text-color-main);
-  }
-
-  [class$="-Input"] {
-    color: var(--text-color-main);
-
-    // to avoid issues with react-select adding `color: inherit`
-    input {
-      color: var(--text-color-main) !important;
-    }
-  }
-
-  [class$="-singleValue"] {
-    color: var(--text-color-muted);
-  }
-
-  [class$="-control"] {
-    background-color: var(--surface-background-color);
-    border-color: var(--border-color-300);
-
-    &[readonly],
-    &:disabled {
-      background-color: var(--surface-background-color-alt);
-    }
-  }
-}
-
 // endregion Forms
 
 // region Tables
