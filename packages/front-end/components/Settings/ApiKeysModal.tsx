@@ -44,7 +44,7 @@ const ApiKeysModal: FC<{
   return (
     <Modal
       close={close}
-      header={secret ? "Create Secret Key" : "Create Publishable Key"}
+      header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
       open={true}
       submit={onSubmit}
       cta="Create"

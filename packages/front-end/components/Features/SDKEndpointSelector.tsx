@@ -1,5 +1,7 @@
 import { ApiKeyInterface, PublishableApiKey } from "back-end/types/apikey";
+import Link from "next/link";
 import { useEffect } from "react";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -97,6 +99,16 @@ export default function SDKEndpointSelector({
             label="SDK Endpoint"
             value={apiKey}
             onChange={setApiKey}
+            helpText={
+              <>
+                Manage your{" "}
+                <Link href="/environments">
+                  <a>
+                    Environments and SDK Endpoints <FaExternalLinkAlt />
+                  </a>
+                </Link>
+              </>
+            }
             options={keys.map((k) => {
               return {
                 value: k.key,
