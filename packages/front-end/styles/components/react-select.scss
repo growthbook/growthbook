@@ -58,5 +58,5 @@
 
 .gb-multi-select__menu-portal,
 .gb-select__menu-portal {
-  z-index: 200;
+  z-index: 9999 !important;
 }
