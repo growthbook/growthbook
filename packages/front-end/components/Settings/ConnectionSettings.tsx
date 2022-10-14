@@ -48,6 +48,7 @@ export default function ConnectionSettings({
         existing={existing}
         onParamChange={onParamChange}
         params={datasource.params}
+        setParams={setParams}
       />
     );
   } else if (datasource.type === "presto") {
