@@ -74,12 +74,12 @@ export const ReactSelectProps = {
     multiValue: (styles) => {
       return {
         ...styles,
-        backgroundColor: "#F2ECFD",
+        backgroundColor: "var(--form-multivalue-background-color)",
       };
     },
     multiValueLabel: (styles) => ({
       ...styles,
-      color: "#7c45ea",
+      color: "var(--form-multivalue-text-color)",
       fontWeight: 600,
     }),
     multiValueRemove: (styles) => ({

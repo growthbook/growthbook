@@ -63,6 +63,11 @@ pre {
 
   [class$="-Input"] {
     color: var(--text-color-main);
+
+    // to avoid issues with react-select adding `color: inherit`
+    input {
+      color: var(--text-color-main) !important;
+    }
   }
 
   [class$="-singleValue"] {
@@ -76,14 +81,6 @@ pre {
     &[readonly],
     &:disabled {
       background-color: var(--surface-background-color-alt);
-    }
-  }
-
-  [class$="-multiValue"] {
-    background-color: var(--form-multivalue-background-color);
-
-    > * {
-      color: var(--form-multivalue-text-color);
     }
   }
 }
@@ -261,6 +258,19 @@ pre {
 }
 
 // endregion Modals
+
+// region Pagination
+
+.pagination {
+  .page-link {
+    background-color: var(--surface-background-color);
+  }
+}
+.page-item.disabled .page-link {
+  background-color: var(--surface-background-color);
+}
+
+// endregion Pagination
 
 // region Tabs
 

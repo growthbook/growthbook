@@ -74,6 +74,11 @@ export async function getImpactEstimate(
   }
 
   const integration = getSourceIntegrationObject(datasource);
+  if (integration.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
 
   const conversionWindowHours =
     metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;

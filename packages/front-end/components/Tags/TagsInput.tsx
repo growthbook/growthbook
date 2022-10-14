@@ -106,7 +106,7 @@ const TagsInput: FC<{
           return {
             value: t.id,
             label: t.id,
-            color: t.color,
+            color: t.color || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };
         }) ?? []
