@@ -9,8 +9,8 @@
 
 .gb-multi-select__menu,
 .gb-select__menu {
-  min-width: 100%;
-  width: max-content;
+  min-width: 100% !important;
+  width: max-content !important;
   background-color: var(--surface-background-color) !important;
 }
 
