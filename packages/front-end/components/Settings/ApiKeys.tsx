@@ -17,10 +17,10 @@ const ApiKeys: FC = () => {
 
   return (
     <>
-      <SDKEndpoints keys={data.keys} mutate={mutate}/>
-      <SecretApiKeys keys={data.keys} mutate={mutate}/>
+      <SecretApiKeys keys={data.keys} mutate={mutate} />
+      <SDKEndpoints keys={data.keys} mutate={mutate} />
     </>
-  )
+  );
 };
 
 export default ApiKeys;

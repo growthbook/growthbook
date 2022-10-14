@@ -71,7 +71,7 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
   return exampleAttributes;
 }
 
-export function getApiBaseUrl(): string {
+function getApiBaseUrl(): string {
   if (isCloud()) {
     return `https://cdn.growthbook.io/`;
   }
@@ -342,7 +342,9 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${apiKey || "MY_SDK_KEY"}${currentProject ? "?" + currentProject : ""}",
+  apiKey = "${apiKey || "MY_SDK_KEY"}${
+              currentProject ? "?" + currentProject : ""
+            }",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->

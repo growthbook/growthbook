@@ -28,7 +28,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const secretKeys = keys.filter((k) => k.secret);
 
   return (
-    <div className="mt-4">
+    <div className="mb-5">
       {open && canManageKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}
@@ -36,7 +36,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           secret={true}
         />
       )}
-      <h2>Secret API Keys</h2>
+      <h1>Secret API Keys</h1>
       <p>
         Secret keys have full read and write access to your account. Because of
         this, they must be kept secure and{" "}
