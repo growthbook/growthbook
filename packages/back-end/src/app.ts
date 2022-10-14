@@ -5,8 +5,6 @@ import express, {
   ErrorRequestHandler,
   Response,
 } from "express";
-import mongoInit from "./init/mongo";
-import licenseInit from "./init/license";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -95,8 +93,8 @@ const savedGroupsController = wrapController(savedGroupsControllerRaw);
 // End Controllers
 
 import { getUploadsDir } from "./services/files";
-import { queueInit } from "./init/queue";
 import { isEmailEnabled } from "./services/email";
+import { init } from "./init";
 
 // eslint-disable-next-line
 type Handler = RequestHandler<any>;
@@ -125,23 +123,6 @@ if (SENTRY_DSN) {
       user: ["email", "sub"],
     })
   );
-}
-
-let initPromise: Promise<void>;
-async function init() {
-  if (!initPromise) {
-    initPromise = (async () => {
-      await mongoInit();
-      await queueInit();
-      await licenseInit();
-    })();
-  }
-  try {
-    await initPromise;
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  }
 }
 
 if (!process.env.NO_INIT) {
