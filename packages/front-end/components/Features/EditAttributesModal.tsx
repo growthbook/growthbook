@@ -9,9 +9,11 @@ import Tooltip from "../Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import track from "../../services/track";
 import { useAttributeSchema } from "../../services/features";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
-  const { settings, update } = useUser();
+  const { update } = useUser();
+  const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
   const form = useForm<{ attributeSchema: SDKAttributeSchema }>({

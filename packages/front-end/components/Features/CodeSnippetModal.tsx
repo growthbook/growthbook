@@ -14,6 +14,7 @@ import { useAttributeSchema } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import SDKEndpointSelector from "./SDKEndpointSelector";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -116,7 +117,8 @@ export default function CodeSnippetModal({
 
   const { apiCall } = useAuth();
 
-  const { settings, update } = useUser();
+  const { update } = useUser();
+  const settings = useOrgSettings();
 
   const attributeSchema = useAttributeSchema();
 

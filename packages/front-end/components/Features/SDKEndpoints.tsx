@@ -9,8 +9,8 @@ import { getSDKEndpoint } from "./CodeSnippetModal";
 import usePermissions from "../../hooks/usePermissions";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import Tooltip from "../Tooltip";
+import { useEnvironments } from "../../services/features";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -21,7 +21,7 @@ const SDKEndpoints: FC<{
 
   const { projects } = useDefinitions();
 
-  const { environments } = useOrgSettings();
+  const environments = useEnvironments();
 
   const [selectedProject, setSelectedProject] = useState("");
 
@@ -87,7 +87,7 @@ const SDKEndpoints: FC<{
               const env = key.environment ?? "production";
               const endpoint = getSDKEndpoint(key.key, selectedProject);
 
-              const envExists = environments.some((e) => e.id === env);
+              const envExists = environments?.some((e) => e.id === env);
               return (
                 <tr key={key.key}>
                   <td>{key.description}</td>

@@ -14,13 +14,13 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import useUser from "../../hooks/useUser";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
 import VariationDataInput from "./VariationDataInput";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -161,9 +161,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { apiCall } = useAuth();
 
-  const {
-    settings: { visualEditorEnabled },
-  } = useUser();
+  const { visualEditorEnabled } = useOrgSettings();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
