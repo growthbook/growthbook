@@ -10,6 +10,7 @@ import { useAuth } from "../../services/auth";
 import { BsGear } from "react-icons/bs";
 import Field from "../Forms/Field";
 import useUser from "../../hooks/useUser";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const NorthStar: FC = () => {
   const { apiCall } = useAuth();
@@ -18,7 +19,8 @@ const NorthStar: FC = () => {
     experiments: { id: string; name: string }[];
   }>("/activity");
 
-  const { settings, permissions, update } = useUser();
+  const { permissions, update } = useUser();
+  const settings = useOrgSettings();
 
   const form = useForm<{
     title: string;
