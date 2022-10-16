@@ -5,16 +5,16 @@ import { Environment } from "back-end/types/organization";
 import { GbVercelEnvMap } from "back-end/types/vercel";
 import EnvironmentModal from "../../../components/Settings/EnvironmentModal";
 import SelectField from "../../../components/Forms/SelectField";
-import useOrgSettings from "../../../hooks/useOrgSettings";
 import Modal from "../../../components/Modal";
 import useApi from "../../../hooks/useApi";
+import { useEnvironments } from "../../../services/features";
 
 export default function VercelIntegrationPage() {
   const router = useRouter();
   const { code, configurationId, teamId, next } = router.query;
 
   const { apiCall } = useAuth();
-  const { environments } = useOrgSettings();
+  const environments = useEnvironments();
 
   const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
   const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(

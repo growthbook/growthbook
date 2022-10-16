@@ -15,7 +15,6 @@ import {
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useUser from "../hooks/useUser";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
@@ -206,8 +205,8 @@ export function getVariationColor(i: number) {
 }
 
 export function useAttributeSchema() {
-  const { settings } = useUser();
-  return settings?.attributeSchema || [];
+  const { attributeSchema } = useOrgSettings();
+  return attributeSchema || [];
 }
 
 export function validateFeatureRule(

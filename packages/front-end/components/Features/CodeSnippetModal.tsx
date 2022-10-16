@@ -10,10 +10,11 @@ import { useAuth } from "../../services/auth";
 import Code, { Language } from "../SyntaxHighlighting/Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
-import { useAttributeSchema, useEnvironments } from "../../services/features";
-import SelectField from "../Forms/SelectField";
+import { useAttributeSchema } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
+import SDKEndpointSelector from "./SDKEndpointSelector";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -78,8 +79,12 @@ function getApiBaseUrl(): string {
   return getApiHost() + "/";
 }
 
-function getFeaturesUrl(apiKey: string) {
-  return getApiBaseUrl() + `api/features/${apiKey || "<your api key here>"}`;
+export function getSDKEndpoint(apiKey: string, project?: string) {
+  let endpoint = getApiBaseUrl() + `api/features/${apiKey || "MY_SDK_KEY"}`;
+  if (project) {
+    endpoint += `?project=${project}`;
+  }
+  return endpoint;
 }
 
 export default function CodeSnippetModal({
@@ -108,19 +113,19 @@ export default function CodeSnippetModal({
     tracking: "custom",
     gaDimension: "1",
   });
-  const environments = useEnvironments();
-
-  const [environment, setEnvironment] = useState(environments[0]?.id || "");
   const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
 
-  const { settings, update } = useUser();
+  const { update } = useUser();
+  const settings = useOrgSettings();
 
   const attributeSchema = useAttributeSchema();
 
-  const { datasources } = useDefinitions();
+  const { datasources, project } = useDefinitions();
   const exampleAttributes = getExampleAttributes(attributeSchema);
+
+  const [currentProject, setCurrentProject] = useState(project);
 
   // Record the fact that the SDK instructions have been seen
   useEffect(() => {
@@ -139,33 +144,6 @@ export default function CodeSnippetModal({
       await update();
     })();
   }, [settings]);
-
-  // Create API key if one doesn't exist yet
-  useEffect(() => {
-    (async () => {
-      if (!environment) {
-        return;
-      }
-
-      try {
-        setApiKey("...");
-        const key = await apiCall<{ key: string }>(
-          `/keys?preferExisting=true`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              description: `${environment} Features SDK`,
-              environment: environment,
-            }),
-          }
-        );
-        setApiKey(key.key || "");
-      } catch (e) {
-        // Happens when user doesn't have permission to create new API keys
-        console.error(e);
-      }
-    })();
-  }, [environment]);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -202,33 +180,12 @@ export default function CodeSnippetModal({
       }}
       cta={cta}
     >
-      {apiKey && (
-        <>
-          <strong>API Endpoint</strong>
-          <div className="row mb-2 mt-1 align-items-center">
-            {environments.length > 1 && (
-              <div className="col-auto">
-                <SelectField
-                  options={environments.map((e) => ({
-                    value: e.id,
-                    label: e.id,
-                  }))}
-                  value={environment}
-                  onChange={(env) => setEnvironment(env)}
-                />
-              </div>
-            )}
-            <div className="col">
-              <input
-                readOnly
-                value={getFeaturesUrl(apiKey)}
-                onFocus={(e) => e.target.select()}
-                className="form-control"
-              />
-            </div>
-          </div>
-        </>
-      )}
+      <SDKEndpointSelector
+        apiKey={apiKey}
+        setApiKey={setApiKey}
+        project={currentProject}
+        setProject={setCurrentProject}
+      />
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
         languages coming soon!
@@ -269,7 +226,7 @@ const growthbook = new GrowthBook({
                 ? ""
                 : `\n// In production, we recommend putting a CDN in front of the API endpoint`
             }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
+const FEATURES_ENDPOINT = "${getSDKEndpoint(apiKey, currentProject)}";
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
@@ -326,7 +283,7 @@ export default function MyApp() {
         ? ""
         : `\n    // In production, we recommend putting a CDN in front of the API endpoint`
     }
-    fetch("${getFeaturesUrl(apiKey)}")
+    fetch("${getSDKEndpoint(apiKey, currentProject)}")
       .then((res) => res.json())
       .then((json) => {
         growthbook.setFeatures(json.features);
@@ -387,7 +344,9 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${apiKey || "<your api key here>"}",
+  apiKey = "${apiKey || "MY_SDK_KEY"}${
+              currentProject ? "?" + currentProject : ""
+            }",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
@@ -451,7 +410,7 @@ var attrs = ${swiftArrayFormat(exampleAttributes)}
               !isCloud() ? "\n// We recommend using a CDN in production" : ""
             }
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  url: "${getFeaturesUrl(apiKey)}",
+  url: "${getSDKEndpoint(apiKey, currentProject)}",
   attributes: attrs,
   trackingCallback: { experiment, experimentResult in 
     // TODO: track in your analytics system
@@ -496,7 +455,7 @@ type GrowthBookApiResp struct {
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
 	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
+	resp, err := http.Get("${getSDKEndpoint(apiKey, currentProject)}")
 	if err != nil {
 		log.Println(err)
 	}
@@ -551,7 +510,7 @@ require 'json'
 
 # Fetch features from GrowthBook API
 # TODO: In production, we recommend adding a caching layer (Redis, etc.)
-uri = URI('${getFeaturesUrl(apiKey)}')
+uri = URI('${getSDKEndpoint(apiKey, currentProject)}')
 res = Net::HTTP.get_response(uri)
 features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
 
@@ -595,7 +554,7 @@ $attributes = ${phpArrayFormat(exampleAttributes)};
 
 // Fetch feature definitions from GrowthBook API
 // In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getFeaturesUrl(apiKey)}';
+const FEATURES_ENDPOINT = '${getSDKEndpoint(apiKey, currentProject)}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
 
@@ -627,7 +586,7 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getFeaturesUrl(apiKey)}")
+apiResp = requests.get("${getSDKEndpoint(apiKey, currentProject)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
