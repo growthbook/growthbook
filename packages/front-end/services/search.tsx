@@ -267,6 +267,16 @@ export function useSort<T>(
       if (typeof comp1 === "string") {
         return comp1.localeCompare(comp2) * sort.dir;
       }
+      if (Array.isArray(comp1)) {
+        // sorting an array is a bit odd - we'll just sort by the first element
+        // this is typically for tags.
+        const temp1 = comp1[0] ?? "";
+        const temp2 = comp2[0] ?? "";
+        if (typeof temp1 === "string" && typeof temp2 === "string") {
+          return temp1.localeCompare(temp2) * sort.dir;
+        }
+        return (temp1 - temp2) * sort.dir;
+      }
       return (comp1 - comp2) * sort.dir;
     });
     return sorted;

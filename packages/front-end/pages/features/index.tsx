@@ -83,7 +83,6 @@ export default function FeaturesPage() {
       break;
     }
   }
-
   const { sorted, SortableTH } = useSort(filtered, "id", 1, "features");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -212,7 +211,7 @@ export default function FeaturesPage() {
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
                 {showProjectColumn && <th>Project</th>}
-                <th>Tags</th>
+                <SortableTH field="tags">Tags</SortableTH>
                 {toggleEnvs.map((en) => (
                   <th key={en.id}>{en.id}</th>
                 ))}
