@@ -1,4 +1,7 @@
 import { ExperimentStatus } from "./experiment";
+import { FeatureEnvironment, FeatureValueType } from "./feature";
+import { OrganizationInterface } from "./organization";
+import { UserRef } from "./user";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -38,4 +41,30 @@ export interface ExperimentOverridesResponse {
 export interface ErrorResponse {
   status: 400;
   error: string;
+}
+
+export interface ApiRequestLocals {
+  apiKey: string;
+  organization: OrganizationInterface;
+}
+
+export interface ApiFeatureInterface {
+  id: string;
+  archived: boolean;
+  description: string;
+  owner: string;
+  project: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+  valueType: FeatureValueType;
+  defaultValue: string;
+  tags: string[];
+  environments: Record<string, FeatureEnvironment>;
+  draftEnvironments: Record<string, FeatureEnvironment>;
+  revision: {
+    version: number;
+    comment: string;
+    date: Date;
+    publishedBy: UserRef;
+  };
 }

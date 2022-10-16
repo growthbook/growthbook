@@ -27,6 +27,7 @@ import compression from "compression";
 import fs from "fs";
 import path from "path";
 import * as Sentry from "@sentry/node";
+import apiRouter from "./controllers/api/api.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -284,6 +285,9 @@ app.options(
     res.send(200);
   }
 );
+
+// Secret API routes (no JWT or CORS)
+app.use("/api/v1", apiRouter);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
