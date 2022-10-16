@@ -12,7 +12,7 @@ When you first start setting up features in GrowthBook, we create a "production"
 
 You can add new environments and SDK Endpoints by going to **Features -> Environments**.
 
-## SDK Endpoints
+## SDK Endpoint
 
 The SDK Endpoint returns all feature definitions for an environment.
 
@@ -58,7 +58,7 @@ For example:
 /api/features/dev_abc123?project=prj_456def
 ```
 
-## Official SDKs
+### Official SDKs
 
 We offer official SDKs that work with these data structures in a few popular languages with more coming soon.
 
@@ -69,3 +69,158 @@ We offer official SDKs that work with these data structures in a few popular lan
 - [Python](/lib/python)
 - [Kotlin (Android)](/lib/kotlin)
 - [Build your own](/lib/build-your-own)
+
+## Authenticated API Requests (beta)
+
+In addition to the SDK endpoint, GrowthBook also offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+
+All request and response bodies are JSON-encoded and use HTTP Basic authentication.
+
+The API base URL for GrowthBook Cloud is https://api.growthbook.io. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100). The rest of these docs will assume you are using GrowthBook Cloud.
+
+### Authentication
+
+Under `Settings -> API Keys`, generate a new Secret Key. Pass this key as the `user` when making API requests:
+
+```bash
+curl https://api.growthbook.io/api/v1
+  -u sk_abc123DEF456:
+# The ":" at the end stops curl from asking for a password
+```
+
+### Errors
+
+The API may return the following error status codes:
+
+- **400** - Bad Request - Often due to a missing required parameter
+- **401** - Unauthorized - No valid API key provided
+- **402** - Request Failed - The parameters are valid, but the request failed
+- **403** - Forbidden - Provided API key does not have the required access
+- **404** - Not Found - Unknown API route or requested resource
+- **429** - Too Many Requests - Too many requests hit the API too quickly. We recommend an exponential backoff of your requests.
+- **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
+
+The response body will be a JSON object with the following properties:
+
+- **message** - Information about the error
+
+### Features
+
+#### The Feature Object
+
+This object represents a single feature in your account. Features are complex objects with many nested properties. The following is the Typescript type definition for it:
+
+```ts
+interface Feature {
+  id: string;
+  archived: boolean;
+  description: string;
+  owner: string;
+  project: string;
+  dateCreated: string;
+  dateUpdated: string;
+  valueType: "boolean" | "number" | "string" | "json";
+  defaultValue: string;
+  tags: string[];
+  environments: {
+    [key: string]: FeatureEnvironment;
+  };
+  revision: {
+    version: number;
+    comment: string;
+    date: string;
+    publishedBy: string;
+  };
+}
+
+interface FeatureEnvironment {
+  enabled: boolean;
+  defaultValue: string;
+  rules: FeatureRule[];
+  definition: FeatureDefinition | null;
+  draft: null | {
+    enabled: boolean;
+    defaultValue: string;
+    rules: FeatureRule[];
+    definition: FeatureDefinition | null;
+  };
+}
+
+type FeatureRule = ForceRule | RolloutRule | ExperimentRule;
+
+interface ForceRule {
+  type: "force";
+  description: string;
+  condition?: string;
+  id: string;
+  enabled?: boolean;
+  value: string;
+}
+
+interface RolloutRule {
+  type: "rollout";
+  description: string;
+  condition?: string;
+  id: string;
+  enabled?: boolean;
+  value: string;
+  coverage: number;
+  hashAttribute: string;
+}
+
+interface ExperimentRule {
+  type: "experiment";
+  description: string;
+  condition?: string;
+  id: string;
+  enabled?: boolean;
+  trackingKey: string;
+  hashAttribute: string;
+  namespace?: {
+    enabled: boolean;
+    name: string;
+    range: [number, number];
+  };
+  coverage?: number;
+  values: {
+    value: string;
+    weight: number;
+    name?: string;
+  }[];
+}
+
+// This is the same format returned from the SDK Endpoints
+interface FeatureDefinition {
+  defaultValue: any;
+  rules?: FeatureDefinitionRule[];
+}
+interface FeatureDefinitionRule {
+  force?: any;
+  weights?: number[];
+  variations?: any[];
+  hashAttribute?: string;
+  namespace?: [string, number, number];
+  key?: string;
+  coverage?: number;
+  condition?: any;
+}
+```
+
+#### List Features
+
+`GET /api/v1/features`
+
+This endpoint returns all of the features in your account.
+
+```bash
+curl https://api.growthbook.io/api/v1/features
+  -u sk_abc123DEF456:
+```
+
+The reponse body takes the following shape:
+
+```ts
+interface ListFeaturesResponse {
+  features: Feature[];
+}
+```

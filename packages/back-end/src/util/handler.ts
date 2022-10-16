@@ -1,6 +1,8 @@
-import { Request, RequestHandler, Response } from "express";
+import { Request, RequestHandler } from "express";
+import path from "path";
+import fs from "fs";
 import z, { Schema } from "zod";
-import { ApiRequestLocals } from "../../types/api";
+import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 
 type ApiRequest<
   ResponseType = never,
@@ -30,34 +32,73 @@ export function createApiRequestHandler<
   querySchema?: QuerySchema;
   paramsSchema?: ParamsSchema;
   handler: (
-    req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
-    res: Response<{ status: number } & ResponseType>
-  ) => Promise<void>;
+    req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>
+  ) => Promise<ResponseType>;
 }) {
   const wrappedHandler: RequestHandler<
     z.infer<ParamsSchema>,
-    { status: number } & ResponseType,
+    ApiErrorResponse | ResponseType,
     z.infer<BodySchema>,
     z.infer<QuerySchema>
   > = async (req, res, next) => {
     try {
-      if (bodySchema) {
-        bodySchema.parse(req.body);
-      }
-      if (querySchema) {
-        querySchema.parse(req.query);
-      }
-      if (paramsSchema) {
-        paramsSchema.parse(req.params);
+      try {
+        if (bodySchema) {
+          bodySchema.parse(req.body);
+        }
+        if (querySchema) {
+          querySchema.parse(req.query);
+        }
+        if (paramsSchema) {
+          paramsSchema.parse(req.params);
+        }
+      } catch (e) {
+        // TODO: special handling for ZodError objects?
+        return res.status(400).json({
+          message: e.message,
+        });
       }
 
-      await handler(
-        req as ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
-        res
-      );
+      try {
+        const result = await handler(
+          req as ApiRequest<
+            ApiErrorResponse | ResponseType,
+            ParamsSchema,
+            BodySchema,
+            QuerySchema
+          >
+        );
+        return res.status(200).json(result);
+      } catch (e) {
+        return res.status(400).json({
+          message: e.message,
+        });
+      }
     } catch (e) {
       next(e);
     }
   };
   return wrappedHandler;
+}
+
+let build: { sha: string; date: string };
+export function getBuild() {
+  if (!build) {
+    build = {
+      sha: "",
+      date: "",
+    };
+    const rootPath = path.join(__dirname, "..", "..", "..", "..", "buildinfo");
+    if (fs.existsSync(path.join(rootPath, "SHA"))) {
+      build.sha = fs.readFileSync(path.join(rootPath, "SHA")).toString().trim();
+    }
+    if (fs.existsSync(path.join(rootPath, "DATE"))) {
+      build.date = fs
+        .readFileSync(path.join(rootPath, "DATE"))
+        .toString()
+        .trim();
+    }
+  }
+
+  return build;
 }

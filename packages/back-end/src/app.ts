@@ -25,7 +25,6 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
 import fs from "fs";
-import path from "path";
 import * as Sentry from "@sentry/node";
 import apiRouter from "./controllers/api/api.router";
 
@@ -96,6 +95,7 @@ const savedGroupsController = wrapController(savedGroupsControllerRaw);
 import { getUploadsDir } from "./services/files";
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
+import { getBuild } from "./util/handler";
 
 // eslint-disable-next-line
 type Handler = RequestHandler<any>;
@@ -154,25 +154,7 @@ app.get("/favicon.ico", (req, res) => {
 
 app.use(compression());
 
-let build: { sha: string; date: string };
 app.get("/", (req, res) => {
-  if (!build) {
-    build = {
-      sha: "",
-      date: "",
-    };
-    const rootPath = path.join(__dirname, "..", "..", "..", "buildinfo");
-    if (fs.existsSync(path.join(rootPath, "SHA"))) {
-      build.sha = fs.readFileSync(path.join(rootPath, "SHA")).toString().trim();
-    }
-    if (fs.existsSync(path.join(rootPath, "DATE"))) {
-      build.date = fs
-        .readFileSync(path.join(rootPath, "DATE"))
-        .toString()
-        .trim();
-    }
-  }
-
   res.json({
     name: "GrowthBook API",
     production: process.env.NODE_ENV === "production",
@@ -180,7 +162,7 @@ app.get("/", (req, res) => {
     app_origin: APP_ORIGIN,
     config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
-    build,
+    build: getBuild(),
   });
 });
 

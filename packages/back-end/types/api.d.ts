@@ -1,7 +1,6 @@
 import { ExperimentStatus } from "./experiment";
-import { FeatureEnvironment, FeatureValueType } from "./feature";
+import { FeatureRule, FeatureValueType } from "./feature";
 import { OrganizationInterface } from "./organization";
-import { UserRef } from "./user";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -48,23 +47,39 @@ export interface ApiRequestLocals {
   organization: OrganizationInterface;
 }
 
+export interface ApiErrorResponse {
+  message: string;
+}
+
+export interface ApiFeatureEnvironmentInterface {
+  enabled: boolean;
+  defaultValue: string;
+  rules: FeatureRule[];
+  definition: FeatureDefinition | null;
+  draft: null | {
+    enabled: boolean;
+    defaultValue: string;
+    rules: FeatureRule[];
+    definition: FeatureDefinition | null;
+  };
+}
+
 export interface ApiFeatureInterface {
   id: string;
   archived: boolean;
   description: string;
   owner: string;
   project: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: string;
+  dateUpdated: string;
   valueType: FeatureValueType;
   defaultValue: string;
   tags: string[];
-  environments: Record<string, FeatureEnvironment>;
-  draftEnvironments: Record<string, FeatureEnvironment>;
+  environments: Record<string, ApiFeatureEnvironmentInterface>;
   revision: {
     version: number;
     comment: string;
-    date: Date;
-    publishedBy: UserRef;
+    date: string;
+    publishedBy: string;
   };
 }
