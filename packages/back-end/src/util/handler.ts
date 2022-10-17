@@ -17,6 +17,14 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
+function validate(schema: Schema, value: unknown): string[] {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    return result.error.issues.map((i) => i.message);
+  }
+  return [];
+}
+
 export function createApiRequestHandler<
   ParamsSchema extends Schema = Schema<never>,
   BodySchema extends Schema = Schema<never>,
@@ -42,20 +50,28 @@ export function createApiRequestHandler<
       z.infer<QuerySchema>
     > = async (req, res, next) => {
       try {
-        try {
-          if (bodySchema) {
-            bodySchema.parse(req.body);
+        const errors: string[] = [];
+        if (paramsSchema) {
+          const paramErrors = validate(paramsSchema, req.params);
+          if (paramErrors.length > 0) {
+            errors.push(`Request params: ` + paramErrors.join(", "));
           }
-          if (querySchema) {
-            querySchema.parse(req.query);
+        }
+        if (querySchema) {
+          const queryError = validate(querySchema, req.query);
+          if (queryError.length > 0) {
+            errors.push(`Querystring: ` + queryError.join(", "));
           }
-          if (paramsSchema) {
-            paramsSchema.parse(req.params);
+        }
+        if (bodySchema) {
+          const bodyErrors = validate(bodySchema, req.body);
+          if (bodyErrors.length > 0) {
+            errors.push(`Request body: ` + bodyErrors.join(", "));
           }
-        } catch (e) {
-          // TODO: special handling for ZodError objects?
+        }
+        if (errors.length > 0) {
           return res.status(400).json({
-            message: e.message,
+            message: errors.join("\n"),
           });
         }
 

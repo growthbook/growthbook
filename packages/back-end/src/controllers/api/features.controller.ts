@@ -13,10 +13,12 @@ import { getEnvironments } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
 
 export const listFeatures = createApiRequestHandler({
-  querySchema: z.object({
-    limit: z.string().optional(),
-    offset: z.string().optional(),
-  }),
+  querySchema: z
+    .object({
+      limit: z.string().optional(),
+      offset: z.string().optional(),
+    })
+    .strict(),
 })(
   async (
     req
@@ -31,7 +33,7 @@ export const listFeatures = createApiRequestHandler({
     if (isNaN(limit) || limit < 1 || limit > 100) {
       throw new Error("Pagination limit must be between 1 and 100");
     }
-    if (isNaN(offset) || offset < 0) {
+    if (isNaN(offset) || offset < 0 || offset >= features.length) {
       throw new Error("Invalid pagination offset");
     }
 
@@ -109,7 +111,7 @@ export const listFeatures = createApiRequestHandler({
       count: filtered.length,
       total: features.length,
       hasMore,
-      nextOffset,
+      nextOffset: hasMore ? nextOffset : null,
     };
   }
 );

@@ -1,20 +1,20 @@
 # API
 
-The API is one way to keep cached features up-to-date on your servers.
+GrowthBook's API has both public endpoints plus an authenticated REST API (beta).
 
-With the **API**, your servers pull feature definitions from GrowthBook in a cronjob (or similar).
+## Public Endpoints
 
-With [Webhooks](/app/webhooks), we call out to your servers as soon as someone changes a features in GrowthBook.
+Currently, GrowthBook has a single public endpoint, the **SDK Endpoint**. This is a unique URL that returns your feature definitions, which can be passed into any of the GrowthBook SDKs - front-end, server-side, or mobile.
 
-## Environments
+Using this endpoint is one way to get your feature definitions. The other way is via [Webhooks](/app/webhooks), where we send the same payload to you automatically whenever someone updates a feature in GrowthBook.
 
-When you first start setting up features in GrowthBook, we create a "production" environment for you with an SDK Endpoint to use with any of our SDKs - client-side, server-side, or mobile.
+### Environments
 
-You can add new environments and SDK Endpoints by going to **Features -> Environments**.
+SDK Endpoints are scoped to a single environment (e.g. `dev` or `production`).
 
-## SDK Endpoint
+When you first create a GrowthBook account, we add a default "production" environment for you with a single SDK Endpoint. You can add new environments and SDK Endpoints by going to **Features -> Environments**.
 
-The SDK Endpoint returns all feature definitions for an environment.
+### The SDK Endpoint
 
 In **GrowthBook Cloud**, the SDK endpoint is served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you'll want to set up either a CDN or cache layer yourself in front of the GrowthBook API for scalability.
 
@@ -70,17 +70,17 @@ We offer official SDKs that work with these data structures in a few popular lan
 - [Kotlin (Android)](/lib/kotlin)
 - [Build your own](/lib/build-your-own)
 
-## Authenticated API Requests (beta)
+## Authenticated REST API (beta)
 
-In addition to the SDK endpoint, GrowthBook also offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+In addition to the public API endpoints, GrowthBook also offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
 
 All request and response bodies are JSON-encoded and use HTTP Basic authentication.
 
-The API base URL for GrowthBook Cloud is https://api.growthbook.io. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100). The rest of these docs will assume you are using GrowthBook Cloud.
+The API base URL for GrowthBook Cloud is `https://api.growthbook.io`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100`). The rest of these docs will assume you are using GrowthBook Cloud.
 
 ### Authentication
 
-Under `Settings -> API Keys`, generate a new Secret Key. Pass this key as the `user` when making API requests:
+Under `Settings -> API Keys`, generate a new Secret Key. Pass this key as the `user` when making API requests (leave the password blank):
 
 ```bash
 curl https://api.growthbook.io/api/v1 \
@@ -97,7 +97,7 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **429** - Too Many Requests - Too many requests hit the API too quickly. We recommend an exponential backoff of your requests.
+- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
@@ -116,7 +116,8 @@ For example:
 ```bash
 curl -G https://api.growthbook.io/api/v1/features \
   -u secret_abc123DEF456:
-  -d limit=5&offset=10
+  -d limit=5
+  -d offset=10
 # Return features 11-15
 ```
 
@@ -127,7 +128,7 @@ And the response will contain the fields:
 - `count` - Number returned in the response
 - `total` - Total number of items
 - `hasMore` - `true` if there is another page, `false` if there are no more items
-- `nextOffset` - Offset to fetch the next page
+- `nextOffset` - Offset to fetch the next page, or `null` if there are no more results
 
 ### Features
 

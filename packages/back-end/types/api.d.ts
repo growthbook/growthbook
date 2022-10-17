@@ -57,7 +57,7 @@ export interface ApiPaginationFields {
   count: number;
   total: number;
   hasMore: boolean;
-  nextOffset: number;
+  nextOffset: number | null;
 }
 
 export interface ApiFeatureEnvironmentInterface {
