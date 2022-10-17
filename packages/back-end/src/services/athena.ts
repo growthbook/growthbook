@@ -1,6 +1,7 @@
 import { Athena } from "aws-sdk";
 import { ResultSet } from "aws-sdk/clients/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
+import { logger } from "../util/logger";
 import { IS_CLOUD } from "../util/secrets";
 
 function getAthenaInstance(params: AthenaConnectionParams) {
@@ -72,13 +73,13 @@ export async function runAthenaQuery<T>(
                   }
                 })
                 .catch((e) => {
-                  console.error(e);
+                  logger.warn(e, "Athena query failed");
                   reject(e);
                 });
             }
           })
           .catch((e) => {
-            console.error(e);
+            logger.warn(e, "Athena query failed");
             reject(e);
           });
       }, delay);

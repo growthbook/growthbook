@@ -2,10 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
+import { getCustomLogProps } from "../util/logger";
 
 export default function authencateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
-  res: Response,
+  res: Response & { log: Request["log"] },
   next: NextFunction
 ) {
   // Get secret key from Authorization header and store in req
@@ -27,11 +28,9 @@ export default function authencateApiRequestMiddleware(
     .toString("ascii")
     .replace(/:.*$/, "");
 
-  req.apiKey = secretKey;
-
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
-    .then(async ({ organization, secret }) => {
+    .then(async ({ organization, secret, id }) => {
       if (!organization) {
         throw new Error("Invalid API key");
       }
@@ -40,11 +39,15 @@ export default function authencateApiRequestMiddleware(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead."
         );
       }
+      req.apiKey = id || "";
       const org = await getOrganizationById(organization);
       if (!org) {
         throw new Error("Could not find organization attached to this API key");
       }
       req.organization = org;
+
+      // Add user info to logger
+      res.log = req.log = req.log.child(getCustomLogProps(req as Request));
 
       // Continue to the actual request handler
       next();

@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import express, {
   RequestHandler,
   ErrorRequestHandler,
+  Request,
   Response,
 } from "express";
 import { usingFileConfig } from "./init/config";
@@ -11,6 +12,7 @@ import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
+  ENVIRONMENT,
   IS_CLOUD,
   SENTRY_DSN,
   UPLOAD_METHOD,
@@ -20,7 +22,6 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import asyncHandler from "express-async-handler";
-import pino from "pino-http";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import compression from "compression";
@@ -96,6 +97,7 @@ import { getUploadsDir } from "./services/files";
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { getBuild } from "./util/handler";
+import { getCustomLogProps, httpLogger } from "./util/logger";
 
 // eslint-disable-next-line
 type Handler = RequestHandler<any>;
@@ -133,7 +135,7 @@ if (!process.env.NO_INIT) {
 app.set("port", process.env.PORT || 3100);
 
 // Pretty print on dev
-if (process.env.NODE_ENV !== "production") {
+if (ENVIRONMENT !== "production") {
   app.set("json spaces", 2);
 }
 
@@ -157,7 +159,7 @@ app.use(compression());
 app.get("/", (req, res) => {
   res.json({
     name: "GrowthBook API",
-    production: process.env.NODE_ENV === "production",
+    production: ENVIRONMENT === "production",
     api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
     config_source: usingFileConfig() ? "file" : "db",
@@ -166,43 +168,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Request logging
-const logger = pino({
-  autoLogging: process.env.NODE_ENV === "production",
-  redact: {
-    paths: [
-      "req.headers.authorization",
-      'req.headers["if-none-match"]',
-      'req.headers["cache-control"]',
-      'req.headers["upgrade-insecure-requests"]',
-      "req.headers.cookie",
-      "req.headers.connection",
-      'req.headers["accept"]',
-      'req.headers["accept-encoding"]',
-      'req.headers["accept-language"]',
-      'req.headers["sec-fetch-site"]',
-      'req.headers["sec-fetch-mode"]',
-      'req.headers["sec-fetch-dest"]',
-      'req.headers["sec-ch-ua-mobile"]',
-      'req.headers["sec-ch-ua"]',
-      'req.headers["sec-fetch-user"]',
-      "res.headers.etag",
-      'res.headers["x-powered-by"]',
-      'res.headers["access-control-allow-credentials"]',
-      'res.headers["access-control-allow-origin"]',
-    ],
-    remove: true,
-  },
-  prettyPrint:
-    process.env.NODE_ENV === "production"
-      ? false
-      : {
-          colorize: true,
-          translateTime: "SYS:standard",
-          messageFormat: "{levelLabel} {req.url}",
-        },
-});
-app.use(logger);
+app.use(httpLogger);
 
 // Initialize db connections
 app.use(async (req, res, next) => {
@@ -340,10 +306,7 @@ app.use(processJWT);
 // Add logged in user props to the logger
 app.use(
   (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-    res.log = req.log = req.log.child({
-      userId: req.userId,
-      admin: !!req.admin,
-    });
+    res.log = req.log = req.log.child(getCustomLogProps(req as Request));
     next();
   }
 );
@@ -648,9 +611,9 @@ const errorHandler: ErrorRequestHandler = (
   const status = err.status || 400;
 
   if (req.log) {
-    req.log.error(err);
+    req.log.error(err.message);
   } else {
-    logger.logger.error(err);
+    httpLogger.logger.error(getCustomLogProps(req), err.message);
   }
 
   res.status(status).json({

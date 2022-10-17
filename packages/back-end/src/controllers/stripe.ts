@@ -222,8 +222,7 @@ export async function postWebhook(req: Request, res: Response) {
       }
     }
   } catch (err) {
-    console.error(payload, sig);
-    console.error(err);
+    req.log.error(err, "Webhook error");
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
