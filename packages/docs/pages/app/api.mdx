@@ -83,8 +83,8 @@ The API base URL for GrowthBook Cloud is https://api.growthbook.io. For self-hos
 Under `Settings -> API Keys`, generate a new Secret Key. Pass this key as the `user` when making API requests:
 
 ```bash
-curl https://api.growthbook.io/api/v1
-  -u sk_abc123DEF456:
+curl https://api.growthbook.io/api/v1 \
+  -u secret_abc123DEF456:
 # The ":" at the end stops curl from asking for a password
 ```
 
@@ -103,6 +103,31 @@ The API may return the following error status codes:
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Pagination
+
+All list methods are paginated and support the querystring parameters:
+
+- `limit` - number to return, between 1 and 100, default `10`
+- `offset` - how many to skip, default `0`
+
+For example:
+
+```bash
+curl -G https://api.growthbook.io/api/v1/features \
+  -u secret_abc123DEF456:
+  -d limit=5&offset=10
+# Return features 11-15
+```
+
+And the response will contain the fields:
+
+- `limit` - The limit used for the current request
+- `offset` - The offset used for the current request
+- `count` - Number returned in the response
+- `total` - Total number of items
+- `hasMore` - `true` if there is another page, `false` if there are no more items
+- `nextOffset` - Offset to fetch the next page
 
 ### Features
 
@@ -210,11 +235,11 @@ interface FeatureDefinitionRule {
 
 `GET /api/v1/features`
 
-This endpoint returns all of the features in your account.
+This endpoint returns all of the features in your account, sorted by dateCreated in chronological order (oldest first).
 
 ```bash
-curl https://api.growthbook.io/api/v1/features
-  -u sk_abc123DEF456:
+curl https://api.growthbook.io/api/v1/features \
+  -u secret_abc123DEF456:
 ```
 
 The reponse body takes the following shape:
@@ -222,5 +247,12 @@ The reponse body takes the following shape:
 ```ts
 interface ListFeaturesResponse {
   features: Feature[];
+  // Pagination info
+  limit: number;
+  offset: number;
+  count: number;
+  total: number;
+  hasMore: boolean;
+  nextOffset: number;
 }
 ```

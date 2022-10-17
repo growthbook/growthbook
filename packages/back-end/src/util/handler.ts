@@ -18,7 +18,6 @@ type ApiRequest<
   >;
 
 export function createApiRequestHandler<
-  ResponseType = never,
   ParamsSchema extends Schema = Schema<never>,
   BodySchema extends Schema = Schema<never>,
   QuerySchema extends Schema = Schema<never>
@@ -26,59 +25,61 @@ export function createApiRequestHandler<
   paramsSchema,
   bodySchema,
   querySchema,
-  handler,
 }: {
   bodySchema?: BodySchema;
   querySchema?: QuerySchema;
   paramsSchema?: ParamsSchema;
-  handler: (
-    req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>
-  ) => Promise<ResponseType>;
-}) {
-  const wrappedHandler: RequestHandler<
-    z.infer<ParamsSchema>,
-    ApiErrorResponse | ResponseType,
-    z.infer<BodySchema>,
-    z.infer<QuerySchema>
-  > = async (req, res, next) => {
-    try {
+} = {}) {
+  return <ResponseType>(
+    handler: (
+      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>
+    ) => Promise<ResponseType>
+  ) => {
+    const wrappedHandler: RequestHandler<
+      z.infer<ParamsSchema>,
+      ApiErrorResponse | ResponseType,
+      z.infer<BodySchema>,
+      z.infer<QuerySchema>
+    > = async (req, res, next) => {
       try {
-        if (bodySchema) {
-          bodySchema.parse(req.body);
+        try {
+          if (bodySchema) {
+            bodySchema.parse(req.body);
+          }
+          if (querySchema) {
+            querySchema.parse(req.query);
+          }
+          if (paramsSchema) {
+            paramsSchema.parse(req.params);
+          }
+        } catch (e) {
+          // TODO: special handling for ZodError objects?
+          return res.status(400).json({
+            message: e.message,
+          });
         }
-        if (querySchema) {
-          querySchema.parse(req.query);
-        }
-        if (paramsSchema) {
-          paramsSchema.parse(req.params);
-        }
-      } catch (e) {
-        // TODO: special handling for ZodError objects?
-        return res.status(400).json({
-          message: e.message,
-        });
-      }
 
-      try {
-        const result = await handler(
-          req as ApiRequest<
-            ApiErrorResponse | ResponseType,
-            ParamsSchema,
-            BodySchema,
-            QuerySchema
-          >
-        );
-        return res.status(200).json(result);
+        try {
+          const result = await handler(
+            req as ApiRequest<
+              ApiErrorResponse | ResponseType,
+              ParamsSchema,
+              BodySchema,
+              QuerySchema
+            >
+          );
+          return res.status(200).json(result);
+        } catch (e) {
+          return res.status(400).json({
+            message: e.message,
+          });
+        }
       } catch (e) {
-        return res.status(400).json({
-          message: e.message,
-        });
+        next(e);
       }
-    } catch (e) {
-      next(e);
-    }
+    };
+    return wrappedHandler;
   };
-  return wrappedHandler;
 }
 
 let build: { sha: string; date: string };

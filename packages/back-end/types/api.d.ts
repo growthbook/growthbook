@@ -51,6 +51,15 @@ export interface ApiErrorResponse {
   message: string;
 }
 
+export interface ApiPaginationFields {
+  limit: number;
+  offset: number;
+  count: number;
+  total: number;
+  hasMore: boolean;
+  nextOffset: number;
+}
+
 export interface ApiFeatureEnvironmentInterface {
   enabled: boolean;
   defaultValue: string;

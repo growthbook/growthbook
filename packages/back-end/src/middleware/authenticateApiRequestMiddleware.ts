@@ -15,12 +15,18 @@ export default function authencateApiRequestMiddleware(
       message: "Missing Authorization header",
     });
   }
-  const secretKey = authHeader.split(" ")[1];
-  if (!secretKey) {
+  const encodedKey = authHeader.split(" ")[1];
+  if (!encodedKey) {
     return res.status(400).json({
       message: "Missing API key in Authorization header",
     });
   }
+
+  // Decode the basic auth header into the secret key (username)
+  const secretKey = Buffer.from(encodedKey, "base64")
+    .toString("ascii")
+    .replace(/:.*$/, "");
+
   req.apiKey = secretKey;
 
   // Lookup organization by secret key and store in req
