@@ -69,6 +69,7 @@ import {
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
+  getEncryptedSDKByKey,
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
@@ -984,11 +985,12 @@ export async function postApiKey(
     description?: string;
     environment: string;
     secret: boolean;
+    encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment, secret } = req.body;
+  const { description, environment, secret, encryptSDK } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -1012,6 +1014,7 @@ export async function postApiKey(
     description: description || "",
     environment: environment || "",
     secret: !!secret,
+    encryptSDK,
   });
 
   res.status(200).json({
@@ -1057,6 +1060,29 @@ export async function postApiKeyReveal(
   res.status(200).json({
     status: 200,
     key,
+  });
+}
+
+export async function getEncryptedSDKPrivateKey(
+  req: AuthRequest<null, { key: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { key } = req.params;
+
+  const apiKey = await getEncryptedSDKByKey(org.id, key);
+
+  if (!apiKey || !apiKey.encryptionPrivateKey) {
+    return res.status(404).json({
+      status: 404,
+    });
+  }
+
+  return res.status(200).json({
+    status: 200,
+    secret: apiKey.encryptionPrivateKey,
   });
 }
 

@@ -5,6 +5,9 @@ export interface ApiKeyInterface {
   description?: string;
   organization: string;
   dateCreated: Date;
+  encryptSDK?: boolean;
+  encryptionPublicKey: string;
+  encryptionPrivateKey: string;
   secret?: boolean;
 }
 

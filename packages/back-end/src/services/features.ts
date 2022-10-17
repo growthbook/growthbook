@@ -9,6 +9,9 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import { bufferToString, publicKeyStringToBuffer } from "../util/encryptedSDK";
+// eslint-disable-next-line
+const { subtle } = require("crypto").webcrypto;
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
@@ -227,3 +230,26 @@ export function verifyDraftsAreEqual(
     );
   }
 }
+
+export const encrypt = async (
+  features: string,
+  publicKeyString: string | undefined
+): Promise<string> => {
+  if (!publicKeyString) {
+    throw new Error("Unable to encrypt the feature list.");
+  }
+
+  const publicKey = await publicKeyStringToBuffer(publicKeyString);
+
+  const encodedFeatureList = new TextEncoder().encode(features);
+
+  const encryptedFeatureList = await subtle.encrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    publicKey,
+    encodedFeatureList
+  );
+
+  return await bufferToString(encryptedFeatureList);
+};

@@ -5,7 +5,10 @@ import {
   SecretApiKey,
 } from "../../types/apikey";
 import uniqid from "uniqid";
+import { privateKeyToString, publicKeyToString } from "../util/encryptedSDK";
 import crypto from "crypto";
+// eslint-disable-next-line
+const { subtle } = require("crypto").webcrypto;
 
 const apiKeySchema = new mongoose.Schema({
   id: String,
@@ -17,6 +20,9 @@ const apiKeySchema = new mongoose.Schema({
   description: String,
   organization: String,
   dateCreated: Date,
+  encryptSDK: Boolean,
+  encryptionPublicKey: String,
+  encryptionPrivateKey: String,
   secret: Boolean,
 });
 
@@ -41,15 +47,30 @@ export async function createApiKey({
   organization,
   description,
   secret,
+  encryptSDK,
 }: {
   environment: string;
   organization: string;
   description: string;
   secret: boolean;
+  encryptSDK: boolean;
 }): Promise<ApiKeyInterface> {
   if (!secret && !environment) {
     throw new Error("SDK Endpoints must have an environment set");
   }
+
+  const keyPair: null | CryptoKeyPair = encryptSDK
+    ? await subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 4096,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt"]
+      )
+    : null;
 
   const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
   const key =
@@ -64,6 +85,13 @@ export async function createApiKey({
     key,
     secret,
     id,
+    encryptSDK,
+    encryptionPrivateKey:
+      encryptSDK && keyPair
+        ? await privateKeyToString(keyPair.privateKey)
+        : null,
+    encryptionPublicKey:
+      encryptSDK && keyPair ? await publicKeyToString(keyPair.publicKey) : null,
     dateCreated: new Date(),
   });
 
@@ -98,9 +126,12 @@ export async function lookupOrganizationByApiKey(
 export async function getAllApiKeysByOrganization(
   organization: string
 ): Promise<ApiKeyInterface[]> {
-  const docs = await ApiKeyModel.find({
-    organization,
-  });
+  const docs = await ApiKeyModel.find(
+    {
+      organization,
+    },
+    { encryptionPublicKey: 0, encryptionPrivateKey: 0 }
+  );
   return docs.map((k) => {
     const json = k.toJSON();
     if (json.secret) {
@@ -110,17 +141,30 @@ export async function getAllApiKeysByOrganization(
   });
 }
 
+export async function getEncryptedSDKByKey(
+  organization: string,
+  key: string
+): Promise<{ encryptionPrivateKey?: string } | null> {
+  return ApiKeyModel.findOne(
+    { organization, key },
+    { encryptionPrivateKey: 1 }
+  );
+}
+
 export async function getFirstPublishableApiKey(
   organization: string,
   environment: string
 ): Promise<null | PublishableApiKey> {
-  const doc = await ApiKeyModel.findOne({
-    organization,
-    environment,
-    secret: {
-      $ne: true,
+  const doc = await ApiKeyModel.findOne(
+    {
+      organization,
+      environment,
+      secret: {
+        $ne: true,
+      },
     },
-  });
+    { encryptionPublicKey: 0, encryptionPrivateKey: 0 }
+  );
 
   if (!doc) return null;
 

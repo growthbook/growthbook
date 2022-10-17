@@ -28,6 +28,7 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
+  encrypt,
   featureUpdated,
   getEnabledEnvironments,
   getFeatureDefinitions,
@@ -66,6 +67,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       organization,
       secret,
       environment,
+      encryptSDK,
+      encryptionPublicKey,
     } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
@@ -95,7 +98,13 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     res.status(200).json({
       status: 200,
-      features,
+      features: !encryptSDK ? features : {},
+      ...(encryptSDK && {
+        encrpytedFeatures: await encrypt(
+          JSON.stringify(features),
+          encryptionPublicKey
+        ),
+      }),
       dateUpdated,
     });
   } catch (e) {

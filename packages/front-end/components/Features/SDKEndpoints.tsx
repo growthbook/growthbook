@@ -11,6 +11,11 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
+import Button from "../Button";
+
+type EncryptedSDKPrivateKeys = {
+  [key: string]: string;
+};
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -18,6 +23,8 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
+  const [privateKeys, setPrivateKeys] =
+    useState<EncryptedSDKPrivateKeys | null>({});
 
   const { projects } = useDefinitions();
 
@@ -39,6 +46,20 @@ const SDKEndpoints: FC<{
       );
     }
   });
+
+  // Need to build the reveal endpoint/logic now
+  const revealPrivateKey = async (apiKey: string) => {
+    const res = await apiCall<{ secret: string }>(
+      `/key/${apiKey}/encryption-data`,
+      {
+        method: "GET",
+      }
+    );
+
+    await navigator.clipboard.writeText(res.secret);
+
+    setPrivateKeys({ [apiKey]: res.secret });
+  };
 
   return (
     <div className="mt-4">
@@ -79,6 +100,9 @@ const SDKEndpoints: FC<{
               <th>Description</th>
               <th>Environment</th>
               <th>Endpoint</th>
+              {publishableKeys.find((key) => key.encryptSDK === true) && (
+                <th>Private Key</th>
+              )}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -122,6 +146,20 @@ const SDKEndpoints: FC<{
                           });
                       }}
                     />
+                  </td>
+                  <td>
+                    {key.encryptSDK && (
+                      <Button
+                        color="link btn-md"
+                        onClick={async () => {
+                          await revealPrivateKey(key.key);
+                        }}
+                      >
+                        {!privateKeys[key.key]
+                          ? "Copy to Clipboard"
+                          : "Copied!"}
+                      </Button>
+                    )}
                   </td>
                   {canManageKeys && (
                     <td>
