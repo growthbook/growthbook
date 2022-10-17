@@ -56,13 +56,13 @@ async function sendMail({
     throw new Error("Email server not configured.");
   }
 
-  // This only works for Sendgrid
-  const headers: { [key: string]: string } = ignoreUnsubscribes
-    ? {
-        "x-smtpapi":
-          '{"filters":{"bypass_list_management":{"settings":{"enable":1}}}}',
-      }
-    : {};
+  const headers: { [key: string]: string } = {};
+
+  // If using Sendgrid, we can bypass unsubscribe lists for important emails
+  if (ignoreUnsubscribes && EMAIL_HOST === "smtp.sendgrid.net") {
+    headers["x-smtpapi"] =
+      '{"filters":{"bypass_list_management":{"settings":{"enable":1}}}}';
+  }
 
   await transporter.sendMail({
     from: `"GrowthBook" <${EMAIL_FROM}>`,
