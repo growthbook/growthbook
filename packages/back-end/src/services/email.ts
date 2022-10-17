@@ -44,15 +44,25 @@ async function sendMail({
   subject,
   to,
   text,
+  ignoreUnsubscribes = false,
 }: {
   html: string;
   subject: string;
   to: string;
   text: string;
+  ignoreUnsubscribes?: boolean;
 }) {
   if (!isEmailEnabled() || !transporter) {
     throw new Error("Email server not configured.");
   }
+
+  // This only works for Sendgrid
+  const headers: { [key: string]: string } = ignoreUnsubscribes
+    ? {
+        "x-smtpapi":
+          '{"filters":{"bypass_list_management":{"settings":{"enable":1}}}}',
+      }
+    : {};
 
   await transporter.sendMail({
     from: `"GrowthBook" <${EMAIL_FROM}>`,
@@ -60,6 +70,7 @@ async function sendMail({
     subject,
     text,
     html,
+    headers,
   });
 }
 export async function sendInviteEmail(
@@ -82,6 +93,7 @@ export async function sendInviteEmail(
     subject: `You've been invited to join ${organization.name} on GrowthBook`,
     to: invite.email,
     text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
+    ignoreUnsubscribes: true,
   });
 }
 
@@ -125,6 +137,7 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
     subject: "Reset GrowthBook Password",
     to: email,
     text: `Reset your password by visiting ${resetUrl}`,
+    ignoreUnsubscribes: true,
   });
 }
 
