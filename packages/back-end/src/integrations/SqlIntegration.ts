@@ -24,7 +24,8 @@ import { SegmentInterface } from "../../types/segment";
 import { getBaseIdTypeAndJoins, replaceSQLVars, format } from "../util/sql";
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface {
+  implements SourceIntegrationInterface
+{
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
@@ -60,6 +61,13 @@ export default abstract class SqlIntegration
   async testConnection(): Promise<boolean> {
     await this.runQuery("select 1");
     return true;
+  }
+
+  // eslint-disable-next-line
+  async testQuery(query: string): Promise<any> {
+    //TODO: Fix this any
+    const results = await this.runQuery(query);
+    return results;
   }
 
   getSchema(): string {
@@ -163,9 +171,9 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (
-      this.settings.queries?.exposure || []
-    ).map(({ id }) => this.getExposureQuery(id));
+    const experimentQueries = (this.settings.queries?.exposure || []).map(
+      ({ id }) => this.getExposureQuery(id)
+    );
 
     return format(
       `-- Past Experiments

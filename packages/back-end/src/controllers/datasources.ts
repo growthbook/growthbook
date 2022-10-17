@@ -12,6 +12,7 @@ import {
   getNonSensitiveParams,
   mergeParams,
   encryptParams,
+  testQuery,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -488,4 +489,37 @@ export async function getQueries(
   res.status(200).json({
     queries: queries.map((id) => map.get(id) || null),
   });
+}
+
+export async function validateExposureQuery(
+  req: AuthRequest<{
+    sql: string;
+    id: string;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("editDatasourceSettings");
+
+  const { org } = getOrgFromReq(req);
+  const { sql, id } = req.body;
+
+  const datasource = await getDataSourceById(id, org.id);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+
+  const limitedSQL = `${sql}\nLIMIT 1`;
+
+  try {
+    const result = await testQuery(datasource, limitedSQL);
+    console.log("result", result);
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(200).json({
+      status: 200,
+      errorMessage: e.message || "Something went wrong.",
+    });
+  }
 }

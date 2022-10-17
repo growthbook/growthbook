@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import Modal from "../../../Modal";
 import {
   DataSourceInterfaceWithParams,
@@ -13,6 +13,7 @@ import Tooltip from "../../../Tooltip";
 import Toggle from "../../../Forms/Toggle";
 import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";
+import { useAuth } from "../../../../services/auth";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -22,13 +23,16 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
-  exposureQuery,
-  dataSource,
-  mode,
-  onSave,
-  onCancel,
-}) => {
+type TestQueryResults = {
+  status: number;
+  errorMessage?: string;
+};
+
+export const AddEditExperimentAssignmentQueryModal: FC<
+  EditExperimentAssignmentQueryProps
+> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+  const [testQuerySuccessMessage, setTestQuerySuccessMessage] = useState("");
+  const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
@@ -97,6 +101,39 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     return null;
   }
 
+  const handleTestQuery = async () => {
+    const options = {
+      sql: userEnteredQuery,
+      id: dataSource.id,
+    };
+
+    console.log("options", options);
+
+    const res: TestQueryResults = await apiCall("/query/exposure/validity", {
+      method: "POST",
+      body: JSON.stringify(options),
+    });
+
+    if (res.status === 200 && !res.errorMessage) {
+      setTestQuerySuccessMessage("Bravo - The test query ran successfully!");
+    }
+
+    //TODO: Add error handling in a way that works with the Modals built-in error handling
+
+    console.log("res", res);
+  };
+
+  const testQueryButton = (
+    <button
+      className="btn btn-link"
+      disabled={!saveEnabled}
+      type="button"
+      onClick={handleTestQuery}
+    >
+      Test Query
+    </button>
+  );
+
   return (
     <Modal
       open={true}
@@ -106,6 +143,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       header={modalTitle}
       cta="Save"
       ctaEnabled={saveEnabled}
+      secondaryCTA={testQueryButton}
       autoFocusSelector="#id-modal-identify-joins-heading"
     >
       <div className="my-2 ml-3">
@@ -125,6 +163,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               {...form.register("userIdType")}
             />
 
+            {testQuerySuccessMessage && (
+              <div className="alert alert-success">
+                {testQuerySuccessMessage}
+              </div>
+            )}
             <div className="row">
               <div className="col">
                 <CodeTextArea

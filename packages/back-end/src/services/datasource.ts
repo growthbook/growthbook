@@ -88,3 +88,8 @@ export async function testDataSourceConnection(
   const integration = getSourceIntegrationObject(datasource);
   await integration.testConnection();
 }
+
+export async function testQuery(datasource: DataSourceInterface, sql: string) {
+  const integration = getSourceIntegrationObject(datasource);
+  return integration.testQuery ? await integration.testQuery(sql) : null;
+}
