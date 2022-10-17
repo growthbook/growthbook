@@ -69,8 +69,8 @@ import {
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
-  getEncryptedSDKByKey,
   getFirstPublishableApiKey,
+  getPrivateKeyByKey,
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
 
@@ -1063,7 +1063,7 @@ export async function postApiKeyReveal(
   });
 }
 
-export async function getEncryptedSDKPrivateKey(
+export async function getApiKeyPrivateKey(
   req: AuthRequest<null, { key: string }>,
   res: Response
 ) {
@@ -1072,9 +1072,9 @@ export async function getEncryptedSDKPrivateKey(
   const { org } = getOrgFromReq(req);
   const { key } = req.params;
 
-  const apiKey = await getEncryptedSDKByKey(org.id, key);
+  const encryptionPrivateKey = await getPrivateKeyByKey(org.id, key);
 
-  if (!apiKey || !apiKey.encryptionPrivateKey) {
+  if (!encryptionPrivateKey) {
     return res.status(404).json({
       status: 404,
     });
@@ -1082,7 +1082,7 @@ export async function getEncryptedSDKPrivateKey(
 
   return res.status(200).json({
     status: 200,
-    secret: apiKey.encryptionPrivateKey,
+    privateKey: encryptionPrivateKey,
   });
 }
 

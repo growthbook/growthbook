@@ -13,7 +13,7 @@ import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
 import Button from "../Button";
 
-type EncryptedSDKPrivateKeys = {
+type ApiKeyPrivateKey = {
   [key: string]: string;
 };
 
@@ -23,8 +23,7 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
-  const [privateKeys, setPrivateKeys] =
-    useState<EncryptedSDKPrivateKeys | null>({});
+  const [privateKeys, setPrivateKeys] = useState<ApiKeyPrivateKey | null>({});
 
   const { projects } = useDefinitions();
 
@@ -47,18 +46,17 @@ const SDKEndpoints: FC<{
     }
   });
 
-  // Need to build the reveal endpoint/logic now
-  const revealPrivateKey = async (apiKey: string) => {
-    const res = await apiCall<{ secret: string }>(
-      `/key/${apiKey}/encryption-data`,
+  const getPrivateKeyAndCopy = async (apiKey: string) => {
+    const res = await apiCall<{ privateKey: string }>(
+      `/key/${apiKey}/private-key`,
       {
         method: "GET",
       }
     );
 
-    await navigator.clipboard.writeText(res.secret);
+    await navigator.clipboard.writeText(res.privateKey);
 
-    setPrivateKeys({ [apiKey]: res.secret });
+    setPrivateKeys({ [apiKey]: res.privateKey });
   };
 
   return (
@@ -150,9 +148,10 @@ const SDKEndpoints: FC<{
                   <td>
                     {key.encryptSDK && (
                       <Button
-                        color="link btn-md"
+                        style={{ width: "100%" }}
+                        color="btn btn-outline-primary"
                         onClick={async () => {
-                          await revealPrivateKey(key.key);
+                          await getPrivateKeyAndCopy(key.key);
                         }}
                       >
                         {!privateKeys[key.key]

@@ -601,10 +601,7 @@ app.get("/keys", organizationsController.getApiKeys);
 app.post("/keys", organizationsController.postApiKey);
 app.delete("/keys", organizationsController.deleteApiKey);
 app.post("/keys/reveal", organizationsController.postApiKeyReveal);
-app.get(
-  "/key/:key/encryption-data",
-  organizationsController.getEncryptedSDKPrivateKey
-);
+app.get("/key/:key/private-key", organizationsController.getApiKeyPrivateKey);
 
 // Webhooks
 app.get("/webhooks", organizationsController.getWebhooks);

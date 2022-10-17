@@ -141,14 +141,16 @@ export async function getAllApiKeysByOrganization(
   });
 }
 
-export async function getEncryptedSDKByKey(
+export async function getPrivateKeyByKey(
   organization: string,
   key: string
-): Promise<{ encryptionPrivateKey?: string } | null> {
-  return ApiKeyModel.findOne(
-    { organization, key },
-    { encryptionPrivateKey: 1 }
-  );
+): Promise<string | null> {
+  const apiKey = await ApiKeyModel.findOne({
+    organization,
+    key,
+  });
+
+  return apiKey?.encryptionPrivateKey || null;
 }
 
 export async function getFirstPublishableApiKey(
