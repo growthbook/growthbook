@@ -4,23 +4,21 @@ The API is one way to keep cached features up-to-date on your servers.
 
 With the **API**, your servers pull feature definitions from GrowthBook in a cronjob (or similar).
 
-With [Webhooks](/app/webhooks), GrowthBook calls out to your servers as soon as features change in GrowthBook.
+With [Webhooks](/app/webhooks), we call out to your servers as soon as someone changes a features in GrowthBook.
 
-## Environments and API Keys
+## Environments
 
-When you first start setting up features in GrowthBook, we create a "production" environment for you with an API key.
+When you first start setting up features in GrowthBook, we create a "production" environment for you with an SDK Endpoint to use with any of our SDKs - client-side, server-side, or mobile.
 
-You can add new environments by going to **Settings -> Environments**.
+You can add new environments and SDK Endpoints by going to **Features -> Environments**.
 
-## Feature Definitions Endpoint
+## SDK Endpoints
 
-The primary API endpoint is for fetching feature definitions.
+The SDK Endpoint returns all feature definitions for an environment.
 
-For **self-hosted** deployments, the endpoint is at [http://localhost:3100/api/features/{myKey}](http://localhost:3100/config/{myKey}) (note: port 3000 is the default front-end app, port 3100 is the default for the API)
+In **GrowthBook Cloud**, the SDK endpoint is served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you'll want to set up either a CDN or cache layer yourself in front of the GrowthBook API for scalability.
 
-For **GrowthBook Cloud**, the endpoint is on our global CDN: https://cdn.growthbook.io/api/features/{myKey}
-
-Here is an example API response:
+Here is an example response from an SDK endpoint (pretty-printed for readability):
 
 ```json
 {
@@ -50,14 +48,14 @@ Each feature definition has a default value and optional rules that override the
 
 ### Project-scoping
 
-If you've set up multiple projects within GrowthBook, you can optionally add a querystring to this endpoint to only include features in a specific project. By default, features from all projects are returned.
+If you've set up multiple projects within GrowthBook, you can optionally add a querystring to the SDK endpoint to only include features in a specific project. By default, features from all projects are returned.
 
 To do this, add the querystring `?project={projectId}`. You can find the id for your project under Settings > Projects (will start with `prj_`).
 
 For example:
 
 ```
-/api/features/key_dev_abc123?project=prj_456def
+/api/features/dev_abc123?project=prj_456def
 ```
 
 ## Official SDKs

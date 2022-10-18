@@ -211,9 +211,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         );
       } else {
         try {
+          const redirectAddress =
+            window.location.pathname + (window.location.search || "");
           window.sessionStorage.setItem(
             "postAuthRedirectPath",
-            window.location.pathname
+            redirectAddress
           );
         } catch (e) {
           // ignore

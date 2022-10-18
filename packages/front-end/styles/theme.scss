@@ -55,6 +55,8 @@
   --win-background: #d4edda;
   --lose-background: #f8d7da;
   --warn-background: #fff3cd;
+
+  --select-hover-background: #f2f7ff;
 }
 
 @mixin dark-theme {
@@ -112,6 +114,8 @@
   --win-background: #0a4947;
   --lose-background: #4f1b1b;
   --warn-background: #505518;
+
+  --select-hover-background: #{colors.$gray-800};
 }
 
 .theme--light {

@@ -13,7 +13,6 @@ const ApiKeysPage: FC = () => {
           </a>
         </Link>
       </div>
-      <h1>API Keys</h1>
       <ApiKeys />
     </div>
   );

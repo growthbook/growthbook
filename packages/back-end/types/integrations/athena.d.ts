@@ -1,4 +1,5 @@
 export interface AthenaConnectionParams {
+  authType?: "auto" | "accessKey";
   accessKeyId?: string;
   secretAccessKey?: string;
   region: string;

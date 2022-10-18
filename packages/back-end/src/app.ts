@@ -599,7 +599,8 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 // API keys
 app.get("/keys", organizationsController.getApiKeys);
 app.post("/keys", organizationsController.postApiKey);
-app.delete("/key/:key", organizationsController.deleteApiKey);
+app.delete("/keys", organizationsController.deleteApiKey);
+app.post("/keys/reveal", organizationsController.postApiKeyReveal);
 
 // Webhooks
 app.get("/webhooks", organizationsController.getWebhooks);
