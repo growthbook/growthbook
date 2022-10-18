@@ -64,13 +64,6 @@ export default abstract class SqlIntegration
     return true;
   }
 
-  // eslint-disable-next-line
-  async testQuery(query: string): Promise<TestQueryResult[]> {
-    const limitedQuery = `SELECT * FROM (${query}) as sub_query\nLIMIT 1`;
-    const results = await this.runQuery(limitedQuery);
-    return results;
-  }
-
   getSchema(): string {
     return "";
   }
@@ -428,6 +421,12 @@ export default abstract class SqlIntegration
 
       return ret;
     });
+  }
+
+  async testQuery(query: string): Promise<TestQueryResult[]> {
+    const limitedQuery = `SELECT * FROM (${query}) as sub_query\nLIMIT 1`;
+    const results = await this.runQuery(limitedQuery);
+    return results;
   }
 
   private getIdentifiesCTE(

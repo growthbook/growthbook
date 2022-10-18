@@ -512,6 +512,13 @@ export async function validateExposureQuery(
   try {
     const result = await testQuery(datasource, query);
 
+    if (result?.length === 0) {
+      return res.status(200).json({
+        status: 200,
+        errorMessage: "No rows were returned.",
+      });
+    }
+
     const extraColumns = [];
 
     if (result) {

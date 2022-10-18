@@ -26,6 +26,7 @@ type EditExperimentAssignmentQueryProps = {
 type TestQueryResults = {
   status: number;
   extraColumns?: string[];
+  errorMessage?: string;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
@@ -111,13 +112,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     setQuerySuccess(false);
     setQueryWarnings([]);
 
-    const value = {
+    const value: ExposureQuery = {
       name: exposureQuery.name,
       query: userEnteredQuery,
       id: dataSource.id,
       userIdType: userEnteredUserIdType,
       dimensions: userEnteredDimensions,
-      hasNamCol: userEnteredHasNameCol,
+      hasNameCol: userEnteredHasNameCol ? userEnteredHasNameCol : false,
     };
 
     try {
@@ -132,6 +133,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           requiredColumns,
         }),
       });
+
+      if (res.errorMessage) {
+        setQueryError(res.errorMessage);
+        return;
+      }
 
       if (res.extraColumns) {
         setQueryWarnings(res.extraColumns);
