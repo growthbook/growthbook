@@ -16,17 +16,25 @@ export default function authencateApiRequestMiddleware(
       message: "Missing Authorization header",
     });
   }
-  const encodedKey = authHeader.split(" ")[1];
-  if (!encodedKey) {
+
+  const [scheme, value] = authHeader.split(" ");
+  if (scheme !== "Bearer" && scheme !== "Basic") {
+    return res.status(400).json({
+      message: "Must use either a Bearer or Basic authentication scheme",
+    });
+  }
+
+  if (!value) {
     return res.status(400).json({
       message: "Missing API key in Authorization header",
     });
   }
 
-  // Decode the basic auth header into the secret key (username)
-  const secretKey = Buffer.from(encodedKey, "base64")
-    .toString("ascii")
-    .replace(/:.*$/, "");
+  // If using Basic scheme, need to base64 decode and extract the username
+  const secretKey =
+    scheme === "Basic"
+      ? Buffer.from(value.trim(), "base64").toString("ascii").split(":")[0]
+      : value.trim();
 
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
