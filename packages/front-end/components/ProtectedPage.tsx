@@ -122,10 +122,13 @@ const ProtectedPage: React.FC<{
   const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
   const permissions = currentOrg?.permissions || getDefaultPermissions();
 
-  // Super admins always have some basic permissions
+  // Super admins have full permissions (on the front-end at least)
   if (data?.admin) {
-    permissions.organizationSettings = true;
-    permissions.editDatasourceSettings = true;
+    Object.keys(permissions).forEach((k) => {
+      if (permissions[k] === false) {
+        permissions[k] = true;
+      }
+    });
   }
 
   useEffect(() => {

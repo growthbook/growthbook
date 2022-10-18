@@ -160,6 +160,17 @@ export function getDefaultPermissions(): Permissions {
     createDatasources: false,
     organizationSettings: false,
     superDelete: false,
+    manageApiKeys: false,
+    manageBilling: false,
+    manageEnvironments: false,
+    manageNamespaces: false,
+    manageNorthStarMetric: false,
+    manageProjects: false,
+    manageSavedGroups: false,
+    manageTags: false,
+    manageTargetingAttributes: false,
+    manageTeam: false,
+    manageWebhooks: false,
   };
 }
 
@@ -181,6 +192,10 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     permissions.publishFeatures = true;
     permissions.createFeatures = true;
     permissions.createFeatureDrafts = true;
+    permissions.manageTargetingAttributes = true;
+    permissions.manageEnvironments = true;
+    permissions.manageNamespaces = true;
+    permissions.manageSavedGroups = true;
   }
 
   // Analysis permissions
@@ -198,6 +213,13 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     permissions.organizationSettings = true;
     permissions.createDatasources = true;
     permissions.superDelete = true;
+    permissions.manageApiKeys = true;
+    permissions.manageBilling = true;
+    permissions.manageNorthStarMetric = true;
+    permissions.manageProjects = true;
+    permissions.manageTags = true;
+    permissions.manageTeam = true;
+    permissions.manageWebhooks = true;
   }
 
   return permissions;

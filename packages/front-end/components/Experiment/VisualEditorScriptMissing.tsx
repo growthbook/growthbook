@@ -28,7 +28,7 @@ export default function VisualEditorScriptMissing({
   }
 
   useEffect(() => {
-    if (!permissions.organizationSettings) {
+    if (!permissions.manageEnvironments) {
       setReady(true);
       return;
     }
@@ -39,12 +39,12 @@ export default function VisualEditorScriptMissing({
       .catch((e) => {
         setError(e.message);
       });
-  }, [permissions.organizationSettings]);
+  }, [permissions.manageEnvironments]);
 
   if (!ready) {
     return <LoadingOverlay />;
   }
-  if (!permissions.organizationSettings) {
+  if (!permissions.manageEnvironments) {
     return (
       <div className="alert alert-info">
         We were able to load the site, but couldn&apos;t communicate with it.

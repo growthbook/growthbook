@@ -54,11 +54,13 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   if (props.superAdmin && !admin) return null;
   if (props.permissions) {
+    let allowed = false;
     for (let i = 0; i < props.permissions.length; i++) {
-      if (!permissions[props.permissions[i]]) {
-        return null;
+      if (permissions[props.permissions[i]]) {
+        allowed = true;
       }
     }
+    if (!allowed) return null;
   }
 
   if (props.cloudOnly && !isCloud()) {

@@ -55,6 +55,17 @@ export function getDefaultPermissions(): Permissions {
     createDatasources: false,
     organizationSettings: false,
     superDelete: false,
+    manageApiKeys: false,
+    manageBilling: false,
+    manageEnvironments: false,
+    manageNamespaces: false,
+    manageNorthStarMetric: false,
+    manageProjects: false,
+    manageSavedGroups: false,
+    manageTags: false,
+    manageTargetingAttributes: false,
+    manageTeam: false,
+    manageWebhooks: false,
   };
 }
 

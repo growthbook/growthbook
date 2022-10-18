@@ -84,6 +84,19 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
   });
 }
 
+export async function getApiKeyByIdOrKey(
+  organization: string,
+  id: string | undefined,
+  key: string | undefined
+): Promise<ApiKeyInterface | null> {
+  const doc = await ApiKeyModel.findOne({
+    organization,
+    id,
+    key,
+  });
+  return doc ? doc.toJSON() : null;
+}
+
 export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<Partial<ApiKeyInterface>> {

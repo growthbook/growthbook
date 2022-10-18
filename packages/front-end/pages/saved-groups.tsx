@@ -33,7 +33,7 @@ export default function SavedGroupsPage() {
           <h1>Saved Groups</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {permissions.createFeatures && (
+        {permissions.manageSavedGroups && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -73,7 +73,7 @@ export default function SavedGroupsPage() {
                     Comma Separated List
                   </th>
                   <th>Date Updated</th>
-                  {permissions.createFeatures && <th></th>}
+                  {permissions.manageSavedGroups && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -96,7 +96,7 @@ export default function SavedGroupsPage() {
                         })}
                       </td>
                       <td>{ago(s.dateUpdated)}</td>
-                      {permissions.createFeatures && (
+                      {permissions.manageSavedGroups && (
                         <td>
                           <a
                             href="#"
@@ -122,7 +122,7 @@ export default function SavedGroupsPage() {
       {savedGroups.length === 0 && (
         <div className="alert alert-info">
           You don&apos;t have any saved groups defined yet.{" "}
-          {permissions.createFeatures && (
+          {permissions.manageSavedGroups && (
             <span>Click the button above to create your first one.</span>
           )}
         </div>

@@ -13,7 +13,7 @@ export async function postProjects(
   req: AuthRequest<Partial<ProjectInterface>>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageProjects");
 
   const { name } = req.body;
   const { org } = getOrgFromReq(req);
@@ -31,7 +31,7 @@ export async function putProject(
   req: AuthRequest<Partial<ProjectInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageProjects");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -57,7 +57,7 @@ export async function deleteProject(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageProjects");
 
   const { id } = req.params;
   const { org } = getOrgFromReq(req);

@@ -34,7 +34,6 @@ export default function SDKEndpointSelector({
   const hasError = !!error;
 
   const permissions = usePermissions();
-  const canEditEnvironmentsProjects = permissions.organizationSettings;
 
   useEffect(() => {
     setApiKey(keys[0]?.key || "");
@@ -97,14 +96,14 @@ export default function SDKEndpointSelector({
 
   return (
     <div className="mb-2">
-      <div className="row align-items-center">
+      <div className="row align-items-top">
         <div className="col-auto">
           <SelectField
             label="SDK Endpoint"
             value={apiKey}
             onChange={setApiKey}
             helpText={
-              canEditEnvironmentsProjects && (
+              permissions.manageEnvironments && (
                 <Link href="/environments">
                   <a>
                     Manage environments and endpoints <FaExternalLinkAlt />
@@ -139,7 +138,7 @@ export default function SDKEndpointSelector({
               label="Project"
               value={project}
               helpText={
-                canEditEnvironmentsProjects && (
+                permissions.manageProjects && (
                   <Link href="/projects">
                     <a>
                       Manage projects <FaExternalLinkAlt />
