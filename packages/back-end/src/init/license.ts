@@ -62,8 +62,8 @@ async function getVerifiedLicenseData(key: string) {
   const publicKey = await getPublicKey();
   if (!publicKey) {
     logger.warn(
-      "Could not contact license verification server",
-      decodedLicense
+      decodedLicense,
+      "Could not contact license verification server"
     );
     return decodedLicense;
   }
