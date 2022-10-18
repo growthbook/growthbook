@@ -508,10 +508,10 @@ export async function validateExposureQuery(
     throw new Error("Cannot find datasource");
   }
 
-  const limitedSQL = `${sql}\nLIMIT 1`;
+  const subQuery = `SELECT * FROM (${sql}) as sub_query\nLIMIT 1`;
 
   try {
-    const result = await testQuery(datasource, limitedSQL);
+    const result = await testQuery(datasource, subQuery);
     console.log("result", result);
     res.status(200).json({
       status: 200,
