@@ -1,4 +1,4 @@
-numpy==1.19.5; python_version >= "3.6" and python_full_version >= "3.6.1" \
+numpy==1.22.2; python_version >= "3.6" and python_full_version >= "3.6.1" \
     --hash=sha256:cc6bd4fd593cb261332568485e20a0712883cf631f6f5e8e86a52caa8b2b50ff \
     --hash=sha256:aeb9ed923be74e659984e321f609b9ba54a48354bfd168d21a2b072ed1e833ea \
     --hash=sha256:8b5e972b43c8fc27d56550b4120fe6257fdc15f9301914380b27f74856299fea \
