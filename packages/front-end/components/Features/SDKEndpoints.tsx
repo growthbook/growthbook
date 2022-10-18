@@ -54,6 +54,10 @@ const SDKEndpoints: FC<{
       }
     );
 
+    if (!res.privateKey) {
+      throw new Error("Failed to retreive Private Key.");
+    }
+
     await navigator.clipboard.writeText(res.privateKey);
 
     setPrivateKeys({ [apiKey]: res.privateKey });
@@ -98,9 +102,7 @@ const SDKEndpoints: FC<{
               <th>Description</th>
               <th>Environment</th>
               <th>Endpoint</th>
-              {publishableKeys.find((key) => key.encryptSDK === true) && (
-                <th>Private Key</th>
-              )}
+              <th>Private Key</th>
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>

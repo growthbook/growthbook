@@ -9,7 +9,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { bufferToString, publicKeyStringToBuffer } from "../util/encryptedSDK";
+import { bufferToString, publicKeyStringToBuffer } from "../util/subtle-crypto";
 // eslint-disable-next-line
 const { subtle } = require("crypto").webcrypto;
 import { replaceSavedGroupsInCondition } from "../util/features";

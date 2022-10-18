@@ -71,8 +71,7 @@ const ApiKeysModal: FC<{
         placeholder={secret ? "" : form.watch("environment")}
         {...form.register("description")}
       />
-      {/* <div> */}
-      {!secret && showAdvanced ? (
+      {!secret && showAdvanced && (
         <div className="mb-3 d-flex flex-column">
           <span>
             <label htmlFor="encryptFeatures">
@@ -92,7 +91,8 @@ const ApiKeysModal: FC<{
             }}
           />
         </div>
-      ) : (
+      )}
+      {!secret && !showAdvanced && (
         <a
           href="#"
           onClick={(e) => {
@@ -103,7 +103,6 @@ const ApiKeysModal: FC<{
           Show advanced settings
         </a>
       )}
-      {/* </div> */}
     </Modal>
   );
 };

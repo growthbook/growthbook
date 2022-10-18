@@ -5,7 +5,7 @@ import {
   SecretApiKey,
 } from "../../types/apikey";
 import uniqid from "uniqid";
-import { privateKeyToString, publicKeyToString } from "../util/encryptedSDK";
+import { privateKeyToString, publicKeyToString } from "../util/subtle-crypto";
 import crypto from "crypto";
 // eslint-disable-next-line
 const { subtle } = require("crypto").webcrypto;
@@ -59,18 +59,18 @@ export async function createApiKey({
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const keyPair: null | CryptoKeyPair = encryptSDK
-    ? await subtle.generateKey(
-        {
-          name: "RSA-OAEP",
-          modulusLength: 4096,
-          publicExponent: new Uint8Array([1, 0, 1]),
-          hash: "SHA-256",
-        },
-        true,
-        ["encrypt", "decrypt"]
-      )
-    : null;
+  const keyPair: null | CryptoKeyPair =
+    encryptSDK &&
+    (await subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 4096,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt", "decrypt"]
+    ));
 
   const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
   const key =
@@ -86,12 +86,12 @@ export async function createApiKey({
     secret,
     id,
     encryptSDK,
-    encryptionPrivateKey:
-      encryptSDK && keyPair
-        ? await privateKeyToString(keyPair.privateKey)
-        : null,
-    encryptionPublicKey:
-      encryptSDK && keyPair ? await publicKeyToString(keyPair.publicKey) : null,
+    encryptionPrivateKey: keyPair?.privateKey
+      ? await privateKeyToString(keyPair.privateKey)
+      : null,
+    encryptionPublicKey: keyPair?.publicKey
+      ? await publicKeyToString(keyPair.publicKey)
+      : null,
     dateCreated: new Date(),
   });
 
@@ -141,7 +141,7 @@ export async function getAllApiKeysByOrganization(
   });
 }
 
-export async function getPrivateKeyByKey(
+export async function getPrivateKeyByApiKey(
   organization: string,
   key: string
 ): Promise<string | null> {
