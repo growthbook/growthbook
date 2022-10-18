@@ -57,10 +57,12 @@ export async function runAthenaQuery<T>(
             const StateChangeReason =
               resp.QueryExecution?.Status?.StateChangeReason;
 
-            if (State === "RUNNING") {
+            if (State === "RUNNING" || State === "QUEUED") {
               resolve(false);
             } else if (State === "FAILED") {
               reject(new Error(StateChangeReason || "Query failed"));
+            } else if (State === "CANCELLED") {
+              reject(new Error("Query was cancelled"));
             } else {
               athena
                 .getQueryResults({ QueryExecutionId })
