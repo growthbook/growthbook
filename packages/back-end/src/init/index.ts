@@ -1,6 +1,7 @@
 import mongoInit from "./mongo";
 import licenseInit from "./license";
 import { queueInit } from "./queue";
+import { logger } from "../util/logger";
 
 let initPromise: Promise<void>;
 export async function init() {
@@ -14,7 +15,7 @@ export async function init() {
   try {
     await initPromise;
   } catch (err) {
-    console.error(err);
+    logger.error(err, "Failed to initialize application");
     process.exit(1);
   }
 }

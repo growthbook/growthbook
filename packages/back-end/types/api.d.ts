@@ -1,4 +1,6 @@
 import { ExperimentStatus } from "./experiment";
+import { FeatureRule, FeatureValueType } from "./feature";
+import { OrganizationInterface } from "./organization";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -38,4 +40,55 @@ export interface ExperimentOverridesResponse {
 export interface ErrorResponse {
   status: 400;
   error: string;
+}
+
+export interface ApiRequestLocals {
+  apiKey: string;
+  organization: OrganizationInterface;
+}
+
+export interface ApiErrorResponse {
+  message: string;
+}
+
+export interface ApiPaginationFields {
+  limit: number;
+  offset: number;
+  count: number;
+  total: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
+export interface ApiFeatureEnvironmentInterface {
+  enabled: boolean;
+  defaultValue: string;
+  rules: FeatureRule[];
+  definition: FeatureDefinition | null;
+  draft: null | {
+    enabled: boolean;
+    defaultValue: string;
+    rules: FeatureRule[];
+    definition: FeatureDefinition | null;
+  };
+}
+
+export interface ApiFeatureInterface {
+  id: string;
+  archived: boolean;
+  description: string;
+  owner: string;
+  project: string;
+  dateCreated: string;
+  dateUpdated: string;
+  valueType: FeatureValueType;
+  defaultValue: string;
+  tags: string[];
+  environments: Record<string, ApiFeatureEnvironmentInterface>;
+  revision: {
+    version: number;
+    comment: string;
+    date: string;
+    publishedBy: string;
+  };
 }

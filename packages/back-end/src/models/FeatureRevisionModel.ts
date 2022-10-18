@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { logger } from "../util/logger";
 
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
@@ -62,7 +63,7 @@ export async function saveRevision(feature: FeatureInterface) {
   } catch (e) {
     // The most likely error is a duplicate key error from the revision version
     // This is not a fatal error and should not stop the feature from being created
-    console.error(e);
+    logger.error(e, "Error saving feature revision");
 
     // TODO: handle duplicate key errors more elegantly
   }

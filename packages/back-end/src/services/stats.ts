@@ -14,6 +14,7 @@ import { QueryMap } from "./queries";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
+import { logger } from "../util/logger";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -137,7 +138,7 @@ print(json.dumps({
     parsed.multipleExposures =
       rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0;
   } catch (e) {
-    console.error("Failed to run stats model", result);
+    logger.error(e, "Failed to run stats model: " + result);
     throw e;
   }
 

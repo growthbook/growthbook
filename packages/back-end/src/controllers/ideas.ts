@@ -142,11 +142,13 @@ export async function getIdea(
       id: idea.estimateParams.estimate,
     });
     if (estimate && estimate.organization !== idea.organization) {
-      console.error(
-        "Estimate org does not match idea org",
-        estimate.id,
-        estimate.organization,
-        idea.organization
+      req.log.error(
+        {
+          estimateId: estimate.id,
+          estimateOrg: estimate.organization,
+          ideaOrg: idea.organization,
+        },
+        "Estimate org does not match idea org"
       );
       estimate = null;
     }
@@ -323,11 +325,11 @@ export async function postVote(
       idea: idea,
     });
   } catch (e) {
+    req.log.error(e, "Failed to vote");
     res.status(400).json({
       status: 400,
       message: e.message,
     });
-    console.error(e);
   }
 }
 
