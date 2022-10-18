@@ -493,28 +493,39 @@ export async function getQueries(
 
 export async function validateExposureQuery(
   req: AuthRequest<{
-    sql: string;
+    query: string;
     id: string;
+    requiredColumns: string[];
   }>,
   res: Response
 ) {
   req.checkPermissions("editDatasourceSettings");
 
   const { org } = getOrgFromReq(req);
-  const { sql, id } = req.body;
+  const { query, id, requiredColumns } = req.body;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
 
-  const subQuery = `SELECT * FROM (${sql}) as sub_query\nLIMIT 1`;
-
   try {
-    const result = await testQuery(datasource, subQuery);
-    console.log("result", result);
+    const result = await testQuery(datasource, query);
+
+    const extraColumns = [];
+
+    if (result) {
+      // Identify if there were any extra columns included in the query.
+      for (const column in result[0]) {
+        if (!requiredColumns.find((index) => index === column)) {
+          extraColumns.push(column);
+        }
+      }
+    }
+
     res.status(200).json({
       status: 200,
+      extraColumns,
     });
   } catch (e) {
     res.status(200).json({

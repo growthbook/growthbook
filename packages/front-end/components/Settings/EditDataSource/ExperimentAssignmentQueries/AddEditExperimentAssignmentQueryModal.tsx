@@ -25,13 +25,15 @@ type EditExperimentAssignmentQueryProps = {
 
 type TestQueryResults = {
   status: number;
-  errorMessage?: string;
+  extraColumns?: string[];
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
-  const [testQuerySuccessMessage, setTestQuerySuccessMessage] = useState("");
+  const [querySuccess, setQuerySuccess] = useState(false);
+  const [queryError, setQueryError] = useState<null | string>();
+  const [queryWarnings, setQueryWarnings] = useState<string[]>([]);
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -66,8 +68,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
   const userEnteredDimensions = form.watch("dimensions");
 
-  const handleSubmit = form.handleSubmit(async (value) => {
-    const requiredColumns = [
+  const getRequiredColumns = (value: ExposureQuery) => {
+    return [
       "experiment_id",
       "variation_id",
       "timestamp",
@@ -75,7 +77,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       ...(value.dimensions || []),
       ...(value.hasNameCol ? ["experiment_name", "variation_name"] : []),
     ];
-    validateSQL(value.query, requiredColumns);
+  };
+
+  const handleSubmit = form.handleSubmit(async (value) => {
+    validateSQL(value.query, getRequiredColumns(value));
 
     await onSave(value);
 
@@ -102,25 +107,40 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   }
 
   const handleTestQuery = async () => {
-    const options = {
-      sql: userEnteredQuery,
+    setQueryError(null);
+    setQuerySuccess(false);
+    setQueryWarnings([]);
+
+    const value = {
+      name: exposureQuery.name,
+      query: userEnteredQuery,
       id: dataSource.id,
+      userIdType: userEnteredUserIdType,
+      dimensions: userEnteredDimensions,
+      hasNamCol: userEnteredHasNameCol,
     };
 
-    console.log("options", options);
+    try {
+      const requiredColumns = getRequiredColumns(value);
+      validateSQL(value.query, requiredColumns);
 
-    const res: TestQueryResults = await apiCall("/query/exposure/validity", {
-      method: "POST",
-      body: JSON.stringify(options),
-    });
+      const res: TestQueryResults = await apiCall("/query/exposure/validity", {
+        method: "POST",
+        body: JSON.stringify({
+          query: value.query,
+          id: value.id,
+          requiredColumns,
+        }),
+      });
 
-    if (res.status === 200 && !res.errorMessage) {
-      setTestQuerySuccessMessage("Bravo - The test query ran successfully!");
+      if (res.extraColumns) {
+        setQueryWarnings(res.extraColumns);
+      }
+
+      setQuerySuccess(true);
+    } catch (e) {
+      setQueryError(e.message);
     }
-
-    //TODO: Add error handling in a way that works with the Modals built-in error handling
-
-    console.log("res", res);
   };
 
   const testQueryButton = (
@@ -145,6 +165,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       ctaEnabled={saveEnabled}
       secondaryCTA={testQueryButton}
       autoFocusSelector="#id-modal-identify-joins-heading"
+      error={queryError}
     >
       <div className="my-2 ml-3">
         <div className="row">
@@ -163,9 +184,22 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               {...form.register("userIdType")}
             />
 
-            {testQuerySuccessMessage && (
+            {querySuccess && (
               <div className="alert alert-success">
-                {testQuerySuccessMessage}
+                The query ran successfully.
+              </div>
+            )}
+            {queryWarnings.length > 0 && (
+              <div className="alert alert-warning">
+                <p>
+                  The column(s) listed below are not required. If you want to
+                  use these to drill down into experiment results, be sure to
+                  add them as dimension columns below. Otherwise, they can be
+                  removed to improve performance.
+                </p>
+                {queryWarnings.map((warning) => {
+                  return <li key={warning}>{warning}</li>;
+                })}
               </div>
             )}
             <div className="row">
