@@ -442,6 +442,72 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 **Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
 
+### Encrypting SDK Endpoints
+
+When creating an SDK endpoint, you have the option to enable encryption. When enabled, GrowthBook will encrypt the list of features returned in the API response.
+
+With encryption enabled, the response would be:
+
+```js
+  {
+    status: 200,
+    features: {},
+    encryptedFeatures: {
+      content: "encryptedFeatures",
+      iv: "hash"
+    }
+  }
+```
+
+Encryption is handled via WebCrypto API's `SubtleCrypto` and uses the RSA-OAEP algorithm and hashed with `SHA-256`. An example of how to decrypt the features is below:
+
+```ts
+// This can be found in your account under /settings/keys
+const privateKeyString = "sample_key";
+
+function stringToBuffer(str: string) {
+  const buf = new ArrayBuffer(str.length);
+  const bufView = new Uint8Array(buf);
+  for (let i = 0, strLen = str.length; i < strLen; i++) {
+    bufView[i] = str.charCodeAt(i);
+  }
+  return buf;
+}
+
+async function privateKeyStringToBuffer(keyString: string) {
+  const binaryString = atob(keyString);
+  const buffer = stringToBuffer(binaryString);
+  const key = await window.crypto.subtle.importKey(
+    "pkcs8",
+    buffer,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256",
+    },
+    true,
+    ["decrypt"]
+  );
+
+  return key;
+}
+
+// Load feature definitions JSON from GrowthBook API
+fetch("https://cdn.growthbook.io/api/features/<your api key>")
+  .then((res) => res.json())
+  .then(async (json) => {
+    const privateKey = await privateKeyStringToBuffer(privateKeyString);
+    const encryptedFeaturesBuf = await stringToBuffer(json.encrpytedFeatures);
+    const featuresBuf = await window.crypto.subtle.decrypt(
+      { name: "RSA-OAEP" },
+      privateKey,
+      encryptedFeaturesBuf
+    );
+    const decoder = new TextDecoder("utf8");
+    const features = decoder.decode(featuresBuf);
+    growthbook.setFeatures(JSON.parse(features));
+  });
+```
+
 ## Inline Experiments
 
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
@@ -465,17 +531,11 @@ In addition, there are a few other settings that only really make sense for inli
 A call to `growthbook.run(experiment)` returns an object with a few useful properties:
 
 ```ts
-const {
-  inExperiment,
-  hashUsed,
-  variationId,
-  value,
-  hashAttribute,
-  hashValue,
-} = growthbook.run({
-  key: "my-experiment",
-  variations: ["A", "B"],
-});
+const { inExperiment, hashUsed, variationId, value, hashAttribute, hashValue } =
+  growthbook.run({
+    key: "my-experiment",
+    variations: ["A", "B"],
+  });
 
 // If user is included in the experiment
 console.log(inExperiment); // true or false

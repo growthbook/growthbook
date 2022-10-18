@@ -211,6 +211,81 @@ The `result` argument is the same thing returned from the `useFeature` hook.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
+### Encrypting SDK Endpoints
+
+When creating an SDK endpoint, you have the option to enable encryption. When enabled, GrowthBook will encrypt the list of features returned in the API response.
+
+With encryption enabled, the response would be:
+
+```js
+  {
+    status: 200,
+    features: {},
+    encryptedFeatures: {
+      content: "encryptedFeatures",
+      iv: "hash"
+    }
+  }
+```
+
+Encryption is handled via WebCrypto API's `SubtleCrypto` and uses the RSA-OAEP algorithm and hashed with `SHA-256`. An example of how to decrypt the features is below:
+
+```ts
+// This can be found in your account under /settings/keys
+const privateKeyString = "sample_key";
+
+function stringToBuffer(str: string) {
+  const buf = new ArrayBuffer(str.length);
+  const bufView = new Uint8Array(buf);
+  for (let i = 0, strLen = str.length; i < strLen; i++) {
+    bufView[i] = str.charCodeAt(i);
+  }
+  return buf;
+}
+
+async function privateKeyStringToBuffer(keyString: string) {
+  const binaryString = atob(keyString);
+  const buffer = stringToBuffer(binaryString);
+  const key = await window.crypto.subtle.importKey(
+    "pkcs8",
+    buffer,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256",
+    },
+    true,
+    ["decrypt"]
+  );
+
+  return key;
+}
+
+useEffect(() => {
+  // Load feature definitions JSON from GrowthBook API
+  fetch("https://cdn.growthbook.io/api/features/<your api key>")
+    .then((res) => res.json())
+    .then(async (json) => {
+        const privateKey = await privateKeyStringToBuffer(privateKeyString);
+        const encryptedFeaturesBuf = await stringToBuffer(
+          json.encrpytedFeatures
+        );
+        const featuresBuf = await window.crypto.subtle.decrypt(
+          { name: "RSA-OAEP" },
+          privateKey,
+          encryptedFeaturesBuf
+        );
+        const decoder = new TextDecoder("utf8");
+        const features = decoder.decode(featuresBuf);
+        growthbook.setFeatures(JSON.parse(features));
+      }
+    })
+    .catch((e) => {
+      console.log(e.message);
+      console.log("Failed to fetch GrowthBook feature definitions");
+    });
+}, [router.pathname]);
+```
+
 ## Inline Experiments
 
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
