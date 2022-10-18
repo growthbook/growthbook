@@ -101,6 +101,8 @@ export interface Context {
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
+  enableDevMode?: boolean;
+  /* @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
