@@ -18,7 +18,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   const permissions = usePermissions();
 
-  const canManageKeys = permissions.organizationSettings;
+  const canManageKeys = permissions.manageApiKeys;
 
   const secretKeys = keys.filter((k) => k.secret);
 

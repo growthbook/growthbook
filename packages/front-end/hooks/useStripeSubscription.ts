@@ -21,7 +21,7 @@ export default function useStripeSubscription() {
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   useEffect(() => {
-    if (!permissions.organizationSettings) return;
+    if (!permissions.manageBilling) return;
     if (!isCloud()) return;
 
     apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
@@ -29,7 +29,7 @@ export default function useStripeSubscription() {
         setQuote(data.quote);
       })
       .catch((e) => console.error(e));
-  }, [freeSeats, isCloud(), permissions.organizationSettings]);
+  }, [freeSeats, isCloud(), permissions.manageBilling]);
 
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 

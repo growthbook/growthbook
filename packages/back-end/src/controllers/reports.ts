@@ -162,8 +162,6 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 

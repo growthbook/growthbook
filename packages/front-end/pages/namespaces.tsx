@@ -8,6 +8,7 @@ import useOrgSettings from "../hooks/useOrgSettings";
 import useUser from "../hooks/useUser";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";
 import { useAuth } from "../services/auth";
+import usePermissions from "../hooks/usePermissions";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -17,6 +18,9 @@ const NamespacesPage: FC = () => {
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`
   );
+
+  const permissions = usePermissions();
+  const canEdit = permissions.manageNamespaces;
 
   const { update } = useUser();
   const { namespaces } = useOrgSettings();
@@ -67,7 +71,7 @@ const NamespacesPage: FC = () => {
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
-              <th style={{ width: 30 }}></th>
+              {canEdit && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -110,15 +114,17 @@ const NamespacesPage: FC = () => {
           </tbody>
         </table>
       )}
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setModalOpen(true);
-        }}
-      >
-        <GBAddCircle /> Create Namespace
-      </button>
+      {canEdit && (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setModalOpen(true);
+          }}
+        >
+          <GBAddCircle /> Create Namespace
+        </button>
+      )}
     </div>
   );
 };

@@ -24,7 +24,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </p>
             </div>
             <div style={{ flex: 1 }} />
-            {permissions.organizationSettings && (
+            {permissions.manageTargetingAttributes && (
               <div className="col-auto">
                 <button
                   className="btn btn-primary float-right"

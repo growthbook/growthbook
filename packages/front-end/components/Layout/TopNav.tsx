@@ -156,7 +156,7 @@ const TopNav: FC<{
 
         {showNotices && (
           <>
-            {permissions.organizationSettings &&
+            {permissions.manageBilling &&
               isCloud() &&
               subscriptionStatus === "trialing" &&
               trialRemaining >= 0 && (
@@ -172,7 +172,7 @@ const TopNav: FC<{
                   {trialRemaining === 1 ? "" : "s"} left in trial
                 </button>
               )}
-            {permissions.organizationSettings &&
+            {permissions.manageBilling &&
               isCloud() &&
               subscriptionStatus === "past_due" && (
                 <button
@@ -187,7 +187,7 @@ const TopNav: FC<{
               )}
             {showSeatOverageBanner &&
               canSubscribe &&
-              permissions.organizationSettings &&
+              permissions.manageBilling &&
               activeAndInvitedUsers > freeSeats && (
                 <button
                   className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
@@ -218,7 +218,7 @@ const TopNav: FC<{
               </Tooltip>
             )}
             {license &&
-              permissions.organizationSettings &&
+              permissions.manageBilling &&
               license.eat < new Date().toISOString().substring(0, 10) && (
                 <Tooltip
                   body={
@@ -235,7 +235,7 @@ const TopNav: FC<{
               )}
 
             {license &&
-              permissions.organizationSettings &&
+              permissions.manageBilling &&
               activeAndInvitedUsers > license.qty && (
                 <Tooltip
                   body={

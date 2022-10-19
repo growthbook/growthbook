@@ -131,7 +131,7 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!settings) return;
     if (settings.sdkInstructionsViewed) return;
-    if (!permissions.organizationSettings) return;
+    if (!permissions.manageEnvironments) return;
     (async () => {
       await apiCall(`/organization`, {
         method: "PUT",
