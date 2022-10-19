@@ -63,7 +63,7 @@
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
     "snowflake-promise": "^4.5.0",
-    "sql-formatter": "^4.0.2",
+    "sql-formatter": "^11.0.2",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^9.14.0",
     "uniqid": "^5.3.0",
