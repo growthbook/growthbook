@@ -844,7 +844,7 @@ export async function postInviteResend(
     await sendInviteEmail(org, key);
     emailSent = true;
   } catch (e) {
-    console.error("Error sending email: " + e);
+    req.log.error(e, "Error sending email");
     emailSent = false;
   }
 
@@ -898,7 +898,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      console.error("New org email sending failure:", e.message);
+      req.log.error(e, "New org email sending failure");
     }
 
     res.status(200).json({

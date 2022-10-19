@@ -21,7 +21,12 @@ import { DimensionInterface } from "../../types/dimension";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
-import { getBaseIdTypeAndJoins, replaceSQLVars, format } from "../util/sql";
+import {
+  getBaseIdTypeAndJoins,
+  replaceSQLVars,
+  format,
+  FormatDialect,
+} from "../util/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -69,6 +74,9 @@ export default abstract class SqlIntegration
   }
 
   getSchema(): string {
+    return "";
+  }
+  getFormatDialect(): FormatDialect {
     return "";
   }
   toTimestamp(date: Date) {
@@ -263,7 +271,8 @@ export default abstract class SqlIntegration
       -- Skip experiments at start of date range since it's likely missing data
       ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
     ORDER BY
-      experiment_id ASC, variation_id ASC`
+      experiment_id ASC, variation_id ASC`,
+      this.getFormatDialect()
     );
   }
   async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
@@ -390,7 +399,8 @@ export default abstract class SqlIntegration
       `
           : ""
       }
-      `
+      `,
+      this.getFormatDialect()
     );
   }
 
@@ -974,7 +984,8 @@ export default abstract class SqlIntegration
       ${this.ifElse(`variance > 0`, `sqrt(variance)`, `0`)} as stddev,
       users
     FROM __overall
-    `
+    `,
+      this.getFormatDialect()
     );
   }
   getExperimentResultsQuery(): string {

@@ -52,7 +52,7 @@ export async function getExperimentConfig(
       experiments: expIdMapping,
     });
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Failed to get experiment config");
     res.status(400).json({
       status: 400,
       error: "Failed to get experiment config",
@@ -212,7 +212,7 @@ export async function getExperimentsScript(
       )
     );
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Failed to get visual editor script");
     return res.status(400).send(`console.error(${JSON.stringify(e.message)});`);
   }
 }

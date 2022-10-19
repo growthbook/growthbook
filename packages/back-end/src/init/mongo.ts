@@ -1,6 +1,7 @@
 import { MONGODB_URI } from "../util/secrets";
 import mongoose from "mongoose";
 import bluebird from "bluebird";
+import { logger } from "../util/logger";
 
 mongoose.Promise = bluebird;
 
@@ -18,7 +19,7 @@ export default async () => {
       useUnifiedTopology: true,
     });
   } catch (e) {
-    console.error(e);
+    logger.error(e, "Failed to connect to MongoDB");
     throw new Error("MongoDB connection error.");
   }
 };

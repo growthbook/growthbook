@@ -43,6 +43,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
+import { logger } from "../util/logger";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -390,7 +391,7 @@ export async function inviteUser(
       await sendInviteEmail(organization, key);
       emailSent = true;
     } catch (e) {
-      console.error("Error sending email: " + e);
+      logger.error(e, "Error sending invite email");
       emailSent = false;
     }
   }
@@ -724,7 +725,7 @@ export async function addMemberFromSSOConnection(
     const orgs = await findAllOrganizations();
     // Sanity check in case there are multiple orgs for whatever reason
     if (orgs.length > 1) {
-      console.error(
+      req.log.error(
         "Expected a single organization for self-hosted GrowthBook"
       );
       return null;
@@ -754,7 +755,7 @@ export async function addMemberFromSSOConnection(
       organization.ownerEmail
     );
   } catch (e) {
-    console.error("Failed to send new member email", e.message);
+    req.log.error(e, "Failed to send new member email");
   }
 
   return organization;

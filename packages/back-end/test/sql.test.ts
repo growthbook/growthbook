@@ -147,15 +147,22 @@ describe("backend", () => {
 
   it("formats SQL correctly", () => {
     let inputSQL = `SELECT * FROM mytable`;
-    expect(format(inputSQL)).toEqual(`SELECT\n  *\nFROM\n  mytable`);
+
+    // No dialect
+    expect(format(inputSQL)).toEqual(inputSQL);
+
+    // Redshift
+    expect(format(inputSQL, "redshift")).toEqual(
+      `SELECT\n  *\nFROM\n  mytable`
+    );
 
     // Snowflake flatten function (=>)
     inputSQL = `select * from table(flatten(input => parse_json('{"a":1, "b":[77,88]}'), outer => true)) f`;
-    expect(format(inputSQL)).toEqual(
+    expect(format(inputSQL, "snowflake")).toEqual(
       `select
   *
 from
-  table(
+  table (
     flatten(
       input => parse_json('{"a":1, "b":[77,88]}'),
       outer => true
@@ -165,8 +172,25 @@ from
 
     // Athena lambda syntax (->)
     inputSQL = `SELECT transform(numbers, n -> n * n) as sq`;
-    expect(format(inputSQL)).toEqual(
+    expect(format(inputSQL, "trino")).toEqual(
       `SELECT\n  transform(numbers, n -> n * n) as sq`
     );
+
+    // Postgres JSON syntax
+    inputSQL = `SELECT '{"a":[1,2,3],"b":[4,5,6]}'::json#>>'{a,2}' as a,
+    '{"a":1,"b":2}'::json->>'b' as b,
+    '{"a":1, "b":2}'::jsonb @> '{"b":2}'::jsonb as c,
+    '["a", {"b":1}]'::jsonb #- '{1,b}' as d`;
+    expect(format(inputSQL, "postgresql")).toEqual(
+      `SELECT
+  '{"a":[1,2,3],"b":[4,5,6]}'::json #>> '{a,2}' as a,
+  '{"a":1,"b":2}'::json ->> 'b' as b,
+  '{"a":1, "b":2}'::jsonb @> '{"b":2}'::jsonb as c,
+  '["a", {"b":1}]'::jsonb #- '{1,b}' as d`
+    );
+
+    // Invalid syntax
+    inputSQL = `SELECT (a* as c`;
+    expect(format(inputSQL, "mysql")).toEqual(inputSQL);
   });
 });
