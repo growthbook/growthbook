@@ -10,6 +10,7 @@ import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import DeleteButton from "../../../DeleteButton";
 import Tooltip from "../../../Tooltip";
+import usePermissions from "../../../../hooks/usePermissions";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -20,6 +21,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
+
+  const permissions = usePermissions();
+  const canEdit = permissions.editDatasourceSettings;
 
   const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
     dataSource.settings?.userIdTypes,
@@ -87,14 +91,16 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
           />
         </div>
 
-        <div className="">
-          <button
-            className="btn btn-outline-primary font-weight-bold"
-            onClick={handleAdd}
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
-        </div>
+        {canEdit && (
+          <div className="">
+            <button
+              className="btn btn-outline-primary font-weight-bold"
+              onClick={handleAdd}
+            >
+              <FaPlus className="mr-1" /> Add
+            </button>
+          </div>
+        )}
       </div>
 
       {userIdTypes.map(({ userIdType, description }, idx) => (
@@ -113,30 +119,32 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
           {/* endregion Identity Type text */}
 
           {/* region Identity Type actions */}
-          <div>
-            <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-types">
-              <button
-                className="dropdown-item py-2"
-                onClick={handleActionEditClicked(idx)}
-              >
-                <FaPencilAlt className="mr-2" /> Edit
-              </button>
-              <div className="">
-                <DeleteButton
-                  onClick={handleActionDeleteClicked(idx)}
-                  className="dropdown-item text-danger py-2"
-                  iconClassName="mr-2"
-                  style={{ borderRadius: 0 }}
-                  useIcon
-                  displayName={userIdTypes[idx]?.userIdType}
-                  deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
-                  title="Delete"
-                  text="Delete"
-                  outline={false}
-                />
-              </div>
-            </MoreMenu>
-          </div>
+          {canEdit && (
+            <div>
+              <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-types">
+                <button
+                  className="dropdown-item py-2"
+                  onClick={handleActionEditClicked(idx)}
+                >
+                  <FaPencilAlt className="mr-2" /> Edit
+                </button>
+                <div className="">
+                  <DeleteButton
+                    onClick={handleActionDeleteClicked(idx)}
+                    className="dropdown-item text-danger py-2"
+                    iconClassName="mr-2"
+                    style={{ borderRadius: 0 }}
+                    useIcon
+                    displayName={userIdTypes[idx]?.userIdType}
+                    deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                    title="Delete"
+                    text="Delete"
+                    outline={false}
+                  />
+                </div>
+              </MoreMenu>
+            </div>
+          )}
           {/* endregion Identity Type actions */}
         </div>
       ))}

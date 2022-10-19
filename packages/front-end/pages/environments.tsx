@@ -13,11 +13,14 @@ import Button from "../components/Button";
 import useApi from "../hooks/useApi";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import SDKEndpoints from "../components/Features/SDKEndpoints";
+import usePermissions from "../hooks/usePermissions";
 
 const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { update } = useUser();
+  const permissions = usePermissions();
+  const canEdit = permissions.manageEnvironments;
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
@@ -63,7 +66,7 @@ const EnvironmentsPage: FC = () => {
               <th>Default state</th>
               <th>Show toggle on feature list</th>
               <th>API keys</th>
-              <th style={{ width: 30 }}></th>
+              {canEdit && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -78,106 +81,112 @@ const EnvironmentsPage: FC = () => {
                   <td>
                     {numApiKeys} {numApiKeys === 1 ? "key" : "keys"}
                   </td>
-                  <td style={{ width: 30 }}>
-                    <MoreMenu id={e.id + "_moremenu"}>
-                      <button
-                        className="dropdown-item"
-                        onClick={(ev) => {
-                          ev.preventDefault();
-                          setModalOpen(e);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      {i > 0 && (
-                        <Button
-                          color=""
+                  {canEdit && (
+                    <td style={{ width: 30 }}>
+                      <MoreMenu id={e.id + "_moremenu"}>
+                        <button
                           className="dropdown-item"
-                          onClick={async () => {
-                            const newEnvs = [...environments];
-                            newEnvs.splice(i, 1);
-                            newEnvs.splice(i - 1, 0, e);
-                            await apiCall(`/organization`, {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                settings: {
-                                  environments: newEnvs,
-                                },
-                              }),
-                            });
-                            update();
+                          onClick={(ev) => {
+                            ev.preventDefault();
+                            setModalOpen(e);
                           }}
                         >
-                          Move up
-                        </Button>
-                      )}
-                      {i < environments.length - 1 && (
-                        <Button
-                          color=""
-                          className="dropdown-item"
-                          onClick={async () => {
-                            const newEnvs = [...environments];
-                            newEnvs.splice(i, 1);
-                            newEnvs.splice(i + 1, 0, e);
-                            await apiCall(`/organization`, {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                settings: {
-                                  environments: newEnvs,
-                                },
-                              }),
-                            });
-                            update();
-                          }}
-                        >
-                          Move down
-                        </Button>
-                      )}
-                      {environments.length > 1 && (
-                        <DeleteButton
-                          deleteMessage="Are you you want to delete this environment?"
-                          displayName={e.id}
-                          className="dropdown-item"
-                          text="Delete"
-                          useIcon={false}
-                          onClick={async () => {
-                            await apiCall(`/organization`, {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                settings: {
-                                  environments: environments.filter(
-                                    (env) => env.id !== e.id
-                                  ),
-                                },
-                              }),
-                            });
-                            update();
-                          }}
-                        />
-                      )}
-                    </MoreMenu>
-                  </td>
+                          Edit
+                        </button>
+                        {i > 0 && (
+                          <Button
+                            color=""
+                            className="dropdown-item"
+                            onClick={async () => {
+                              const newEnvs = [...environments];
+                              newEnvs.splice(i, 1);
+                              newEnvs.splice(i - 1, 0, e);
+                              await apiCall(`/organization`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  settings: {
+                                    environments: newEnvs,
+                                  },
+                                }),
+                              });
+                              update();
+                            }}
+                          >
+                            Move up
+                          </Button>
+                        )}
+                        {i < environments.length - 1 && (
+                          <Button
+                            color=""
+                            className="dropdown-item"
+                            onClick={async () => {
+                              const newEnvs = [...environments];
+                              newEnvs.splice(i, 1);
+                              newEnvs.splice(i + 1, 0, e);
+                              await apiCall(`/organization`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  settings: {
+                                    environments: newEnvs,
+                                  },
+                                }),
+                              });
+                              update();
+                            }}
+                          >
+                            Move down
+                          </Button>
+                        )}
+                        {environments.length > 1 && (
+                          <DeleteButton
+                            deleteMessage="Are you you want to delete this environment?"
+                            displayName={e.id}
+                            className="dropdown-item"
+                            text="Delete"
+                            useIcon={false}
+                            onClick={async () => {
+                              await apiCall(`/organization`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  settings: {
+                                    environments: environments.filter(
+                                      (env) => env.id !== e.id
+                                    ),
+                                  },
+                                }),
+                              });
+                              update();
+                            }}
+                          />
+                        )}
+                      </MoreMenu>
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
-      ) : (
+      ) : canEdit ? (
         <p>Click the button below to add your first environment</p>
+      ) : (
+        <p>You don&apos;t have any environments defined yet.</p>
       )}
       <div className="mb-5">
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setModalOpen({});
-          }}
-        >
-          <span className="h4 pr-2 m-0 d-inline-block">
-            <GBAddCircle />
-          </span>{" "}
-          Create New Environment
-        </button>
+        {canEdit && (
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setModalOpen({});
+            }}
+          >
+            <span className="h4 pr-2 m-0 d-inline-block">
+              <GBAddCircle />
+            </span>{" "}
+            Create New Environment
+          </button>
+        )}
       </div>
       {data?.keys && <SDKEndpoints keys={data.keys} mutate={mutate} />}
     </div>

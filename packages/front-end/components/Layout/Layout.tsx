@@ -39,19 +39,16 @@ const navlinks: SidebarLinkProps[] = [
         name: "Attributes",
         href: "/attributes",
         path: /^attributes/,
-        permissions: ["manageTargetingAttributes"],
       },
       {
         name: "Namespaces",
         href: "/namespaces",
         path: /^namespaces/,
-        permissions: ["manageNamespaces"],
       },
       {
         name: "Environments",
         href: "/environments",
         path: /^environments/,
-        permissions: ["manageEnvironments"],
       },
       {
         name: "Saved Groups",
@@ -91,7 +88,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Data Sources",
         href: "/datasources",
         path: /^datasources/,
-        permissions: ["editDatasourceSettings"],
       },
     ],
   },
