@@ -5,10 +5,8 @@ import {
   SecretApiKey,
 } from "../../types/apikey";
 import uniqid from "uniqid";
-import { privateKeyToString, publicKeyToString } from "../util/subtle-crypto";
+import { generatePrivateKey } from "../util/subtle-crypto";
 import crypto from "crypto";
-// eslint-disable-next-line
-const { subtle } = require("crypto").webcrypto;
 
 const apiKeySchema = new mongoose.Schema({
   id: String,
@@ -21,7 +19,6 @@ const apiKeySchema = new mongoose.Schema({
   organization: String,
   dateCreated: Date,
   encryptSDK: Boolean,
-  encryptionPublicKey: String,
   encryptionPrivateKey: String,
   secret: Boolean,
 });
@@ -59,19 +56,6 @@ export async function createApiKey({
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const keyPair: null | CryptoKeyPair =
-    encryptSDK &&
-    (await subtle.generateKey(
-      {
-        name: "RSA-OAEP",
-        modulusLength: 4096,
-        publicExponent: new Uint8Array([1, 0, 1]),
-        hash: "SHA-256",
-      },
-      true,
-      ["encrypt", "decrypt"]
-    ));
-
   const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
   const key =
     prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
@@ -86,12 +70,7 @@ export async function createApiKey({
     secret,
     id,
     encryptSDK,
-    encryptionPrivateKey: keyPair?.privateKey
-      ? await privateKeyToString(keyPair.privateKey)
-      : null,
-    encryptionPublicKey: keyPair?.publicKey
-      ? await publicKeyToString(keyPair.publicKey)
-      : null,
+    encryptionPrivateKey: encryptSDK ? await generatePrivateKey() : null,
     dateCreated: new Date(),
   });
 
@@ -130,7 +109,7 @@ export async function getAllApiKeysByOrganization(
     {
       organization,
     },
-    { encryptionPublicKey: 0, encryptionPrivateKey: 0 }
+    { encryptionPrivateKey: 0 }
   );
   return docs.map((k) => {
     const json = k.toJSON();
@@ -139,18 +118,6 @@ export async function getAllApiKeysByOrganization(
     }
     return json;
   });
-}
-
-export async function getPrivateKeyByApiKey(
-  organization: string,
-  key: string
-): Promise<string | null> {
-  const apiKey = await ApiKeyModel.findOne({
-    organization,
-    key,
-  });
-
-  return apiKey?.encryptionPrivateKey || null;
 }
 
 export async function getFirstPublishableApiKey(
@@ -165,7 +132,7 @@ export async function getFirstPublishableApiKey(
         $ne: true,
       },
     },
-    { encryptionPublicKey: 0, encryptionPrivateKey: 0 }
+    { encryptionPrivateKey: 0 }
   );
 
   if (!doc) return null;
@@ -181,6 +148,6 @@ export async function getUnredactedSecretKey(
     organization,
     id,
   });
-  if (!doc) return null;
+  if (!doc || !doc.encryptionPrivateKey) return null;
   return doc.toJSON() as SecretApiKey;
 }

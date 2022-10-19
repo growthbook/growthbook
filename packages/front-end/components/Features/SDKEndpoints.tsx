@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaCopy, FaExclamationTriangle, FaKey } from "react-icons/fa";
@@ -46,21 +46,21 @@ const SDKEndpoints: FC<{
     }
   });
 
-  const getPrivateKeyAndCopy = async (apiKey: string) => {
-    const res = await apiCall<{ privateKey: string }>(
-      `/key/${apiKey}/private-key`,
-      {
-        method: "GET",
-      }
-    );
+  const getPrivateKeyAndCopy = async (id: string) => {
+    const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
+      method: "POST",
+      body: JSON.stringify({
+        id: id,
+      }),
+    });
 
-    if (!res.privateKey) {
+    if (!res.key.encryptionPrivateKey) {
       throw new Error("Failed to retreive Private Key.");
     }
 
-    await navigator.clipboard.writeText(res.privateKey);
+    await navigator.clipboard.writeText(res.key.encryptionPrivateKey);
 
-    setPrivateKeys({ [apiKey]: res.privateKey });
+    setPrivateKeys({ [id]: res.key.encryptionPrivateKey });
   };
 
   return (
@@ -153,12 +153,10 @@ const SDKEndpoints: FC<{
                         style={{ width: "100%" }}
                         color="btn btn-outline-primary"
                         onClick={async () => {
-                          await getPrivateKeyAndCopy(key.key);
+                          await getPrivateKeyAndCopy(key.id);
                         }}
                       >
-                        {!privateKeys[key.key]
-                          ? "Copy to Clipboard"
-                          : "Copied!"}
+                        {!privateKeys[key.id] ? "Copy to Clipboard" : "Copied!"}
                       </Button>
                     )}
                   </td>

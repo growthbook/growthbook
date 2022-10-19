@@ -68,7 +68,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       secret,
       environment,
       encryptSDK,
-      encryptionPublicKey,
+      encryptionPrivateKey,
     } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
@@ -102,7 +102,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       ...(encryptSDK && {
         encrpytedFeatures: await encrypt(
           JSON.stringify(features),
-          encryptionPublicKey
+          encryptionPrivateKey
         ),
       }),
       dateUpdated,

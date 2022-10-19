@@ -9,9 +9,9 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { bufferToString, publicKeyStringToBuffer } from "../util/subtle-crypto";
-// eslint-disable-next-line
-const { subtle } = require("crypto").webcrypto;
+import { getKeyFromString } from "../util/subtle-crypto";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const crypto = require("node:crypto").webcrypto;
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
@@ -233,23 +233,27 @@ export function verifyDraftsAreEqual(
 
 export const encrypt = async (
   features: string,
-  publicKeyString: string | undefined
-): Promise<string> => {
-  if (!publicKeyString) {
+  privateKeyString: string | undefined
+): Promise<{ features: string; iv: string }> => {
+  if (!privateKeyString) {
     throw new Error("Unable to encrypt the feature list.");
   }
 
-  const publicKey = await publicKeyStringToBuffer(publicKeyString);
+  const key = await getKeyFromString(privateKeyString);
 
-  const encodedFeatureList = new TextEncoder().encode(features);
+  const iv = crypto.getRandomValues(new Uint8Array(16));
 
-  const encryptedFeatureList = await subtle.encrypt(
+  const encryptedFeatureList = await crypto.subtle.encrypt(
     {
-      name: "RSA-OAEP",
+      name: "AES-CBC",
+      iv,
     },
-    publicKey,
-    encodedFeatureList
+    key,
+    new TextEncoder().encode(features)
   );
 
-  return await bufferToString(encryptedFeatureList);
+  return {
+    features: Buffer.from(encryptedFeatureList).toString("base64"),
+    iv: Buffer.from(iv.buffer).toString("base64"),
+  };
 };

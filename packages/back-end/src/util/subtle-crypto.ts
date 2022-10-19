@@ -1,27 +1,5 @@
 // eslint-disable-next-line
-const { subtle } = require("crypto").webcrypto;
-
-export function bufferToString(buf: ArrayBuffer): string {
-  return String.fromCharCode.apply(
-    null,
-    Array.from<number>(new Uint8Array(buf))
-  );
-}
-
-function keyToString(exportedKey: ArrayBuffer): string {
-  const exportedAsString = bufferToString(exportedKey);
-  return btoa(exportedAsString);
-}
-
-export async function publicKeyToString(key: CryptoKey): Promise<string> {
-  const exportedKey = await subtle.exportKey("spki", key);
-  return keyToString(exportedKey);
-}
-
-export async function privateKeyToString(key: CryptoKey): Promise<string> {
-  const exportedKey = await subtle.exportKey("pkcs8", key);
-  return keyToString(exportedKey);
-}
+const { subtle } = require("node:crypto").webcrypto;
 
 function stringToBuffer(str: string): ArrayBuffer {
   const buf = new ArrayBuffer(str.length);
@@ -32,19 +10,32 @@ function stringToBuffer(str: string): ArrayBuffer {
   return buf;
 }
 
-export async function publicKeyStringToBuffer(
-  keyString: string
-): Promise<ArrayBuffer> {
+export async function generatePrivateKey() {
+  const exportedKey = await subtle.exportKey(
+    "raw",
+    await subtle.generateKey(
+      {
+        name: "AES-CBC",
+        length: 256,
+      },
+      true,
+      ["encrypt", "decrypt"]
+    )
+  );
+  const buffer = new Uint8Array(exportedKey);
+  return Buffer.from(buffer).toString("base64");
+}
+
+export async function getKeyFromString(keyString: string): Promise<CryptoKey> {
   const binaryString = atob(keyString);
   const buffer = stringToBuffer(binaryString);
-  return await subtle.importKey(
-    "spki",
+  return subtle.importKey(
+    "raw",
     buffer,
     {
-      name: "RSA-OAEP",
-      hash: "SHA-256",
+      name: "AES-CBC",
     },
     true,
-    ["encrypt"]
+    ["encrypt", "decrypt"]
   );
 }

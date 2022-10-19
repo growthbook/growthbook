@@ -453,19 +453,17 @@ With encryption enabled, the response would be:
     status: 200,
     features: {},
     encryptedFeatures: {
-      content: "encryptedFeatures",
+      features: "encryptedFeatures",
       iv: "hash"
     }
   }
 ```
 
-Encryption is handled via WebCrypto API's `SubtleCrypto` and uses the RSA-OAEP algorithm and hashed with `SHA-256`. An example of how to decrypt the features is below:
+The features are encrypted with the AES-CBC algorithm via WebCrypto API's `SubtleCrypto` and the content inside (`features` and `iv`) are encoded as a `base64` string. An example of how to decrypt the feature list is below:
 
 ```ts
-// This can be found in your account under /settings/keys
-const privateKeyString = "sample_key";
-
-function stringToBuffer(str: string) {
+//
+function stringToBuffer(str: string): ArrayBuffer {
   const buf = new ArrayBuffer(str.length);
   const bufView = new Uint8Array(buf);
   for (let i = 0, strLen = str.length; i < strLen; i++) {
@@ -474,37 +472,51 @@ function stringToBuffer(str: string) {
   return buf;
 }
 
-async function privateKeyStringToBuffer(keyString: string) {
+// The encryption key is stored in the DB as a base64 encoded string, and needs to be converted to an ArrayBuffer before calling SubtleCrypto's importKey() method, which returns a CryptoKey that can be consumed by the decrypt() method.
+async function getKeyFromString(keyString: string): Promise<CryptoKey> {
   const binaryString = atob(keyString);
   const buffer = stringToBuffer(binaryString);
-  const key = await window.crypto.subtle.importKey(
-    "pkcs8",
+  return crypto.subtle.importKey(
+    "raw",
     buffer,
     {
-      name: "RSA-OAEP",
-      hash: "SHA-256",
+      name: "AES-CBC",
     },
     true,
-    ["decrypt"]
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function decryptFeatures({ features, iv }) {
+  // This can be found in your account under /settings/keys
+  const key = await getKeyFromString(
+    "o7AolAMiEgl9PvBS63O/pNDF8tvg9mxAt330FU71n9c="
   );
 
-  return key;
+  // ciphertext and iv come in as base64 encoded strings and must be converted to ArrayBuffers
+  const ciphertext = stringToBuffer(atob(features));
+  iv = stringToBuffer(atob(iv));
+
+  const decryptedFeatures = await crypto.subtle.decrypt(
+    {
+      name: "AES-CBC",
+      iv,
+    },
+    key,
+    ciphertext
+  );
+  const decoder = new TextDecoder("utf8");
+  const decodedFeatures = decoder.decode(decryptedFeatures);
+  return decodedFeatures;
 }
 
 // Load feature definitions JSON from GrowthBook API
 fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
   .then(async (json) => {
-    const privateKey = await privateKeyStringToBuffer(privateKeyString);
-    const encryptedFeaturesBuf = await stringToBuffer(json.encrpytedFeatures);
-    const featuresBuf = await window.crypto.subtle.decrypt(
-      { name: "RSA-OAEP" },
-      privateKey,
-      encryptedFeaturesBuf
+    growthbook.setFeatures(
+      JSON.parse(await decryptFeatures(json.encrpytedFeatures))
     );
-    const decoder = new TextDecoder("utf8");
-    const features = decoder.decode(featuresBuf);
-    growthbook.setFeatures(JSON.parse(features));
   });
 ```
 

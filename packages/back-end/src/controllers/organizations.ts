@@ -70,7 +70,6 @@ import {
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
   getFirstPublishableApiKey,
-  getPrivateKeyByApiKey,
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
 
@@ -1060,29 +1059,6 @@ export async function postApiKeyReveal(
   res.status(200).json({
     status: 200,
     key,
-  });
-}
-
-export async function getApiKeyPrivateKey(
-  req: AuthRequest<null, { key: string }>,
-  res: Response
-) {
-  req.checkPermissions("organizationSettings");
-
-  const { org } = getOrgFromReq(req);
-  const { key } = req.params;
-
-  const encryptionPrivateKey = await getPrivateKeyByApiKey(org.id, key);
-
-  if (!encryptionPrivateKey) {
-    return res.status(404).json({
-      status: 404,
-    });
-  }
-
-  return res.status(200).json({
-    status: 200,
-    privateKey: encryptionPrivateKey,
   });
 }
 
