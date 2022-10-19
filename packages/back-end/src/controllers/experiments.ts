@@ -1441,11 +1441,11 @@ export async function postSnapshot(
       });
       return;
     } catch (e) {
+      req.log.error(e, "Failed to create manual snapshot");
       res.status(400).json({
         status: 400,
         message: e.message,
       });
-      console.error(e);
       return;
     }
   }
@@ -1484,11 +1484,11 @@ export async function postSnapshot(
       snapshot,
     });
   } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot");
     res.status(400).json({
       status: 400,
       message: e.message,
     });
-    console.error(e);
   }
 }
 

@@ -40,7 +40,10 @@ npm install --save @growthbook/growthbook-react
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
-const growthbook = new GrowthBook();
+const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
+});
 
 // Load feature definitions (from API, database, etc.)
 await fetch("https://s3.amazonaws.com/myBucket/features.json")
@@ -213,4 +216,17 @@ class OtherComponent extends React.Component {
 }
 // Wrap your component in `withRunExperiment`
 export default withRunExperiment(OtherComponent);
+```
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
 ```

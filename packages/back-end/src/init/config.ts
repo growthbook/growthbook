@@ -21,6 +21,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
 import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
+import { logger } from "../util/logger";
 
 export type ConfigFile = {
   organization?: {
@@ -90,7 +91,7 @@ function loadConfig(initial = false) {
   } else if (ENVIRONMENT !== "production") {
     config = null;
     if (initial) {
-      console.log(
+      logger.info(
         "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
       );
     }
@@ -98,23 +99,23 @@ function loadConfig(initial = false) {
 
   if (EMAIL_ENABLED) {
     if (!EMAIL_HOST)
-      console.error(
+      logger.error(
         "Email is enabled, but missing required EMAIL_HOST env variable"
       );
     if (!EMAIL_PORT)
-      console.error(
+      logger.error(
         "Email is enabled, but missing required EMAIL_PORT env variable"
       );
     if (!EMAIL_HOST_USER)
-      console.error(
+      logger.error(
         "Email is enabled, but missing required EMAIL_HOST_USER env variable"
       );
     if (!EMAIL_HOST_PASSWORD)
-      console.error(
+      logger.error(
         "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable"
       );
     if (!EMAIL_FROM)
-      console.error(
+      logger.error(
         "Email is enabled, but missing required EMAIL_FROM env variable"
       );
   }
