@@ -11,11 +11,8 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
-import Button from "../Button";
-
-type ApiKeyPrivateKey = {
-  [key: string]: string;
-};
+import CopyToClipboard from "../CopyToClipboard";
+import ClickToReveal from "../Settings/ClickToReveal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -23,7 +20,6 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
-  const [privateKeys, setPrivateKeys] = useState<ApiKeyPrivateKey | null>({});
 
   const { projects } = useDefinitions();
 
@@ -45,23 +41,6 @@ const SDKEndpoints: FC<{
       );
     }
   });
-
-  const getPrivateKeyAndCopy = async (id: string) => {
-    const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-      method: "POST",
-      body: JSON.stringify({
-        id: id,
-      }),
-    });
-
-    if (!res.key.encryptionPrivateKey) {
-      throw new Error("Failed to retreive Private Key.");
-    }
-
-    await navigator.clipboard.writeText(res.key.encryptionPrivateKey);
-
-    setPrivateKeys({ [id]: res.key.encryptionPrivateKey });
-  };
 
   return (
     <div className="mt-4">
@@ -148,16 +127,27 @@ const SDKEndpoints: FC<{
                     />
                   </td>
                   <td>
-                    {key.encryptSDK && (
-                      <Button
-                        style={{ width: "100%" }}
-                        color="btn btn-outline-primary"
-                        onClick={async () => {
-                          await getPrivateKeyAndCopy(key.id);
+                    {canManageKeys && key.encryptSDK && (
+                      <ClickToReveal
+                        valueWhenHidden="Reveal key"
+                        getValue={async () => {
+                          const res = await apiCall<{ key: SecretApiKey }>(
+                            `/keys/reveal`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({
+                                id: key.id,
+                              }),
+                            }
+                          );
+                          if (!res.key?.encryptionPrivateKey) {
+                            throw new Error("Could not load private key");
+                          }
+                          return res.key.encryptionPrivateKey;
                         }}
                       >
-                        {!privateKeys[key.id] ? "Copy to Clipboard" : "Copied!"}
-                      </Button>
+                        {(value) => <CopyToClipboard text={value} />}
+                      </ClickToReveal>
                     )}
                   </td>
                   {canManageKeys && (
