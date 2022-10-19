@@ -33,7 +33,7 @@ export async function postNewSubscription(
     returnUrl = "/settings/billing";
   }
 
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   const { org } = getOrgFromReq(req);
 
@@ -88,7 +88,7 @@ export async function postNewSubscription(
 }
 
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   if (!IS_CLOUD) {
     return res.status(200).json({
@@ -135,7 +135,7 @@ export async function postCreateBillingSession(
   req: AuthRequest,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   const { org } = getOrgFromReq(req);
 
@@ -158,7 +158,7 @@ export async function postSubscriptionSuccess(
   req: AuthRequest<{ checkoutSessionId: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   const session = await stripe.checkout.sessions.retrieve(
     req.body.checkoutSessionId
@@ -222,8 +222,7 @@ export async function postWebhook(req: Request, res: Response) {
       }
     }
   } catch (err) {
-    console.error(payload, sig);
-    console.error(err);
+    req.log.error(err, "Webhook error");
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 

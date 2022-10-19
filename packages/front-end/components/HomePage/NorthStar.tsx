@@ -63,7 +63,7 @@ const NorthStar: FC = () => {
           className="list-group activity-box mb-3"
           style={{ position: "relative" }}
         >
-          {permissions.organizationSettings && (
+          {permissions.manageNorthStarMetric && (
             <a
               className="cursor-pointer"
               style={{ position: "absolute", top: "10px", right: "10px" }}

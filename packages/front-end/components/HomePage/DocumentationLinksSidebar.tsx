@@ -79,7 +79,7 @@ export default function DocumentationLinksSidebar({
           </div>
         </div>
       </div>
-      {permissions.organizationSettings && (
+      {permissions.manageTeam && (
         <div className="card-body border-top">
           <div className="card-title">
             <h4 className="">Invite team</h4>
@@ -94,7 +94,7 @@ export default function DocumentationLinksSidebar({
           </span>
         </div>
       )}
-      {showVisualEditor && permissions.organizationSettings && (
+      {showVisualEditor && permissions.manageEnvironments && (
         <div className="card-body border-top">
           <div className="card-title">
             <h4 className="">Enable the Visual Editor</h4>

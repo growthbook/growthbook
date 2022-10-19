@@ -2,6 +2,7 @@ import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import SqlIntegration from "./SqlIntegration";
 import mssql from "mssql";
+import { FormatDialect } from "../util/sql";
 
 export default class Mssql extends SqlIntegration {
   params: MssqlConnectionParams;
@@ -9,6 +10,9 @@ export default class Mssql extends SqlIntegration {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "tsql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

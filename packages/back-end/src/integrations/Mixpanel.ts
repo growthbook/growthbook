@@ -510,8 +510,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
-    console.log(query);
+  async runPastExperimentQuery(): Promise<PastExperimentResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {

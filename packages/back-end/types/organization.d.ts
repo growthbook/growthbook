@@ -17,6 +17,17 @@ export type Permissions = {
   organizationSettings: boolean;
   createDatasources: boolean;
   superDelete: boolean;
+  manageTeam: boolean;
+  manageTags: boolean;
+  manageProjects: boolean;
+  manageApiKeys: boolean;
+  manageWebhooks: boolean;
+  manageBilling: boolean;
+  manageNorthStarMetric: boolean;
+  manageTargetingAttributes: boolean;
+  manageNamespaces: boolean;
+  manageEnvironments: boolean;
+  manageSavedGroups: boolean;
 };
 
 export type MemberRole =

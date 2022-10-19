@@ -24,6 +24,8 @@ import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
   // Callback when a user is put into an A/B experiment
   trackingCallback: (experiment, result) => {
     console.log("Experiment Viewed", {
@@ -292,6 +294,19 @@ useEffect(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
 }, [router.pathname]);
+```
+
+## Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
 ```
 
 ## Inline Experiments

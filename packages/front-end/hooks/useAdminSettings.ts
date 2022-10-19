@@ -4,7 +4,6 @@ import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useEffect, useState } from "react";
 import { MemberInfo } from "../components/Settings/MemberList";
 import { useAuth } from "../services/auth";
-import usePermissions from "./usePermissions";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface & { members: MemberInfo[] };
@@ -13,15 +12,12 @@ type OrgSettingsResponse = {
 };
 
 export function useAdminSettings() {
-  const permissions = usePermissions();
-
   const [data, setData] = useState<OrgSettingsResponse | null>(null);
   const [error, setError] = useState("");
 
   const { apiCall } = useAuth();
 
   async function refresh() {
-    if (!permissions.organizationSettings) return;
     try {
       const res = await apiCall<OrgSettingsResponse>(`/organization`, {
         method: "GET",
@@ -32,10 +28,9 @@ export function useAdminSettings() {
       setError(e.message);
     }
   }
-
   useEffect(() => {
     refresh();
-  }, [permissions.organizationSettings]);
+  }, []);
 
   return { data, error, refresh };
 }

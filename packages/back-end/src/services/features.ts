@@ -15,6 +15,7 @@ const crypto = require("node:crypto").webcrypto;
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
+import { OrganizationInterface } from "../../types/organization";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
@@ -37,16 +38,107 @@ function getJSONValue(type: FeatureValueType, value: string): any {
   if (type === "boolean") return value === "false" ? false : true;
   return null;
 }
-export async function getFeatureDefinitions(
-  organization: string,
-  environment: string = "production",
-  project?: string
-) {
-  const features = await getAllFeatures(organization, project);
 
-  const org = await getOrganizationById(organization);
+export function getFeatureDefinition({
+  feature,
+  environment,
+  groupMap,
+  useDraft = false,
+}: {
+  feature: FeatureInterface;
+  environment: string;
+  groupMap: GroupMap;
+  useDraft?: boolean;
+}): FeatureDefinition | null {
+  const settings = feature.environmentSettings?.[environment];
 
-  const attributes = org?.settings?.attributeSchema;
+  // Don't include features which are disabled for this environment
+  if (!settings || !settings.enabled || feature.archived) {
+    return null;
+  }
+
+  const draft = feature.draft;
+  if (!draft?.active) {
+    useDraft = false;
+  }
+
+  const defaultValue = useDraft
+    ? draft?.defaultValue ?? feature.defaultValue
+    : feature.defaultValue;
+
+  const rules = useDraft
+    ? draft?.rules?.[environment] ?? settings.rules
+    : settings.rules;
+
+  const def: FeatureDefinition = {
+    defaultValue: getJSONValue(feature.valueType, defaultValue),
+    rules:
+      rules
+        ?.filter((r) => r.enabled)
+        ?.map((r) => {
+          const rule: FeatureDefinitionRule = {};
+          if (r.condition && r.condition !== "{}") {
+            try {
+              rule.condition = JSON.parse(
+                replaceSavedGroupsInCondition(r.condition, groupMap)
+              );
+            } catch (e) {
+              // ignore condition parse errors here
+            }
+          }
+
+          if (r.type === "force") {
+            rule.force = getJSONValue(feature.valueType, r.value);
+          } else if (r.type === "experiment") {
+            rule.variations = r.values.map((v) =>
+              getJSONValue(feature.valueType, v.value)
+            );
+
+            rule.coverage = r.coverage;
+
+            rule.weights = r.values
+              .map((v) => v.weight)
+              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
+              .map((w) => roundVariationWeight(w));
+
+            if (r.trackingKey) {
+              rule.key = r.trackingKey;
+            }
+            if (r.hashAttribute) {
+              rule.hashAttribute = r.hashAttribute;
+            }
+            if (r?.namespace && r.namespace.enabled && r.namespace.name) {
+              rule.namespace = [
+                r.namespace.name,
+                // eslint-disable-next-line
+                parseFloat(r.namespace.range[0] as any) || 0,
+                // eslint-disable-next-line
+                parseFloat(r.namespace.range[1] as any) || 0,
+              ];
+            }
+          } else if (r.type === "rollout") {
+            rule.force = getJSONValue(feature.valueType, r.value);
+            rule.coverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+            if (r.hashAttribute) {
+              rule.hashAttribute = r.hashAttribute;
+            }
+          }
+          return rule;
+        }) ?? [],
+  };
+  if (def.rules && !def.rules.length) {
+    delete def.rules;
+  }
+
+  return def;
+}
+
+export async function getSavedGroupMap(
+  organization: OrganizationInterface
+): Promise<GroupMap> {
+  const attributes = organization.settings?.attributeSchema;
 
   const attributeMap: AttributeMap = new Map();
   attributes?.forEach((attribute) => {
@@ -54,7 +146,7 @@ export async function getFeatureDefinitions(
   });
 
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
-  const allGroups = await getAllSavedGroups(organization);
+  const allGroups = await getAllSavedGroups(organization.id);
 
   function getGroupValues(
     values: string[],
@@ -74,80 +166,42 @@ export async function getFeatureDefinitions(
     })
   );
 
+  return groupMap;
+}
+
+export async function getFeatureDefinitions(
+  organization: string,
+  environment: string = "production",
+  project?: string
+): Promise<{
+  features: Record<string, FeatureDefinition>;
+  dateUpdated: Date | null;
+}> {
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    return {
+      features: {},
+      dateUpdated: null,
+    };
+  }
+
+  const features = await getAllFeatures(organization, project);
+  const groupMap = await getSavedGroupMap(org);
+
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
   features.forEach((feature) => {
-    const settings = feature.environmentSettings?.[environment];
+    const def = getFeatureDefinition({
+      feature,
+      environment,
+      groupMap,
+    });
+    if (def) {
+      defs[feature.id] = def;
 
-    // Don't include features which are disabled for this environment
-    if (!settings || !settings.enabled || feature.archived) {
-      return;
-    }
-
-    if (!mostRecentUpdate || mostRecentUpdate < feature.dateUpdated) {
-      mostRecentUpdate = feature.dateUpdated;
-    }
-
-    defs[feature.id] = {
-      defaultValue: getJSONValue(feature.valueType, feature.defaultValue),
-      rules:
-        settings.rules
-          ?.filter((r) => r.enabled)
-          ?.map((r) => {
-            const rule: FeatureDefinitionRule = {};
-            if (r.condition && r.condition !== "{}") {
-              try {
-                rule.condition = JSON.parse(
-                  replaceSavedGroupsInCondition(r.condition, groupMap)
-                );
-              } catch (e) {
-                // ignore condition parse errors here
-              }
-            }
-
-            if (r.type === "force") {
-              rule.force = getJSONValue(feature.valueType, r.value);
-            } else if (r.type === "experiment") {
-              rule.variations = r.values.map((v) =>
-                getJSONValue(feature.valueType, v.value)
-              );
-
-              rule.coverage = r.coverage;
-
-              rule.weights = r.values
-                .map((v) => v.weight)
-                .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-                .map((w) => roundVariationWeight(w));
-
-              if (r.trackingKey) {
-                rule.key = r.trackingKey;
-              }
-              if (r.hashAttribute) {
-                rule.hashAttribute = r.hashAttribute;
-              }
-              if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-                rule.namespace = [
-                  r.namespace.name,
-                  // eslint-disable-next-line
-                  parseFloat(r.namespace.range[0] as any) || 0,
-                  // eslint-disable-next-line
-                  parseFloat(r.namespace.range[1] as any) || 0,
-                ];
-              }
-            } else if (r.type === "rollout") {
-              rule.force = getJSONValue(feature.valueType, r.value);
-              rule.coverage =
-                r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-
-              if (r.hashAttribute) {
-                rule.hashAttribute = r.hashAttribute;
-              }
-            }
-            return rule;
-          }) ?? [],
-    };
-    if (defs[feature.id].rules && !defs[feature.id].rules?.length) {
-      delete defs[feature.id].rules;
+      if (!mostRecentUpdate || mostRecentUpdate < feature.dateUpdated) {
+        mostRecentUpdate = feature.dateUpdated;
+      }
     }
   });
 

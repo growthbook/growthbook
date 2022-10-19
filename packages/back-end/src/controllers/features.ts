@@ -108,7 +108,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       dateUpdated,
     });
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Failed to get features");
     res.status(400).json({
       status: 400,
       error: "Failed to get features",

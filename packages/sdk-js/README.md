@@ -43,7 +43,10 @@ or use directly in your HTML without installing first:
 import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook context
-const growthbook = new GrowthBook();
+const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
+});
 
 // Load feature definitions (from API, database, etc.)
 await fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
@@ -144,6 +147,19 @@ new GrowthBook({
 The `result` argument is the same thing returned from `growthbook.evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
+```
 
 ## Using Features
 

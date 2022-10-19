@@ -11,6 +11,7 @@ import {
 } from "back-end/types/datasource";
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 import Tooltip from "../../../Tooltip";
+import usePermissions from "../../../../hooks/usePermissions";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -21,6 +22,9 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
+
+  const permissions = usePermissions();
+  const canEdit = permissions.editDatasourceSettings;
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
 
@@ -102,15 +106,17 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
             />
           </div>
 
-          <div>
-            <button
-              disabled={addIsDisabled}
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={handleAdd}
-            >
-              <FaPlus className="mr-1" /> Add
-            </button>
-          </div>
+          {canEdit && (
+            <div>
+              <button
+                disabled={addIsDisabled}
+                className="btn btn-outline-primary font-weight-bold"
+                onClick={handleAdd}
+              >
+                <FaPlus className="mr-1" /> Add
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
       {/* endregion Heading */}
@@ -134,29 +140,31 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
                   {/* Actions*/}
                   <div className="d-flex align-items-center">
-                    <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
-                      <button
-                        className="dropdown-item py-2"
-                        onClick={handleActionEditClicked(idx)}
-                      >
-                        <FaPencilAlt className="mr-2" /> Edit
-                      </button>
+                    {canEdit && (
+                      <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                        <button
+                          className="dropdown-item py-2"
+                          onClick={handleActionEditClicked(idx)}
+                        >
+                          <FaPencilAlt className="mr-2" /> Edit
+                        </button>
 
-                      <DeleteButton
-                        onClick={handleActionDeleteClicked(idx)}
-                        className="dropdown-item text-danger py-2"
-                        iconClassName="mr-2"
-                        style={{ borderRadius: 0 }}
-                        useIcon
-                        displayName={identityJoin.ids.join(" ↔ ")}
-                        deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
-                          " ↔ "
-                        )}?`}
-                        title="Delete"
-                        text="Delete"
-                        outline={false}
-                      />
-                    </MoreMenu>
+                        <DeleteButton
+                          onClick={handleActionDeleteClicked(idx)}
+                          className="dropdown-item text-danger py-2"
+                          iconClassName="mr-2"
+                          style={{ borderRadius: 0 }}
+                          useIcon
+                          displayName={identityJoin.ids.join(" ↔ ")}
+                          deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
+                            " ↔ "
+                          )}?`}
+                          title="Delete"
+                          text="Delete"
+                          outline={false}
+                        />
+                      </MoreMenu>
+                    )}
 
                     <button
                       className="btn ml-3 text-dark"

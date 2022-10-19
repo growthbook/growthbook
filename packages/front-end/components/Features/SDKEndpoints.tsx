@@ -30,7 +30,7 @@ const SDKEndpoints: FC<{
   const permissions = usePermissions();
 
   const publishableKeys = keys.filter((k) => !k.secret);
-  const canManageKeys = permissions.organizationSettings;
+  const canManageKeys = permissions.manageEnvironments;
 
   const envCounts = new Map();
   publishableKeys.forEach((k) => {

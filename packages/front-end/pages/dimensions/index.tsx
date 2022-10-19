@@ -223,11 +223,9 @@ const DimensionsPage: FC = () => {
           settings.
         </p>
 
-        {permissions.editDatasourceSettings && (
-          <Link href="/datasources">
-            <a className="btn btn-outline-primary">View Data Sources</a>
-          </Link>
-        )}
+        <Link href="/datasources">
+          <a className="btn btn-outline-primary">View Data Sources</a>
+        </Link>
       </div>
     </div>
   );

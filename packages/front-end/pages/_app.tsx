@@ -22,6 +22,7 @@ type ModAppProps = AppProps & {
 };
 
 const growthbook = new GrowthBook({
+  enableDevMode: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {

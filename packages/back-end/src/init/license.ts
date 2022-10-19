@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fetch from "node-fetch";
 import { LicenseData } from "../../types/organization";
+import { logger } from "../util/logger";
 
 import { LICENSE_KEY } from "../util/secrets";
 
@@ -31,9 +32,9 @@ async function getPublicKey() {
     );
     publicKey = Buffer.from(await res.arrayBuffer());
   } catch (e) {
-    console.error(
-      "Failed to load GrowthBook public key for license verification",
-      e
+    logger.error(
+      e,
+      "Failed to load GrowthBook public key for license verification"
     );
   }
 
@@ -60,9 +61,9 @@ async function getVerifiedLicenseData(key: string) {
   // If the public key failed to load, just assume the license is valid
   const publicKey = await getPublicKey();
   if (!publicKey) {
-    console.log(
-      "Could not contact license verification server",
-      decodedLicense
+    logger.warn(
+      decodedLicense,
+      "Could not contact license verification server"
     );
     return decodedLicense;
   }
@@ -82,7 +83,7 @@ async function getVerifiedLicenseData(key: string) {
     throw new Error("Invalid license key signature");
   }
 
-  console.log("Using verified license key", decodedLicense);
+  logger.info(decodedLicense, "Using verified license key");
 
   return decodedLicense;
 }

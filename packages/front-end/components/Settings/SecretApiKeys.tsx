@@ -7,7 +7,6 @@ import ApiKeysModal from "./ApiKeysModal";
 import CopyToClipboard from "../CopyToClipboard";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "./ClickToReveal";
-import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -17,13 +16,9 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
 
-  const enabled = useFeature("secret-api-keys").on;
-
   const permissions = usePermissions();
 
-  const canManageKeys = permissions.organizationSettings;
-
-  if (!enabled) return null;
+  const canManageKeys = permissions.manageApiKeys;
 
   const secretKeys = keys.filter((k) => k.secret);
 

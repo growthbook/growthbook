@@ -27,6 +27,8 @@ import {
   MemberRole,
   NamespaceUsage,
   OrganizationInterface,
+  OrganizationSettings,
+  Permissions,
 } from "../../types/organization";
 import {
   getWatchedAudits,
@@ -69,6 +71,7 @@ import {
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
+  getApiKeyByIdOrKey,
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
@@ -405,7 +408,7 @@ export async function putMemberRole(
   req: AuthRequest<{ role: MemberRole }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
   const { role } = req.body;
@@ -452,7 +455,7 @@ export async function putInviteRole(
   req: AuthRequest<{ role: MemberRole }, { key: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { role } = req.body;
@@ -509,8 +512,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
   const { org } = getOrgFromReq(req);
-
-  req.checkPermissions("organizationSettings");
 
   const {
     invites,
@@ -620,7 +621,7 @@ export async function postNamespaces(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageNamespaces");
 
   const { name, description, status } = req.body;
   const { org } = getOrgFromReq(req);
@@ -671,7 +672,7 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageNamespaces");
 
   const { name, description, status } = req.body;
   const originalName = req.params.name;
@@ -718,7 +719,7 @@ export async function deleteNamespace(
   req: AuthRequest<null, { name: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageNamespaces");
 
   const { org } = getOrgFromReq(req);
   const { name } = req.params;
@@ -788,7 +789,7 @@ export async function postInvite(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { email, role } = req.body;
@@ -810,7 +811,7 @@ export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -833,7 +834,7 @@ export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { key } = req.body;
@@ -843,7 +844,7 @@ export async function postInviteResend(
     await sendInviteEmail(org, key);
     emailSent = true;
   } catch (e) {
-    console.error("Error sending email: " + e);
+    req.log.error(e, "Error sending email");
     emailSent = false;
   }
 
@@ -859,7 +860,7 @@ export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { key } = req.body;
@@ -897,7 +898,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      console.error("New org email sending failure:", e.message);
+      req.log.error(e, "New org email sending failure");
     }
 
     res.status(200).json({
@@ -916,10 +917,36 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const requiredPermissions: Set<keyof Permissions> = new Set();
 
   const { org } = getOrgFromReq(req);
   const { name, settings, connections } = req.body;
+
+  if (connections || name) {
+    requiredPermissions.add("organizationSettings");
+  }
+  if (settings) {
+    Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
+      if (
+        k === "environments" ||
+        k === "sdkInstructionsViewed" ||
+        k === "visualEditorEnabled"
+      ) {
+        requiredPermissions.add("manageEnvironments");
+      } else if (k === "attributeSchema") {
+        requiredPermissions.add("manageTargetingAttributes");
+      } else if (k === "northStar") {
+        requiredPermissions.add("manageNorthStarMetric");
+      } else if (k === "namespaces") {
+        requiredPermissions.add("manageNamespaces");
+      } else {
+        requiredPermissions.add("organizationSettings");
+      }
+    });
+  }
+  if (requiredPermissions.size > 0) {
+    req.checkPermissions(...requiredPermissions);
+  }
 
   try {
     const updates: Partial<OrganizationInterface> = {};
@@ -1006,7 +1033,11 @@ export async function postApiKey(
   }
 
   // Only require permissions if we are creating a new API key
-  req.checkPermissions("organizationSettings");
+  if (secret) {
+    req.checkPermissions("manageApiKeys");
+  } else {
+    req.checkPermissions("manageEnvironments");
+  }
 
   const key = await createApiKey({
     organization: org.id,
@@ -1026,18 +1057,32 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
-
   const { org } = getOrgFromReq(req);
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
+  if (!key && !id) {
+    throw new Error("Must provide either an API key or id in order to delete");
+  }
+
+  const keyObj = await getApiKeyByIdOrKey(
+    org.id,
+    id || undefined,
+    key || undefined
+  );
+  if (!keyObj) {
+    throw new Error("Could not find API key to delete");
+  }
+
+  if (keyObj.secret) {
+    req.checkPermissions("manageApiKeys");
+  } else {
+    req.checkPermissions("manageEnvironments");
+  }
 
   if (id) {
     await deleteApiKeyById(org.id, id);
   } else if (key) {
     await deleteApiKeyByKey(org.id, key);
-  } else {
-    throw new Error("Must provide either an API key or id in order to delete");
   }
 
   res.status(200).json({
@@ -1049,7 +1094,7 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageApiKeys");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.body;
@@ -1082,7 +1127,7 @@ export async function postWebhook(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
   const { name, endpoint, project, environment } = req.body;
@@ -1105,7 +1150,7 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1143,7 +1188,7 @@ export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;

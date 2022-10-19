@@ -29,7 +29,10 @@ or use directly in your HTML without installing first:
 import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook context
-const growthbook = new GrowthBook();
+const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
+});
 
 // Load feature definitions (from API, database, etc.)
 fetch("https://cdn.growthbook.io/api/features/<your api key>")
@@ -131,6 +134,19 @@ new GrowthBook({
 The `result` argument is the same thing returned from `growthbook.evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
+```
 
 ## Using Features
 
@@ -543,11 +559,17 @@ In addition, there are a few other settings that only really make sense for inli
 A call to `growthbook.run(experiment)` returns an object with a few useful properties:
 
 ```ts
-const { inExperiment, hashUsed, variationId, value, hashAttribute, hashValue } =
-  growthbook.run({
-    key: "my-experiment",
-    variations: ["A", "B"],
-  });
+const {
+  inExperiment,
+  hashUsed,
+  variationId,
+  value,
+  hashAttribute,
+  hashValue,
+} = growthbook.run({
+  key: "my-experiment",
+  variations: ["A", "B"],
+});
 
 // If user is included in the experiment
 console.log(inExperiment); // true or false
