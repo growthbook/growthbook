@@ -103,7 +103,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
       status: 200,
     });
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Error signing in");
     return res.status(400).json({
       status: 400,
       message: "Error Signing In",
@@ -142,7 +142,7 @@ export async function postLogout(req: Request, res: Response) {
   try {
     redirectURI = await auth.logout(req, res);
   } catch (e) {
-    console.error("Failed to logout of SSO", e);
+    req.log.error(e, "Failed to logout of SSO");
   }
   deleteAuthCookies(req, res);
 
@@ -163,7 +163,7 @@ export async function postLogin(
 
   const user = await getUserByEmail(email);
   if (!user) {
-    console.log("Unknown email", email);
+    req.log.info("Unknown email: " + email);
     return res.status(400).json({
       status: 400,
       message: "Invalid email or password",
@@ -172,7 +172,7 @@ export async function postLogin(
 
   const valid = await verifyPassword(user, password);
   if (!valid) {
-    console.log("Invalid password for", email);
+    req.log.info("Invalid password for: " + email);
     return res.status(400).json({
       status: 400,
       message: "Invalid email or password",

@@ -426,7 +426,7 @@ export async function putDataSource(
       status: 200,
     });
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Failed to update data source");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

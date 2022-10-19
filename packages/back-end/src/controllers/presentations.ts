@@ -246,8 +246,7 @@ export async function updatePresentation(
       presentation: p,
     });
   } catch (e) {
-    console.log("caught error...");
-    console.error(e);
+    req.log.error(e, "Error updating presentation");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

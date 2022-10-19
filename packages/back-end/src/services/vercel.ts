@@ -7,6 +7,7 @@ import {
   VercelTarget,
 } from "../../types/vercel";
 import { createApiKey } from "../models/ApiKeyModel";
+import { logger } from "../util/logger";
 
 interface VercelApiCallProps {
   token: string;
@@ -37,7 +38,7 @@ async function vercelApiCall<T = unknown>({
 
   const json: T | { error: string } = await res.json();
   if ("error" in json) {
-    console.error(json.error);
+    logger.error(json.error);
     throw new Error(json.error);
   }
   return json;

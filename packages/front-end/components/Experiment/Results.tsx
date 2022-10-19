@@ -117,7 +117,7 @@ const Results: FC<{
             {snapshot &&
               phaseAgeMinutes < 120 &&
               "It was just started " +
-                ago(experiment.phases[phase].dateStarted) +
+                ago(experiment.phases[phase]?.dateStarted) +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
               permissions.runQueries &&

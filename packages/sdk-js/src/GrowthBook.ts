@@ -51,7 +51,7 @@ export class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
-    if (isBrowser && !context.disableDevTools) {
+    if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
@@ -254,7 +254,9 @@ export class GrowthBook {
   }
 
   // eslint-disable-next-line
-  public feature<T extends JSONValue = any>(id: string): FeatureResult<T | null> {
+  public feature<T extends JSONValue = any>(
+    id: string
+  ): FeatureResult<T | null> {
     return this.evalFeature(id);
   }
 
