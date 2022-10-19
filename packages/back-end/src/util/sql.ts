@@ -1,4 +1,4 @@
-import { format as sqlFormat } from "sql-formatter";
+import { format as sqlFormat, FormatOptions } from "sql-formatter";
 
 function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
   // If a specific id type is already chosen as the base, return it
@@ -103,16 +103,17 @@ export function replaceSQLVars(
   return sql;
 }
 
-export function format(sql: string) {
-  return (
-    sqlFormat(sql, {
-      language: "redshift",
-    })
-      // Fix Snowflate syntax for flatten function
-      .replace(/ = > /g, " => ")
-      // Similar fix for PrestoDB/Athena lambda functions
-      .replace(/ - > /g, " -> ")
-  );
+export type FormatDialect = FormatOptions["language"] | "";
+export function format(sql: string, dialect?: FormatDialect) {
+  if (!dialect) return sql;
+
+  try {
+    return sqlFormat(sql, {
+      language: dialect,
+    });
+  } catch (e) {
+    return sql;
+  }
 }
 
 // Recursively create list of metric denominators in order

@@ -4,6 +4,7 @@ import SqlIntegration from "./SqlIntegration";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
+import { FormatDialect } from "../util/sql";
 
 export default class BigQuery extends SqlIntegration {
   params: BigQueryConnectionParams;
@@ -11,6 +12,9 @@ export default class BigQuery extends SqlIntegration {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "bigquery";
   }
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];
