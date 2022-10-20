@@ -2,17 +2,24 @@ import { FC, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
-import { FaCopy, FaExclamationTriangle, FaKey } from "react-icons/fa";
+import {
+  FaExclamationTriangle,
+  FaEye,
+  FaKey,
+  FaEyeSlash,
+} from "react-icons/fa";
 import ApiKeysModal from "../Settings/ApiKeysModal";
-import MoreMenu from "../Dropdown/MoreMenu";
 import { getSDKEndpoint } from "./CodeSnippetModal";
 import usePermissions from "../../hooks/usePermissions";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
-import CopyToClipboard from "../CopyToClipboard";
-import ClickToReveal from "../Settings/ClickToReveal";
+import MoreMenu from "../Dropdown/MoreMenu";
+
+type ApiKeyPrivateKey = {
+  [key: string]: string;
+};
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -20,6 +27,9 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
+  const [privateKeys, setPrivateKeys] = useState<ApiKeyPrivateKey | null>({});
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [currentCopiedKeyId, setCurrentCopiedKeyId] = useState("");
 
   const { projects } = useDefinitions();
 
@@ -41,6 +51,8 @@ const SDKEndpoints: FC<{
       );
     }
   });
+
+  console.log("currentCopiedKeyId", currentCopiedKeyId);
 
   return (
     <div className="mt-4">
@@ -78,10 +90,9 @@ const SDKEndpoints: FC<{
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              <th>Description</th>
               <th>Environment</th>
               <th>Endpoint</th>
-              <th>Private Key</th>
+              <th style={{ textAlign: "right" }}>Private Key</th>
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -93,26 +104,31 @@ const SDKEndpoints: FC<{
               const envExists = environments?.some((e) => e.id === env);
               return (
                 <tr key={key.key}>
-                  <td>{key.description}</td>
                   <td>
-                    <Tooltip
-                      body={
-                        envExists
-                          ? ""
-                          : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
-                      }
-                    >
-                      {env}{" "}
-                      {!envExists && (
-                        <FaExclamationTriangle className="text-danger" />
-                      )}
-                    </Tooltip>
+                    <div className="d-flex flex-column">
+                      <Tooltip
+                        body={
+                          envExists
+                            ? ""
+                            : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                        }
+                      >
+                        <b>{env}</b>
+                        {!envExists && (
+                          <FaExclamationTriangle className="text-danger" />
+                        )}
+                      </Tooltip>
+                      <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
+                        {key.description}
+                      </span>
+                    </div>
                   </td>
-                  <td>
-                    <code>{endpoint}</code>{" "}
-                    <FaCopy
-                      className="cursor-pointer"
-                      title="Copy to Clipboard"
+                  <td style={{ width: "fit-content" }}>
+                    <Tooltip
+                      role="button"
+                      tipMinWidth="45px"
+                      tipPosition="top"
+                      body="Copy"
                       onClick={(e) => {
                         e.preventDefault();
                         navigator.clipboard
@@ -124,30 +140,92 @@ const SDKEndpoints: FC<{
                             console.error(e);
                           });
                       }}
-                    />
+                    >
+                      {endpoint}
+                    </Tooltip>
                   </td>
                   <td>
                     {canManageKeys && key.encryptSDK && (
-                      <ClickToReveal
-                        valueWhenHidden="Reveal key"
-                        getValue={async () => {
-                          const res = await apiCall<{ key: SecretApiKey }>(
-                            `/keys/reveal`,
-                            {
-                              method: "POST",
-                              body: JSON.stringify({
-                                id: key.id,
-                              }),
-                            }
-                          );
-                          if (!res.key?.encryptionPrivateKey) {
-                            throw new Error("Could not load private key");
+                      <div className="d-flex flex-row align-items-center justify-content-start">
+                        <Tooltip
+                          role="button"
+                          tipMinWidth="45px"
+                          tipPosition="top"
+                          body={
+                            !privateKeys || !privateKeys[key.id]
+                              ? "Click the eye to reveal"
+                              : currentCopiedKeyId === key.id
+                              ? "Copied!"
+                              : "Copy"
                           }
-                          return res.key.encryptionPrivateKey;
-                        }}
-                      >
-                        {(value) => <CopyToClipboard text={value} />}
-                      </ClickToReveal>
+                          style={{ paddingRight: "5px" }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (privateKeys && privateKeys[key.id]) {
+                              navigator.clipboard
+                                .writeText(privateKeys[key.id])
+                                .then(() => {
+                                  console.log("Copied!");
+                                })
+                                .catch((e) => {
+                                  console.error(e);
+                                });
+                              setCurrentCopiedKeyId(key.id);
+                            }
+                          }}
+                        >
+                          <input
+                            role="button"
+                            type={
+                              !privateKeys || !privateKeys[key.id]
+                                ? "password"
+                                : "text"
+                            }
+                            value={
+                              !privateKeys || !privateKeys[key.id]
+                                ? "key is hidden"
+                                : privateKeys[key.id]
+                            }
+                            disabled={true}
+                            style={{
+                              border: "none",
+                              textAlign: "right",
+                              outline: "none",
+                              backgroundColor: "#fff",
+                            }}
+                          />
+                        </Tooltip>
+                        <span
+                          role="button"
+                          onClick={async () => {
+                            if (!privateKeys || !privateKeys[key.id]) {
+                              setShowPrivateKey(!showPrivateKey);
+                              const res = await apiCall<{
+                                key: SecretApiKey;
+                              }>(`/keys/reveal`, {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  id: key.id,
+                                }),
+                              });
+                              if (!res.key?.encryptionPrivateKey) {
+                                throw new Error("Could not load private key");
+                              }
+                              setPrivateKeys({
+                                [key.id]: res.key.encryptionPrivateKey,
+                              });
+                            } else {
+                              setPrivateKeys(null);
+                            }
+                          }}
+                        >
+                          {!privateKeys || !privateKeys[key.id] ? (
+                            <FaEyeSlash />
+                          ) : (
+                            <FaEye />
+                          )}
+                        </span>
+                      </div>
                     )}
                   </td>
                   {canManageKeys && (
@@ -165,7 +243,7 @@ const SDKEndpoints: FC<{
                             mutate();
                           }}
                           className="dropdown-item"
-                          displayName="SDK Endpoint"
+                          displayName="Delete Endpoint"
                           text="Delete endpoint"
                         />
                       </MoreMenu>
