@@ -17,7 +17,7 @@ import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 
-type ApiKeyPrivateKey = {
+type RevealedPrivateKey = {
   [key: string]: string;
 };
 
@@ -27,9 +27,11 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
-  const [privateKeys, setPrivateKeys] = useState<ApiKeyPrivateKey | null>({});
-  const [showPrivateKey, setShowPrivateKey] = useState(false);
-  const [currentCopiedKeyId, setCurrentCopiedKeyId] = useState("");
+  const [
+    revealedPrivateKey,
+    setRevealedPrivateKey,
+  ] = useState<RevealedPrivateKey | null>({});
+  const [currentCopiedString, setCurrentCopiedString] = useState("");
 
   const { projects } = useDefinitions();
 
@@ -51,8 +53,6 @@ const SDKEndpoints: FC<{
       );
     }
   });
-
-  console.log("currentCopiedKeyId", currentCopiedKeyId);
 
   return (
     <div className="mt-4">
@@ -102,39 +102,41 @@ const SDKEndpoints: FC<{
               const endpoint = getSDKEndpoint(key.key, selectedProject);
 
               const envExists = environments?.some((e) => e.id === env);
+
+              const hidden = !revealedPrivateKey || !revealedPrivateKey[key.id];
               return (
                 <tr key={key.key}>
-                  <td>
-                    <div className="d-flex flex-column">
-                      <Tooltip
-                        body={
-                          envExists
-                            ? ""
-                            : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
-                        }
-                      >
-                        <b>{env}</b>
-                        {!envExists && (
-                          <FaExclamationTriangle className="text-danger" />
-                        )}
-                      </Tooltip>
-                      <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
-                        {key.description}
-                      </span>
-                    </div>
+                  <td className="d-flex flex-column">
+                    <Tooltip
+                      body={
+                        envExists
+                          ? ""
+                          : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                      }
+                    >
+                      <b>{env}</b>
+                      {!envExists && (
+                        <FaExclamationTriangle className="text-danger" />
+                      )}
+                    </Tooltip>
+                    <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
+                      {key.description}
+                    </span>
                   </td>
-                  <td style={{ width: "fit-content" }}>
+                  <td>
                     <Tooltip
                       role="button"
                       tipMinWidth="45px"
                       tipPosition="top"
-                      body="Copy"
+                      body={
+                        currentCopiedString !== endpoint ? "Copy" : "Copied!"
+                      }
                       onClick={(e) => {
                         e.preventDefault();
                         navigator.clipboard
                           .writeText(endpoint)
                           .then(() => {
-                            console.log("Copied!");
+                            setCurrentCopiedString(endpoint);
                           })
                           .catch((e) => {
                             console.error(e);
@@ -152,39 +154,34 @@ const SDKEndpoints: FC<{
                           tipMinWidth="45px"
                           tipPosition="top"
                           body={
-                            !privateKeys || !privateKeys[key.id]
+                            hidden
                               ? "Click the eye to reveal"
-                              : currentCopiedKeyId === key.id
+                              : currentCopiedString === key.id
                               ? "Copied!"
                               : "Copy"
                           }
                           style={{ paddingRight: "5px" }}
                           onClick={(e) => {
                             e.preventDefault();
-                            if (privateKeys && privateKeys[key.id]) {
+                            if (!hidden) {
                               navigator.clipboard
-                                .writeText(privateKeys[key.id])
+                                .writeText(revealedPrivateKey[key.id])
                                 .then(() => {
-                                  console.log("Copied!");
+                                  setCurrentCopiedString(key.id);
                                 })
                                 .catch((e) => {
                                   console.error(e);
                                 });
-                              setCurrentCopiedKeyId(key.id);
                             }
                           }}
                         >
                           <input
                             role="button"
-                            type={
-                              !privateKeys || !privateKeys[key.id]
-                                ? "password"
-                                : "text"
-                            }
+                            type={hidden ? "password" : "text"}
                             value={
-                              !privateKeys || !privateKeys[key.id]
+                              hidden
                                 ? "key is hidden"
-                                : privateKeys[key.id]
+                                : revealedPrivateKey[key.id]
                             }
                             disabled={true}
                             style={{
@@ -198,8 +195,7 @@ const SDKEndpoints: FC<{
                         <span
                           role="button"
                           onClick={async () => {
-                            if (!privateKeys || !privateKeys[key.id]) {
-                              setShowPrivateKey(!showPrivateKey);
+                            if (hidden) {
                               const res = await apiCall<{
                                 key: SecretApiKey;
                               }>(`/keys/reveal`, {
@@ -211,19 +207,15 @@ const SDKEndpoints: FC<{
                               if (!res.key?.encryptionPrivateKey) {
                                 throw new Error("Could not load private key");
                               }
-                              setPrivateKeys({
+                              setRevealedPrivateKey({
                                 [key.id]: res.key.encryptionPrivateKey,
                               });
                             } else {
-                              setPrivateKeys(null);
+                              setRevealedPrivateKey(null);
                             }
                           }}
                         >
-                          {!privateKeys || !privateKeys[key.id] ? (
-                            <FaEyeSlash />
-                          ) : (
-                            <FaEye />
-                          )}
+                          {hidden ? <FaEyeSlash /> : <FaEye />}
                         </span>
                       </div>
                     )}
@@ -243,7 +235,7 @@ const SDKEndpoints: FC<{
                             mutate();
                           }}
                           className="dropdown-item"
-                          displayName="Delete Endpoint"
+                          displayName="SDK Endpoint"
                           text="Delete endpoint"
                         />
                       </MoreMenu>
