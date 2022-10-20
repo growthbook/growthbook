@@ -5,8 +5,8 @@ import {
   SecretApiKey,
 } from "../../types/apikey";
 import uniqid from "uniqid";
-import { generatePrivateKey } from "../util/subtle-crypto";
 import crypto from "crypto";
+import { webcrypto } from "node:crypto";
 
 const apiKeySchema = new mongoose.Schema({
   id: String,
@@ -26,6 +26,20 @@ const apiKeySchema = new mongoose.Schema({
 type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
+
+async function generatePrivateKey(): Promise<string> {
+  const key = await webcrypto.subtle.generateKey(
+    {
+      name: "AES-CBC",
+      length: 128,
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  return Buffer.from(await webcrypto.subtle.exportKey("raw", key)).toString(
+    "base64"
+  );
+}
 
 function getShortEnvName(env: string) {
   env = env.toLowerCase();
@@ -161,6 +175,6 @@ export async function getUnredactedSecretKey(
     organization,
     id,
   });
-  if (!doc || !doc.encryptionPrivateKey) return null;
+  if (!doc) return null;
   return doc.toJSON() as SecretApiKey;
 }

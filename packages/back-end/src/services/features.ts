@@ -9,9 +9,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { getKeyFromString } from "../util/subtle-crypto";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const crypto = require("node:crypto").webcrypto;
+import { webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
@@ -285,29 +283,32 @@ export function verifyDraftsAreEqual(
   }
 }
 
-export const encrypt = async (
-  features: string,
-  privateKeyString: string | undefined
-): Promise<{ features: string; iv: string }> => {
-  if (!privateKeyString) {
+export async function encrypt(
+  plainText: string,
+  keyString: string | undefined
+): Promise<string> {
+  if (!keyString) {
     throw new Error("Unable to encrypt the feature list.");
   }
-
-  const key = await getKeyFromString(privateKeyString);
-
+  const bufToBase64 = (x: ArrayBuffer) => Buffer.from(x).toString("base64");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    Buffer.from(keyString, "base64"),
+    {
+      name: "AES-CBC",
+      length: 128,
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
   const iv = crypto.getRandomValues(new Uint8Array(16));
-
-  const encryptedFeatureList = await crypto.subtle.encrypt(
+  const encryptedBuffer = await crypto.subtle.encrypt(
     {
       name: "AES-CBC",
       iv,
     },
     key,
-    new TextEncoder().encode(features)
+    new TextEncoder().encode(plainText)
   );
-
-  return {
-    features: Buffer.from(encryptedFeatureList).toString("base64"),
-    iv: Buffer.from(iv.buffer).toString("base64"),
-  };
-};
+  return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+}

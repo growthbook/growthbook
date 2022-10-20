@@ -468,62 +468,29 @@ With encryption enabled, the response would be:
   {
     status: 200,
     features: {},
-    encryptedFeatures: {
-      features: "encryptedFeatures",
-      iv: "initializationVector"
-    }
+    encryptedFeatures: "encryptedString"
   }
 ```
 
 The features are encrypted with the AES-CBC algorithm via WebCrypto API's `SubtleCrypto` and the content inside (`features` and `iv`) are encoded as a `base64` string. An example of how to decrypt the feature list is below:
 
 ```ts
-//
-function stringToBuffer(str: string): ArrayBuffer {
-  const buf = new ArrayBuffer(str.length);
-  const bufView = new Uint8Array(buf);
-  for (let i = 0, strLen = str.length; i < strLen; i++) {
-    bufView[i] = str.charCodeAt(i);
-  }
-  return buf;
-}
-
-// The encryption key is stored in the DB as a base64 encoded string, and needs to be converted to an ArrayBuffer before calling SubtleCrypto's importKey() method, which returns a CryptoKey that can be consumed by the decrypt() method.
-async function getKeyFromString(keyString: string): Promise<CryptoKey> {
-  const binaryString = atob(keyString);
-  const buffer = stringToBuffer(binaryString);
-  return crypto.subtle.importKey(
+async function decrypt(keyString, encryptedText) {
+  const base64ToBuf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+  const key = await window.crypto.subtle.importKey(
     "raw",
-    buffer,
-    {
-      name: "AES-CBC",
-    },
+    Uint8Array.from(atob(keyString), (c) => c.charCodeAt(0)),
+    { name: "AES-CBC", length: 128 },
     true,
     ["encrypt", "decrypt"]
   );
-}
-
-async function decryptFeatures({ features, iv }) {
-  // This can be found in your account under /settings/keys
-  const key = await getKeyFromString(
-    "o7AolAMiEgl9PvBS63O/pNDF8tvg9mxAt330FU71n9c="
-  );
-
-  // ciphertext and iv come in as base64 encoded strings and must be converted to ArrayBuffers
-  const ciphertext = stringToBuffer(atob(features));
-  iv = stringToBuffer(atob(iv));
-
-  const decryptedFeatures = await crypto.subtle.decrypt(
-    {
-      name: "AES-CBC",
-      iv,
-    },
+  const [iv, cipherText] = encryptedText.split(".");
+  const plainTextBuffer = await window.crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: base64ToBuf(iv) },
     key,
-    ciphertext
+    base64ToBuf(cipherText)
   );
-  const decoder = new TextDecoder("utf8");
-  const decodedFeatures = decoder.decode(decryptedFeatures);
-  return decodedFeatures;
+  return new TextDecoder().decode(plainTextBuffer);
 }
 
 // Load feature definitions JSON from GrowthBook API
@@ -531,7 +498,12 @@ fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
   .then(async (json) => {
     growthbook.setFeatures(
-      JSON.parse(await decryptFeatures(json.encrpytedFeatures))
+      JSON.parse(
+        await decrypt(
+          "privateKeyString", //This can be found by going to /settings/keys in your account.
+          json.encrpytedFeatures
+        )
+      )
     );
   });
 ```
