@@ -510,9 +510,9 @@ export async function validateExposureQuery(
   }
 
   try {
-    const result = await testQuery(datasource, query);
+    const testResults = await testQuery(datasource, query);
 
-    if (result?.length === 0) {
+    if (testResults?.result?.length === 0) {
       return res.status(200).json({
         status: 200,
         errorMessage: "No rows were returned.",
@@ -521,9 +521,9 @@ export async function validateExposureQuery(
 
     const extraColumns = [];
 
-    if (result) {
+    if (testResults?.result) {
       // Identify if there were any extra columns included in the query.
-      for (const column in result[0]) {
+      for (const column in testResults.result[0]) {
         if (!requiredColumns.find((index) => index === column)) {
           extraColumns.push(column);
         }
@@ -533,6 +533,7 @@ export async function validateExposureQuery(
     res.status(200).json({
       status: 200,
       extraColumns,
+      duration: testResults.duration,
     });
   } catch (e) {
     res.status(200).json({

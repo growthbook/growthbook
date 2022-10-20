@@ -15,7 +15,7 @@ import {
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
   Dimension,
-  TestQueryResult,
+  // TestQueryResult,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -25,8 +25,7 @@ import { SegmentInterface } from "../../types/segment";
 import { getBaseIdTypeAndJoins, replaceSQLVars, format } from "../util/sql";
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface
-{
+  implements SourceIntegrationInterface {
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
@@ -165,9 +164,9 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (this.settings.queries?.exposure || []).map(
-      ({ id }) => this.getExposureQuery(id)
-    );
+    const experimentQueries = (
+      this.settings.queries?.exposure || []
+    ).map(({ id }) => this.getExposureQuery(id));
 
     return format(
       `-- Past Experiments
@@ -423,10 +422,14 @@ export default abstract class SqlIntegration
     });
   }
 
-  async testQuery(query: string): Promise<TestQueryResult[]> {
+  // eslint-disable-next-line
+  async testQuery(query: string): Promise<any> {
     const limitedQuery = `SELECT * FROM (${query}) as sub_query\nLIMIT 1`;
+    const startTime = Date.now();
     const results = await this.runQuery(limitedQuery);
-    return results;
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    return { results, duration };
   }
 
   private getIdentifiesCTE(

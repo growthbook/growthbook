@@ -27,12 +27,15 @@ type TestQueryResults = {
   status: number;
   extraColumns?: string[];
   errorMessage?: string;
+  duration?: string;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
-  const [querySuccess, setQuerySuccess] = useState(false);
+  const [querySuccessMessage, setQuerySuccessMessage] = useState<
+    null | string
+  >();
   const [queryError, setQueryError] = useState<null | string>();
   const [queryWarnings, setQueryWarnings] = useState<string[]>([]);
   const { apiCall } = useAuth();
@@ -109,7 +112,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
   const handleTestQuery = async () => {
     setQueryError(null);
-    setQuerySuccess(false);
+    setQuerySuccessMessage(null);
     setQueryWarnings([]);
 
     const value: ExposureQuery = {
@@ -139,11 +142,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         return;
       }
 
+      if (res.duration) {
+        setQuerySuccessMessage(
+          `The query ran successfully in ${res.duration} MS.`
+        );
+      }
+
       if (res.extraColumns) {
         setQueryWarnings(res.extraColumns);
       }
-
-      setQuerySuccess(true);
     } catch (e) {
       setQueryError(e.message);
     }
@@ -190,10 +197,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               {...form.register("userIdType")}
             />
 
-            {querySuccess && (
-              <div className="alert alert-success">
-                The query ran successfully.
-              </div>
+            {querySuccessMessage && (
+              <div className="alert alert-success">{querySuccessMessage}</div>
             )}
             {queryWarnings.length > 0 && (
               <div className="alert alert-warning">

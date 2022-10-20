@@ -89,7 +89,11 @@ export async function testDataSourceConnection(
   await integration.testConnection();
 }
 
-export async function testQuery(datasource: DataSourceInterface, sql: string) {
+export async function testQuery(
+  datasource: DataSourceInterface,
+  sql: string
+  // eslint-disable-next-line
+): Promise<any> {
   const integration = getSourceIntegrationObject(datasource);
   return integration.testQuery ? await integration.testQuery(sql) : null;
 }
