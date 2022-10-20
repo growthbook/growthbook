@@ -5,8 +5,8 @@ import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { useEnvironments } from "../../services/features";
-import Tooltip from "../Tooltip";
 import Toggle from "../Forms/Toggle";
+import { DocLink } from "../DocLink";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -72,24 +72,27 @@ const ApiKeysModal: FC<{
         {...form.register("description")}
       />
       {!secret && showAdvanced && (
-        <div className="mb-3 d-flex flex-column">
-          <span>
-            <label htmlFor="encryptFeatures">
-              Encrypt feature list in API response? (optional)
-            </label>
-            <Tooltip
-              className="pl-1"
-              body="When enabled this will encrypt the list of features returned from the GrowthBook API. As a result, you will need to decrypt the response before consuming the feature list. "
-              tipMinWidth="200px"
+        <div>
+          <div className="mb-2 d-flex flex-column">
+            <span>
+              <label htmlFor="encryptFeatures">
+                Encrypt features in the SDK Endpoint?
+              </label>
+            </span>
+            <Toggle
+              id={"encryptSDK"}
+              value={!!form.watch("encryptSDK")}
+              setValue={(value) => {
+                form.setValue("encryptSDK", value);
+              }}
             />
-          </span>
-          <Toggle
-            id={"encryptSDK"}
-            value={!!form.watch("encryptSDK")}
-            setValue={(value) => {
-              form.setValue("encryptSDK", value);
-            }}
-          />
+          </div>
+          <div className="alert alert-warning">
+            When enabled, you will need to decrypt features before passing into
+            our SDKs.{" "}
+            <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink> for
+            more info and sample code.
+          </div>
         </div>
       )}
       {!secret && !showAdvanced && (

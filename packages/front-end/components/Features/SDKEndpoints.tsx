@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaCopy, FaExclamationTriangle, FaKey } from "react-icons/fa";
@@ -42,6 +42,8 @@ const SDKEndpoints: FC<{
     }
   });
 
+  const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
+
   return (
     <div className="mt-4">
       {open && canManageKeys && (
@@ -81,7 +83,7 @@ const SDKEndpoints: FC<{
               <th>Description</th>
               <th>Environment</th>
               <th>Endpoint</th>
-              <th>Private Key</th>
+              {hasEncryptedEndpoints && <th>Encrypted?</th>}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -126,30 +128,39 @@ const SDKEndpoints: FC<{
                       }}
                     />
                   </td>
-                  <td>
-                    {canManageKeys && key.encryptSDK && (
-                      <ClickToReveal
-                        valueWhenHidden="Reveal key"
-                        getValue={async () => {
-                          const res = await apiCall<{ key: SecretApiKey }>(
-                            `/keys/reveal`,
-                            {
-                              method: "POST",
-                              body: JSON.stringify({
-                                id: key.id,
-                              }),
-                            }
-                          );
-                          if (!res.key?.encryptionPrivateKey) {
-                            throw new Error("Could not load private key");
-                          }
-                          return res.key.encryptionPrivateKey;
-                        }}
-                      >
-                        {(value) => <CopyToClipboard text={value} />}
-                      </ClickToReveal>
-                    )}
-                  </td>
+                  {hasEncryptedEndpoints && (
+                    <td>
+                      {key.encryptSDK ? (
+                        canManageKeys ? (
+                          <ClickToReveal
+                            valueWhenHidden="Reveal key"
+                            getValue={async () => {
+                              const res = await apiCall<{
+                                key: ApiKeyInterface;
+                              }>(`/keys/reveal`, {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  id: key.id,
+                                }),
+                              });
+                              if (!res.key?.encryptionKey) {
+                                throw new Error(
+                                  "Could not load encryption key"
+                                );
+                              }
+                              return res.key.encryptionKey;
+                            }}
+                          >
+                            {(value) => <CopyToClipboard text={value} />}
+                          </ClickToReveal>
+                        ) : (
+                          "yes"
+                        )
+                      ) : (
+                        "no"
+                      )}
+                    </td>
+                  )}
                   {canManageKeys && (
                     <td>
                       <MoreMenu id={key.key + "_actions"}>

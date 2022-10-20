@@ -19,7 +19,7 @@ const apiKeySchema = new mongoose.Schema({
   organization: String,
   dateCreated: Date,
   encryptSDK: Boolean,
-  encryptionPrivateKey: String,
+  encryptionKey: String,
   secret: Boolean,
 });
 
@@ -27,7 +27,7 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
-async function generatePrivateKey(): Promise<string> {
+async function generateEncryptionKey(): Promise<string> {
   const key = await webcrypto.subtle.generateKey(
     {
       name: "AES-CBC",
@@ -84,7 +84,7 @@ export async function createApiKey({
     secret,
     id,
     encryptSDK,
-    encryptionPrivateKey: encryptSDK ? await generatePrivateKey() : null,
+    encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
   });
 
@@ -136,7 +136,7 @@ export async function getAllApiKeysByOrganization(
     {
       organization,
     },
-    { encryptionPrivateKey: 0 }
+    { encryptionKey: 0 }
   );
   return docs.map((k) => {
     const json = k.toJSON();
@@ -159,7 +159,7 @@ export async function getFirstPublishableApiKey(
         $ne: true,
       },
     },
-    { encryptionPrivateKey: 0 }
+    { encryptionKey: 0 }
   );
 
   if (!doc) return null;
