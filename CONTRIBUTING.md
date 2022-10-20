@@ -18,7 +18,7 @@ The fastest way to start contributing to GrowthBook is by using our pre configur
 - [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or higher
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
-- [Python](https://www.python.org/downloads/) 3.6+ (for the stats engine)
+- [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
   - [scipy](https://scipy.org/install/)
   - [numpy](https://numpy.org/install/)
   - [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
