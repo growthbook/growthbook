@@ -240,6 +240,32 @@ describe("json <-> conds", () => {
     const json = stringify({ $or: [{ num: 10 }, { num: 20 }] });
     expect(jsonToConds(json, attributeMap)).toEqual(null);
   });
+  it("null values", () => {
+    const json = stringify({ str: null });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("array values", () => {
+    const json = stringify({ str_arr: ["a", "b", "c"] });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("object values", () => {
+    const json = stringify({ str_arr: { "0": "a" } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$elemMatch null values", () => {
+    const json = stringify({ str_arr: { $elemMatch: { $eq: null } } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$not $elemMatch null values", () => {
+    const json = stringify({
+      str_arr: { $not: { $elemMatch: { $eq: null } } },
+    });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$not $regex null", () => {
+    const json = stringify({ str: { $not: { $regex: null } } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
   /* TODO: This test case fails right now
   it("string - $in operator, commas", () => {
     const json = stringify({ str: { $in: ["a,", "b"] } });
