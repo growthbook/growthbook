@@ -502,6 +502,8 @@ export async function validateExposureQuery(
   req.checkPermissions("editDatasourceSettings");
 
   const { org } = getOrgFromReq(req);
+
+  console.log("org", org);
   const { query, id, requiredColumns } = req.body;
 
   const datasource = await getDataSourceById(id, org.id);
@@ -509,8 +511,10 @@ export async function validateExposureQuery(
     throw new Error("Cannot find datasource");
   }
 
+  const minExperimentLength = org.settings?.pastExperimentsMinLength || 5;
+
   try {
-    const testResults = await testQuery(datasource, query);
+    const testResults = await testQuery(datasource, query, minExperimentLength);
 
     if (testResults?.result?.length === 0) {
       return res.status(200).json({
