@@ -25,7 +25,7 @@ const SavedGroupForm: FC<{
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      groupList: String(current.values) || "",
+      groupList: String(current.values || ""),
       id: current.id || "",
     },
   });
