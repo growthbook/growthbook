@@ -1,6 +1,7 @@
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
+import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Postgres extends SqlIntegration {
@@ -9,6 +10,9 @@ export default class Postgres extends SqlIntegration {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "postgresql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];

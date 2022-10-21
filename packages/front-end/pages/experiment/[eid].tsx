@@ -32,7 +32,7 @@ const ExperimentPage = (): ReactElement => {
 
   const [useSinglePage, setUseSinglePage] = useLocalStorage(
     "new-exp-page-layout",
-    false
+    true
   );
 
   const [stopModalOpen, setStopModalOpen] = useState(false);

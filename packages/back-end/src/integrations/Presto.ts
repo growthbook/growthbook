@@ -3,6 +3,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import SqlIntegration from "./SqlIntegration";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { Client, IPrestoClientOptions } from "presto-client";
+import { FormatDialect } from "../util/sql";
 
 // eslint-disable-next-line
 type Row = any;
@@ -13,6 +14,9 @@ export default class Presto extends SqlIntegration {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "trino";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

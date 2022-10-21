@@ -6,7 +6,8 @@ import {
   VercelProject,
   VercelTarget,
 } from "../../types/vercel";
-import { createApiKey } from "./apiKey";
+import { createApiKey } from "../models/ApiKeyModel";
+import { logger } from "../util/logger";
 
 interface VercelApiCallProps {
   token: string;
@@ -37,7 +38,7 @@ async function vercelApiCall<T = unknown>({
 
   const json: T | { error: string } = await res.json();
   if ("error" in json) {
-    console.error(json.error);
+    logger.error(json.error);
     throw new Error(json.error);
   }
   return json;
@@ -64,14 +65,16 @@ export async function createOrgGbKeys(
 ) {
   const orgGbKeys = [];
   for (const envMapEntry of gbVercelEnvMap) {
-    const createdKeyVal = await createApiKey(
-      orgId,
-      envMapEntry.gb,
-      "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API."
-    );
+    const createdKeyVal = await createApiKey({
+      organization: orgId,
+      secret: false,
+      environment: envMapEntry.gb,
+      description:
+        "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API.",
+    });
     orgGbKeys.push({
       key: "GROWTHBOOK_KEY",
-      value: createdKeyVal,
+      value: createdKeyVal.key,
       gbEnv: envMapEntry.gb,
       vercelEnvArr: envMapEntry.vercel,
     });

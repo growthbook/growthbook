@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { FaCog, FaFileDownload, FaPencilAlt } from "react-icons/fa";
-import { GrTableAdd } from "react-icons/gr";
+import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
@@ -110,8 +110,8 @@ export default function ResultMoreMenu({
               await router.push(`/report/${res.report.id}`);
             }}
           >
-            <GrTableAdd className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
-            Ad-hoc Report
+            <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+            Report
           </Button>
         )}
 

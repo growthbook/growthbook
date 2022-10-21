@@ -14,13 +14,13 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import useUser from "../../hooks/useUser";
 import Field from "../Forms/Field";
 import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
 import VariationDataInput from "./VariationDataInput";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -155,14 +155,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   const implementation = form.watch("implementation");
 
   const { apiCall } = useAuth();
 
-  const {
-    settings: { visualEditorEnabled },
-  } = useUser();
+  const { visualEditorEnabled } = useOrgSettings();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
@@ -227,6 +226,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
+        {!isImport && !fromFeature && datasource && (
+          <Field
+            label="Experiment Id"
+            {...form.register("trackingKey")}
+            helpText={
+              supportsSQL ? (
+                <>
+                  Must match the <code>experiment_id</code> field in your
+                  database table
+                </>
+              ) : (
+                "Must match the experiment id in your tracking callback"
+              )
+            }
+          />
+        )}
         {visualEditorEnabled && !isImport && (
           <Field
             label="Use Visual Editor"

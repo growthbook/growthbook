@@ -31,6 +31,7 @@ const docSections = {
   config_yml: "/self-host/config",
   config_domains_and_ports: "/self-host/env#domains-and-ports",
   config_organization_settings: "/self-host/config#organization-settings",
+  env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
 };
 

@@ -1,6 +1,7 @@
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
+import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
@@ -9,6 +10,9 @@ export default class Snowflake extends SqlIntegration {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

@@ -24,7 +24,7 @@ import {
   updateDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "../services/apiKey";
+import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
@@ -49,17 +49,34 @@ import { getRevisions } from "../models/FeatureRevisionModel";
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
 
+  if (!key) {
+    return res.status(400).json({
+      status: 400,
+      error: "Missing API key",
+    });
+  }
+
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
 
   try {
-    const { organization, environment } = await lookupOrganizationByApiKey(key);
+    const {
+      organization,
+      secret,
+      environment,
+    } = await lookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
         error: "Invalid API key",
+      });
+    }
+    if (secret) {
+      return res.status(400).json({
+        status: 400,
+        error: "Must use a Publishable API key to get feature definitions",
       });
     }
 
@@ -82,7 +99,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       dateUpdated,
     });
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Failed to get features");
     res.status(400).json({
       status: 400,
       error: "Failed to get features",
@@ -568,7 +585,10 @@ export async function postFeatureArchive(
   });
 }
 
-export async function getFeatures(req: AuthRequest, res: Response) {
+export async function getFeatures(
+  req: AuthRequest<unknown, unknown, { project?: string }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
 
   let project = "";

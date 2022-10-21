@@ -5,6 +5,7 @@ import {
   updateOrganizationByStripeId,
 } from "../models/OrganizationModel";
 import { OrganizationInterface } from "../../types/organization";
+import { logger } from "../util/logger";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2020-08-27",
@@ -69,7 +70,7 @@ export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
     });
     return priceData[priceId];
   } catch (e) {
-    console.error(e);
+    logger.error(e, "Failed to get price data from Stripe");
     return null;
   }
 }
@@ -89,7 +90,7 @@ export async function getCoupon(
     discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
     return discountData[discountCode];
   } catch (e) {
-    console.error(e);
+    logger.error(e, "Failed to get coupon data from Stripe");
     return null;
   }
 }

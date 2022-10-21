@@ -197,6 +197,7 @@ pre {
   margin: 0 auto;
 }
 .gbtable {
+  background-color: var(--surface-background-color);
   margin-bottom: 0;
 
   thead {
@@ -516,22 +517,17 @@ pre {
 .code-holder {
   margin: 0.5em 0;
 
-  &.collapsible .code {
+  &.collapsible pre {
     transition: max-height 0.2s;
-    max-height: 45em;
+    max-height: 60em;
     overflow-y: scroll;
   }
 
-  &.collapsed .code {
+  &.collapsed pre {
     max-height: 10em;
   }
 
   .action-buttons {
-    z-index: 999;
-    position: absolute;
-    top: 8px;
-    right: 8px;
-
     .message {
       padding: 2px 6px;
       background: colors.$highlight-purple;
@@ -663,9 +659,14 @@ pre {
   }
   .form-side {
     background-color: var(--surface-background-color);
+    font-size: 0.875rem; //14px
     .formwrap {
       width: 100%;
       max-width: 500px;
+
+      label {
+        color: var(--form-input-group-color);
+      }
     }
   }
   h1,
@@ -950,10 +951,10 @@ pre {
         margin-left: -50px;
       }
       .win {
-        background-color: var(--alert-success-background);
+        background-color: var(--win-background);
       }
       .lose {
-        background-color: var(--alert-danger-background);
+        background-color: var(--lose-background);
       }
     }
   }
@@ -982,18 +983,18 @@ pre {
   }
 
   td.won {
-    background-color: var(--alert-success-background);
+    background-color: var(--win-background);
     color: var(--alert-success-color);
     .expected {
       font-weight: bold;
     }
   }
   td.lost {
-    background-color: var(--alert-danger-background);
+    background-color: var(--lose-background);
     color: var(--alert-danger-color);
   }
   td.warning {
-    background-color: var(--alert-warn-background);
+    background-color: var(--warn-background);
     color: var(--alert-warn-color);
   }
   td.draw {
@@ -1944,3 +1945,5 @@ html {
     }
   }
 }
+
+@import "./components/react-select.scss";

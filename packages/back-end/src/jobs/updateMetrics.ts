@@ -4,10 +4,10 @@ import {
   refreshMetric,
   DEFAULT_METRIC_ANALYSIS_DAYS,
 } from "../services/experiments";
-import pino from "pino";
 import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { OrganizationSettings } from "../../types/organization";
+import { logger } from "../util/logger";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -18,8 +18,6 @@ type UpdateSingleMetricJob = Job<{
   orgId: string;
   orgSettings: OrganizationSettings;
 }>;
-
-const parentLogger = pino();
 
 // currently only updating northstar metrics
 export default async function (agenda: Agenda) {
@@ -83,31 +81,31 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
   const orgId = job.attrs.data?.orgId;
   const orgSettings = job.attrs.data?.orgSettings;
 
-  const logger = parentLogger.child({
+  const log = logger.child({
     cron: "updateSingleMetric",
     metricId,
     orgId,
   });
 
   if (!metricId || !orgId) {
-    logger.error("Error getting metricId from job");
+    log.error("Error getting metricId from job");
     return false;
   }
   const metric = await getMetricById(metricId, orgId, true);
 
   if (!metric) {
-    logger.error("Error getting metric to refresh: " + metricId);
+    log.error("Error getting metric to refresh: " + metricId);
     return false;
   }
 
   try {
-    logger.info("Start Refreshing Metric: " + metricId);
+    log.info("Start Refreshing Metric: " + metricId);
     const days =
       orgSettings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS;
     await refreshMetric(metric, orgId, days);
   } catch (e) {
-    logger.error("Error refreshing metric: " + e.message);
+    log.error("Error refreshing metric: " + e.message);
   }
 
-  logger.info("Success");
+  log.info("Success");
 }

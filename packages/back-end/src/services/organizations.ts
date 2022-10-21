@@ -43,9 +43,38 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
+import { logger } from "../util/logger";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
+}
+
+export function validateLoginMethod(
+  org: OrganizationInterface,
+  req: AuthRequest
+) {
+  if (
+    org.restrictLoginMethod &&
+    req.loginMethod?.id !== org.restrictLoginMethod
+  ) {
+    throw new Error(
+      "Your organization requires you to login with Enterprise SSO"
+    );
+  }
+
+  // If the org requires a specific subject in the IdToken
+  // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
+  // For that, we set `restrictAuthSubPrefix` to "google"
+  if (
+    org.restrictAuthSubPrefix &&
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+  ) {
+    throw new Error(
+      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`
+    );
+  }
+
+  return true;
 }
 
 export function getOrgFromReq(req: AuthRequest) {
@@ -132,6 +161,17 @@ export function getDefaultPermissions(): Permissions {
     createDatasources: false,
     organizationSettings: false,
     superDelete: false,
+    manageApiKeys: false,
+    manageBilling: false,
+    manageEnvironments: false,
+    manageNamespaces: false,
+    manageNorthStarMetric: false,
+    manageProjects: false,
+    manageSavedGroups: false,
+    manageTags: false,
+    manageTargetingAttributes: false,
+    manageTeam: false,
+    manageWebhooks: false,
   };
 }
 
@@ -153,6 +193,10 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     permissions.publishFeatures = true;
     permissions.createFeatures = true;
     permissions.createFeatureDrafts = true;
+    permissions.manageTargetingAttributes = true;
+    permissions.manageEnvironments = true;
+    permissions.manageNamespaces = true;
+    permissions.manageSavedGroups = true;
   }
 
   // Analysis permissions
@@ -170,6 +214,13 @@ export function getPermissionsByRole(role: MemberRole): Permissions {
     permissions.organizationSettings = true;
     permissions.createDatasources = true;
     permissions.superDelete = true;
+    permissions.manageApiKeys = true;
+    permissions.manageBilling = true;
+    permissions.manageNorthStarMetric = true;
+    permissions.manageProjects = true;
+    permissions.manageTags = true;
+    permissions.manageTeam = true;
+    permissions.manageWebhooks = true;
   }
 
   return permissions;
@@ -340,7 +391,7 @@ export async function inviteUser(
       await sendInviteEmail(organization, key);
       emailSent = true;
     } catch (e) {
-      console.error("Error sending email: " + e);
+      logger.error(e, "Error sending invite email");
       emailSent = false;
     }
   }
@@ -674,7 +725,7 @@ export async function addMemberFromSSOConnection(
     const orgs = await findAllOrganizations();
     // Sanity check in case there are multiple orgs for whatever reason
     if (orgs.length > 1) {
-      console.error(
+      req.log.error(
         "Expected a single organization for self-hosted GrowthBook"
       );
       return null;
@@ -704,7 +755,7 @@ export async function addMemberFromSSOConnection(
       organization.ownerEmail
     );
   } catch (e) {
-    console.error("Failed to send new member email", e.message);
+    req.log.error(e, "Failed to send new member email");
   }
 
   return organization;

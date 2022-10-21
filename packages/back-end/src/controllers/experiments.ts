@@ -58,7 +58,16 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 
-export async function getExperiments(req: AuthRequest, res: Response) {
+export async function getExperiments(
+  req: AuthRequest<
+    unknown,
+    unknown,
+    {
+      project?: string;
+    }
+  >,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -74,7 +83,7 @@ export async function getExperiments(req: AuthRequest, res: Response) {
 }
 
 export async function getExperimentsFrequencyMonth(
-  req: AuthRequest<null, { num: string }>,
+  req: AuthRequest<null, { num: string }, { project?: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -255,7 +264,10 @@ export async function postSnapshotNotebook(
   });
 }
 
-export async function getSnapshots(req: AuthRequest, res: Response) {
+export async function getSnapshots(
+  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   const idsString = (req.query?.ids as string) || "";
   if (!idsString.length) {
@@ -281,7 +293,10 @@ export async function getSnapshots(req: AuthRequest, res: Response) {
   return;
 }
 
-export async function getNewFeatures(req: AuthRequest, res: Response) {
+export async function getNewFeatures(
+  req: AuthRequest<unknown, unknown, { project?: string }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -1362,7 +1377,8 @@ export async function postSnapshot(
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
     },
-    { id: string }
+    { id: string },
+    { force?: string }
   >,
   res: Response
 ) {
@@ -1425,11 +1441,11 @@ export async function postSnapshot(
       });
       return;
     } catch (e) {
+      req.log.error(e, "Failed to create manual snapshot");
       res.status(400).json({
         status: 400,
         message: e.message,
       });
-      console.error(e);
       return;
     }
   }
@@ -1468,11 +1484,11 @@ export async function postSnapshot(
       snapshot,
     });
   } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot");
     res.status(400).json({
       status: 400,
       message: e.message,
     });
-    console.error(e);
   }
 }
 
@@ -1729,6 +1745,11 @@ export async function postPastExperiments(
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
+  if (integration.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
   const now = new Date();

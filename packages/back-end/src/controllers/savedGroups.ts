@@ -26,7 +26,7 @@ export async function postSavedGroup(
   const { org } = getOrgFromReq(req);
   const { groupName, owner, attributeKey, groupList } = req.body;
 
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageSavedGroups");
 
   const values = parseSavedGroupString(groupList);
 
@@ -75,7 +75,7 @@ export async function putSavedGroup(
     throw new Error("Must specify saved group id");
   }
 
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageSavedGroups");
 
   const savedGroup = await getSavedGroupById(id, org.id);
 

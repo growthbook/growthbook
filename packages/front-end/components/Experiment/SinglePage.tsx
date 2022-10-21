@@ -37,7 +37,7 @@ import ResultsIndicator from "./ResultsIndicator";
 import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 function getColWidth(v: number) {
@@ -237,7 +237,7 @@ export default function SinglePage({
                 Duplicate
               </button>
             )}
-            {!experiment.archived && (
+            {!experiment.archived && permissions.createAnalyses && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -255,7 +255,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {experiment.archived && (
+            {experiment.archived && permissions.createAnalyses && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -273,22 +273,24 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            <DeleteButton
-              className="dropdown-item text-danger"
-              useIcon={false}
-              text="Delete"
-              displayName="Experiment"
-              onClick={async () => {
-                await apiCall<{ status: number; message?: string }>(
-                  `/experiment/${experiment.id}`,
-                  {
-                    method: "DELETE",
-                    body: JSON.stringify({ id: experiment.id }),
-                  }
-                );
-                router.push("/experiments");
-              }}
-            />
+            {permissions.createAnalyses && (
+              <DeleteButton
+                className="dropdown-item text-danger"
+                useIcon={false}
+                text="Delete"
+                displayName="Experiment"
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/experiment/${experiment.id}`,
+                    {
+                      method: "DELETE",
+                      body: JSON.stringify({ id: experiment.id }),
+                    }
+                  );
+                  router.push("/experiments");
+                }}
+              />
+            )}
           </MoreMenu>
         </div>
       </div>

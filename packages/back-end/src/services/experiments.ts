@@ -54,6 +54,7 @@ import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
 } from "../../types/organization";
+import { logger } from "../util/logger";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -293,6 +294,11 @@ export async function refreshMetric(
       throw new Error("Could not load metric datasource");
     }
     const integration = getSourceIntegrationObject(datasource);
+    if (integration.decryptionError) {
+      throw new Error(
+        "Could not decrypt data source credentials. View the data source settings for more info."
+      );
+    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
@@ -585,7 +591,7 @@ function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
       hours = (next.getTime() - Date.now()) / 1000 / 60 / 60;
     } catch (e) {
-      console.error("Failed to parse cron expression: ", e);
+      logger.warn(e, "Failed to parse cron expression");
     }
   }
   if (schedule?.type === "stale") {

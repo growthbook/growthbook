@@ -85,22 +85,30 @@ export async function postRefresh(req: Request, res: Response) {
 }
 
 export async function postOAuthCallback(req: Request, res: Response) {
-  const { idToken, refreshToken, expiresIn } = await auth.processCallback(
-    req,
-    res,
-    null
-  );
+  try {
+    const { idToken, refreshToken, expiresIn } = await auth.processCallback(
+      req,
+      res,
+      null
+    );
 
-  if (!idToken) {
-    throw new Error("Could not authenticate");
+    if (!idToken) {
+      throw new Error("Could not authenticate");
+    }
+
+    RefreshTokenCookie.setValue(refreshToken, req, res);
+    IdTokenCookie.setValue(idToken, req, res, expiresIn);
+
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Error signing in");
+    return res.status(400).json({
+      status: 400,
+      message: "Error Signing In",
+    });
   }
-
-  RefreshTokenCookie.setValue(refreshToken, req, res);
-  IdTokenCookie.setValue(idToken, req, res, expiresIn);
-
-  return res.status(200).json({
-    status: 200,
-  });
 }
 
 async function sendLocalSuccessResponse(
@@ -134,7 +142,7 @@ export async function postLogout(req: Request, res: Response) {
   try {
     redirectURI = await auth.logout(req, res);
   } catch (e) {
-    console.error("Failed to logout of SSO", e);
+    req.log.error(e, "Failed to logout of SSO");
   }
   deleteAuthCookies(req, res);
 
@@ -155,7 +163,7 @@ export async function postLogin(
 
   const user = await getUserByEmail(email);
   if (!user) {
-    console.log("Unknown email", email);
+    req.log.info("Unknown email: " + email);
     return res.status(400).json({
       status: 400,
       message: "Invalid email or password",
@@ -164,7 +172,7 @@ export async function postLogin(
 
   const valid = await verifyPassword(user, password);
   if (!valid) {
-    console.log("Invalid password for", email);
+    req.log.info("Invalid password for: " + email);
     return res.status(400).json({
       status: 400,
       message: "Invalid email or password",

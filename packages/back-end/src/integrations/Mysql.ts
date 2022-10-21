@@ -3,6 +3,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import SqlIntegration from "./SqlIntegration";
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
+import { FormatDialect } from "../util/sql";
 
 export default class Mysql extends SqlIntegration {
   params: MysqlConnectionParams;
@@ -10,6 +11,9 @@ export default class Mysql extends SqlIntegration {
     this.params = decryptDataSourceParams<MysqlConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "mysql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

@@ -13,6 +13,7 @@ import {
   updateRole,
   addMemberFromSSOConnection,
   isEnterpriseSSO,
+  validateLoginMethod,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -20,18 +21,14 @@ import {
 } from "../services/datasource";
 import { createUser, getUsersByIds, updatePassword } from "../services/users";
 import { getAllTags } from "../models/TagModel";
-import {
-  getAllApiKeysByOrganization,
-  createApiKey,
-  deleteByOrganizationAndApiKey,
-  getFirstApiKey,
-} from "../services/apiKey";
 import { UserModel } from "../models/UserModel";
 import {
   Invite,
   MemberRole,
   NamespaceUsage,
   OrganizationInterface,
+  OrganizationSettings,
+  Permissions,
 } from "../../types/organization";
 import {
   getWatchedAudits,
@@ -67,8 +64,17 @@ import { ExperimentRule, NamespaceValue } from "../../types/feature";
 import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
-import { getLicence } from "../init/licence";
+import { getLicense } from "../init/license";
 import { getSSOConnectionSummary } from "../models/SSOConnectionModel";
+import {
+  createApiKey,
+  deleteApiKeyById,
+  deleteApiKeyByKey,
+  getAllApiKeysByOrganization,
+  getApiKeyByIdOrKey,
+  getFirstPublishableApiKey,
+  getUnredactedSecretKey,
+} from "../models/ApiKeyModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -96,14 +102,20 @@ export async function getUser(req: AuthRequest, res: Response) {
   }
 
   // Filter out orgs that the user can't log in to
-  const validOrgs = orgs.filter(
-    (org) =>
-      !org.restrictLoginMethod ||
-      req.loginMethod?.id === org.restrictLoginMethod
-  );
+  let lastError = "";
+  const validOrgs = orgs.filter((org) => {
+    try {
+      validateLoginMethod(org, req);
+      return true;
+    } catch (e) {
+      lastError = e;
+      return false;
+    }
+  });
+
   // If all of a user's orgs were filtered out, throw an error
   if (orgs.length && !validOrgs.length) {
-    throw new Error("Must login with Enterprise SSO");
+    throw new Error(lastError || "Must login with SSO");
   }
 
   return res.status(200).json({
@@ -112,7 +124,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     admin: !!req.admin,
-    licence: !IS_CLOUD && getLicence(),
+    license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       const role = getRole(org, userId);
       return {
@@ -120,6 +132,7 @@ export async function getUser(req: AuthRequest, res: Response) {
         name: org.name,
         role,
         permissions: getPermissionsByRole(role),
+        enterprise: org.enterprise || false,
         settings: org.settings || {},
         freeSeats: org.freeSeats || 3,
         discountCode: org.discountCode || "",
@@ -170,6 +183,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         settings: d.settings,
         params: getNonSensitiveParams(integration),
         properties: integration.getSourceProperties(),
+        decryptionError: integration.decryptionError || false,
       };
     }),
     dimensions,
@@ -394,7 +408,7 @@ export async function putMemberRole(
   req: AuthRequest<{ role: MemberRole }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
   const { role } = req.body;
@@ -441,7 +455,7 @@ export async function putInviteRole(
   req: AuthRequest<{ role: MemberRole }, { key: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { role } = req.body;
@@ -499,8 +513,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
   const { org } = getOrgFromReq(req);
 
-  req.checkPermissions("organizationSettings");
-
   const {
     invites,
     members,
@@ -512,6 +524,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     connections,
     settings,
     disableSelfServeBilling,
+    enterprise,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -538,6 +551,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       url,
       subscription,
       freeSeats,
+      enterprise,
       disableSelfServeBilling,
       slackTeam: connections?.slack?.team,
       members: users.map(({ id, email, name }) => {
@@ -607,7 +621,7 @@ export async function postNamespaces(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageNamespaces");
 
   const { name, description, status } = req.body;
   const { org } = getOrgFromReq(req);
@@ -658,7 +672,7 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageNamespaces");
 
   const { name, description, status } = req.body;
   const originalName = req.params.name;
@@ -705,7 +719,7 @@ export async function deleteNamespace(
   req: AuthRequest<null, { name: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageNamespaces");
 
   const { org } = getOrgFromReq(req);
   const { name } = req.params;
@@ -744,7 +758,10 @@ export async function deleteNamespace(
   });
 }
 
-export async function postInviteAccept(req: AuthRequest, res: Response) {
+export async function postInviteAccept(
+  req: AuthRequest<{ key: string }>,
+  res: Response
+) {
   const { key } = req.body;
 
   try {
@@ -765,8 +782,14 @@ export async function postInviteAccept(req: AuthRequest, res: Response) {
   }
 }
 
-export async function postInvite(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
+export async function postInvite(
+  req: AuthRequest<{
+    email: string;
+    role: MemberRole;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { email, role } = req.body;
@@ -788,7 +811,7 @@ export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -811,7 +834,7 @@ export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { key } = req.body;
@@ -821,7 +844,7 @@ export async function postInviteResend(
     await sendInviteEmail(org, key);
     emailSent = true;
   } catch (e) {
-    console.error("Error sending email: " + e);
+    req.log.error(e, "Error sending email");
     emailSent = false;
   }
 
@@ -837,7 +860,7 @@ export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
   const { key } = req.body;
@@ -875,7 +898,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     try {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
-      console.error("New org email sending failure:", e.message);
+      req.log.error(e, "New org email sending failure");
     }
 
     res.status(200).json({
@@ -894,10 +917,36 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const requiredPermissions: Set<keyof Permissions> = new Set();
 
   const { org } = getOrgFromReq(req);
   const { name, settings, connections } = req.body;
+
+  if (connections || name) {
+    requiredPermissions.add("organizationSettings");
+  }
+  if (settings) {
+    Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
+      if (
+        k === "environments" ||
+        k === "sdkInstructionsViewed" ||
+        k === "visualEditorEnabled"
+      ) {
+        requiredPermissions.add("manageEnvironments");
+      } else if (k === "attributeSchema") {
+        requiredPermissions.add("manageTargetingAttributes");
+      } else if (k === "northStar") {
+        requiredPermissions.add("manageNorthStarMetric");
+      } else if (k === "namespaces") {
+        requiredPermissions.add("manageNamespaces");
+      } else {
+        requiredPermissions.add("organizationSettings");
+      }
+    });
+  }
+  if (requiredPermissions.size > 0) {
+    req.checkPermissions(...requiredPermissions);
+  }
 
   try {
     const updates: Partial<OrganizationInterface> = {};
@@ -958,26 +1007,43 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 }
 
 export async function postApiKey(
-  req: AuthRequest<{ description?: string; environment: string }>,
+  req: AuthRequest<{
+    description?: string;
+    environment: string;
+    secret: boolean;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment } = req.body;
+  const { description, environment, secret } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
-    const existing = await getFirstApiKey(org.id, environment);
+    if (secret) {
+      throw new Error("Cannot use 'preferExisting' for secret API keys");
+    }
+    const existing = await getFirstPublishableApiKey(org.id, environment);
     if (existing) {
       return res.status(200).json({
         status: 200,
-        key: existing.key,
+        key: existing,
       });
     }
   }
 
   // Only require permissions if we are creating a new API key
-  req.checkPermissions("organizationSettings");
-  const key = await createApiKey(org.id, environment, description);
+  if (secret) {
+    req.checkPermissions("manageApiKeys");
+  } else {
+    req.checkPermissions("manageEnvironments");
+  }
+
+  const key = await createApiKey({
+    organization: org.id,
+    description: description || "",
+    environment: environment || "",
+    secret: !!secret,
+  });
 
   res.status(200).json({
     status: 200,
@@ -986,18 +1052,56 @@ export async function postApiKey(
 }
 
 export async function deleteApiKey(
-  req: AuthRequest<null, { key: string }>,
+  req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
-
   const { org } = getOrgFromReq(req);
-  const { key } = req.params;
+  // Old API keys did not have an id, so we need to delete by the key value itself
+  const { key, id } = req.body;
+  if (!key && !id) {
+    throw new Error("Must provide either an API key or id in order to delete");
+  }
 
-  await deleteByOrganizationAndApiKey(org.id, key);
+  const keyObj = await getApiKeyByIdOrKey(
+    org.id,
+    id || undefined,
+    key || undefined
+  );
+  if (!keyObj) {
+    throw new Error("Could not find API key to delete");
+  }
+
+  if (keyObj.secret) {
+    req.checkPermissions("manageApiKeys");
+  } else {
+    req.checkPermissions("manageEnvironments");
+  }
+
+  if (id) {
+    await deleteApiKeyById(org.id, id);
+  } else if (key) {
+    await deleteApiKeyByKey(org.id, key);
+  }
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postApiKeyReveal(
+  req: AuthRequest<{ id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageApiKeys");
+
+  const { org } = getOrgFromReq(req);
+  const { id } = req.body;
+
+  const key = await getUnredactedSecretKey(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    key,
   });
 }
 
@@ -1021,7 +1125,7 @@ export async function postWebhook(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
   const { name, endpoint, project, environment } = req.body;
@@ -1044,7 +1148,7 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1082,7 +1186,7 @@ export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1097,11 +1201,16 @@ export async function deleteWebhook(
   });
 }
 
-export async function postImportConfig(req: AuthRequest, res: Response) {
+export async function postImportConfig(
+  req: AuthRequest<{
+    contents: string;
+  }>,
+  res: Response
+) {
   req.checkPermissions("organizationSettings");
 
   const { org } = getOrgFromReq(req);
-  const { contents }: { contents: string } = req.body;
+  const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
   if (!config) {
@@ -1125,10 +1234,15 @@ export async function putUpload(req: Request, res: Response) {
 }
 
 export async function putAdminResetUserPassword(
-  req: AuthRequest<{
-    userToUpdateId: string;
-    updatedPassword: string;
-  }>,
+  req: AuthRequest<
+    {
+      userToUpdateId: string;
+      updatedPassword: string;
+    },
+    {
+      id: string;
+    }
+  >,
   res: Response
 ) {
   req.checkPermissions("organizationSettings");

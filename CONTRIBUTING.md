@@ -15,10 +15,10 @@ The fastest way to start contributing to GrowthBook is by using our pre configur
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) 14.x or higher
+- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or higher
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
-- [Python](https://www.python.org/downloads/) 3.6+ (for the stats engine)
+- [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
   - [scipy](https://scipy.org/install/)
   - [numpy](https://numpy.org/install/)
   - [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
@@ -45,9 +45,9 @@ Now you have the basic Linux system set up, and can follow along with all the ot
 3. Run `cd growthbook`
 4. Run `yarn` to install dependencies
 5. Install [poetry](https://python-poetry.org/docs/)
-   - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
+   - Run `curl -sSL https://install.python-poetry.org | python3 -`
    - Close and reopen your terminal
-   - Run `poetry --v` to confirm a successful install
+   - Run `poetry --version` to confirm a successful install
    - If unsuccessful add the Poetry path (ex. `$HOME/.poetry/bin`) to your global path (ex. `/etc/profile`, `/etc/environment`, `~/.bashrc`, `~/.zshrc`)
 6. Run `yarn setup` to do the initial build
 7. If you have Docker installed, start MongoDB in Docker:

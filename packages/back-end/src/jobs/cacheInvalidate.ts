@@ -2,7 +2,8 @@ import Agenda, { Job } from "agenda";
 import { AWS_CLOUDFRONT_DISTRIBUTION_ID, CRON_ENABLED } from "../util/secrets";
 import AWS from "aws-sdk";
 import { CreateInvalidationRequest } from "aws-sdk/clients/cloudfront";
-import { getAllApiKeysByOrganization } from "../services/apiKey";
+import { getAllApiKeysByOrganization } from "../models/ApiKeyModel";
+import { logger } from "../util/logger";
 
 const INVALIDATE_JOB_NAME = "fireInvalidate";
 type InvalidateJob = Job<{
@@ -41,7 +42,7 @@ export default function (ag: Agenda) {
     await new Promise<void>((resolve, reject) => {
       cloudfront.createInvalidation(params, function (err) {
         if (err) {
-          console.error("Error invalidating CDN", url, err);
+          logger.error(err, "Error invalidating CDN: " + url);
           reject(err);
         } else {
           resolve();

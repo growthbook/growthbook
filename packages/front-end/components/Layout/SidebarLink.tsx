@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import useUser from "../../hooks/useUser";
@@ -41,17 +41,26 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   const [open, setOpen] = useState(selected);
 
+  // If we navigate to a page and the nav isn't expanded yet
+  useEffect(() => {
+    if (selected) {
+      setOpen(true);
+    }
+  }, [selected]);
+
   if (props.feature && !growthbook.isOn(props.feature)) {
     return null;
   }
 
   if (props.superAdmin && !admin) return null;
   if (props.permissions) {
+    let allowed = false;
     for (let i = 0; i < props.permissions.length; i++) {
-      if (!permissions[props.permissions[i]]) {
-        return null;
+      if (permissions[props.permissions[i]]) {
+        allowed = true;
       }
     }
+    if (!allowed) return null;
   }
 
   if (props.cloudOnly && !isCloud()) {

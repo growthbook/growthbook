@@ -15,7 +15,6 @@ import {
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useUser from "../hooks/useUser";
 import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import { useDefinitions } from "./DefinitionsContext";
@@ -206,8 +205,8 @@ export function getVariationColor(i: number) {
 }
 
 export function useAttributeSchema() {
-  const { settings } = useUser();
-  return settings?.attributeSchema || [];
+  const { attributeSchema } = useOrgSettings();
+  return attributeSchema || [];
 }
 
 export function validateFeatureRule(
@@ -415,7 +414,7 @@ export function jsonToConds(
         return;
       }
 
-      if (!value || typeof value !== "object") {
+      if (typeof value !== "object") {
         if (value === true || value === false) {
           return conds.push({
             field,
@@ -427,7 +426,7 @@ export function jsonToConds(
         return conds.push({
           field,
           operator: "$eq",
-          value: stringify(value).replace(/(^"|"$)/g, ""),
+          value: value + "",
         });
       }
       Object.keys(value).forEach((operator) => {
@@ -443,33 +442,35 @@ export function jsonToConds(
 
         if (operator === "$elemMatch") {
           if (typeof v === "object" && Object.keys(v).length === 1) {
-            if ("$eq" in v) {
+            if ("$eq" in v && typeof v["$eq"] !== "object") {
               return conds.push({
                 field,
                 operator: "$includes",
-                value: stringify(v["$eq"]).replace(/(^"|"$)/g, ""),
+                value: v["$eq"] + "",
               });
             }
           }
+          valid = false;
+          return;
         }
 
         if (operator === "$not") {
           if (typeof v === "object" && Object.keys(v).length === 1) {
-            if ("$regex" in v) {
+            if ("$regex" in v && typeof v["$regex"] === "string") {
               return conds.push({
                 field,
                 operator: "$notRegex",
-                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
+                value: v["$regex"],
               });
             }
             if ("$elemMatch" in v) {
               const m = v["$elemMatch"];
               if (typeof m === "object" && Object.keys(m).length === 1) {
-                if ("$eq" in m) {
+                if ("$eq" in m && typeof m["$eq"] !== "object") {
                   return conds.push({
                     field,
                     operator: "$notIncludes",
-                    value: stringify(m["$eq"]).replace(/(^"|"$)/g, ""),
+                    value: m["$eq"] + "",
                   });
                 }
               }
@@ -526,16 +527,20 @@ export function jsonToConds(
         if (
           ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$regex"].includes(
             operator
-          )
+          ) &&
+          typeof v !== "object"
         ) {
           return conds.push({
             field,
             operator,
-            value: stringify(v).replace(/(^"|"$)/g, ""),
+            value: v + "",
           });
         }
 
-        if (operator === ("$inGroup" || "$notInGroup")) {
+        if (
+          (operator === "$inGroup" || operator === "$notInGroup") &&
+          typeof v === "string"
+        ) {
           return conds.push({
             field,
             operator,

@@ -2,7 +2,8 @@ import React, { FC, useCallback, useState } from "react";
 import { EditJupyterNotebookQueryRunner } from "./EditJupyterNotebookQueryRunner";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
+import usePermissions from "../../../../hooks/usePermissions";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
@@ -11,6 +12,8 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
   dataSource,
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
+  const permissions = usePermissions();
+  const canEdit = permissions.editDatasourceSettings;
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -28,24 +31,26 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
           <h3>Jupyter Notebook Query Runner</h3>
         </div>
 
-        <div className="">
-          <button
-            className="btn btn-outline-primary font-weight-bold"
-            onClick={() => {
-              setUiMode("edit");
-            }}
-          >
-            {dataSource.settings.notebookRunQuery ? (
-              <>
-                <FaPencilAlt className="mr-1" /> Edit
-              </>
-            ) : (
-              <>
-                <FaPlus className="mr-1" /> Add
-              </>
-            )}
-          </button>
-        </div>
+        {canEdit && (
+          <div className="">
+            <button
+              className="btn btn-outline-primary font-weight-bold"
+              onClick={() => {
+                setUiMode("edit");
+              }}
+            >
+              {dataSource.settings.notebookRunQuery ? (
+                <>
+                  <FaPencilAlt className="mr-1" /> Edit
+                </>
+              ) : (
+                <>
+                  <FaPlus className="mr-1" /> Add
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
       <p>
         Tell us how to query this data source from within a Jupyter notebook

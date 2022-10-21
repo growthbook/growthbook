@@ -8,7 +8,7 @@ import { removeTagInFeature } from "../models/FeatureModel";
 import { TagInterface } from "../../types/tag";
 
 export async function postTag(req: AuthRequest<TagInterface>, res: Response) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTags");
 
   const { org } = getOrgFromReq(req);
   const { id, color, description } = req.body;
@@ -21,10 +21,10 @@ export async function postTag(req: AuthRequest<TagInterface>, res: Response) {
 }
 
 export async function deleteTag(
-  req: AuthRequest<{ id: string }>,
+  req: AuthRequest<{ id: string }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageTags");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;

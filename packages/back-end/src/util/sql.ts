@@ -1,5 +1,4 @@
-import { format as sqlFormat } from "sql-formatter";
-import { Condition } from "../../types/metric";
+import { format as sqlFormat, FormatOptions } from "sql-formatter";
 
 function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
   // If a specific id type is already chosen as the base, return it
@@ -104,48 +103,16 @@ export function replaceSQLVars(
   return sql;
 }
 
-export function format(sql: string) {
-  return (
-    sqlFormat(sql, {
-      language: "redshift",
-    })
-      // Fix Snowflate syntax for flatten function
-      .replace(/ = > /g, " => ")
-      // Similar fix for PrestoDB/Athena lambda functions
-      .replace(/ - > /g, " -> ")
-  );
-}
+export type FormatDialect = FormatOptions["language"] | "";
+export function format(sql: string, dialect?: FormatDialect) {
+  if (!dialect) return sql;
 
-export function getMixpanelPropertyColumn(col: string) {
-  // Use the column directly if it contains a reference to `event`
-  if (col.match(/\bevent\b/)) {
-    return col;
-  }
-
-  const colAccess = col.split(".").map((part) => {
-    if (part.substr(0, 1) !== "[") return `["${part}"]`;
-    return part;
-  });
-  return `event.properties${colAccess.join("")}`;
-}
-
-export function conditionToJavascript({ operator, value, column }: Condition) {
-  const col = getMixpanelPropertyColumn(column);
-  const encoded = JSON.stringify(value);
-
-  // Some operators map to special javascript syntax
-  if (operator === "~") {
-    return `${col}.match(new RegExp(${encoded}))`;
-  } else if (operator === "!~") {
-    return `!${col}.match(new RegExp(${encoded}))`;
-  } else if (operator === "=") {
-    return `${col}+'' == ${encoded}`;
-  } else {
-    // If the value is a number, don't use the JSON encoded version for comparison
-    const comp = !value || isNaN(Number(value)) ? encoded : value;
-
-    // All the other operators exactly match the javascript syntax so we can use them directly
-    return `${col}+'' ${operator} ${comp}`;
+  try {
+    return sqlFormat(sql, {
+      language: dialect,
+    });
+  } catch (e) {
+    return sql;
   }
 }
 

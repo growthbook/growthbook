@@ -7,18 +7,16 @@ import {
 } from "back-end/types/experiment";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import useUser from "../../hooks/useUser";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const {
-    settings: { visualEditorEnabled },
-  } = useUser();
+  const { visualEditorEnabled } = useOrgSettings();
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {

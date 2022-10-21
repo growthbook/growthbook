@@ -52,11 +52,17 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   datasource: string;
   organization: string;
   settings: DataSourceSettings;
+  decryptionError: boolean;
 
   constructor(encryptedParams: string) {
-    this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
-      encryptedParams
-    );
+    try {
+      this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
+        encryptedParams
+      );
+    } catch (e) {
+      this.params = { customDimension: "", refreshToken: "", viewId: "" };
+      this.decryptionError = true;
+    }
     this.settings = {};
   }
   getExperimentMetricQuery(): string {

@@ -12,6 +12,7 @@
     "start": "wsrun -p '*-end' -m start",
     "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
+    "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
     "ci": "yarn lint && yarn run type-check && yarn run test"
   },
   "workspaces": [

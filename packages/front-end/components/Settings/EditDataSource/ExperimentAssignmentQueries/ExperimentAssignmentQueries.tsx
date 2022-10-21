@@ -8,8 +8,9 @@ import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton";
-import Code from "../../../Code";
+import Code from "../../../SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
+import usePermissions from "../../../../hooks/usePermissions";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -21,6 +22,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+
+  const permissions = usePermissions();
+  const canEdit = permissions.editDatasourceSettings;
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -94,14 +98,16 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           </p>
         </div>
 
-        <div className="">
-          <button
-            className="btn btn-outline-primary font-weight-bold text-nowrap"
-            onClick={handleAdd}
-          >
-            <FaPlus className="mr-1" /> Add
-          </button>
-        </div>
+        {canEdit && (
+          <div className="">
+            <button
+              className="btn btn-outline-primary font-weight-bold text-nowrap"
+              onClick={handleAdd}
+            >
+              <FaPlus className="mr-1" /> Add
+            </button>
+          </div>
+        )}
       </div>
 
       {/* region Empty state */}
@@ -152,27 +158,29 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               {/* region Actions*/}
 
               <div className="d-flex align-items-center">
-                <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
-                  <button
-                    className="dropdown-item py-2"
-                    onClick={handleActionEditClicked(idx)}
-                  >
-                    <FaPencilAlt className="mr-2" /> Edit
-                  </button>
+                {canEdit && (
+                  <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                    <button
+                      className="dropdown-item py-2"
+                      onClick={handleActionEditClicked(idx)}
+                    >
+                      <FaPencilAlt className="mr-2" /> Edit
+                    </button>
 
-                  <DeleteButton
-                    onClick={handleActionDeleteClicked(idx)}
-                    className="dropdown-item text-danger py-2"
-                    iconClassName="mr-2"
-                    style={{ borderRadius: 0 }}
-                    useIcon
-                    displayName={query.name}
-                    deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
-                    title="Delete"
-                    text="Delete"
-                    outline={false}
-                  />
-                </MoreMenu>
+                    <DeleteButton
+                      onClick={handleActionDeleteClicked(idx)}
+                      className="dropdown-item text-danger py-2"
+                      iconClassName="mr-2"
+                      style={{ borderRadius: 0 }}
+                      useIcon
+                      displayName={query.name}
+                      deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
+                      title="Delete"
+                      text="Delete"
+                      outline={false}
+                    />
+                  </MoreMenu>
+                )}
 
                 <button
                   className="btn ml-3 text-dark"
@@ -195,7 +203,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
-                  expandable={true}
                 />
               </div>
             )}

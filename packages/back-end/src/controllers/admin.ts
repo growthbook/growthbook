@@ -46,7 +46,10 @@ export async function getOrganizations(req: AuthRequest, res: Response) {
   });
 }
 
-export async function addSampleData(req: AuthRequest, res: Response) {
+export async function addSampleData(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
   if (!req.admin) {
     return res.status(403).json({
       status: 403,
@@ -54,7 +57,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
   const org = await findOrganizationById(id);
   if (!org) {

@@ -52,7 +52,15 @@ const TopNav: FC<{
     hasActiveSubscription,
   } = useStripeSubscription();
 
-  const { name, email, update, permissions, role, licence } = useUser();
+  const {
+    name,
+    email,
+    update,
+    permissions,
+    role,
+    license,
+    enterprise,
+  } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -63,6 +71,8 @@ const TopNav: FC<{
   });
 
   const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
+
+  const licenseTrialRemaining = license?.trial ? daysLeft(license.eat) : -1;
 
   const onSubmitEditName = form.handleSubmit(async (value) => {
     await apiCall(`/user/name`, {
@@ -146,7 +156,7 @@ const TopNav: FC<{
 
         {showNotices && (
           <>
-            {permissions.organizationSettings &&
+            {permissions.manageBilling &&
               isCloud() &&
               subscriptionStatus === "trialing" &&
               trialRemaining >= 0 && (
@@ -162,7 +172,7 @@ const TopNav: FC<{
                   {trialRemaining === 1 ? "" : "s"} left in trial
                 </button>
               )}
-            {permissions.organizationSettings &&
+            {permissions.manageBilling &&
               isCloud() &&
               subscriptionStatus === "past_due" && (
                 <button
@@ -177,7 +187,7 @@ const TopNav: FC<{
               )}
             {showSeatOverageBanner &&
               canSubscribe &&
-              permissions.organizationSettings &&
+              permissions.manageBilling &&
               activeAndInvitedUsers > freeSeats && (
                 <button
                   className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
@@ -189,39 +199,56 @@ const TopNav: FC<{
                   <FaExclamationTriangle /> free tier exceded
                 </button>
               )}
-
-            {licence &&
-              permissions.organizationSettings &&
-              licence.eat < new Date().toISOString().substring(0, 10) && (
+            {licenseTrialRemaining >= 0 && (
+              <Tooltip
+                body={
+                  <>
+                    Contact sales@growthbook.io if you need more time or would
+                    like to upgrade
+                  </>
+                }
+              >
+                <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
+                  <span className="badge badge-warning">
+                    {licenseTrialRemaining}
+                  </span>{" "}
+                  day
+                  {licenseTrialRemaining === 1 ? "" : "s"} left in trial
+                </div>
+              </Tooltip>
+            )}
+            {license &&
+              permissions.manageBilling &&
+              license.eat < new Date().toISOString().substring(0, 10) && (
                 <Tooltip
                   body={
                     <>
-                      Your licence expired on <strong>{licence.eat}</strong>.
+                      Your license expired on <strong>{license.eat}</strong>.
                       Contact sales@growthbook.io to renew.
                     </>
                   }
                 >
                   <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-                    <FaExclamationTriangle /> licence expired
+                    <FaExclamationTriangle /> license expired
                   </div>
                 </Tooltip>
               )}
 
-            {licence &&
-              permissions.organizationSettings &&
-              activeAndInvitedUsers > licence.qty && (
+            {license &&
+              permissions.manageBilling &&
+              activeAndInvitedUsers > license.qty && (
                 <Tooltip
                   body={
                     <>
-                      Your licence is valid for{" "}
-                      <strong>{licence.qty} seats</strong>, but you are
+                      Your license is valid for{" "}
+                      <strong>{license.qty} seats</strong>, but you are
                       currently using <strong>{activeAndInvitedUsers}</strong>.
                       Contact sales@growthbook.io to extend your quota.
                     </>
                   }
                 >
                   <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-                    <FaExclamationTriangle /> licence quota exceded
+                    <FaExclamationTriangle /> license quota exceded
                   </div>
                 </Tooltip>
               )}
@@ -232,7 +259,7 @@ const TopNav: FC<{
               </div>
             )}
 
-            {licence && (
+            {(license || enterprise) && (
               <div className="ml-2">
                 <span className="badge badge-pill badge-dark mr-1">
                   ENTERPRISE
