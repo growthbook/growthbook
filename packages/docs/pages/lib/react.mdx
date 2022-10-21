@@ -268,8 +268,8 @@ function MyApp() {
     // Load features from the encrypted SDK Endpoint and decrypt them
     fetch("https://cdn.growthbook.io/api/features/<your api key>")
       .then((res) => res.json())
-      .then((json) => decrypt(GB_ENCRYPTION_KEY, json.encryptedFeatures))
-      .then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr))
+      .then((json) => decrypt(json.encryptedFeatures))
+      .then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr)))
       .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
   }, []);
   // ...

@@ -219,7 +219,7 @@ async function decrypt(encryptedText) {
 fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
   .then((json) => decrypt(json.encryptedFeatures))
-  .then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr))
+  .then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr)))
   .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
 ```
 
