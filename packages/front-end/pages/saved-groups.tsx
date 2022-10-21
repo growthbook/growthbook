@@ -87,7 +87,7 @@ export default function SavedGroupsPage() {
                         className="d-none d-md-table-cell text-truncate"
                         style={{ maxWidth: "100px" }}
                       >
-                        {String(s.values)}
+                        {s.values.join(", ")}
                       </td>
                       <td>{ago(s.dateUpdated)}</td>
                       {permissions.manageSavedGroups && (
