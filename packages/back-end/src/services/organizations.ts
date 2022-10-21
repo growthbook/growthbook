@@ -10,11 +10,7 @@ import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import {
-  MemberRole,
-  OrganizationInterface,
-  Permissions,
-} from "../../types/organization";
+import { MemberRole, OrganizationInterface } from "../../types/organization";
 import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
@@ -123,107 +119,14 @@ export async function getConfidenceLevelsForOrg(id: string) {
   };
 }
 
-// Handle old roles in a backwards-compatible way
-export function updateRole(role: MemberRole): MemberRole {
-  if (role === "designer") {
-    return "collaborator";
-  }
-  if (role === "developer") {
-    return "experimenter";
-  }
-  return role;
-}
-
 export function getRole(
   org: OrganizationInterface,
   userId: string
 ): MemberRole {
-  return updateRole(
+  return (
     org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
-      "readonly"
+    "readonly"
   );
-}
-
-export function getDefaultPermissions(): Permissions {
-  return {
-    addComments: false,
-    createIdeas: false,
-    createPresentations: false,
-    publishFeatures: false,
-    createFeatures: false,
-    createFeatureDrafts: false,
-    createAnalyses: false,
-    createDimensions: false,
-    createMetrics: false,
-    createSegments: false,
-    runQueries: false,
-    editDatasourceSettings: false,
-    createDatasources: false,
-    organizationSettings: false,
-    superDelete: false,
-    manageApiKeys: false,
-    manageBilling: false,
-    manageEnvironments: false,
-    manageNamespaces: false,
-    manageNorthStarMetric: false,
-    manageProjects: false,
-    manageSavedGroups: false,
-    manageTags: false,
-    manageTargetingAttributes: false,
-    manageTeam: false,
-    manageWebhooks: false,
-  };
-}
-
-export function getPermissionsByRole(role: MemberRole): Permissions {
-  role = updateRole(role);
-
-  // Start with no permissions
-  const permissions = getDefaultPermissions();
-
-  // Base permissions shared by everyone (except readonly)
-  if (role !== "readonly") {
-    permissions.addComments = true;
-    permissions.createIdeas = true;
-    permissions.createPresentations = true;
-  }
-
-  // Feature flag permissions
-  if (role === "engineer" || role === "experimenter" || role === "admin") {
-    permissions.publishFeatures = true;
-    permissions.createFeatures = true;
-    permissions.createFeatureDrafts = true;
-    permissions.manageTargetingAttributes = true;
-    permissions.manageEnvironments = true;
-    permissions.manageNamespaces = true;
-    permissions.manageSavedGroups = true;
-  }
-
-  // Analysis permissions
-  if (role === "analyst" || role === "experimenter" || role === "admin") {
-    permissions.createAnalyses = true;
-    permissions.createDimensions = true;
-    permissions.createMetrics = true;
-    permissions.createSegments = true;
-    permissions.runQueries = true;
-    permissions.editDatasourceSettings = true;
-  }
-
-  // Admin permissions
-  if (role === "admin") {
-    permissions.organizationSettings = true;
-    permissions.createDatasources = true;
-    permissions.superDelete = true;
-    permissions.manageApiKeys = true;
-    permissions.manageBilling = true;
-    permissions.manageNorthStarMetric = true;
-    permissions.manageProjects = true;
-    permissions.manageTags = true;
-    permissions.manageTeam = true;
-    permissions.manageWebhooks = true;
-  }
-
-  return permissions;
 }
 
 export function getNumberOfMembersAndInvites(

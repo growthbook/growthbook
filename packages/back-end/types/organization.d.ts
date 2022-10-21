@@ -1,44 +1,33 @@
 import Stripe from "stripe";
+import { ALL_PERMISSIONS } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
 
-export type Permissions = {
-  addComments: boolean;
-  runQueries: boolean;
-  createPresentations: boolean;
-  createIdeas: boolean;
-  createAnalyses: boolean;
-  createMetrics: boolean;
-  createDimensions: boolean;
-  createSegments: boolean;
-  editDatasourceSettings: boolean;
-  publishFeatures: boolean;
-  createFeatures: boolean;
-  createFeatureDrafts: boolean;
-  organizationSettings: boolean;
-  createDatasources: boolean;
-  superDelete: boolean;
-  manageTeam: boolean;
-  manageTags: boolean;
-  manageProjects: boolean;
-  manageApiKeys: boolean;
-  manageWebhooks: boolean;
-  manageBilling: boolean;
-  manageNorthStarMetric: boolean;
-  manageTargetingAttributes: boolean;
-  manageNamespaces: boolean;
-  manageEnvironments: boolean;
-  manageSavedGroups: boolean;
+export type EnvScopedPermission = Extract<
+  typeof ALL_PERMISSIONS[number],
+  "publishFeatures"
+>;
+export type GlobalPermission = Exclude<
+  typeof ALL_PERMISSIONS[number],
+  EnvScopedPermission
+>;
+
+export type Permission =
+  | GlobalPermission
+  | EnvScopedPermission
+  | `${EnvScopedPermission}.${string}`;
+
+export type MemberRole = string;
+
+export type Role = {
+  id: string;
+  description: string;
+  permissions: Permission[];
+  default?: boolean;
 };
 
-export type MemberRole =
-  | "readonly"
-  | "collaborator"
-  | "designer"
-  | "analyst"
-  | "developer"
-  | "engineer"
-  | "experimenter"
-  | "admin";
+export type AccountPlan = "starter" | "pro" | "pro_sso" | "enterprise";
+export type AccountPlanFeature = "customRoles" | "sso";
+export type AccountPlanFeatures = Record<AccountPlan, Set<AccountPlanFeature>>;
 
 export interface Invite {
   email: string;
@@ -181,6 +170,8 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
+  useCustomRoles?: boolean;
+  roles: Role[];
 
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;

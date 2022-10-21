@@ -1,7 +1,17 @@
 import { Request } from "express";
-import { OrganizationInterface, Permissions } from "../../types/organization";
+import {
+  EnvScopedPermission,
+  GlobalPermission,
+  OrganizationInterface,
+  Permission,
+} from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
+
+interface PermissionFunctions {
+  checkPermissions(permission: GlobalPermission): void;
+  checkPermissions(permissions: EnvScopedPermission, envs: string[]): void;
+}
 
 // eslint-disable-next-line
 export type AuthRequest<
@@ -17,7 +27,6 @@ export type AuthRequest<
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;
-  permissions: Permissions;
+  permissions: Set<Permission>;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-  checkPermissions: (...permission: (keyof Permissions)[]) => void;
-};
+} & PermissionFunctions;

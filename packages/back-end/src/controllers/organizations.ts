@@ -9,8 +9,6 @@ import {
   getRole,
   importConfig,
   getOrgFromReq,
-  getPermissionsByRole,
-  updateRole,
   addMemberFromSSOConnection,
   isEnterpriseSSO,
   validateLoginMethod,
@@ -28,7 +26,6 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
-  Permissions,
 } from "../../types/organization";
 import {
   getWatchedAudits,
@@ -75,6 +72,10 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
+import {
+  ALL_PERMISSIONS,
+  getPermissionsByRole,
+} from "../util/organization.util";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -131,7 +132,9 @@ export async function getUser(req: AuthRequest, res: Response) {
         id: org.id,
         name: org.name,
         role,
-        permissions: getPermissionsByRole(role),
+        permissions: req.admin
+          ? [...ALL_PERMISSIONS]
+          : getPermissionsByRole(role, org),
         enterprise: org.enterprise || false,
         settings: org.settings || {},
         freeSeats: org.freeSeats || 3,
@@ -529,7 +532,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const roleMapping: Map<string, MemberRole> = new Map();
   members.forEach((m) => {
-    roleMapping.set(m.id, updateRole(m.role));
+    roleMapping.set(m.id, m.role);
   });
 
   const users = await getUsersByIds(members.map((m) => m.id));
@@ -917,13 +920,11 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const requiredPermissions: Set<keyof Permissions> = new Set();
-
   const { org } = getOrgFromReq(req);
   const { name, settings, connections } = req.body;
 
   if (connections || name) {
-    requiredPermissions.add("organizationSettings");
+    req.checkPermissions("organizationSettings");
   }
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
@@ -932,20 +933,17 @@ export async function putOrganization(
         k === "sdkInstructionsViewed" ||
         k === "visualEditorEnabled"
       ) {
-        requiredPermissions.add("manageEnvironments");
+        req.checkPermissions("manageEnvironments");
       } else if (k === "attributeSchema") {
-        requiredPermissions.add("manageTargetingAttributes");
+        req.checkPermissions("manageTargetingAttributes");
       } else if (k === "northStar") {
-        requiredPermissions.add("manageNorthStarMetric");
+        req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {
-        requiredPermissions.add("manageNamespaces");
+        req.checkPermissions("manageNamespaces");
       } else {
-        requiredPermissions.add("organizationSettings");
+        req.checkPermissions("organizationSettings");
       }
     });
-  }
-  if (requiredPermissions.size > 0) {
-    req.checkPermissions(...requiredPermissions);
   }
 
   try {

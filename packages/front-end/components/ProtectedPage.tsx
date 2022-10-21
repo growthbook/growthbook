@@ -1,19 +1,16 @@
 import { useEffect, useState, createContext, ReactNode } from "react";
-import {
-  useAuth,
-  UserOrganizations,
-  getDefaultPermissions,
-  safeLogout,
-} from "../services/auth";
+import { useAuth, UserOrganizations, safeLogout } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import track from "../services/track";
 import {
   OrganizationSettings,
-  Permissions,
+  Permission,
   MemberRole,
   LicenseData,
+  GlobalPermission,
+  EnvScopedPermission,
 } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
@@ -48,6 +45,11 @@ export function getCurrentUser() {
   return currentUser;
 }
 
+interface PermissionFunctions {
+  check(permission: GlobalPermission): boolean;
+  check(permission: EnvScopedPermission, envs: string[]): boolean;
+}
+
 export type UserContextValue = {
   userId?: string;
   name?: string;
@@ -60,12 +62,12 @@ export type UserContextValue = {
   getUserDisplay?: (id: string, fallback?: boolean) => string;
   update?: () => Promise<void>;
   refreshUsers?: () => Promise<void>;
-  permissions: Permissions;
+  permissions: Partial<Record<GlobalPermission, boolean>> & PermissionFunctions;
   settings: OrganizationSettings;
 };
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: getDefaultPermissions(),
+  permissions: { check: () => false },
   settings: {},
 });
 
@@ -120,16 +122,10 @@ const ProtectedPage: React.FC<{
 
   const currentOrg = organizations.filter((org) => org.id === orgId)[0];
   const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
-  const permissions = currentOrg?.permissions || getDefaultPermissions();
+  const permissions = new Set(currentOrg?.permissions || []);
 
-  // Super admins have full permissions (on the front-end at least)
-  if (data?.admin) {
-    Object.keys(permissions).forEach((k) => {
-      if (permissions[k] === false) {
-        permissions[k] = true;
-      }
-    });
-  }
+  const permissionsObj: Partial<Record<Permission, boolean>> = {};
+  permissions.forEach((p) => (permissionsObj[p] = true));
 
   useEffect(() => {
     currentUser = {
@@ -263,7 +259,22 @@ const ProtectedPage: React.FC<{
     },
     refreshUsers,
     role,
-    permissions,
+    permissions: {
+      ...permissionsObj,
+      check: (permission: Permission, envs?: string[]): boolean => {
+        // If they have the global permission, then they are always allowed
+        if (permissions.has(permission)) return true;
+        // If it's an environment-scoped permission, they need permission for all environments
+        if (envs?.length) {
+          // If there are no environments where the user is missing permissions, return true
+          return !envs.filter(
+            (e) => !permissions.has(`${permission as EnvScopedPermission}.${e}`)
+          ).length;
+        }
+        // No permissions by default
+        return false;
+      },
+    },
     settings: currentOrg?.settings || {},
     enterprise: currentOrg?.enterprise || false,
     license: data?.license,

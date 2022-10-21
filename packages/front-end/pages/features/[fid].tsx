@@ -186,7 +186,7 @@ export default function FeaturePage() {
               setDraftModal(true);
             }}
           >
-            Review{permissions.publishFeatures && " and Publish"}
+            Review and Publish
           </button>
         </div>
       )}

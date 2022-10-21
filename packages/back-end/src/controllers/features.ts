@@ -29,6 +29,7 @@ import {
   addIdsToRules,
   arrayMove,
   featureUpdated,
+  getAffectedEnvs,
   getEnabledEnvironments,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
@@ -179,7 +180,7 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
-  req.checkPermissions("createFeatures", "publishFeatures");
+  req.checkPermissions("createFeatures");
 
   const { org, email, userId, userName } = getOrgFromReq(req);
   const { id } = req.params;
@@ -192,6 +193,18 @@ export async function postFeaturePublish(
   }
   if (!feature.draft?.active) {
     throw new Error("There are no changes to publish.");
+  }
+
+  // If changing the default value, it affects all enabled environments
+  if ("defaultValue" in draft) {
+    req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
+  }
+  // Otherwise, only the environments with rule changes are affected
+  else {
+    req.checkPermissions(
+      "publishFeatures",
+      getAffectedEnvs(feature, Object.keys(draft.rules || {}))
+    );
   }
 
   verifyDraftsAreEqual(feature.draft, draft);
@@ -357,12 +370,14 @@ export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures", "publishFeatures");
+  req.checkPermissions("createFeatures");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, state } = req.body;
   const feature = await getFeature(org.id, id);
+
+  req.checkPermissions("publishFeatures", [environment]);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -467,7 +482,8 @@ export async function putFeature(
 
   // Changing the project can affect production if using project-scoped api keys
   if ("project" in updates) {
-    req.checkPermissions("createFeatures", "publishFeatures");
+    req.checkPermissions("createFeatures");
+    req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
   }
 
   const allowedKeys: (keyof FeatureInterface)[] = [
@@ -528,7 +544,7 @@ export async function deleteFeatureById(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures", "publishFeatures");
+  req.checkPermissions("createFeatures");
 
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
@@ -536,6 +552,7 @@ export async function deleteFeatureById(
   const feature = await getFeature(org.id, id);
 
   if (feature) {
+    req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
     await deleteFeature(org.id, id);
     await req.audit({
       event: "feature.delete",
@@ -557,7 +574,7 @@ export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures", "publishFeatures");
+  req.checkPermissions("createFeatures");
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const feature = await getFeature(org.id, id);
@@ -565,6 +582,7 @@ export async function postFeatureArchive(
   if (!feature) {
     throw new Error("Could not find feature");
   }
+  req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
   await archiveFeature(feature.organization, id, !feature.archived);
 
   await req.audit({

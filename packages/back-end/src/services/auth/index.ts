@@ -3,13 +3,15 @@ import { NextFunction, Request, Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import {
-  getDefaultPermissions,
   getOrganizationById,
-  getPermissionsByRole,
   getRole,
   validateLoginMethod,
 } from "../organizations";
-import { MemberRole } from "../../../types/organization";
+import {
+  EnvScopedPermission,
+  MemberRole,
+  Permission,
+} from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { insertAudit } from "../audit";
@@ -24,6 +26,7 @@ import {
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
+import { getPermissionsByRole } from "../../util/organization.util";
 
 type JWTInfo = {
   email?: string;
@@ -71,15 +74,26 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-  req.permissions = getDefaultPermissions();
+  req.permissions = new Set();
 
   // Throw error if permissions don't pass
-  req.checkPermissions = (...permissions) => {
-    for (let i = 0; i < permissions.length; i++) {
-      if (!req.permissions[permissions[i]]) {
+  req.checkPermissions = (permission: Permission, envs?: string[]) => {
+    // If they have the global permission, then they are always allowed
+    if (req.permissions.has(permission)) return;
+    // If it's an environment-scoped permission, they need permission for all environments
+    if (envs) {
+      // If there are no environments where the user is missing permissions, return true
+      if (
+        envs.filter(
+          (e) =>
+            !req.permissions.has(`${permission as EnvScopedPermission}.${e}`)
+        ).length
+      ) {
         throw new Error("You do not have permission to complete that action.");
       }
     }
+    // No permissions by default
+    throw new Error("You do not have permission to complete that action.");
   };
 
   const user = await getUserFromJWT(req.user);
@@ -135,7 +149,7 @@ export async function processJWT(
         const role: MemberRole = req.admin
           ? "admin"
           : getRole(req.organization, user.id);
-        req.permissions = getPermissionsByRole(role);
+        req.permissions = new Set(getPermissionsByRole(role, req.organization));
       } else {
         return res.status(404).json({
           status: 404,

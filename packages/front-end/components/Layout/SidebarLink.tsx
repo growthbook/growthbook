@@ -7,7 +7,7 @@ import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
-import { Permissions } from "back-end/types/organization";
+import { Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 
 export type SidebarLinkProps = {
@@ -23,7 +23,7 @@ export type SidebarLinkProps = {
   cloudOnly?: boolean;
   selfHostedOnly?: boolean;
   autoClose?: boolean;
-  permissions?: (keyof Permissions)[];
+  permissions?: Permission[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
   feature?: string;

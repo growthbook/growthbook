@@ -10,7 +10,7 @@ import {
   MemberRole,
   OrganizationInterface,
   OrganizationSettings,
-  Permissions,
+  Permission,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
@@ -26,7 +26,7 @@ export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
-  permissions?: Permissions;
+  permissions?: Permission[];
   enterprise: boolean;
   settings?: OrganizationSettings;
   freeSeats?: number;
@@ -37,37 +37,6 @@ export type OrganizationMember = {
 export type UserOrganizations = OrganizationMember[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
-
-export function getDefaultPermissions(): Permissions {
-  return {
-    addComments: false,
-    createIdeas: false,
-    createPresentations: false,
-    publishFeatures: false,
-    createFeatures: false,
-    createFeatureDrafts: false,
-    createAnalyses: false,
-    createDimensions: false,
-    createMetrics: false,
-    createSegments: false,
-    runQueries: false,
-    editDatasourceSettings: false,
-    createDatasources: false,
-    organizationSettings: false,
-    superDelete: false,
-    manageApiKeys: false,
-    manageBilling: false,
-    manageEnvironments: false,
-    manageNamespaces: false,
-    manageNorthStarMetric: false,
-    manageProjects: false,
-    manageSavedGroups: false,
-    manageTags: false,
-    manageTargetingAttributes: false,
-    manageTeam: false,
-    manageWebhooks: false,
-  };
-}
 
 export interface AuthContextValue {
   isAuthenticated: boolean;

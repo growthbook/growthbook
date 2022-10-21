@@ -13,6 +13,10 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import isEqual from "lodash/isEqual";
+import { OrganizationInterface } from "../../types/organization";
+import cloneDeep from "lodash/cloneDeep";
+import { ALL_PERMISSIONS, orgHasPremiumFeature } from "./organization.util";
+import { getConfigOrganizationSettings } from "../init/config";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -271,4 +275,156 @@ export function upgradeFeatureInterface(
   }
 
   return newFeature;
+}
+
+export function upgradeOrganizationDoc(
+  doc: OrganizationInterface
+): OrganizationInterface {
+  const org = cloneDeep(doc);
+
+  // Add dev/prod environments if there are none yet
+  org.settings = org.settings || {};
+  if (!org.settings?.environments?.length) {
+    org.settings.environments = [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+
+  // Change old `implementationTypes` field to new `visualEditorEnabled` field
+  if (org.settings.implementationTypes) {
+    if (!("visualEditorEnabled" in org.settings)) {
+      org.settings.visualEditorEnabled = org.settings.implementationTypes.includes(
+        "visual"
+      );
+    }
+    delete org.settings.implementationTypes;
+  }
+
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  org.settings = Object.assign({}, org.settings || {}, configSettings);
+
+  // Default attribute schema
+  if (!org.settings.attributeSchema) {
+    org.settings.attributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "deviceId", datatype: "string", hashAttribute: true },
+      { property: "company", datatype: "string", hashAttribute: true },
+      { property: "loggedIn", datatype: "boolean" },
+      { property: "employee", datatype: "boolean" },
+      { property: "country", datatype: "string" },
+      { property: "browser", datatype: "string" },
+      { property: "url", datatype: "string" },
+    ];
+  }
+
+  // Using custom roles
+  if (org.useCustomRoles && orgHasPremiumFeature(org, "customRoles")) {
+    // Make sure they at least have an admin role
+    const adminRole = org.roles.find((r) => r.id === "admin");
+    if (adminRole) {
+      adminRole.permissions = [...ALL_PERMISSIONS];
+    } else {
+      org.roles.push({
+        id: "admin",
+        description:
+          "All access + invite teammates and configure organization settings",
+        permissions: [...ALL_PERMISSIONS],
+      });
+    }
+  }
+  // Using default roles
+  else {
+    // Rename legacy roles
+    org.members.forEach((m) => {
+      if (m.role === "designer") {
+        m.role = "collaborator";
+      }
+      if (m.role === "developer") {
+        m.role = "experimenter";
+      }
+    });
+
+    org.roles = [
+      {
+        id: "readonly",
+        description: "View all features and experiment results",
+        permissions: [],
+      },
+      {
+        id: "collaborator",
+        description: "Add comments and contribute ideas",
+        permissions: ["addComments", "createIdeas", "createPresentations"],
+        default: true,
+      },
+      {
+        id: "engineer",
+        description: "Manage features",
+        permissions: [
+          "addComments",
+          "createIdeas",
+          "createPresentations",
+          "publishFeatures",
+          "createFeatures",
+          "createFeatureDrafts",
+          "manageTargetingAttributes",
+          "manageEnvironments",
+          "manageNamespaces",
+          "manageSavedGroups",
+        ],
+      },
+      {
+        id: "analyst",
+        description: "Analyze Experiments",
+        permissions: [
+          "addComments",
+          "createIdeas",
+          "createPresentations",
+          "createAnalyses",
+          "createDimensions",
+          "createMetrics",
+          "runQueries",
+          "editDatasourceSettings",
+        ],
+      },
+      {
+        id: "experimenter",
+        description: "Manage features AND analyze experiments",
+        permissions: [
+          "addComments",
+          "createIdeas",
+          "createPresentations",
+          "publishFeatures",
+          "createFeatures",
+          "createFeatureDrafts",
+          "manageTargetingAttributes",
+          "manageEnvironments",
+          "manageNamespaces",
+          "manageSavedGroups",
+          "createAnalyses",
+          "createDimensions",
+          "createMetrics",
+          "runQueries",
+          "editDatasourceSettings",
+        ],
+      },
+      {
+        id: "admin",
+        description:
+          "All access + invite teammates and configure organization settings",
+        permissions: [...ALL_PERMISSIONS],
+      },
+    ];
+  }
+
+  return org;
 }
