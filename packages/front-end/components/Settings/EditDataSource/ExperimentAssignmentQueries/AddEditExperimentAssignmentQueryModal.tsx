@@ -28,11 +28,16 @@ type TestQueryResults = {
   extraColumns?: string[];
   errorMessage?: string;
   duration?: string;
+  warningMessage?: string;
 };
 
-export const AddEditExperimentAssignmentQueryModal: FC<
-  EditExperimentAssignmentQueryProps
-> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
+  exposureQuery,
+  dataSource,
+  mode,
+  onSave,
+  onCancel,
+}) => {
   const [querySuccessMessage, setQuerySuccessMessage] = useState<
     null | string
   >();
@@ -150,6 +155,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
       if (res.extraColumns) {
         setQueryWarnings(res.extraColumns);
+      }
+
+      if (res.warningMessage) {
+        const warningsArr = [];
+        setQueryWarnings(warningsArr.push(res.warningMessage));
       }
     } catch (e) {
       setQueryError(e.message);

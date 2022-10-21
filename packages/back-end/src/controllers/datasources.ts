@@ -515,7 +515,7 @@ export async function validateExposureQuery(
     if (testResults?.result?.length === 0) {
       return res.status(200).json({
         status: 200,
-        errorMessage: "No rows were returned.",
+        warningMessage: "No rows were returned.",
       });
     }
 

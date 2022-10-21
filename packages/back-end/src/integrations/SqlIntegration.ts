@@ -440,7 +440,16 @@ export default abstract class SqlIntegration
 
   // eslint-disable-next-line
   async testQuery(query: string): Promise<any> {
+    console.log("query", query);
+    // const limitedQuery = replaceSQLVars(
+    //   `SELECT * FROM (${query}) as sub_query\nLIMIT 1`,
+    //   {
+    //     startDate: phase.dateStarted,
+    //   }
+    // );
     const limitedQuery = `SELECT * FROM (${query}) as sub_query\nLIMIT 1`;
+    // This probably isn't very performant as it runs the full user-supplied query and then gets a single row, rather than just getting a single row
+    // const limitedQuery = `${query}\nLIMIT 1`;
     const startTime = Date.now();
     const results = await this.runQuery(limitedQuery);
     const endTime = Date.now();
