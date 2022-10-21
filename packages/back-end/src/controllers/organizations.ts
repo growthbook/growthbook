@@ -1011,11 +1011,12 @@ export async function postApiKey(
     description?: string;
     environment: string;
     secret: boolean;
+    encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment, secret } = req.body;
+  const { description, environment, secret, encryptSDK } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -1043,6 +1044,7 @@ export async function postApiKey(
     description: description || "",
     environment: environment || "",
     secret: !!secret,
+    encryptSDK,
   });
 
   res.status(200).json({
