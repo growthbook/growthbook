@@ -88,7 +88,7 @@ export default function AccountPlanNotices() {
   // Self-hosted-specific Notices
   if (!isCloud() && license) {
     // Trial license is up
-    const licenseTrialRemaining = license.trial ? daysLeft(license.eat) : -1;
+    const licenseTrialRemaining = license.trial ? daysLeft(license.exp) : -1;
     if (licenseTrialRemaining >= 0) {
       return (
         <Tooltip
@@ -108,13 +108,13 @@ export default function AccountPlanNotices() {
       );
     }
 
-    // Licence expired
-    if (license.eat < new Date().toISOString().substring(0, 10)) {
+    // License expired
+    if (license.exp < new Date().toISOString().substring(0, 10)) {
       return (
         <Tooltip
           body={
             <>
-              Your license expired on <strong>{license.eat}</strong>. Contact
+              Your license expired on <strong>{license.exp}</strong>. Contact
               sales@growthbook.io to renew.
             </>
           }

@@ -114,7 +114,7 @@ function getSSOConfig() {
 
   if (!IS_CLOUD && !LICENSE_KEY) {
     throw new Error(
-      "Must have an Enterprise License Key to use self-hosted SSO"
+      "Must have a commercial License Key to use self-hosted SSO"
     );
   }
 

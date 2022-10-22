@@ -16,6 +16,7 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 export const accountFeatures: AccountPlanFeatures = {
+  oss: new Set<AccountPlanFeature>([]),
   starter: new Set<AccountPlanFeature>([]),
   pro: new Set<AccountPlanFeature>(["customRoles"]),
   pro_sso: new Set<AccountPlanFeature>(["sso", "customRoles"]),
@@ -29,14 +30,20 @@ export function getAccountPlan(org: OrganizationInterface): AccountPlan {
     return "starter";
   }
 
-  if (getLicense()) return "enterprise";
-  return "starter";
+  // For self-hosted deployments
+  return getLicense()?.plan || "oss";
+}
+export function planHasPremiumFeature(
+  plan: AccountPlan,
+  feature: AccountPlanFeature
+): boolean {
+  return accountFeatures[plan].has(feature);
 }
 export function orgHasPremiumFeature(
   org: OrganizationInterface,
   feature: AccountPlanFeature
 ): boolean {
-  return accountFeatures[getAccountPlan(org)].has(feature);
+  return planHasPremiumFeature(getAccountPlan(org), feature);
 }
 
 export const ALL_PERMISSIONS = [

@@ -2,6 +2,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import {
   AccountPlan,
+  AccountPlanFeature,
   EnvScopedPermission,
   GlobalPermission,
   LicenseData,
@@ -22,10 +23,20 @@ import {
   useState,
 } from "react";
 import { MemberInfo } from "../components/Settings/MemberList";
-import { OrgSettingsResponse, useAuth, UserOrganizations } from "./auth";
+import { useAuth, UserOrganizations } from "./auth";
 import { isCloud, isSentryEnabled } from "./env";
 import track from "./track";
 import * as Sentry from "@sentry/react";
+
+type OrgSettingsResponse = {
+  organization: OrganizationInterface & { members: MemberInfo[] };
+  apiKeys: ApiKeyInterface[];
+  enterpriseSSO: SSOConnectionInterface | null;
+  role: MemberRole;
+  permissions: Permission[];
+  accountPlan: AccountPlan;
+  accountPlanFeatures: AccountPlanFeature[];
+};
 
 interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
@@ -49,9 +60,11 @@ export interface UserContextValue {
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
+  accountPlanFeatures: AccountPlanFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface & { members: MemberInfo[] }>;
   error?: string;
+  hasPlanFeature: (feature: AccountPlanFeature) => boolean;
 }
 
 interface UserResponse {
@@ -68,6 +81,7 @@ export const UserContext = createContext<UserContextValue>({
   permissions: { check: () => false },
   settings: {},
   users: new Map(),
+  accountPlanFeatures: [],
   getUserDisplay: () => "",
   updateUser: async () => {
     // Do nothing
@@ -77,6 +91,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  hasPlanFeature: () => false,
 });
 
 export function useUser() {
@@ -195,6 +210,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.email, data?.userId]);
 
+  const planFeatures = useMemo(() => {
+    return new Set(currentOrg?.accountPlanFeatures || []);
+  }, [currentOrg?.accountPlanFeatures]);
+
   return (
     <UserContext.Provider
       value={{
@@ -232,9 +251,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO,
         accountPlan: currentOrg?.accountPlan,
+        accountPlanFeatures: currentOrg?.accountPlanFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         organization: currentOrg?.organization,
         error,
+        hasPlanFeature: (feature) => planFeatures.has(feature),
       }}
     >
       {children}

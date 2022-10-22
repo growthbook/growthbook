@@ -72,6 +72,7 @@ import {
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
 import {
+  accountFeatures,
   ALL_PERMISSIONS,
   getAccountPlan,
   getPermissionsByRole,
@@ -536,6 +537,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const role = getRole(org, userId);
 
+  const features = accountFeatures[getAccountPlan(org)];
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -545,6 +548,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : getPermissionsByRole(role, org),
     role,
     accountPlan: getAccountPlan(org),
+    accountPlanFeatures: [...features],
     organization: {
       invites,
       ownerEmail,

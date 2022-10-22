@@ -2,8 +2,9 @@ import crypto from "crypto";
 import fetch from "node-fetch";
 import { LicenseData } from "../../types/organization";
 import { logger } from "../util/logger";
+import { planHasPremiumFeature } from "../util/organization.util";
 
-import { LICENSE_KEY } from "../util/secrets";
+import { LICENSE_KEY, SSO_CONFIG } from "../util/secrets";
 
 let licenseData: LicenseData | null = null;
 export default async () => {
@@ -49,13 +50,29 @@ async function getVerifiedLicenseData(key: string) {
 
   const decodedLicense: LicenseData = JSON.parse(license.toString());
 
+  // Support old way of storing expiration date
+  decodedLicense.exp = decodedLicense.exp || decodedLicense.eat || "";
+  if (!decodedLicense.exp) {
+    throw new Error("Invalid License Key - Missing expiration date");
+  }
+
+  // The `trial` field used to be optional, force it to always be defined
+  decodedLicense.trial = !!decodedLicense.trial;
+
   // If it's a trial license key, make sure it's not expired yet
   // For real license keys, we show an "expired" banner in the app instead of throwing an error
   // We want to be strict for trial keys, but lenient for real Enterprise customers
-  if (decodedLicense.trial && decodedLicense.eat < new Date().toISOString()) {
-    throw new Error(
-      `Your Enterprise License Key trial expired on ${decodedLicense.eat}.`
-    );
+  if (decodedLicense.trial && decodedLicense.exp < new Date().toISOString()) {
+    throw new Error(`Your License Key trial expired on ${decodedLicense.exp}.`);
+  }
+
+  // We used to only offer license keys for Enterprise plans (not pro)
+  if (!decodedLicense.plan) {
+    decodedLicense.plan = "enterprise";
+  }
+  // Trying to use SSO, but the plan doesn't support it
+  if (SSO_CONFIG && !planHasPremiumFeature(decodedLicense.plan, "sso")) {
+    throw new Error(`Your License Key does not support SSO.`);
   }
 
   // If the public key failed to load, just assume the license is valid

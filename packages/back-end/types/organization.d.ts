@@ -25,7 +25,7 @@ export type Role = {
   default?: boolean;
 };
 
-export type AccountPlan = "starter" | "pro" | "pro_sso" | "enterprise";
+export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export type AccountPlanFeature = "customRoles" | "sso";
 export type AccountPlanFeatures = Record<AccountPlan, Set<AccountPlanFeature>>;
 
@@ -198,7 +198,14 @@ export type LicenseData = {
   // Date issued
   iat: string;
   // Expiration date
-  eat: string;
+  exp: string;
   // If it's a trial or not
-  trial?: boolean;
+  trial: boolean;
+  // The plan (pro, enterprise, etc.)
+  plan: AccountPlan;
+  /**
+   * Expiration date (old style)
+   * @deprecated
+   */
+  eat?: string;
 };

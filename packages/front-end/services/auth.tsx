@@ -7,38 +7,21 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/router";
-import {
-  AccountPlan,
-  MemberRole,
-  OrganizationInterface,
-  Permission,
-} from "back-end/types/organization";
+import { MemberRole, OrganizationInterface } from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
-  SSOConnectionInterface,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
 import Welcome from "../components/Auth/Welcome";
 import * as Sentry from "@sentry/react";
-import { ApiKeyInterface } from "back-end/types/apikey";
-import { MemberInfo } from "../components/Settings/MemberList";
 
 export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
-};
-
-export type OrgSettingsResponse = {
-  organization: OrganizationInterface & { members: MemberInfo[] };
-  apiKeys: ApiKeyInterface[];
-  enterpriseSSO: SSOConnectionInterface | null;
-  role: MemberRole;
-  permissions: Permission[];
-  accountPlan: AccountPlan;
 };
 
 export type UserOrganizations = OrganizationMember[];
