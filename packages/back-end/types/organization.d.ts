@@ -26,8 +26,8 @@ export type Role = {
 };
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type AccountPlanFeature = "customRoles" | "sso";
-export type AccountPlanFeatures = Record<AccountPlan, Set<AccountPlanFeature>>;
+export type CommercialFeature = "customRoles" | "sso";
+export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface Invite {
   email: string;

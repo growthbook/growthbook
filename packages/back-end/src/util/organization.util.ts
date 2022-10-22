@@ -1,8 +1,8 @@
 import type Stripe from "stripe";
 import {
   AccountPlan,
-  AccountPlanFeature,
-  AccountPlanFeatures,
+  CommercialFeature,
+  CommercialFeaturesMap,
   MemberRole,
   OrganizationInterface,
   Permission,
@@ -15,12 +15,12 @@ export function isActiveSubscriptionStatus(
 ) {
   return ["active", "trialing", "past_due"].includes(status || "");
 }
-export const accountFeatures: AccountPlanFeatures = {
-  oss: new Set<AccountPlanFeature>([]),
-  starter: new Set<AccountPlanFeature>([]),
-  pro: new Set<AccountPlanFeature>(["customRoles"]),
-  pro_sso: new Set<AccountPlanFeature>(["sso", "customRoles"]),
-  enterprise: new Set<AccountPlanFeature>(["sso", "customRoles"]),
+export const accountFeatures: CommercialFeaturesMap = {
+  oss: new Set<CommercialFeature>([]),
+  starter: new Set<CommercialFeature>([]),
+  pro: new Set<CommercialFeature>(["customRoles"]),
+  pro_sso: new Set<CommercialFeature>(["sso", "customRoles"]),
+  enterprise: new Set<CommercialFeature>(["sso", "customRoles"]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
   if (IS_CLOUD) {
@@ -35,13 +35,13 @@ export function getAccountPlan(org: OrganizationInterface): AccountPlan {
 }
 export function planHasPremiumFeature(
   plan: AccountPlan,
-  feature: AccountPlanFeature
+  feature: CommercialFeature
 ): boolean {
   return accountFeatures[plan].has(feature);
 }
 export function orgHasPremiumFeature(
   org: OrganizationInterface,
-  feature: AccountPlanFeature
+  feature: CommercialFeature
 ): boolean {
   return planHasPremiumFeature(getAccountPlan(org), feature);
 }

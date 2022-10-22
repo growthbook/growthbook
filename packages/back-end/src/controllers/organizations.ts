@@ -548,7 +548,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : getPermissionsByRole(role, org),
     role,
     accountPlan: getAccountPlan(org),
-    accountPlanFeatures: [...features],
+    commercialFeatures: [...features],
     organization: {
       invites,
       ownerEmail,

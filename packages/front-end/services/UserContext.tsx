@@ -2,7 +2,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import {
   AccountPlan,
-  AccountPlanFeature,
+  CommercialFeature,
   EnvScopedPermission,
   GlobalPermission,
   LicenseData,
@@ -35,7 +35,7 @@ type OrgSettingsResponse = {
   role: MemberRole;
   permissions: Permission[];
   accountPlan: AccountPlan;
-  accountPlanFeatures: AccountPlanFeature[];
+  commercialFeatures: CommercialFeature[];
 };
 
 interface PermissionFunctions {
@@ -60,11 +60,11 @@ export interface UserContextValue {
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
-  accountPlanFeatures: AccountPlanFeature[];
+  commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface & { members: MemberInfo[] }>;
   error?: string;
-  hasPlanFeature: (feature: AccountPlanFeature) => boolean;
+  hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
 
 interface UserResponse {
@@ -81,7 +81,7 @@ export const UserContext = createContext<UserContextValue>({
   permissions: { check: () => false },
   settings: {},
   users: new Map(),
-  accountPlanFeatures: [],
+  commercialFeatures: [],
   getUserDisplay: () => "",
   updateUser: async () => {
     // Do nothing
@@ -91,7 +91,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
-  hasPlanFeature: () => false,
+  hasCommercialFeature: () => false,
 });
 
 export function useUser() {
@@ -210,9 +210,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.email, data?.userId]);
 
-  const planFeatures = useMemo(() => {
-    return new Set(currentOrg?.accountPlanFeatures || []);
-  }, [currentOrg?.accountPlanFeatures]);
+  const commercialFeatures = useMemo(() => {
+    return new Set(currentOrg?.commercialFeatures || []);
+  }, [currentOrg?.commercialFeatures]);
 
   return (
     <UserContext.Provider
@@ -251,11 +251,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO,
         accountPlan: currentOrg?.accountPlan,
-        accountPlanFeatures: currentOrg?.accountPlanFeatures || [],
+        commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         organization: currentOrg?.organization,
         error,
-        hasPlanFeature: (feature) => planFeatures.has(feature),
+        hasCommercialFeature: (feature) => commercialFeatures.has(feature),
       }}
     >
       {children}
