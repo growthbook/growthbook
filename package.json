@@ -49,5 +49,15 @@
       "flake8 --config=packages/stats/.flake8"
     ]
   },
+  "prettier": {
+    "overrides": [
+      {
+        "files": "**/*.mdx",
+        "options": {
+          "embeddedLanguageFormatting": "off"
+        }
+      }
+    ]
+  },
   "license": "MIT"
 }

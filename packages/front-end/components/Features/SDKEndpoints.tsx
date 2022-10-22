@@ -11,6 +11,8 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
+import CopyToClipboard from "../CopyToClipboard";
+import ClickToReveal from "../Settings/ClickToReveal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -39,6 +41,8 @@ const SDKEndpoints: FC<{
       );
     }
   });
+
+  const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
 
   return (
     <div className="mt-4">
@@ -79,6 +83,7 @@ const SDKEndpoints: FC<{
               <th>Description</th>
               <th>Environment</th>
               <th>Endpoint</th>
+              {hasEncryptedEndpoints && <th>Encrypted?</th>}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -123,6 +128,39 @@ const SDKEndpoints: FC<{
                       }}
                     />
                   </td>
+                  {hasEncryptedEndpoints && (
+                    <td>
+                      {key.encryptSDK ? (
+                        canManageKeys ? (
+                          <ClickToReveal
+                            valueWhenHidden="Reveal key"
+                            getValue={async () => {
+                              const res = await apiCall<{
+                                key: ApiKeyInterface;
+                              }>(`/keys/reveal`, {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  id: key.id,
+                                }),
+                              });
+                              if (!res.key?.encryptionKey) {
+                                throw new Error(
+                                  "Could not load encryption key"
+                                );
+                              }
+                              return res.key.encryptionKey;
+                            }}
+                          >
+                            {(value) => <CopyToClipboard text={value} />}
+                          </ClickToReveal>
+                        ) : (
+                          "yes"
+                        )
+                      ) : (
+                        "no"
+                      )}
+                    </td>
+                  )}
                   {canManageKeys && (
                     <td>
                       <MoreMenu id={key.key + "_actions"}>

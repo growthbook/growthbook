@@ -9,6 +9,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import { webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
@@ -292,4 +293,34 @@ export function verifyDraftsAreEqual(
       "New changes have been made to this feature. Please review and try again."
     );
   }
+}
+
+export async function encrypt(
+  plainText: string,
+  keyString: string | undefined
+): Promise<string> {
+  if (!keyString) {
+    throw new Error("Unable to encrypt the feature list.");
+  }
+  const bufToBase64 = (x: ArrayBuffer) => Buffer.from(x).toString("base64");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    Buffer.from(keyString, "base64"),
+    {
+      name: "AES-CBC",
+      length: 128,
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    {
+      name: "AES-CBC",
+      iv,
+    },
+    key,
+    new TextEncoder().encode(plainText)
+  );
+  return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
