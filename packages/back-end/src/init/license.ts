@@ -55,6 +55,7 @@ async function getVerifiedLicenseData(key: string) {
   if (!decodedLicense.exp) {
     throw new Error("Invalid License Key - Missing expiration date");
   }
+  delete decodedLicense.eat;
 
   // The `trial` field used to be optional, force it to always be defined
   decodedLicense.trial = !!decodedLicense.trial;
