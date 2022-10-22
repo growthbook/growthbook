@@ -117,6 +117,16 @@ export async function postFeatures(
   const { id, environmentSettings, ...otherProps } = req.body;
   const { org, userId, email, userName } = getOrgFromReq(req);
 
+  // Require publish permissions for every enabled environment
+  if (environmentSettings) {
+    req.checkPermissions(
+      "publishFeatures",
+      Object.keys(environmentSettings).filter(
+        (e) => environmentSettings[e]?.enabled
+      )
+    );
+  }
+
   if (!id) {
     throw new Error("Must specify feature key");
   }

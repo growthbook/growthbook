@@ -16,10 +16,10 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 export const accountFeatures: AccountPlanFeatures = {
-  starter: new Set([]),
-  pro: new Set(["customRoles"]),
-  pro_sso: new Set(["sso", "customRoles"]),
-  enterprise: new Set(["sso", "customRoles"]),
+  starter: new Set<AccountPlanFeature>([]),
+  pro: new Set<AccountPlanFeature>(["customRoles"]),
+  pro_sso: new Set<AccountPlanFeature>(["sso", "customRoles"]),
+  enterprise: new Set<AccountPlanFeature>(["sso", "customRoles"]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
   if (IS_CLOUD) {

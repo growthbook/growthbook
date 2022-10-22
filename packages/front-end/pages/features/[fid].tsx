@@ -27,6 +27,7 @@ import {
   getRules,
   useEnvironmentState,
   useEnvironments,
+  getAffectedEnvs,
 } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
@@ -89,6 +90,8 @@ export default function FeaturePage() {
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
+
+  const enabledEnvs = getAffectedEnvs(data.feature);
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -222,57 +225,59 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.createFeatures && (
-              <DeleteButton
-                useIcon={false}
-                displayName="Feature"
-                onClick={async () => {
-                  await apiCall(`/feature/${data.feature.id}`, {
-                    method: "DELETE",
-                  });
-                  router.push("/features");
-                }}
-                className="dropdown-item"
-                text="Delete feature"
-              />
-            )}
-            {permissions.createFeatures && (
-              <ConfirmButton
-                onClick={async () => {
-                  await apiCall(`/feature/${data.feature.id}/archive`, {
-                    method: "POST",
-                  });
-                  mutate();
-                }}
-                modalHeader={
-                  isArchived ? "Unarchive Feature" : "Archive Feature"
-                }
-                confirmationText={
-                  isArchived ? (
-                    <>
-                      <p>
-                        Are you sure you want to continue? This will make the
-                        current feature active again.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        Are you sure you want to continue? This will make the
-                        current feature inactive. It will not be included in API
-                        responses or Webhook payloads.
-                      </p>
-                    </>
-                  )
-                }
-                cta={isArchived ? "Unarchive" : "Archive"}
-                ctaColor="danger"
-              >
-                <button className="dropdown-item">
-                  {isArchived ? "Unarchive" : "Archive"} feature
-                </button>
-              </ConfirmButton>
-            )}
+            {permissions.createFeatures &&
+              permissions.check("publishFeatures", enabledEnvs) && (
+                <DeleteButton
+                  useIcon={false}
+                  displayName="Feature"
+                  onClick={async () => {
+                    await apiCall(`/feature/${data.feature.id}`, {
+                      method: "DELETE",
+                    });
+                    router.push("/features");
+                  }}
+                  className="dropdown-item"
+                  text="Delete feature"
+                />
+              )}
+            {permissions.createFeatures &&
+              permissions.check("publishFeatures", enabledEnvs) && (
+                <ConfirmButton
+                  onClick={async () => {
+                    await apiCall(`/feature/${data.feature.id}/archive`, {
+                      method: "POST",
+                    });
+                    mutate();
+                  }}
+                  modalHeader={
+                    isArchived ? "Unarchive Feature" : "Archive Feature"
+                  }
+                  confirmationText={
+                    isArchived ? (
+                      <>
+                        <p>
+                          Are you sure you want to continue? This will make the
+                          current feature active again.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          Are you sure you want to continue? This will make the
+                          current feature inactive. It will not be included in
+                          API responses or Webhook payloads.
+                        </p>
+                      </>
+                    )
+                  }
+                  cta={isArchived ? "Unarchive" : "Archive"}
+                  ctaColor="danger"
+                >
+                  <button className="dropdown-item">
+                    {isArchived ? "Unarchive" : "Archive"} feature
+                  </button>
+                </ConfirmButton>
+              )}
           </MoreMenu>
         </div>
       </div>
@@ -301,14 +306,15 @@ export default function FeaturePage() {
             ) : (
               <em className="text-muted">none</em>
             )}
-            {permissions.createFeatures && (
-              <a
-                className="ml-2 cursor-pointer"
-                onClick={() => setEditProjectModal(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
+            {permissions.createFeatures &&
+              permissions.check("publishFeatures", enabledEnvs) && (
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditProjectModal(true)}
+                >
+                  <GBEdit />
+                </a>
+              )}
           </div>
         )}
 
