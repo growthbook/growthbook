@@ -1,38 +1,31 @@
 import { FC } from "react";
 import clsx from "clsx";
 import { MemberRole } from "back-end/types/organization";
-
-const roles: [MemberRole, string][] = [
-  ["readonly", "View all features and experiment results"],
-  ["collaborator", "Add comments and contribute ideas"],
-  ["engineer", "Manage features"],
-  ["analyst", "Analyze experiments"],
-  ["experimenter", "Manage features AND analyze experiments"],
-  [
-    "admin",
-    "All access + invite teammates and configure organization settings",
-  ],
-];
+import { useUser } from "../../services/UserContext";
 
 const RoleSelector: FC<{
   role: MemberRole;
   setRole: (role: MemberRole) => void;
 }> = ({ role, setRole }) => {
+  const { organization } = useUser();
+
+  const roles = organization.roles || [];
+
   return (
     <div>
-      {roles.map(([name, description]) => (
-        <div className="list-group" key={name}>
+      {roles.map(({ description, id }) => (
+        <div className="list-group" key={id}>
           <button
             className={clsx("list-group-item list-group-item-action", {
-              active: role === name,
+              active: role === id,
             })}
             onClick={(e) => {
               e.preventDefault();
-              setRole(name);
+              setRole(id);
             }}
           >
             <div className="d-flex w-100">
-              <strong style={{ width: 115 }}>{name}</strong>
+              <strong style={{ width: 115 }}>{id}</strong>
               <div style={{ flex: 1 }}>{description}</div>
             </div>
           </button>

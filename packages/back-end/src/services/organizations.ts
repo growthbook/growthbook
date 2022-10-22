@@ -187,7 +187,7 @@ export function getInviteUrl(key: string) {
 export async function addMemberToOrg(
   org: OrganizationInterface,
   userId: string,
-  role: MemberRole = "collaborator"
+  role: MemberRole
 ) {
   // If memebr is already in the org, skip
   if (org.members.find((m) => m.id === userId)) {
@@ -649,7 +649,12 @@ export async function addMemberFromSSOConnection(
   }
   if (!organization) return null;
 
-  await addMemberToOrg(organization, req.userId);
+  const defaultRole =
+    organization.roles.find((r) => r.default)?.id ||
+    organization.roles[0]?.id ||
+    "collaborator";
+
+  await addMemberToOrg(organization, req.userId, defaultRole);
   try {
     await sendNewMemberEmail(
       req.name || "",
