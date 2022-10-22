@@ -9,7 +9,7 @@ import { useSearch } from "../services/search";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { useDefinitions } from "../services/DefinitionsContext";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 import SortedTags from "../components/Tags/SortedTags";
 
 const IdeasPage = (): React.ReactElement => {

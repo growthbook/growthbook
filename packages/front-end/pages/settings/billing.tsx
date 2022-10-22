@@ -6,11 +6,14 @@ import SubscriptionInfo from "../../components/Settings/SubscriptionInfo";
 import { isCloud } from "../../services/env";
 import UpgradeModal from "../../components/Settings/UpgradeModal";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
+import usePermissions from "../../hooks/usePermissions";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
+
+  const permissions = usePermissions();
 
   if (!isCloud()) {
     return (
@@ -22,6 +25,16 @@ const BillingPage: FC = () => {
 
   if (loading) {
     return <LoadingOverlay />;
+  }
+
+  if (!permissions.manageBilling) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
   }
 
   return (

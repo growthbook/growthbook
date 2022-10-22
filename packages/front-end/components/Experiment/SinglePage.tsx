@@ -32,7 +32,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import ResultsIndicator from "./ResultsIndicator";
 import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";

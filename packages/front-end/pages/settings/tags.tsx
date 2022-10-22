@@ -10,6 +10,7 @@ import { GBAddCircle } from "../../components/Icons";
 import { TagInterface } from "back-end/types/tag";
 import { useSearch, useSort } from "../../services/search";
 import Field from "../../components/Forms/Field";
+import usePermissions from "../../hooks/usePermissions";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -22,6 +23,17 @@ const TagsPage: FC = () => {
     "description",
   ]);
   const { sorted, SortableTH } = useSort(list, "id", 1, "tags");
+  const permissions = usePermissions();
+
+  if (!permissions.manageTags) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid  pagecontents">

@@ -26,7 +26,7 @@ import MarkdownInput from "../../components/Markdown/MarkdownInput";
 import Modal from "../../components/Modal";
 import { useForm } from "react-hook-form";
 import Tooltip from "../../components/Tooltip";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
 import DeleteButton from "../../components/DeleteButton";
 

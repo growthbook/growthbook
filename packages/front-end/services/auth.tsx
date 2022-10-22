@@ -4,12 +4,13 @@ import React, {
   useContext,
   ReactElement,
   ReactNode,
+  useCallback,
 } from "react";
 import { useRouter } from "next/router";
 import {
+  AccountPlan,
   MemberRole,
   OrganizationInterface,
-  OrganizationSettings,
   Permission,
 } from "back-end/types/organization";
 import Modal from "../components/Modal";
@@ -17,21 +18,27 @@ import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
+  SSOConnectionInterface,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
 import Welcome from "../components/Auth/Welcome";
 import * as Sentry from "@sentry/react";
+import { ApiKeyInterface } from "back-end/types/apikey";
+import { MemberInfo } from "../components/Settings/MemberList";
 
 export type OrganizationMember = {
   id: string;
   name: string;
   role: MemberRole;
-  permissions?: Permission[];
-  enterprise: boolean;
-  settings?: OrganizationSettings;
-  freeSeats?: number;
-  discountCode?: string;
-  hasActiveSubscription?: boolean;
+};
+
+export type OrgSettingsResponse = {
+  organization: OrganizationInterface & { members: MemberInfo[] };
+  apiKeys: ApiKeyInterface[];
+  enterpriseSSO: SSOConnectionInterface | null;
+  role: MemberRole;
+  permissions: Permission[];
+  accountPlan: AccountPlan;
 };
 
 export type UserOrganizations = OrganizationMember[];
@@ -234,9 +241,80 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       id: specialOrg.id,
       name: specialOrg.name,
       role: "admin",
-      enterprise: specialOrg.enterprise,
     });
   }
+
+  const _makeApiCall = useCallback(
+    async (url: string, token: string, options: RequestInit = {}) => {
+      const init = { ...options };
+      init.headers = init.headers || {};
+      init.headers["Authorization"] = `Bearer ${token}`;
+      init.credentials = "include";
+
+      if (init.body) {
+        init.headers["Content-Type"] = "application/json";
+      }
+
+      if (orgId) {
+        init.headers["X-Organization"] = orgId;
+      }
+
+      const response = await fetch(getApiHost() + url, init);
+
+      const responseData = await response.json();
+      return responseData;
+    },
+    [orgId]
+  );
+
+  const apiCall = useCallback(
+    async (url: string, options: RequestInit = {}) => {
+      let responseData = await _makeApiCall(url, token, options);
+
+      if (responseData.status && responseData.status >= 400) {
+        // Id token expired, try silently refreshing and doing the API call again
+        if (responseData.message === "jwt expired") {
+          const resp = await refreshToken();
+          if ("token" in resp) {
+            setToken(resp.token);
+            responseData = await _makeApiCall(url, resp.token, options);
+            // Still failing
+            if (responseData.status && responseData.status >= 400) {
+              throw new Error(responseData.message || "There was an error");
+            }
+            return responseData;
+          }
+          // TODO: Handle cases where the token couldn't be refreshed automatically
+        }
+
+        throw new Error(responseData.message || "There was an error");
+      }
+
+      return responseData;
+    },
+    [token, _makeApiCall]
+  );
+
+  const wrappedSetOrganizations = useCallback(
+    (orgs: UserOrganizations) => {
+      setOrganizations(orgs);
+      if (orgId && orgs.map((o) => o.id).includes(orgId)) {
+        return;
+      } else if (
+        !orgId &&
+        initialOrgId &&
+        orgs.map((o) => o.id).includes(initialOrgId)
+      ) {
+        setOrgId(initialOrgId);
+        return;
+      }
+
+      if (orgs.length > 0) {
+        setOrgId(orgs[0].id);
+      }
+    },
+    [initialOrgId, orgId]
+  );
 
   if (error) {
     return (
@@ -263,55 +341,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     );
   }
 
-  const _makeApiCall = async (
-    url: string,
-    token: string,
-    options: RequestInit = {}
-  ) => {
-    const init = { ...options };
-    init.headers = init.headers || {};
-    init.headers["Authorization"] = `Bearer ${token}`;
-    init.credentials = "include";
-
-    if (init.body) {
-      init.headers["Content-Type"] = "application/json";
-    }
-
-    if (orgId) {
-      init.headers["X-Organization"] = orgId;
-    }
-
-    const response = await fetch(getApiHost() + url, init);
-
-    const responseData = await response.json();
-    return responseData;
-  };
-
-  const apiCall = async (url: string, options: RequestInit = {}) => {
-    let responseData = await _makeApiCall(url, token, options);
-
-    if (responseData.status && responseData.status >= 400) {
-      // Id token expired, try silently refreshing and doing the API call again
-      if (responseData.message === "jwt expired") {
-        const resp = await refreshToken();
-        if ("token" in resp) {
-          setToken(resp.token);
-          responseData = await _makeApiCall(url, resp.token, options);
-          // Still failing
-          if (responseData.status && responseData.status >= 400) {
-            throw new Error(responseData.message || "There was an error");
-          }
-          return responseData;
-        }
-        // TODO: Handle cases where the token couldn't be refreshed automatically
-      }
-
-      throw new Error(responseData.message || "There was an error");
-    }
-
-    return responseData;
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -335,23 +364,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         orgId,
         setOrgId,
         organizations: orgList,
-        setOrganizations: (orgs) => {
-          setOrganizations(orgs);
-          if (orgId && orgs.map((o) => o.id).includes(orgId)) {
-            return;
-          } else if (
-            !orgId &&
-            initialOrgId &&
-            orgs.map((o) => o.id).includes(initialOrgId)
-          ) {
-            setOrgId(initialOrgId);
-            return;
-          }
-
-          if (orgs.length > 0) {
-            setOrgId(orgs[0].id);
-          }
-        },
+        setOrganizations: wrappedSetOrganizations,
         setOrgName: (name) => {
           const orgs = [...organizations];
           orgs.forEach((o, i) => {

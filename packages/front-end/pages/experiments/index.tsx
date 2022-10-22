@@ -14,7 +14,7 @@ import Tab from "../../components/Tabs/Tab";
 import Pagination from "../../components/Pagination";
 import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
 import SortedTags from "../../components/Tags/SortedTags";

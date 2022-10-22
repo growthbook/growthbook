@@ -1,7 +1,7 @@
 import React, { FC, useState } from "react";
 import InviteModal from "./InviteModal";
 import { useAuth } from "../../services/auth";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import DeleteButton from "../DeleteButton";
 import { GBAddCircle } from "../Icons";
 import { MemberRole } from "back-end/types/organization";
@@ -18,12 +18,11 @@ export type MemberInfo = {
 };
 
 const MemberList: FC<{
-  members: MemberInfo[];
   mutate: () => void;
-}> = ({ members, mutate }) => {
+}> = ({ mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
-  const { userId } = useUser();
+  const { userId, organization } = useUser();
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
     null
@@ -70,7 +69,7 @@ const MemberList: FC<{
           </tr>
         </thead>
         <tbody>
-          {members.map((member) => (
+          {organization.members?.map((member: MemberInfo) => (
             <tr key={member.id}>
               <td>{member.name}</td>
               <td>{member.email}</td>

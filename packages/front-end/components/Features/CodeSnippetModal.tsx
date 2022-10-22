@@ -2,7 +2,7 @@ import stringify from "json-stringify-pretty-compact";
 import { getTrackingCallback, TrackingType } from "../../services/codegen";
 import { getApiHost, isCloud } from "../../services/env";
 import { useState, useEffect, ReactElement } from "react";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import Modal from "../Modal";
@@ -117,7 +117,7 @@ export default function CodeSnippetModal({
 
   const { apiCall } = useAuth();
 
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
 
   const attributeSchema = useAttributeSchema();
@@ -141,7 +141,7 @@ export default function CodeSnippetModal({
           },
         }),
       });
-      await update();
+      await refreshOrganization();
     })();
   }, [settings]);
 

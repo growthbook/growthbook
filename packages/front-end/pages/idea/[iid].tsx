@@ -31,7 +31,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { useForm } from "react-hook-form";
 import SelectField from "../../components/Forms/SelectField";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import SortedTags from "../../components/Tags/SortedTags";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 

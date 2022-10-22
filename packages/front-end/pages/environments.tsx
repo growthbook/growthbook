@@ -7,7 +7,7 @@ import { useAuth } from "../services/auth";
 import { Environment } from "back-end/types/organization";
 import { GBAddCircle } from "../components/Icons";
 import { useEnvironments } from "../services/features";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import Button from "../components/Button";
 import useApi from "../hooks/useApi";
@@ -18,7 +18,7 @@ import usePermissions from "../hooks/usePermissions";
 const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
   const permissions = usePermissions();
   const canEdit = permissions.manageEnvironments;
 
@@ -43,7 +43,7 @@ const EnvironmentsPage: FC = () => {
           existing={modalOpen}
           close={() => setModalOpen(null)}
           onSuccess={() => {
-            update();
+            refreshOrganization();
             mutate();
           }}
         />
@@ -109,7 +109,7 @@ const EnvironmentsPage: FC = () => {
                                   },
                                 }),
                               });
-                              update();
+                              refreshOrganization();
                             }}
                           >
                             Move up
@@ -131,7 +131,7 @@ const EnvironmentsPage: FC = () => {
                                   },
                                 }),
                               });
-                              update();
+                              refreshOrganization();
                             }}
                           >
                             Move down
@@ -155,7 +155,7 @@ const EnvironmentsPage: FC = () => {
                                   },
                                 }),
                               });
-                              update();
+                              refreshOrganization();
                             }}
                           />
                         )}

@@ -58,7 +58,6 @@ import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
-import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
 import { getLicense } from "../init/license";
@@ -74,6 +73,7 @@ import {
 } from "../models/ApiKeyModel";
 import {
   ALL_PERMISSIONS,
+  getAccountPlan,
   getPermissionsByRole,
 } from "../util/organization.util";
 
@@ -132,14 +132,6 @@ export async function getUser(req: AuthRequest, res: Response) {
         id: org.id,
         name: org.name,
         role,
-        permissions: req.admin
-          ? [...ALL_PERMISSIONS]
-          : getPermissionsByRole(role, org),
-        enterprise: org.enterprise || false,
-        settings: org.settings || {},
-        freeSeats: org.freeSeats || 3,
-        discountCode: org.discountCode || "",
-        hasActiveSubscription: hasActiveSubscription(org),
       };
     }),
   });
@@ -514,7 +506,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
 
   const {
     invites,
@@ -527,7 +519,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     connections,
     settings,
     disableSelfServeBilling,
-    enterprise,
   } = org;
 
   const roleMapping: Map<string, MemberRole> = new Map();
@@ -543,10 +534,17 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
+  const role = getRole(org, userId);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
     enterpriseSSO,
+    permissions: req.admin
+      ? [...ALL_PERMISSIONS]
+      : getPermissionsByRole(role, org),
+    role,
+    accountPlan: getAccountPlan(org),
     organization: {
       invites,
       ownerEmail,
@@ -554,8 +552,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       url,
       subscription,
       freeSeats,
-      enterprise,
       disableSelfServeBilling,
+      discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       members: users.map(({ id, email, name }) => {
         return {

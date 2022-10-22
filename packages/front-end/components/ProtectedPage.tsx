@@ -1,178 +1,22 @@
-import { useEffect, useState, createContext, ReactNode } from "react";
-import { useAuth, UserOrganizations, safeLogout } from "../services/auth";
+import { ReactNode } from "react";
+import { useAuth, safeLogout } from "../services/auth";
 import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
-import track from "../services/track";
-import {
-  OrganizationSettings,
-  Permission,
-  MemberRole,
-  LicenseData,
-  GlobalPermission,
-  EnvScopedPermission,
-} from "back-end/types/organization";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { useRouter } from "next/router";
-import { isCloud, isSentryEnabled } from "../services/env";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import { ThemeToggler } from "./Layout/ThemeToggler";
-import * as Sentry from "@sentry/react";
+import { UserContextProvider, useUser } from "../services/UserContext";
 
-type User = { id: string; email: string; name: string };
-
-interface UserResponse {
-  status: number;
-  userId: string;
-  userName: string;
-  email: string;
-  admin: boolean;
-  organizations?: UserOrganizations;
-  license?: LicenseData;
-}
-
-interface MembersResponse {
-  users: User[];
-}
-
-let currentUser: null | {
-  id: string;
-  org: string;
-  role: MemberRole;
-} = null;
-export function getCurrentUser() {
-  return currentUser;
-}
-
-interface PermissionFunctions {
-  check(permission: GlobalPermission): boolean;
-  check(permission: EnvScopedPermission, envs: string[]): boolean;
-}
-
-export type UserContextValue = {
-  userId?: string;
-  name?: string;
-  email?: string;
-  admin?: boolean;
-  role?: string;
-  license?: LicenseData;
-  enterprise?: boolean;
-  users?: Map<string, User>;
-  getUserDisplay?: (id: string, fallback?: boolean) => string;
-  update?: () => Promise<void>;
-  refreshUsers?: () => Promise<void>;
-  permissions: Partial<Record<GlobalPermission, boolean>> & PermissionFunctions;
-  settings: OrganizationSettings;
-};
-
-export const UserContext = createContext<UserContextValue>({
-  permissions: { check: () => false },
-  settings: {},
-});
-
-const ProtectedPage: React.FC<{
-  organizationRequired: boolean;
+const LoggedInPageGuard = ({
+  children,
+  organizationRequired,
+}: {
   children: ReactNode;
-}> = ({ children, organizationRequired }) => {
-  const {
-    isAuthenticated,
-    apiCall,
-    orgId,
-    organizations,
-    setOrganizations,
-  } = useAuth();
-
-  const [data, setData] = useState<UserResponse>(null);
-  const [error, setError] = useState("");
-  const [users, setUsers] = useState<Map<string, User>>(new Map());
-  const router = useRouter();
-
-  const update = async () => {
-    try {
-      const res = await apiCall<UserResponse>("/user", {
-        method: "GET",
-      });
-      setData(res);
-      if (res.organizations) {
-        setOrganizations(res.organizations);
-      }
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
-  const refreshUsers = async () => {
-    try {
-      const res = await apiCall<MembersResponse>("/members", {
-        method: "GET",
-      });
-
-      const userMap = new Map<string, User>();
-      if (res.users) {
-        res.users.forEach((user) => {
-          userMap.set(user.id, user);
-        });
-      }
-      setUsers(userMap);
-    } catch (e) {
-      setUsers(new Map());
-    }
-  };
-
-  const currentOrg = organizations.filter((org) => org.id === orgId)[0];
-  const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
-  const permissions = new Set(currentOrg?.permissions || []);
-
-  const permissionsObj: Partial<Record<Permission, boolean>> = {};
-  permissions.forEach((p) => (permissionsObj[p] = true));
-
-  useEffect(() => {
-    currentUser = {
-      org: orgId || "",
-      id: data?.userId || "",
-      role,
-    };
-    if (orgId) {
-      refreshUsers();
-      track("Organization Loaded");
-    }
-  }, [orgId]);
-
-  // Once authenticated, get userId, orgId from API
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-    update();
-  }, [isAuthenticated]);
-
-  const growthbook = useGrowthBook();
-  useEffect(() => {
-    growthbook.setAttributes({
-      id: data?.userId || "",
-      name: data?.userName || "",
-      admin: data?.admin || false,
-      company: currentOrg?.name || "",
-      userAgent: window.navigator.userAgent,
-      url: router?.pathname || "",
-      cloud: isCloud(),
-      enterprise: currentOrg?.enterprise || false,
-      hasLicenseKey: !!data?.license,
-      freeSeats: currentOrg?.freeSeats || 3,
-      discountCode: currentOrg?.discountCode || "",
-      hasActiveSubscription: !!currentOrg?.hasActiveSubscription,
-    });
-  }, [data, router?.pathname]);
-
-  useEffect(() => {
-    if (!data?.email) return;
-
-    // Error tracking only enabled on GrowthBook Cloud
-    if (isSentryEnabled()) {
-      Sentry.setUser({ email: data.email, id: data.userId });
-    }
-  }, [data?.email]);
+  organizationRequired: boolean;
+}) => {
+  const { error, userId, organization } = useUser();
+  const { organizations } = useAuth();
 
   if (error) {
     return (
@@ -231,7 +75,7 @@ const ProtectedPage: React.FC<{
   }
 
   // Waiting for initial authentication
-  if (!isAuthenticated || !data?.userId) {
+  if (!userId) {
     return <LoadingOverlay />;
   }
 
@@ -241,54 +85,30 @@ const ProtectedPage: React.FC<{
   }
 
   // Still waiting to fetch current user/org details
-  if (data?.organizations?.length > 0 && !orgId) {
+  if (organizations?.length > 0 && !organization) {
     return <LoadingOverlay />;
   }
 
-  const userContextValue: UserContextValue = {
-    userId: data?.userId,
-    name: data?.userName,
-    email: data?.email,
-    admin: data?.admin,
-    update,
-    users,
-    getUserDisplay: (id, fallback = true) => {
-      const u = users.get(id);
-      if (!u && fallback) return id;
-      return u?.name || u?.email;
-    },
-    refreshUsers,
-    role,
-    permissions: {
-      ...permissionsObj,
-      check: (permission: Permission, envs?: string[]): boolean => {
-        // If they have the global permission, then they are always allowed
-        if (permissions.has(permission)) return true;
-        // If it's an environment-scoped permission, they need permission for all environments
-        if (envs?.length) {
-          // If there are no environments where the user is missing permissions, return true
-          return !envs.filter(
-            (e) => !permissions.has(`${permission as EnvScopedPermission}.${e}`)
-          ).length;
-        }
-        // No permissions by default
-        return false;
-      },
-    },
-    settings: currentOrg?.settings || {},
-    enterprise: currentOrg?.enterprise || false,
-    license: data?.license,
-  };
+  return <>{children}</>;
+};
+
+const ProtectedPage: React.FC<{
+  organizationRequired: boolean;
+  children: ReactNode;
+}> = ({ children, organizationRequired }) => {
+  const { orgId } = useAuth();
 
   return (
-    <UserContext.Provider value={userContextValue} key={orgId}>
-      <InAppHelp />
-      {orgId ? (
-        <WatchProvider>{children}</WatchProvider>
-      ) : (
-        <CreateOrganization />
-      )}
-    </UserContext.Provider>
+    <UserContextProvider key={orgId}>
+      <LoggedInPageGuard organizationRequired={organizationRequired}>
+        <InAppHelp />
+        {orgId ? (
+          <WatchProvider>{children}</WatchProvider>
+        ) : (
+          <CreateOrganization />
+        )}
+      </LoggedInPageGuard>
+    </UserContextProvider>
   );
 };
 

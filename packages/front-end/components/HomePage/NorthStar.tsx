@@ -9,7 +9,7 @@ import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 import { useAuth } from "../../services/auth";
 import { BsGear } from "react-icons/bs";
 import Field from "../Forms/Field";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
 
 const NorthStar: FC = () => {
@@ -19,7 +19,7 @@ const NorthStar: FC = () => {
     experiments: { id: string; name: string }[];
   }>("/activity");
 
-  const { permissions, update } = useUser();
+  const { permissions, refreshOrganization } = useUser();
   const settings = useOrgSettings();
 
   const form = useForm<{
@@ -115,7 +115,7 @@ const NorthStar: FC = () => {
                 settings: newSettings,
               }),
             });
-            await update();
+            await refreshOrganization();
             setOpenNorthStarModal(false);
           })}
           header={

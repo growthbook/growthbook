@@ -8,7 +8,7 @@ import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
 import DeleteButton from "../DeleteButton";
 import usePermissions from "../../hooks/usePermissions";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useSnapshot } from "./SnapshotProvider";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";

@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";

@@ -13,7 +13,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import DeleteButton from "./DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 import usePermissions from "../hooks/usePermissions";
 
 const DiscussionThread: FC<{

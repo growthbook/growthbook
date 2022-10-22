@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import InviteList from "../../components/Settings/InviteList";
 import MemberList from "../../components/Settings/MemberList";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
 import SSOSettings from "../../components/Settings/SSOSettings";
-import { useAdminSettings } from "../../hooks/useAdminSettings";
+import { useUser } from "../../services/UserContext";
+import usePermissions from "../../hooks/usePermissions";
 
 const TeamPage: FC = () => {
-  const { data, error, refresh: mutate } = useAdminSettings();
+  const { refreshOrganization, enterpriseSSO, organization } = useUser();
+
+  const permissions = usePermissions();
 
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -33,7 +35,7 @@ const TeamPage: FC = () => {
       }),
     })
       .then(() => {
-        mutate();
+        refreshOrganization();
         router.replace(router.pathname, router.pathname, { shallow: true });
       })
       .catch((e) => {
@@ -41,14 +43,17 @@ const TeamPage: FC = () => {
       });
   }, [checkoutSessionId]);
 
-  if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
+  const ssoConnection = enterpriseSSO;
 
-  const ssoConnection = data?.enterpriseSSO;
+  if (!permissions.manageTeam) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid pagecontents">
@@ -67,9 +72,12 @@ const TeamPage: FC = () => {
       )}
       <SSOSettings ssoConnection={ssoConnection} />
       <h1>Team Members</h1>
-      <MemberList members={data.organization.members} mutate={mutate} />
-      {data.organization.invites.length > 0 ? (
-        <InviteList invites={data.organization.invites} mutate={mutate} />
+      <MemberList mutate={refreshOrganization} />
+      {organization.invites.length > 0 ? (
+        <InviteList
+          invites={organization.invites}
+          mutate={refreshOrganization}
+        />
       ) : (
         ""
       )}

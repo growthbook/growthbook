@@ -37,7 +37,7 @@ import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import VariationBox from "./VariationBox";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import ExperimentReportsList from "./ExperimentReportsList";
