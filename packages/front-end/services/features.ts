@@ -283,14 +283,18 @@ export function validateFeatureRule(
   return hasChanges ? ruleCopy : null;
 }
 
+export function getEnabledEnvironments(feature: FeatureInterface) {
+  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    return !!feature.environmentSettings?.[env]?.enabled;
+  });
+}
+
 export function getAffectedEnvs(
   feature: FeatureInterface,
-  changedEnvs?: string[]
+  changedEnvs: string[]
 ): string[] {
   const settings = feature.environmentSettings;
   if (!settings) return [];
-
-  changedEnvs = changedEnvs || Object.keys(settings);
 
   return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }

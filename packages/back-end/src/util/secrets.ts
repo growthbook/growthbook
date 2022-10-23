@@ -105,7 +105,7 @@ export const IMPORT_LIMIT_DAYS =
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
 
-// Self-hosted Enterprise license key
+// Self-hosted commercial license key
 export const LICENSE_KEY = process.env.LICENSE_KEY || "";
 
 // Self-hosted SSO

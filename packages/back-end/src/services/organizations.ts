@@ -125,7 +125,7 @@ export function getRole(
 ): MemberRole {
   return (
     org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
-    "readonly"
+    getDefaultRole(org)
   );
 }
 
@@ -649,12 +649,7 @@ export async function addMemberFromSSOConnection(
   }
   if (!organization) return null;
 
-  const defaultRole =
-    organization.roles.find((r) => r.default)?.id ||
-    organization.roles[0]?.id ||
-    "collaborator";
-
-  await addMemberToOrg(organization, req.userId, defaultRole);
+  await addMemberToOrg(organization, req.userId, getDefaultRole(organization));
   try {
     await sendNewMemberEmail(
       req.name || "",
@@ -667,4 +662,14 @@ export async function addMemberFromSSOConnection(
   }
 
   return organization;
+}
+
+export function getDefaultRole(
+  organization: OrganizationInterface
+): MemberRole {
+  return (
+    organization.roles.find((r) => r.default)?.id ||
+    organization.roles[0]?.id ||
+    "collaborator"
+  );
 }

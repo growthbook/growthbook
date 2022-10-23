@@ -152,7 +152,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [apiCall]);
 
-  const role = data?.admin ? "admin" : currentOrg?.role || "readonly";
+  const role = data?.admin ? "admin" : currentOrg?.role || "unknown";
   const permissions = new Set(currentOrg?.permissions || []);
 
   const permissionsObj: Partial<Record<Permission, boolean>> = {};

@@ -126,16 +126,6 @@ export async function postFeatures(
   const { id, environmentSettings, ...otherProps } = req.body;
   const { org, userId, email, userName } = getOrgFromReq(req);
 
-  // Require publish permissions for every enabled environment
-  if (environmentSettings) {
-    req.checkPermissions(
-      "publishFeatures",
-      Object.keys(environmentSettings).filter(
-        (e) => environmentSettings[e]?.enabled
-      )
-    );
-  }
-
   if (!id) {
     throw new Error("Must specify feature key");
   }
@@ -170,6 +160,9 @@ export async function postFeatures(
       },
     },
   };
+
+  // Require publish permission for any enabled environments
+  req.checkPermissions("publishFeatures", getEnabledEnvironments(feature));
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -216,7 +209,7 @@ export async function postFeaturePublish(
 
   // If changing the default value, it affects all enabled environments
   if ("defaultValue" in draft) {
-    req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
+    req.checkPermissions("publishFeatures", getEnabledEnvironments(feature));
   }
   // Otherwise, only the environments with rule changes are affected
   else {
@@ -502,7 +495,7 @@ export async function putFeature(
   // Changing the project can affect production if using project-scoped api keys
   if ("project" in updates) {
     req.checkPermissions("createFeatures");
-    req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
+    req.checkPermissions("publishFeatures", getEnabledEnvironments(feature));
   }
 
   const allowedKeys: (keyof FeatureInterface)[] = [
@@ -571,7 +564,7 @@ export async function deleteFeatureById(
   const feature = await getFeature(org.id, id);
 
   if (feature) {
-    req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
+    req.checkPermissions("publishFeatures", getEnabledEnvironments(feature));
     await deleteFeature(org.id, id);
     await req.audit({
       event: "feature.delete",
@@ -601,7 +594,7 @@ export async function postFeatureArchive(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  req.checkPermissions("publishFeatures", getAffectedEnvs(feature));
+  req.checkPermissions("publishFeatures", getEnabledEnvironments(feature));
   await archiveFeature(feature.organization, id, !feature.archived);
 
   await req.audit({

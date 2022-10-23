@@ -1,5 +1,9 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { getAffectedEnvs, useEnvironments } from "../../services/features";
+import {
+  getAffectedEnvs,
+  getEnabledEnvironments,
+  useEnvironments,
+} from "../../services/features";
 import Modal from "../Modal";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "../Button";
@@ -94,12 +98,10 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     return diffs;
   }, [feature]);
 
-  const hasPermission = getAffectedEnvs(
-    feature,
+  const hasPermission =
     "defaultValue" in feature.draft
-      ? undefined
-      : Object.keys(feature.draft?.rules || {})
-  );
+      ? getEnabledEnvironments(feature)
+      : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}));
 
   return (
     <Modal

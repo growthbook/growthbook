@@ -12,6 +12,7 @@ import {
   addMemberFromSSOConnection,
   isEnterpriseSSO,
   validateLoginMethod,
+  getDefaultRole,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -535,7 +536,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const role = getRole(org, userId);
+  const defaultRole = getDefaultRole(org);
+  const role = roleMapping.get(userId) || defaultRole;
 
   const features = accountFeatures[getAccountPlan(org)];
 
@@ -564,7 +566,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
           id,
           email,
           name,
-          role: roleMapping.get(id),
+          role: roleMapping.get(id) || defaultRole,
         };
       }),
       settings,

@@ -27,7 +27,7 @@ import {
   getRules,
   useEnvironmentState,
   useEnvironments,
-  getAffectedEnvs,
+  getEnabledEnvironments,
 } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
@@ -91,7 +91,7 @@ export default function FeaturePage() {
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
 
-  const enabledEnvs = getAffectedEnvs(data.feature);
+  const enabledEnvs = getEnabledEnvironments(data.feature);
 
   return (
     <div className="contents container-fluid pagecontents">

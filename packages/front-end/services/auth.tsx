@@ -267,7 +267,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             }
             return responseData;
           }
-          // TODO: Handle cases where the token couldn't be refreshed automatically
+          throw new Error(
+            "Your session has expired. Refresh the page to continue."
+          );
         }
 
         throw new Error(responseData.message || "There was an error");
