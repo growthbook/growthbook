@@ -137,7 +137,7 @@ export function getRoles(organization: OrganizationInterface): Role[] {
     },
     {
       id: "analyst",
-      description: "Analyze Experiments",
+      description: "Analyze experiments",
       permissions: [
         "addComments",
         "createIdeas",
@@ -151,7 +151,7 @@ export function getRoles(organization: OrganizationInterface): Role[] {
     },
     {
       id: "experimenter",
-      description: "Manage features AND analyze experiments",
+      description: "Manage features AND Analyze experiments",
       permissions: [
         "addComments",
         "createIdeas",
@@ -177,4 +177,15 @@ export function getRoles(organization: OrganizationInterface): Role[] {
       permissions: [...ALL_PERMISSIONS],
     },
   ];
+}
+
+export function getDefaultRole(
+  organization: OrganizationInterface
+): MemberRoleInfo {
+  return {
+    environments: organization.defaultRole?.environments || [],
+    limitAccessByEnvironment:
+      organization.defaultRole?.limitAccessByEnvironment ?? false,
+    role: organization.defaultRole?.role ?? "collaborator",
+  };
 }

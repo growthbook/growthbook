@@ -46,6 +46,7 @@ import { DataSourceInterface } from "../../types/datasource";
 import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
+import { getDefaultRole } from "../util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -130,11 +131,16 @@ export function getRole(
   userId: string
 ): MemberRoleInfo {
   const member = org.members.find((m) => m.id === userId);
-  return {
-    role: member?.role || getDefaultRole(org),
-    limitAccessByEnvironment: !!member?.limitAccessByEnvironment,
-    environments: member?.environments || [],
-  };
+
+  if (member) {
+    return {
+      role: member.role,
+      limitAccessByEnvironment: !!member.limitAccessByEnvironment,
+      environments: member.environments || [],
+    };
+  }
+
+  return getDefaultRole(org);
 }
 
 export function getNumberOfMembersAndInvites(
@@ -685,9 +691,7 @@ export async function addMemberFromSSOConnection(
   await addMemberToOrg({
     organization,
     userId: req.userId,
-    role: getDefaultRole(organization),
-    limitAccessByEnvironment: false,
-    environments: [],
+    ...getDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(
@@ -701,10 +705,4 @@ export async function addMemberFromSSOConnection(
   }
 
   return organization;
-}
-
-export function getDefaultRole(
-  organization: OrganizationInterface
-): MemberRole {
-  return organization.defaultRole || "collaborator";
 }

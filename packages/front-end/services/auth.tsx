@@ -7,7 +7,11 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/router";
-import { MemberRole, OrganizationInterface } from "back-end/types/organization";
+import {
+  MemberRole,
+  MemberRoleInfo,
+  OrganizationInterface,
+} from "back-end/types/organization";
 import Modal from "../components/Modal";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { DocLink } from "../components/DocLink";
@@ -373,3 +377,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     </AuthContext.Provider>
   );
 };
+
+export function roleHasAccessToEnv(
+  role: MemberRoleInfo,
+  env: string
+): "yes" | "no" | "N/A" {
+  if (["readonly", "collaborator", "designer"].includes(role.role))
+    return "N/A";
+
+  if (role.role === "admin" || !role.limitAccessByEnvironment) return "yes";
+
+  if (role.environments.includes(env)) return "yes";
+
+  return "no";
+}

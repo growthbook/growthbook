@@ -185,7 +185,7 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
-  defaultRole?: MemberRole;
+  defaultRole?: MemberRoleInfo;
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }

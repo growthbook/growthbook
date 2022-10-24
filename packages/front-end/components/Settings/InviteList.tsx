@@ -1,12 +1,14 @@
 import React, { FC, useState, ReactElement } from "react";
 import ConfirmModal from "../ConfirmModal";
-import { useAuth } from "../../services/auth";
+import { roleHasAccessToEnv, useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
 import { Invite, MemberRoleInfo } from "back-end/types/organization";
 import { datetime } from "../../services/dates";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ChangeRoleModal from "./ChangeRoleModal";
 import RoleDisplay from "./RoleDisplay";
+import { useEnvironments } from "../../services/features";
+import { FaCheck, FaTimes } from "react-icons/fa";
 
 type ChangeRoleInfo = {
   roleInfo: MemberRoleInfo;
@@ -26,6 +28,8 @@ const InviteList: FC<{
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
+
+  const environments = useEnvironments();
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -137,72 +141,76 @@ const InviteList: FC<{
             <th>Email</th>
             <th>Date Invited</th>
             <th>Role</th>
+            {environments.map((env) => (
+              <th key={env.id}>{env.id}</th>
+            ))}
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {invites.map(
-            ({
-              email,
-              key,
-              dateCreated,
-              role,
-              limitAccessByEnvironment,
-              environments,
-            }) => (
-              <tr key={key}>
-                <td>{email}</td>
-                <td>{datetime(dateCreated)}</td>
-                <td>
-                  <RoleDisplay
-                    role={role}
-                    limitAccessByEnvironment={limitAccessByEnvironment}
-                    environments={environments}
-                  />
-                </td>
-                <td>
-                  <MoreMenu id={`invite-actions-${key}`}>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRoleModal({
-                          key,
-                          displayInfo: email,
-                          roleInfo: {
-                            role,
-                            limitAccessByEnvironment: !!limitAccessByEnvironment,
-                            environments: environments || [],
-                          },
-                        });
-                      }}
-                    >
-                      Edit Role
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onResend(key, email);
-                      }}
-                    >
-                      Resend Invite
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setDeleteInvite({ email, key });
-                        setResendMessage(null);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </MoreMenu>
-                </td>
-              </tr>
-            )
-          )}
+          {invites.map(({ email, key, dateCreated, ...role }) => (
+            <tr key={key}>
+              <td>{email}</td>
+              <td>{datetime(dateCreated)}</td>
+              <td>
+                <RoleDisplay
+                  role={role.role}
+                  environments={[]}
+                  limitAccessByEnvironment={false}
+                />
+              </td>
+              {environments.map((env) => {
+                const access = roleHasAccessToEnv(role, env.id);
+                return (
+                  <td key={env.id}>
+                    {access === "N/A" ? (
+                      <span className="text-muted">N/A</span>
+                    ) : access === "yes" ? (
+                      <FaCheck className="text-success" />
+                    ) : (
+                      <FaTimes className="text-danger" />
+                    )}
+                  </td>
+                );
+              })}
+              <td>
+                <MoreMenu id={`invite-actions-${key}`}>
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setRoleModal({
+                        key,
+                        displayInfo: email,
+                        roleInfo: role,
+                      });
+                    }}
+                  >
+                    Edit Role
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onResend(key, email);
+                    }}
+                  >
+                    Resend Invite
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDeleteInvite({ email, key });
+                      setResendMessage(null);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </MoreMenu>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

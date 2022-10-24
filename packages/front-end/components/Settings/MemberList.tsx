@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import InviteModal from "./InviteModal";
-import { useAuth } from "../../services/auth";
+import { roleHasAccessToEnv, useAuth } from "../../services/auth";
 import { useUser } from "../../services/UserContext";
 import DeleteButton from "../DeleteButton";
 import { GBAddCircle } from "../Icons";
@@ -10,6 +10,8 @@ import { usingSSO } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import RoleDisplay from "./RoleDisplay";
+import { useEnvironments } from "../../services/features";
+import { FaCheck, FaTimes } from "react-icons/fa";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -21,6 +23,8 @@ const MemberList: FC<{
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     null
   );
+
+  const environments = useEnvironments();
 
   const onInvite = () => {
     setInviting(true);
@@ -64,6 +68,9 @@ const MemberList: FC<{
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            {environments.map((env) => (
+              <th key={env.id}>{env.id}</th>
+            ))}
             <th />
           </tr>
         </thead>
@@ -75,10 +82,24 @@ const MemberList: FC<{
               <td>
                 <RoleDisplay
                   role={member.role}
-                  environments={member.environments}
-                  limitAccessByEnvironment={member.limitAccessByEnvironment}
+                  environments={[]}
+                  limitAccessByEnvironment={false}
                 />
               </td>
+              {environments.map((env) => {
+                const access = roleHasAccessToEnv(member, env.id);
+                return (
+                  <td key={env.id}>
+                    {access === "N/A" ? (
+                      <span className="text-muted">N/A</span>
+                    ) : access === "yes" ? (
+                      <FaCheck className="text-success" />
+                    ) : (
+                      <FaTimes className="text-danger" />
+                    )}
+                  </td>
+                );
+              })}
               <td>
                 {member.id !== userId && (
                   <>
