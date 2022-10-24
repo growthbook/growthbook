@@ -64,7 +64,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
-              permissionsError={!permissions.createFeatures}
+              permissionsError={!permissions.manageFeatures}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -84,7 +84,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
-              permissionsError={!permissions.createFeatures}
+              permissionsError={!permissions.manageFeatures}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {

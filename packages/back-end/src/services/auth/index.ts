@@ -9,7 +9,7 @@ import {
 } from "../organizations";
 import {
   EnvScopedPermission,
-  MemberRole,
+  MemberRoleInfo,
   Permission,
 } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
@@ -146,10 +146,13 @@ export async function processJWT(
           });
         }
 
-        const role: MemberRole = req.admin
-          ? "admin"
+        const roleInfo: MemberRoleInfo = req.admin
+          ? { role: "admin", limitAccessByEnvironment: false, environments: [] }
           : getRole(req.organization, user.id);
-        req.permissions = new Set(getPermissionsByRole(role, req.organization));
+
+        req.permissions = new Set(
+          getPermissionsByRole(roleInfo, req.organization)
+        );
       } else {
         return res.status(404).json({
           status: 404,

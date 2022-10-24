@@ -7,9 +7,11 @@ import {
   GlobalPermission,
   LicenseData,
   MemberRole,
+  ExpandedMember,
   OrganizationInterface,
   OrganizationSettings,
   Permission,
+  Role,
 } from "back-end/types/organization";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
@@ -22,14 +24,15 @@ import {
   useMemo,
   useState,
 } from "react";
-import { MemberInfo } from "../components/Settings/MemberList";
 import { useAuth, UserOrganizations } from "./auth";
 import { isCloud, isSentryEnabled } from "./env";
 import track from "./track";
 import * as Sentry from "@sentry/react";
 
 type OrgSettingsResponse = {
-  organization: OrganizationInterface & { members: MemberInfo[] };
+  organization: OrganizationInterface;
+  members: ExpandedMember[];
+  roles: Role[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
   role: MemberRole;
@@ -43,16 +46,14 @@ interface PermissionFunctions {
   check(permission: EnvScopedPermission, envs: string[]): boolean;
 }
 
-type User = { id: string; email: string; name: string };
-
 export interface UserContextValue {
   userId?: string;
   name?: string;
   email?: string;
   admin?: boolean;
-  role?: string;
+  role?: MemberRole;
   license?: LicenseData;
-  users: Map<string, User>;
+  users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
@@ -62,7 +63,8 @@ export interface UserContextValue {
   accountPlan?: AccountPlan;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
-  organization: Partial<OrganizationInterface & { members: MemberInfo[] }>;
+  organization: Partial<OrganizationInterface>;
+  roles: Role[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
@@ -81,6 +83,7 @@ export const UserContext = createContext<UserContextValue>({
   permissions: { check: () => false },
   settings: {},
   users: new Map(),
+  roles: [],
   commercialFeatures: [],
   getUserDisplay: () => "",
   updateUser: async () => {
@@ -132,14 +135,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [apiCall, setOrganizations]);
 
   const users = useMemo(() => {
-    const userMap = new Map<string, User>();
-    const members = currentOrg?.organization?.members;
+    const userMap = new Map<string, ExpandedMember>();
+    const members = currentOrg?.members;
     if (!members) return userMap;
-    members.forEach((user: MemberInfo) => {
-      userMap.set(user.id, user);
+    members.forEach((member) => {
+      userMap.set(member.id, member);
     });
     return userMap;
-  }, [currentOrg?.organization?.members]);
+  }, [currentOrg?.members]);
 
   const refreshOrganization = useCallback(async () => {
     try {
@@ -152,7 +155,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [apiCall]);
 
-  const role = data?.admin ? "admin" : currentOrg?.role || "unknown";
+  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
   const permissions = new Set(currentOrg?.permissions || []);
 
   const permissionsObj: Partial<Record<Permission, boolean>> = {};
@@ -163,7 +166,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role,
+      role: role,
     };
   }, [orgId, data?.userId, role]);
 
@@ -230,6 +233,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         refreshOrganization,
         role,
+        roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,
           check: (permission: Permission, envs?: string[]): boolean => {

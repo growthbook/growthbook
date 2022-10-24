@@ -22,10 +22,14 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const form = useForm<{
     email: string;
     role: MemberRole;
+    limitAccessByEnvironment: boolean;
+    environments: string[];
   }>({
     defaultValues: {
       email: "",
       role: "admin",
+      limitAccessByEnvironment: false,
+      environments: [],
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
@@ -40,6 +44,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     canSubscribe && activeAndInvitedUsers >= freeSeats
+      ? "Whoops! You reached your free seat limit."
+      : ""
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -48,7 +54,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       <UpgradeModal
         close={close}
         source="invite team"
-        reason="Whoops! You reached your free seat limit."
+        reason={showUpgradeModal}
       />
     );
   }
@@ -57,7 +63,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const inviteArr = value.email.split(",");
 
     if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
-      setShowUpgradeModal(true);
+      setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
     }
 
@@ -194,6 +200,15 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             setRole={(role) => {
               form.setValue("role", role);
             }}
+            limitAccessByEnvironment={form.watch("limitAccessByEnvironment")}
+            setLimitAccessByEnvironment={(envAccess) =>
+              form.setValue("limitAccessByEnvironment", envAccess)
+            }
+            environments={form.watch("environments")}
+            setEnvironments={(envs) => form.setValue("environments", envs)}
+            showUpgradeModal={() =>
+              setShowUpgradeModal("Restrict access by environment.")
+            }
           />
           <InviteModalSubscriptionInfo />
         </>

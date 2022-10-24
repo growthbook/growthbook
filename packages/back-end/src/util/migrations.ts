@@ -13,9 +13,8 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import isEqual from "lodash/isEqual";
-import { OrganizationInterface } from "../../types/organization";
+import { MemberRole, OrganizationInterface } from "../../types/organization";
 import cloneDeep from "lodash/cloneDeep";
-import { ALL_PERMISSIONS, orgHasPremiumFeature } from "./organization.util";
 import { getConfigOrganizationSettings } from "../init/config";
 
 function roundVariationWeight(num: number): number {
@@ -327,104 +326,16 @@ export function upgradeOrganizationDoc(
     ];
   }
 
-  // Using custom roles
-  if (org.useCustomRoles && orgHasPremiumFeature(org, "customRoles")) {
-    // Make sure they at least have an admin role
-    const adminRole = org.roles.find((r) => r.id === "admin");
-    if (adminRole) {
-      adminRole.permissions = [...ALL_PERMISSIONS];
-    } else {
-      org.roles.push({
-        id: "admin",
-        description:
-          "All access + invite teammates and configure organization settings",
-        permissions: [...ALL_PERMISSIONS],
-      });
+  // Rename legacy roles
+  const legacyRoleMap: Record<string, MemberRole> = {
+    designer: "collaborator",
+    developer: "experimenter",
+  };
+  org.members.forEach((m) => {
+    if (m.role in legacyRoleMap) {
+      m.role = legacyRoleMap[m.role];
     }
-  }
-  // Using default roles
-  else {
-    // Rename legacy roles
-    org.members.forEach((m) => {
-      if (m.role === "designer") {
-        m.role = "collaborator";
-      }
-      if (m.role === "developer") {
-        m.role = "experimenter";
-      }
-    });
-
-    org.roles = [
-      {
-        id: "readonly",
-        description: "View all features and experiment results",
-        permissions: [],
-      },
-      {
-        id: "collaborator",
-        description: "Add comments and contribute ideas",
-        permissions: ["addComments", "createIdeas", "createPresentations"],
-        default: true,
-      },
-      {
-        id: "engineer",
-        description: "Manage features",
-        permissions: [
-          "addComments",
-          "createIdeas",
-          "createPresentations",
-          "publishFeatures",
-          "createFeatures",
-          "createFeatureDrafts",
-          "manageTargetingAttributes",
-          "manageEnvironments",
-          "manageNamespaces",
-          "manageSavedGroups",
-        ],
-      },
-      {
-        id: "analyst",
-        description: "Analyze Experiments",
-        permissions: [
-          "addComments",
-          "createIdeas",
-          "createPresentations",
-          "createAnalyses",
-          "createDimensions",
-          "createMetrics",
-          "runQueries",
-          "editDatasourceSettings",
-        ],
-      },
-      {
-        id: "experimenter",
-        description: "Manage features AND analyze experiments",
-        permissions: [
-          "addComments",
-          "createIdeas",
-          "createPresentations",
-          "publishFeatures",
-          "createFeatures",
-          "createFeatureDrafts",
-          "manageTargetingAttributes",
-          "manageEnvironments",
-          "manageNamespaces",
-          "manageSavedGroups",
-          "createAnalyses",
-          "createDimensions",
-          "createMetrics",
-          "runQueries",
-          "editDatasourceSettings",
-        ],
-      },
-      {
-        id: "admin",
-        description:
-          "All access + invite teammates and configure organization settings",
-        permissions: [...ALL_PERMISSIONS],
-      },
-    ];
-  }
+  });
 
   return org;
 }

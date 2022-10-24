@@ -12,7 +12,6 @@ import {
   addMemberFromSSOConnection,
   isEnterpriseSSO,
   validateLoginMethod,
-  getDefaultRole,
 } from "../services/organizations";
 import {
   getSourceIntegrationObject,
@@ -77,6 +76,7 @@ import {
   ALL_PERMISSIONS,
   getAccountPlan,
   getPermissionsByRole,
+  getRoles,
 } from "../util/organization.util";
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -133,7 +133,7 @@ export async function getUser(req: AuthRequest, res: Response) {
       return {
         id: org.id,
         name: org.name,
-        role,
+        ...role,
       };
     }),
   });
@@ -402,13 +402,20 @@ export async function putUserName(
 }
 
 export async function putMemberRole(
-  req: AuthRequest<{ role: MemberRole }, { id: string }>,
+  req: AuthRequest<
+    {
+      role: MemberRole;
+      limitAccessByEnvironment: boolean;
+      environments: string[];
+    },
+    { id: string }
+  >,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
-  const { role } = req.body;
+  const { role, limitAccessByEnvironment, environments } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -422,6 +429,8 @@ export async function putMemberRole(
   org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
+      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
+      m.environments = environments || [];
       found = true;
     }
   });
@@ -449,13 +458,20 @@ export async function putMemberRole(
 }
 
 export async function putInviteRole(
-  req: AuthRequest<{ role: MemberRole }, { key: string }>,
+  req: AuthRequest<
+    {
+      role: MemberRole;
+      limitAccessByEnvironment: boolean;
+      environments: string[];
+    },
+    { key: string }
+  >,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { role } = req.body;
+  const { role, limitAccessByEnvironment, environments } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -464,6 +480,8 @@ export async function putInviteRole(
   org.invites.forEach((m) => {
     if (m.key === key) {
       m.role = role;
+      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
+      m.environments = environments || [];
       found = true;
     }
   });
@@ -523,11 +541,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     disableSelfServeBilling,
   } = org;
 
-  const roleMapping: Map<string, MemberRole> = new Map();
-  members.forEach((m) => {
-    roleMapping.set(m.id, m.role);
-  });
-
   const users = await getUsersByIds(members.map((m) => m.id));
 
   const apiKeys = await getAllApiKeysByOrganization(org.id);
@@ -536,8 +549,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const defaultRole = getDefaultRole(org);
-  const role = roleMapping.get(userId) || defaultRole;
+  const roleInfo = getRole(org, userId);
 
   const features = accountFeatures[getAccountPlan(org)];
 
@@ -547,10 +559,19 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     enterpriseSSO,
     permissions: req.admin
       ? [...ALL_PERMISSIONS]
-      : getPermissionsByRole(role, org),
-    role,
+      : getPermissionsByRole(roleInfo, org),
+    ...roleInfo,
     accountPlan: getAccountPlan(org),
     commercialFeatures: [...features],
+    roles: getRoles(org),
+    members: users.map(({ id, email, name }) => {
+      return {
+        id,
+        email,
+        name,
+        ...getRole(org, id),
+      };
+    }),
     organization: {
       invites,
       ownerEmail,
@@ -561,15 +582,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       disableSelfServeBilling,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      members: users.map(({ id, email, name }) => {
-        return {
-          id,
-          email,
-          name,
-          role: roleMapping.get(id) || defaultRole,
-        };
-      }),
       settings,
+      members: org.members,
     },
   });
 }
@@ -793,15 +807,23 @@ export async function postInvite(
   req: AuthRequest<{
     email: string;
     role: MemberRole;
+    limitAccessByEnvironments: boolean;
+    environments: string[];
   }>,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { email, role } = req.body;
+  const { email, role, limitAccessByEnvironments, environments } = req.body;
 
-  const { emailSent, inviteUrl } = await inviteUser(org, email, role);
+  const { emailSent, inviteUrl } = await inviteUser({
+    organization: org,
+    email,
+    role,
+    limitAccessByEnvironment: !!limitAccessByEnvironments,
+    environments: environments || [],
+  });
 
   return res.status(200).json({
     status: 200,

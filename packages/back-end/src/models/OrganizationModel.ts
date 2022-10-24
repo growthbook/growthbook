@@ -19,6 +19,8 @@ const organizationSchema = new mongoose.Schema({
       _id: false,
       id: String,
       role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
     },
   ],
   invites: [
@@ -28,16 +30,8 @@ const organizationSchema = new mongoose.Schema({
       key: String,
       dateCreated: Date,
       role: String,
-    },
-  ],
-  useCustomRoles: Boolean,
-  roles: [
-    {
-      _id: false,
-      id: String,
-      description: String,
-      permissions: [String],
-      default: Boolean,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
     },
   ],
   stripeCustomerId: String,
@@ -101,6 +95,8 @@ export async function createOrganization(
       {
         id: userId,
         role: "admin",
+        limitAccessByEnvironment: false,
+        environments: [],
       },
     ],
     id: uniqid("org_"),

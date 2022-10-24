@@ -88,10 +88,10 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           <ul className="mb-3 pl-3">
             <li>Up to 100 team members</li>
             <li>
-              Advanced permissioning*{" "}
+              Advanced permissioning{" "}
               <Tooltip
                 body={
-                  "Per-environment and per-project permissions. Allow someone full access on dev, but readonly on production. Coming soon."
+                  "Per-environment permissions. Allow someone to change a feature in dev, but not production."
                 }
               />
             </li>

@@ -225,7 +225,7 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.createFeatures &&
+            {permissions.manageFeatures &&
               permissions.check("publishFeatures", enabledEnvs) && (
                 <DeleteButton
                   useIcon={false}
@@ -240,7 +240,7 @@ export default function FeaturePage() {
                   text="Delete feature"
                 />
               )}
-            {permissions.createFeatures &&
+            {permissions.manageFeatures &&
               permissions.check("publishFeatures", enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
@@ -306,7 +306,7 @@ export default function FeaturePage() {
             ) : (
               <em className="text-muted">none</em>
             )}
-            {permissions.createFeatures &&
+            {permissions.manageFeatures &&
               permissions.check("publishFeatures", enabledEnvs) && (
                 <a
                   className="ml-2 cursor-pointer"
@@ -320,7 +320,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
-          {permissions.createFeatureDrafts && (
+          {permissions.manageFeatures && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
@@ -336,7 +336,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Owner: {data.feature.owner ? data.feature.owner : "None"}
-          {permissions.createFeatures && (
+          {permissions.manageFeatures && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditOwnerModal(true)}
@@ -366,8 +366,8 @@ export default function FeaturePage() {
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
             value={data.feature.description}
-            canEdit={permissions.createFeatureDrafts}
-            canCreate={permissions.createFeatureDrafts}
+            canEdit={permissions.manageFeatures}
+            canCreate={permissions.manageFeatures}
             save={async (description) => {
               await apiCall(`/feature/${data.feature.id}`, {
                 method: "PUT",

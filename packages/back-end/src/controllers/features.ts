@@ -121,7 +121,8 @@ export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { id, environmentSettings, ...otherProps } = req.body;
   const { org, userId, email, userName } = getOrgFromReq(req);
@@ -192,7 +193,7 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageFeatures");
 
   const { org, email, userId, userName } = getOrgFromReq(req);
   const { id } = req.params;
@@ -252,6 +253,7 @@ export async function postFeatureDiscard(
   req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -284,6 +286,7 @@ export async function postFeatureDraft(
   >,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -313,6 +316,7 @@ export async function postFeatureRule(
   req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -335,6 +339,7 @@ export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -360,6 +365,7 @@ export async function putFeatureRule(
   >,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -382,7 +388,7 @@ export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageFeatures");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -424,6 +430,7 @@ export async function postFeatureMoveRule(
   >,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -453,6 +460,7 @@ export async function deleteFeatureRule(
   req: AuthRequest<{ environment: string; i: number }, { id: string }>,
   res: Response
 ) {
+  req.checkPermissions("manageFeatures");
   req.checkPermissions("createFeatureDrafts");
 
   const { org } = getOrgFromReq(req);
@@ -480,7 +488,7 @@ export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatureDrafts");
+  req.checkPermissions("manageFeatures");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -492,9 +500,8 @@ export async function putFeature(
 
   const updates = req.body;
 
-  // Changing the project can affect production if using project-scoped api keys
+  // Changing the project can affect whether or not it's published if using project-scoped api keys
   if ("project" in updates) {
-    req.checkPermissions("createFeatures");
     req.checkPermissions("publishFeatures", getEnabledEnvironments(feature));
   }
 
@@ -556,7 +563,8 @@ export async function deleteFeatureById(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageFeatures");
+  req.checkPermissions("createFeatureDrafts");
 
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
@@ -586,7 +594,8 @@ export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createFeatures");
+  req.checkPermissions("manageFeatures");
+
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
   const feature = await getFeature(org.id, id);

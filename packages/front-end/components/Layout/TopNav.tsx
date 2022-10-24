@@ -18,6 +18,7 @@ import Head from "next/head";
 import { ThemeToggler } from "./ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
 import AccountPlanNotices from "./AccountPlanNotices";
+import RoleDisplay from "../Settings/RoleDisplay";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -32,7 +33,9 @@ const TopNav: FC<{
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
-  const { name, email, updateUser, role } = useUser();
+  const { name, email, updateUser, role, userId, users } = useUser();
+
+  const user = users.get(userId);
 
   const { datasources } = useDefinitions();
 
@@ -196,7 +199,11 @@ const TopNav: FC<{
             <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
               <div className="text-muted">{email}</div>
               {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
-              <div className="badge badge-secondary">{role}</div>
+              <RoleDisplay
+                role={role}
+                environments={user?.environments || []}
+                limitAccessByEnvironment={!!user?.limitAccessByEnvironment}
+              />
             </div>
             {datasources?.length > 0 && (
               <>

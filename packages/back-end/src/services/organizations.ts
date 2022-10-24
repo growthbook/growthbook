@@ -10,7 +10,13 @@ import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  Invite,
+  Member,
+  MemberRole,
+  MemberRoleInfo,
+  OrganizationInterface,
+} from "../../types/organization";
 import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
@@ -122,11 +128,13 @@ export async function getConfidenceLevelsForOrg(id: string) {
 export function getRole(
   org: OrganizationInterface,
   userId: string
-): MemberRole {
-  return (
-    org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
-    getDefaultRole(org)
-  );
+): MemberRoleInfo {
+  const member = org.members.find((m) => m.id === userId);
+  return {
+    role: member?.role || getDefaultRole(org),
+    limitAccessByEnvironment: !!member?.limitAccessByEnvironment,
+    environments: member?.environments || [],
+  };
 }
 
 export function getNumberOfMembersAndInvites(
@@ -184,25 +192,35 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
-export async function addMemberToOrg(
-  org: OrganizationInterface,
-  userId: string,
-  role: MemberRole
-) {
+export async function addMemberToOrg({
+  organization,
+  userId,
+  role,
+  environments,
+  limitAccessByEnvironment,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+}) {
   // If memebr is already in the org, skip
-  if (org.members.find((m) => m.id === userId)) {
+  if (organization.members.find((m) => m.id === userId)) {
     return;
   }
 
-  const members = [
-    ...org.members,
+  const members: Member[] = [
+    ...organization.members,
     {
       id: userId,
       role,
+      limitAccessByEnvironment,
+      environments,
     },
   ];
 
-  await updateOrganization(org.id, { members });
+  await updateOrganization(organization.id, { members });
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -219,16 +237,21 @@ export async function acceptInvite(key: string, userId: string) {
   }
 
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
+  if (!invite) {
+    throw new Error("Could not find invitation with that key");
+  }
 
   // Remove invite
   const invites = organization.invites.filter((invite) => invite.key !== key);
 
   // Add to member list
-  const members = [
+  const members: Member[] = [
     ...organization.members,
     {
       id: userId,
-      role: invite?.role || "admin",
+      role: invite.role || "admin",
+      limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
+      environments: invite.environments || [],
     },
   ];
 
@@ -240,11 +263,19 @@ export async function acceptInvite(key: string, userId: string) {
   return organization;
 }
 
-export async function inviteUser(
-  organization: OrganizationInterface,
-  email: string,
-  role: MemberRole = "admin"
-) {
+export async function inviteUser({
+  organization,
+  email,
+  role = "admin",
+  limitAccessByEnvironment,
+  environments,
+}: {
+  organization: OrganizationInterface;
+  email: string;
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+}) {
   organization.invites = organization.invites || [];
 
   // User is already invited
@@ -271,13 +302,15 @@ export async function inviteUser(
   const key = buffer.toString("base64").replace(/[^a-zA-Z0-9]+/g, "");
 
   // Save invite in Mongo
-  const invites = [
+  const invites: Invite[] = [
     ...organization.invites,
     {
       email,
       key,
       dateCreated: new Date(),
       role,
+      limitAccessByEnvironment,
+      environments,
     },
   ];
 
@@ -649,7 +682,13 @@ export async function addMemberFromSSOConnection(
   }
   if (!organization) return null;
 
-  await addMemberToOrg(organization, req.userId, getDefaultRole(organization));
+  await addMemberToOrg({
+    organization,
+    userId: req.userId,
+    role: getDefaultRole(organization),
+    limitAccessByEnvironment: false,
+    environments: [],
+  });
   try {
     await sendNewMemberEmail(
       req.name || "",
@@ -667,9 +706,5 @@ export async function addMemberFromSSOConnection(
 export function getDefaultRole(
   organization: OrganizationInterface
 ): MemberRole {
-  return (
-    organization.roles.find((r) => r.default)?.id ||
-    organization.roles[0]?.id ||
-    "collaborator"
-  );
+  return organization.defaultRole || "collaborator";
 }

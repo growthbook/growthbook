@@ -1,44 +1,59 @@
 import Stripe from "stripe";
-import { ALL_PERMISSIONS } from "../src/util/organization.util";
+import {
+  ENV_SCOPED_PERMISSIONS,
+  GLOBAL_PERMISSIONS,
+} from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
 
-export type EnvScopedPermission = Extract<
-  typeof ALL_PERMISSIONS[number],
-  "publishFeatures"
->;
-export type GlobalPermission = Exclude<
-  typeof ALL_PERMISSIONS[number],
-  EnvScopedPermission
->;
+export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
+export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
 
 export type Permission =
   | GlobalPermission
   | EnvScopedPermission
   | `${EnvScopedPermission}.${string}`;
 
-export type MemberRole = string;
+export type MemberRole =
+  | "readonly"
+  | "collaborator"
+  | "designer"
+  | "analyst"
+  | "developer"
+  | "engineer"
+  | "experimenter"
+  | "admin";
 
 export type Role = {
-  id: string;
+  id: MemberRole;
   description: string;
   permissions: Permission[];
   default?: boolean;
 };
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type CommercialFeature = "customRoles" | "sso";
+export type CommercialFeature = "sso" | "env-permissions";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
-export interface Invite {
+export interface MemberRoleInfo {
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+}
+
+export type ExpandedMember = {
+  id: string;
+  email: string;
+  name: string;
+} & MemberRoleInfo;
+
+export interface Invite extends MemberRoleInfo {
   email: string;
   key: string;
   dateCreated: Date;
-  role: MemberRole;
 }
 
-export interface Member {
+export interface Member extends MemberRoleInfo {
   id: string;
-  role: MemberRole;
 }
 
 export interface NorthStarMetric {
@@ -170,9 +185,7 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
-  useCustomRoles?: boolean;
-  roles: Role[];
-
+  defaultRole?: MemberRole;
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }

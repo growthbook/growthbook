@@ -4,27 +4,21 @@ import { useAuth } from "../../services/auth";
 import { useUser } from "../../services/UserContext";
 import DeleteButton from "../DeleteButton";
 import { GBAddCircle } from "../Icons";
-import { MemberRole } from "back-end/types/organization";
+import { ExpandedMember } from "back-end/types/organization";
 import MoreMenu from "../Dropdown/MoreMenu";
 import { usingSSO } from "../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
-import ChangeRoleModal, { ChangeRoleInfo } from "./ChangeRoleModal";
-
-export type MemberInfo = {
-  id: string;
-  name: string;
-  email: string;
-  role: MemberRole;
-};
+import ChangeRoleModal from "./ChangeRoleModal";
+import RoleDisplay from "./RoleDisplay";
 
 const MemberList: FC<{
   mutate: () => void;
 }> = ({ mutate }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
-  const { userId, organization } = useUser();
-  const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
-  const [passwordResetModal, setPasswordResetModal] = useState<MemberInfo>(
+  const { userId, users } = useUser();
+  const [roleModal, setRoleModal] = useState<string>("");
+  const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     null
   );
 
@@ -32,22 +26,27 @@ const MemberList: FC<{
     setInviting(true);
   };
 
+  const roleModalUser = users.get(roleModal);
+
   return (
     <div className="my-4">
       <h5>Active Members</h5>
       {inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
-      {roleModal && (
+      {roleModal && roleModalUser && (
         <ChangeRoleModal
-          roleInfo={roleModal}
+          displayInfo={roleModalUser.name}
+          roleInfo={{
+            environments: roleModalUser.environments || [],
+            limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
+            role: roleModalUser.role,
+          }}
           close={() => setRoleModal(null)}
-          onConfirm={async (role) => {
-            await apiCall(`/member/${roleModal.uniqueKey}/role`, {
+          onConfirm={async (value) => {
+            await apiCall(`/member/${roleModal}/role`, {
               method: "PUT",
-              body: JSON.stringify({
-                role,
-              }),
+              body: JSON.stringify(value),
             });
             mutate();
           }}
@@ -69,24 +68,26 @@ const MemberList: FC<{
           </tr>
         </thead>
         <tbody>
-          {organization.members?.map((member: MemberInfo) => (
-            <tr key={member.id}>
+          {Array.from(users).map(([id, member]) => (
+            <tr key={id}>
               <td>{member.name}</td>
               <td>{member.email}</td>
-              <td>{member.role}</td>
+              <td>
+                <RoleDisplay
+                  role={member.role}
+                  environments={member.environments}
+                  limitAccessByEnvironment={member.limitAccessByEnvironment}
+                />
+              </td>
               <td>
                 {member.id !== userId && (
                   <>
-                    <MoreMenu id="test">
+                    <MoreMenu id={`member-actions-${id}`}>
                       <button
                         className="dropdown-item"
                         onClick={(e) => {
                           e.preventDefault();
-                          setRoleModal({
-                            uniqueKey: member.id,
-                            displayInfo: member.name,
-                            role: member.role,
-                          });
+                          setRoleModal(member.id);
                         }}
                       >
                         Edit Role
