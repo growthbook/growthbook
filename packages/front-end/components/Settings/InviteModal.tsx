@@ -9,7 +9,7 @@ import { MemberRole } from "back-end/types/organization";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "./UpgradeModal";
-import { useUser } from "../../services/UserContext";
+import useOrgSettings from "../../hooks/useOrgSettings";
 
 type InviteResult = {
   email: string;
@@ -20,7 +20,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
-  const { organization } = useUser();
+  const { defaultRole } = useOrgSettings();
 
   const form = useForm<{
     email: string;
@@ -33,7 +33,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       role: "admin",
       limitAccessByEnvironment: false,
       environments: [],
-      ...organization.defaultRole,
+      ...defaultRole,
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(

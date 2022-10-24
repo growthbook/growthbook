@@ -182,10 +182,10 @@ export function getRoles(organization: OrganizationInterface): Role[] {
 export function getDefaultRole(
   organization: OrganizationInterface
 ): MemberRoleInfo {
+  const defaultRole = organization.settings?.defaultRole;
   return {
-    environments: organization.defaultRole?.environments || [],
-    limitAccessByEnvironment:
-      organization.defaultRole?.limitAccessByEnvironment ?? false,
-    role: organization.defaultRole?.role ?? "collaborator",
+    environments: defaultRole?.environments || [],
+    limitAccessByEnvironment: defaultRole?.limitAccessByEnvironment ?? false,
+    role: defaultRole?.role ?? "collaborator",
   };
 }

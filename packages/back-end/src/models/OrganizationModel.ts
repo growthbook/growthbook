@@ -34,11 +34,6 @@ const organizationSchema = new mongoose.Schema({
       environments: [String],
     },
   ],
-  defaultRole: {
-    role: String,
-    limitAccessByEnvironment: Boolean,
-    environments: [String],
-  },
   stripeCustomerId: String,
   discountCode: String,
   priceId: String,

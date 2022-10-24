@@ -126,6 +126,7 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
+  defaultRole?: MemberRoleInfo;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
@@ -185,7 +186,6 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
-  defaultRole?: MemberRoleInfo;
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
