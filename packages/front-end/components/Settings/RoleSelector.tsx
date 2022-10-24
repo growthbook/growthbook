@@ -69,7 +69,7 @@ const RoleSelector: FC<{
         <div className="appbox bg-light px-3 pt-3">
           <div className="form-group">
             <Toggle
-              disabled={!hasCommercialFeature("env-permissions")}
+              disabled={!canLimitEnvAccess}
               id={"role-modal"}
               value={limitEnvAccess}
               setValue={setLimitAccessByEnvironment}
