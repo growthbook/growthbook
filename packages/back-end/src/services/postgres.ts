@@ -25,16 +25,12 @@ export function runPostgresQuery<T>(
       }
     }
 
-    console.log("values", values);
-
     const settings: ClientConfig = {
       ...conn,
       ssl,
       // Give it 10 seconds to connect
       connectionTimeoutMillis: 10000,
     };
-
-    console.log("Running the postgres query", sql);
 
     const client = new Client(settings);
     client

@@ -92,11 +92,32 @@ export async function testDataSourceConnection(
 export async function testQuery(
   datasource: DataSourceInterface,
   sql: string,
-  minExperimentLength: number
+  minExperimentLength: number,
+  startDate?: Date
   // eslint-disable-next-line
 ): Promise<any> {
   const integration = getSourceIntegrationObject(datasource);
   return integration.testQuery
-    ? await integration.testQuery(sql, minExperimentLength)
+    ? await integration.testQuery(sql, minExperimentLength, startDate)
     : null;
+}
+
+export function getSelectQueryColumns(sql: string): string[] {
+  const formattedQuery = sql.replace(/(\r\n|\n|\r)/gm, "");
+  const selectStatement = formattedQuery.split("SELECT");
+  const rawColumns = selectStatement[1].split("FROM");
+  const columns = rawColumns[0].split(",");
+
+  const formattedColumns = columns.map((column) => {
+    const containsAs = column.search(/as/i);
+
+    if (containsAs !== -1) {
+      const columnArr = column.split("as");
+      return columnArr[1].trim();
+    } else {
+      return column.trim();
+    }
+  });
+
+  return formattedColumns;
 }

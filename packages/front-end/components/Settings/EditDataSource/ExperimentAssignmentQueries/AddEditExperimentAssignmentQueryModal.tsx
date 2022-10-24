@@ -28,7 +28,7 @@ type TestQueryResults = {
   extraColumns?: string[];
   errorMessage?: string;
   duration?: string;
-  warningMessage?: string;
+  noRowsReturned: boolean;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
@@ -43,6 +43,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   >();
   const [queryError, setQueryError] = useState<null | string>();
   const [queryWarnings, setQueryWarnings] = useState<string[]>([]);
+  const [noRowsReturned, setNoRowsReturned] = useState(false);
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -119,6 +120,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     setQueryError(null);
     setQuerySuccessMessage(null);
     setQueryWarnings([]);
+    setNoRowsReturned(false);
 
     const value: ExposureQuery = {
       name: exposureQuery.name,
@@ -157,9 +159,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         setQueryWarnings(res.extraColumns);
       }
 
-      if (res.warningMessage) {
-        const warningsArr = [];
-        setQueryWarnings(warningsArr.push(res.warningMessage));
+      if (res.noRowsReturned) {
+        setNoRowsReturned(true);
       }
     } catch (e) {
       setQueryError(e.message);
@@ -208,7 +209,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
             />
 
             {querySuccessMessage && (
-              <div className="alert alert-success">{querySuccessMessage}</div>
+              <div className="alert alert-success">
+                {querySuccessMessage}
+                {noRowsReturned && " However, no rows were returned."}
+              </div>
             )}
             {queryWarnings.length > 0 && (
               <div className="alert alert-warning">
@@ -281,6 +285,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                       </li>
                     </>
                   )}
+                  {userEnteredDimensions &&
+                    userEnteredDimensions.map((dimension) => {
+                      return (
+                        <li key={dimension}>
+                          <code>{dimension}</code>
+                        </li>
+                      );
+                    })}
                 </ul>
                 <div>
                   Any additional columns you select can be listed as dimensions

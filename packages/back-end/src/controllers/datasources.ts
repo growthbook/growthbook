@@ -13,6 +13,7 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
+  getSelectQueryColumns,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -496,6 +497,7 @@ export async function validateExposureQuery(
     query: string;
     id: string;
     requiredColumns: string[];
+    startDate?: Date;
   }>,
   res: Response
 ) {
@@ -503,8 +505,7 @@ export async function validateExposureQuery(
 
   const { org } = getOrgFromReq(req);
 
-  console.log("org", org);
-  const { query, id, requiredColumns } = req.body;
+  const { query, id, requiredColumns, startDate } = req.body;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
@@ -514,20 +515,27 @@ export async function validateExposureQuery(
   const minExperimentLength = org.settings?.pastExperimentsMinLength || 5;
 
   try {
-    const testResults = await testQuery(datasource, query, minExperimentLength);
-
-    if (testResults?.result?.length === 0) {
-      return res.status(200).json({
-        status: 200,
-        warningMessage: "No rows were returned.",
-      });
-    }
+    const { results, duration } = await testQuery(
+      datasource,
+      query,
+      minExperimentLength,
+      startDate
+    );
 
     const extraColumns = [];
 
-    if (testResults?.result) {
-      // Identify if there were any extra columns included in the query.
-      for (const column in testResults.result[0]) {
+    if (results?.length === 0) {
+      const columns = getSelectQueryColumns(query);
+      columns.forEach((column) => {
+        if (
+          column !== "*" &&
+          !requiredColumns.find((index) => index === column)
+        ) {
+          extraColumns.push(column);
+        }
+      });
+    } else {
+      for (const column in results[0]) {
         if (!requiredColumns.find((index) => index === column)) {
           extraColumns.push(column);
         }
@@ -537,7 +545,8 @@ export async function validateExposureQuery(
     res.status(200).json({
       status: 200,
       extraColumns,
-      duration: testResults.duration,
+      duration: duration,
+      noRowsReturned: results.length === 0,
     });
   } catch (e) {
     res.status(200).json({

@@ -438,15 +438,21 @@ export default abstract class SqlIntegration
     });
   }
 
-  // eslint-disable-next-line
-  async testQuery(query: string, minExperimentLength: number): Promise<any> {
+  async testQuery(
+    query: string,
+    minExperimentLength: number,
+    startDate?: Date
+    // eslint-disable-next-line
+  ): Promise<any> {
     const limitedQuery = replaceSQLVars(
-      `SELECT * FROM (${query}) as sub_query\nLIMIT 1`,
+      `SELECT * FROM (${query}) as sub_query\nLIMIT 5`,
       {
-        startDate: new Date(
-          new Date().setDate(new Date().getDate() - minExperimentLength)
-        ), // How should this work, if this is for an experiment that has no phases, should it just be now - min experiment length set in the app?
-        // endDate: new Date(),
+        startDate:
+          startDate ||
+          // If no start date, we'll take current - minExperimentLength to define a start date
+          new Date(
+            new Date().setDate(new Date().getDate() - minExperimentLength)
+          ),
       }
     );
     const startTime = Date.now();
