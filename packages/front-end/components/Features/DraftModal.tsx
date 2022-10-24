@@ -98,10 +98,12 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     return diffs;
   }, [feature]);
 
-  const hasPermission =
+  const hasPermission = permissions.check(
+    "publishFeatures",
     "defaultValue" in feature.draft
       ? getEnabledEnvironments(feature)
-      : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}));
+      : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}))
+  );
 
   return (
     <Modal

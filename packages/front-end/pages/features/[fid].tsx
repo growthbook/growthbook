@@ -28,6 +28,7 @@ import {
   useEnvironmentState,
   useEnvironments,
   getEnabledEnvironments,
+  getAffectedEnvs,
 } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
@@ -92,6 +93,18 @@ export default function FeaturePage() {
   const isArchived = data.feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
+
+  const hasDraftPublishPermission =
+    isDraft &&
+    permissions.check(
+      "publishFeatures",
+      "defaultValue" in data.feature.draft
+        ? getEnabledEnvironments(data.feature)
+        : getAffectedEnvs(
+            data.feature,
+            Object.keys(data.feature.draft?.rules || {})
+          )
+    );
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -189,7 +202,7 @@ export default function FeaturePage() {
               setDraftModal(true);
             }}
           >
-            Review and Publish
+            Review{hasDraftPublishPermission && " and Publish"}
           </button>
         </div>
       )}

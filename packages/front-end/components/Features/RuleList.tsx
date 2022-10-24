@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules } from "../../services/features";
+import usePermissions from "../../hooks/usePermissions";
 
 export default function RuleList({
   feature,
@@ -36,6 +37,7 @@ export default function RuleList({
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string>(null);
   const [items, setItems] = useState(getRules(feature, environment));
+  const permissions = usePermissions();
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -70,6 +72,11 @@ export default function RuleList({
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
+        if (!permissions.manageFeatures || !permissions.createFeatureDrafts) {
+          setActiveId(null);
+          return;
+        }
+
         if (active.id !== over.id) {
           const oldIndex = getRuleIndex(active.id);
           const newIndex = getRuleIndex(over.id);
@@ -92,6 +99,9 @@ export default function RuleList({
         setActiveId(null);
       }}
       onDragStart={({ active }) => {
+        if (!permissions.manageFeatures || !permissions.createFeatureDrafts) {
+          return;
+        }
         setActiveId(active.id);
       }}
     >

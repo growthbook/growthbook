@@ -46,6 +46,34 @@ interface PermissionFunctions {
   check(permission: EnvScopedPermission, envs: string[]): boolean;
 }
 
+export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
+  addComments: false,
+  createAnalyses: false,
+  createDatasources: false,
+  createDimensions: false,
+  createFeatureDrafts: false,
+  createIdeas: false,
+  createMetrics: false,
+  createPresentations: false,
+  createSegments: false,
+  editDatasourceSettings: false,
+  manageApiKeys: false,
+  manageBilling: false,
+  manageEnvironments: false,
+  manageFeatures: false,
+  manageNamespaces: false,
+  manageNorthStarMetric: false,
+  manageProjects: false,
+  manageSavedGroups: false,
+  manageTags: false,
+  manageTargetingAttributes: false,
+  manageTeam: false,
+  manageWebhooks: false,
+  organizationSettings: false,
+  runQueries: false,
+  superDelete: false,
+};
+
 export interface UserContextValue {
   userId?: string;
   name?: string;
@@ -57,7 +85,7 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
-  permissions: Partial<Record<GlobalPermission, boolean>> & PermissionFunctions;
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
@@ -80,7 +108,7 @@ interface UserResponse {
 }
 
 export const UserContext = createContext<UserContextValue>({
-  permissions: { check: () => false },
+  permissions: { ...DEFAULT_PERMISSIONS, check: () => false },
   settings: {},
   users: new Map(),
   roles: [],
@@ -158,7 +186,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
   const permissions = new Set(currentOrg?.permissions || []);
 
-  const permissionsObj: Partial<Record<Permission, boolean>> = {};
+  const permissionsObj: Record<GlobalPermission, boolean> = {
+    ...DEFAULT_PERMISSIONS,
+  };
   permissions.forEach((p) => (permissionsObj[p] = true));
 
   // Update current user data for telemetry data
