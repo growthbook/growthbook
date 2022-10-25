@@ -94,10 +94,13 @@ export default function FeaturePage() {
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
 
+  const project = data.feature.project;
+
   const hasDraftPublishPermission =
     isDraft &&
     permissions.check(
       "publishFeatures",
+      project,
       "defaultValue" in data.feature.draft
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(
@@ -238,8 +241,8 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.manageFeatures &&
-              permissions.check("publishFeatures", enabledEnvs) && (
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
                 <DeleteButton
                   useIcon={false}
                   displayName="Feature"
@@ -253,8 +256,8 @@ export default function FeaturePage() {
                   text="Delete feature"
                 />
               )}
-            {permissions.manageFeatures &&
-              permissions.check("publishFeatures", enabledEnvs) && (
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
                     await apiCall(`/feature/${data.feature.id}/archive`, {
@@ -319,8 +322,8 @@ export default function FeaturePage() {
             ) : (
               <em className="text-muted">none</em>
             )}
-            {permissions.manageFeatures &&
-              permissions.check("publishFeatures", enabledEnvs) && (
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
                 <a
                   className="ml-2 cursor-pointer"
                   onClick={() => setEditProjectModal(true)}
@@ -333,7 +336,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
-          {permissions.manageFeatures && (
+          {permissions.check("manageFeatures", project) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
@@ -349,7 +352,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Owner: {data.feature.owner ? data.feature.owner : "None"}
-          {permissions.manageFeatures && (
+          {permissions.check("manageFeatures", project) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditOwnerModal(true)}
@@ -379,8 +382,8 @@ export default function FeaturePage() {
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
             value={data.feature.description}
-            canEdit={permissions.manageFeatures}
-            canCreate={permissions.manageFeatures}
+            canEdit={permissions.check("manageFeatures", project)}
+            canCreate={permissions.check("manageFeatures", project)}
             save={async (description) => {
               await apiCall(`/feature/${data.feature.id}`, {
                 method: "PUT",
@@ -424,7 +427,7 @@ export default function FeaturePage() {
 
       <h3>
         Default Value
-        {permissions.createFeatureDrafts && (
+        {permissions.check("createFeatureDrafts", project) && (
           <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
             <GBEdit />
           </a>
@@ -480,7 +483,7 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      {permissions.createFeatureDrafts && (
+      {permissions.check("createFeatureDrafts", project) && (
         <div className="row">
           <div className="col mb-3">
             <div
@@ -580,7 +583,11 @@ export default function FeaturePage() {
 
       <div className="mb-4">
         <h3>Comments</h3>
-        <DiscussionThread type="feature" id={data.feature.id} />
+        <DiscussionThread
+          type="feature"
+          id={data.feature.id}
+          project={data.feature.project}
+        />
       </div>
     </div>
   );

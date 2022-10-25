@@ -308,6 +308,15 @@ export function upgradeOrganizationDoc(
     delete org.settings.implementationTypes;
   }
 
+  // Add a default role if one doesn't exist
+  if (!org.settings.defaultRole) {
+    org.settings.defaultRole = {
+      role: "collaborator",
+      environments: [],
+      limitAccessByEnvironment: false,
+    };
+  }
+
   // Add settings from config.json
   const configSettings = getConfigOrganizationSettings();
   org.settings = Object.assign({}, org.settings || {}, configSettings);

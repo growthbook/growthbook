@@ -67,12 +67,16 @@ export default function RuleList({
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
+  const canEdit =
+    permissions.check("manageFeatures", feature.project) &&
+    permissions.check("createFeatureDrafts", feature.project);
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
-        if (!permissions.manageFeatures || !permissions.createFeatureDrafts) {
+        if (!canEdit) {
           setActiveId(null);
           return;
         }
@@ -99,7 +103,7 @@ export default function RuleList({
         setActiveId(null);
       }}
       onDragStart={({ active }) => {
-        if (!permissions.manageFeatures || !permissions.createFeatureDrafts) {
+        if (!canEdit) {
           return;
         }
         setActiveId(active.id);

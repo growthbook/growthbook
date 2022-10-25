@@ -22,10 +22,12 @@ import { getAllTags } from "../models/TagModel";
 import { UserModel } from "../models/UserModel";
 import {
   Invite,
-  MemberRole,
+  MemberRoleInfo,
+  MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  Permission,
 } from "../../types/organization";
 import {
   getWatchedAudits,
@@ -402,20 +404,18 @@ export async function putUserName(
 }
 
 export async function putMemberRole(
-  req: AuthRequest<
-    {
-      role: MemberRole;
-      limitAccessByEnvironment: boolean;
-      environments: string[];
-    },
-    { id: string }
-  >,
+  req: AuthRequest<MemberRoleWithProjects, { id: string }>,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
-  const { role, limitAccessByEnvironment, environments } = req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -431,6 +431,7 @@ export async function putMemberRole(
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
+      m.projectRoles = projectRoles || [];
       found = true;
     }
   });
@@ -458,20 +459,18 @@ export async function putMemberRole(
 }
 
 export async function putInviteRole(
-  req: AuthRequest<
-    {
-      role: MemberRole;
-      limitAccessByEnvironment: boolean;
-      environments: string[];
-    },
-    { key: string }
-  >,
+  req: AuthRequest<MemberRoleWithProjects, { key: string }>,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { role, limitAccessByEnvironment, environments } = req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -482,6 +481,7 @@ export async function putInviteRole(
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
+      m.projectRoles = projectRoles || [];
       found = true;
     }
   });
@@ -553,14 +553,52 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const features = accountFeatures[getAccountPlan(org)];
 
+  const permissions: Record<string, Permission[]> = {
+    global: req.admin
+      ? [...ALL_PERMISSIONS]
+      : getPermissionsByRole(roleInfo, org),
+  };
+  const user = members.find((m) => m.id === userId);
+
+  // Add project roles
+  if (!req.admin && user?.projectRoles) {
+    user.projectRoles.forEach(({ project, ...projectRole }) => {
+      permissions[project] = getPermissionsByRole(projectRole, org);
+    });
+  }
+
+  const userRole: {
+    info: MemberRoleInfo;
+    permissions: Permission[];
+    projectRoles: Record<
+      string,
+      {
+        info: MemberRoleInfo;
+        permissions: Permission[];
+      }
+    >;
+  } = {
+    info: getRole(org, userId),
+    permissions: req.admin
+      ? [...ALL_PERMISSIONS]
+      : getPermissionsByRole(roleInfo, org),
+    projectRoles: {},
+  };
+
+  if (user?.projectRoles) {
+    user.projectRoles.forEach(({ project, ...info }) => {
+      userRole.projectRoles[project] = {
+        info,
+        permissions: getPermissionsByRole(info, org),
+      };
+    });
+  }
+
   return res.status(200).json({
     status: 200,
     apiKeys,
     enterpriseSSO,
-    permissions: req.admin
-      ? [...ALL_PERMISSIONS]
-      : getPermissionsByRole(roleInfo, org),
-    role: roleInfo,
+    userRole,
     accountPlan: getAccountPlan(org),
     commercialFeatures: [...features],
     roles: getRoles(org),
@@ -804,25 +842,31 @@ export async function postInviteAccept(
 }
 
 export async function postInvite(
-  req: AuthRequest<{
-    email: string;
-    role: MemberRole;
-    limitAccessByEnvironments: boolean;
-    environments: string[];
-  }>,
+  req: AuthRequest<
+    {
+      email: string;
+    } & MemberRoleWithProjects
+  >,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { email, role, limitAccessByEnvironments, environments } = req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
     role,
-    limitAccessByEnvironment: !!limitAccessByEnvironments,
-    environments: environments || [],
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
   });
 
   return res.status(200).json({
@@ -954,12 +998,17 @@ export async function putOrganization(
   }
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
-      if (
-        k === "environments" ||
-        k === "sdkInstructionsViewed" ||
-        k === "visualEditorEnabled"
-      ) {
-        req.checkPermissions("manageEnvironments");
+      if (k === "environments") {
+        // Combine old and new environments to get the full list of affected ones
+        const affectedEnvs = settings[k]?.map((e) => e.id) || [];
+        org.settings?.environments?.forEach((e) => {
+          if (!affectedEnvs.includes(e.id)) {
+            affectedEnvs.push(e.id);
+          }
+        });
+        req.checkPermissions("manageEnvironments", "", affectedEnvs);
+      } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
+        req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
         req.checkPermissions("manageTargetingAttributes");
       } else if (k === "northStar") {
@@ -1060,7 +1109,7 @@ export async function postApiKey(
   if (secret) {
     req.checkPermissions("manageApiKeys");
   } else {
-    req.checkPermissions("manageEnvironments");
+    req.checkPermissions("manageEnvironments", "", [environment]);
   }
 
   const key = await createApiKey({
@@ -1100,7 +1149,7 @@ export async function deleteApiKey(
   if (keyObj.secret) {
     req.checkPermissions("manageApiKeys");
   } else {
-    req.checkPermissions("manageEnvironments");
+    req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
   }
 
   if (id) {

@@ -12,17 +12,26 @@ More coming soon!
 
 Users in GrowthBook have roles which grant them permissions to do various actions. Any endpoint which creates, edits, or deletes should check permissions as part of request handler.
 
-Some permissions are **environment-scoped**, meaning a user may have different access depending on which environments the action is going to affect. Currently, only one permission is environment-scoped (`publishFeatures`), but we may add more in the future.
+Permissions have one of 3 "scopes":
 
-There is a `req.checkPermissions` function to help facilitate this. It will throw an Exception if the current user does not have access.
+- Environment (e.g. `publishFeatures`)
+- Project (e.g. `createIdea`)
+- Global (e.g. `manageTeam`)
+
+There is a `req.checkPermissions` function you can use in your request handlers. It will throw an Exception if the current user does not have access.
 
 ```ts
-// Environment-scoped permission
-req.checkPermissions("publishFeatures", ["dev"]);
-
-// Global permissions
+// Global-scoped permission
 req.checkPermissions("manageTeam");
+
+// Project-scoped permission
+req.checkPermissions("createIdea", "my-project");
+
+// Environment-scoped permission
+req.checkPermissions("publishFeatures", "my-project", ["dev"]);
 ```
+
+Typescript will warn you if you use the wrong arguments for a permission (e.g. `req.checkPermissions("publishFeatures")` will be an error since you forgot to pass in project and environments).
 
 For more complex actions that do multiple things, you may need to call `req.checkPermissions` multiple times.
 
@@ -30,7 +39,7 @@ For more complex actions that do multiple things, you may need to call `req.chec
 
 If you need to add new permissions, you'll need to update the `src/util/organization.util.ts` file in a couple places:
 
-- Add your permission to either the `GLOBAL_PERMISSIONS` or `ENV_SCOPED_PERMISSIONS` constant
+- Add your permission to either the `GLOBAL_PERMISSIONS`, `PROJECT_SCOPED_PERMISSIONS`, or `ENV_SCOPED_PERMISSIONS` constant
 - In the `getRoles` function, add the permission to all roles that should have access to it
 
 You'll also need to update the front-end `services/UserContext.tsx` and add it to the `DEFAULT_PERMISSIONS` constant.

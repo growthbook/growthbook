@@ -4,13 +4,22 @@ import {
   GlobalPermission,
   OrganizationInterface,
   Permission,
+  ProjectScopedPermission,
 } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 interface PermissionFunctions {
   checkPermissions(permission: GlobalPermission): void;
-  checkPermissions(permissions: EnvScopedPermission, envs: string[]): void;
+  checkPermissions(
+    permission: ProjectScopedPermission,
+    project: string | undefined
+  ): void;
+  checkPermissions(
+    permission: EnvScopedPermission,
+    project: string | undefined,
+    envs: string[]
+  ): void;
 }
 
 // eslint-disable-next-line

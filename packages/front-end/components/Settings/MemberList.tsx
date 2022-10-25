@@ -15,7 +15,8 @@ import { FaCheck, FaTimes } from "react-icons/fa";
 
 const MemberList: FC<{
   mutate: () => void;
-}> = ({ mutate }) => {
+  project: string;
+}> = ({ mutate, project }) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -40,7 +41,7 @@ const MemberList: FC<{
       )}
       {roleModal && roleModalUser && (
         <ChangeRoleModal
-          displayInfo={roleModalUser.name}
+          displayInfo={roleModalUser.name || roleModalUser.email}
           roleInfo={{
             environments: roleModalUser.environments || [],
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
@@ -75,74 +76,80 @@ const MemberList: FC<{
           </tr>
         </thead>
         <tbody>
-          {Array.from(users).map(([id, member]) => (
-            <tr key={id}>
-              <td>{member.name}</td>
-              <td>{member.email}</td>
-              <td>
-                <RoleDisplay
-                  role={member.role}
-                  environments={[]}
-                  limitAccessByEnvironment={false}
-                />
-              </td>
-              {environments.map((env) => {
-                const access = roleHasAccessToEnv(member, env.id);
-                return (
-                  <td key={env.id}>
-                    {access === "N/A" ? (
-                      <span className="text-muted">N/A</span>
-                    ) : access === "yes" ? (
-                      <FaCheck className="text-success" />
-                    ) : (
-                      <FaTimes className="text-danger" />
-                    )}
-                  </td>
-                );
-              })}
-              <td>
-                {member.id !== userId && (
-                  <>
-                    <MoreMenu id={`member-actions-${id}`}>
-                      <button
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setRoleModal(member.id);
-                        }}
-                      >
-                        Edit Role
-                      </button>
-                      {!usingSSO() && (
+          {Array.from(users).map(([id, member]) => {
+            const roleInfo =
+              (project &&
+                member.projectRoles?.find((r) => r.project === project)) ||
+              member;
+            return (
+              <tr key={id}>
+                <td>{member.name}</td>
+                <td>{member.email}</td>
+                <td>
+                  <RoleDisplay
+                    role={roleInfo.role}
+                    environments={[]}
+                    limitAccessByEnvironment={false}
+                  />
+                </td>
+                {environments.map((env) => {
+                  const access = roleHasAccessToEnv(roleInfo, env.id);
+                  return (
+                    <td key={env.id}>
+                      {access === "N/A" ? (
+                        <span className="text-muted">N/A</span>
+                      ) : access === "yes" ? (
+                        <FaCheck className="text-success" />
+                      ) : (
+                        <FaTimes className="text-danger" />
+                      )}
+                    </td>
+                  );
+                })}
+                <td>
+                  {member.id !== userId && (
+                    <>
+                      <MoreMenu id={`member-actions-${id}`}>
                         <button
                           className="dropdown-item"
                           onClick={(e) => {
                             e.preventDefault();
-                            setPasswordResetModal(member);
+                            setRoleModal(member.id);
                           }}
                         >
-                          Reset Password
+                          Edit Role
                         </button>
-                      )}
-                      <DeleteButton
-                        link={true}
-                        text="Delete User"
-                        useIcon={false}
-                        className="dropdown-item"
-                        displayName={member.email}
-                        onClick={async () => {
-                          await apiCall(`/member/${member.id}`, {
-                            method: "DELETE",
-                          });
-                          mutate();
-                        }}
-                      />
-                    </MoreMenu>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
+                        {!usingSSO() && (
+                          <button
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setPasswordResetModal(member);
+                            }}
+                          >
+                            Reset Password
+                          </button>
+                        )}
+                        <DeleteButton
+                          link={true}
+                          text="Delete User"
+                          useIcon={false}
+                          className="dropdown-item"
+                          displayName={member.email}
+                          onClick={async () => {
+                            await apiCall(`/member/${member.id}`, {
+                              method: "DELETE",
+                            });
+                            mutate();
+                          }}
+                        />
+                      </MoreMenu>
+                    </>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <button className="btn btn-primary mt-3" onClick={onInvite}>

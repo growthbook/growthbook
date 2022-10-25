@@ -21,6 +21,15 @@ const organizationSchema = new mongoose.Schema({
       role: String,
       limitAccessByEnvironment: Boolean,
       environments: [String],
+      projectRoles: [
+        {
+          _id: false,
+          project: String,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   invites: [
@@ -32,6 +41,15 @@ const organizationSchema = new mongoose.Schema({
       role: String,
       limitAccessByEnvironment: Boolean,
       environments: [String],
+      projectRoles: [
+        {
+          _id: false,
+          project: String,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   stripeCustomerId: String,

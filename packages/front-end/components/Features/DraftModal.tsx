@@ -100,6 +100,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
 
   const hasPermission = permissions.check(
     "publishFeatures",
+    feature.project,
     "defaultValue" in feature.draft
       ? getEnabledEnvironments(feature)
       : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}))
@@ -133,7 +134,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
       closeCta="close"
       size="max"
       secondaryCTA={
-        permissions.createFeatureDrafts ? (
+        permissions.check("createFeatureDrafts", feature.project) ? (
           <Button
             color="outline-danger"
             onClick={async () => {

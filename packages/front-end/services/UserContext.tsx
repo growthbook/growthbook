@@ -13,6 +13,7 @@ import {
   Permission,
   Role,
   MemberRoleInfo,
+  ProjectScopedPermission,
 } from "back-end/types/organization";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
@@ -36,32 +37,33 @@ type OrgSettingsResponse = {
   roles: Role[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
-  role: MemberRoleInfo;
-  permissions: Permission[];
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
 };
 
 interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
-  check(permission: EnvScopedPermission, envs: string[]): boolean;
+  check(
+    permission: EnvScopedPermission,
+    project: string | undefined,
+    envs: string[]
+  ): boolean;
+  check(
+    permission: ProjectScopedPermission,
+    project: string | undefined
+  ): boolean;
 }
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
-  addComments: false,
-  createAnalyses: false,
+  runQueries: false,
   createDatasources: false,
   createDimensions: false,
-  createFeatureDrafts: false,
-  createIdeas: false,
   createMetrics: false,
   createPresentations: false,
   createSegments: false,
   editDatasourceSettings: false,
   manageApiKeys: false,
   manageBilling: false,
-  manageEnvironments: false,
-  manageFeatures: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
   manageProjects: false,
@@ -71,7 +73,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageTeam: false,
   manageWebhooks: false,
   organizationSettings: false,
-  runQueries: false,
   superDelete: false,
 };
 
@@ -82,6 +83,7 @@ export interface UserContextValue {
   admin?: boolean;
   role?: MemberRoleInfo;
   license?: LicenseData;
+  user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
   updateUser: () => Promise<void>;
@@ -139,6 +141,15 @@ export function getCurrentUser() {
   return currentUser;
 }
 
+export function getPermissionsByRole(
+  role: MemberRole,
+  roles: Role[]
+): Set<Permission> {
+  return new Set<Permission>(
+    roles.find((r) => r.id === role)?.permissions || []
+  );
+}
+
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, apiCall, orgId, setOrganizations } = useAuth();
 
@@ -184,36 +195,27 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [apiCall]);
 
-  const role: MemberRoleInfo = useMemo(() => {
-    if (data?.admin) {
-      return {
-        role: "admin",
-        environments: [],
-        limitAccessByEnvironment: false,
-      };
-    }
+  const user = users.get(data?.userId);
+  const role =
+    (data?.admin && "admin") ||
+    (user?.role ??
+      currentOrg?.organization?.settings?.defaultRole?.role ??
+      "collaborator");
 
-    return (
-      currentOrg?.role || {
-        role: "collaborator",
-        environments: [],
-        limitAccessByEnvironment: false,
-      }
-    );
-  }, [data?.admin, currentOrg?.role]);
-  const permissions = new Set(currentOrg?.permissions || []);
-
+  // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
   };
-  permissions.forEach((p) => (permissionsObj[p] = true));
+  getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
+    permissionsObj[p] = true;
+  });
 
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role: role?.role,
+      role: role,
     };
   }, [orgId, data?.userId, role]);
 
@@ -264,6 +266,51 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
+  const permissionsCheck = useCallback(
+    (
+      permission: Permission,
+      project?: string | undefined,
+      envs?: string[]
+    ): boolean => {
+      // Get the role based on the project (if specified)
+      // Fall back to the user's global role
+      const projectRole =
+        (project && user?.projectRoles?.find((r) => r.project === project)) ||
+        user;
+
+      // Missing role entirely, deny access
+      if (!projectRole) {
+        return false;
+      }
+
+      // Admin role always has permission
+      if (projectRole.role === "admin") return true;
+
+      const permissions = getPermissionsByRole(
+        projectRole.role,
+        currentOrg?.roles || []
+      );
+
+      // Missing permission
+      if (!permissions.has(permission)) {
+        return false;
+      }
+
+      // If it's an environment-scoped permission and the user's role has limited access
+      if (envs && projectRole.limitAccessByEnvironment) {
+        for (let i = 0; i < envs.length; i++) {
+          if (!projectRole.environments.includes(envs[i])) {
+            return false;
+          }
+        }
+      }
+
+      // If it got through all the above checks, the user has permission
+      return true;
+    },
+    [currentOrg?.roles, user]
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -272,6 +319,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         email: data?.email,
         admin: data?.admin,
         updateUser,
+        user,
         users,
         getUserDisplay: (id, fallback = true) => {
           const u = users.get(id);
@@ -279,30 +327,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           return u?.name || u?.email;
         },
         refreshOrganization,
-        role,
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,
-          check: (permission: Permission, envs?: string[]): boolean => {
-            // Missing permission entirely
-            if (!role || !permissions.has(permission)) {
-              return false;
-            }
-
-            // Admin role always has permission
-            if (role.role === "admin") return true;
-
-            // If it's an environment-scoped permission and the user's role has limited access
-            if (envs && role.limitAccessByEnvironment) {
-              for (let i = 0; i < envs.length; i++) {
-                if (!role.environments.includes(envs[i])) {
-                  return false;
-                }
-              }
-            }
-
-            return true;
-          },
+          check: permissionsCheck,
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,

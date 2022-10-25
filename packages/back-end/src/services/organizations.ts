@@ -15,6 +15,7 @@ import {
   Member,
   MemberRole,
   MemberRoleInfo,
+  MemberRoleWithProjects,
   OrganizationInterface,
 } from "../../types/organization";
 import { createMetric, getExperimentsByOrganization } from "./experiments";
@@ -128,11 +129,23 @@ export async function getConfidenceLevelsForOrg(id: string) {
 
 export function getRole(
   org: OrganizationInterface,
-  userId: string
+  userId: string,
+  project?: string
 ): MemberRoleInfo {
   const member = org.members.find((m) => m.id === userId);
 
   if (member) {
+    // Project-specific role
+    if (project && member.projectRoles) {
+      const projectRole = member.projectRoles.find(
+        (r) => r.project === project
+      );
+      if (projectRole) {
+        return projectRole;
+      }
+    }
+
+    // Global role
     return {
       role: member.role,
       limitAccessByEnvironment: !!member.limitAccessByEnvironment,
@@ -275,13 +288,11 @@ export async function inviteUser({
   role = "admin",
   limitAccessByEnvironment,
   environments,
+  projectRoles,
 }: {
   organization: OrganizationInterface;
   email: string;
-  role: MemberRole;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-}) {
+} & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
   // User is already invited
@@ -317,6 +328,7 @@ export async function inviteUser({
       role,
       limitAccessByEnvironment,
       environments,
+      projectRoles,
     },
   ];
 

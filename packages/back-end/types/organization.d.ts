@@ -2,13 +2,18 @@ import Stripe from "stripe";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
+  PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
+export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
 export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
 
-export type Permission = GlobalPermission | EnvScopedPermission;
+export type Permission =
+  | GlobalPermission
+  | EnvScopedPermission
+  | ProjectScopedPermission;
 
 export type MemberRole =
   | "readonly"
@@ -27,7 +32,7 @@ export type Role = {
 };
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type CommercialFeature = "sso" | "env-permissions";
+export type CommercialFeature = "sso" | "advanced-permissions";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -36,20 +41,27 @@ export interface MemberRoleInfo {
   environments: string[];
 }
 
-export type ExpandedMember = {
-  id: string;
-  email: string;
-  name: string;
-} & MemberRoleInfo;
+export interface ProjectMemberRole extends MemberRoleInfo {
+  project: string;
+}
 
-export interface Invite extends MemberRoleInfo {
+export interface MemberRoleWithProjects extends MemberRoleInfo {
+  projectRoles?: ProjectMemberRole[];
+}
+
+export interface Invite extends MemberRoleWithProjects {
   email: string;
   key: string;
   dateCreated: Date;
 }
 
-export interface Member extends MemberRoleInfo {
+export interface Member extends MemberRoleWithProjects {
   id: string;
+}
+
+export interface ExpandedMember extends Member {
+  email: string;
+  name: string;
 }
 
 export interface NorthStarMetric {

@@ -125,8 +125,8 @@ export default function FeaturesPage() {
           <h1>Features</h1>
         </div>
         {features.length > 0 &&
-          permissions.manageFeatures &&
-          permissions.createFeatureDrafts && (
+          permissions.check("manageFeatures", project) &&
+          permissions.check("createFeatureDrafts", project) && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-right"

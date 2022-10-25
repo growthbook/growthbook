@@ -34,7 +34,7 @@ export async function deleteMetric(
   res: Response
 ) {
   req.checkPermissions("createMetrics");
-  req.checkPermissions("createAnalyses");
+  req.checkPermissions("createAnalyses", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;

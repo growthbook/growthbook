@@ -53,7 +53,7 @@ const IdeasPage = (): React.ReactElement => {
           When you&apos;re ready to test an idea, easily convert it to a full
           blown Experiment.
         </p>
-        {permissions.createIdeas && (
+        {permissions.check("createIdeas", project) && (
           <button
             className="btn btn-success btn-lg"
             onClick={() => {
@@ -112,7 +112,7 @@ const IdeasPage = (): React.ReactElement => {
             </div>
           )}
           <div style={{ flex: 1 }} />
-          {permissions.createIdeas && (
+          {permissions.check("createIdeas", project) && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-left"

@@ -129,6 +129,8 @@ const ExperimentsPage = (): React.ReactElement => {
     }
   });
 
+  const canAdd = permissions.check("createAnalyses", project);
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
@@ -138,7 +140,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <h3>All Experiments</h3>
             </div>
             <div style={{ flex: 1 }} />
-            {permissions.createAnalyses && (
+            {canAdd && (
               <div className="col-auto">
                 <button
                   className="btn btn-primary float-right"
@@ -317,9 +319,7 @@ const ExperimentsPage = (): React.ReactElement => {
               }
               padding={false}
             >
-              {showOnlyMyDrafts &&
-              permissions.createAnalyses &&
-              byStatus.myDrafts.length > 0 ? (
+              {showOnlyMyDrafts && canAdd && byStatus.myDrafts.length > 0 ? (
                 <>
                   {byStatus.myDrafts.length > 0 && (
                     <>
@@ -416,19 +416,18 @@ const ExperimentsPage = (): React.ReactElement => {
                             <th></th>
                             <th style={{ width: "99%" }}>
                               Experiment
-                              {permissions.createAnalyses &&
-                                byStatus.myDrafts.length > 0 && (
-                                  <span className="pl-3">
-                                    <a
-                                      className="cursor-pointer"
-                                      onClick={() => {
-                                        setShowOnlyMyDrafts(true);
-                                      }}
-                                    >
-                                      (show only my drafts)
-                                    </a>
-                                  </span>
-                                )}
+                              {canAdd && byStatus.myDrafts.length > 0 && (
+                                <span className="pl-3">
+                                  <a
+                                    className="cursor-pointer"
+                                    onClick={() => {
+                                      setShowOnlyMyDrafts(true);
+                                    }}
+                                  >
+                                    (show only my drafts)
+                                  </a>
+                                </span>
+                              )}
                             </th>
                             {showProjectColumn && <th>Project</th>}
                             <th>Tags</th>

@@ -30,12 +30,14 @@ const VariationIdWarning: FC<{
   variations: ExperimentReportVariation[];
   unknownVariations: string[];
   setVariationIds?: (ids: string[]) => Promise<void>;
+  project?: string;
 }> = ({
   isUpdating,
   results,
   variations,
   unknownVariations,
   setVariationIds,
+  project,
 }) => {
   const [idModal, setIdModal] = useState(false);
 
@@ -115,7 +117,7 @@ const VariationIdWarning: FC<{
           ).{" "}
           {setVariationIds &&
             permissions.runQueries &&
-            permissions.createAnalyses && (
+            permissions.check("createAnalyses", project) && (
               <button
                 className="btn btn-info btn-sm ml-3"
                 type="button"

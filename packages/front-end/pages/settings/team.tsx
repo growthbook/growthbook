@@ -8,9 +8,15 @@ import { useAuth } from "../../services/auth";
 import SSOSettings from "../../components/Settings/SSOSettings";
 import { useUser } from "../../services/UserContext";
 import usePermissions from "../../hooks/usePermissions";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import SelectField from "../../components/Forms/SelectField";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();
+
+  const { project, projects } = useDefinitions();
+
+  const [currentProject, setCurrentProject] = useState(project || "");
 
   const permissions = usePermissions();
 
@@ -72,11 +78,28 @@ const TeamPage: FC = () => {
       )}
       <SSOSettings ssoConnection={ssoConnection} />
       <h1>Team Members</h1>
-      <MemberList mutate={refreshOrganization} />
+      {projects.length > 0 && (
+        <div className="row align-items-center">
+          <div className="col-auto">View roles and permissions for</div>
+          <div className="col-auto">
+            <SelectField
+              value={currentProject}
+              onChange={(value) => setCurrentProject(value)}
+              options={projects.map((p) => ({
+                label: p.name,
+                value: p.id,
+              }))}
+              initialOption="All Projects"
+            />
+          </div>
+        </div>
+      )}
+      <MemberList mutate={refreshOrganization} project={currentProject} />
       {organization.invites.length > 0 ? (
         <InviteList
           invites={organization.invites}
           mutate={refreshOrganization}
+          project={currentProject}
         />
       ) : (
         ""

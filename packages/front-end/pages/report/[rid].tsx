@@ -139,7 +139,7 @@ export default function ReportPage() {
             </a>
           </Link>
         )}
-        {permissions.createAnalyses &&
+        {permissions.check("createAnalyses", "") &&
           (userId === report?.userId || !report?.userId) && (
             <DeleteButton
               displayName="Custom Report"
@@ -160,7 +160,7 @@ export default function ReportPage() {
           )}
         <h1 className="mb-0 mt-2">
           {report.title}{" "}
-          {permissions.createAnalyses &&
+          {permissions.check("createAnalyses", "") &&
             (userId === report?.userId || !report?.userId) && (
               <a
                 className="ml-2 cursor-pointer"
@@ -190,7 +190,7 @@ export default function ReportPage() {
         active={active}
         setActive={setActive}
         newStyle={true}
-        navClassName={permissions.createAnalyses ? "" : "d-none"}
+        navClassName={permissions.check("createAnalyses", "") ? "" : "d-none"}
       >
         <Tab key="results" anchor="results" display="Results" padding={false}>
           <div className="p-3">
@@ -256,12 +256,12 @@ export default function ReportPage() {
                   }}
                   supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                   configure={
-                    permissions.createAnalyses
+                    permissions.check("createAnalyses", "")
                       ? () => setActive("Configuration")
                       : null
                   }
                   editMetrics={
-                    permissions.createAnalyses
+                    permissions.check("createAnalyses", "")
                       ? () => setActive("Configuration")
                       : null
                   }
@@ -399,12 +399,12 @@ export default function ReportPage() {
             </>
           )}
         </Tab>
-        {permissions.createAnalyses && (
+        {permissions.check("createAnalyses", "") && (
           <Tab
             key="configuration"
             anchor="configuration"
             display="Configuration"
-            visible={permissions.createAnalyses}
+            visible={permissions.check("createAnalyses", "")}
             forceRenderOnFocus={true}
           >
             <h2>Configuration</h2>

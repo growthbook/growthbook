@@ -19,7 +19,8 @@ type ChangeRoleInfo = {
 const InviteList: FC<{
   invites: Invite[];
   mutate: () => void;
-}> = ({ invites, mutate }) => {
+  project: string;
+}> = ({ invites, mutate, project }) => {
   const [deleteInvite, setDeleteInvite] = useState<{
     key: string;
     email: string;
@@ -148,69 +149,75 @@ const InviteList: FC<{
           </tr>
         </thead>
         <tbody>
-          {invites.map(({ email, key, dateCreated, ...role }) => (
-            <tr key={key}>
-              <td>{email}</td>
-              <td>{datetime(dateCreated)}</td>
-              <td>
-                <RoleDisplay
-                  role={role.role}
-                  environments={[]}
-                  limitAccessByEnvironment={false}
-                />
-              </td>
-              {environments.map((env) => {
-                const access = roleHasAccessToEnv(role, env.id);
-                return (
-                  <td key={env.id}>
-                    {access === "N/A" ? (
-                      <span className="text-muted">N/A</span>
-                    ) : access === "yes" ? (
-                      <FaCheck className="text-success" />
-                    ) : (
-                      <FaTimes className="text-danger" />
-                    )}
-                  </td>
-                );
-              })}
-              <td>
-                <MoreMenu id={`invite-actions-${key}`}>
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setRoleModal({
-                        key,
-                        displayInfo: email,
-                        roleInfo: role,
-                      });
-                    }}
-                  >
-                    Edit Role
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onResend(key, email);
-                    }}
-                  >
-                    Resend Invite
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDeleteInvite({ email, key });
-                      setResendMessage(null);
-                    }}
-                  >
-                    Remove
-                  </button>
-                </MoreMenu>
-              </td>
-            </tr>
-          ))}
+          {invites.map(({ email, key, dateCreated, ...member }) => {
+            const roleInfo =
+              (project &&
+                member.projectRoles?.find((r) => r.project === project)) ||
+              member;
+            return (
+              <tr key={key}>
+                <td>{email}</td>
+                <td>{datetime(dateCreated)}</td>
+                <td>
+                  <RoleDisplay
+                    role={roleInfo.role}
+                    environments={[]}
+                    limitAccessByEnvironment={false}
+                  />
+                </td>
+                {environments.map((env) => {
+                  const access = roleHasAccessToEnv(roleInfo, env.id);
+                  return (
+                    <td key={env.id}>
+                      {access === "N/A" ? (
+                        <span className="text-muted">N/A</span>
+                      ) : access === "yes" ? (
+                        <FaCheck className="text-success" />
+                      ) : (
+                        <FaTimes className="text-danger" />
+                      )}
+                    </td>
+                  );
+                })}
+                <td>
+                  <MoreMenu id={`invite-actions-${key}`}>
+                    <button
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setRoleModal({
+                          key,
+                          displayInfo: email,
+                          roleInfo,
+                        });
+                      }}
+                    >
+                      Edit Role
+                    </button>
+                    <button
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onResend(key, email);
+                      }}
+                    >
+                      Resend Invite
+                    </button>
+                    <button
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDeleteInvite({ email, key });
+                        setResendMessage(null);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </MoreMenu>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

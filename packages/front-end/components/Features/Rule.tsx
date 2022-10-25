@@ -56,6 +56,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const environments = useEnvironments();
     const permissions = usePermissions();
 
+    const canEdit =
+      permissions.check("manageFeatures", feature.project) &&
+      permissions.check("createFeatureDrafts", feature.project);
+
     return (
       <div
         className={`p-3 ${
@@ -94,19 +98,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </div>
             </div>
           )}
-          {rules.length > 1 &&
-            permissions.manageFeatures &&
-            permissions.createFeatureDrafts && (
-              <div
-                {...handle}
-                title="Drag and drop to re-order rules"
-                className="mr-2"
-              >
-                <FaArrowsAlt />
-              </div>
-            )}
+          {rules.length > 1 && canEdit && (
+            <div
+              {...handle}
+              title="Drag and drop to re-order rules"
+              className="mr-2"
+            >
+              <FaArrowsAlt />
+            </div>
+          )}
           <div>
-            {permissions.manageFeatures && permissions.createFeatureDrafts && (
+            {canEdit && (
               <MoreMenu id={"edit_rule_" + rule.id}>
                 <a
                   href="#"

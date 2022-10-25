@@ -44,7 +44,7 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
+  req.checkPermissions("createIdeas", "");
   req.checkPermissions("runQueries");
 
   const { metric, segment } = req.body;
@@ -67,7 +67,7 @@ export async function postEstimatedImpactManual(
   req: AuthRequest<ImpactEstimateInterface>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
+  req.checkPermissions("createIdeas", "");
   req.checkPermissions("runQueries");
 
   const { org } = getOrgFromReq(req);
@@ -98,10 +98,11 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
-
   const { org, userId } = getOrgFromReq(req);
   const data = req.body;
+
+  req.checkPermissions("createIdeas", data.project);
+
   data.organization = org.id;
   data.source = "web";
   data.userId = userId;
@@ -185,8 +186,6 @@ export async function postIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
-
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
@@ -207,6 +206,8 @@ export async function postIdea(
     });
     return;
   }
+
+  req.checkPermissions("createIdeas", idea.project);
 
   const existing = idea.toJSON();
 
@@ -236,8 +237,6 @@ export async function deleteIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
-
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const { org } = getOrgFromReq(req);
@@ -257,6 +256,8 @@ export async function deleteIdea(
     });
     return;
   }
+
+  req.checkPermissions("createIdeas", idea.project);
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.

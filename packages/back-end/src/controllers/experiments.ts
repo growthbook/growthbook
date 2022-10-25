@@ -398,12 +398,12 @@ export async function postExperiments(
   req: AuthRequest<Partial<ExperimentInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org, userId } = getOrgFromReq(req);
 
   const data = req.body;
   data.organization = org.id;
+
+  req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
     const datasource = await getDataSourceById(data.datasource, org.id);
@@ -521,8 +521,6 @@ export async function postExperiment(
   >,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
@@ -544,6 +542,8 @@ export async function postExperiment(
     });
     return;
   }
+
+  req.checkPermissions("createAnalyses", exp.project);
 
   if (data.datasource) {
     const datasource = await getDataSourceById(data.datasource, org.id);
@@ -698,8 +698,6 @@ export async function postExperimentArchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -720,6 +718,8 @@ export async function postExperimentArchive(
     });
     return;
   }
+
+  req.checkPermissions("createAnalyses", exp.project);
 
   exp.set("archived", true);
 
@@ -752,8 +752,6 @@ export async function postExperimentUnarchive(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -774,6 +772,8 @@ export async function postExperimentUnarchive(
     });
     return;
   }
+
+  req.checkPermissions("createAnalyses", exp.project);
 
   exp.set("archived", false);
 
@@ -813,8 +813,6 @@ export async function postExperimentStatus(
   >,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
@@ -826,6 +824,7 @@ export async function postExperimentStatus(
   if (exp.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
   }
+  req.checkPermissions("createAnalyses", exp.project);
 
   const existing = exp.toJSON();
 
@@ -872,8 +871,6 @@ export async function postExperimentStop(
   >,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, results, analysis, winner, dateEnded } = req.body;
@@ -895,6 +892,7 @@ export async function postExperimentStop(
     });
     return;
   }
+  req.checkPermissions("createAnalyses", exp.project);
 
   const existing = exp.toJSON();
 
@@ -950,8 +948,6 @@ export async function deleteExperimentPhase(
   req: AuthRequest<null, { id: string; phase: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
@@ -973,6 +969,8 @@ export async function deleteExperimentPhase(
     });
     return;
   }
+
+  req.checkPermissions("createAnalyses", exp.project);
 
   if (phaseIndex < 0 || phaseIndex >= exp.phases?.length) {
     throw new Error("Invalid phase id");
@@ -1031,8 +1029,6 @@ export async function putExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string; phase: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const i = parseInt(req.params.phase);
@@ -1047,6 +1043,8 @@ export async function putExperimentPhase(
   if (exp.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
   }
+
+  req.checkPermissions("createAnalyses", exp.project);
 
   const existing = exp.toJSON();
 
@@ -1089,8 +1087,6 @@ export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
@@ -1112,6 +1108,7 @@ export async function postExperimentPhase(
     });
     return;
   }
+  req.checkPermissions("createAnalyses", exp.project);
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -1190,8 +1187,6 @@ export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -1212,6 +1207,7 @@ export async function deleteExperiment(
     });
     return;
   }
+  req.checkPermissions("createAnalyses", exp.project);
 
   await Promise.all([
     // note: we might want to change this to change the status to
@@ -1496,8 +1492,6 @@ export async function deleteScreenshot(
   req: AuthRequest<{ url: string }, { id: string; variation: number }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const { id, variation } = req.params;
   const { url } = req.body;
@@ -1519,6 +1513,8 @@ export async function deleteScreenshot(
     });
     return;
   }
+
+  req.checkPermissions("createAnalyses", exp.project);
 
   if (!exp.variations[variation]) {
     res.status(404).json({
@@ -1563,8 +1559,6 @@ export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org, userId } = getOrgFromReq(req);
   const { id, variation } = req.params;
   const { url, description } = req.body;
@@ -1586,6 +1580,7 @@ export async function addScreenshot(
     });
     return;
   }
+  req.checkPermissions("createAnalyses", exp.project);
 
   if (!exp.variations[variation]) {
     res.status(404).json({

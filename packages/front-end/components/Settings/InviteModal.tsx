@@ -5,7 +5,7 @@ import Modal from "../Modal";
 import RoleSelector from "./RoleSelector";
 import track from "../../services/track";
 import Field from "../Forms/Field";
-import { MemberRole } from "back-end/types/organization";
+import { MemberRoleWithProjects } from "back-end/types/organization";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "./UpgradeModal";
@@ -24,16 +24,17 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   const form = useForm<{
     email: string;
-    role: MemberRole;
-    limitAccessByEnvironment: boolean;
-    environments: string[];
+    roleInfo: MemberRoleWithProjects;
   }>({
     defaultValues: {
       email: "",
-      role: "admin",
-      limitAccessByEnvironment: false,
-      environments: [],
-      ...defaultRole,
+      roleInfo: {
+        role: "admin",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        ...defaultRole,
+      },
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
@@ -84,7 +85,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         method: "POST",
         body: JSON.stringify({
           email: email,
-          role: value.role,
+          ...value.roleInfo,
         }),
       });
 
@@ -100,7 +101,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
       track("Team Member Invited", {
         emailSent: resp.emailSent,
-        role: value.role,
+        role: value.roleInfo.role,
       });
     }
     setSuccessfulInvites(succeeded);
@@ -200,18 +201,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             {...form.register("email")}
           />
           <RoleSelector
-            role={form.watch("role")}
-            setRole={(role) => {
-              form.setValue("role", role);
-            }}
-            limitAccessByEnvironment={form.watch("limitAccessByEnvironment")}
-            setLimitAccessByEnvironment={(envAccess) =>
-              form.setValue("limitAccessByEnvironment", envAccess)
-            }
-            environments={form.watch("environments")}
-            setEnvironments={(envs) => form.setValue("environments", envs)}
+            value={form.watch("roleInfo")}
+            setValue={(value) => form.setValue("roleInfo", value)}
             showUpgradeModal={() =>
-              setShowUpgradeModal("Restrict access by environment.")
+              setShowUpgradeModal("Use advanced permissioning rules.")
             }
           />
           <InviteModalSubscriptionInfo />

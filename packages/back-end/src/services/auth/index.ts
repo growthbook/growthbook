@@ -73,11 +73,15 @@ export async function processJWT(
   req.permissions = new Set();
 
   // Throw error if permissions don't pass
-  req.checkPermissions = (permission: Permission, envs?: string[]) => {
+  req.checkPermissions = (
+    permission: Permission,
+    project?: string,
+    envs?: string[]
+  ) => {
     if (!req.organization || !req.userId) {
       throw new Error("You do not have permission to complete that action.");
     }
-    const role = getRole(req.organization, req.userId);
+    const role = getRole(req.organization, req.userId, project);
 
     // Missing permission entirely
     if (!role || !req.permissions.has(permission)) {
@@ -97,6 +101,8 @@ export async function processJWT(
         }
       }
     }
+
+    return true;
   };
 
   const user = await getUserFromJWT(req.user);

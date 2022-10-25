@@ -46,7 +46,10 @@ export default function ExperimentReportsList({
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports =
-    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
+    hasData &&
+    snapshot?.queries &&
+    !hasUserQuery &&
+    permissions.check("createAnalyses", "");
 
   return (
     <div>

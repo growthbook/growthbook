@@ -29,7 +29,7 @@ export default function NewFeatureExperiments() {
     return null;
   }
 
-  if (!permissions.createAnalyses) return null;
+  if (!permissions.check("createAnalyses", project)) return null;
 
   const { feature, partialExperiment } = data.features[0];
 

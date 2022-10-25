@@ -19,9 +19,9 @@ export function isActiveSubscriptionStatus(
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
   starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>(["env-permissions"]),
-  pro_sso: new Set<CommercialFeature>(["sso", "env-permissions"]),
-  enterprise: new Set<CommercialFeature>(["sso", "env-permissions"]),
+  pro: new Set<CommercialFeature>(["advanced-permissions"]),
+  pro_sso: new Set<CommercialFeature>(["sso", "advanced-permissions"]),
+  enterprise: new Set<CommercialFeature>(["sso", "advanced-permissions"]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
   if (IS_CLOUD) {
@@ -47,17 +47,26 @@ export function orgHasPremiumFeature(
   return planHasPremiumFeature(getAccountPlan(org), feature);
 }
 
-export const GLOBAL_PERMISSIONS = [
+export const ENV_SCOPED_PERMISSIONS = [
+  "publishFeatures",
+  "manageEnvironments",
+] as const;
+
+export const PROJECT_SCOPED_PERMISSIONS = [
   "addComments",
+  "createFeatureDrafts",
+  "manageFeatures",
+  "createAnalyses",
+  "createIdeas",
+] as const;
+
+export const GLOBAL_PERMISSIONS = [
   "runQueries",
   "createPresentations",
-  "createIdeas",
-  "createAnalyses",
   "createMetrics",
   "createDimensions",
   "createSegments",
   "editDatasourceSettings",
-  "createFeatureDrafts",
   "organizationSettings",
   "createDatasources",
   "superDelete",
@@ -70,14 +79,12 @@ export const GLOBAL_PERMISSIONS = [
   "manageNorthStarMetric",
   "manageTargetingAttributes",
   "manageNamespaces",
-  "manageEnvironments",
   "manageSavedGroups",
-  "manageFeatures",
 ] as const;
-export const ENV_SCOPED_PERMISSIONS = ["publishFeatures"] as const;
 
 export const ALL_PERMISSIONS = [
   ...GLOBAL_PERMISSIONS,
+  ...PROJECT_SCOPED_PERMISSIONS,
   ...ENV_SCOPED_PERMISSIONS,
 ];
 

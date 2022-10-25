@@ -115,7 +115,9 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
-  const canEdit = permissions.createAnalyses && !experiment.archived;
+  const hasPermission = permissions.check("createAnalyses", experiment.project);
+
+  const canEdit = hasPermission && !experiment.archived;
 
   const variationCols = getColWidth(experiment.variations.length);
 
@@ -237,7 +239,7 @@ export default function SinglePage({
                 Duplicate
               </button>
             )}
-            {!experiment.archived && permissions.createAnalyses && (
+            {!experiment.archived && hasPermission && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -255,7 +257,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {experiment.archived && permissions.createAnalyses && (
+            {experiment.archived && hasPermission && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -273,7 +275,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {permissions.createAnalyses && (
+            {hasPermission && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
@@ -627,6 +629,7 @@ export default function SinglePage({
           type="experiment"
           id={experiment.id}
           allowNewComments={!experiment.archived}
+          project={experiment.project}
         />
       </div>
     </div>

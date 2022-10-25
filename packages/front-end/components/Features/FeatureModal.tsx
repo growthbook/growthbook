@@ -77,7 +77,7 @@ export default function FeatureModal({
   const defaultEnvSettings: Record<string, FeatureEnvironment> = {};
   environments.forEach((e) => {
     let enabled = e.defaultState ?? true;
-    if (!permissions.check("publishFeatures", [e.id])) enabled = false;
+    if (!permissions.check("publishFeatures", project, [e.id])) enabled = false;
 
     defaultEnvSettings[e.id] = {
       enabled,
@@ -218,7 +218,9 @@ export default function FeatureModal({
                 id={`${env.id}_toggle_create`}
                 label={env.id}
                 disabledMessage="You don't have permission to create features in this environment."
-                disabled={!permissions.check("publishFeatures", [env.id])}
+                disabled={
+                  !permissions.check("publishFeatures", project, [env.id])
+                }
                 value={environmentSettings[env.id].enabled}
                 setValue={(on) => {
                   environmentSettings[env.id].enabled = on;
