@@ -507,14 +507,8 @@ export async function testLimitedQuery(
 
   const { org } = getOrgFromReq(req);
 
-  const {
-    query,
-    id,
-    requiredColumns,
-    startDate,
-    endDate,
-    experimentId,
-  } = req.body;
+  const { query, id, requiredColumns, startDate, endDate, experimentId } =
+    req.body;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {

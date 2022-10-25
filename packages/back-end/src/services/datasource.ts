@@ -102,7 +102,8 @@ export async function testQuery(
   // eslint-disable-next-line
 ): Promise<TestQueryResult> {
   const integration = getSourceIntegrationObject(datasource);
-  //TODO: Figure out why there is a Mixpanel issue that makes this possibly undefined.
+
+  // The Mixpanel integration does not support test queries
   if (!integration.testQuery) {
     throw new Error("Unable to test query.");
   }
