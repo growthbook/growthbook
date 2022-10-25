@@ -165,7 +165,9 @@ export interface SourceIntegrationInterface {
   testQuery?(
     query: string,
     minExperimentLength: number,
-    startDate?: Date
+    startDate?: Date,
+    endDate?: Date,
+    experimentId?: string
   ): Promise<TestQueryResult[] | null>;
   getSourceProperties(): DataSourceProperties;
   getMetricValueQuery(params: MetricValueParams): string;

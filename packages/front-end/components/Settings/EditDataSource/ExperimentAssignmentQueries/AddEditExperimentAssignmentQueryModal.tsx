@@ -25,7 +25,7 @@ type EditExperimentAssignmentQueryProps = {
 
 type TestQueryResults = {
   status: number;
-  extraColumns?: string[];
+  optionalColumns?: string[];
   errorMessage?: string;
   duration?: string;
   noRowsReturned: boolean;
@@ -155,8 +155,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         );
       }
 
-      if (res.extraColumns) {
-        setQueryWarnings(res.extraColumns);
+      if (res.optionalColumns) {
+        setQueryWarnings(res.optionalColumns);
       }
 
       if (res.noRowsReturned) {

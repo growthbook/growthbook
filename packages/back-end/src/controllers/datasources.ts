@@ -498,6 +498,8 @@ export async function validateExposureQuery(
     id: string;
     requiredColumns: string[];
     startDate?: Date;
+    endDate?: Date;
+    experimentId?: string;
   }>,
   res: Response
 ) {
@@ -505,7 +507,14 @@ export async function validateExposureQuery(
 
   const { org } = getOrgFromReq(req);
 
-  const { query, id, requiredColumns, startDate } = req.body;
+  const {
+    query,
+    id,
+    requiredColumns,
+    startDate,
+    endDate,
+    experimentId,
+  } = req.body;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
@@ -519,10 +528,12 @@ export async function validateExposureQuery(
       datasource,
       query,
       minExperimentLength,
-      startDate
+      startDate,
+      endDate,
+      experimentId
     );
 
-    const extraColumns = [];
+    const optionalColumns = [];
 
     if (results?.length === 0) {
       const columns = getSelectQueryColumns(query);
@@ -531,20 +542,20 @@ export async function validateExposureQuery(
           column !== "*" &&
           !requiredColumns.find((index) => index === column)
         ) {
-          extraColumns.push(column);
+          optionalColumns.push(column);
         }
       });
     } else {
       for (const column in results[0]) {
         if (!requiredColumns.find((index) => index === column)) {
-          extraColumns.push(column);
+          optionalColumns.push(column);
         }
       }
     }
 
     res.status(200).json({
       status: 200,
-      extraColumns,
+      optionalColumns,
       duration: duration,
       noRowsReturned: results.length === 0,
     });

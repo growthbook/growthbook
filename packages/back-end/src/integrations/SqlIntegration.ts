@@ -441,7 +441,9 @@ export default abstract class SqlIntegration
   async testQuery(
     query: string,
     minExperimentLength: number,
-    startDate?: Date
+    startDate?: Date,
+    endDate?: Date,
+    experimentId?: string
     // eslint-disable-next-line
   ): Promise<any> {
     const limitedQuery = replaceSQLVars(
@@ -453,12 +455,15 @@ export default abstract class SqlIntegration
           new Date(
             new Date().setDate(new Date().getDate() - minExperimentLength)
           ),
+        endDate: endDate,
+        experimentId: experimentId,
       }
     );
-    const startTime = Date.now();
+    // Calculate the run time
+    const queryStartTime = Date.now();
     const results = await this.runQuery(limitedQuery);
-    const endTime = Date.now();
-    const duration = endTime - startTime;
+    const queryEndTime = Date.now();
+    const duration = queryEndTime - queryStartTime;
     return { results, duration };
   }
 
