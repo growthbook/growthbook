@@ -7,6 +7,7 @@ import { isCloud } from "../../services/env";
 import Toggle from "../Forms/Toggle";
 import SelectField from "../Forms/SelectField";
 import RoleDisplay from "./RoleDisplay";
+import { roleSupportsEnvLimit } from "../../services/auth";
 
 const RoleSelector: FC<{
   role: MemberRole;
@@ -30,8 +31,6 @@ const RoleSelector: FC<{
   const availableEnvs = useEnvironments();
 
   const { hasCommercialFeature } = useUser();
-
-  const roleSupportsEnvLimit = ["engineer", "experimenter"].includes(role);
 
   const canLimitEnvAccess = hasCommercialFeature("env-permissions");
 
@@ -65,7 +64,7 @@ const RoleSelector: FC<{
         }}
       />
 
-      {roleSupportsEnvLimit && (
+      {roleSupportsEnvLimit(role) && (
         <div className="appbox bg-light px-3 pt-3">
           <div className="form-group">
             <Toggle

@@ -31,6 +31,7 @@ export default function EnvironmentToggle({
     <Toggle
       value={env?.enabled ?? false}
       id={id}
+      disabledMessage="You don't have permission to change features in this environment"
       disabled={!permissions.check("publishFeatures", [environment])}
       setValue={async (on) => {
         if (toggling) return;

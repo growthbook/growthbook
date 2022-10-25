@@ -217,6 +217,7 @@ export default function FeatureModal({
               <Toggle
                 id={`${env.id}_toggle_create`}
                 label={env.id}
+                disabledMessage="You don't have permission to create features in this environment."
                 disabled={!permissions.check("publishFeatures", [env.id])}
                 value={environmentSettings[env.id].enabled}
                 setValue={(on) => {

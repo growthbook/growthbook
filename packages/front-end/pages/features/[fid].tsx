@@ -299,7 +299,7 @@ export default function FeaturePage() {
         {isArchived && (
           <div className="alert alert-secondary mb-2">
             <strong>This feature is archived.</strong> It will not be included
-            in API responses or Webhook payloads.
+            in SDK Endpoints or Webhook payloads.
           </div>
         )}
       </div>

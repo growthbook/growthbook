@@ -378,14 +378,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
+export function roleSupportsEnvLimit(role: MemberRole): boolean {
+  return ["engineer", "experimenter"].includes(role);
+}
+
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string
 ): "yes" | "no" | "N/A" {
-  if (["readonly", "collaborator", "designer"].includes(role.role))
-    return "N/A";
+  if (role.role === "admin") return "yes";
 
-  if (role.role === "admin" || !role.limitAccessByEnvironment) return "yes";
+  if (!roleSupportsEnvLimit(role.role)) return "N/A";
+
+  if (!role.limitAccessByEnvironment) return "yes";
 
   if (role.environments.includes(env)) return "yes";
 

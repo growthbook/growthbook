@@ -104,7 +104,6 @@ export function getRoles(organization: OrganizationInterface): Role[] {
       id: "collaborator",
       description: "Add comments and contribute ideas",
       permissions: ["addComments", "createIdeas", "createPresentations"],
-      default: true,
     },
     {
       id: "engineer",

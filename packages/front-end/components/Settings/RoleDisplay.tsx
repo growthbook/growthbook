@@ -1,5 +1,6 @@
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
 import { ReactElement } from "react";
+import { roleSupportsEnvLimit } from "../../services/auth";
 import { isLight } from "../Tags/Tag";
 
 const colorMap: Record<MemberRole, string> = {
@@ -29,7 +30,7 @@ export default function RoleDisplay({
       >
         {role}
       </span>
-      {limitAccessByEnvironment && (
+      {limitAccessByEnvironment && roleSupportsEnvLimit(role) && (
         <small className="ml-1">
           {environments.length ? (
             environments.join(", ")

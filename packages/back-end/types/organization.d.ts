@@ -24,7 +24,6 @@ export type Role = {
   id: MemberRole;
   description: string;
   permissions: Permission[];
-  default?: boolean;
 };
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";

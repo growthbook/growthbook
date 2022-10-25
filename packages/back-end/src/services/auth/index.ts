@@ -84,6 +84,9 @@ export async function processJWT(
       throw new Error("You do not have permission to complete that action.");
     }
 
+    // Admin role always has permission
+    if (role.role === "admin") return true;
+
     // If it's an environment-scoped permission and the user's role has limited access
     if (envs && role.limitAccessByEnvironment) {
       for (let i = 0; i < envs.length; i++) {
