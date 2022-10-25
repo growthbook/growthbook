@@ -7,11 +7,7 @@ import {
   getRole,
   validateLoginMethod,
 } from "../organizations";
-import {
-  EnvScopedPermission,
-  MemberRoleInfo,
-  Permission,
-} from "../../../types/organization";
+import { MemberRoleInfo, Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { insertAudit } from "../audit";
@@ -78,22 +74,26 @@ export async function processJWT(
 
   // Throw error if permissions don't pass
   req.checkPermissions = (permission: Permission, envs?: string[]) => {
-    // If they have the global permission, then they are always allowed
-    if (req.permissions.has(permission)) return;
-    // If it's an environment-scoped permission, they need permission for all environments
-    if (envs) {
-      // If there are no environments where the user is missing permissions, return true
-      if (
-        envs.filter(
-          (e) =>
-            !req.permissions.has(`${permission as EnvScopedPermission}.${e}`)
-        ).length
-      ) {
-        throw new Error("You do not have permission to complete that action.");
+    if (!req.organization || !req.userId) {
+      throw new Error("You do not have permission to complete that action.");
+    }
+    const role = getRole(req.organization, req.userId);
+
+    // Missing permission entirely
+    if (!role || !req.permissions.has(permission)) {
+      throw new Error("You do not have permission to complete that action.");
+    }
+
+    // If it's an environment-scoped permission and the user's role has limited access
+    if (envs && role.limitAccessByEnvironment) {
+      for (let i = 0; i < envs.length; i++) {
+        if (!role.environments.includes(envs[i])) {
+          throw new Error(
+            `You do not have permission to complete that action in the ${envs[i]} environment`
+          );
+        }
       }
     }
-    // No permissions by default
-    throw new Error("You do not have permission to complete that action.");
   };
 
   const user = await getUserFromJWT(req.user);

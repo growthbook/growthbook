@@ -75,7 +75,6 @@ import {
   accountFeatures,
   ALL_PERMISSIONS,
   getAccountPlan,
-  getDefaultRole,
   getPermissionsByRole,
   getRoles,
 } from "../util/organization.util";
@@ -561,7 +560,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     permissions: req.admin
       ? [...ALL_PERMISSIONS]
       : getPermissionsByRole(roleInfo, org),
-    ...roleInfo,
+    role: roleInfo,
     accountPlan: getAccountPlan(org),
     commercialFeatures: [...features],
     roles: getRoles(org),
@@ -581,7 +580,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       subscription,
       freeSeats,
       disableSelfServeBilling,
-      defaultRole: getDefaultRole(org),
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,

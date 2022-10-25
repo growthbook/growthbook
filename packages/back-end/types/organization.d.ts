@@ -8,10 +8,7 @@ import { ImplementationType } from "./experiment";
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
 
-export type Permission =
-  | GlobalPermission
-  | EnvScopedPermission
-  | `${EnvScopedPermission}.${string}`;
+export type Permission = GlobalPermission | EnvScopedPermission;
 
 export type MemberRole =
   | "readonly"

@@ -12,6 +12,7 @@ import {
   OrganizationSettings,
   Permission,
   Role,
+  MemberRoleInfo,
 } from "back-end/types/organization";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
@@ -35,7 +36,7 @@ type OrgSettingsResponse = {
   roles: Role[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
-  role: MemberRole;
+  role: MemberRoleInfo;
   permissions: Permission[];
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
@@ -79,7 +80,7 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   admin?: boolean;
-  role?: MemberRole;
+  role?: MemberRoleInfo;
   license?: LicenseData;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -183,7 +184,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [apiCall]);
 
-  const role = data?.admin ? "admin" : currentOrg?.role || "collaborator";
+  const role: MemberRoleInfo = useMemo(() => {
+    if (data?.admin) {
+      return {
+        role: "admin",
+        environments: [],
+        limitAccessByEnvironment: false,
+      };
+    }
+
+    return (
+      currentOrg?.role || {
+        role: "collaborator",
+        environments: [],
+        limitAccessByEnvironment: false,
+      }
+    );
+  }, [data?.admin, currentOrg?.role]);
   const permissions = new Set(currentOrg?.permissions || []);
 
   const permissionsObj: Record<GlobalPermission, boolean> = {
@@ -196,7 +213,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role: role,
+      role: role?.role,
     };
   }, [orgId, data?.userId, role]);
 
@@ -267,18 +284,21 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissions: {
           ...permissionsObj,
           check: (permission: Permission, envs?: string[]): boolean => {
-            // If they have the global permission, then they are always allowed
-            if (permissions.has(permission)) return true;
-            // If it's an environment-scoped permission, they need permission for all environments
-            if (envs?.length) {
-              // If there are no environments where the user is missing permissions, return true
-              return !envs.filter(
-                (e) =>
-                  !permissions.has(`${permission as EnvScopedPermission}.${e}`)
-              ).length;
+            // Missing permission entirely
+            if (!role || !permissions.has(permission)) {
+              return false;
             }
-            // No permissions by default
-            return false;
+
+            // If it's an environment-scoped permission and the user's role has limited access
+            if (envs && role.limitAccessByEnvironment) {
+              for (let i = 0; i < envs.length; i++) {
+                if (!role.environments.includes(envs[i])) {
+                  return false;
+                }
+              }
+            }
+
+            return true;
           },
         },
         settings: currentOrg?.organization?.settings || {},

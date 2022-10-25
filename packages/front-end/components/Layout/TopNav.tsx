@@ -33,9 +33,7 @@ const TopNav: FC<{
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
-  const { name, email, updateUser, role, userId, users } = useUser();
-
-  const user = users.get(userId);
+  const { name, email, updateUser, role } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -199,11 +197,7 @@ const TopNav: FC<{
             <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
               <div className="text-muted">{email}</div>
               {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
-              <RoleDisplay
-                role={role}
-                environments={user?.environments || []}
-                limitAccessByEnvironment={!!user?.limitAccessByEnvironment}
-              />
+              <RoleDisplay {...role} />
             </div>
             {datasources?.length > 0 && (
               <>

@@ -88,20 +88,7 @@ export function getPermissionsByRole(
   const roles = getRoles(org);
   const orgRole = roles.find((r) => r.id === role.role);
   const permissions = new Set<Permission>(orgRole?.permissions || []);
-
-  // If limiting access by environment, swap global permissions with env-scoped ones
-  if (role.limitAccessByEnvironment) {
-    ENV_SCOPED_PERMISSIONS.forEach((p) => {
-      if (permissions.has(p)) {
-        permissions.delete(p);
-        role.environments.forEach((env) => {
-          permissions.add(`${p}.${env}`);
-        });
-      }
-    });
-  }
-
-  return [...permissions];
+  return Array.from(permissions);
 }
 
 // eslint-disable-next-line
