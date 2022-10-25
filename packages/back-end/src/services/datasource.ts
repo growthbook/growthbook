@@ -6,7 +6,10 @@ import Presto from "../integrations/Presto";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface } from "../types/Integration";
+import {
+  SourceIntegrationInterface,
+  TestQueryResult,
+} from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
@@ -97,17 +100,19 @@ export async function testQuery(
   endDate?: Date,
   experimentId?: string
   // eslint-disable-next-line
-): Promise<any> {
+): Promise<TestQueryResult> {
   const integration = getSourceIntegrationObject(datasource);
-  return integration.testQuery
-    ? await integration.testQuery(
-        sql,
-        minExperimentLength,
-        startDate,
-        endDate,
-        experimentId
-      )
-    : null;
+  //TODO: Figure out why there is a Mixpanel issue that makes this possibly undefined.
+  if (!integration.testQuery) {
+    throw new Error("Unable to test query.");
+  }
+  return await integration.testQuery(
+    sql,
+    minExperimentLength,
+    startDate,
+    endDate,
+    experimentId
+  );
 }
 
 export function getSelectQueryColumns(sql: string): string[] {

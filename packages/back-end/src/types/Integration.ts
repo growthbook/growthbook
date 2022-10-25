@@ -135,8 +135,13 @@ export interface SourceIntegrationConstructor {
   ): SourceIntegrationInterface;
 }
 
-export interface TestQueryResult {
+export interface TestQueryRow {
   [key: string]: string | Date;
+}
+
+export interface TestQueryResult {
+  results: TestQueryRow[];
+  duration: number;
 }
 
 export interface SourceIntegrationInterface {
@@ -168,7 +173,7 @@ export interface SourceIntegrationInterface {
     startDate?: Date,
     endDate?: Date,
     experimentId?: string
-  ): Promise<TestQueryResult[] | null>;
+  ): Promise<TestQueryResult>;
   getSourceProperties(): DataSourceProperties;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;

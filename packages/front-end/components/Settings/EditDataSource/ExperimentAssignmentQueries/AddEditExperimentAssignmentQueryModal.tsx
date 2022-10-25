@@ -14,6 +14,9 @@ import Toggle from "../../../Forms/Toggle";
 import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";
 import { useAuth } from "../../../../services/auth";
+import DisplayTestQueryResults, {
+  TestQueryResults,
+} from "../../DisplayTestQueryResults";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -23,14 +26,6 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-type TestQueryResults = {
-  status: number;
-  optionalColumns?: string[];
-  errorMessage?: string;
-  duration?: string;
-  noRowsReturned: boolean;
-};
-
 export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
   exposureQuery,
   dataSource,
@@ -38,12 +33,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const [querySuccessMessage, setQuerySuccessMessage] = useState<
-    null | string
-  >();
   const [queryError, setQueryError] = useState<null | string>();
-  const [queryWarnings, setQueryWarnings] = useState<string[]>([]);
-  const [noRowsReturned, setNoRowsReturned] = useState(false);
+  const [
+    testQueryResults,
+    setTestQueryResults,
+  ] = useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -117,10 +111,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   }
 
   const handleTestQuery = async () => {
+    setTestQueryResults(null);
     setQueryError(null);
-    setQuerySuccessMessage(null);
-    setQueryWarnings([]);
-    setNoRowsReturned(false);
 
     const value: ExposureQuery = {
       name: exposureQuery.name,
@@ -135,7 +127,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       const requiredColumns = getRequiredColumns(value);
       validateSQL(value.query, requiredColumns);
 
-      const res: TestQueryResults = await apiCall("/query/exposure/validity", {
+      const res: TestQueryResults = await apiCall("/query/test", {
         method: "POST",
         body: JSON.stringify({
           query: value.query,
@@ -144,39 +136,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
-      if (res.errorMessage) {
-        setQueryError(res.errorMessage);
-        return;
-      }
-
-      if (res.duration) {
-        setQuerySuccessMessage(
-          `The query ran successfully in ${res.duration} MS.`
-        );
-      }
-
-      if (res.optionalColumns) {
-        setQueryWarnings(res.optionalColumns);
-      }
-
-      if (res.noRowsReturned) {
-        setNoRowsReturned(true);
-      }
+      setTestQueryResults(res);
     } catch (e) {
       setQueryError(e.message);
     }
   };
-
-  const testQueryButton = (
-    <button
-      className="btn btn-link"
-      disabled={!saveEnabled}
-      type="button"
-      onClick={handleTestQuery}
-    >
-      Test Query
-    </button>
-  );
 
   return (
     <Modal
@@ -187,7 +151,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       header={modalTitle}
       cta="Save"
       ctaEnabled={saveEnabled}
-      secondaryCTA={testQueryButton}
+      secondaryCTA={
+        <button
+          className="btn btn-link"
+          disabled={!saveEnabled}
+          type="button"
+          onClick={handleTestQuery}
+        >
+          Test Query
+        </button>
+      }
       autoFocusSelector="#id-modal-identify-joins-heading"
       error={queryError}
     >
@@ -207,26 +180,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               required
               {...form.register("userIdType")}
             />
-
-            {querySuccessMessage && (
-              <div className="alert alert-success">
-                {querySuccessMessage}
-                {noRowsReturned && " However, no rows were returned."}
-              </div>
-            )}
-            {queryWarnings.length > 0 && (
-              <div className="alert alert-warning">
-                <p>
-                  The column(s) listed below are not required. If you want to
-                  use these to drill down into experiment results, be sure to
-                  add them as dimension columns below. Otherwise, they can be
-                  removed to improve performance.
-                </p>
-                {queryWarnings.map((warning) => {
-                  return <li key={warning}>{warning}</li>;
-                })}
-              </div>
-            )}
+            <DisplayTestQueryResults testQueryResults={testQueryResults} />
             <div className="row">
               <div className="col">
                 <CodeTextArea

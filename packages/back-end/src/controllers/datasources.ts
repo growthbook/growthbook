@@ -492,7 +492,7 @@ export async function getQueries(
   });
 }
 
-export async function validateExposureQuery(
+export async function testLimitedQuery(
   req: AuthRequest<{
     query: string;
     id: string;
@@ -535,7 +535,8 @@ export async function validateExposureQuery(
 
     const optionalColumns = [];
 
-    if (results?.length === 0) {
+    // If we don't get any rows back, parse the query to get columns that were passed in to identify optionalColumns
+    if (results.length === 0) {
       const columns = getSelectQueryColumns(query);
       columns.forEach((column) => {
         if (
@@ -556,7 +557,7 @@ export async function validateExposureQuery(
     res.status(200).json({
       status: 200,
       optionalColumns,
-      duration: duration,
+      duration,
       noRowsReturned: results.length === 0,
     });
   } catch (e) {

@@ -15,7 +15,7 @@ import {
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
   Dimension,
-  // TestQueryResult,
+  TestQueryResult,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -445,13 +445,13 @@ export default abstract class SqlIntegration
     endDate?: Date,
     experimentId?: string
     // eslint-disable-next-line
-  ): Promise<any> {
+  ): Promise<TestQueryResult> {
     const limitedQuery = replaceSQLVars(
       `SELECT * FROM (${query}) as sub_query\nLIMIT 5`,
       {
         startDate:
           startDate ||
-          // If no start date, we'll take current - minExperimentLength to define a start date
+          // If no start date, we'll take current date/time and subtract minExperimentLength.
           new Date(
             new Date().setDate(new Date().getDate() - minExperimentLength)
           ),
@@ -459,7 +459,7 @@ export default abstract class SqlIntegration
         experimentId: experimentId,
       }
     );
-    // Calculate the run time
+    // Calculate the run time of the query
     const queryStartTime = Date.now();
     const results = await this.runQuery(limitedQuery);
     const queryEndTime = Date.now();
