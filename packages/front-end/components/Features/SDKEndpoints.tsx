@@ -193,7 +193,8 @@ const SDKEndpoints: FC<{
                                 border: "none",
                                 textAlign: "right",
                                 outline: "none",
-                                backgroundColor: "#fff",
+                                backgroundColor: "transparent",
+                                textOverflow: "ellipsis",
                               }}
                             />
                           </Tooltip>
