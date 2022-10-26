@@ -223,14 +223,10 @@ const RoleSelector: FC<{
                       ...value,
                       projectRoles: [
                         ...projectRoles,
-                        {
+                        cloneDeep({
                           project: newProject,
-                          ...(cloneDeep(settings.defaultRole) || {
-                            environments: [],
-                            limitAccessByEnvironment: false,
-                            role: "collaborator",
-                          }),
-                        },
+                          ...settings.defaultRole,
+                        }),
                       ],
                     });
                     setNewProject("");

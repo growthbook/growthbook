@@ -6,7 +6,6 @@ import {
   removeMember,
   revokeInvite,
   getInviteUrl,
-  getRole,
   importConfig,
   getOrgFromReq,
   addMemberFromSSOConnection,
@@ -21,13 +20,12 @@ import { createUser, getUsersByIds, updatePassword } from "../services/users";
 import { getAllTags } from "../models/TagModel";
 import { UserModel } from "../models/UserModel";
 import {
+  ExpandedMember,
   Invite,
-  MemberRoleInfo,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
-  Permission,
 } from "../../types/organization";
 import {
   getWatchedAudits,
@@ -75,9 +73,7 @@ import {
 } from "../models/ApiKeyModel";
 import {
   accountFeatures,
-  ALL_PERMISSIONS,
   getAccountPlan,
-  getPermissionsByRole,
   getRoles,
 } from "../util/organization.util";
 
@@ -524,8 +520,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, userId } = getOrgFromReq(req);
 
+  const { org } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -539,75 +535,33 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     disableSelfServeBilling,
   } = org;
 
-  const users = await getUsersByIds(members.map((m) => m.id));
-
+  // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(org.id);
-
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const roleInfo = getRole(org, userId);
-
-  const features = accountFeatures[getAccountPlan(org)];
-
-  const permissions: Record<string, Permission[]> = {
-    global: req.admin
-      ? [...ALL_PERMISSIONS]
-      : getPermissionsByRole(roleInfo, org),
-  };
-  const user = members.find((m) => m.id === userId);
-
-  // Add project roles
-  if (!req.admin && user?.projectRoles) {
-    user.projectRoles.forEach(({ project, ...projectRole }) => {
-      permissions[project] = getPermissionsByRole(projectRole, org);
+  // Add email/name to the organization members array
+  const userInfo = await getUsersByIds(members.map((m) => m.id));
+  const expandedMembers: ExpandedMember[] = [];
+  userInfo.forEach(({ id, email, name }) => {
+    const memberInfo = members.find((m) => m.id === id);
+    if (!memberInfo) return;
+    expandedMembers.push({
+      email,
+      name,
+      ...memberInfo,
     });
-  }
-
-  const userRole: {
-    info: MemberRoleInfo;
-    permissions: Permission[];
-    projectRoles: Record<
-      string,
-      {
-        info: MemberRoleInfo;
-        permissions: Permission[];
-      }
-    >;
-  } = {
-    info: getRole(org, userId),
-    permissions: req.admin
-      ? [...ALL_PERMISSIONS]
-      : getPermissionsByRole(roleInfo, org),
-    projectRoles: {},
-  };
-
-  if (user?.projectRoles) {
-    user.projectRoles.forEach(({ project, ...info }) => {
-      userRole.projectRoles[project] = {
-        info,
-        permissions: getPermissionsByRole(info, org),
-      };
-    });
-  }
+  });
 
   return res.status(200).json({
     status: 200,
     apiKeys,
     enterpriseSSO,
-    userRole,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: [...features],
+    commercialFeatures: [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
-    members: users.map(({ id, email, name }) => {
-      return {
-        id,
-        email,
-        name,
-        ...getRole(org, id),
-      };
-    }),
+    members: expandedMembers,
     organization: {
       invites,
       ownerEmail,

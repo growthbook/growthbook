@@ -198,9 +198,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const user = users.get(data?.userId);
   const role =
     (data?.admin && "admin") ||
-    (user?.role ??
-      currentOrg?.organization?.settings?.defaultRole?.role ??
-      "collaborator");
+    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {
