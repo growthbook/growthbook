@@ -95,7 +95,7 @@ const SDKEndpoints: FC<{
               <th>Environment</th>
               <th>Endpoint</th>
               {hasEncryptedEndpoints && (
-                <th style={{ textAlign: "right" }}>Encryption Key</th>
+                <th style={{ textAlign: "right" }}>Encrypted?</th>
               )}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
@@ -150,80 +150,84 @@ const SDKEndpoints: FC<{
                       {endpoint}
                     </Tooltip>
                   </td>
-                  <td>
-                    {canManageKeys && key.encryptSDK && (
-                      <div className="d-flex flex-row align-items-center justify-content-start">
-                        <Tooltip
-                          role="button"
-                          tipMinWidth="45px"
-                          tipPosition="top"
-                          body={
-                            hidden
-                              ? "Click the eye to reveal"
-                              : currentCopiedString === key.id
-                              ? "Copied!"
-                              : "Copy"
-                          }
-                          style={{ paddingRight: "5px" }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (!hidden) {
-                              navigator.clipboard
-                                .writeText(revealedPrivateKey[key.id])
-                                .then(() => {
-                                  setCurrentCopiedString(key.id);
-                                })
-                                .catch((e) => {
-                                  console.error(e);
-                                });
-                            }
-                          }}
-                        >
-                          <input
+                  {hasEncryptedEndpoints && (
+                    <td>
+                      {canManageKeys && key.encryptSDK ? (
+                        <div className="d-flex flex-row align-items-center justify-content-start">
+                          <Tooltip
                             role="button"
-                            type={hidden ? "password" : "text"}
-                            value={
+                            tipMinWidth="45px"
+                            tipPosition="top"
+                            body={
                               hidden
-                                ? "key is hidden"
-                                : revealedPrivateKey[key.id]
+                                ? "Click the eye to reveal"
+                                : currentCopiedString === key.id
+                                ? "Copied!"
+                                : "Copy"
                             }
-                            disabled={true}
-                            style={{
-                              border: "none",
-                              textAlign: "right",
-                              outline: "none",
-                              backgroundColor: "#fff",
-                            }}
-                          />
-                        </Tooltip>
-                        <span
-                          role="button"
-                          onClick={async () => {
-                            if (hidden) {
-                              const res = await apiCall<{
-                                key: SecretApiKey;
-                              }>(`/keys/reveal`, {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  id: key.id,
-                                }),
-                              });
-                              if (!res.key?.encryptionKey) {
-                                throw new Error("Could not load private key");
+                            style={{ paddingRight: "5px" }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (!hidden) {
+                                navigator.clipboard
+                                  .writeText(revealedPrivateKey[key.id])
+                                  .then(() => {
+                                    setCurrentCopiedString(key.id);
+                                  })
+                                  .catch((e) => {
+                                    console.error(e);
+                                  });
                               }
-                              setRevealedPrivateKey({
-                                [key.id]: res.key.encryptionKey,
-                              });
-                            } else {
-                              setRevealedPrivateKey(null);
-                            }
-                          }}
-                        >
-                          {hidden ? <FaEyeSlash /> : <FaEye />}
-                        </span>
-                      </div>
-                    )}
-                  </td>
+                            }}
+                          >
+                            <input
+                              role="button"
+                              type={hidden ? "password" : "text"}
+                              value={
+                                hidden
+                                  ? "key is hidden"
+                                  : revealedPrivateKey[key.id]
+                              }
+                              disabled={true}
+                              style={{
+                                border: "none",
+                                textAlign: "right",
+                                outline: "none",
+                                backgroundColor: "#fff",
+                              }}
+                            />
+                          </Tooltip>
+                          <span
+                            role="button"
+                            onClick={async () => {
+                              if (hidden) {
+                                const res = await apiCall<{
+                                  key: SecretApiKey;
+                                }>(`/keys/reveal`, {
+                                  method: "POST",
+                                  body: JSON.stringify({
+                                    id: key.id,
+                                  }),
+                                });
+                                if (!res.key?.encryptionKey) {
+                                  throw new Error("Could not load private key");
+                                }
+                                setRevealedPrivateKey({
+                                  [key.id]: res.key.encryptionKey,
+                                });
+                              } else {
+                                setRevealedPrivateKey(null);
+                              }
+                            }}
+                          >
+                            {hidden ? <FaEyeSlash /> : <FaEye />}
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: "right" }}>No</div>
+                      )}
+                    </td>
+                  )}
                   {canManageKeys && (
                     <td>
                       <MoreMenu id={key.key + "_actions"}>
