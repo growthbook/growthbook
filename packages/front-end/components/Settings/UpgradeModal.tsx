@@ -91,7 +91,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
               Advanced permissioning{" "}
               <Tooltip
                 body={
-                  "Per-environment permissions. Allow someone to change a feature in dev, but not production."
+                  "Per-environment and per-project permissions. Allow someone to change a feature in dev, but not production."
                 }
               />
             </li>
@@ -113,7 +113,6 @@ export default function UpgradeModal({ close, source, reason }: Props) {
             </li>
             <li>Early access to new features</li>
           </ul>
-          <small>* coming soon</small>
         </div>
         <div className="col-auto mb-4">
           <div className="bg-light border rounded p-3 p-lg-4">

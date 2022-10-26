@@ -19,10 +19,12 @@ function SingleRoleSelector({
   value,
   setValue,
   label,
+  includeAdminRole = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
+  includeAdminRole?: boolean;
 }) {
   const { roles } = useUser();
 
@@ -48,20 +50,18 @@ function SingleRoleSelector({
             role,
           });
         }}
-        options={roles.map((r) => ({
-          label: r.id,
-          value: r.id,
-        }))}
+        options={roles
+          .filter((r) => includeAdminRole || r.id !== "admin")
+          .map((r) => ({
+            label: r.id,
+            value: r.id,
+          }))}
         sort={false}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
           return (
             <div>
-              <RoleDisplay
-                role={r.id}
-                environments={[]}
-                limitAccessByEnvironment={false}
-              />
+              <RoleDisplay role={r.id} />
               <small className="ml-2">
                 <em>{r.description}</em>
               </small>
@@ -148,6 +148,7 @@ const RoleSelector: FC<{
           });
         }}
         label="Global Role"
+        includeAdminRole={true}
       />
 
       {canUseAdvancedPermissions && projects?.length > 0 && (
@@ -196,6 +197,7 @@ const RoleSelector: FC<{
                     <strong>{getProjectById(projectRole.project)?.name}</strong>
                   </>
                 }
+                includeAdminRole={false}
               />
             </div>
           ))}

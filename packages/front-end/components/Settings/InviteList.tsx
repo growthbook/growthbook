@@ -159,11 +159,7 @@ const InviteList: FC<{
                 <td>{email}</td>
                 <td>{datetime(dateCreated)}</td>
                 <td>
-                  <RoleDisplay
-                    role={roleInfo.role}
-                    environments={[]}
-                    limitAccessByEnvironment={false}
-                  />
+                  <RoleDisplay role={roleInfo.role} />
                 </td>
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);

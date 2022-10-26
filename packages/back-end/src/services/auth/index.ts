@@ -84,7 +84,7 @@ export async function processJWT(
     const projectRole = getRole(req.organization, req.userId, project);
 
     // Admin role always has permission
-    if (projectRole.role === "admin") return true;
+    if (req.admin || projectRole.role === "admin") return true;
 
     const permissions = getPermissionsByRole(
       projectRole.role,

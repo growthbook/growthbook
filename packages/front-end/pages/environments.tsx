@@ -20,7 +20,11 @@ const EnvironmentsPage: FC = () => {
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { refreshOrganization } = useUser();
   const permissions = usePermissions();
-  const canCreate = permissions.check("manageEnvironments", "", []);
+  // See if the user has access to a random environment name that doesn't exist yet
+  // If yes, then they can create new environments
+  const canCreate = permissions.check("manageEnvironments", "", ["$$$NEW$$$"]);
+
+  const canManageEnvironments = permissions.check("manageEnvironments", "", []);
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
@@ -66,7 +70,7 @@ const EnvironmentsPage: FC = () => {
               <th>Default state</th>
               <th>Show toggle on feature list</th>
               <th>API keys</th>
-              {canCreate && <th style={{ width: 30 }}></th>}
+              {canManageEnvironments && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -84,7 +88,7 @@ const EnvironmentsPage: FC = () => {
                   <td>
                     {numApiKeys} {numApiKeys === 1 ? "key" : "keys"}
                   </td>
-                  {canCreate && (
+                  {canManageEnvironments && (
                     <td style={{ width: 30 }}>
                       <MoreMenu id={e.id + "_moremenu"}>
                         {canEdit && (

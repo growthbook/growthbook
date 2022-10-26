@@ -282,6 +282,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setOrganizations(orgs);
       if (orgId && orgs.map((o) => o.id).includes(orgId)) {
         return;
+      } else if (specialOrg?.id === orgId) {
+        return;
       } else if (
         !orgId &&
         initialOrgId &&
@@ -295,7 +297,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setOrgId(orgs[0].id);
       }
     },
-    [initialOrgId, orgId]
+    [initialOrgId, orgId, specialOrg]
   );
 
   if (error) {

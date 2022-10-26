@@ -86,11 +86,7 @@ const MemberList: FC<{
                 <td>{member.name}</td>
                 <td>{member.email}</td>
                 <td>
-                  <RoleDisplay
-                    role={roleInfo.role}
-                    environments={[]}
-                    limitAccessByEnvironment={false}
-                  />
+                  <RoleDisplay role={roleInfo.role} />
                 </td>
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);

@@ -12,7 +12,6 @@ import {
   OrganizationSettings,
   Permission,
   Role,
-  MemberRoleInfo,
   ProjectScopedPermission,
 } from "back-end/types/organization";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
@@ -30,6 +29,7 @@ import { useAuth, UserOrganizations } from "./auth";
 import { isCloud, isSentryEnabled } from "./env";
 import track from "./track";
 import * as Sentry from "@sentry/react";
+import useApi from "../hooks/useApi";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -81,7 +81,6 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   admin?: boolean;
-  role?: MemberRoleInfo;
   license?: LicenseData;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
@@ -155,10 +154,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const [data, setData] = useState<null | UserResponse>(null);
   const [error, setError] = useState("");
-  const [currentOrg, setCurrentOrg] = useState<null | OrgSettingsResponse>(
-    null
-  );
   const router = useRouter();
+
+  const {
+    data: currentOrg,
+    mutate: refreshOrganization,
+  } = useApi<OrgSettingsResponse>(`/organization`);
 
   const updateUser = useCallback(async () => {
     try {
@@ -184,18 +185,18 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return userMap;
   }, [currentOrg?.members]);
 
-  const refreshOrganization = useCallback(async () => {
-    try {
-      const res = await apiCall<OrgSettingsResponse>("/organization", {
-        method: "GET",
-      });
-      setCurrentOrg(res);
-    } catch (e) {
-      setCurrentOrg(null);
-    }
-  }, [apiCall]);
-
-  const user = users.get(data?.userId);
+  let user = users.get(data?.userId);
+  if (!user && data) {
+    user = {
+      email: data.email,
+      id: data.userId,
+      environments: [],
+      limitAccessByEnvironment: false,
+      name: data.userName,
+      role: data.admin ? "admin" : "readonly",
+      projectRoles: [],
+    };
+  }
   const role =
     (data?.admin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
@@ -324,7 +325,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           if (!u && fallback) return id;
           return u?.name || u?.email;
         },
-        refreshOrganization,
+        refreshOrganization: async () => {
+          await refreshOrganization();
+        },
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,

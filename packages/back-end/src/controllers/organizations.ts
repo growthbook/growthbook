@@ -951,14 +951,33 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        // Combine old and new environments to get the full list of affected ones
-        const affectedEnvs = settings[k]?.map((e) => e.id) || [];
-        org.settings?.environments?.forEach((e) => {
-          if (!affectedEnvs.includes(e.id)) {
-            affectedEnvs.push(e.id);
+        // Require permissions for any old environments that changed
+        const affectedEnvs: Set<string> = new Set();
+        org.settings?.environments?.forEach((env) => {
+          const oldHash = JSON.stringify(env);
+          const newHash = JSON.stringify(
+            settings[k]?.find((e) => e.id === env.id)
+          );
+          if (oldHash !== newHash) {
+            affectedEnvs.add(env.id);
           }
         });
-        req.checkPermissions("manageEnvironments", "", affectedEnvs);
+
+        // Require permissions for any new environments that have been added
+        const oldIds = new Set(
+          org.settings?.environments?.map((env) => env.id) || []
+        );
+        settings[k]?.forEach((env) => {
+          if (!oldIds.has(env.id)) {
+            affectedEnvs.add(env.id);
+          }
+        });
+
+        req.checkPermissions(
+          "manageEnvironments",
+          "",
+          Array.from(affectedEnvs)
+        );
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {

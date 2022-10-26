@@ -1,6 +1,5 @@
-import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
+import { MemberRole } from "back-end/types/organization";
 import { ReactElement } from "react";
-import { roleSupportsEnvLimit } from "../../services/auth";
 import { isLight } from "../Tags/Tag";
 
 const colorMap: Record<MemberRole, string> = {
@@ -15,30 +14,19 @@ const colorMap: Record<MemberRole, string> = {
 };
 
 export default function RoleDisplay({
-  environments,
   role,
-  limitAccessByEnvironment,
-}: MemberRoleInfo): ReactElement {
+}: {
+  role: MemberRole;
+}): ReactElement {
   return (
-    <>
-      <span
-        className="badge"
-        style={{
-          backgroundColor: colorMap[role],
-          color: isLight(colorMap[role]) ? "#000000" : "#ffffff",
-        }}
-      >
-        {role}
-      </span>
-      {limitAccessByEnvironment && roleSupportsEnvLimit(role) && (
-        <small className="ml-1">
-          {environments.length ? (
-            environments.join(", ")
-          ) : (
-            <span className="text-muted">(draft-only)</span>
-          )}
-        </small>
-      )}
-    </>
+    <span
+      className="badge"
+      style={{
+        backgroundColor: colorMap[role],
+        color: isLight(colorMap[role]) ? "#000000" : "#ffffff",
+      }}
+    >
+      {role}
+    </span>
   );
 }
