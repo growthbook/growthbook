@@ -4,7 +4,7 @@ import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
 import Tooltip from "../Tooltip";
 
-export type RevealedPrivateKey = {
+export type SecretKey = {
   [key: string]: string;
 };
 export interface Props {
@@ -12,14 +12,15 @@ export interface Props {
   keyId: string;
 }
 
-export default function ClickToReveal({ keyId, rowReverse }: Props) {
+export default function RevealHiddenKey({ keyId, rowReverse }: Props) {
   const { apiCall } = useAuth();
   const [error, setError] = useState("");
-  const [revealedPrivateKey, setRevealedPrivateKey] =
-    useState<RevealedPrivateKey | null>({});
+  const [revealedSecretKey, setRevealedSecretKey] = useState<SecretKey | null>(
+    {}
+  );
   const [currentCopiedString, setCurrentCopiedString] = useState("");
 
-  const hidden = !revealedPrivateKey || !revealedPrivateKey[keyId];
+  const hidden = !revealedSecretKey || !revealedSecretKey[keyId];
 
   return (
     <div className={rowReverse && "d-flex flex-row-reverse"}>
@@ -34,14 +35,14 @@ export default function ClickToReveal({ keyId, rowReverse }: Props) {
                   id: keyId,
                 }),
               });
-              setRevealedPrivateKey({
+              setRevealedSecretKey({
                 [keyId]: res.key.key,
               });
             } catch (e) {
               setError(e.message);
             }
           } else {
-            setRevealedPrivateKey(null);
+            setRevealedSecretKey(null);
           }
         }}
       >
@@ -63,7 +64,7 @@ export default function ClickToReveal({ keyId, rowReverse }: Props) {
           e.preventDefault();
           if (!hidden) {
             navigator.clipboard
-              .writeText(revealedPrivateKey[keyId])
+              .writeText(revealedSecretKey[keyId])
               .then(() => {
                 setCurrentCopiedString(keyId);
               })
@@ -77,7 +78,7 @@ export default function ClickToReveal({ keyId, rowReverse }: Props) {
         <input
           role="button"
           type={hidden ? "password" : "text"}
-          value={hidden ? "Click to reveal key." : revealedPrivateKey[keyId]}
+          value={hidden ? "Click to reveal key." : revealedSecretKey[keyId]}
           disabled={true}
           style={{
             border: "none",

@@ -46,34 +46,32 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             </tr>
           </thead>
           <tbody>
-            {secretKeys.map((key) => {
-              return (
-                <tr key={key.id}>
-                  <td>{key.description}</td>
-                  <td>{canManageKeys && <ClickToReveal keyId={key.id} />}</td>
-                  {canManageKeys && (
-                    <td>
-                      <MoreMenu id={key.key + "_actions"}>
-                        <DeleteButton
-                          onClick={async () => {
-                            await apiCall(`/keys`, {
-                              method: "DELETE",
-                              body: JSON.stringify({
-                                id: key.id,
-                              }),
-                            });
-                            mutate();
-                          }}
-                          className="dropdown-item"
-                          displayName="Secret Api Key"
-                          text="Delete key"
-                        />
-                      </MoreMenu>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
+            {secretKeys.map((key) => (
+              <tr key={key.id}>
+                <td>{key.description}</td>
+                <td>{canManageKeys && <ClickToReveal keyId={key.id} />}</td>
+                {canManageKeys && (
+                  <td>
+                    <MoreMenu id={key.key + "_actions"}>
+                      <DeleteButton
+                        onClick={async () => {
+                          await apiCall(`/keys`, {
+                            method: "DELETE",
+                            body: JSON.stringify({
+                              id: key.id,
+                            }),
+                          });
+                          mutate();
+                        }}
+                        className="dropdown-item"
+                        displayName="Secret Api Key"
+                        text="Delete key"
+                      />
+                    </MoreMenu>
+                  </td>
+                )}
+              </tr>
+            ))}
           </tbody>
         </table>
       )}
