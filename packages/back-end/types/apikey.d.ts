@@ -5,6 +5,8 @@ export interface ApiKeyInterface {
   description?: string;
   organization: string;
   dateCreated: Date;
+  encryptSDK?: boolean;
+  encryptionKey: string;
   secret?: boolean;
 }
 
@@ -18,6 +20,7 @@ export type SecretApiKey = Omit<
 > & {
   secret: true;
   id: string;
+  encryptionKey?: string;
 };
 
 export type SecretApiKeyRedacted = Omit<SecretApiKey, "key">;
