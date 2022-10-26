@@ -117,9 +117,9 @@ export async function testQuery(
 }
 
 export function getSelectQueryColumns(sql: string): string[] {
-  const formattedQuery = sql.replace(/(\r\n|\n|\r)/gm, "");
-  const selectStatement = formattedQuery.split("SELECT");
-  const rawColumns = selectStatement[1].split("FROM");
+  const formattedQuery = sql.toLowerCase().replace(/(\r\n|\n|\r)/gm, "");
+  const selectStatement = formattedQuery.split("select");
+  const rawColumns = selectStatement[1].split("from");
   const columns = rawColumns[0].split(",");
 
   const formattedColumns = columns.map((column) => {
