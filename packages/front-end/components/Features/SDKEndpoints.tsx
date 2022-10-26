@@ -94,8 +94,9 @@ const SDKEndpoints: FC<{
             <tr>
               <th>Environment</th>
               <th>Endpoint</th>
-              <th style={{ textAlign: "right" }}>Private Key</th>
-              {hasEncryptedEndpoints && <th>Encrypted?</th>}
+              {hasEncryptedEndpoints && (
+                <th style={{ textAlign: "right" }}>Encryption Key</th>
+              )}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>

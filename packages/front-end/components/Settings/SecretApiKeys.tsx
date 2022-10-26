@@ -123,6 +123,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                                 : revealedPrivateKey[key.id]
                             }
                             disabled={true}
+                            size={100}
                             style={{
                               border: "none",
                               outline: "none",
