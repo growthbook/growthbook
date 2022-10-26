@@ -309,6 +309,58 @@ const growthbook = new GrowthBook({
 });
 ```
 
+## Hiding Features from Users
+
+If you fetch the list of features from a client-side app, any of your users could inspect the network request and see which features and experiments you are running. In most cases, this is not a big deal, but if you did want to prevent that, you have two options:
+
+1. Evaluate feature flags using a server-side SDK and only pass the result to the browser
+2. Enable encryption for your SDK Endpoint
+
+If you enable encryption for an SDK Endpoint, instead of returning features as human-readable JSON, we will return it as an encrypted string that must be decrypted before being passed into the SDK.
+
+With encryption enabled, the response from the SDK Endpoint will be in the format:
+
+```js
+  {
+    status: 200,
+    encryptedFeatures: "abcdef123456GHIJKL0987654321..."
+  }
+```
+
+The features are encrypted using the AES-CBC algorithm. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
+
+Here's an example of decrypting features using the SubtleCrypto api, which is built into all modern browsers:
+
+```jsx
+// Helper function to decrypt using SubtleCrypto
+async function decrypt(encryptedText) {
+  const GB_ENCRYPTION_KEY = "MY_ENCRYPTION_KEY"; // <-- Set your encryption key here
+  const base64ToBuf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+  const key = await window.crypto.subtle.importKey(
+    "raw", base64ToBuf(GB_ENCRYPTION_KEY),
+    { name: "AES-CBC", length: 128 }, true, ["encrypt", "decrypt"]
+  );
+  const [iv, cipherText] = encryptedText.split(".");
+  const plainTextBuffer = await window.crypto.subtle
+    .decrypt({name: "AES-CBC", iv: base64ToBuf(iv)}, key, base64ToBuf(cipherText));
+  return new TextDecoder().decode(plainTextBuffer);
+}
+
+function MyApp() {
+  useEffect(() => {
+    // Load features from the encrypted SDK Endpoint and decrypt them
+    fetch("https://cdn.growthbook.io/api/features/<your api key>")
+      .then((res) => res.json())
+      .then((json) => decrypt(json.encryptedFeatures))
+      .then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr)))
+      .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+  }, []);
+  // ...
+}
+```
+
+**Note**: This method is not completely private. Users could find your encryption key if they inspect your minified javascript files.
+
 ## Inline Experiments
 
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.

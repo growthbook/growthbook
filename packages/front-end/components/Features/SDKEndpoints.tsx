@@ -17,7 +17,7 @@ import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 
-type RevealedPrivateKey = {
+export type RevealedPrivateKey = {
   [key: string]: string;
 };
 
@@ -53,6 +53,8 @@ const SDKEndpoints: FC<{
       );
     }
   });
+
+  const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
 
   return (
     <div className="mt-4">
@@ -93,6 +95,7 @@ const SDKEndpoints: FC<{
               <th>Environment</th>
               <th>Endpoint</th>
               <th style={{ textAlign: "right" }}>Private Key</th>
+              {hasEncryptedEndpoints && <th>Encrypted?</th>}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -204,11 +207,11 @@ const SDKEndpoints: FC<{
                                   id: key.id,
                                 }),
                               });
-                              if (!res.key?.encryptionPrivateKey) {
+                              if (!res.key?.encryptionKey) {
                                 throw new Error("Could not load private key");
                               }
                               setRevealedPrivateKey({
-                                [key.id]: res.key.encryptionPrivateKey,
+                                [key.id]: res.key.encryptionKey,
                               });
                             } else {
                               setRevealedPrivateKey(null);

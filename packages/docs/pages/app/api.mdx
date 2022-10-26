@@ -4,7 +4,7 @@ GrowthBook's API has both public endpoints plus an authenticated REST API <span 
 
 ## Public Endpoints
 
-Currently, GrowthBook has a single public endpoint, the **SDK Endpoint**. This is a unique URL that returns your feature definitions, which can be passed into any of the GrowthBook SDKs - front-end, server-side, or mobile.
+Currently, GrowthBook has a single public endpoint, the **SDK Endpoint**. This is a unique URL that returns your feature definitions, which can be passed into any of the GrowthBook SDKs - front-end, server-side, or mobile. [View All SDKs](/lib)
 
 Using this endpoint is one way to get your feature definitions. The other way is via [Webhooks](/app/webhooks), where we send the same payload to you automatically whenever someone updates a feature in GrowthBook.
 
@@ -16,9 +16,40 @@ When you first create a GrowthBook account, we add a default "production" enviro
 
 ### The SDK Endpoint
 
-In **GrowthBook Cloud**, the SDK endpoint is served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you'll want to set up either a CDN or cache layer yourself in front of the GrowthBook API for scalability.
+In **GrowthBook Cloud**, the SDK endpoint is served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you'll want to set up either a CDN or cache layer yourself in front of the GrowthBook API for scalability and speed.
 
-Here is an example response from an SDK endpoint (pretty-printed for readability):
+<details className="mb-3">
+<summary className="cursor-pointer">Typescript Type Definition</summary>
+
+```ts
+interface SDKEndpointResponse {
+  status: 200;
+  features: {
+    [key: string]: FeatureDefinition
+  }
+}
+
+interface FeatureDefinition {
+  defaultValue: any;
+  rules?: FeatureDefinitionRule[];
+}
+
+interface FeatureDefinitionRule {
+  force?: any;
+  weights?: number[];
+  variations?: any[];
+  hashAttribute?: string;
+  namespace?: [string, number, number];
+  key?: string;
+  coverage?: number;
+  condition?: any;
+}
+```
+
+</details>
+
+<details className="mb-3">
+<summary className="cursor-pointer">Example JSON object</summary>
 
 ```json
 {
@@ -42,11 +73,9 @@ Here is an example response from an SDK endpoint (pretty-printed for readability
 }
 ```
 
-The `status` field mirrors the HTTP status. The `features` field has feature definitions indexed by the feature key.
+</details>
 
-Each feature definition has a default value and optional rules that override the value based on targeting conditions. Rules can also be experiments or rollouts where values are randomly assigned to users.
-
-### Project-scoping
+#### Project-scoping
 
 If you've set up multiple projects within GrowthBook, you can optionally add a querystring to the SDK endpoint to only include features in a specific project. By default, features from all projects are returned.
 
@@ -58,17 +87,63 @@ For example:
 /api/features/dev_abc123?project=prj_456def
 ```
 
-### Official SDKs
+#### Encryption
 
-We offer official SDKs that work with these data structures in a few popular languages with more coming soon.
+If you've enabled encryption for your SDK endpoint, the response format changes:
 
-- [Javascript/Typescript](/lib/js)
-- [React](/lib/react)
-- [Go](/lib/go)
-- [PHP](/lib/php)
-- [Python](/lib/python)
-- [Kotlin (Android)](/lib/kotlin)
-- [Build your own](/lib/build-your-own)
+<details className="mb-3">
+<summary className="cursor-pointer">Typescript Type Definition</summary>
+
+```ts
+interface SDKEncryptedEndpointResponse {
+  status: 200;
+  encryptedFeatures: string;
+}
+```
+
+</details>
+
+<details className="mb-3">
+<summary className="cursor-pointer">Example JSON object</summary>
+
+```json
+{
+  "status": 200,
+  "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
+}
+```
+
+</details>
+
+You will need to decrypt the features first before passing into the SDK. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
+
+Here's an example in JavaScript using the SubtleCrypto API, which is available in all modern web browsers:
+
+<details>
+<summary className="cursor-pointer">Decryption Code Example</summary>
+
+```js
+async function decrypt(encryptedText) {
+  const GB_ENCRYPTION_KEY = "MY_ENCRYPTION_KEY"; // <-- Set your encryption key here
+  const base64ToBuf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+  const key = await window.crypto.subtle.importKey(
+    "raw", base64ToBuf(GB_ENCRYPTION_KEY),
+    { name: "AES-CBC", length: 128 }, true, ["encrypt", "decrypt"]
+  );
+  const [iv, cipherText] = encryptedText.split(".");
+  const plainTextBuffer = await window.crypto.subtle
+    .decrypt({name: "AES-CBC", iv: base64ToBuf(iv)}, key, base64ToBuf(cipherText));
+  return new TextDecoder().decode(plainTextBuffer);
+}
+
+// Decrypting gives you a JSON-encoded string
+const featuresStr = await decrypt(encryptedFeatures);
+
+// Turn it into a JSON object
+const features = JSON.parse(featuresStr);
+```
+
+</details>
 
 ## Authenticated REST API <span className="bg-yellow-400 dark:bg-yellow-600 p-1 rounded text-xs ml-1 align-middle">beta</span>
 
