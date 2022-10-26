@@ -507,8 +507,14 @@ export async function testLimitedQuery(
 
   const { org } = getOrgFromReq(req);
 
-  const { query, id, requiredColumns, startDate, endDate, experimentId } =
-    req.body;
+  const {
+    query,
+    id,
+    requiredColumns,
+    startDate,
+    endDate,
+    experimentId,
+  } = req.body;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
@@ -555,8 +561,8 @@ export async function testLimitedQuery(
       noRowsReturned: results.length === 0,
     });
   } catch (e) {
-    res.status(200).json({
-      status: 200,
+    res.status(400).json({
+      status: 400,
       errorMessage: e.message || "Something went wrong.",
     });
   }
