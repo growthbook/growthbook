@@ -5,6 +5,7 @@ export type TestQueryResults = {
   optionalColumns?: string[];
   duration?: string;
   noRowsReturned: boolean;
+  errorMessage?: string;
 };
 
 type Props = {
@@ -21,7 +22,7 @@ export default function DisplayTestQueryResults({ testQueryResults }: Props) {
             " However, no rows were returned."}
         </div>
       )}
-      {testQueryResults?.optionalColumns.length > 0 && (
+      {testQueryResults?.optionalColumns?.length > 0 && (
         <div className="alert alert-warning">
           <p>
             The column(s) listed below are not required. If you want to use

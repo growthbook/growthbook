@@ -136,6 +136,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
+      if (res.errorMessage) {
+        setQueryError(res.errorMessage);
+        return;
+      }
+
       setTestQueryResults(res);
     } catch (e) {
       setQueryError(e.message);
