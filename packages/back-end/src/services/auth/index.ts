@@ -7,7 +7,7 @@ import {
   getRole,
   validateLoginMethod,
 } from "../organizations";
-import { MemberRoleInfo, Permission } from "../../../types/organization";
+import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { insertAudit } from "../audit";
@@ -70,7 +70,44 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-  req.permissions = new Set();
+
+  const hasPermission = (
+    permission: Permission,
+    project?: string,
+    envs?: string[]
+  ): boolean => {
+    if (!req.organization || !req.userId) {
+      return false;
+    }
+
+    // Get the role based on the project (if specified)
+    const projectRole = getRole(req.organization, req.userId, project);
+
+    // Admin role always has permission
+    if (projectRole.role === "admin") return true;
+
+    const permissions = getPermissionsByRole(
+      projectRole.role,
+      req.organization
+    );
+
+    // Missing permission
+    if (!permissions.includes(permission)) {
+      return false;
+    }
+
+    // If it's an environment-scoped permission and the user's role has limited access
+    if (envs && projectRole.limitAccessByEnvironment) {
+      for (let i = 0; i < envs.length; i++) {
+        if (!projectRole.environments.includes(envs[i])) {
+          return false;
+        }
+      }
+    }
+
+    // If it got through all the above checks, the user has permission
+    return true;
+  };
 
   // Throw error if permissions don't pass
   req.checkPermissions = (
@@ -78,31 +115,9 @@ export async function processJWT(
     project?: string,
     envs?: string[]
   ) => {
-    if (!req.organization || !req.userId) {
+    if (!hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
     }
-    const role = getRole(req.organization, req.userId, project);
-
-    // Missing permission entirely
-    if (!role || !req.permissions.has(permission)) {
-      throw new Error("You do not have permission to complete that action.");
-    }
-
-    // Admin role always has permission
-    if (role.role === "admin") return true;
-
-    // If it's an environment-scoped permission and the user's role has limited access
-    if (envs && role.limitAccessByEnvironment) {
-      for (let i = 0; i < envs.length; i++) {
-        if (!role.environments.includes(envs[i])) {
-          throw new Error(
-            `You do not have permission to complete that action in the ${envs[i]} environment`
-          );
-        }
-      }
-    }
-
-    return true;
   };
 
   const user = await getUserFromJWT(req.user);
@@ -154,14 +169,6 @@ export async function processJWT(
             message: e.message,
           });
         }
-
-        const roleInfo: MemberRoleInfo = req.admin
-          ? { role: "admin", limitAccessByEnvironment: false, environments: [] }
-          : getRole(req.organization, user.id);
-
-        req.permissions = new Set(
-          getPermissionsByRole(roleInfo, req.organization)
-        );
       } else {
         return res.status(404).json({
           status: 404,

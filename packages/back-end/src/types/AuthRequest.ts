@@ -3,7 +3,6 @@ import {
   EnvScopedPermission,
   GlobalPermission,
   OrganizationInterface,
-  Permission,
   ProjectScopedPermission,
 } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
@@ -36,6 +35,5 @@ export type AuthRequest<
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;
-  permissions: Set<Permission>;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 } & PermissionFunctions;

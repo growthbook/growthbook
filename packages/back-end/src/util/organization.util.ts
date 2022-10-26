@@ -3,6 +3,7 @@ import {
   AccountPlan,
   CommercialFeature,
   CommercialFeaturesMap,
+  MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
   Permission,
@@ -89,11 +90,11 @@ export const ALL_PERMISSIONS = [
 ];
 
 export function getPermissionsByRole(
-  role: MemberRoleInfo,
+  role: MemberRole,
   org: OrganizationInterface
 ): Permission[] {
   const roles = getRoles(org);
-  const orgRole = roles.find((r) => r.id === role.role);
+  const orgRole = roles.find((r) => r.id === role);
   const permissions = new Set<Permission>(orgRole?.permissions || []);
   return Array.from(permissions);
 }
