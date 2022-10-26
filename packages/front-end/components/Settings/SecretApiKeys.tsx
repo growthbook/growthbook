@@ -119,10 +119,11 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                             type={hidden ? "password" : "text"}
                             value={
                               hidden
-                                ? "key is hidden"
+                                ? "This key is hidden. Click the eye to reveal."
                                 : revealedPrivateKey[key.id]
                             }
                             disabled={true}
+                            size={50}
                             style={{
                               border: "none",
                               outline: "none",
