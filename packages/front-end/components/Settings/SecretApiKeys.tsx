@@ -1,23 +1,17 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
-import { FaEye, FaEyeSlash, FaKey } from "react-icons/fa";
+import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import MoreMenu from "../Dropdown/MoreMenu";
 import usePermissions from "../../hooks/usePermissions";
-import Tooltip from "../Tooltip";
-import { RevealedPrivateKey } from "../Features/SDKEndpoints";
+import ClickToReveal from "./ClickToReveal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   keys,
   mutate,
 }) => {
-  const [
-    revealedPrivateKey,
-    setRevealedPrivateKey,
-  ] = useState<RevealedPrivateKey | null>({});
-  const [currentCopiedString, setCurrentCopiedString] = useState("");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -53,88 +47,10 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           </thead>
           <tbody>
             {secretKeys.map((key) => {
-              const hidden = !revealedPrivateKey || !revealedPrivateKey[key.id];
               return (
                 <tr key={key.id}>
                   <td>{key.description}</td>
-                  <td>
-                    {canManageKeys && (
-                      <div className="d-flex flex-row align-items-center justify-content-start">
-                        <span
-                          role="button"
-                          onClick={async () => {
-                            if (hidden) {
-                              const res = await apiCall<{ key: SecretApiKey }>(
-                                `/keys/reveal`,
-                                {
-                                  method: "POST",
-                                  body: JSON.stringify({
-                                    id: key.id,
-                                  }),
-                                }
-                              );
-                              if (!res.key?.key) {
-                                throw new Error(
-                                  "Could not load secret key value"
-                                );
-                              }
-                              setRevealedPrivateKey({
-                                [key.id]: res.key.key,
-                              });
-                            } else {
-                              setRevealedPrivateKey(null);
-                            }
-                          }}
-                        >
-                          {hidden ? <FaEyeSlash /> : <FaEye />}
-                        </span>
-                        <Tooltip
-                          role="button"
-                          tipMinWidth="45px"
-                          tipPosition="top"
-                          body={
-                            hidden
-                              ? "Click the eye to reveal"
-                              : currentCopiedString === key.id
-                              ? "Copied!"
-                              : "Copy"
-                          }
-                          style={{ paddingLeft: "5px" }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (!hidden) {
-                              navigator.clipboard
-                                .writeText(revealedPrivateKey[key.id])
-                                .then(() => {
-                                  setCurrentCopiedString(key.id);
-                                })
-                                .catch((e) => {
-                                  console.error(e);
-                                });
-                            }
-                          }}
-                        >
-                          <input
-                            role="button"
-                            type={hidden ? "password" : "text"}
-                            value={
-                              hidden
-                                ? "This key is hidden. Click the eye to reveal."
-                                : revealedPrivateKey[key.id]
-                            }
-                            disabled={true}
-                            size={50}
-                            style={{
-                              border: "none",
-                              outline: "none",
-                              backgroundColor: "transparent",
-                              textOverflow: "ellipsis",
-                            }}
-                          />
-                        </Tooltip>
-                      </div>
-                    )}
-                  </td>
+                  <td>{canManageKeys && <ClickToReveal keyId={key.id} />}</td>
                   {canManageKeys && (
                     <td>
                       <MoreMenu id={key.key + "_actions"}>

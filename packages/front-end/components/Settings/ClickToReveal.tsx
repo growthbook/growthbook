@@ -1,59 +1,99 @@
-import { ReactElement, ReactNode, useState } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
-import LoadingSpinner from "../LoadingSpinner";
+import { SecretApiKey } from "back-end/types/apikey";
+import { useState } from "react";
+import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
+import { useAuth } from "../../services/auth";
 import Tooltip from "../Tooltip";
 
+export type RevealedPrivateKey = {
+  [key: string]: string;
+};
 export interface Props {
-  valueWhenHidden: ReactNode;
-  getValue: () => Promise<string>;
-  children: (value: string) => ReactElement;
+  rowReverse?: boolean;
+  keyId: string;
 }
 
-export default function ClickToReveal({
-  valueWhenHidden,
-  getValue,
-  children,
-}: Props) {
-  const [value, setValue] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function ClickToReveal({ keyId, rowReverse }: Props) {
+  const { apiCall } = useAuth();
   const [error, setError] = useState("");
+  const [revealedPrivateKey, setRevealedPrivateKey] =
+    useState<RevealedPrivateKey | null>({});
+  const [currentCopiedString, setCurrentCopiedString] = useState("");
 
-  if (value) {
-    return children(value);
-  }
-
-  if (loading) {
-    return (
-      <span>
-        <LoadingSpinner /> loading...
-      </span>
-    );
-  }
+  const hidden = !revealedPrivateKey || !revealedPrivateKey[keyId];
 
   return (
-    <a
-      href="#"
-      onClick={async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
-
-        try {
-          const actualValue = await getValue();
-          setValue(actualValue);
-        } catch (e) {
-          console.error(e);
-          setError(e.message);
+    <div className={rowReverse && "d-flex flex-row-reverse"}>
+      <span
+        role="button"
+        onClick={async () => {
+          if (hidden) {
+            try {
+              const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
+                method: "POST",
+                body: JSON.stringify({
+                  id: keyId,
+                }),
+              });
+              setRevealedPrivateKey({
+                [keyId]: res.key.key,
+              });
+            } catch (e) {
+              setError(e.message);
+            }
+          } else {
+            setRevealedPrivateKey(null);
+          }
+        }}
+      >
+        {hidden ? <FaEyeSlash /> : <FaEye />}
+      </span>
+      <Tooltip
+        role="button"
+        tipMinWidth="45px"
+        tipPosition="top"
+        body={
+          hidden
+            ? "Click the eye to reveal"
+            : currentCopiedString === keyId
+            ? "Copied!"
+            : "Copy"
         }
-        setLoading(false);
-      }}
-    >
-      {valueWhenHidden}{" "}
+        style={{ paddingLeft: "5px" }}
+        onClick={(e) => {
+          e.preventDefault();
+          if (!hidden) {
+            navigator.clipboard
+              .writeText(revealedPrivateKey[keyId])
+              .then(() => {
+                setCurrentCopiedString(keyId);
+              })
+              .catch((e) => {
+                setError(e.message);
+                console.error(e);
+              });
+          }
+        }}
+      >
+        <input
+          role="button"
+          type={hidden ? "password" : "text"}
+          value={hidden ? "Click to reveal key." : revealedPrivateKey[keyId]}
+          disabled={true}
+          style={{
+            border: "none",
+            outline: "none",
+            backgroundColor: "transparent",
+            textOverflow: "ellipsis",
+            textAlign: rowReverse ? "right" : "left",
+            paddingRight: rowReverse ? "5px" : "0px",
+          }}
+        />
+      </Tooltip>
       {error && (
         <Tooltip body={error}>
           <FaExclamationTriangle className="text-danger" />
         </Tooltip>
       )}
-    </a>
+    </div>
   );
 }

@@ -1,13 +1,8 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
-import {
-  FaExclamationTriangle,
-  FaEye,
-  FaKey,
-  FaEyeSlash,
-} from "react-icons/fa";
+import { FaExclamationTriangle, FaKey } from "react-icons/fa";
 import ApiKeysModal from "../Settings/ApiKeysModal";
 import { getSDKEndpoint } from "./CodeSnippetModal";
 import usePermissions from "../../hooks/usePermissions";
@@ -16,10 +11,7 @@ import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
-
-export type RevealedPrivateKey = {
-  [key: string]: string;
-};
+import ClickToReveal from "../Settings/ClickToReveal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -27,10 +19,6 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
-  const [
-    revealedPrivateKey,
-    setRevealedPrivateKey,
-  ] = useState<RevealedPrivateKey | null>({});
   const [currentCopiedString, setCurrentCopiedString] = useState("");
 
   const { projects } = useDefinitions();
@@ -107,7 +95,6 @@ const SDKEndpoints: FC<{
 
               const envExists = environments?.some((e) => e.id === env);
 
-              const hidden = !revealedPrivateKey || !revealedPrivateKey[key.id];
               return (
                 <tr key={key.key}>
                   <td className="d-flex flex-column">
@@ -153,77 +140,7 @@ const SDKEndpoints: FC<{
                   {hasEncryptedEndpoints && (
                     <td>
                       {canManageKeys && key.encryptSDK ? (
-                        <div className="d-flex flex-row align-items-center justify-content-start">
-                          <Tooltip
-                            role="button"
-                            tipMinWidth="45px"
-                            tipPosition="top"
-                            body={
-                              hidden
-                                ? "Click the eye to reveal"
-                                : currentCopiedString === key.id
-                                ? "Copied!"
-                                : "Copy"
-                            }
-                            style={{ paddingRight: "5px" }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              if (!hidden) {
-                                navigator.clipboard
-                                  .writeText(revealedPrivateKey[key.id])
-                                  .then(() => {
-                                    setCurrentCopiedString(key.id);
-                                  })
-                                  .catch((e) => {
-                                    console.error(e);
-                                  });
-                              }
-                            }}
-                          >
-                            <input
-                              role="button"
-                              type={hidden ? "password" : "text"}
-                              value={
-                                hidden
-                                  ? "key is hidden"
-                                  : revealedPrivateKey[key.id]
-                              }
-                              disabled={true}
-                              style={{
-                                border: "none",
-                                textAlign: "right",
-                                outline: "none",
-                                backgroundColor: "transparent",
-                                textOverflow: "ellipsis",
-                              }}
-                            />
-                          </Tooltip>
-                          <span
-                            role="button"
-                            onClick={async () => {
-                              if (hidden) {
-                                const res = await apiCall<{
-                                  key: SecretApiKey;
-                                }>(`/keys/reveal`, {
-                                  method: "POST",
-                                  body: JSON.stringify({
-                                    id: key.id,
-                                  }),
-                                });
-                                if (!res.key?.encryptionKey) {
-                                  throw new Error("Could not load private key");
-                                }
-                                setRevealedPrivateKey({
-                                  [key.id]: res.key.encryptionKey,
-                                });
-                              } else {
-                                setRevealedPrivateKey(null);
-                              }
-                            }}
-                          >
-                            {hidden ? <FaEyeSlash /> : <FaEye />}
-                          </span>
-                        </div>
+                        <ClickToReveal keyId={key.id} rowReverse />
                       ) : (
                         <div style={{ textAlign: "right" }}>No</div>
                       )}
