@@ -91,7 +91,12 @@ export default function UpgradeModal({ close, source, reason }: Props) {
               Advanced permissioning{" "}
               <Tooltip
                 body={
-                  "Per-environment and per-project permissions. Allow someone to change a feature in dev, but not production."
+                  <>
+                    Let someone toggle a feature in dev, but not production.
+                    <br />
+                    Or make them read-only in Project A and an admin for Project
+                    B.
+                  </>
                 }
               />
             </li>

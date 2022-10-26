@@ -118,7 +118,7 @@ function SingleRoleSelector({
 const RoleSelector: FC<{
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
-  showUpgradeModal: () => void;
+  showUpgradeModal?: () => void;
 }> = ({ value, setValue, showUpgradeModal }) => {
   const { hasCommercialFeature, settings } = useUser();
   const { projects, getProjectById } = useDefinitions();
@@ -242,7 +242,7 @@ const RoleSelector: FC<{
         </>
       )}
 
-      {!canUseAdvancedPermissions && (
+      {showUpgradeModal && !canUseAdvancedPermissions && (
         <div className="alert alert-info">
           {isCloud() ? (
             <>

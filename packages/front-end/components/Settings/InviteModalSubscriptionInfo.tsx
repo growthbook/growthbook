@@ -5,7 +5,11 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
   currency: "USD",
 });
 
-export default function InviteModalSubscriptionInfo() {
+export default function InviteModalSubscriptionInfo({
+  showUpgradeModal,
+}: {
+  showUpgradeModal: () => void;
+}) {
   const {
     freeSeats,
     hasActiveSubscription,
@@ -18,12 +22,26 @@ export default function InviteModalSubscriptionInfo() {
 
   return (
     <>
-      {activeAndInvitedUsers < freeSeats && canSubscribe && (
-        <p className="mt-3 mb-0 alert alert-info">{`You have ${
-          freeSeats - activeAndInvitedUsers
-        } free seat${
-          freeSeats - activeAndInvitedUsers > 1 ? "s" : ""
-        } remaining.`}</p>
+      {canSubscribe && (
+        <p className="mt-3 mb-0 alert alert-info">
+          {activeAndInvitedUsers < freeSeats && (
+            <>
+              You have {freeSeats - activeAndInvitedUsers} free seat
+              {freeSeats - activeAndInvitedUsers > 1 ? "s" : ""} remaining.{" "}
+            </>
+          )}
+          Upgrade now to enable advanced, per-environment and per-project
+          permissioning.{" "}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              showUpgradeModal();
+            }}
+          >
+            Learn More
+          </a>
+        </p>
       )}
       {activeAndInvitedUsers >= freeSeats && hasActiveSubscription && (
         <p className="mt-3 mb-0 alert-warning alert">

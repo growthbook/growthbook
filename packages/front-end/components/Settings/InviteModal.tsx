@@ -10,6 +10,8 @@ import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import UpgradeModal from "./UpgradeModal";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { isCloud } from "../../services/env";
+import { useUser } from "../../services/UserContext";
 
 type InviteResult = {
   email: string;
@@ -21,6 +23,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   close,
 }) => {
   const { defaultRole } = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
 
   const form = useForm<{
     email: string;
@@ -203,11 +206,20 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
           <RoleSelector
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
+          />
+          <InviteModalSubscriptionInfo
             showUpgradeModal={() =>
-              setShowUpgradeModal("Use advanced permissioning rules.")
+              setShowUpgradeModal("To enable advanced permissioning rules,")
             }
           />
-          <InviteModalSubscriptionInfo />
+          {!isCloud() && !hasCommercialFeature("advanced-permissions") && (
+            <p className="mt-3 mb-0 alert alert-info">
+              Purchase a commercial license key to enable advanced,
+              per-environment and per-project permissioning. Contact{" "}
+              <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for
+              more info.
+            </p>
+          )}
         </>
       )}
     </Modal>

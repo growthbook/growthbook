@@ -19,7 +19,7 @@ const ChangeRoleModal: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="Restrict access by environment."
+        reason="To enable advanced permissioning rules,"
         source="advanced-permissions"
       />
     );
