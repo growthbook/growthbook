@@ -22,13 +22,7 @@ import {
 import Welcome from "../components/Auth/Welcome";
 import * as Sentry from "@sentry/react";
 
-export type OrganizationMember = {
-  id: string;
-  name: string;
-  role: MemberRole;
-};
-
-export type UserOrganizations = OrganizationMember[];
+export type UserOrganizations = { id: string; name: string }[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
 
@@ -227,7 +221,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     orgList.push({
       id: specialOrg.id,
       name: specialOrg.name,
-      role: "admin",
     });
   }
 

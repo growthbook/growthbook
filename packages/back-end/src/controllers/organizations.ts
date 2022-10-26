@@ -131,11 +131,9 @@ export async function getUser(req: AuthRequest, res: Response) {
     admin: !!req.admin,
     license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
-      const role = getRole(org, userId);
       return {
         id: org.id,
         name: org.name,
-        ...role,
       };
     }),
   });
