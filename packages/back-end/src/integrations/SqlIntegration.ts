@@ -444,7 +444,6 @@ export default abstract class SqlIntegration
     startDate?: Date,
     endDate?: Date,
     experimentId?: string
-    // eslint-disable-next-line
   ): Promise<TestQueryResult> {
     const limitedQuery = replaceSQLVars(
       `SELECT * FROM (${query}) as sub_query\nLIMIT 5`,

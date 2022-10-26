@@ -99,7 +99,6 @@ export async function testQuery(
   startDate?: Date,
   endDate?: Date,
   experimentId?: string
-  // eslint-disable-next-line
 ): Promise<TestQueryResult> {
   const integration = getSourceIntegrationObject(datasource);
 
