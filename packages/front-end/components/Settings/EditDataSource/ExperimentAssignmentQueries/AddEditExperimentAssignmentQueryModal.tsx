@@ -260,12 +260,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               </div>
             </div>
             {testQueryResults && (
-              <div className="col-xs-12">
-                <DisplayTestQueryResults
-                  form={form}
-                  testQueryResults={testQueryResults}
-                />
-              </div>
+              <DisplayTestQueryResults
+                form={form}
+                testQueryResults={testQueryResults}
+              />
             )}
           </div>
         </div>

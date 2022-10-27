@@ -46,12 +46,13 @@ export default function DisplayTestQueryResults({
           <div className="d-flex align-items-center">
             <FaExclamationTriangle />
             <span className="pl-2">
-              The column(s) listed below are not required. If you want to use
-              these to drill down into experiment results, be sure to add them
-              as dimension columns below.
+              The column{testQueryResults.optionalColumns.length > 1 && "s "}{" "}
+              listed below{" "}
+              {testQueryResults.optionalColumns.length > 1 ? "are " : "is "} not
+              required.
             </span>
           </div>
-          <ul>
+          <ul className="mb-0">
             {testQueryResults?.optionalColumns.map((warning) => {
               return (
                 <div
@@ -59,10 +60,11 @@ export default function DisplayTestQueryResults({
                   key={warning}
                 >
                   <li>{warning}</li>
-                  {warning === ("experiment_name" || "variation_name") ? (
-                    <span>This is a named column</span>
-                  ) : (
+                  {warning !== ("experiment_name" || "variation_name") && (
                     <button
+                      disabled={dimensions.find(
+                        (dimension) => dimension === warning
+                      )}
                       onClick={(e) => {
                         e.preventDefault();
                         dimensions.push(warning);
@@ -70,7 +72,9 @@ export default function DisplayTestQueryResults({
                       }}
                       className="btn btn-link"
                     >
-                      Add as dimension
+                      {dimensions.find((dimension) => dimension === warning)
+                        ? "Added!"
+                        : "Add as dimension"}
                     </button>
                   )}
                 </div>
@@ -88,13 +92,16 @@ export default function DisplayTestQueryResults({
               Columns&quot; disabled. Would you like to enable?
             </span>
             <button
+              disabled={form.watch("hasNameCol")}
               onClick={(e) => {
                 e.preventDefault();
                 form.setValue("hasNameCol", true);
               }}
               className="btn btn-link"
             >
-              Yes, enable name columns
+              {form.watch("hasNameCol")
+                ? "Enabled"
+                : "Yes, enable name columns"}
             </button>
           </div>
         </div>
