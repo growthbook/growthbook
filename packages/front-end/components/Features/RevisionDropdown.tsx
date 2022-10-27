@@ -167,7 +167,10 @@ export default function RevisionDropdown({
                             draft
                           </span>
                         </div>
-                      ) : permissions.createFeatureDrafts ? (
+                      ) : permissions.check(
+                          "createFeatureDrafts",
+                          feature.project
+                        ) ? (
                         <a
                           href="#"
                           onClick={async (e) => {

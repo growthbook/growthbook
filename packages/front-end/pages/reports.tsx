@@ -11,7 +11,7 @@ import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import Toggle from "../components/Forms/Toggle";
 import experiments from "./experiments";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();

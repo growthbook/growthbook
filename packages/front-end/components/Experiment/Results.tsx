@@ -161,6 +161,7 @@ const Results: FC<{
             mutateExperiment();
             mutate();
           }}
+          project={experiment.project}
         />
       )}
       {hasData &&
@@ -255,14 +256,15 @@ const Results: FC<{
           )}
         </>
       )}
-      {permissions.createAnalyses && experiment.metrics?.length > 0 && (
-        <div className="px-3 mb-3">
-          <span className="text-muted">
-            Click the 3 dots next to the Update button above to configure this
-            report, download as a Jupyter notebook, and more.
-          </span>
-        </div>
-      )}
+      {permissions.check("createAnalyses", experiment.project) &&
+        experiment.metrics?.length > 0 && (
+          <div className="px-3 mb-3">
+            <span className="text-muted">
+              Click the 3 dots next to the Update button above to configure this
+              report, download as a Jupyter notebook, and more.
+            </span>
+          </div>
+        )}
     </>
   );
 };

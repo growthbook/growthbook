@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import WelcomeFrame from "./WelcomeFrame";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { FiLogOut } from "react-icons/fi";
 import Tooltip from "../../components/Tooltip";
 
@@ -51,7 +51,7 @@ export default function InitialOrgSettings(): ReactElement {
   const [error, setError] = useState(null);
 
   const { apiCall, logout } = useAuth();
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
 
   const submit = form.handleSubmit(async (value) => {
     // add the other to the array:
@@ -74,7 +74,7 @@ export default function InitialOrgSettings(): ReactElement {
     });
 
     track("onboarding questions");
-    update();
+    refreshOrganization();
   });
 
   const leftside = (

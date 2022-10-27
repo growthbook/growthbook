@@ -283,6 +283,22 @@ export function validateFeatureRule(
   return hasChanges ? ruleCopy : null;
 }
 
+export function getEnabledEnvironments(feature: FeatureInterface) {
+  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    return !!feature.environmentSettings?.[env]?.enabled;
+  });
+}
+
+export function getAffectedEnvs(
+  feature: FeatureInterface,
+  changedEnvs: string[]
+): string[] {
+  const settings = feature.environmentSettings;
+  if (!settings) return [];
+
+  return changedEnvs.filter((e) => settings?.[e]?.enabled);
+}
+
 export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "boolean") {
     return "true";

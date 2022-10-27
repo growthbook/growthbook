@@ -11,6 +11,7 @@ import useOrgSettings from "../../hooks/useOrgSettings";
 import { FaChrome } from "react-icons/fa";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export interface Props {
   features: FeatureInterface[];
@@ -31,6 +32,8 @@ export default function FeaturesGetStarted({ features }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [attributeModalOpen, setAttributeModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
+
+  const { project } = useDefinitions();
 
   return (
     <div>
@@ -64,7 +67,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
-              permissionsError={!permissions.createFeatures}
+              permissionsError={!permissions.check("manageFeatures", project)}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -84,7 +87,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
-              permissionsError={!permissions.createFeatures}
+              permissionsError={!permissions.check("manageFeatures", project)}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {
