@@ -18,6 +18,7 @@ type ModAppProps = AppProps & {
     noOrganization?: boolean;
     preAuth?: boolean;
     liteLayout?: boolean;
+    fullFrame?: boolean;
   };
 };
 
@@ -47,6 +48,7 @@ function App({
   const preAuth = Component.preAuth || false;
 
   const liteLayout = Component.liteLayout || false;
+  const fullFrame = Component.fullFrame || false;
 
   useEffect(() => {
     initEnv()
@@ -74,7 +76,7 @@ function App({
         console.log("Failed to fetch GrowthBook feature definitions");
       });
   }, [router.pathname]);
-
+console.log(fullFrame);
   return (
     <>
       <Head>
@@ -92,7 +94,11 @@ function App({
                   {organizationRequired ? (
                     <DefinitionsProvider>
                       {!liteLayout && <Layout />}
-                      <main className={`main ${parts[0]}`}>
+                      <main
+                        className={`main ${parts[0]} ${
+                          fullFrame ? "fullframe" : ""
+                        }`}
+                      >
                         <Component {...pageProps} />
                       </main>
                     </DefinitionsProvider>

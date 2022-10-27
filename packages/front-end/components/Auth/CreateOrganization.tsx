@@ -32,7 +32,7 @@ export default function CreateOrganization(): ReactElement {
 
   const leftside = (
     <>
-      <h1 className="title h1">Welcome to GrowthBook</h1>
+      <h1 className="title h2">Welcome to GrowthBook</h1>
       {isCloud() || !data.hasOrganizations ? (
         <p>
           You aren&apos;t part of an organization yet. <br />

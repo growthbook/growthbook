@@ -79,7 +79,7 @@ export default function InitialOrgSettings(): ReactElement {
 
   const leftside = (
     <>
-      <h1 className="title h1">Welcome to Growth&nbsp;Book</h1>
+      <h1 className="title h2">Welcome to Growth&nbsp;Book</h1>
       <p>One last page...</p>
     </>
   );

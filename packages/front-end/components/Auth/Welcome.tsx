@@ -110,7 +110,7 @@ export default function Welcome({
 
   const leftside = (
     <>
-      <h1 className="title h1">{welcomeMsg[welcomeMsgIndex]}</h1>
+      <h1 className="title h2">{welcomeMsg[welcomeMsgIndex]}</h1>
       {welcomeContent}
     </>
   );

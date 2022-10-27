@@ -42,10 +42,11 @@ body {
   padding-left: 240px;
   padding-top: 60px;
 
-  &.present {
+  &.present,
+  &.fullframe {
     padding: 0;
   }
-  & > .container-fluid,
+  &:not(.fullframe) > .container-fluid,
   & > .pagecontents {
     padding: 15px;
   }

@@ -44,7 +44,7 @@ export default function OAuthLookup() {
 
   const leftside = (
     <>
-      <h1 className="title h1">GrowthBook Enterprise</h1>
+      <h1 className="title h2">GrowthBook Enterprise</h1>
       <p></p>
     </>
   );
