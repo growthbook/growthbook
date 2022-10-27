@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import InviteList from "../../components/Settings/InviteList";
-import MemberList from "../../components/Settings/MemberList";
+import InviteList from "../../components/Settings/Team/InviteList";
+import MemberList from "../../components/Settings/Team/MemberList";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
 import SSOSettings from "../../components/Settings/SSOSettings";

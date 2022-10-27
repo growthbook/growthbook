@@ -1,16 +1,16 @@
 import React, { FC, useState } from "react";
 import InviteModal from "./InviteModal";
-import { roleHasAccessToEnv, useAuth } from "../../services/auth";
-import { useUser } from "../../services/UserContext";
-import DeleteButton from "../DeleteButton";
-import { GBAddCircle } from "../Icons";
+import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
+import { useUser } from "../../../services/UserContext";
+import DeleteButton from "../../DeleteButton";
+import { GBAddCircle } from "../../Icons";
 import { ExpandedMember } from "back-end/types/organization";
-import MoreMenu from "../Dropdown/MoreMenu";
-import { usingSSO } from "../../services/env";
+import MoreMenu from "../../Dropdown/MoreMenu";
+import { usingSSO } from "../../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import RoleDisplay from "./RoleDisplay";
-import { useEnvironments } from "../../services/features";
+import { useEnvironments } from "../../../services/features";
 import { FaCheck, FaTimes } from "react-icons/fa";
 
 const MemberList: FC<{

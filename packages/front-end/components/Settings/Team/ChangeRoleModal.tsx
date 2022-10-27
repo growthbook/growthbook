@@ -1,9 +1,9 @@
 import React, { FC, useState } from "react";
-import Modal from "../Modal";
+import Modal from "../../Modal";
 import RoleSelector from "./RoleSelector";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import { isCloud } from "../../services/env";
-import UpgradeModal from "./UpgradeModal";
+import { isCloud } from "../../../services/env";
+import UpgradeModal from "../UpgradeModal";
 
 const ChangeRoleModal: FC<{
   displayInfo: string;

@@ -1,8 +1,8 @@
 import React from "react";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
+import Field from "../../Forms/Field";
+import Modal from "../../Modal";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "../../../services/auth";
 import { ExpandedMember } from "back-end/types/organization";
 
 type Props = {

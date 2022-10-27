@@ -18,7 +18,7 @@ import Head from "next/head";
 import { ThemeToggler } from "./ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
 import AccountPlanNotices from "./AccountPlanNotices";
-import RoleDisplay from "../Settings/RoleDisplay";
+import RoleDisplay from "../Settings/Team/RoleDisplay";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;

@@ -1,17 +1,15 @@
 import { FC, useState } from "react";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "../../../services/auth";
 import { useForm } from "react-hook-form";
-import Modal from "../Modal";
+import Modal from "../../Modal";
 import RoleSelector from "./RoleSelector";
-import track from "../../services/track";
-import Field from "../Forms/Field";
+import track from "../../../services/track";
+import Field from "../../Forms/Field";
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import UpgradeModal from "./UpgradeModal";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { isCloud } from "../../services/env";
-import { useUser } from "../../services/UserContext";
+import useStripeSubscription from "../../../hooks/useStripeSubscription";
+import UpgradeModal from "../UpgradeModal";
+import useOrgSettings from "../../../hooks/useOrgSettings";
 
 type InviteResult = {
   email: string;
@@ -23,7 +21,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   close,
 }) => {
   const { defaultRole } = useOrgSettings();
-  const { hasCommercialFeature } = useUser();
 
   const form = useForm<{
     email: string;
@@ -206,20 +203,12 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
           <RoleSelector
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
-          />
-          <InviteModalSubscriptionInfo
             showUpgradeModal={() =>
               setShowUpgradeModal("To enable advanced permissioning rules,")
             }
+            newUser={true}
           />
-          {!isCloud() && !hasCommercialFeature("advanced-permissions") && (
-            <p className="mt-3 mb-0 alert alert-info">
-              Purchase a commercial license key to enable advanced,
-              per-environment and per-project permissioning. Contact{" "}
-              <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for
-              more info.
-            </p>
-          )}
+          <InviteModalSubscriptionInfo />
         </>
       )}
     </Modal>
