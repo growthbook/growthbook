@@ -26,18 +26,12 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
-  exposureQuery,
-  dataSource,
-  mode,
-  onSave,
-  onCancel,
-}) => {
+export const AddEditExperimentAssignmentQueryModal: FC<
+  EditExperimentAssignmentQueryProps
+> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
   const [queryError, setQueryError] = useState<null | string>();
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -131,13 +125,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         method: "POST",
         body: JSON.stringify({
           query: value.query,
-          id: value.id,
+          datasourceId: value.id,
           requiredColumns,
         }),
       });
 
-      if (res.errorMessage) {
-        setQueryError(res.errorMessage);
+      if (res.error) {
+        setQueryError(res.error);
         return;
       }
 

@@ -6,10 +6,7 @@ import Presto from "../integrations/Presto";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import {
-  SourceIntegrationInterface,
-  TestQueryResult,
-} from "../types/Integration";
+import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
@@ -95,42 +92,30 @@ export async function testDataSourceConnection(
 export async function testQuery(
   datasource: DataSourceInterface,
   sql: string,
-  minExperimentLength: number,
-  startDate?: Date,
-  endDate?: Date,
-  experimentId?: string
-): Promise<TestQueryResult> {
+  startDate?: Date
+): Promise<{ results: TestQueryRow[]; duration: number; error: string }> {
   const integration = getSourceIntegrationObject(datasource);
 
   // The Mixpanel integration does not support test queries
   if (!integration.testQuery) {
     throw new Error("Unable to test query.");
   }
-  return await integration.testQuery(
-    sql,
-    minExperimentLength,
-    startDate,
-    endDate,
-    experimentId
-  );
-}
 
-export function getSelectQueryColumns(sql: string): string[] {
-  const formattedQuery = sql.toLowerCase().replace(/(\r\n|\n|\r)/gm, "");
-  const selectStatement = formattedQuery.split("select");
-  const rawColumns = selectStatement[1].split("from");
-  const columns = rawColumns[0].split(",");
+  let results: TestQueryRow[] = [];
+  let duration = 0;
+  let error = "";
 
-  const formattedColumns = columns.map((column) => {
-    const containsAs = column.search(/as/i);
+  try {
+    const res = await integration.testQuery(sql, startDate);
+    results = res.results;
+    duration = res.duration;
+  } catch (e) {
+    error = e.message;
+  }
 
-    if (containsAs !== -1) {
-      const columnArr = column.split("as");
-      return columnArr[1].trim();
-    } else {
-      return column.trim();
-    }
-  });
-
-  return formattedColumns;
+  return {
+    results: results || [],
+    duration,
+    error,
+  };
 }

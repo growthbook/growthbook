@@ -1,11 +1,13 @@
 import React from "react";
+import { TestQueryRow } from "back-end/src/types/Integration";
 
 export type TestQueryResults = {
   status: number;
   optionalColumns?: string[];
   duration?: string;
   noRowsReturned: boolean;
-  errorMessage?: string;
+  error?: string;
+  results?: TestQueryRow[];
 };
 
 type Props = {

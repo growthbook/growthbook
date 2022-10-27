@@ -13,7 +13,6 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
-  getSelectQueryColumns,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -495,11 +494,9 @@ export async function getQueries(
 export async function testLimitedQuery(
   req: AuthRequest<{
     query: string;
-    id: string;
+    datasourceId: string;
     requiredColumns: string[];
     startDate?: Date;
-    endDate?: Date;
-    experimentId?: string;
   }>,
   res: Response
 ) {
@@ -507,63 +504,38 @@ export async function testLimitedQuery(
 
   const { org } = getOrgFromReq(req);
 
-  const {
-    query,
-    id,
-    requiredColumns,
-    startDate,
-    endDate,
-    experimentId,
-  } = req.body;
+  const { query, datasourceId, requiredColumns, startDate } = req.body;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(datasourceId, org.id);
   if (!datasource) {
-    throw new Error("Cannot find datasource");
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
   }
 
-  const minExperimentLength = org.settings?.pastExperimentsMinLength || 5;
+  const { results, duration, error } = await testQuery(
+    datasource,
+    query,
+    startDate
+  );
 
-  try {
-    const { results, duration } = await testQuery(
-      datasource,
-      query,
-      minExperimentLength,
-      startDate,
-      endDate,
-      experimentId
-    );
+  const optionalColumns = [];
 
-    const optionalColumns = [];
-
-    // If we don't get any rows back, parse the query to get columns that were passed in to identify optionalColumns
-    if (results.length === 0) {
-      const columns = getSelectQueryColumns(query);
-      columns.forEach((column) => {
-        if (
-          column !== "*" &&
-          !requiredColumns.find((index) => index === column)
-        ) {
-          optionalColumns.push(column);
-        }
-      });
-    } else {
-      for (const column in results[0]) {
-        if (!requiredColumns.find((index) => index === column)) {
-          optionalColumns.push(column);
-        }
+  if (results.length > 0) {
+    for (const column in results[0]) {
+      if (!requiredColumns.find((index) => index === column)) {
+        optionalColumns.push(column);
       }
     }
-
-    res.status(200).json({
-      status: 200,
-      optionalColumns,
-      duration,
-      noRowsReturned: results.length === 0,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      errorMessage: e.message || "Something went wrong.",
-    });
   }
+
+  res.status(200).json({
+    status: 200,
+    optionalColumns,
+    duration,
+    noRowsReturned: results.length === 0,
+    results,
+    error,
+  });
 }

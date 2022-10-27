@@ -19,7 +19,10 @@ import {
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import {
+  DEFAULT_CONVERSION_WINDOW_HOURS,
+  IMPORT_LIMIT_DAYS,
+} from "../util/secrets";
 import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
 import {
@@ -30,7 +33,8 @@ import {
 } from "../util/sql";
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface {
+  implements SourceIntegrationInterface
+{
   settings: DataSourceSettings;
   datasource: string;
   organization: string;
@@ -178,9 +182,9 @@ export default abstract class SqlIntegration
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (
-      this.settings.queries?.exposure || []
-    ).map(({ id }) => this.getExposureQuery(id));
+    const experimentQueries = (this.settings.queries?.exposure || []).map(
+      ({ id }) => this.getExposureQuery(id)
+    );
 
     return format(
       `-- Past Experiments
@@ -438,24 +442,16 @@ export default abstract class SqlIntegration
     });
   }
 
-  async testQuery(
-    query: string,
-    minExperimentLength: number,
-    startDate?: Date,
-    endDate?: Date,
-    experimentId?: string
-  ): Promise<TestQueryResult> {
+  async testQuery(query: string, startDate?: Date): Promise<TestQueryResult> {
     const limitedQuery = replaceSQLVars(
-      `SELECT * FROM (${query}) as sub_query\nLIMIT 5`,
+      `SELECT * FROM (${query}) as sub_query\nLIMIT 1`,
       {
         startDate:
           startDate ||
           // If no start date, we'll take current date/time and subtract minExperimentLength.
           new Date(
-            new Date().setDate(new Date().getDate() - minExperimentLength)
+            new Date().setDate(new Date().getDate() - IMPORT_LIMIT_DAYS)
           ),
-        endDate: endDate,
-        experimentId: experimentId,
       }
     );
     // Calculate the run time of the query
