@@ -26,12 +26,18 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-export const AddEditExperimentAssignmentQueryModal: FC<
-  EditExperimentAssignmentQueryProps
-> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
+  exposureQuery,
+  dataSource,
+  mode,
+  onSave,
+  onCancel,
+}) => {
   const [queryError, setQueryError] = useState<null | string>();
-  const [testQueryResults, setTestQueryResults] =
-    useState<TestQueryResults | null>(null);
+  const [
+    testQueryResults,
+    setTestQueryResults,
+  ] = useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -150,16 +156,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       header={modalTitle}
       cta="Save"
       ctaEnabled={saveEnabled}
-      secondaryCTA={
-        <button
-          className="btn btn-link"
-          disabled={!saveEnabled}
-          type="button"
-          onClick={handleTestQuery}
-        >
-          Test Query
-        </button>
-      }
       autoFocusSelector="#id-modal-identify-joins-heading"
       error={queryError}
     >
@@ -179,36 +175,42 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               required
               {...form.register("userIdType")}
             />
-            <DisplayTestQueryResults testQueryResults={testQueryResults} />
+            <StringArrayField
+              label="Dimension Columns"
+              value={userEnteredDimensions}
+              onChange={(dimensions) => {
+                form.setValue("dimensions", dimensions);
+              }}
+            />
+            <div>
+              <label className="mr-2">
+                Use Name Columns
+                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+              </label>
+              <Toggle
+                id="exposure-query-toggle"
+                value={userEnteredHasNameCol}
+                setValue={(hasNameCol) => {
+                  form.setValue("hasNameCol", hasNameCol);
+                }}
+              />
+            </div>
             <div className="row">
               <div className="col">
+                <button
+                  className="btn btn-sm btn-primary m-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleTestQuery();
+                  }}
+                >
+                  Test Query
+                </button>
                 <CodeTextArea
-                  label="SQL Query"
                   required
                   language="sql"
                   value={userEnteredQuery}
                   setValue={(sql) => form.setValue("query", sql)}
-                />
-                <div className="form-group">
-                  <label className="mr-2">
-                    Use Name Columns
-                    <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-                  </label>
-                  <Toggle
-                    id="exposure-query-toggle"
-                    value={userEnteredHasNameCol}
-                    setValue={(hasNameCol) => {
-                      form.setValue("hasNameCol", hasNameCol);
-                    }}
-                  />
-                </div>
-
-                <StringArrayField
-                  label="Dimension Columns"
-                  value={userEnteredDimensions}
-                  onChange={(dimensions) => {
-                    form.setValue("dimensions", dimensions);
-                  }}
                 />
               </div>
               <div className="col-md-5 col-lg-4">
@@ -253,6 +255,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 </div>
               </div>
             </div>
+            {testQueryResults && (
+              <div className="col-xs-12">
+                <DisplayTestQueryResults
+                  form={form}
+                  testQueryResults={testQueryResults}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

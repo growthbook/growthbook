@@ -521,11 +521,19 @@ export async function testLimitedQuery(
   );
 
   const optionalColumns = [];
+  let includesNamedColumns = false;
 
   if (results.length > 0) {
     for (const column in results[0]) {
-      if (!requiredColumns.find((index) => index === column)) {
+      if (
+        !requiredColumns.find((index) => index === column) &&
+        column !== ("experiment_name" || "variation_name")
+      ) {
         optionalColumns.push(column);
+      }
+
+      if (column === ("experiment_name" || "variation_name")) {
+        includesNamedColumns = true;
       }
     }
   }
@@ -534,8 +542,8 @@ export async function testLimitedQuery(
     status: 200,
     optionalColumns,
     duration,
-    noRowsReturned: results.length === 0,
     results,
+    includesNamedColumns,
     error,
   });
 }
