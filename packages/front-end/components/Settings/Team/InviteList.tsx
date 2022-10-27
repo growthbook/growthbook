@@ -6,7 +6,6 @@ import { Invite, MemberRoleInfo } from "back-end/types/organization";
 import { datetime } from "../../../services/dates";
 import MoreMenu from "../../Dropdown/MoreMenu";
 import ChangeRoleModal from "./ChangeRoleModal";
-import RoleDisplay from "./RoleDisplay";
 import { useEnvironments } from "../../../services/features";
 import { FaCheck, FaTimes } from "react-icons/fa";
 
@@ -158,9 +157,7 @@ const InviteList: FC<{
               <tr key={key}>
                 <td>{email}</td>
                 <td>{datetime(dateCreated)}</td>
-                <td>
-                  <RoleDisplay role={roleInfo.role} />
-                </td>
+                <td>{roleInfo.role}</td>
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);
                   return (

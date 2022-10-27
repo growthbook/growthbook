@@ -9,7 +9,6 @@ import MoreMenu from "../../Dropdown/MoreMenu";
 import { usingSSO } from "../../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
-import RoleDisplay from "./RoleDisplay";
 import { useEnvironments } from "../../../services/features";
 import { FaCheck, FaTimes } from "react-icons/fa";
 
@@ -85,9 +84,7 @@ const MemberList: FC<{
               <tr key={id}>
                 <td>{member.name}</td>
                 <td>{member.email}</td>
-                <td>
-                  <RoleDisplay role={roleInfo.role} />
-                </td>
+                <td>{roleInfo.role}</td>
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);
                   return (
