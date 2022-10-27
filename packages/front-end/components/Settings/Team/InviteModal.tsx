@@ -204,9 +204,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
             showUpgradeModal={() =>
-              setShowUpgradeModal("To enable advanced permissioning rules,")
+              setShowUpgradeModal("To enable advanced permissioning,")
             }
-            newUser={true}
           />
           <InviteModalSubscriptionInfo />
         </>

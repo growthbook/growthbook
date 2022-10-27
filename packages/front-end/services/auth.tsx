@@ -381,8 +381,6 @@ export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string
 ): "yes" | "no" | "N/A" {
-  if (role.role === "admin") return "yes";
-
   if (!roleSupportsEnvLimit(role.role)) return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";

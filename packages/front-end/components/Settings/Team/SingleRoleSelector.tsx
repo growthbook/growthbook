@@ -18,11 +18,9 @@ export default function SingleRoleSelector({
   label: ReactNode;
   includeAdminRole?: boolean;
 }) {
-  const { roles } = useUser();
+  const { roles, hasCommercialFeature } = useUser();
 
   const availableEnvs = useEnvironments();
-
-  const { hasCommercialFeature } = useUser();
 
   const canUseAdvancedPermissions = hasCommercialFeature(
     "advanced-permissions"

@@ -7,12 +7,10 @@ export default function RoleSelector({
   value,
   setValue,
   showUpgradeModal,
-  newUser,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal: () => void;
-  newUser?: boolean;
 }) {
   return (
     <div>
@@ -40,10 +38,7 @@ export default function RoleSelector({
           });
         }}
       />
-      <RoleUpgradeMessage
-        showUpgradeModal={showUpgradeModal}
-        newUser={newUser}
-      />
+      <RoleUpgradeMessage showUpgradeModal={showUpgradeModal} />
     </div>
   );
 }
