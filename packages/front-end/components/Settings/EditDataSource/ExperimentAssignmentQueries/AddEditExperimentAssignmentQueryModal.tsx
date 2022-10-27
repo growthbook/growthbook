@@ -17,6 +17,7 @@ import { useAuth } from "../../../../services/auth";
 import DisplayTestQueryResults, {
   TestQueryResults,
 } from "../../DisplayTestQueryResults";
+import { FaPlay } from "react-icons/fa";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -204,6 +205,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     handleTestQuery();
                   }}
                 >
+                  <span className="pr-2">
+                    <FaPlay />
+                  </span>
                   Test Query
                 </button>
                 <CodeTextArea
