@@ -6,7 +6,7 @@ on:
     paths:
       - "docs/**"
 jobs:
-  deploy:
+  vercel:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -22,13 +22,12 @@ jobs:
           yarn install --frozen-lockfile
           yarn build
       - name: Check if main
-        id: is_main
         run: |
           if [ $REF == 'refs/heads/main' ]
           then
-              echo "::set-output name=vercelArgs::--prod"
+              echo "vercelArgs=--prod" >> $GITHUB_ENV
           else
-              echo "::set-output name=vercelArgs::"
+              echo "vercelArgs=" >> $GITHUB_ENV
           fi
         env:
           REF: ${{ github.ref }}
@@ -38,7 +37,7 @@ jobs:
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }} 
-          vercel-args: ${{ steps.is_main.outputs.vercelArgs }}
+          vercel-args: ${{ env.vercelArgs }}
           vercel-org-id: ${{ secrets.VERCEL_DOCS_ORG_ID}}
           vercel-project-id: ${{ secrets.VERCEL_DOCS_PROJECT_ID}} 
           working-directory: ./
