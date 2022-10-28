@@ -1,4 +1,6 @@
-# GrowthBook Docs
+<div style="text-align: center; margin: 0 auto; max-width: 500px">
+    <img src="https://docs.growthbook.io/img/growthbook-docslogo-light.png" />
+</div>
 
 Documentation around how to install, set up, and use GrowthBook, the open source A/B testing platform.
 
