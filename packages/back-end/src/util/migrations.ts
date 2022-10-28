@@ -13,6 +13,9 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import isEqual from "lodash/isEqual";
+import { MemberRole, OrganizationInterface } from "../../types/organization";
+import cloneDeep from "lodash/cloneDeep";
+import { getConfigOrganizationSettings } from "../init/config";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -271,4 +274,77 @@ export function upgradeFeatureInterface(
   }
 
   return newFeature;
+}
+
+export function upgradeOrganizationDoc(
+  doc: OrganizationInterface
+): OrganizationInterface {
+  const org = cloneDeep(doc);
+
+  // Add dev/prod environments if there are none yet
+  org.settings = org.settings || {};
+  if (!org.settings?.environments?.length) {
+    org.settings.environments = [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+
+  // Change old `implementationTypes` field to new `visualEditorEnabled` field
+  if (org.settings.implementationTypes) {
+    if (!("visualEditorEnabled" in org.settings)) {
+      org.settings.visualEditorEnabled = org.settings.implementationTypes.includes(
+        "visual"
+      );
+    }
+    delete org.settings.implementationTypes;
+  }
+
+  // Add a default role if one doesn't exist
+  if (!org.settings.defaultRole) {
+    org.settings.defaultRole = {
+      role: "collaborator",
+      environments: [],
+      limitAccessByEnvironment: false,
+    };
+  }
+
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  org.settings = Object.assign({}, org.settings || {}, configSettings);
+
+  // Default attribute schema
+  if (!org.settings.attributeSchema) {
+    org.settings.attributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "deviceId", datatype: "string", hashAttribute: true },
+      { property: "company", datatype: "string", hashAttribute: true },
+      { property: "loggedIn", datatype: "boolean" },
+      { property: "employee", datatype: "boolean" },
+      { property: "country", datatype: "string" },
+      { property: "browser", datatype: "string" },
+      { property: "url", datatype: "string" },
+    ];
+  }
+
+  // Rename legacy roles
+  const legacyRoleMap: Record<string, MemberRole> = {
+    designer: "collaborator",
+    developer: "experimenter",
+  };
+  org.members.forEach((m) => {
+    if (m.role in legacyRoleMap) {
+      m.role = legacyRoleMap[m.role];
+    }
+  });
+
+  return org;
 }

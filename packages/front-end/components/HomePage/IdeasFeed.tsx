@@ -2,7 +2,7 @@ import { FC } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { ago } from "../../services/dates";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useRouter } from "next/router";
 import Markdown from "../Markdown/Markdown";
 import { IdeaInterface } from "back-end/types/idea";

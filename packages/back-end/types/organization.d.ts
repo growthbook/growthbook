@@ -1,34 +1,19 @@
 import Stripe from "stripe";
+import {
+  ENV_SCOPED_PERMISSIONS,
+  GLOBAL_PERMISSIONS,
+  PROJECT_SCOPED_PERMISSIONS,
+} from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
 
-export type Permissions = {
-  addComments: boolean;
-  runQueries: boolean;
-  createPresentations: boolean;
-  createIdeas: boolean;
-  createAnalyses: boolean;
-  createMetrics: boolean;
-  createDimensions: boolean;
-  createSegments: boolean;
-  editDatasourceSettings: boolean;
-  publishFeatures: boolean;
-  createFeatures: boolean;
-  createFeatureDrafts: boolean;
-  organizationSettings: boolean;
-  createDatasources: boolean;
-  superDelete: boolean;
-  manageTeam: boolean;
-  manageTags: boolean;
-  manageProjects: boolean;
-  manageApiKeys: boolean;
-  manageWebhooks: boolean;
-  manageBilling: boolean;
-  manageNorthStarMetric: boolean;
-  manageTargetingAttributes: boolean;
-  manageNamespaces: boolean;
-  manageEnvironments: boolean;
-  manageSavedGroups: boolean;
-};
+export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
+export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
+export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
+
+export type Permission =
+  | GlobalPermission
+  | EnvScopedPermission
+  | ProjectScopedPermission;
 
 export type MemberRole =
   | "readonly"
@@ -40,16 +25,43 @@ export type MemberRole =
   | "experimenter"
   | "admin";
 
-export interface Invite {
+export type Role = {
+  id: MemberRole;
+  description: string;
+  permissions: Permission[];
+};
+
+export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
+export type CommercialFeature = "sso" | "advanced-permissions";
+export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
+
+export interface MemberRoleInfo {
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+}
+
+export interface ProjectMemberRole extends MemberRoleInfo {
+  project: string;
+}
+
+export interface MemberRoleWithProjects extends MemberRoleInfo {
+  projectRoles?: ProjectMemberRole[];
+}
+
+export interface Invite extends MemberRoleWithProjects {
   email: string;
   key: string;
   dateCreated: Date;
-  role: MemberRole;
 }
 
-export interface Member {
+export interface Member extends MemberRoleWithProjects {
   id: string;
-  role: MemberRole;
+}
+
+export interface ExpandedMember extends Member {
+  email: string;
+  name: string;
 }
 
 export interface NorthStarMetric {
@@ -122,6 +134,7 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
+  defaultRole?: MemberRoleInfo;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
@@ -181,7 +194,6 @@ export interface OrganizationInterface {
   };
   members: Member[];
   invites: Invite[];
-
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
@@ -207,7 +219,14 @@ export type LicenseData = {
   // Date issued
   iat: string;
   // Expiration date
-  eat: string;
+  exp: string;
   // If it's a trial or not
-  trial?: boolean;
+  trial: boolean;
+  // The plan (pro, enterprise, etc.)
+  plan: AccountPlan;
+  /**
+   * Expiration date (old style)
+   * @deprecated
+   */
+  eat?: string;
 };
