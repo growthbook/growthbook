@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - "**"
+    paths:
+      - "packages/**"
+      - "!**.md"
+      - "yarn.lock"
+      - ".eslint*"
+      - "package.json"
 
 jobs:
   # Linting, type-checking, and tests
