@@ -66,21 +66,19 @@ export default function DisplayTestQueryResults({
                   key={warning}
                 >
                   <li>{warning}</li>
-                  {warning !== ("experiment_name" || "variation_name") && (
-                    <button
-                      disabled={dimensions.includes(warning)}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        dimensions.push(warning);
-                        form.setValue("dimensions", dimensions);
-                      }}
-                      className="btn btn-link"
-                    >
-                      {dimensions.find((dimension) => dimension === warning)
-                        ? "Added!"
-                        : "Add as dimension"}
-                    </button>
-                  )}
+                  <button
+                    disabled={dimensions.includes(warning)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      dimensions.push(warning);
+                      form.setValue("dimensions", dimensions);
+                    }}
+                    className="btn btn-link"
+                  >
+                    {dimensions.find((dimension) => dimension === warning)
+                      ? "Added!"
+                      : "Add as dimension"}
+                  </button>
                 </div>
               );
             })}
