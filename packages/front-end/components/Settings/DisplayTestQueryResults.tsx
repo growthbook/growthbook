@@ -1,6 +1,8 @@
 import React from "react";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { UseFormReturn } from "react-hook-form";
+import { ExposureQuery } from "back-end/types/datasource";
 
 export type TestQueryResults = {
   status: number;
@@ -13,8 +15,7 @@ export type TestQueryResults = {
 
 type Props = {
   testQueryResults: TestQueryResults | null;
-  // eslint-disable-next-line
-  form?: any;
+  form?: UseFormReturn<ExposureQuery>;
 };
 
 export default function DisplayTestQueryResults({
@@ -62,9 +63,7 @@ export default function DisplayTestQueryResults({
                   <li>{warning}</li>
                   {warning !== ("experiment_name" || "variation_name") && (
                     <button
-                      disabled={dimensions.find(
-                        (dimension) => dimension === warning
-                      )}
+                      disabled={dimensions.includes(warning)}
                       onClick={(e) => {
                         e.preventDefault();
                         dimensions.push(warning);
@@ -83,29 +82,30 @@ export default function DisplayTestQueryResults({
           </ul>
         </div>
       )}
-      {testQueryResults?.includesNamedColumns && (
-        <div className="alert alert-warning d-flex align-items-center">
-          <div className="d-flex align-items-center">
-            <FaExclamationTriangle />
-            <span className="pl-2">
-              Your query includes a named column, but you have &quot;Use Name
-              Columns&quot; disabled. Would you like to enable?
-            </span>
-            <button
-              disabled={form.watch("hasNameCol")}
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("hasNameCol", true);
-              }}
-              className="btn btn-link"
-            >
-              {form.watch("hasNameCol")
-                ? "Enabled"
-                : "Yes, enable name columns"}
-            </button>
+      {testQueryResults?.includesNamedColumns &&
+        form.watch("hasNameCol") === false && (
+          <div className="alert alert-warning d-flex align-items-center">
+            <div className="d-flex align-items-center">
+              <FaExclamationTriangle />
+              <span className="pl-2">
+                Your query includes a named column, but you have &quot;Use Name
+                Columns&quot; disabled. Would you like to enable?
+              </span>
+              <button
+                disabled={form.watch("hasNameCol")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  form.setValue("hasNameCol", true);
+                }}
+                className="btn btn-link"
+              >
+                {form.watch("hasNameCol")
+                  ? "Enabled"
+                  : "Yes, enable name columns"}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
       {testQueryResults?.results?.length > 0 && columns.length > 0 && (
         <>
           <h4>Example Result</h4>
