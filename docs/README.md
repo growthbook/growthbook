@@ -11,4 +11,4 @@ To get the docs running locally, you can follow the [contributing guide](https:/
 
 Docs are built using [Docusaurus](https://docusaurus.io/), and are written in markdown. The docs are located in the `docs/docs` directory.
 
-To run the docs locally, first `cd docs` and then run `yarn dev` to start the docs server. The docs will be available at http://localhost:3200.
+To run the docs locally, first `cd docs` and then run `yarn dev` to start the docs server. The docs will be available at http://localhost:3200. If this is the first time you're running the docs, you'll need to run `yarn install` to install the packages.
