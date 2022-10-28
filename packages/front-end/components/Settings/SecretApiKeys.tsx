@@ -12,6 +12,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   keys,
   mutate,
 }) => {
+  const [currentCopiedString, setCurrentCopiedString] = useState("");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -49,7 +50,15 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             {secretKeys.map((key) => (
               <tr key={key.id}>
                 <td>{key.description}</td>
-                <td>{canManageKeys && <ClickToReveal keyId={key.id} />}</td>
+                <td>
+                  {canManageKeys && (
+                    <ClickToReveal
+                      keyId={key.id}
+                      currentCopiedString={currentCopiedString}
+                      setCurrentCopiedString={setCurrentCopiedString}
+                    />
+                  )}
+                </td>
                 {canManageKeys && (
                   <td>
                     <MoreMenu id={key.key + "_actions"}>

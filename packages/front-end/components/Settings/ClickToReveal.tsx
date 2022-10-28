@@ -1,4 +1,5 @@
 import { SecretApiKey } from "back-end/types/apikey";
+import clsx from "clsx";
 import { useState } from "react";
 import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
@@ -10,20 +11,28 @@ export type SecretKey = {
 export interface Props {
   rowReverse?: boolean;
   keyId: string;
+  currentCopiedString: string;
+  setCurrentCopiedString: (value: string) => void;
 }
 
-export default function RevealHiddenKey({ keyId, rowReverse }: Props) {
+export default function RevealHiddenKey({
+  keyId,
+  rowReverse,
+  currentCopiedString,
+  setCurrentCopiedString,
+}: Props) {
   const { apiCall } = useAuth();
   const [error, setError] = useState("");
   const [revealedSecretKey, setRevealedSecretKey] = useState<SecretKey | null>(
     {}
   );
-  const [currentCopiedString, setCurrentCopiedString] = useState("");
 
   const hidden = !revealedSecretKey || !revealedSecretKey[keyId];
 
   return (
-    <div className={rowReverse && "d-flex flex-row-reverse"}>
+    <div
+      className={clsx("d-flex", rowReverse ? "flex-row-reverse" : "flex-row")}
+    >
       <span
         role="button"
         onClick={async () => {
@@ -49,6 +58,7 @@ export default function RevealHiddenKey({ keyId, rowReverse }: Props) {
         {hidden ? <FaEyeSlash /> : <FaEye />}
       </span>
       <Tooltip
+        className={!hidden && "w-100"}
         role="button"
         tipMinWidth="45px"
         tipPosition="top"
@@ -84,9 +94,10 @@ export default function RevealHiddenKey({ keyId, rowReverse }: Props) {
             border: "none",
             outline: "none",
             backgroundColor: "transparent",
-            textOverflow: "ellipsis",
+            textOverflow: hidden ? "clip" : "ellipsis",
             textAlign: rowReverse ? "right" : "left",
             paddingRight: rowReverse ? "5px" : "0px",
+            width: "100%",
           }}
         />
       </Tooltip>

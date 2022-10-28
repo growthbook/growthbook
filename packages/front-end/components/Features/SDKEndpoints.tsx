@@ -140,7 +140,11 @@ const SDKEndpoints: FC<{
                   {hasEncryptedEndpoints && (
                     <td>
                       {canManageKeys && key.encryptSDK ? (
-                        <ClickToReveal keyId={key.id} rowReverse />
+                        <ClickToReveal
+                          keyId={key.id}
+                          currentCopiedString={currentCopiedString}
+                          setCurrentCopiedString={setCurrentCopiedString}
+                        />
                       ) : (
                         <div style={{ textAlign: "right" }}>No</div>
                       )}
