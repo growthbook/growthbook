@@ -39,6 +39,13 @@ const featureSchema = new mongoose.Schema({
       enabled: Boolean,
       condition: String,
       description: String,
+      experimentId: String,
+      variations: [
+        {
+          _id: false,
+          value: String,
+        },
+      ],
       values: [
         {
           _id: false,

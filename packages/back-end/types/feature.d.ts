@@ -72,12 +72,15 @@ type ExperimentValue = {
   name?: string;
 };
 
-type NamespaceValue = {
+export type NamespaceValue = {
   enabled: boolean;
   name: string;
   range: [number, number];
 };
 
+/**
+ * @deprecated
+ */
 export interface ExperimentRule extends BaseRule {
   type: "experiment";
   trackingKey: string;
@@ -85,6 +88,14 @@ export interface ExperimentRule extends BaseRule {
   namespace?: NamespaceValue;
   coverage?: number;
   values: ExperimentValue[];
+}
+
+export interface ExperimentReferenceRule extends BaseRule {
+  type: "experiment-ref";
+  experimentId: string;
+  variations: {
+    value: string;
+  }[];
 }
 
 export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;

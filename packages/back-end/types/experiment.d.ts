@@ -1,3 +1,5 @@
+import { NamespaceValue } from "./feature";
+
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type DomChange = {
@@ -31,6 +33,11 @@ export interface ExperimentPhase {
   reason: string;
   coverage: number;
   variationWeights: number[];
+  condition?: string;
+  namespace?: NamespaceValue;
+  /**
+   * @deprecated
+   */
   groups?: string[];
 }
 
@@ -55,6 +62,7 @@ export interface ExperimentInterface {
   datasource: string;
   exposureQueryId: string;
   implementation: ImplementationType;
+  hashAttribute?: string;
   /**
    * @deprecated
    */
