@@ -139,7 +139,7 @@ mongosh -u root
 
 ### Working on docs
 
-To start the docs site, run `yarn workspace docs dev`. You can view the site at http://localhost:3200
+To start the docs site, first `cd docs` and then run `yarn dev`. You can view the site at http://localhost:3200
 
 ### Working on the SDKs
 
