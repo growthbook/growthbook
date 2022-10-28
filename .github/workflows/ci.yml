@@ -5,12 +5,6 @@ on:
   push:
     branches:
       - "**"
-    paths:
-      - "packages/**"
-      - "!**.md"
-      - "yarn.lock"
-      - ".eslint*"
-      - "package.json"
 
 jobs:
   # Linting, type-checking, and tests
@@ -20,28 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Use Node.js 16.x
-        uses: actions/setup-node@v1
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: '16'
+          cache: 'yarn'
 
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-
-      - name: Get yarn cache directory
-        id: yarn-cache
-        run: |
-          echo "::set-output name=dir::$(yarn cache dir)"
-
-      - name: Cache yarn packages
-        uses: actions/cache@v2
-        with:
-          path: ${{ steps.yarn-cache.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
 
       - name: Cache eslint
         uses: actions/cache@v2
@@ -51,28 +33,49 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-eslint-
 
-      - name: install dependencies
+      - name: App/SDK - get changed files
+        id: app-changed-files
+        uses: tj-actions/changed-files@v34
+        with:
+          files: |
+            packages/**
+            yarn.lock
+
+      - name: App/SDK - install and build
+        if: steps.app-changed-files.outputs.any_changed == 'true'
         run: |
           yarn
           python -m pip install --upgrade pip
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats
+
+          # Build SDK packages (required for linting/type checks to work)
+          yarn workspace @growthbook/growthbook build
+          yarn workspace @growthbook/growthbook-react build
         env:
           CI: true
 
-      - name: build sdk packages
-        run: |
-          yarn workspace @growthbook/growthbook build
-          yarn workspace @growthbook/growthbook-react build
-
-      - name: lint
+      - name: App/SDK - lint, type-check, and test 
+        if: steps.app-changed-files.outputs.any_changed == 'true'
         run: |
           yarn lint
           yarn workspace stats lint
 
-      - name: type-check
-        run: |
           yarn type-check
 
-      - name: test
-        run: |
           yarn test
+        env:
+          CI: true
+
+
+      - name: Docs - get changed files
+        id: docs-changed-files
+        uses: tj-actions/changed-files@v34
+        with:
+          files: |
+            docs/**
+
+      - name: Docs - type-check
+        if: steps.docs-changed-files.outputs.any_changed == 'true'
+        run: |
+          cd docs
+          yarn typecheck
