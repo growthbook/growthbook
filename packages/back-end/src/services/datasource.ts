@@ -114,7 +114,7 @@ export async function testQuery(
   }
 
   return {
-    results: results || [],
+    results,
     duration,
     error,
   };

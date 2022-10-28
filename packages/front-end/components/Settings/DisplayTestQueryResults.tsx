@@ -3,6 +3,7 @@ import { TestQueryRow } from "back-end/src/types/Integration";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { UseFormReturn } from "react-hook-form";
 import { ExposureQuery } from "back-end/types/datasource";
+import Tooltip from "../Tooltip";
 
 export type TestQueryResults = {
   status: number;
@@ -49,9 +50,13 @@ export default function DisplayTestQueryResults({
             <span className="pl-2">
               The column{testQueryResults.optionalColumns.length > 1 && "s "}{" "}
               listed below{" "}
-              {testQueryResults.optionalColumns.length > 1 ? "are " : "is "} not
-              required.
+              {testQueryResults.optionalColumns.length > 1 ? "are " : "is "}
+              not required.
             </span>
+            <Tooltip
+              className="pl-2"
+              body="Any additional columns you select can be listed as dimensions to drill down into experiment results, otherwise, you can remove them to improve performance."
+            />
           </div>
           <ul className="mb-0">
             {testQueryResults?.optionalColumns.map((warning) => {
