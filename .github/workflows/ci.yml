@@ -24,6 +24,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
+          cache: 'pip'
 
       - name: Cache eslint
         uses: actions/cache@v2
@@ -32,6 +33,19 @@ jobs:
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
+      
+      - name: Install dependencies
+        run: |
+          # Main app
+          yarn
+
+          # Stats engine
+          pip install numpy scipy pandas pytest black flake8 nbformat gbstats
+
+          # Docs
+          cd docs
+          yarn
+          cd ..
 
       - name: App/SDK - get changed files
         id: app-changed-files
@@ -40,28 +54,23 @@ jobs:
           files: |
             packages/**
             yarn.lock
+            .github/workflows/ci.yml
 
-      - name: App/SDK - install and build
+      - name: App/SDK - build, lint, type-check, and test 
         if: steps.app-changed-files.outputs.any_changed == 'true'
         run: |
-          yarn
-          python -m pip install --upgrade pip
-          pip install numpy scipy pandas pytest black flake8 nbformat gbstats
-
           # Build SDK packages (required for linting/type checks to work)
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
-        env:
-          CI: true
 
-      - name: App/SDK - lint, type-check, and test 
-        if: steps.app-changed-files.outputs.any_changed == 'true'
-        run: |
+          # Linting
           yarn lint
           yarn workspace stats lint
 
+          # Typescript type checks
           yarn type-check
 
+          # Test suites
           yarn test
         env:
           CI: true
@@ -73,9 +82,11 @@ jobs:
         with:
           files: |
             docs/**
+            .github/workflows/ci.yml
 
       - name: Docs - type-check
         if: steps.docs-changed-files.outputs.any_changed == 'true'
         run: |
           cd docs
           yarn typecheck
+          cd ..
