@@ -31,6 +31,7 @@ import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
+import usePermissions from "../../hooks/usePermissions";
 
 export type Props = {
   close?: () => void;
@@ -69,17 +70,20 @@ export default function FeatureModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
+  const permissions = usePermissions();
 
   const { refreshWatching } = useWatching();
 
   const defaultEnvSettings: Record<string, FeatureEnvironment> = {};
-  environments.forEach(
-    (e) =>
-      (defaultEnvSettings[e.id] = {
-        enabled: e.defaultState ?? true,
-        rules: [],
-      })
-  );
+  environments.forEach((e) => {
+    let enabled = e.defaultState ?? true;
+    if (!permissions.check("publishFeatures", project, [e.id])) enabled = false;
+
+    defaultEnvSettings[e.id] = {
+      enabled,
+      rules: [],
+    };
+  });
 
   const form = useForm({
     defaultValues: {
@@ -213,6 +217,10 @@ export default function FeatureModal({
               <Toggle
                 id={`${env.id}_toggle_create`}
                 label={env.id}
+                disabledMessage="You don't have permission to create features in this environment."
+                disabled={
+                  !permissions.check("publishFeatures", project, [env.id])
+                }
                 value={environmentSettings[env.id].enabled}
                 setValue={(on) => {
                   environmentSettings[env.id].enabled = on;

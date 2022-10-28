@@ -1,6 +1,6 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { isCloud } from "../../services/env";
 
 export default function InAppHelp() {

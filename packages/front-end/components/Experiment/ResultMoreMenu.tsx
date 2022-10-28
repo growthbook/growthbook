@@ -33,6 +33,7 @@ export default function ResultMoreMenu({
   variations,
   trackingKey,
   dimension,
+  project,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -51,14 +52,17 @@ export default function ResultMoreMenu({
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  project?: string;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
 
+  const canEdit = permissions.check("createAnalyses", project);
+
   return (
     <MoreMenu id="exp-result-actions">
-      {permissions.createAnalyses && (
+      {canEdit && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -87,33 +91,29 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData &&
-        queries &&
-        !hasUserQuery &&
-        generateReport &&
-        permissions.createAnalyses && (
-          <Button
-            className="dropdown-item py-2"
-            color="outline-info"
-            onClick={async () => {
-              const res = await apiCall<{ report: ReportInterface }>(
-                `/experiments/report/${id}`,
-                {
-                  method: "POST",
-                }
-              );
-
-              if (!res.report) {
-                throw new Error("Failed to create report");
+      {hasData && queries && !hasUserQuery && generateReport && canEdit && (
+        <Button
+          className="dropdown-item py-2"
+          color="outline-info"
+          onClick={async () => {
+            const res = await apiCall<{ report: ReportInterface }>(
+              `/experiments/report/${id}`,
+              {
+                method: "POST",
               }
+            );
 
-              await router.push(`/report/${res.report.id}`);
-            }}
-          >
-            <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
-            Report
-          </Button>
-        )}
+            if (!res.report) {
+              throw new Error("Failed to create report");
+            }
+
+            await router.push(`/report/${res.report.id}`);
+          }}
+        >
+          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+          Report
+        </Button>
+      )}
 
       {hasData &&
         !hasUserQuery &&
@@ -155,7 +155,7 @@ export default function ResultMoreMenu({
           </Button>
         )}
 
-      {permissions.createAnalyses && editMetrics && (
+      {canEdit && editMetrics && (
         <button
           type="button"
           className="dropdown-item py-2"

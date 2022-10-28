@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
 import { useSearch } from "../../services/search";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Tabs from "../Tabs/Tabs";

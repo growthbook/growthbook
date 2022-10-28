@@ -1,14 +1,15 @@
 import { FC, useState } from "react";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "../../../services/auth";
 import { useForm } from "react-hook-form";
-import Modal from "../Modal";
+import Modal from "../../Modal";
 import RoleSelector from "./RoleSelector";
-import track from "../../services/track";
-import Field from "../Forms/Field";
-import { MemberRole } from "back-end/types/organization";
+import track from "../../../services/track";
+import Field from "../../Forms/Field";
+import { MemberRoleWithProjects } from "back-end/types/organization";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import UpgradeModal from "./UpgradeModal";
+import useStripeSubscription from "../../../hooks/useStripeSubscription";
+import UpgradeModal from "../UpgradeModal";
+import useOrgSettings from "../../../hooks/useOrgSettings";
 
 type InviteResult = {
   email: string;
@@ -19,13 +20,21 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
+  const { defaultRole } = useOrgSettings();
+
   const form = useForm<{
     email: string;
-    role: MemberRole;
+    roleInfo: MemberRoleWithProjects;
   }>({
     defaultValues: {
       email: "",
-      role: "admin",
+      roleInfo: {
+        role: "admin",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        ...defaultRole,
+      },
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
@@ -40,6 +49,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     canSubscribe && activeAndInvitedUsers >= freeSeats
+      ? "Whoops! You reached your free seat limit."
+      : ""
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -48,7 +59,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       <UpgradeModal
         close={close}
         source="invite team"
-        reason="Whoops! You reached your free seat limit."
+        reason={showUpgradeModal}
       />
     );
   }
@@ -57,7 +68,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const inviteArr = value.email.split(",");
 
     if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
-      setShowUpgradeModal(true);
+      setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
     }
 
@@ -74,7 +85,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         method: "POST",
         body: JSON.stringify({
           email: email,
-          role: value.role,
+          ...value.roleInfo,
         }),
       });
 
@@ -90,7 +101,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
       track("Team Member Invited", {
         emailSent: resp.emailSent,
-        role: value.role,
+        role: value.roleInfo.role,
       });
     }
     setSuccessfulInvites(succeeded);
@@ -190,10 +201,11 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             {...form.register("email")}
           />
           <RoleSelector
-            role={form.watch("role")}
-            setRole={(role) => {
-              form.setValue("role", role);
-            }}
+            value={form.watch("roleInfo")}
+            setValue={(value) => form.setValue("roleInfo", value)}
+            showUpgradeModal={() =>
+              setShowUpgradeModal("To enable advanced permissioning,")
+            }
           />
           <InviteModalSubscriptionInfo />
         </>

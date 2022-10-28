@@ -17,9 +17,9 @@ import {
   getCoupon,
   getPrice,
   getStripeCustomerId,
-  isActiveSubscriptionStatus,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
+import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; returnUrl: string }>,

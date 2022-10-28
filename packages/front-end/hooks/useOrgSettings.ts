@@ -1,4 +1,4 @@
-import useUser from "./useUser";
+import { useUser } from "../services/UserContext";
 
 export default function useOrgSettings() {
   const { settings } = useUser();

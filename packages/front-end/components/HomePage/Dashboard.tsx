@@ -7,7 +7,7 @@ import ActivityList from "../ActivityList";
 import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";

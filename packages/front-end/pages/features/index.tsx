@@ -124,25 +124,27 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {features.length > 0 && permissions.createFeatures && (
-          <div className="col-auto">
-            <button
-              className="btn btn-primary float-right"
-              onClick={() => {
-                setModalOpen(true);
-                track("Viewed Feature Modal", {
-                  source: "feature-list",
-                });
-              }}
-              type="button"
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Feature
-            </button>
-          </div>
-        )}
+        {features.length > 0 &&
+          permissions.check("manageFeatures", project) &&
+          permissions.check("createFeatureDrafts", project) && (
+            <div className="col-auto">
+              <button
+                className="btn btn-primary float-right"
+                onClick={() => {
+                  setModalOpen(true);
+                  track("Viewed Feature Modal", {
+                    source: "feature-list",
+                  });
+                }}
+                type="button"
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Feature
+              </button>
+            </div>
+          )}
       </div>
       <p>
         Features enable you to change your app&apos;s behavior from within the

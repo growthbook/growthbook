@@ -234,6 +234,15 @@ export function addIdsToRules(
   });
 }
 
+export function getAffectedEnvs(
+  feature: FeatureInterface,
+  changedEnvs: string[]
+): string[] {
+  const settings = feature.environmentSettings;
+  if (!settings) return [];
+  return changedEnvs.filter((e) => settings?.[e]?.enabled);
+}
+
 export async function featureUpdated(
   feature: FeatureInterface,
   previousEnvironments: string[] = [],

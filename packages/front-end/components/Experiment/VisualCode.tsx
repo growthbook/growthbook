@@ -23,7 +23,7 @@ export default function VisualCode({
 
   const hasCode = dom.length > 0 || css.length > 0;
 
-  if (!hasCode && permissions.createAnalyses) {
+  if (!hasCode && permissions.check("createAnalyses", "")) {
     return control ? null : (
       <div className="alert alert-warning my-2">
         No visual changes yet.{" "}

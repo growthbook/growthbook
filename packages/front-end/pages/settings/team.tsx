@@ -1,16 +1,24 @@
 import Link from "next/link";
 import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import InviteList from "../../components/Settings/InviteList";
-import MemberList from "../../components/Settings/MemberList";
+import InviteList from "../../components/Settings/Team/InviteList";
+import MemberList from "../../components/Settings/Team/MemberList";
 import { useRouter } from "next/router";
 import { useAuth } from "../../services/auth";
 import SSOSettings from "../../components/Settings/SSOSettings";
-import { useAdminSettings } from "../../hooks/useAdminSettings";
+import { useUser } from "../../services/UserContext";
+import usePermissions from "../../hooks/usePermissions";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import SelectField from "../../components/Forms/SelectField";
 
 const TeamPage: FC = () => {
-  const { data, error, refresh: mutate } = useAdminSettings();
+  const { refreshOrganization, enterpriseSSO, organization } = useUser();
+
+  const { project, projects } = useDefinitions();
+
+  const [currentProject, setCurrentProject] = useState(project || "");
+
+  const permissions = usePermissions();
 
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -33,7 +41,7 @@ const TeamPage: FC = () => {
       }),
     })
       .then(() => {
-        mutate();
+        refreshOrganization();
         router.replace(router.pathname, router.pathname, { shallow: true });
       })
       .catch((e) => {
@@ -41,14 +49,17 @@ const TeamPage: FC = () => {
       });
   }, [checkoutSessionId]);
 
-  if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
+  const ssoConnection = enterpriseSSO;
 
-  const ssoConnection = data?.enterpriseSSO;
+  if (!permissions.manageTeam) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid pagecontents">
@@ -67,9 +78,29 @@ const TeamPage: FC = () => {
       )}
       <SSOSettings ssoConnection={ssoConnection} />
       <h1>Team Members</h1>
-      <MemberList members={data.organization.members} mutate={mutate} />
-      {data.organization.invites.length > 0 ? (
-        <InviteList invites={data.organization.invites} mutate={mutate} />
+      {projects.length > 0 && (
+        <div className="row align-items-center">
+          <div className="col-auto">View roles and permissions for</div>
+          <div className="col-auto">
+            <SelectField
+              value={currentProject}
+              onChange={(value) => setCurrentProject(value)}
+              options={projects.map((p) => ({
+                label: p.name,
+                value: p.id,
+              }))}
+              initialOption="All Projects"
+            />
+          </div>
+        </div>
+      )}
+      <MemberList mutate={refreshOrganization} project={currentProject} />
+      {organization.invites.length > 0 ? (
+        <InviteList
+          invites={organization.invites}
+          mutate={refreshOrganization}
+          project={currentProject}
+        />
       ) : (
         ""
       )}

@@ -10,7 +10,7 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { getCurrentUser } from "../components/ProtectedPage";
+import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
   hasFileConfig,
