@@ -1,8 +1,6 @@
-import { SecretApiKey } from "back-end/types/apikey";
 import clsx from "clsx";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
 import Tooltip from "../Tooltip";
 
 export type SecretKey = {
@@ -10,50 +8,42 @@ export type SecretKey = {
 };
 export interface Props {
   rowReverse?: boolean;
-  keyId: string;
   currentCopiedString: string;
   setCurrentCopiedString: (value: string) => void;
+  getValue: () => Promise<string>;
 }
 
-export default function RevealHiddenKey({
-  keyId,
+export default function ClickToReveal({
   rowReverse,
   currentCopiedString,
   setCurrentCopiedString,
+  getValue,
 }: Props) {
-  const { apiCall } = useAuth();
   const [error, setError] = useState("");
-  const [revealedSecretKey, setRevealedSecretKey] = useState<SecretKey | null>(
-    {}
-  );
+  const [revealedValue, setRevealedValue] = useState("");
 
-  const hidden = !revealedSecretKey || !revealedSecretKey[keyId];
-
-  const handleGetKey = useCallback(async () => {
-    if (hidden) {
-      try {
-        const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-          method: "POST",
-          body: JSON.stringify({
-            id: keyId,
-          }),
-        });
-        setRevealedSecretKey({
-          [keyId]: res.key.encryptSDK ? res.key.encryptionKey : res.key.key,
-        });
-      } catch (e) {
-        setError(e.message);
-      }
-    } else {
-      setRevealedSecretKey(null);
-    }
-  }, [hidden, apiCall, keyId]);
+  const hidden = !revealedValue;
 
   return (
     <div
       className={clsx("d-flex", rowReverse ? "flex-row-reverse" : "flex-row")}
     >
-      <span role="button" onClick={handleGetKey}>
+      <span
+        role="button"
+        onClick={async (e) => {
+          e.preventDefault();
+          if (hidden) {
+            try {
+              const actualValue = await getValue();
+              setRevealedValue(actualValue);
+            } catch (e) {
+              setError(e.message);
+            }
+          } else {
+            setRevealedValue("");
+          }
+        }}
+      >
         {hidden ? <FaEyeSlash /> : <FaEye />}
       </span>
       <Tooltip
@@ -64,7 +54,7 @@ export default function RevealHiddenKey({
         body={
           hidden
             ? "Click the eye to reveal"
-            : currentCopiedString === keyId
+            : currentCopiedString === revealedValue
             ? "Copied!"
             : "Copy"
         }
@@ -73,9 +63,9 @@ export default function RevealHiddenKey({
           e.preventDefault();
           if (!hidden) {
             navigator.clipboard
-              .writeText(revealedSecretKey[keyId])
+              .writeText(revealedValue)
               .then(() => {
-                setCurrentCopiedString(keyId);
+                setCurrentCopiedString(revealedValue);
               })
               .catch((e) => {
                 setError(e.message);
@@ -87,7 +77,7 @@ export default function RevealHiddenKey({
         <input
           role="button"
           type={hidden ? "password" : "text"}
-          value={hidden ? "Click to reveal key." : revealedSecretKey[keyId]}
+          value={hidden ? "Click to reveal hidden." : revealedValue}
           disabled={true}
           style={{
             border: "none",

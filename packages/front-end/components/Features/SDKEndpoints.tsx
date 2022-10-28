@@ -1,5 +1,5 @@
-import { FC, useState } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { FC, useCallback, useState } from "react";
+import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
@@ -11,7 +11,7 @@ import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
-import RevealHiddenKey from "../Settings/RevealHiddenKey";
+import ClickToReveal from "../Settings/ClickToReveal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -43,6 +43,23 @@ const SDKEndpoints: FC<{
   });
 
   const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
+
+  const getEncryptionKey = useCallback(
+    async (keyId: string) => {
+      const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
+        method: "POST",
+        body: JSON.stringify({
+          id: keyId,
+        }),
+      });
+
+      if (!res.key.encryptionKey) {
+        throw new Error("Could not load the encryption key");
+      }
+      return res.key.encryptionKey;
+    },
+    [apiCall]
+  );
 
   return (
     <div className="mt-4">
@@ -140,9 +157,9 @@ const SDKEndpoints: FC<{
                   {hasEncryptedEndpoints && (
                     <td>
                       {canManageKeys && key.encryptSDK ? (
-                        <RevealHiddenKey
+                        <ClickToReveal
                           rowReverse
-                          keyId={key.id}
+                          getValue={() => getEncryptionKey(key.id)}
                           currentCopiedString={currentCopiedString}
                           setCurrentCopiedString={setCurrentCopiedString}
                         />
