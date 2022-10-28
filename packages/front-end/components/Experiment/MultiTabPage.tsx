@@ -37,7 +37,7 @@ import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import VariationBox from "./VariationBox";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import ExperimentReportsList from "./ExperimentReportsList";
@@ -144,7 +144,7 @@ const MultiTabPage = ({
     wrapClasses += " multivariations";
   }
 
-  const canEdit = permissions.createAnalyses;
+  const canEdit = permissions.check("createAnalyses", experiment.project);
 
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -296,9 +296,10 @@ const MultiTabPage = ({
             </MoreMenu>
           </div>
         )}
-        {permissions.createAnalyses && ctaButton && (
-          <div className="experiment-actions col-auto">{ctaButton}</div>
-        )}
+        {permissions.check("createAnalyses", experiment.project) &&
+          ctaButton && (
+            <div className="experiment-actions col-auto">{ctaButton}</div>
+          )}
       </div>
       <div className="row align-items-center mb-3">
         <h2 className="col-auto mb-0">
@@ -648,6 +649,7 @@ const MultiTabPage = ({
             type="experiment"
             id={experiment.id}
             allowNewComments={!experiment.archived}
+            project={experiment.project}
           />
         </Tab>
         <Tab display="History" anchor="history" lazy={true}>

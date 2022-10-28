@@ -6,6 +6,7 @@ import {
 } from "../models/OrganizationModel";
 import { OrganizationInterface } from "../../types/organization";
 import { logger } from "../util/logger";
+import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2020-08-27",
@@ -93,12 +94,6 @@ export async function getCoupon(
     logger.error(e, "Failed to get coupon data from Stripe");
     return null;
   }
-}
-
-export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
-) {
-  return ["active", "trialing", "past_due"].includes(status || "");
 }
 
 export function hasActiveSubscription(org: OrganizationInterface) {

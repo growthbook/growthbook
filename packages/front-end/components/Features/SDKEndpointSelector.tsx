@@ -103,7 +103,7 @@ export default function SDKEndpointSelector({
             value={apiKey}
             onChange={setApiKey}
             helpText={
-              permissions.manageEnvironments && (
+              permissions.check("manageEnvironments", "", []) && (
                 <Link href="/environments">
                   <a>
                     Manage environments and endpoints <FaExternalLinkAlt />

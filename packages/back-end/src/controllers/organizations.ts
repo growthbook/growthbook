@@ -6,11 +6,8 @@ import {
   removeMember,
   revokeInvite,
   getInviteUrl,
-  getRole,
   importConfig,
   getOrgFromReq,
-  getPermissionsByRole,
-  updateRole,
   addMemberFromSSOConnection,
   isEnterpriseSSO,
   validateLoginMethod,
@@ -23,12 +20,12 @@ import { createUser, getUsersByIds, updatePassword } from "../services/users";
 import { getAllTags } from "../models/TagModel";
 import { UserModel } from "../models/UserModel";
 import {
+  ExpandedMember,
   Invite,
-  MemberRole,
+  MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
-  Permissions,
 } from "../../types/organization";
 import {
   getWatchedAudits,
@@ -61,7 +58,6 @@ import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { ConfigFile } from "../init/config";
 import { WebhookInterface } from "../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../types/feature";
-import { hasActiveSubscription } from "../services/stripe";
 import { usingOpenId } from "../services/auth";
 import { cloneDeep } from "lodash";
 import { getLicense } from "../init/license";
@@ -75,6 +71,11 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../models/ApiKeyModel";
+import {
+  accountFeatures,
+  getAccountPlan,
+  getRoles,
+} from "../util/organization.util";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -126,17 +127,9 @@ export async function getUser(req: AuthRequest, res: Response) {
     admin: !!req.admin,
     license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
-      const role = getRole(org, userId);
       return {
         id: org.id,
         name: org.name,
-        role,
-        permissions: getPermissionsByRole(role),
-        enterprise: org.enterprise || false,
-        settings: org.settings || {},
-        freeSeats: org.freeSeats || 3,
-        discountCode: org.discountCode || "",
-        hasActiveSubscription: hasActiveSubscription(org),
       };
     }),
   });
@@ -405,13 +398,18 @@ export async function putUserName(
 }
 
 export async function putMemberRole(
-  req: AuthRequest<{ role: MemberRole }, { id: string }>,
+  req: AuthRequest<MemberRoleWithProjects, { id: string }>,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
-  const { role } = req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -425,6 +423,9 @@ export async function putMemberRole(
   org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
+      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
+      m.environments = environments || [];
+      m.projectRoles = projectRoles || [];
       found = true;
     }
   });
@@ -452,13 +453,18 @@ export async function putMemberRole(
 }
 
 export async function putInviteRole(
-  req: AuthRequest<{ role: MemberRole }, { key: string }>,
+  req: AuthRequest<MemberRoleWithProjects, { key: string }>,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { role } = req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -467,6 +473,9 @@ export async function putInviteRole(
   org.invites.forEach((m) => {
     if (m.key === key) {
       m.role = role;
+      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
+      m.environments = environments || [];
+      m.projectRoles = projectRoles || [];
       found = true;
     }
   });
@@ -511,8 +520,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org } = getOrgFromReq(req);
 
+  const { org } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -524,26 +533,35 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     connections,
     settings,
     disableSelfServeBilling,
-    enterprise,
   } = org;
 
-  const roleMapping: Map<string, MemberRole> = new Map();
-  members.forEach((m) => {
-    roleMapping.set(m.id, updateRole(m.role));
-  });
-
-  const users = await getUsersByIds(members.map((m) => m.id));
-
+  // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(org.id);
-
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
+
+  // Add email/name to the organization members array
+  const userInfo = await getUsersByIds(members.map((m) => m.id));
+  const expandedMembers: ExpandedMember[] = [];
+  userInfo.forEach(({ id, email, name }) => {
+    const memberInfo = members.find((m) => m.id === id);
+    if (!memberInfo) return;
+    expandedMembers.push({
+      email,
+      name,
+      ...memberInfo,
+    });
+  });
 
   return res.status(200).json({
     status: 200,
     apiKeys,
     enterpriseSSO,
+    accountPlan: getAccountPlan(org),
+    commercialFeatures: [...accountFeatures[getAccountPlan(org)]],
+    roles: getRoles(org),
+    members: expandedMembers,
     organization: {
       invites,
       ownerEmail,
@@ -551,18 +569,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       url,
       subscription,
       freeSeats,
-      enterprise,
       disableSelfServeBilling,
+      discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      members: users.map(({ id, email, name }) => {
-        return {
-          id,
-          email,
-          name,
-          role: roleMapping.get(id),
-        };
-      }),
       settings,
+      members: org.members,
     },
   });
 }
@@ -783,18 +794,32 @@ export async function postInviteAccept(
 }
 
 export async function postInvite(
-  req: AuthRequest<{
-    email: string;
-    role: MemberRole;
-  }>,
+  req: AuthRequest<
+    {
+      email: string;
+    } & MemberRoleWithProjects
+  >,
   res: Response
 ) {
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { email, role } = req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
-  const { emailSent, inviteUrl } = await inviteUser(org, email, role);
+  const { emailSent, inviteUrl } = await inviteUser({
+    organization: org,
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  });
 
   return res.status(200).json({
     status: 200,
@@ -917,35 +942,54 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const requiredPermissions: Set<keyof Permissions> = new Set();
-
   const { org } = getOrgFromReq(req);
   const { name, settings, connections } = req.body;
 
   if (connections || name) {
-    requiredPermissions.add("organizationSettings");
+    req.checkPermissions("organizationSettings");
   }
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
-      if (
-        k === "environments" ||
-        k === "sdkInstructionsViewed" ||
-        k === "visualEditorEnabled"
-      ) {
-        requiredPermissions.add("manageEnvironments");
+      if (k === "environments") {
+        // Require permissions for any old environments that changed
+        const affectedEnvs: Set<string> = new Set();
+        org.settings?.environments?.forEach((env) => {
+          const oldHash = JSON.stringify(env);
+          const newHash = JSON.stringify(
+            settings[k]?.find((e) => e.id === env.id)
+          );
+          if (oldHash !== newHash) {
+            affectedEnvs.add(env.id);
+          }
+        });
+
+        // Require permissions for any new environments that have been added
+        const oldIds = new Set(
+          org.settings?.environments?.map((env) => env.id) || []
+        );
+        settings[k]?.forEach((env) => {
+          if (!oldIds.has(env.id)) {
+            affectedEnvs.add(env.id);
+          }
+        });
+
+        req.checkPermissions(
+          "manageEnvironments",
+          "",
+          Array.from(affectedEnvs)
+        );
+      } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
+        req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
-        requiredPermissions.add("manageTargetingAttributes");
+        req.checkPermissions("manageTargetingAttributes");
       } else if (k === "northStar") {
-        requiredPermissions.add("manageNorthStarMetric");
+        req.checkPermissions("manageNorthStarMetric");
       } else if (k === "namespaces") {
-        requiredPermissions.add("manageNamespaces");
+        req.checkPermissions("manageNamespaces");
       } else {
-        requiredPermissions.add("organizationSettings");
+        req.checkPermissions("organizationSettings");
       }
     });
-  }
-  if (requiredPermissions.size > 0) {
-    req.checkPermissions(...requiredPermissions);
   }
 
   try {
@@ -1036,7 +1080,7 @@ export async function postApiKey(
   if (secret) {
     req.checkPermissions("manageApiKeys");
   } else {
-    req.checkPermissions("manageEnvironments");
+    req.checkPermissions("manageEnvironments", "", [environment]);
   }
 
   const key = await createApiKey({
@@ -1076,7 +1120,7 @@ export async function deleteApiKey(
   if (keyObj.secret) {
     req.checkPermissions("manageApiKeys");
   } else {
-    req.checkPermissions("manageEnvironments");
+    req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
   }
 
   if (id) {
