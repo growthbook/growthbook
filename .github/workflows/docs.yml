@@ -5,22 +5,13 @@ on:
       - "**"
     paths:
       - "docs/**"
+      - ".github/workflows/docs.yml"
 jobs:
   vercel:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-          cache: 'yarn'
-      - name: Build
-        run: |
-          cd docs
-          yarn install --frozen-lockfile
-          yarn build
       - name: Check if main
         run: |
           if [ $REF == 'refs/heads/main' ]
