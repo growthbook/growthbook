@@ -6,7 +6,7 @@ import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
 import MoreMenu from "../Dropdown/MoreMenu";
 import usePermissions from "../../hooks/usePermissions";
-import ClickToReveal from "./ClickToReveal";
+import RevealHiddenKey from "./RevealHiddenKey";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   keys,
@@ -52,7 +52,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                 <td>{key.description}</td>
                 <td>
                   {canManageKeys ? (
-                    <ClickToReveal
+                    <RevealHiddenKey
                       keyId={key.id}
                       currentCopiedString={currentCopiedString}
                       setCurrentCopiedString={setCurrentCopiedString}

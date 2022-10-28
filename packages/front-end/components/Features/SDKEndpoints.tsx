@@ -11,7 +11,7 @@ import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
-import ClickToReveal from "../Settings/ClickToReveal";
+import RevealHiddenKey from "../Settings/RevealHiddenKey";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -105,7 +105,7 @@ const SDKEndpoints: FC<{
                           : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
                       }
                     >
-                      <b>{`${env} `}</b>
+                      <strong className="mr-1">{env}</strong>
                       {!envExists && (
                         <FaExclamationTriangle className="text-danger" />
                       )}
@@ -140,7 +140,7 @@ const SDKEndpoints: FC<{
                   {hasEncryptedEndpoints && (
                     <td>
                       {canManageKeys && key.encryptSDK ? (
-                        <ClickToReveal
+                        <RevealHiddenKey
                           rowReverse
                           keyId={key.id}
                           currentCopiedString={currentCopiedString}

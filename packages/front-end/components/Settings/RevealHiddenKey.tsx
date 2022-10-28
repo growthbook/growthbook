@@ -1,6 +1,6 @@
 import { SecretApiKey } from "back-end/types/apikey";
 import clsx from "clsx";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
 import Tooltip from "../Tooltip";
@@ -29,32 +29,31 @@ export default function RevealHiddenKey({
 
   const hidden = !revealedSecretKey || !revealedSecretKey[keyId];
 
+  const handleGetKey = useCallback(async () => {
+    if (hidden) {
+      try {
+        const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
+          method: "POST",
+          body: JSON.stringify({
+            id: keyId,
+          }),
+        });
+        setRevealedSecretKey({
+          [keyId]: res.key.encryptSDK ? res.key.encryptionKey : res.key.key,
+        });
+      } catch (e) {
+        setError(e.message);
+      }
+    } else {
+      setRevealedSecretKey(null);
+    }
+  }, [hidden, apiCall, keyId]);
+
   return (
     <div
       className={clsx("d-flex", rowReverse ? "flex-row-reverse" : "flex-row")}
     >
-      <span
-        role="button"
-        onClick={async () => {
-          if (hidden) {
-            try {
-              const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-                method: "POST",
-                body: JSON.stringify({
-                  id: keyId,
-                }),
-              });
-              setRevealedSecretKey({
-                [keyId]: res.key.key,
-              });
-            } catch (e) {
-              setError(e.message);
-            }
-          } else {
-            setRevealedSecretKey(null);
-          }
-        }}
-      >
+      <span role="button" onClick={handleGetKey}>
         {hidden ? <FaEyeSlash /> : <FaEye />}
       </span>
       <Tooltip
