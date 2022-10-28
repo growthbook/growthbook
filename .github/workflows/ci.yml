@@ -1,10 +1,5 @@
 name: CI
-
-# Runs on every push to every branch
-on:
-  push:
-    branches:
-      - "**"
+on: [pull_request]
 
 jobs:
   # Linting, type-checking, and tests

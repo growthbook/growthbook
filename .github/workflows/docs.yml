@@ -1,8 +1,12 @@
 name: Deploy Docs
 on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
   push:
     branches:
-      - "**"
+      - "main"
     paths:
       - "docs/**"
       - ".github/workflows/docs.yml"
