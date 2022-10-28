@@ -141,6 +141,7 @@ const SDKEndpoints: FC<{
                     <td>
                       {canManageKeys && key.encryptSDK ? (
                         <ClickToReveal
+                          rowReverse
                           keyId={key.id}
                           currentCopiedString={currentCopiedString}
                           setCurrentCopiedString={setCurrentCopiedString}
