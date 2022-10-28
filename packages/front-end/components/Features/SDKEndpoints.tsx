@@ -105,7 +105,7 @@ const SDKEndpoints: FC<{
                           : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
                       }
                     >
-                      <b>{env}</b>
+                      <b>{`${env} `}</b>
                       {!envExists && (
                         <FaExclamationTriangle className="text-danger" />
                       )}

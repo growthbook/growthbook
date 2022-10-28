@@ -51,12 +51,14 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
               <tr key={key.id}>
                 <td>{key.description}</td>
                 <td>
-                  {canManageKeys && (
+                  {canManageKeys ? (
                     <ClickToReveal
                       keyId={key.id}
                       currentCopiedString={currentCopiedString}
                       setCurrentCopiedString={setCurrentCopiedString}
                     />
+                  ) : (
+                    <em>hidden</em>
                   )}
                 </td>
                 {canManageKeys && (
