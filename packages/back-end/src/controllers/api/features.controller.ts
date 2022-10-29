@@ -6,6 +6,7 @@ import {
 } from "../../../types/api";
 import { getAllFeatures } from "../../models/FeatureModel";
 import {
+  getExpMap,
   getFeatureDefinition,
   getSavedGroupMap,
 } from "../../services/features";
@@ -44,6 +45,8 @@ export const listFeatures = createApiRequestHandler({
     const nextOffset = offset + limit;
     const hasMore = nextOffset < features.length;
 
+    const expMap = await getExpMap(req.organization.id, filtered);
+
     return {
       features: filtered.map((feature) => {
         const featureEnvironments: Record<
@@ -59,6 +62,7 @@ export const listFeatures = createApiRequestHandler({
             feature,
             groupMap,
             environment: env.id,
+            expMap,
           });
 
           const draft = feature.draft?.active
@@ -71,6 +75,7 @@ export const listFeatures = createApiRequestHandler({
                   groupMap,
                   environment: env.id,
                   useDraft: true,
+                  expMap,
                 }),
               }
             : null;

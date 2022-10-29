@@ -264,7 +264,7 @@ export function validateFeatureRule(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
     }
-  } else {
+  } else if (rule.type === "rollout") {
     const newValue = validateFeatureValue(
       valueType,
       rule.value,
@@ -275,9 +275,12 @@ export function validateFeatureRule(
       (ruleCopy as RolloutRule).value = newValue;
     }
 
-    if (rule.type === "rollout" && (rule.coverage < 0 || rule.coverage > 1)) {
+    if (rule.coverage < 0 || rule.coverage > 1) {
       throw new Error("Rollout percent must be between 0 and 1");
     }
+  } else {
+    // TODO: support "experiment-ref" rules
+    throw new Error("Unknown rule type - " + rule.type);
   }
 
   return hasChanges ? ruleCopy : null;

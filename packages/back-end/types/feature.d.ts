@@ -45,6 +45,7 @@ export interface FeatureInterface {
     date: Date;
     publishedBy: UserRef;
   };
+  linkedExperiments?: string[];
 }
 
 export interface BaseRule {
@@ -98,4 +99,8 @@ export interface ExperimentReferenceRule extends BaseRule {
   }[];
 }
 
-export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;
+export type FeatureRule =
+  | ForceRule
+  | RolloutRule
+  | ExperimentRule
+  | ExperimentReferenceRule;

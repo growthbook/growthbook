@@ -14,6 +14,8 @@ import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
+import { ExperimentFeatureSummary } from "../../types/experiment";
+import { getAllExperimentSummaries } from "./experiments";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
@@ -41,11 +43,13 @@ export function getFeatureDefinition({
   feature,
   environment,
   groupMap,
+  expMap,
   useDraft = false,
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
+  expMap: Map<string, ExperimentFeatureSummary>;
   useDraft?: boolean;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
@@ -114,6 +118,57 @@ export function getFeatureDefinition({
                 parseFloat(r.namespace.range[1] as any) || 0,
               ];
             }
+          } else if (r.type === "experiment-ref") {
+            const variations = r.variations.map((v) =>
+              getJSONValue(feature.valueType, v.value)
+            );
+
+            // Fallback rule in case the experiment reference isn't valid
+            const fallbackRule: FeatureDefinitionRule = {
+              ...rule,
+              force: variations[0],
+            };
+
+            const exp = expMap.get(r.experimentId);
+            // Skip the rule if we can't get any information about the experiment
+            if (!exp) return fallbackRule;
+
+            // Skip the rule if the experiment is not active
+            if (exp.archived || exp.status === "draft") return fallbackRule;
+
+            // Get the current experiment phase
+            const phase = exp.phases?.[exp.phases?.length - 1];
+            if (!phase) return fallbackRule;
+
+            // If the experiment stopped, use a force rule instead
+            if (exp.status === "stopped") {
+              if (exp.results === "won") {
+                rule.force = variations[exp.winner ?? 1];
+                return rule;
+              }
+              return fallbackRule;
+            }
+
+            rule.variations = variations;
+            if (exp.hashAttribute) {
+              rule.hashAttribute = exp.hashAttribute;
+            }
+            rule.coverage = phase.coverage;
+            rule.weights = phase.variationWeights;
+            rule.key = exp.trackingKey;
+            if (
+              phase.namespace &&
+              phase.namespace.enabled &&
+              phase.namespace.name
+            ) {
+              rule.namespace = [
+                phase.namespace.name,
+                // eslint-disable-next-line
+                parseFloat(phase.namespace.range[0] as any) || 0,
+                // eslint-disable-next-line
+                parseFloat(phase.namespace.range[1] as any) || 0,
+              ];
+            }
           } else if (r.type === "rollout") {
             rule.force = getJSONValue(feature.valueType, r.value);
             rule.coverage =
@@ -131,6 +186,28 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+export async function getExpMap(
+  org: string,
+  features: FeatureInterface[]
+): Promise<Map<string, ExperimentFeatureSummary>> {
+  const expIds: Set<string> = new Set();
+  features.forEach((feature) => {
+    feature.linkedExperiments?.forEach((expId) => {
+      expIds.add(expId);
+    });
+  });
+
+  const expMap: Map<string, ExperimentFeatureSummary> = new Map();
+
+  if (!expIds.size) return expMap;
+
+  const exps = await getAllExperimentSummaries(org, [...expIds]);
+  exps.forEach((summary) => {
+    expMap.set(summary.id, summary);
+  });
+  return expMap;
 }
 
 export async function getSavedGroupMap(
@@ -185,6 +262,7 @@ export async function getFeatureDefinitions(
 
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
+  const expMap = await getExpMap(organization, features);
 
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
@@ -193,6 +271,7 @@ export async function getFeatureDefinitions(
       feature,
       environment,
       groupMap,
+      expMap,
     });
     if (def) {
       defs[feature.id] = def;

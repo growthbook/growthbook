@@ -32,7 +32,10 @@ import {
   MetricAnalysis,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
-import { ExperimentInterface } from "../../types/experiment";
+import {
+  ExperimentFeatureSummary,
+  ExperimentInterface,
+} from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { FilterQuery } from "mongoose";
 import { queueWebhook } from "../jobs/webhooks";
@@ -821,5 +824,45 @@ export async function experimentUpdated(
     return experiment.implementation === "visual"
       ? `/js/${key}.js`
       : `/config/${key}`;
+  });
+}
+
+export async function getAllExperimentSummaries(
+  org: string,
+  expIds?: string[]
+): Promise<ExperimentFeatureSummary[]> {
+  const query: FilterQuery<ExperimentDocument> = { organization: org };
+
+  if (expIds) {
+    query.id = { $in: expIds };
+  }
+
+  const docs = await ExperimentModel.find(query);
+
+  return docs.map((d) => {
+    const {
+      id,
+      trackingKey,
+      hashAttribute,
+      name,
+      variations,
+      status,
+      phases,
+      results,
+      winner,
+      archived,
+    } = d.toJSON();
+    return {
+      id,
+      trackingKey,
+      hashAttribute,
+      name,
+      variations,
+      status,
+      phases,
+      results,
+      winner,
+      archived,
+    };
   });
 }

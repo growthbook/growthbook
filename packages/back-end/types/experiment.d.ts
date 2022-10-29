@@ -102,6 +102,20 @@ export interface ExperimentInterface {
   ideaSource?: string;
 }
 
+export type ExperimentFeatureSummary = Pick<
+  ExperimentInterface,
+  | "id"
+  | "trackingKey"
+  | "hashAttribute"
+  | "name"
+  | "variations"
+  | "archived"
+  | "status"
+  | "phases"
+  | "results"
+  | "winner"
+>;
+
 export type ExperimentInterfaceStringDates = Omit<
   ExperimentInterface,
   "dateCreated" | "dateUpdated" | "phases"

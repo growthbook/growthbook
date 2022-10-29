@@ -59,6 +59,7 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
+  linkedExperiments: [String],
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -90,12 +91,41 @@ export async function getFeature(
 }
 
 export async function createFeature(data: FeatureInterface) {
-  const feature = await FeatureModel.create(data);
+  const feature = await FeatureModel.create({
+    ...data,
+    linkedExperiments: getLinkedExperiments(data),
+  });
   await saveRevision(feature.toJSON());
 }
 
 export async function deleteFeature(organization: string, id: string) {
   await FeatureModel.deleteOne({ organization, id });
+}
+
+function getLinkedExperiments(feature: FeatureInterface) {
+  const expIds: Set<string> = new Set();
+  // Published rules
+  if (feature.environmentSettings) {
+    Object.values(feature.environmentSettings).forEach((env) => {
+      env.rules?.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          expIds.add(rule.experimentId);
+        }
+      });
+    });
+  }
+  // Draft rules
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.values(feature.draft.rules).forEach((rules) => {
+      rules.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          expIds.add(rule.experimentId);
+        }
+      });
+    });
+  }
+
+  return [...expIds];
 }
 
 export async function updateFeature(
@@ -244,6 +274,13 @@ export async function updateDraft(
   feature: FeatureInterface,
   draft: FeatureDraftChanges
 ) {
+  const updatedFeatured = {
+    ...feature,
+    draft: {
+      ...draft,
+    },
+  };
+
   await FeatureModel.updateOne(
     {
       id: feature.id,
@@ -253,16 +290,12 @@ export async function updateDraft(
       $set: {
         draft,
         dateUpdated: new Date(),
+        linkedExperiments: getLinkedExperiments(updatedFeatured),
       },
     }
   );
 
-  return {
-    ...feature,
-    draft: {
-      ...draft,
-    },
-  };
+  return updatedFeatured;
 }
 
 function getDraft(feature: FeatureInterface) {
@@ -294,6 +327,10 @@ export async function discardDraft(feature: FeatureInterface) {
         draft: {
           active: false,
         },
+        linkedExperiments: getLinkedExperiments({
+          ...feature,
+          draft: { active: false },
+        }),
       },
     }
   );
