@@ -10,7 +10,6 @@ import uniqId from "uniqid";
 import Field from "../../../Forms/Field";
 import CodeTextArea from "../../../Forms/CodeTextArea";
 import Tooltip from "../../../Tooltip";
-import Toggle from "../../../Forms/Toggle";
 import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";
 import { useAuth } from "../../../../services/auth";
@@ -137,6 +136,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
+      if (res.includesNamedColumns && !value.hasNameCol) {
+        // If the query includes named columns, but hasNameCol is false
+        // force hasNameCol to true in order to identify if any required name columns
+        // are missing, enable hasNameCols for the user, and then throw applicable error.
+        value.hasNameCol = true;
+
+        const requiredColumns = getRequiredColumns(value);
+
+        form.setValue("hasNameCol", true);
+        validateSQL(value.query, requiredColumns);
+      }
+
       if (res.error) {
         setQueryError(res.error);
         return;
@@ -183,33 +194,39 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 form.setValue("dimensions", dimensions);
               }}
             />
-            <div>
-              <label className="mr-2">
-                Use Name Columns
-                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-              </label>
-              <Toggle
-                id="exposure-query-toggle"
-                value={userEnteredHasNameCol}
-                setValue={(hasNameCol) => {
-                  form.setValue("hasNameCol", hasNameCol);
-                }}
-              />
-            </div>
             <div className="row">
               <div className="col">
-                <button
-                  className="btn btn-sm btn-primary m-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleTestQuery();
+                <div
+                  className="d-flex justify-content-between align-items-center p-1"
+                  style={{
+                    backgroundColor: "#F0F0F0",
+                    borderRadius: "5px",
+                    border: "1px solid lightgray",
                   }}
                 >
-                  <span className="pr-2">
-                    <FaPlay />
-                  </span>
-                  Test Query
-                </button>
+                  <button
+                    className="btn btn-sm btn-primary m-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleTestQuery();
+                    }}
+                  >
+                    <span className="pr-2">
+                      <FaPlay />
+                    </span>
+                    Test Query
+                  </button>
+                  <div className="d-flex m-1">
+                    <label className="mr-2 mb-0">Use Name Columns</label>
+                    <input
+                      type="checkbox"
+                      id="exposure-query-toggle"
+                      className="form-check-input "
+                      {...form.register("hasNameCol")}
+                    />
+                    <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                  </div>
+                </div>
                 <CodeTextArea
                   required
                   language="sql"

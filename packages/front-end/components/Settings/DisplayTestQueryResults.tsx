@@ -33,14 +33,20 @@ export default function DisplayTestQueryResults({
 
   return (
     <div className="pt-3">
-      {testQueryResults?.duration && (
+      {testQueryResults?.duration && testQueryResults?.results?.length > 0 && (
         <div className="alert alert-success">
           <FaCheck />
           <span className="pl-2">
-            {`The query ran successfully in ${testQueryResults.duration} MS.`}
-            {testQueryResults?.results.length === 0 &&
-              " However, no rows were returned."}
+            {`The query ran successfully in ${testQueryResults.duration} ms.`}
           </span>
+        </div>
+      )}
+      {testQueryResults?.duration && testQueryResults?.results?.length === 0 && (
+        <div className="alert alert-warning">
+          <div className="d-flex align-items-center">
+            <FaExclamationTriangle />
+            <span className="pl-2">The query returned 0 rows.</span>
+          </div>
         </div>
       )}
       {testQueryResults?.optionalColumns?.length > 0 && (
@@ -85,30 +91,6 @@ export default function DisplayTestQueryResults({
           </ul>
         </div>
       )}
-      {testQueryResults?.includesNamedColumns &&
-        form.watch("hasNameCol") === false && (
-          <div className="alert alert-warning d-flex align-items-center">
-            <div className="d-flex align-items-center">
-              <FaExclamationTriangle />
-              <span className="pl-2">
-                Your query includes a named column, but you have &quot;Use Name
-                Columns&quot; disabled. Would you like to enable?
-              </span>
-              <button
-                disabled={form.watch("hasNameCol")}
-                onClick={(e) => {
-                  e.preventDefault();
-                  form.setValue("hasNameCol", true);
-                }}
-                className="btn btn-link"
-              >
-                {form.watch("hasNameCol")
-                  ? "Enabled"
-                  : "Yes, enable name columns"}
-              </button>
-            </div>
-          </div>
-        )}
       {testQueryResults?.results?.length > 0 && columns.length > 0 && (
         <>
           <h4>Example Result</h4>

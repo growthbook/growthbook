@@ -523,17 +523,15 @@ export async function testLimitedQuery(
 
   const optionalColumns = [];
   let includesNamedColumns = false;
+  const namedCols = ["experiment_name", "variation_name"];
 
   if (results.length > 0) {
     for (const column in results[0]) {
-      if (
-        !requiredColumns.find((index) => index === column) &&
-        column !== ("experiment_name" || "variation_name")
-      ) {
+      if (!requiredColumns.includes(column) && !namedCols.includes(column)) {
         optionalColumns.push(column);
       }
 
-      if (column === ("experiment_name" || "variation_name")) {
+      if (namedCols.includes(column)) {
         includesNamedColumns = true;
       }
     }
