@@ -196,42 +196,53 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
             />
             <div className="row">
               <div className="col">
-                <div
-                  className="d-flex justify-content-between align-items-center p-1"
-                  style={{
-                    backgroundColor: "#F0F0F0",
-                    borderRadius: "5px",
-                    border: "1px solid lightgray",
+                <Field
+                  label="SQL Query"
+                  render={() => {
+                    return (
+                      <>
+                        <div
+                          className="d-flex justify-content-between align-items-center p-1"
+                          style={{
+                            backgroundColor: "#F0F0F0",
+                            borderRadius: "5px",
+                            border: "1px solid lightgray",
+                          }}
+                        >
+                          <button
+                            className="btn btn-sm btn-primary m-1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleTestQuery();
+                            }}
+                          >
+                            <span className="pr-2">
+                              <FaPlay />
+                            </span>
+                            Test Query
+                          </button>
+                          <div className="d-flex m-1">
+                            <label className="mr-2 mb-0">
+                              Use Name Columns
+                            </label>
+                            <input
+                              type="checkbox"
+                              id="exposure-query-toggle"
+                              className="form-check-input "
+                              {...form.register("hasNameCol")}
+                            />
+                            <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                          </div>
+                        </div>
+                        <CodeTextArea
+                          required
+                          language="sql"
+                          value={userEnteredQuery}
+                          setValue={(sql) => form.setValue("query", sql)}
+                        />
+                      </>
+                    );
                   }}
-                >
-                  <button
-                    className="btn btn-sm btn-primary m-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleTestQuery();
-                    }}
-                  >
-                    <span className="pr-2">
-                      <FaPlay />
-                    </span>
-                    Test Query
-                  </button>
-                  <div className="d-flex m-1">
-                    <label className="mr-2 mb-0">Use Name Columns</label>
-                    <input
-                      type="checkbox"
-                      id="exposure-query-toggle"
-                      className="form-check-input "
-                      {...form.register("hasNameCol")}
-                    />
-                    <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-                  </div>
-                </div>
-                <CodeTextArea
-                  required
-                  language="sql"
-                  value={userEnteredQuery}
-                  setValue={(sql) => form.setValue("query", sql)}
                 />
               </div>
               <div className="col-md-5 col-lg-4">
