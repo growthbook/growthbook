@@ -201,14 +201,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   render={() => {
                     return (
                       <>
-                        <div
-                          className="d-flex justify-content-between align-items-center p-1"
-                          style={{
-                            backgroundColor: "#F0F0F0",
-                            borderRadius: "5px",
-                            border: "1px solid lightgray",
-                          }}
-                        >
+                        <div className="d-flex justify-content-between align-items-center p-1 border rounded">
                           <button
                             className="btn btn-sm btn-primary m-1"
                             onClick={(e) => {
