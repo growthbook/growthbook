@@ -20,9 +20,8 @@ export default function ClickToReveal({
   getValue,
 }: Props) {
   const [error, setError] = useState("");
-  const [revealedValue, setRevealedValue] = useState("");
-
-  const hidden = !revealedValue;
+  const [revealedValue, setRevealedValue] = useState<null | string>(null);
+  const [showRevealedValue, setShowRevaledValue] = useState(false);
 
   return (
     <div
@@ -32,27 +31,27 @@ export default function ClickToReveal({
         role="button"
         onClick={async (e) => {
           e.preventDefault();
-          if (hidden) {
+          if (!revealedValue) {
             try {
-              const actualValue = await getValue();
-              setRevealedValue(actualValue);
+              setRevealedValue(await getValue());
+              setShowRevaledValue(true);
             } catch (e) {
               setError(e.message);
             }
           } else {
-            setRevealedValue("");
+            setShowRevaledValue(!showRevealedValue);
           }
         }}
       >
-        {hidden ? <FaEyeSlash /> : <FaEye />}
+        {!showRevealedValue ? <FaEyeSlash /> : <FaEye />}
       </span>
       <Tooltip
-        className={!hidden && "w-100"}
+        className={showRevealedValue && "w-100"}
         role="button"
         tipMinWidth="45px"
         tipPosition="top"
         body={
-          hidden
+          !showRevealedValue
             ? "Click the eye to reveal"
             : currentCopiedString === revealedValue
             ? "Copied!"
@@ -61,7 +60,7 @@ export default function ClickToReveal({
         style={{ paddingLeft: "5px" }}
         onClick={(e) => {
           e.preventDefault();
-          if (!hidden) {
+          if (showRevealedValue) {
             navigator.clipboard
               .writeText(revealedValue)
               .then(() => {
@@ -76,14 +75,14 @@ export default function ClickToReveal({
       >
         <input
           role="button"
-          type={hidden ? "password" : "text"}
-          value={hidden ? "Click to reveal hidden." : revealedValue}
+          type={!showRevealedValue ? "password" : "text"}
+          value={!showRevealedValue ? "Click to reveal hidden." : revealedValue}
           disabled={true}
           style={{
             border: "none",
             outline: "none",
             backgroundColor: "transparent",
-            textOverflow: hidden ? "clip" : "ellipsis",
+            textOverflow: !showRevealedValue ? "clip" : "ellipsis",
             textAlign: rowReverse ? "right" : "left",
             paddingRight: rowReverse ? "5px" : "0px",
             width: "100%",

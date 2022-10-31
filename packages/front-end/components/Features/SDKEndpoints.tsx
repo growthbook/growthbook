@@ -1,4 +1,4 @@
-import { FC, useCallback, useState } from "react";
+import { FC, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
@@ -43,23 +43,6 @@ const SDKEndpoints: FC<{
   });
 
   const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
-
-  const getEncryptionKey = useCallback(
-    async (keyId: string) => {
-      const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-        method: "POST",
-        body: JSON.stringify({
-          id: keyId,
-        }),
-      });
-
-      if (!res.key.encryptionKey) {
-        throw new Error("Could not load the encryption key");
-      }
-      return res.key.encryptionKey;
-    },
-    [apiCall]
-  );
 
   return (
     <div className="mt-4">
@@ -159,7 +142,24 @@ const SDKEndpoints: FC<{
                       {canManageKeys && key.encryptSDK ? (
                         <ClickToReveal
                           rowReverse
-                          getValue={() => getEncryptionKey(key.id)}
+                          getValue={async () => {
+                            const res = await apiCall<{ key: SecretApiKey }>(
+                              `/keys/reveal`,
+                              {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  id: key.id,
+                                }),
+                              }
+                            );
+
+                            if (!res.key.encryptionKey) {
+                              throw new Error(
+                                "Could not load the encryption key"
+                              );
+                            }
+                            return res.key.encryptionKey;
+                          }}
                           currentCopiedString={currentCopiedString}
                           setCurrentCopiedString={setCurrentCopiedString}
                         />

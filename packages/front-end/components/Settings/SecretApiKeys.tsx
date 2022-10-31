@@ -1,4 +1,4 @@
-import { FC, useCallback, useState } from "react";
+import { FC, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton";
 import { useAuth } from "../../services/auth";
@@ -21,23 +21,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const canManageKeys = permissions.manageApiKeys;
 
   const secretKeys = keys.filter((k) => k.secret);
-
-  const getSecretKey = useCallback(
-    async (keyId: string) => {
-      const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-        method: "POST",
-        body: JSON.stringify({
-          id: keyId,
-        }),
-      });
-
-      if (!res.key.key) {
-        throw new Error("Could not load the secret key");
-      }
-      return res.key.key;
-    },
-    [apiCall]
-  );
 
   return (
     <div className="mb-5">
@@ -70,7 +53,21 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                 <td>
                   {canManageKeys ? (
                     <ClickToReveal
-                      getValue={() => getSecretKey(key.id)}
+                      getValue={async () => {
+                        const res = await apiCall<{ key: SecretApiKey }>(
+                          `/keys/reveal`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify({
+                              id: key.id,
+                            }),
+                          }
+                        );
+                        if (!res.key.key) {
+                          throw new Error("Could not load the secret key");
+                        }
+                        return res.key.key;
+                      }}
                       currentCopiedString={currentCopiedString}
                       setCurrentCopiedString={setCurrentCopiedString}
                     />
