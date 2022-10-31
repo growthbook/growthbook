@@ -5,6 +5,7 @@ This document is meant for developers who want to contribute to the GrowthBook p
 - Permissions
 - Free vs Commercial Features
 - Data Models
+- Tests
 
 More coming soon!
 
@@ -113,3 +114,9 @@ Each API endpoint defined there:
 5. Returns a response
 
 To make it available from the front-end, you'll need to import your controller and register the request handler functions in `src/app.ts`.
+
+## Tests
+
+We use Jest to write tests on the back-end.
+
+To avoid pulling in Mongo dependencies, all tested code should be in small standalone util files that do not import db models.
