@@ -83,6 +83,7 @@ export default function useStripeSubscription() {
     canSubscribe:
       isCloud() &&
       !disableSelfServeBilling &&
+      !organization?.enterprise &&
       selfServePricingEnabled &&
       !hasActiveSubscription,
   };
