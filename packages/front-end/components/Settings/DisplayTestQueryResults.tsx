@@ -65,27 +65,25 @@ export default function DisplayTestQueryResults({
             />
           </div>
           <ul className="mb-0">
-            {testQueryResults?.optionalColumns.map((warning) => {
+            {testQueryResults?.optionalColumns.map((column) => {
               return (
-                <div
-                  className="d-flex flex-row align-items-center"
-                  key={warning}
-                >
-                  <li>{warning}</li>
-                  <button
-                    disabled={dimensions.includes(warning)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      dimensions.push(warning);
-                      form.setValue("dimensions", dimensions);
-                    }}
-                    className="btn btn-link"
-                  >
-                    {dimensions.find((dimension) => dimension === warning)
-                      ? "Added!"
-                      : "Add as dimension"}
-                  </button>
-                </div>
+                <li key={column}>
+                  <div className="d-flex align-items-center">
+                    {column}
+                    <button
+                      disabled={dimensions.includes(column)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        form.setValue("dimensions", [...dimensions, column]);
+                      }}
+                      className="btn btn-link"
+                    >
+                      {dimensions.find((dimension) => dimension === column)
+                        ? "Added!"
+                        : "Add as dimension"}
+                    </button>
+                  </div>
+                </li>
               );
             })}
           </ul>
@@ -93,7 +91,7 @@ export default function DisplayTestQueryResults({
       )}
       {testQueryResults?.results?.length > 0 && columns.length > 0 && (
         <>
-          <h4>Example Result</h4>
+          <h4>Sample Returned Row</h4>
           <table className="table mb-3 appbox gbtable">
             <thead>
               <tr>
@@ -101,18 +99,19 @@ export default function DisplayTestQueryResults({
                   <th key={column}>{column}</th>
                 ))}
               </tr>
+            </thead>
+            <tbody>
               {testQueryResults.results.map((result, i) => {
-                // eslint-disable-next-line
-                const values: any = Object.values(result);
+                const values = Object.values(result);
                 return (
-                  <tr key={`${i}+${JSON.stringify(result)}`}>
-                    {values.map((value, index) => {
+                  <tr key={i}>
+                    {values.map((value: string, index) => {
                       return <td key={`${index}+${value}}`}>{value}</td>;
                     })}
                   </tr>
                 );
               })}
-            </thead>
+            </tbody>
           </table>
         </>
       )}

@@ -497,7 +497,6 @@ export async function testLimitedQuery(
     query: string;
     datasourceId: string;
     requiredColumns: string[];
-    startDate?: Date;
   }>,
   res: Response
 ) {
@@ -505,7 +504,7 @@ export async function testLimitedQuery(
 
   const { org } = getOrgFromReq(req);
 
-  const { query, datasourceId, requiredColumns, startDate } = req.body;
+  const { query, datasourceId, requiredColumns } = req.body;
 
   const datasource = await getDataSourceById(datasourceId, org.id);
   if (!datasource) {
@@ -515,11 +514,10 @@ export async function testLimitedQuery(
     });
   }
 
-  const { results, duration, error } = await testQuery(
-    datasource,
-    query,
-    startDate
-  );
+  const userIdTypes =
+    datasource.settings.userIdTypes?.map((type) => type.userIdType) || [];
+
+  const { results, duration, error } = await testQuery(datasource, query);
 
   const optionalColumns = [];
   let includesNamedColumns = false;
@@ -527,7 +525,11 @@ export async function testLimitedQuery(
 
   if (results.length > 0) {
     for (const column in results[0]) {
-      if (!requiredColumns.includes(column) && !namedCols.includes(column)) {
+      if (
+        !requiredColumns.includes(column) &&
+        !namedCols.includes(column) &&
+        !userIdTypes.includes(column)
+      ) {
         optionalColumns.push(column);
       }
 

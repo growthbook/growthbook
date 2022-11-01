@@ -91,8 +91,7 @@ export async function testDataSourceConnection(
 
 export async function testQuery(
   datasource: DataSourceInterface,
-  sql: string,
-  startDate?: Date
+  sql: string
 ): Promise<{ results: TestQueryRow[]; duration: number; error: string }> {
   const integration = getSourceIntegrationObject(datasource);
 
@@ -106,7 +105,7 @@ export async function testQuery(
   let error = "";
 
   try {
-    const res = await integration.testQuery(sql, startDate);
+    const res = await integration.testQuery(sql);
     results = res.results;
     duration = res.duration;
   } catch (e) {

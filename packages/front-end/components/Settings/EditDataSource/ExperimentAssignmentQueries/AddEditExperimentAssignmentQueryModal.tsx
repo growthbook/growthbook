@@ -72,19 +72,22 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredHasNameCol = form.watch("hasNameCol");
   const userEnteredDimensions = form.watch("dimensions");
 
-  const getRequiredColumns = (value: ExposureQuery) => {
+  const getRequiredColumns = (userIdType, dimensions, hasNameCol) => {
     return [
       "experiment_id",
       "variation_id",
       "timestamp",
-      value.userIdType,
-      ...(value.dimensions || []),
-      ...(value.hasNameCol ? ["experiment_name", "variation_name"] : []),
+      userIdType,
+      ...(dimensions || []),
+      ...(hasNameCol ? ["experiment_name", "variation_name"] : []),
     ];
   };
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    validateSQL(value.query, getRequiredColumns(value));
+    validateSQL(
+      value.query,
+      getRequiredColumns(value.userIdType, value.dimensions, value.hasNameCol)
+    );
 
     await onSave(value);
 
@@ -114,38 +117,36 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     setTestQueryResults(null);
     setQueryError(null);
 
-    const value: ExposureQuery = {
-      name: exposureQuery.name,
-      query: userEnteredQuery,
-      id: dataSource.id,
-      userIdType: userEnteredUserIdType,
-      dimensions: userEnteredDimensions,
-      hasNameCol: userEnteredHasNameCol ? userEnteredHasNameCol : false,
-    };
-
     try {
-      const requiredColumns = getRequiredColumns(value);
-      validateSQL(value.query, requiredColumns);
+      const requiredColumns = getRequiredColumns(
+        userEnteredUserIdType,
+        userEnteredDimensions,
+        userEnteredHasNameCol
+      );
+      validateSQL(userEnteredQuery, requiredColumns);
 
       const res: TestQueryResults = await apiCall("/query/test", {
         method: "POST",
         body: JSON.stringify({
-          query: value.query,
-          datasourceId: value.id,
+          query: userEnteredQuery,
+          datasourceId: dataSource.id,
           requiredColumns,
         }),
       });
 
-      if (res.includesNamedColumns && !value.hasNameCol) {
+      if (res.includesNamedColumns && !userEnteredHasNameCol) {
         // If the query includes named columns, but hasNameCol is false
         // force hasNameCol to true in order to identify if any required name columns
         // are missing, enable hasNameCols for the user, and then throw applicable error.
-        value.hasNameCol = true;
 
-        const requiredColumns = getRequiredColumns(value);
+        const requiredColumns = getRequiredColumns(
+          userEnteredUserIdType,
+          userEnteredDimensions,
+          true
+        );
 
         form.setValue("hasNameCol", true);
-        validateSQL(value.query, requiredColumns);
+        validateSQL(userEnteredQuery, requiredColumns);
       }
 
       if (res.error) {
@@ -196,47 +197,44 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
             />
             <div className="row">
               <div className="col">
-                <Field
-                  label="SQL Query"
-                  render={() => {
-                    return (
-                      <>
-                        <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-                          <button
-                            className="btn btn-sm btn-primary m-1"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleTestQuery();
-                            }}
-                          >
-                            <span className="pr-2">
-                              <FaPlay />
-                            </span>
-                            Test Query
-                          </button>
-                          <div className="d-flex m-1">
-                            <label className="mr-2 mb-0">
-                              Use Name Columns
-                            </label>
-                            <input
-                              type="checkbox"
-                              id="exposure-query-toggle"
-                              className="form-check-input "
-                              {...form.register("hasNameCol")}
-                            />
-                            <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-                          </div>
-                        </div>
-                        <CodeTextArea
-                          required
-                          language="sql"
-                          value={userEnteredQuery}
-                          setValue={(sql) => form.setValue("query", sql)}
-                        />
-                      </>
-                    );
-                  }}
-                />
+                <label className="font-weight-bold mb-1">SQL Query</label>
+                <div>
+                  <div className="d-flex justify-content-between align-items-center p-1 border rounded">
+                    <button
+                      className="btn btn-sm btn-primary m-1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleTestQuery();
+                      }}
+                    >
+                      <span className="pr-2">
+                        <FaPlay />
+                      </span>
+                      Test Query
+                    </button>
+                    <div className="d-flex m-1">
+                      <label
+                        className="mr-2 mb-0"
+                        htmlFor="exposure-query-toggle"
+                      >
+                        Use Name Columns
+                      </label>
+                      <input
+                        type="checkbox"
+                        id="exposure-query-toggle"
+                        className="form-check-input "
+                        {...form.register("hasNameCol")}
+                      />
+                      <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                    </div>
+                  </div>
+                  <CodeTextArea
+                    required
+                    language="sql"
+                    value={userEnteredQuery}
+                    setValue={(sql) => form.setValue("query", sql)}
+                  />
+                </div>
               </div>
               <div className="col-md-5 col-lg-4">
                 <div className="pt-md-4">
