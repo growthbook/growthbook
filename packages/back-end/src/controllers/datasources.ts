@@ -520,8 +520,9 @@ export async function testLimitedQuery(
   const { results, duration, error } = await testQuery(datasource, query);
 
   const optionalColumns = [];
-  let includesNamedColumns = false;
+  let includesNameColumns = false;
   const namedCols = ["experiment_name", "variation_name"];
+  const returnedColumns = [];
 
   if (results.length > 0) {
     for (const column in results[0]) {
@@ -533,9 +534,16 @@ export async function testLimitedQuery(
         optionalColumns.push(column);
       }
 
-      if (namedCols.includes(column)) {
-        includesNamedColumns = true;
-      }
+      returnedColumns.push(column);
+    }
+
+    // If the user didn't check the box for includesNameColumns, check to see if
+    // both named columns were included in the query
+    if (
+      returnedColumns.includes("experiment_name") &&
+      returnedColumns.includes("variation_name")
+    ) {
+      includesNameColumns = true;
     }
   }
 
@@ -544,7 +552,8 @@ export async function testLimitedQuery(
     optionalColumns,
     duration,
     results,
-    includesNamedColumns,
+    includesNameColumns,
     error,
+    returnedColumns,
   });
 }

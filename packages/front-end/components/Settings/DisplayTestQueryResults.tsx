@@ -6,12 +6,13 @@ import { ExposureQuery } from "back-end/types/datasource";
 import Tooltip from "../Tooltip";
 
 export type TestQueryResults = {
-  status: number;
   optionalColumns?: string[];
   duration?: string;
   error?: string;
   results?: TestQueryRow[];
-  includesNamedColumns: boolean;
+  includesNameColumns?: boolean;
+  returnedColumns?: string[];
+  missingNameColumn?: string;
 };
 
 type Props = {
@@ -23,13 +24,13 @@ export default function DisplayTestQueryResults({
   testQueryResults,
   form,
 }: Props) {
-  let columns = [];
-
-  if (testQueryResults?.results?.length > 0) {
-    columns = Object.keys(testQueryResults.results[0]);
-  }
-
   const dimensions = form.watch("dimensions");
+
+  if (testQueryResults?.error) {
+    return (
+      <div className="mt-3 alert alert-danger">{testQueryResults.error}</div>
+    );
+  }
 
   return (
     <div className="pt-3">
@@ -39,6 +40,16 @@ export default function DisplayTestQueryResults({
           <span className="pl-2">
             {`The query ran successfully in ${testQueryResults.duration} ms.`}
           </span>
+        </div>
+      )}
+      {testQueryResults?.missingNameColumn && (
+        <div className="alert alert-warning">
+          <div className="d-flex align-items-center">
+            <FaExclamationTriangle />
+            <span className="pl-2">
+              {`If you want to use name columns, your query needs to include ${testQueryResults?.missingNameColumn}.`}
+            </span>
+          </div>
         </div>
       )}
       {testQueryResults?.duration && testQueryResults?.results?.length === 0 && (
@@ -89,32 +100,33 @@ export default function DisplayTestQueryResults({
           </ul>
         </div>
       )}
-      {testQueryResults?.results?.length > 0 && columns.length > 0 && (
-        <>
-          <h4>Sample Returned Row</h4>
-          <table className="table mb-3 appbox gbtable">
-            <thead>
-              <tr>
-                {columns.map((column) => (
-                  <th key={column}>{column}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {testQueryResults.results.map((result, i) => {
-                const values = Object.values(result);
-                return (
-                  <tr key={i}>
-                    {values.map((value: string, index) => {
-                      return <td key={`${index}+${value}}`}>{value}</td>;
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      )}
+      {testQueryResults?.results?.length > 0 &&
+        testQueryResults.returnedColumns.length > 0 && (
+          <>
+            <h4>Sample Returned Row</h4>
+            <table className="table mb-3 appbox gbtable">
+              <thead>
+                <tr>
+                  {testQueryResults.returnedColumns.map((column) => (
+                    <th key={column}>{column}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {testQueryResults.results.map((result, i) => {
+                  const values = Object.values(result);
+                  return (
+                    <tr key={i}>
+                      {values.map((value: string, index) => {
+                        return <td key={`${index}+${value}}`}>{value}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
     </div>
   );
 }

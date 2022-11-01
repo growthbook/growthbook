@@ -33,7 +33,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const [queryError, setQueryError] = useState<null | string>();
   const [
     testQueryResults,
     setTestQueryResults,
@@ -84,11 +83,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   };
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    validateSQL(
-      value.query,
-      getRequiredColumns(value.userIdType, value.dimensions, value.hasNameCol)
-    );
-
     await onSave(value);
 
     form.reset({
@@ -115,7 +109,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const handleTestQuery = async () => {
     setTestQueryResults(null);
-    setQueryError(null);
 
     try {
       const requiredColumns = getRequiredColumns(
@@ -134,29 +127,29 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
-      if (res.includesNamedColumns && !userEnteredHasNameCol) {
-        // If the query includes named columns, but hasNameCol is false
-        // force hasNameCol to true in order to identify if any required name columns
-        // are missing, enable hasNameCols for the user, and then throw applicable error.
-
-        const requiredColumns = getRequiredColumns(
-          userEnteredUserIdType,
-          userEnteredDimensions,
-          true
-        );
-
+      // if the user didn't check the box for use name columns, but included
+      // both, auto-enable it for them
+      if (res.includesNameColumns && !userEnteredHasNameCol) {
         form.setValue("hasNameCol", true);
-        validateSQL(userEnteredQuery, requiredColumns);
       }
 
-      if (res.error) {
-        setQueryError(res.error);
-        return;
+      // If the user enters 1 name column, but not both,
+      // warn them they need to add both.
+      if (
+        !res.includesNameColumns &&
+        res.returnedColumns.includes("variation_name") !==
+          res.returnedColumns.includes("experiment_name")
+      ) {
+        if (!res.returnedColumns.includes("variation_name")) {
+          res.missingNameColumn = "variation_name";
+        } else {
+          res.missingNameColumn = "experiment_name";
+        }
       }
 
       setTestQueryResults(res);
     } catch (e) {
-      setQueryError(e.message);
+      setTestQueryResults({ error: e.message });
     }
   };
 
@@ -170,7 +163,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       cta="Save"
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identify-joins-heading"
-      error={queryError}
     >
       <div className="my-2 ml-3">
         <div className="row">
@@ -278,12 +270,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </div>
               </div>
             </div>
-            {testQueryResults && (
-              <DisplayTestQueryResults
-                form={form}
-                testQueryResults={testQueryResults}
-              />
-            )}
+            <DisplayTestQueryResults
+              form={form}
+              testQueryResults={testQueryResults}
+            />
           </div>
         </div>
       </div>
