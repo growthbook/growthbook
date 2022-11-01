@@ -110,11 +110,11 @@ export async function getApiKeyByIdOrKey(
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {
-  const doc = await ApiKeyModel.findOne({
-    organization,
-    id,
-    key,
-  });
+  if (!id && !key) return null;
+
+  const doc = await ApiKeyModel.findOne(
+    id ? { organization, id } : { organization, key }
+  );
   return doc ? doc.toJSON() : null;
 }
 
