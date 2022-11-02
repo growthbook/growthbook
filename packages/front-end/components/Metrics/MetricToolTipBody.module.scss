@@ -1,0 +1,16 @@
+.description {
+  position: relative;
+  height: 100px;
+  overflow: hidden;
+}
+
+.description:after {
+  position: absolute;
+  content: "";
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 60px;
+  padding-top: 40px;
+  background-image: linear-gradient(to bottom, transparent, white);
+}

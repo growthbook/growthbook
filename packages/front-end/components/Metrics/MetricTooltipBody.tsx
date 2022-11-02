@@ -1,7 +1,9 @@
 import { MetricInterface } from "back-end/types/metric";
+import clsx from "clsx";
 import { isNullUndefinedOrEmpty } from "../../services/utils";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
+import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
   metric: MetricInterface;
@@ -31,12 +33,6 @@ const MetricTooltipBody = ({
 
   const metricInfo: MetricInfo[] = [
     {
-      show: validMetricDescription(metric.description),
-      label: "Description",
-      body: truncateMetricDescription(metric.description),
-      markdown: true,
-    },
-    {
       show: true,
       label: "Type",
       body: metric.type,
@@ -63,6 +59,12 @@ const MetricTooltipBody = ({
       label: "Conversion Window Hours",
       body: metric.conversionWindowHours,
     },
+    {
+      show: validMetricDescription(metric.description),
+      label: "Description",
+      body: truncateMetricDescription(metric.description),
+      markdown: true,
+    },
   ];
 
   return (
@@ -73,7 +75,9 @@ const MetricTooltipBody = ({
           <div key={`metricInfo${index}`}>
             <strong>{`${label}: `}</strong>
             {markdown ? (
-              <Markdown className="font-weight-normal">{body}</Markdown>
+              <div className={clsx("border rounded p-2", styles.description)}>
+                <Markdown className="font-weight-normal">{body}</Markdown>
+              </div>
             ) : (
               <span className="font-weight-normal">{body}</span>
             )}
