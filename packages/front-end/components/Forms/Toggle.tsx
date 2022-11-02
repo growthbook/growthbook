@@ -1,5 +1,5 @@
 import { ReactElement } from "react";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function Toggle({
   value,

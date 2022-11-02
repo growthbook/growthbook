@@ -5,7 +5,7 @@ import Modal from "../Modal";
 import { useUser } from "../../services/UserContext";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import track from "../../services/track";
 import { useAttributeSchema } from "../../services/features";

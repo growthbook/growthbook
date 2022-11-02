@@ -1,7 +1,7 @@
 import React, { FC, useMemo } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { MdSwapCalls } from "react-icons/md";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import DataQualityWarning from "./DataQualityWarning";
 import {
   ExperimentTableRow,

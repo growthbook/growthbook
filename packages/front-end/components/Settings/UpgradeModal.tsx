@@ -3,7 +3,7 @@ import useStripeSubscription from "../../hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "../../services/auth";
 import track from "../../services/track";
 import Modal from "../Modal";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import LoadingOverlay from "../LoadingOverlay";
 

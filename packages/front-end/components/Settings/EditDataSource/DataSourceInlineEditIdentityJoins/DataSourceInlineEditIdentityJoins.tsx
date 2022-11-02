@@ -10,7 +10,7 @@ import {
   IdentityJoinQuery,
 } from "back-end/types/datasource";
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
-import Tooltip from "../../../Tooltip";
+import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;

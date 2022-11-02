@@ -21,7 +21,7 @@ import {
   useRealtimeData,
   useEnvironments,
 } from "../../services/features";
-import Tooltip from "../../components/Tooltip";
+import Tooltip from "../../components/Tooltip/Tooltip";
 import Pagination from "../../components/Pagination";
 import TagsFilter, {
   filterByTags,

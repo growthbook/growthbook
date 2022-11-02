@@ -181,3 +181,9 @@ There is also a `render` prop for completely custom inputs.
   )
 }}
 ```
+
+## Storybook
+
+There is a Storybook you can run to do development for the presentational components in the `front-end` package:
+
+    yarn storybook

@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,

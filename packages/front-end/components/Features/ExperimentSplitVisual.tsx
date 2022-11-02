@@ -2,7 +2,7 @@ import clsx from "clsx";
 import styles from "./ExperimentSplitVisual.module.scss";
 import React, { CSSProperties } from "react";
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
 import {
   getVariationColor,

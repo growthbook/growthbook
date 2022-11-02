@@ -8,7 +8,7 @@ import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
 
 const Webhooks: FC = () => {

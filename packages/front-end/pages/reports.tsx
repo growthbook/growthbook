@@ -5,7 +5,7 @@ import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useSearch } from "../services/search";
-import Tooltip from "../components/Tooltip";
+import Tooltip from "../components/Tooltip/Tooltip";
 import useApi from "../hooks/useApi";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";

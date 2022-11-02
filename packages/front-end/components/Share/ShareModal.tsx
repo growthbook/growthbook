@@ -25,7 +25,7 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import track from "../../services/track";

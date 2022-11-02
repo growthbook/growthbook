@@ -9,7 +9,7 @@ import { getSDKEndpoint } from "./CodeSnippetModal";
 import usePermissions from "../../hooks/usePermissions";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { useEnvironments } from "../../services/features";
 import CopyToClipboard from "../CopyToClipboard";
 import ClickToReveal from "../Settings/ClickToReveal";

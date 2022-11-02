@@ -23,7 +23,7 @@ import usePermissions from "../../hooks/usePermissions";
 import Field from "../Forms/Field";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { isCloud } from "../../services/env";
 
 const numberFormatter = new Intl.NumberFormat();

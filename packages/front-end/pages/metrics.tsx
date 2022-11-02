@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
 import { useSearch, useSort } from "../services/search";
-import Tooltip from "../components/Tooltip";
+import Tooltip from "../components/Tooltip/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
