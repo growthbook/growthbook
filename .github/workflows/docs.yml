@@ -3,13 +3,11 @@ on:
   pull_request:
     paths:
       - "docs/**"
-      - ".github/workflows/docs.yml"
   push:
     branches:
       - "main"
     paths:
       - "docs/**"
-      - ".github/workflows/docs.yml"
 jobs:
   vercel:
     runs-on: ubuntu-latest
