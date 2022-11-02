@@ -1,5 +1,12 @@
 name: CI
-on: [pull_request]
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "yarn.lock"
+      - ".eslintrc"
+      - ".eslintignore"
+      - ".prettierignore"
 
 jobs:
   # Linting, type-checking, and tests
@@ -37,22 +44,7 @@ jobs:
           # Stats engine
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats
 
-          # Docs
-          cd docs
-          yarn
-          cd ..
-
-      - name: App/SDK - get changed files
-        id: app-changed-files
-        uses: tj-actions/changed-files@v34
-        with:
-          files: |
-            packages/**
-            yarn.lock
-            .github/workflows/ci.yml
-
-      - name: App/SDK - build, lint, type-check, and test 
-        if: steps.app-changed-files.outputs.any_changed == 'true'
+      - name: Build, lint, type-check, and test 
         run: |
           # Build SDK packages (required for linting/type checks to work)
           yarn workspace @growthbook/growthbook build
@@ -69,19 +61,3 @@ jobs:
           yarn test
         env:
           CI: true
-
-
-      - name: Docs - get changed files
-        id: docs-changed-files
-        uses: tj-actions/changed-files@v34
-        with:
-          files: |
-            docs/**
-            .github/workflows/ci.yml
-
-      - name: Docs - type-check
-        if: steps.docs-changed-files.outputs.any_changed == 'true'
-        run: |
-          cd docs
-          yarn typecheck
-          cd ..
