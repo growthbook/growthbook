@@ -3,11 +3,11 @@ import { FaMoon } from "react-icons/fa";
 import { BsCircleHalf } from "react-icons/bs";
 import { ImSun } from "react-icons/im";
 import clsx from "clsx";
-import useGlobalMenu from "../../services/useGlobalMenu";
+import useGlobalMenu from "../../../services/useGlobalMenu";
 import {
   PreferredAppearanceUITheme,
   useAppearanceUITheme,
-} from "../../services/AppearanceUIThemeProvider";
+} from "../../../services/AppearanceUIThemeProvider";
 
 // Icons
 const SystemIcon = BsCircleHalf;

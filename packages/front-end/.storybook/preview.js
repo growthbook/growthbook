@@ -1,4 +1,5 @@
 import "../styles/global.scss";
+import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
 
 export const parameters = {
   actions: { argTypesRegex: "^on[A-Z].*" },
@@ -9,3 +10,11 @@ export const parameters = {
     },
   },
 };
+
+export const decorators = [
+  (Story) => (
+    <AppearanceUIThemeProvider>
+      <Story />
+    </AppearanceUIThemeProvider>
+  ),
+];

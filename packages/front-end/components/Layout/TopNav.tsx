@@ -15,7 +15,7 @@ import { usingSSO } from "../../services/env";
 import Field from "../Forms/Field";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
-import { ThemeToggler } from "./ThemeToggler";
+import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
 import AccountPlanNotices from "./AccountPlanNotices";
 
