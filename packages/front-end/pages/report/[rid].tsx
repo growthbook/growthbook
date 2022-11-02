@@ -28,7 +28,7 @@ import { useForm } from "react-hook-form";
 import Tooltip from "../../components/Tooltip/Tooltip";
 import { useUser } from "../../services/UserContext";
 import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 
 export default function ReportPage() {
   const router = useRouter();

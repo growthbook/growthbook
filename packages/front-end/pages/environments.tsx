@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import DeleteButton from "../components/DeleteButton";
+import DeleteButton from "../components/DeleteButton/DeleteButton";
 import EnvironmentModal from "../components/Settings/EnvironmentModal";
 import { useAuth } from "../services/auth";
 import { Environment } from "back-end/types/organization";

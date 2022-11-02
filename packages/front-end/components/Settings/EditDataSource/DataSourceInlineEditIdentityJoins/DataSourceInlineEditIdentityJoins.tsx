@@ -3,7 +3,7 @@ import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import Code from "../../../SyntaxHighlighting/Code";
 import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton";
+import DeleteButton from "../../../DeleteButton/DeleteButton";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,

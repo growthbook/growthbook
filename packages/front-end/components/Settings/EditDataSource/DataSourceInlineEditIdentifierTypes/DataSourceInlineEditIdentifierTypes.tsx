@@ -8,7 +8,7 @@ import {
 import { EditIdentifierType } from "./EditIdentifierType";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import DeleteButton from "../../../DeleteButton";
+import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
 

@@ -10,7 +10,7 @@ import useApi from "../hooks/useApi";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar/Avatar";
 import { FaPencilAlt } from "react-icons/fa";
-import DeleteButton from "./DeleteButton";
+import DeleteButton from "./DeleteButton/DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 import { useUser } from "../services/UserContext";

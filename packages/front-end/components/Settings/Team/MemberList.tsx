@@ -2,7 +2,7 @@ import React, { FC, useState } from "react";
 import InviteModal from "./InviteModal";
 import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
 import { useUser } from "../../../services/UserContext";
-import DeleteButton from "../../DeleteButton";
+import DeleteButton from "../../DeleteButton/DeleteButton";
 import { GBAddCircle } from "../../Icons";
 import { ExpandedMember } from "back-end/types/organization";
 import MoreMenu from "../../Dropdown/MoreMenu";

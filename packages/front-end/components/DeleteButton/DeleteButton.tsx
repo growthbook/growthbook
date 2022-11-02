@@ -1,7 +1,7 @@
 import { FC, useState, useEffect, CSSProperties } from "react";
 import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
-import Modal from "./Modal";
+import Modal from "../Modal";
 
 const DeleteButton: FC<{
   onClick: () => Promise<void>;
@@ -42,7 +42,7 @@ const DeleteButton: FC<{
     getConfirmationContent()
       .then((c) => setDynamicContent(c))
       .catch((e) => console.error(e));
-  }, [confirming]);
+  }, [confirming, getConfirmationContent]);
 
   return (
     <>

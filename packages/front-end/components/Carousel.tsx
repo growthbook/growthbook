@@ -8,7 +8,7 @@ import {
 } from "react";
 import clsx from "clsx";
 import Modal from "./Modal";
-import DeleteButton from "./DeleteButton";
+import DeleteButton from "./DeleteButton/DeleteButton";
 
 const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;
