@@ -10,6 +10,7 @@ import styles from "./ConditionInput.module.scss";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import CodeTextArea from "../Forms/CodeTextArea";
 
 interface Props {
   defaultValue: string;
@@ -56,14 +57,11 @@ export default function ConditionInput(props: Props) {
   if (advanced || !attributes.size || !simpleAllowed) {
     return (
       <div className="mb-3">
-        <Field
+        <CodeTextArea
           label="Targeting Conditions"
-          containerClassName="mb-0"
-          textarea
-          minRows={1}
-          maxRows={12}
+          language="json"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          setValue={setValue}
           helpText="JSON format using MongoDB query syntax"
         />
         {simpleAllowed && attributes.size && (
