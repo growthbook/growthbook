@@ -99,7 +99,8 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.1.1",
-    "sass": "^1.26.5",
+    "sass": "^1.55.0",
+    "storybook-addon-next": "^1.6.9",
     "typescript": "4.7.4"
   },
   "license": "MIT"

@@ -14,6 +14,7 @@ module.exports = {
     },
   },
   addons: [
+    'storybook-addon-next',
     "@storybook/addon-links",
     "@storybook/addon-essentials",
     "@storybook/addon-interactions",
