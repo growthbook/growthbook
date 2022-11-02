@@ -1,5 +1,6 @@
 import { MetricInterface } from "back-end/types/metric";
 import { isNullUndefinedOrEmpty } from "../../services/utils";
+import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 
 interface MetricToolTipCompProps {
@@ -69,7 +70,7 @@ const MetricTooltipBody = ({
         .map(({ label, body }, index) => (
           <div key={`metricInfo${index}`}>
             <strong>{`${label}: `}</strong>
-            <span className="font-weight-normal">{body}</span>
+            <Markdown className="font-weight-normal">{body}</Markdown>
           </div>
         ))}
     </div>

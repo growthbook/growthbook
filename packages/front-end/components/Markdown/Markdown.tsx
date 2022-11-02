@@ -17,7 +17,12 @@ const Markdown: FC<
     );
   }
 
-  const text = typeof children === "string" ? children : "";
+  const text =
+    typeof children === "string"
+      ? children
+      : typeof children === "number"
+      ? children.toString()
+      : "";
 
   return (
     <div
