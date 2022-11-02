@@ -8,7 +8,7 @@ import { date } from "../services/dates";
 import { useAuth } from "../services/auth";
 import useApi from "../hooks/useApi";
 import LoadingSpinner from "./LoadingSpinner";
-import Avatar from "./Avatar";
+import Avatar from "./Avatar/Avatar";
 import { FaPencilAlt } from "react-icons/fa";
 import DeleteButton from "./DeleteButton";
 import CommentForm from "./CommentForm";

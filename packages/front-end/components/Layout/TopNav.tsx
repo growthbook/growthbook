@@ -7,7 +7,7 @@ import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import { FaBars, FaBell, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
-import Avatar from "../Avatar";
+import Avatar from "../Avatar/Avatar";
 import clsx from "clsx";
 import styles from "./TopNav.module.scss";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
