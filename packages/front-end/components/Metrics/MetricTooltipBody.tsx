@@ -70,7 +70,11 @@ const MetricTooltipBody = ({
         .map(({ label, body }, index) => (
           <div key={`metricInfo${index}`}>
             <strong>{`${label}: `}</strong>
-            <Markdown className="font-weight-normal">{body}</Markdown>
+            {label === "Description" ? (
+              <Markdown className="font-weight-normal">{body}</Markdown>
+            ) : (
+              <span className="font-weight-normal">{body}</span>
+            )}
           </div>
         ))}
     </div>
