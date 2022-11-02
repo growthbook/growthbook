@@ -123,6 +123,7 @@ export type DataSourceEvents = {
   experimentEvent?: string;
   experimentIdProperty?: string;
   variationIdProperty?: string;
+  extraUserIdProperty?: string;
 };
 
 export type DataSourceSettings = {

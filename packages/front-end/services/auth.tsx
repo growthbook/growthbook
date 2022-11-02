@@ -149,14 +149,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setSpecialOrg,
   ] = useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
-  const [error, setError] = useState("");
+  const [initError, setInitError] = useState("");
+  const [sessionError, setSessionError] = useState(false);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
   async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
-      setError("");
+      setInitError("");
       setToken(resp.token);
       setLoading(false);
     } else if ("redirectURI" in resp) {
@@ -211,7 +212,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // Start auth flow to get an id token
   useEffect(() => {
     init().catch((e) => {
-      setError(e.message);
+      setInitError(e.message);
       console.error(e);
     });
   }, []);
@@ -264,6 +265,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             }
             return responseData;
           }
+          setSessionError(true);
           throw new Error(
             "Your session has expired. Refresh the page to continue."
           );
@@ -300,7 +302,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     [initialOrgId, orgId, specialOrg]
   );
 
-  if (error) {
+  if (initError) {
     return (
       <Modal
         header="logo"
@@ -310,7 +312,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           try {
             await init();
           } catch (e) {
-            setError(e.message);
+            setInitError(e.message);
             console.error(e);
             throw new Error("Still receiving error");
           }
@@ -320,7 +322,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{getDetailedError(error)}</div>
+        <div className="alert alert-danger">{getDetailedError(initError)}</div>
+      </Modal>
+    );
+  }
+
+  if (sessionError) {
+    return (
+      <Modal
+        open={true}
+        cta="OK"
+        submit={async () => {
+          await redirectWithTimeout(window.location.href);
+        }}
+        autoCloseOnSubmit={false}
+      >
+        <h3>You&apos;ve been logged out</h3>
+        <p>Sign back in to keep using GrowthBook</p>
       </Modal>
     );
   }
