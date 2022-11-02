@@ -203,7 +203,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "An experiment with that id already exists. To create a new one, click 'Save' again."
+        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again."
       );
     }
 
