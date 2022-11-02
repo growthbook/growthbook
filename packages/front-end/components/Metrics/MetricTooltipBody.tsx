@@ -11,6 +11,7 @@ interface MetricInfo {
   show: boolean;
   label: string;
   body: string | number | JSX.Element;
+  markdown?: boolean;
 }
 
 const MetricTooltipBody = ({
@@ -33,6 +34,7 @@ const MetricTooltipBody = ({
       show: validMetricDescription(metric.description),
       label: "Description",
       body: truncateMetricDescription(metric.description),
+      markdown: true,
     },
     {
       show: true,
@@ -67,10 +69,10 @@ const MetricTooltipBody = ({
     <div className="text-left">
       {metricInfo
         .filter((i) => i.show)
-        .map(({ label, body }, index) => (
+        .map(({ label, body, markdown }, index) => (
           <div key={`metricInfo${index}`}>
             <strong>{`${label}: `}</strong>
-            {label === "Description" ? (
+            {markdown ? (
               <Markdown className="font-weight-normal">{body}</Markdown>
             ) : (
               <span className="font-weight-normal">{body}</span>
