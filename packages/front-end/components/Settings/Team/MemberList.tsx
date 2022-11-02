@@ -34,7 +34,7 @@ const MemberList: FC<{
 
   return (
     <div className="my-4">
-      <h5>Active Members</h5>
+      <h5>Active Members{` (${Array.from(users.values()).length})`}</h5>
       {inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
