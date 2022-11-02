@@ -24,13 +24,14 @@ export async function runAthenaQuery<T>(
 ): Promise<T[]> {
   const athena = getAthenaInstance(conn);
 
-  const { database, bucketUri, workGroup } = conn;
+  const { database, bucketUri, workGroup, catalog } = conn;
 
   const { QueryExecutionId } = await athena
     .startQueryExecution({
       QueryString: sql,
       QueryExecutionContext: {
-        Database: database,
+        Database: database || undefined,
+        Catalog: catalog || undefined,
       },
       ResultConfiguration: {
         EncryptionConfiguration: {
