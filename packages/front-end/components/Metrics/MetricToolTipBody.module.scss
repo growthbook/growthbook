@@ -1,3 +1,5 @@
+@import "../../styles/colors.scss";
+
 .description {
   position: relative;
   height: 100px;
@@ -12,5 +14,9 @@
   width: 100%;
   height: 60px;
   padding-top: 40px;
-  background-image: linear-gradient(to bottom, transparent, white);
+  background-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--surface-background-color)
+  );
 }
