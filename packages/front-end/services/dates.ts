@@ -31,7 +31,7 @@ export function daysBetween(start: string | Date, end: string | Date): number {
 export function getValidDate(
   dateStr: string | Date | null | number,
   fallback?: Date
-) {
+): Date {
   fallback = fallback || new Date();
 
   if (!dateStr) return fallback;

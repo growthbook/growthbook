@@ -194,6 +194,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       limitAccessByEnvironment: false,
       name: data.userName,
       role: data.admin ? "admin" : "readonly",
+      dateCreated: undefined,
       projectRoles: [],
     };
   }
