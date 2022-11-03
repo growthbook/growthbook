@@ -13,10 +13,11 @@ import Tooltip from "../../../Tooltip";
 import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";
 import { useAuth } from "../../../../services/auth";
-import DisplayTestQueryResults, {
-  TestQueryResults,
-} from "../../DisplayTestQueryResults";
 import { FaPlay } from "react-icons/fa";
+import DisplayTestQueryResults, {
+  Results,
+} from "../../DisplayTestQueryResults";
+import { TestQueryRow } from "back-end/src/types/Integration";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -26,6 +27,16 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
+type TestQueryResults = {
+  optionalColumns?: string[];
+  duration?: string;
+  error?: string;
+  results?: TestQueryRow[];
+  includesNameColumns?: boolean;
+  returnedColumns?: string[];
+  missingNameColumn?: string;
+};
+
 export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
   exposureQuery,
   dataSource,
@@ -33,10 +44,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] = useState<Results | null>(
+    null
+  );
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -127,6 +137,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
+      const warningsArr = [];
+
       // if the user didn't check the box for use name columns, but included
       // both, auto-enable it for them
       if (res.includesNameColumns && !userEnteredHasNameCol) {
@@ -142,12 +154,41 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       ) {
         if (!res.returnedColumns.includes("variation_name")) {
           res.missingNameColumn = "variation_name";
+          warningsArr.push(
+            "If you want to use name columns, your query needs to include variation_name."
+          );
         } else {
-          res.missingNameColumn = "experiment_name";
+          warningsArr.push(
+            "If you want to use name columns, your query needs to include variation_name."
+          );
         }
       }
 
-      setTestQueryResults(res);
+      // Serve warning if optional columns are included
+      if (res.optionalColumns?.length > 0) {
+        const message = `The query entered includes ${
+          res.optionalColumns.length === 1 ? "an" : ""
+        } optional column${
+          res.optionalColumns.length > 1 && "s"
+        }: ${res.optionalColumns
+          .map((col) => '"' + col + '"')
+          .join(
+            ", "
+          )}. Add these as dimensions to drill down into experiment results or removed.`;
+        warningsArr.push(message);
+      }
+
+      if (res.duration && res.returnedColumns.length > 0) {
+        setTestQueryResults({
+          success: `The query ran successfully in ${res.duration} ms.`,
+        });
+      }
+
+      if (res.duration && res.returnedColumns.length === 0) {
+        warningsArr.push("The query did not return any rows.");
+      }
+
+      setTestQueryResults({ ...testQueryResults, warnings: warningsArr });
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }
@@ -270,10 +311,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </div>
               </div>
             </div>
-            <DisplayTestQueryResults
-              form={form}
-              testQueryResults={testQueryResults}
-            />
+            <DisplayTestQueryResults results={testQueryResults} />
           </div>
         </div>
       </div>
