@@ -172,9 +172,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           res.optionalColumns.length > 1 && "s"
         }: ${res.optionalColumns
           .map((col) => '"' + col + '"')
-          .join(
-            ", "
-          )}. Add these as dimensions to drill down into experiment results or removed.`;
+          .join(", ")}. Add these as dimension column${
+          res.optionalColumns.length > 1 && "s"
+        } to drill down into experiment results. Or, they can be removed to improve performance.`;
         warningsArr.push(message);
       }
 
