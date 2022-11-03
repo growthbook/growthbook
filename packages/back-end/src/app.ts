@@ -91,7 +91,7 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { uploadsRouter } from "./routers/uploads/uploads.router";
+import { uploadsRouter } from "./routers/upload/upload.router";
 
 const app = express();
 
