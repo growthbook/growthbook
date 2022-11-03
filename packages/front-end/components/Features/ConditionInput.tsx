@@ -55,6 +55,7 @@ export default function ConditionInput(props: Props) {
   ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
+    console.log("simpleAllowed", simpleAllowed);
     return (
       <div className="mb-3">
         <CodeTextArea
