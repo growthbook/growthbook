@@ -4,7 +4,6 @@ const esm = {
       "@babel/preset-env",
       {
         modules: false,
-        targets: "defaults, not IE 11, maintained node versions",
       },
     ],
     ["@babel/preset-typescript"],

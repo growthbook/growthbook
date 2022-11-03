@@ -102,7 +102,9 @@ const ProtectedPage: React.FC<{
     <UserContextProvider key={orgId}>
       <LoggedInPageGuard organizationRequired={organizationRequired}>
         <InAppHelp />
-        {orgId ? (
+        {!organizationRequired ? (
+          <>{children}</>
+        ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
         ) : (
           <CreateOrganization />

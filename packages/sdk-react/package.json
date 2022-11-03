@@ -59,6 +59,7 @@
   },
   "browserslist": [
     "defaults",
+    ">0.35%",
     "not IE 11",
     "maintained node versions"
   ]

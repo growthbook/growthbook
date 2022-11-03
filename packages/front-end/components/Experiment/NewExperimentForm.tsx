@@ -81,6 +81,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
+    false
+  );
 
   const {
     datasources,
@@ -184,13 +187,26 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const body = JSON.stringify(data);
 
-    const res = await apiCall<{ experiment: ExperimentInterfaceStringDates }>(
-      `/experiments`,
+    const res = await apiCall<
+      | { experiment: ExperimentInterfaceStringDates }
+      | { duplicateTrackingKey: true; existingId: string }
+    >(
+      `/experiments${
+        allowDuplicateTrackingKey ? "?allowDuplicateTrackingKey=true" : ""
+      }`,
       {
         method: "POST",
         body,
       }
     );
+
+    if ("duplicateTrackingKey" in res) {
+      setAllowDuplicateTrackingKey(true);
+      throw new Error(
+        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again."
+      );
+    }
+
     track("Create Experiment", {
       source,
       implementation: data.implementation || "code",
