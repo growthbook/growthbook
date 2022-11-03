@@ -122,48 +122,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   });
 }
 
-type GetOrganizationUsersResponse = {
-  status: number;
-  users: {
-    id: string;
-    name: string;
-    email: string;
-    dateCreated?: Date;
-  }[];
-};
-export async function getUsers(
-  req: AuthRequest,
-  res: Response<GetOrganizationUsersResponse>
-) {
-  let users: {
-    id: string;
-    name: string;
-    email: string;
-    dateCreated?: Date;
-  }[] = [];
-
-  if (req.organization) {
-    const organization = req.organization;
-
-    const members = await getUsersByIds(
-      req.organization.members.map((m) => m.id)
-    );
-    users = members.map(({ id, name, email }) => ({
-      id,
-      name,
-      email,
-      dateCreated: (organization.members || []).find(
-        (member) => member.id === id
-      )?.dateCreated,
-    }));
-  }
-
-  res.status(200).json({
-    status: 200,
-    users,
-  });
-}
-
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
