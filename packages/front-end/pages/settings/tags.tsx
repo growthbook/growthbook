@@ -18,11 +18,16 @@ const TagsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
     null
   );
-  const { list, searchInputProps, isFiltered } = useSearch(tags || [], [
-    "id",
-    "description",
-  ]);
-  const { sorted, SortableTH } = useSort(list, "id", 1, "tags");
+  const { list, searchInputProps, isFiltered } = useSearch({
+    items: tags || [],
+    fields: ["id", "description"],
+  });
+  const { sorted, SortableTH } = useSort({
+    defaultField: "id",
+    fieldName: "tags",
+    items: list,
+  });
+
   const permissions = usePermissions();
 
   if (!permissions.manageTags) {

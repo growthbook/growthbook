@@ -25,10 +25,10 @@ const IdeasPage = (): React.ReactElement => {
 
   const { getUserDisplay, permissions } = useUser();
 
-  const { list: displayedIdeas, searchInputProps } = useSearch(
-    data?.ideas || [],
-    ["id", "text", "details", "tags", "status"]
-  );
+  const { list: displayedIdeas, searchInputProps } = useSearch({
+    items: data?.ideas || [],
+    fields: ["id", "text", "details", "tags", "status"],
+  });
 
   if (error) {
     return <div className="alert alert-danger">An error occurred</div>;

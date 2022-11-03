@@ -30,7 +30,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId, users } = useUser();
+  const { getUserDisplay, permissions, userId } = useUser();
 
   const [currentPage, setCurrentPage] = useState({
     running: 1,
@@ -40,17 +40,19 @@ const ExperimentsPage = (): React.ReactElement => {
   });
   const [experimentsPerPage] = useState(20);
 
-  const transforms = useMemo(() => {
-    return {
-      owner: (orig: string) => getUserDisplay(orig),
-      metrics: (orig: string[]) =>
-        orig?.map((m) => getMetricById(m)?.name)?.filter(Boolean) || [],
-    };
-  }, [getMetricById, users.size]);
+  const experiments = useMemo(() => {
+    return (data?.experiments || []).map((exp) => ({
+      ...exp,
+      ownerName: getUserDisplay(exp.owner),
+      metricNames: exp.metrics
+        .map((m) => getMetricById(m)?.name)
+        .filter(Boolean),
+    }));
+  }, [data?.experiments]);
 
-  const { list: experiments, searchInputProps, isFiltered } = useSearch(
-    data?.experiments || [],
-    [
+  const { list, searchInputProps, isFiltered } = useSearch({
+    items: experiments,
+    fields: [
       "name",
       "implementation",
       "hypothesis",
@@ -64,11 +66,10 @@ const ExperimentsPage = (): React.ReactElement => {
       "results",
       "analysis",
     ],
-    transforms
-  );
+  });
 
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && experiments.some((e) => e.project);
+  const showProjectColumn = !project && list.some((e) => e.project);
 
   if (error) {
     return (
@@ -82,7 +83,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }
 
   const hasExperiments =
-    data.experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
 
   if (!hasExperiments) {
     return (
@@ -94,10 +95,7 @@ const ExperimentsPage = (): React.ReactElement => {
           data source and defining metrics.
         </p>
         <NewFeatureExperiments />
-        <ExperimentsGetStarted
-          experiments={data?.experiments}
-          mutate={mutate}
-        />
+        <ExperimentsGetStarted experiments={experiments} mutate={mutate} />
       </div>
     );
   }
@@ -116,14 +114,14 @@ const ExperimentsPage = (): React.ReactElement => {
     myDrafts: [],
   };
 
-  experiments.forEach((test) => {
+  list.forEach((test) => {
     if (test.archived) {
       byStatus.archived.push(test);
     } else {
       byStatus[test.status].push(test);
     }
   });
-  data?.experiments?.forEach((test) => {
+  list.forEach((test) => {
     if (!test.archived && test.status === "draft" && test.owner === userId) {
       byStatus.myDrafts.push(test);
     }

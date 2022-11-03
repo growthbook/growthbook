@@ -218,24 +218,23 @@ const ShareModal = ({
     }
   }, [existing?.slides]);
 
-  const {
-    list: experiments,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(data?.experiments || [], [
-    "name",
-    "implementation",
-    "hypothesis",
-    "description",
-    "tags",
-    "trackingKey",
-    "status",
-    "id",
-    "owner",
-    "metrics",
-    "results",
-    "analysis",
-  ]);
+  const { list: experiments, searchInputProps, isFiltered } = useSearch({
+    items: data?.experiments || [],
+    fields: [
+      "name",
+      "implementation",
+      "hypothesis",
+      "description",
+      "tags",
+      "trackingKey",
+      "status",
+      "id",
+      "owner",
+      "metrics",
+      "results",
+      "analysis",
+    ],
+  });
 
   const { apiCall } = useAuth();
 

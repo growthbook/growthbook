@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus, FaRegCopy } from "react-icons/fa";
@@ -40,28 +40,28 @@ const MetricsPage = (): React.ReactElement => {
 
   const [showArchived, setShowArchived] = useState(false);
 
-  const { list, searchInputProps, isFiltered } = useSearch(
-    data?.metrics || [],
-    ["name", "tags", "type"]
+  const filterResults = useCallback(
+    (items: MetricInterface[]) => {
+      if (!showArchived) {
+        items = items.filter((m) => m.status !== "archived");
+      }
+      items = filterByTags(items, tagsFilter);
+      return items;
+    },
+    [showArchived, tagsFilter]
   );
+
+  const { list, searchInputProps, isFiltered } = useSearch({
+    items: data?.metrics || [],
+    fields: ["name", "tags", "type"],
+    filterResults,
+  });
   const hasArchivedMetrics = list.find((m) => m.status === "archived");
-  const { sorted, SortableTH } = useSort(
-    filterByTags(
-      list.filter((m) => {
-        if (!showArchived) {
-          if (m.status !== "archived") {
-            return m;
-          }
-        } else {
-          return m;
-        }
-      }),
-      tagsFilter
-    ),
-    "name",
-    1,
-    "metrics",
-    {
+  const { sorted, SortableTH } = useSort({
+    defaultField: "name",
+    fieldName: "metrics",
+    items: list,
+    compFunctions: {
       datasource: (a, b) => {
         const da = a.datasource
           ? getDatasourceById(a.datasource)?.name || "Unknown"
@@ -71,9 +71,9 @@ const MetricsPage = (): React.ReactElement => {
           : "Manual";
         return da.localeCompare(db);
       },
-    }
-  );
-
+    },
+    disableSort: isFiltered,
+  });
   if (error) {
     return (
       <div className="alert alert-danger">

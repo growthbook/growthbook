@@ -10,7 +10,6 @@ import useApi from "../hooks/useApi";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import Toggle from "../components/Forms/Toggle";
-import experiments from "./experiments";
 import { useUser } from "../services/UserContext";
 
 const ReportsPage = (): React.ReactElement => {
@@ -36,7 +35,7 @@ const ReportsPage = (): React.ReactElement => {
     }
   };
 
-  const { users, userId, getUserDisplay } = useUser();
+  const { userId, getUserDisplay } = useUser();
   const expMap = useMemo(() => {
     const tmp = new Map();
     if (data?.experiments && data?.experiments.length > 0) {
@@ -51,18 +50,26 @@ const ReportsPage = (): React.ReactElement => {
     return expMap.get(experimentId)?.name ?? "";
   };
 
-  const transforms = useMemo(() => {
-    return {
-      userId: (orig: string) => getUserDisplay(orig),
-      experimentId: (orig: string) => getExperimentName(orig),
-    };
-  }, [getUserDisplay, users.size, experiments]);
+  const reports = useMemo(() => {
+    return (
+      data?.reports?.map((r) => ({
+        ...r,
+        userName: getUserDisplay(r.userId),
+        experimentName: getExperimentName(r.experimentId),
+      })) || []
+    );
+  }, [data?.reports]);
 
-  const { list: filteredReports, searchInputProps, isFiltered } = useSearch(
-    data?.reports || [],
-    ["title", "description", "experimentId", "userId", "dateUpdated"],
-    transforms
-  );
+  const { list: filteredReports, searchInputProps, isFiltered } = useSearch({
+    items: reports,
+    fields: [
+      "title",
+      "description",
+      "experimentName",
+      "userName",
+      "dateUpdated",
+    ],
+  });
 
   if (error) {
     return (
@@ -74,8 +81,6 @@ const ReportsPage = (): React.ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const reports = data?.reports || [];
 
   if (!reports.length) {
     return (
