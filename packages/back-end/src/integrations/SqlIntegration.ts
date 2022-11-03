@@ -532,7 +532,7 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "date") {
       return this.formatDate(this.dateTrunc("e.timestamp"));
     } else if (dimension.type === "experiment") {
-      return this.ifNullFallback(this.castToString("e-dimension"), "''");
+      return this.ifNullFallback(this.castToString("e.dimension"), "''");
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
