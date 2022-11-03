@@ -181,6 +181,7 @@ export function getDefaultRole(
       environments: [],
       limitAccessByEnvironment: false,
       role: "collaborator",
+      dateCreated: new Date(),
     }
   );
 }

@@ -314,6 +314,7 @@ export function upgradeOrganizationDoc(
       role: "collaborator",
       environments: [],
       limitAccessByEnvironment: false,
+      dateCreated: new Date(),
     };
   }
 

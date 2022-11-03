@@ -122,10 +122,29 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getUsers(req: AuthRequest, res: Response) {
-  let users: { id: string; name: string; email: string }[] = [];
+type GetOrganizationUsersResponse = {
+  status: number;
+  users: {
+    id: string;
+    name: string;
+    email: string;
+    dateCreated?: Date;
+  }[];
+};
+export async function getUsers(
+  req: AuthRequest,
+  res: Response<GetOrganizationUsersResponse>
+) {
+  let users: {
+    id: string;
+    name: string;
+    email: string;
+    dateCreated?: Date;
+  }[] = [];
 
   if (req.organization) {
+    const organization = req.organization;
+
     const members = await getUsersByIds(
       req.organization.members.map((m) => m.id)
     );
@@ -133,6 +152,9 @@ export async function getUsers(req: AuthRequest, res: Response) {
       id,
       name,
       email,
+      dateCreated: (organization.members || []).find(
+        (member) => member.id === id
+      )?.dateCreated,
     }));
   }
 
@@ -638,6 +660,7 @@ export async function postInvite(
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    dateCreated: new Date(),
   });
 
   return res.status(200).json({
