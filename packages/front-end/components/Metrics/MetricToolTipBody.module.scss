@@ -1,0 +1,20 @@
+@import "../../styles/colors.scss";
+
+.markdown {
+  position: relative;
+  max-height: 100px;
+  overflow: hidden;
+}
+
+.markdown:after {
+  position: absolute;
+  content: "";
+  bottom: 0;
+  top: 40px;
+  width: 100%;
+  background-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--surface-background-color)
+  );
+}
