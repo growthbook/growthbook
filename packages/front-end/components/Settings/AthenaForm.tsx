@@ -87,12 +87,21 @@ const AthenaForm: FC<{
         </>
       )}
       <div className="form-group col-md-12">
-        <label>Database Name</label>
+        <label>Default Catalog (optional)</label>
+        <input
+          type="text"
+          className="form-control"
+          name="catalog"
+          value={params.catalog || ""}
+          onChange={onParamChange}
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>Default Database (optional)</label>
         <input
           type="text"
           className="form-control"
           name="database"
-          required
           value={params.database || ""}
           onChange={onParamChange}
         />
