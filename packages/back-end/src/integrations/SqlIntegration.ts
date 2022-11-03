@@ -528,11 +528,11 @@ export default abstract class SqlIntegration
         "'Activated'"
       );
     } else if (dimension.type === "user") {
-      return "d.value";
+      return this.ifNullFallback(this.castToString("d.value"), "''");
     } else if (dimension.type === "date") {
       return this.formatDate(this.dateTrunc("e.timestamp"));
     } else if (dimension.type === "experiment") {
-      return "e.dimension";
+      return this.ifNullFallback(this.castToString("e-dimension"), "''");
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
