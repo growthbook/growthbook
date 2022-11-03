@@ -1,5 +1,5 @@
 import express from "express";
-import * as organizationsControllerRaw from "./organizations-controller";
+import * as organizationsControllerRaw from "./organizations.controller";
 import { wrapController } from "../wrapController";
 
 const router = express.Router();
