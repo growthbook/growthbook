@@ -137,6 +137,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
+      if (res.error) {
+        setTestQueryResults({ error: res.error });
+        return;
+      }
+
       const warningsArr = [];
 
       // if the user didn't check the box for use name columns, but included
@@ -154,13 +159,17 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       ) {
         if (!res.returnedColumns.includes("variation_name")) {
           res.missingNameColumn = "variation_name";
-          warningsArr.push(
-            "If you want to use name columns, your query needs to include variation_name."
-          );
+          warningsArr.push({
+            type: "missingNameColumn",
+            message:
+              "If you want to use name columns, your query needs to include variation_name.",
+          });
         } else {
-          warningsArr.push(
-            "If you want to use name columns, your query needs to include variation_name."
-          );
+          warningsArr.push({
+            type: "missingNameColumn",
+            message:
+              "If you want to use name columns, your query needs to include experiment_name",
+          });
         }
       }
 
@@ -169,23 +178,30 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         const message = `The query entered includes ${
           res.optionalColumns.length === 1 ? "an" : ""
         } optional column${
-          res.optionalColumns.length > 1 && "s"
+          res.optionalColumns.length > 1 ? "s" : ""
         }: ${res.optionalColumns
           .map((col) => '"' + col + '"')
           .join(", ")}. Add these as dimension column${
-          res.optionalColumns.length > 1 && "s"
+          res.optionalColumns.length > 1 ? "s" : ""
         } to drill down into experiment results. Or, they can be removed to improve performance.`;
-        warningsArr.push(message);
+        warningsArr.push({
+          type: "optionalColumns",
+          message,
+          optionalColumns: res.optionalColumns,
+        });
       }
 
-      if (res.duration && res.returnedColumns.length > 0) {
+      if (res.duration && res.results.length > 0) {
         setTestQueryResults({
           success: `The query ran successfully in ${res.duration} ms.`,
         });
       }
 
-      if (res.duration && res.returnedColumns.length === 0) {
-        warningsArr.push("The query did not return any rows.");
+      if (res.duration && res.results.length === 0) {
+        warningsArr.push({
+          type: "noRowsReturned",
+          message: "The query did not return any rows.",
+        });
       }
 
       setTestQueryResults({ ...testQueryResults, warnings: warningsArr });
@@ -311,7 +327,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </div>
               </div>
             </div>
-            <DisplayTestQueryResults results={testQueryResults} />
+            <DisplayTestQueryResults results={testQueryResults} form={form} />
           </div>
         </div>
       </div>
