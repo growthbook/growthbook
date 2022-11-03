@@ -1,11 +1,6 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, {
-  RequestHandler,
-  ErrorRequestHandler,
-  Request,
-  Response,
-} from "express";
+import express, { ErrorRequestHandler, Request, Response } from "express";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -24,6 +19,7 @@ import {
 import asyncHandler from "express-async-handler";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { wrapController } from "./routers/wrapController";
 import compression from "compression";
 import fs from "fs";
 import * as Sentry from "@sentry/node";
@@ -98,25 +94,6 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
-
-// eslint-disable-next-line
-type Handler = RequestHandler<any>;
-type Controller<T extends string> = Record<T, Handler>;
-
-// Wrap every controller function in asyncHandler to catch errors properly
-function wrapController<T extends string>(
-  // eslint-disable-next-line
-  controller: Record<T, any>
-): Controller<T> {
-  const newController = {} as Controller<T>;
-  Object.keys(controller).forEach((key: T) => {
-    // Sanity check in case someone exports a non-function from the controller file
-    if (typeof controller[key] === "function") {
-      newController[key] = asyncHandler(controller[key]);
-    }
-  });
-  return newController;
-}
 
 const app = express();
 
