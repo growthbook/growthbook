@@ -79,6 +79,21 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
               </code>
             </td>
           </tr>
+          <tr>
+            <th>UserId Property</th>
+            <td>
+              <code>distinct_id</code>
+              {dataSource.settings?.events?.extraUserIdProperty && (
+                <>
+                  {" "}
+                  +{" "}
+                  <code>
+                    {dataSource.settings?.events?.extraUserIdProperty || ""}
+                  </code>
+                </>
+              )}
+            </td>
+          </tr>
         </tbody>
       </table>
 
