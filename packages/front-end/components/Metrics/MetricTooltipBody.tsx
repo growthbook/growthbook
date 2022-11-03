@@ -19,12 +19,6 @@ interface MetricInfo {
 const MetricTooltipBody = ({
   metric,
 }: MetricToolTipCompProps): React.ReactElement => {
-  function truncateMetricDescription(metricDescription: string) {
-    if (!metricDescription) return;
-    if (metricDescription.length < 300) return metricDescription;
-    return `${metricDescription.substring(0, 300)}...`;
-  }
-
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
     const regExp = new RegExp(/[A-Za-z0-9]/);
@@ -62,7 +56,7 @@ const MetricTooltipBody = ({
     {
       show: validMetricDescription(metric.description),
       label: "Description",
-      body: truncateMetricDescription(metric.description),
+      body: metric.description,
       markdown: true,
     },
   ];
@@ -75,8 +69,8 @@ const MetricTooltipBody = ({
           <div key={`metricInfo${index}`}>
             <strong>{`${label}: `}</strong>
             {markdown ? (
-              <div className={clsx("border rounded p-2", styles.description)}>
-                <Markdown className="font-weight-normal">{body}</Markdown>
+              <div className={clsx("border rounded p-2", styles.markdown)}>
+                <Markdown>{body}</Markdown>
               </div>
             ) : (
               <span className="font-weight-normal">{body}</span>
