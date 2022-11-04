@@ -171,7 +171,6 @@ export function getNumberOfUniqueMembersAndInvites(
       organization.invites.map((invite) => [invite.email, invite])
     ).values(),
   ];
-  console.log("uniqueInvites", uniqueInvites);
   return uniqueMembers.length + uniqueInvites.length;
 }
 
