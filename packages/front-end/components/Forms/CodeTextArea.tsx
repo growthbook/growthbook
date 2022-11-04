@@ -31,6 +31,8 @@ export type Props = Omit<
   language: Language;
   value: string;
   setValue: (value: string) => void;
+  minLines?: number;
+  maxLines?: number;
 };
 
 const LIGHT_THEME = "textmate";
@@ -41,6 +43,8 @@ export default function CodeTextArea({
   value,
   setValue,
   placeholder,
+  minLines = 3,
+  maxLines = 50,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -67,11 +71,11 @@ export default function CodeTextArea({
                 mode={language}
                 theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
-                minLines={2}
-                maxLines={50}
                 value={value}
                 onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
+                minLines={minLines}
+                maxLines={maxLines}
               />
             </div>
           </>
