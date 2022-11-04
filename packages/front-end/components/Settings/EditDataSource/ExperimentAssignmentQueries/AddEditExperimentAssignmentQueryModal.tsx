@@ -142,6 +142,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         return;
       }
 
+      let success = false;
       const warningsArr = [];
 
       // if the user didn't check the box for use name columns, but included
@@ -192,9 +193,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       }
 
       if (res.duration && res.results.length > 0) {
-        setTestQueryResults({
-          success: `The query ran successfully in ${res.duration} ms.`,
-        });
+        success = true;
       }
 
       if (res.duration && res.results.length === 0) {
@@ -204,7 +203,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         });
       }
 
-      setTestQueryResults({ ...testQueryResults, warnings: warningsArr });
+      setTestQueryResults({
+        success: success && `The query ran successfully in ${res.duration} ms.`,
+        warnings: warningsArr,
+      });
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }

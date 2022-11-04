@@ -15,7 +15,7 @@ type Props = {
 };
 
 export default function DisplayTestQueryResults({ results, form }: Props) {
-  const [addDimensionsDisabled, setAddDimensionsDisabled] = useState(false);
+  const [disableAddDimensionBtn, setDisableAddDimensionBtn] = useState(false);
   const dimensions = form.watch("dimensions");
 
   if (results?.error) {
@@ -37,12 +37,12 @@ export default function DisplayTestQueryResults({ results, form }: Props) {
               <div className="d-flex align-items-center">
                 <FaExclamationTriangle />
                 <span className="pl-2">{warning.message}</span>
-                {warning.type === "optionalColumns" && (
+                {warning.type === "optionalColumns" && dimensions && (
                   <button
-                    disabled={addDimensionsDisabled}
+                    disabled={disableAddDimensionBtn}
                     onClick={(e) => {
                       e.preventDefault();
-                      setAddDimensionsDisabled(true);
+                      setDisableAddDimensionBtn(true);
                       form.setValue("dimensions", [
                         ...dimensions,
                         ...warning.optionalColumns,
