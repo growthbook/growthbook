@@ -16,7 +16,7 @@ type Props = {
 
 export default function DisplayTestQueryResults({ results, form }: Props) {
   const [disableAddDimensionBtn, setDisableAddDimensionBtn] = useState(false);
-  const dimensions = form.watch("dimensions");
+  const dimensions = form?.watch("dimensions");
 
   if (results?.error) {
     return <div className="mt-3 alert alert-danger">{results.error}</div>;

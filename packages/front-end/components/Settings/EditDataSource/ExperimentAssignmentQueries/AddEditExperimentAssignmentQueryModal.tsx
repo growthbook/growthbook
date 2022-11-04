@@ -142,7 +142,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         return;
       }
 
-      let success = false;
       const warningsArr = [];
 
       // if the user didn't check the box for use name columns, but included
@@ -192,10 +191,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         });
       }
 
-      if (res.duration && res.results.length > 0) {
-        success = true;
-      }
-
       if (res.duration && res.results.length === 0) {
         warningsArr.push({
           type: "noRowsReturned",
@@ -204,7 +199,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       }
 
       setTestQueryResults({
-        success: success && `The query ran successfully in ${res.duration} ms.`,
+        success:
+          res.duration &&
+          res.results.length > 0 &&
+          `The query ran successfully in ${res.duration} ms.`,
         warnings: warningsArr,
       });
     } catch (e) {
