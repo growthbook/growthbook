@@ -19,7 +19,7 @@ export interface Props {
 
 export function filterByTags<T extends ItemWithTags>(
   items: T[],
-  { tags }: TagsFilter
+  tags: string[]
 ): T[] {
   if (!tags.length) return items;
 

@@ -25,9 +25,11 @@ const IdeasPage = (): React.ReactElement => {
 
   const { getUserDisplay, permissions } = useUser();
 
-  const { list: displayedIdeas, searchInputProps } = useSearch({
+  const { items: displayedIdeas, searchInputProps } = useSearch({
     items: data?.ideas || [],
-    fields: ["id", "text", "details", "tags", "status"],
+    searchFields: ["id", "text", "details", "tags"],
+    localStorageKey: "ideas",
+    defaultSortField: "id",
   });
 
   if (error) {

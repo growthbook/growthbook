@@ -8,7 +8,7 @@ import TagsModal from "../../components/Tags/TagsModal";
 import Tag from "../../components/Tags/Tag";
 import { GBAddCircle } from "../../components/Icons";
 import { TagInterface } from "back-end/types/tag";
-import { useSearch, useSort } from "../../services/search";
+import { useSearch } from "../../services/search";
 import Field from "../../components/Forms/Field";
 import usePermissions from "../../hooks/usePermissions";
 
@@ -18,14 +18,11 @@ const TagsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
     null
   );
-  const { list, searchInputProps, isFiltered } = useSearch({
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: tags || [],
-    fields: ["id", "description"],
-  });
-  const { sorted, SortableTH } = useSort({
-    defaultField: "id",
-    fieldName: "tags",
-    items: list,
+    localStorageKey: "tags",
+    defaultSortField: "id",
+    searchFields: ["id", "description"],
   });
 
   const permissions = usePermissions();
@@ -75,7 +72,7 @@ const TagsPage: FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sorted?.map((t, i) => {
+              {items?.map((t, i) => {
                 return (
                   <tr key={i}>
                     <td
@@ -116,7 +113,7 @@ const TagsPage: FC = () => {
                   </tr>
                 );
               })}
-              {!sorted.length && isFiltered && (
+              {!items.length && isFiltered && (
                 <tr>
                   <td colSpan={4} align={"center"}>
                     No matching tags found.

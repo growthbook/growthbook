@@ -60,9 +60,12 @@ const ReportsPage = (): React.ReactElement => {
     );
   }, [data?.reports]);
 
-  const { list: filteredReports, searchInputProps, isFiltered } = useSearch({
+  const { items: filteredReports, searchInputProps, isFiltered } = useSearch({
     items: reports,
-    fields: [
+    localStorageKey: "reports",
+    defaultSortField: "dateUpdated",
+    defaultSortDir: -1,
+    searchFields: [
       "title",
       "description",
       "experimentName",

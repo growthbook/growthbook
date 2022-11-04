@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus, FaRegCopy } from "react-icons/fa";
@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
-import { useAddComputedFields, useSearch, useSort } from "../services/search";
+import { useAddComputedFields, useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
@@ -50,31 +50,31 @@ const MetricsPage = (): React.ReactElement => {
     ownerName: getUserDisplay(m.owner),
   }));
 
-  const { list, searchInputProps, isFiltered } = useSearch({
+  // Searching
+  const filterResults = useCallback(
+    (items: typeof metrics) => {
+      if (!showArchived) {
+        items = items.filter((m) => m.status !== "archived");
+      }
+      items = filterByTags(items, tagsFilter.tags);
+      return items;
+    },
+    [showArchived, tagsFilter.tags]
+  );
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: metrics,
-    fields: [
+    defaultSortField: "name",
+    localStorageKey: "metrics",
+    searchFields: [
       { name: "name", weight: 3 },
       "datasourceName",
       "ownerName",
       "tags",
       "type",
     ],
-    filterResults: (items: typeof metrics) => {
-      if (!showArchived) {
-        items = items.filter((m) => m.status !== "archived");
-      }
-      items = filterByTags(items, tagsFilter);
-      return items;
-    },
-    dependencies: [showArchived, tagsFilter],
+    filterResults,
   });
-  const hasArchivedMetrics = list.find((m) => m.status === "archived");
-  const { sorted, SortableTH } = useSort({
-    defaultField: "name",
-    fieldName: "metrics",
-    items: list,
-    isFiltered,
-  });
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -158,6 +158,8 @@ const MetricsPage = (): React.ReactElement => {
     );
   }
 
+  const hasArchivedMetrics = metrics.find((m) => m.status === "archived");
+
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (
@@ -226,7 +228,7 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         )}
         <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={sorted} />
+          <TagsFilter filter={tagsFilter} items={items} />
         </div>
       </div>
       <table className="table appbox gbtable table-hover">
@@ -255,7 +257,7 @@ const MetricsPage = (): React.ReactElement => {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((metric) => (
+          {items.map((metric) => (
             <tr
               key={metric.id}
               onClick={(e) => {
@@ -321,7 +323,7 @@ const MetricsPage = (): React.ReactElement => {
             </tr>
           ))}
 
-          {!sorted.length && (isFiltered || tagsFilter.tags.length > 0) && (
+          {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>
               <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
                 No matching metrics

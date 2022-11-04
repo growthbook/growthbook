@@ -25,38 +25,52 @@ export function useAddComputedFields<T, ExtraFields>(
   }, [items, ...dependencies]);
 }
 
-export interface SearchPropsNoDeps<T> {
+export type SearchFields<T> = (
+  | keyof T
+  | {
+      name: keyof T;
+      weight: number;
+    }
+)[];
+
+export interface SearchProps<T> {
   items: T[];
-  fields: Fuse.FuseOptionKey<T>[];
-}
-// If using filters or transforms, require dependencies to be specified
-export interface SearchPropsFilter<T> extends SearchPropsNoDeps<T> {
-  filterResults: (items: T[], originalQuery: string) => T[];
-  dependencies: unknown[];
-}
-export interface SearchPropsTransform<T> extends SearchPropsFilter<T> {
-  transformQuery: (q: string) => string;
+  searchFields: SearchFields<T>;
+  localStorageKey: string;
+  defaultSortField: keyof T;
+  defaultSortDir?: number;
+  transformQuery?: (q: string) => string;
+  filterResults?: (items: T[], originalQuery: string) => T[];
 }
 export interface SearchReturn<T> {
-  list: T[];
+  items: T[];
   isFiltered: boolean;
   clear: () => void;
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   };
+  SortableTH: FC<{
+    field: keyof T;
+    className?: string;
+    children: ReactNode;
+  }>;
 }
 
-export function useSearch<T>(props: SearchPropsNoDeps<T>): SearchReturn<T>;
-export function useSearch<T>(props: SearchPropsFilter<T>): SearchReturn<T>;
-export function useSearch<T>(props: SearchPropsTransform<T>): SearchReturn<T>;
 export function useSearch<T>({
   items,
-  fields,
+  searchFields,
   transformQuery,
   filterResults,
-  dependencies = [],
-}: Partial<SearchPropsTransform<T>>): SearchReturn<T> {
+  localStorageKey,
+  defaultSortField,
+  defaultSortDir,
+}: SearchProps<T>): SearchReturn<T> {
+  const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
+    field: defaultSortField,
+    dir: defaultSortDir,
+  });
+
   const router = useRouter();
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
@@ -71,131 +85,40 @@ export function useSearch<T>({
       includeScore: true,
       useExtendedSearch: true,
       findAllMatches: true,
-      keys: fields,
+      keys: searchFields as Fuse.FuseOptionKey<T>[],
     });
-  }, [items, JSON.stringify(fields)]);
+  }, [items, JSON.stringify(searchFields)]);
 
-  const list = useMemo(() => {
+  const filtered = useMemo(() => {
     const searchTerm = transformQuery ? transformQuery(value) : value;
 
-    let list = items;
+    let filtered = items;
     if (searchTerm.length > 0) {
-      list = fuse.search(searchTerm).map((item) => item.item);
+      filtered = fuse.search(searchTerm).map((item) => item.item);
     }
     if (filterResults) {
-      list = filterResults(list, value);
+      filtered = filterResults(filtered, value);
     }
-    return list;
-  }, [value, fuse, ...dependencies]);
+    return filtered;
+  }, [value, fuse, filterResults, transformQuery]);
 
   const isFiltered = value.length > 0;
 
-  const clear = useCallback(() => {
-    setValue("");
-  }, []);
-
-  const onChange = useCallback((e: ChangeEvent<HTMLInputElement>): void => {
-    setValue(e.target.value);
-  }, []);
-
-  return {
-    list,
-    isFiltered,
-    clear,
-    searchInputProps: {
-      value,
-      onChange,
-    },
-  };
-}
-
-export type EnvironmentFilter = Map<string, boolean>;
-
-export function parseEnvFilterFromSearchTerm(value: string) {
-  const regex = /(^|\s)(on|off):([^\s]*)(\s|$)/gi;
-
-  const searchTerm = value.replace(regex, " ").trim();
-  const environmentFilter: EnvironmentFilter = new Map();
-
-  const matches = value.matchAll(regex);
-  for (const match of matches) {
-    const enabled = match[2].toLowerCase() === "on";
-    match[3]?.split(",").forEach((env) => {
-      environmentFilter.set(env, enabled);
-    });
-  }
-
-  return {
-    searchTerm,
-    environmentFilter,
-  };
-}
-
-export function filterFeaturesByEnvironment(
-  list: FeatureInterface[],
-  value: string,
-  environments: string[]
-) {
-  const { environmentFilter } = parseEnvFilterFromSearchTerm(value);
-  if (environmentFilter.has("all")) {
-    environments.forEach((env) => {
-      environmentFilter.set(env, environmentFilter.get("all"));
-    });
-  }
-
-  if (!environmentFilter.size) return list;
-
-  return list.filter((f) => {
-    for (const env of environments) {
-      if (environmentFilter.has(env)) {
-        const enabled = !!f.environmentSettings?.[env]?.enabled;
-        if (enabled !== environmentFilter.get(env)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  });
-}
-
-export function useSort<T>({
-  items,
-  defaultField,
-  defaultDir = 1,
-  fieldName,
-  compFunctions,
-  isFiltered = false,
-}: {
-  items: T[];
-  defaultField: string;
-  defaultDir?: number;
-  fieldName: string;
-  compFunctions?: Record<string, (a: T, b: T) => number>;
-  isFiltered?: boolean;
-}) {
-  const [sort, setSort] = useLocalStorage(`${fieldName}:sort-dir`, {
-    field: defaultField,
-    dir: defaultDir,
-  });
-
   const sorted = useMemo(() => {
-    if (isFiltered) return items;
+    if (isFiltered) return filtered;
 
-    const sorted = [...items];
+    const sorted = [...filtered];
 
     sorted.sort((a, b) => {
-      if (compFunctions && sort.field in compFunctions) {
-        return compFunctions[sort.field](a, b) * sort.dir;
-      }
-
       const comp1 = a[sort.field];
       const comp2 = b[sort.field];
-      if (typeof comp1 === "string") {
+      if (typeof comp1 === "string" && typeof comp2 === "string") {
         return comp1.localeCompare(comp2) * sort.dir;
       }
-      if (Array.isArray(comp1)) {
-        // sorting an array is a bit odd - we'll just sort length of the array, then by the first element alphabetically
-        // this is typically for tags.
+      if (Array.isArray(comp1) && Array.isArray(comp2)) {
+        // Sorting an array is a bit odd
+        // We'll just sort length of the array, then by the first element alphabetically
+        // This is typically for tags
         if (comp1.length !== comp2.length) {
           return (comp2.length - comp1.length) * sort.dir;
         }
@@ -206,14 +129,17 @@ export function useSort<T>({
         }
         return (temp1 - temp2) * sort.dir;
       }
-      return (comp1 - comp2) * sort.dir;
+      if (typeof comp1 === "number" && typeof comp2 === "number") {
+        return (comp1 - comp2) * sort.dir;
+      }
+      return 0;
     });
     return sorted;
-  }, [sort, items, isFiltered]);
+  }, [sort.field, sort.dir, filtered, isFiltered]);
 
   const SortableTH = useMemo(() => {
     const th: FC<{
-      field: string;
+      field: keyof T;
       className?: string;
       children: ReactNode;
     }> = ({ children, field, className = "" }) => {
@@ -224,7 +150,10 @@ export function useSort<T>({
             className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
-              setSort({ field, dir: sort.field === field ? sort.dir * -1 : 1 });
+              setSort({
+                field,
+                dir: sort.field === field ? sort.dir * -1 : 1,
+              });
             }}
           >
             {children}{" "}
@@ -249,8 +178,63 @@ export function useSort<T>({
     return th;
   }, [sort.dir, sort.field, isFiltered]);
 
+  const clear = useCallback(() => {
+    setValue("");
+  }, []);
+
+  const onChange = useCallback((e: ChangeEvent<HTMLInputElement>): void => {
+    setValue(e.target.value);
+  }, []);
+
   return {
-    sorted,
+    items: sorted,
+    isFiltered,
+    clear,
+    searchInputProps: {
+      value,
+      onChange,
+    },
     SortableTH,
   };
+}
+
+// Helpers for searching features by environment
+const envRegex = /(^|\s)(on|off):([^\s]*)(\s|$)/gi;
+export function removeEnvFromSearchTerm(searchTerm: string) {
+  return searchTerm.replace(envRegex, " ").trim();
+}
+export function filterFeaturesByEnvironment(
+  filtered: FeatureInterface[],
+  searchTerm: string,
+  environments: string[]
+) {
+  // Determine which environments (if any) are being filtered by the search term
+  const environmentFilter: Map<string, boolean> = new Map();
+  const matches = searchTerm.matchAll(envRegex);
+  for (const match of matches) {
+    const enabled = match[2].toLowerCase() === "on";
+    match[3]?.split(",").forEach((env) => {
+      environmentFilter.set(env, enabled);
+    });
+  }
+  if (environmentFilter.has("all")) {
+    environments.forEach((env) => {
+      environmentFilter.set(env, environmentFilter.get("all"));
+    });
+  }
+
+  // No filtering required
+  if (!environmentFilter.size) return filtered;
+
+  return filtered.filter((f) => {
+    for (const env of environments) {
+      if (environmentFilter.has(env)) {
+        const enabled = !!f.environmentSettings?.[env]?.enabled;
+        if (enabled !== environmentFilter.get(env)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
 }

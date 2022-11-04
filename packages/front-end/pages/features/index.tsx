@@ -1,7 +1,7 @@
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
@@ -11,9 +11,8 @@ import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import {
   filterFeaturesByEnvironment,
-  parseEnvFilterFromSearchTerm,
+  removeEnvFromSearchTerm,
   useSearch,
-  useSort,
 } from "../../services/search";
 import Field from "../../components/Forms/Field";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
@@ -38,6 +37,7 @@ import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { FeatureInterface } from "back-end/types/feature";
 
 const NUM_PER_PAGE = 20;
 
@@ -65,42 +65,39 @@ export default function FeaturesPage() {
 
   // Searching
   const tagsFilter = useTagsFilter("features");
-  const { searchInputProps, isFiltered, list } = useSearch({
-    items: features,
-    fields: [
-      { name: "id", weight: 3 },
-      "description",
-      { name: "tags", weight: 2 },
-      "defaultValue",
-    ],
-    transformQuery: (q: string) => parseEnvFilterFromSearchTerm(q).searchTerm,
-    filterResults: (items: typeof features, value: string) => {
+  const filterResults = useCallback(
+    (items: FeatureInterface[], originalQuery: string) => {
       if (!showArchived) {
         items = items.filter((f) => !f.archived);
       }
       items = filterFeaturesByEnvironment(
         items,
-        value,
+        originalQuery,
         environments.map((e) => e.id)
       );
-      items = filterByTags(items, tagsFilter);
+      items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    dependencies: [showArchived, tagsFilter.tags],
-  });
-
-  // Sorting
-  const { sorted, SortableTH } = useSort({
-    defaultField: "id",
-    fieldName: "features",
-    items: list,
-    isFiltered,
+    [showArchived, tagsFilter.tags, environments]
+  );
+  const { searchInputProps, items, SortableTH } = useSearch({
+    items: features,
+    defaultSortField: "id",
+    searchFields: [
+      { name: "id", weight: 3 },
+      "description",
+      { name: "tags", weight: 2 },
+      "defaultValue",
+    ],
+    transformQuery: removeEnvFromSearchTerm,
+    filterResults,
+    localStorageKey: "features",
   });
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
     setCurrentPage(1);
-  }, [sorted.length]);
+  }, [items.length]);
 
   if (error) {
     return (
@@ -213,7 +210,7 @@ export default function FeaturesPage() {
               <Field placeholder="Search..." {...searchInputProps} />
             </div>
             <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={sorted} />
+              <TagsFilter filter={tagsFilter} items={items} />
             </div>
             {showArchivedToggle && (
               <div className="col">
@@ -250,7 +247,7 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.slice(start, end).map((feature) => {
+              {items.slice(start, end).map((feature) => {
                 let rules = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
@@ -343,16 +340,16 @@ export default function FeaturesPage() {
                   </tr>
                 );
               })}
-              {!sorted.length && (
+              {!items.length && (
                 <tr>
                   <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
                 </tr>
               )}
             </tbody>
           </table>
-          {Math.ceil(sorted.length / NUM_PER_PAGE) > 1 && (
+          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
             <Pagination
-              numItemsTotal={sorted.length}
+              numItemsTotal={items.length}
               currentPage={currentPage}
               perPage={NUM_PER_PAGE}
               onPageChange={(d) => {

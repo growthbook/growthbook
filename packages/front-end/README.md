@@ -186,9 +186,9 @@ There is also a `render` prop for completely custom inputs.
 
 ## Searching and Sorting
 
-On our "list" pages, we typically render a table and provide searching and sorting functionality.
+Whenever we show a list of items, we typically render a table and provide searching and sorting functionality.
 
-The `useSearch` and `useSort` hooks make this process much simpler and remove a lot of boilerplate code.
+The `useSearch` hook makes this process much simpler and removes a lot of boilerplate code.
 
 ### Basic Usage
 
@@ -196,18 +196,12 @@ The `useSearch` and `useSort` hooks make this process much simpler and remove a 
 // List of items from the API
 const features: FeatureInterface[];
 
-// Filter by search term
-const { list, searchInputProps, isFiltered } = useSearch({
+// Filter by search term and sort results
+const { items, searchInputProps, SortableTH } = useSearch({
   items: features,
-  fields: ["id", "description"],
-});
-
-// Sort the list
-const { sorted, SortableTH } = useSort({
-  defaultField: "id",
-  fieldName: "features", // Unique name for persisting in localStorage
-  items: list,
-  isFiltered,
+  localStorageKey: "features",
+  searchFields: ["id", "description"],
+  defaultSortField: "id",
 });
 
 // Render the UI
@@ -225,7 +219,7 @@ return (
         <th>Non-sortable Column</th>
       </thead>
       <tbody>
-        {sorted.map((item) => (
+        {items.map((item) => (
           <tr key={item.id}>
             <td>{item.id}</td>
             <td>{item.description}</td>
@@ -245,37 +239,42 @@ Sometimes you need to filter results by more than just the search term. For exam
 ```ts
 const [showArchived, setShowArchived] = useState(false);
 
-const { list, searchInputProps, isFiltered } = useSearch({
+// Make sure to use `useCallback` to avoid costly re-renders
+const filterResults = useCallback((features: FeatureInterface[]) => {
+  return features.filter((feature) => showArchived || !feature.archived);
+}, [showArchived])
+
+useSearch({
   items: features,
-  fields: ["id", "description"],
-  filterResults: (features: FeatureInterface[]) => {
-    return features.filter((feature) => showArchived || !feature.archived);
-  },
-  dependencies: [showArchived],
+  localStorageKey: "features",
+  searchFields: ["id", "description"],
+  defaultSortField: "id"
+  filterResults,
 });
 ```
-
-Note: **dependencies** are passed into a `useCallback` hook, so make sure they contain everything needed for the `filterResults` function.
 
 ### Field weighting
 
 Not all fields in an object are created equal. You can specify weighting to make some fields more important than others when searching.
 
 ```ts
-const { list, searchInputProps, isFiltered } = useSearch({
+useSearch({
   items: features,
-  fields: [
+  localStorageKey: "features",
+  searchFields: [
     // Increase the weight of this field to 2
     { name: "id", weight: 2 },
     // Default weight is 1
     "description",
   ],
+  defaultSortField: "id"
+  filterResults,
 });
 ```
 
 ### Add computed properties
 
-Sometimes you need to add additional properties to items before you can effectively search and sort them. For example, if your items have a `metricId` field, that's not very useful for searching since they are stored as opaque strings (e.g. `met_abc123`).
+Sometimes you need to add additional properties to items before you can effectively search and sort them. For example, if your items have a `metricId` field, that's not very useful since they are stored as opaque strings (e.g. `met_abc123`) instead of recognizable names.
 
 There's a hook `useAddComputedFields` to help with this:
 
@@ -283,41 +282,54 @@ There's a hook `useAddComputedFields` to help with this:
 const { getMetricById } = useDefinitions();
 
 // Add a `metricName` property to each item
-const withMetricNames = useAddComputedFields(items, (item) => ({
+const withMetricNames = useAddComputedFields(myItems, (item) => ({
   metricName: getMetricById(item.metricId)?.name || "",
 }));
 
-// Use the computed field in your search
-const { list, searchInputProps, isFiltered } = useSearch({
+const { items, SortableTH } = useSearch({
   items: withMetricNames,
-  fields: ["id", "metricName"],
+  localStorageKey: "my-page",
+  // Reference the computed fields in searchFields
+  searchFields: ["id", "metricName"],
+  defaultSortField: "id",
 });
 
-// ...
-
-// Use the computed field in your `SortableTH`
-return <SortableTH field="metricName">Metric</SortableTH>;
+return (
+  <table className="table">
+    <thead>
+      <SortableTH field="id">Id</SortableTH>
+      {/* Reference computed fields in SortableTH */}
+      <SortableTH field="metricName">Metric</SortableTH>
+    </thead>
+    <tbody>
+      {items.map((item) => (
+        <tr key={item.id}>
+          <td>{item.id}</td>
+          {/* Computed fields are available here too! */}
+          <td>{item.metricName}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
 ```
 
 ### Handling empty states
 
-If the user searches for something and there are no results, it's helpful to provide an easy way to clear their search term.
+If the user searches for something and there are no results, it's helpful to provide an easy way to clear their search term. The hook returns a boolean `isFiltered` flag and a `clear` function to help with this.
 
 ```tsx
-// 'clear' is a function you can call to reset the search term
-const { list, searchInputProps, isFiltered, clear } = useSearch({
+const { items, isFiltered, clear } = useSearch({
   items: features,
   fields: ["id", "description"],
 });
-
-// ...
 
 return (
   <table>
     <thead>...</thead>
     <tbody>
-      {list.length > 0 ? (
-        list.map((item) => <tr>...</tr>)
+      {items.length > 0 ? (
+        items.map((item) => <tr>...</tr>)
       ) : (
         <tr>
           <td colSpan={4}>
@@ -352,19 +364,24 @@ Here's a simplified example:
 ```ts
 const regex = /(\s|^)on:([^s]*)/g;
 
-const {list, searchInputProps, isFiltered} = useSearch({
-  items: features,
-  fields: ["id", "description"],
-  transformQuery: (q: string) => q.replace(regex, ''),
-  filterResults: (results: FeatureInterface[], originalQuery: string) {
-    // Get the filtered environment (if any) and filter results by it
+// Remove the "on:..." part from the search term
+const transformQuery = useCallback((q: string) => q.replace(regex, ''), []);
+
+// Get the filtered environment from the original search term and apply it if found
+const filterResults = useCallback((results: FeatureInterface[], originalQuery: string) => {
     const env = originalQuery.match(regex)?.[2];
     if (env) {
       results = results.filter(feature => isEnvEnabled(feature, env))
     }
-
     return results;
-  },
-  dependencies: []
+}, [])
+
+useSearch({
+  items: features,
+  localStorageKey: "features",
+  searchFields: ["id", "description"],
+  defaultSortField: "id"
+  transformQuery,
+  filterResults
 });
 ```

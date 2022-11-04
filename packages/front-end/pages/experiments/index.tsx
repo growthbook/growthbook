@@ -45,9 +45,11 @@ const ExperimentsPage = (): React.ReactElement => {
     metricNames: exp.metrics.map((m) => getMetricById(m)?.name).filter(Boolean),
   }));
 
-  const { list, searchInputProps, isFiltered } = useSearch({
+  const { items, searchInputProps, isFiltered } = useSearch({
     items: experiments,
-    fields: [
+    localStorageKey: "experiments",
+    defaultSortField: "id",
+    searchFields: [
       { name: "name", weight: 3 },
       { name: "trackingKey", weight: 3 },
       { name: "id", weight: 3 },
@@ -63,7 +65,7 @@ const ExperimentsPage = (): React.ReactElement => {
   });
 
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && list.some((e) => e.project);
+  const showProjectColumn = !project && items.some((e) => e.project);
 
   if (error) {
     return (
@@ -108,14 +110,14 @@ const ExperimentsPage = (): React.ReactElement => {
     myDrafts: [],
   };
 
-  list.forEach((test) => {
+  items.forEach((test) => {
     if (test.archived) {
       byStatus.archived.push(test);
     } else {
       byStatus[test.status].push(test);
     }
   });
-  list.forEach((test) => {
+  items.forEach((test) => {
     if (!test.archived && test.status === "draft" && test.owner === userId) {
       byStatus.myDrafts.push(test);
     }
