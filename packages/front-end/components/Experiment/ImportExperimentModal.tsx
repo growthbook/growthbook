@@ -72,7 +72,7 @@ const ImportExperimentModal: FC<{
     <Modal
       header="Add Experiment"
       open={true}
-      size="lg"
+      size="max"
       close={() => onClose()}
     >
       <div className="alert alert-info">

@@ -123,6 +123,29 @@ const ExperimentsPage = (): React.ReactElement => {
     }
   });
 
+  if (!isFiltered) {
+    byStatus.running.sort(
+      (a, b) =>
+        getValidDate(b.phases[b.phases.length - 1]?.dateStarted).getTime() -
+        getValidDate(a.phases[a.phases.length - 1]?.dateStarted).getTime()
+    );
+    byStatus.myDrafts.sort(
+      (a, b) =>
+        getValidDate(b.dateCreated).getTime() -
+        getValidDate(a.dateCreated).getTime()
+    );
+    byStatus.draft.sort(
+      (a, b) =>
+        getValidDate(b.dateCreated).getTime() -
+        getValidDate(a.dateCreated).getTime()
+    );
+    byStatus.stopped.sort(
+      (a, b) =>
+        getValidDate(b.phases[b.phases.length - 1]?.dateEnded).getTime() -
+        getValidDate(a.phases[a.phases.length - 1]?.dateEnded).getTime()
+    );
+  }
+
   const canAdd = permissions.check("createAnalyses", project);
 
   return (
@@ -197,15 +220,6 @@ const ExperimentsPage = (): React.ReactElement => {
                     </thead>
                     <tbody>
                       {byStatus.running
-                        .sort(
-                          (a, b) =>
-                            getValidDate(
-                              b.phases[b.phases.length - 1]?.dateStarted
-                            ).getTime() -
-                            getValidDate(
-                              a.phases[a.phases.length - 1]?.dateStarted
-                            ).getTime()
-                        )
                         .filter((e, i) => {
                           if (
                             i >=
@@ -337,64 +351,53 @@ const ExperimentsPage = (): React.ReactElement => {
                           </tr>
                         </thead>
                         <tbody>
-                          {byStatus.myDrafts
-                            .sort(
-                              (a, b) =>
-                                getValidDate(b.dateCreated).getTime() -
-                                getValidDate(a.dateCreated).getTime()
-                            )
-                            .map((e) => {
-                              return (
-                                <tr key={e.id} className="hover-highlight">
-                                  <td
-                                    onClick={() => {
-                                      router.push(`/experiment/${e.id}`);
-                                    }}
-                                    className="cursor-pointer"
-                                    data-title="Experiment name:"
-                                  >
-                                    <div className="d-flex flex-column">
-                                      <div>
-                                        <span className="testname">
-                                          {e.name}
-                                        </span>
-                                        {e.implementation === "visual" && (
-                                          <small className="text-muted ml-2">
-                                            (visual)
-                                          </small>
-                                        )}
-                                      </div>
-                                      {isFiltered && e.trackingKey && (
-                                        <span
-                                          className="testid text-muted small"
-                                          title="Experiment Id"
-                                        >
-                                          {e.trackingKey}
-                                        </span>
+                          {byStatus.myDrafts.map((e) => {
+                            return (
+                              <tr key={e.id} className="hover-highlight">
+                                <td
+                                  onClick={() => {
+                                    router.push(`/experiment/${e.id}`);
+                                  }}
+                                  className="cursor-pointer"
+                                  data-title="Experiment name:"
+                                >
+                                  <div className="d-flex flex-column">
+                                    <div>
+                                      <span className="testname">{e.name}</span>
+                                      {e.implementation === "visual" && (
+                                        <small className="text-muted ml-2">
+                                          (visual)
+                                        </small>
                                       )}
                                     </div>
+                                    {isFiltered && e.trackingKey && (
+                                      <span
+                                        className="testid text-muted small"
+                                        title="Experiment Id"
+                                      >
+                                        {e.trackingKey}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                {showProjectColumn && (
+                                  <td className="nowrap" data-title="Project:">
+                                    {getProjectById(e.project)?.name || ""}
                                   </td>
-                                  {showProjectColumn && (
-                                    <td
-                                      className="nowrap"
-                                      data-title="Project:"
-                                    >
-                                      {getProjectById(e.project)?.name || ""}
-                                    </td>
-                                  )}
-                                  <td className="nowrap" data-title="Tags:">
-                                    <SortedTags tags={Object.values(e.tags)} />
-                                  </td>
-                                  <td
-                                    className="nowrap"
-                                    title={datetime(e.dateCreated)}
-                                    data-title="Created:"
-                                  >
-                                    {ago(e.dateCreated)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
+                                )}
+                                <td className="nowrap" data-title="Tags:">
+                                  <SortedTags tags={Object.values(e.tags)} />
+                                </td>
+                                <td
+                                  className="nowrap"
+                                  title={datetime(e.dateCreated)}
+                                  data-title="Created:"
+                                >
+                                  {ago(e.dateCreated)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </>
@@ -431,11 +434,6 @@ const ExperimentsPage = (): React.ReactElement => {
                         </thead>
                         <tbody>
                           {byStatus.draft
-                            .sort(
-                              (a, b) =>
-                                getValidDate(b.dateCreated).getTime() -
-                                getValidDate(a.dateCreated).getTime()
-                            )
                             .filter((e, i) => {
                               if (
                                 i >=
@@ -558,15 +556,6 @@ const ExperimentsPage = (): React.ReactElement => {
                     </thead>
                     <tbody>
                       {byStatus.stopped
-                        .sort(
-                          (a, b) =>
-                            getValidDate(
-                              b.phases[b.phases.length - 1]?.dateEnded
-                            ).getTime() -
-                            getValidDate(
-                              a.phases[a.phases.length - 1]?.dateEnded
-                            ).getTime()
-                        )
                         .filter((e, i) => {
                           if (
                             i >=

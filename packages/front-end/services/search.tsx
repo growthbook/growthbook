@@ -80,7 +80,6 @@ export function useSearch<T>({
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
   const fuse = useMemo(() => {
-    console.log("Creating Fuse instance");
     return new Fuse(items, {
       includeScore: true,
       useExtendedSearch: true,
@@ -199,7 +198,7 @@ export function useSearch<T>({
 }
 
 // Helpers for searching features by environment
-const envRegex = /(^|\s)(on|off):([^\s]*)(\s|$)/gi;
+const envRegex = /(^|\s)(on|off):([^\s]*)/gi;
 export function removeEnvFromSearchTerm(searchTerm: string) {
   return searchTerm.replace(envRegex, " ").trim();
 }

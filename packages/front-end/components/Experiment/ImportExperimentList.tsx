@@ -339,9 +339,7 @@ const ImportExperimentList: FC<{
                 <SortableTH field="experimentName">Experiment</SortableTH>
                 <SortableTH field="startDate">Date Started</SortableTH>
                 <SortableTH field="endDate">Date Ended</SortableTH>
-                <SortableTH field="numVariations">
-                  Number of Variations
-                </SortableTH>
+                <SortableTH field="numVariations">Variations</SortableTH>
                 <SortableTH field="users">Total Users</SortableTH>
                 <th>Traffic Split</th>
                 <th></th>
