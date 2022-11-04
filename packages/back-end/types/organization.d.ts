@@ -57,6 +57,7 @@ export interface Invite extends MemberRoleWithProjects {
 
 export interface Member extends MemberRoleWithProjects {
   id: string;
+  dateCreated?: Date;
 }
 
 export interface ExpandedMember extends Member {
