@@ -12,17 +12,32 @@ import { useRouter } from "next/router";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import Fuse from "fuse.js";
 
-export function useSearch<T>({
-  items,
-  fields,
-  transformQuery,
-  filterResults,
-}: {
+export function useAddComputedFields<T, ExtraFields>(
+  items: T[] | undefined,
+  add: (item: T) => ExtraFields,
+  dependencies: unknown[] = []
+): (T & ExtraFields)[] {
+  return useMemo(() => {
+    return (items || []).map((item) => ({
+      ...item,
+      ...add(item),
+    }));
+  }, [items, ...dependencies]);
+}
+
+export interface SearchPropsNoDeps<T> {
   items: T[];
-  fields?: Fuse.FuseOptionKey<T>[];
-  transformQuery?: (q: string) => string;
-  filterResults?: (items: T[], originalQuery: string) => T[];
-}): {
+  fields: Fuse.FuseOptionKey<T>[];
+}
+// If using filters or transforms, require dependencies to be specified
+export interface SearchPropsFilter<T> extends SearchPropsNoDeps<T> {
+  filterResults: (items: T[], originalQuery: string) => T[];
+  dependencies: unknown[];
+}
+export interface SearchPropsTransform<T> extends SearchPropsFilter<T> {
+  transformQuery: (q: string) => string;
+}
+export interface SearchReturn<T> {
   list: T[];
   isFiltered: boolean;
   clear: () => void;
@@ -30,20 +45,35 @@ export function useSearch<T>({
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   };
-} {
+}
+
+export function useSearch<T>(props: SearchPropsNoDeps<T>): SearchReturn<T>;
+export function useSearch<T>(props: SearchPropsFilter<T>): SearchReturn<T>;
+export function useSearch<T>(props: SearchPropsTransform<T>): SearchReturn<T>;
+export function useSearch<T>({
+  items,
+  fields,
+  transformQuery,
+  filterResults,
+  dependencies = [],
+}: Partial<SearchPropsTransform<T>>): SearchReturn<T> {
   const router = useRouter();
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
 
+  // We only want to re-create the Fuse instance if the fields actually changed
+  // It's really easy to forget to add `useMemo` around the fields declaration
+  // So, we turn it into a string here to use in the dependency array
   const fuse = useMemo(() => {
+    console.log("Creating Fuse instance");
     return new Fuse(items, {
       includeScore: true,
       useExtendedSearch: true,
       findAllMatches: true,
       keys: fields,
     });
-  }, [items, fields]);
+  }, [items, JSON.stringify(fields)]);
 
   const list = useMemo(() => {
     const searchTerm = transformQuery ? transformQuery(value) : value;
@@ -56,7 +86,7 @@ export function useSearch<T>({
       list = filterResults(list, value);
     }
     return list;
-  }, [value, fuse, transformQuery, filterResults]);
+  }, [value, fuse, ...dependencies]);
 
   const isFiltered = value.length > 0;
 
@@ -79,24 +109,21 @@ export function useSearch<T>({
   };
 }
 
+export type EnvironmentFilter = Map<string, boolean>;
+
 export function parseEnvFilterFromSearchTerm(value: string) {
-  const searchTermArr: string[] = [];
-  const environmentFilter: Record<string, boolean> = {};
-  const parts = value.split(" ");
-  if (parts.length) {
-    parts.map((s) => {
-      if (s.toLowerCase().startsWith("on:")) {
-        const env = s.replace(/on:/gi, "");
-        environmentFilter[env] = true;
-      } else if (s.toLowerCase().startsWith("off:")) {
-        const env = s.replace(/off:/gi, "");
-        environmentFilter[env] = false;
-      } else {
-        searchTermArr.push(s);
-      }
+  const regex = /(^|\s)(on|off):([^\s]*)(\s|$)/gi;
+
+  const searchTerm = value.replace(regex, " ").trim();
+  const environmentFilter: EnvironmentFilter = new Map();
+
+  const matches = value.matchAll(regex);
+  for (const match of matches) {
+    const enabled = match[2].toLowerCase() === "on";
+    match[3]?.split(",").forEach((env) => {
+      environmentFilter.set(env, enabled);
     });
   }
-  const searchTerm = searchTermArr.join(" ");
 
   return {
     searchTerm,
@@ -106,51 +133,29 @@ export function parseEnvFilterFromSearchTerm(value: string) {
 
 export function filterFeaturesByEnvironment(
   list: FeatureInterface[],
-  value: string
+  value: string,
+  environments: string[]
 ) {
   const { environmentFilter } = parseEnvFilterFromSearchTerm(value);
-
-  if (Object.keys(environmentFilter).length !== 0) {
-    list = list.filter((o) => {
-      // filtering by environment:
-      for (const env in environmentFilter) {
-        // special case for all environments:
-        if (env === "all") {
-          let match = true;
-          Object.keys(o.environmentSettings).map((e) => {
-            if (o.environmentSettings[e].enabled !== environmentFilter[env]) {
-              match = false;
-            }
-          });
-          return match;
-        } else {
-          // if we have a comma for multiple environments...
-          if (env.includes(",")) {
-            // AND these environments:
-            const andEnvs = env.split(",");
-            let match = true;
-            andEnvs.map((e) => {
-              if (
-                !o.environmentSettings[e] ||
-                o.environmentSettings[e].enabled !== environmentFilter[env]
-              ) {
-                match = false;
-              }
-            });
-            return match;
-          } else if (
-            o.environmentSettings[env] &&
-            o.environmentSettings[env].enabled === environmentFilter[env]
-          ) {
-            return true;
-          }
-        }
-      }
-      return false;
+  if (environmentFilter.has("all")) {
+    environments.forEach((env) => {
+      environmentFilter.set(env, environmentFilter.get("all"));
     });
   }
 
-  return list;
+  if (!environmentFilter.size) return list;
+
+  return list.filter((f) => {
+    for (const env of environments) {
+      if (environmentFilter.has(env)) {
+        const enabled = !!f.environmentSettings?.[env]?.enabled;
+        if (enabled !== environmentFilter.get(env)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
 }
 
 export function useSort<T>({
@@ -159,14 +164,14 @@ export function useSort<T>({
   defaultDir = 1,
   fieldName,
   compFunctions,
-  disableSort = false,
+  isFiltered = false,
 }: {
   items: T[];
   defaultField: string;
   defaultDir?: number;
   fieldName: string;
   compFunctions?: Record<string, (a: T, b: T) => number>;
-  disableSort?: boolean;
+  isFiltered?: boolean;
 }) {
   const [sort, setSort] = useLocalStorage(`${fieldName}:sort-dir`, {
     field: defaultField,
@@ -174,7 +179,7 @@ export function useSort<T>({
   });
 
   const sorted = useMemo(() => {
-    if (disableSort) return items;
+    if (isFiltered) return items;
 
     const sorted = [...items];
 
@@ -204,7 +209,7 @@ export function useSort<T>({
       return (comp1 - comp2) * sort.dir;
     });
     return sorted;
-  }, [sort, items, disableSort]);
+  }, [sort, items, isFiltered]);
 
   const SortableTH = useMemo(() => {
     const th: FC<{
@@ -212,7 +217,7 @@ export function useSort<T>({
       className?: string;
       children: ReactNode;
     }> = ({ children, field, className = "" }) => {
-      if (disableSort) return <th className={className}>{children}</th>;
+      if (isFiltered) return <th className={className}>{children}</th>;
       return (
         <th className={className}>
           <span
@@ -242,7 +247,7 @@ export function useSort<T>({
       );
     };
     return th;
-  }, [sort.dir, sort.field, disableSort]);
+  }, [sort.dir, sort.field, isFiltered]);
 
   return {
     sorted,

@@ -7,11 +7,8 @@ import {
 } from "../../services/dates";
 import Link from "next/link";
 //import Button from "../Button";
-import React, { FC, useCallback, useState } from "react";
-import {
-  PastExperiment,
-  PastExperimentsInterface,
-} from "back-end/types/past-experiments";
+import React, { FC, useState } from "react";
+import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { useSearch } from "../../services/search";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -61,8 +58,14 @@ const ImportExperimentList: FC<{
     ""
   );
 
-  const filterResults = useCallback(
-    (items: PastExperiment[]) => {
+  const {
+    list: filteredExperiments,
+    searchInputProps,
+    clear: clearSearch,
+  } = useSearch({
+    items: pastExpArr,
+    fields: ["trackingKey", "experimentName"],
+    filterResults: (items: typeof pastExpArr) => {
       return items.filter((e) => {
         if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
           return false;
@@ -87,23 +90,13 @@ const ImportExperimentList: FC<{
         return true;
       });
     },
-    [
+    dependencies: [
       alreadyImportedFilter,
       data?.existing,
       minLengthFilter,
       minUsersFilter,
       statusFilter,
-    ]
-  );
-
-  const {
-    list: filteredExperiments,
-    searchInputProps,
-    clear: clearSearch,
-  } = useSearch({
-    items: pastExpArr,
-    fields: ["trackingKey"],
-    filterResults,
+    ],
   });
 
   filteredExperiments.sort((a, b) => {

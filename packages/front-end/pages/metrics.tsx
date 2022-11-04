@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus, FaRegCopy } from "react-icons/fa";
@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
-import { useSearch, useSort } from "../services/search";
+import { useAddComputedFields, useSearch, useSort } from "../services/search";
 import Tooltip from "../components/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
@@ -20,6 +20,7 @@ import TagsFilter, {
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
+import { useUser } from "../services/UserContext";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -34,45 +35,45 @@ const MetricsPage = (): React.ReactElement => {
     `/metrics`
   );
 
+  const { getUserDisplay } = useUser();
+
   const permissions = usePermissions();
 
   const tagsFilter = useTagsFilter("metrics");
 
   const [showArchived, setShowArchived] = useState(false);
 
-  const filterResults = useCallback(
-    (items: MetricInterface[]) => {
+  const metrics = useAddComputedFields(data?.metrics, (m) => ({
+    datasourceName: m.datasource
+      ? getDatasourceById(m.datasource)?.name || "Unknown"
+      : "Manual",
+    ownerName: getUserDisplay(m.owner),
+  }));
+
+  const { list, searchInputProps, isFiltered } = useSearch({
+    items: metrics,
+    fields: [
+      { name: "name", weight: 3 },
+      "datasourceName",
+      "ownerName",
+      "tags",
+      "type",
+    ],
+    filterResults: (items: typeof metrics) => {
       if (!showArchived) {
         items = items.filter((m) => m.status !== "archived");
       }
       items = filterByTags(items, tagsFilter);
       return items;
     },
-    [showArchived, tagsFilter]
-  );
-
-  const { list, searchInputProps, isFiltered } = useSearch({
-    items: data?.metrics || [],
-    fields: ["name", "tags", "type"],
-    filterResults,
+    dependencies: [showArchived, tagsFilter],
   });
   const hasArchivedMetrics = list.find((m) => m.status === "archived");
   const { sorted, SortableTH } = useSort({
     defaultField: "name",
     fieldName: "metrics",
     items: list,
-    compFunctions: {
-      datasource: (a, b) => {
-        const da = a.datasource
-          ? getDatasourceById(a.datasource)?.name || "Unknown"
-          : "Manual";
-        const db = b.datasource
-          ? getDatasourceById(b.datasource)?.name || "Unknown"
-          : "Manual";
-        return da.localeCompare(db);
-      },
-    },
-    disableSort: isFiltered,
+    isFiltered,
   });
   if (error) {
     return (
@@ -84,8 +85,6 @@ const MetricsPage = (): React.ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const metrics = data.metrics;
 
   const closeModal = () => {
     setModalData(null);
@@ -237,7 +236,10 @@ const MetricsPage = (): React.ReactElement => {
             <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
             <th>Owner</th>
-            <SortableTH field="datasource" className="d-none d-lg-table-cell">
+            <SortableTH
+              field="datasourceName"
+              className="d-none d-lg-table-cell"
+            >
               Data Source
             </SortableTH>
             {!hasFileConfig() && (
@@ -281,9 +283,7 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               <td>{metric.owner}</td>
               <td className="d-none d-lg-table-cell">
-                {metric.datasource
-                  ? getDatasourceById(metric.datasource)?.name || "Unknown"
-                  : "Manual"}
+                {metric.datasourceName}
               </td>
               {!hasFileConfig() && (
                 <td

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -6,7 +6,7 @@ import { phaseSummary } from "../../services/utils";
 import { datetime, ago, getValidDate } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { useRouter } from "next/router";
-import { useSearch } from "../../services/search";
+import { useAddComputedFields, useSearch } from "../../services/search";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tabs from "../../components/Tabs/Tabs";
@@ -40,29 +40,23 @@ const ExperimentsPage = (): React.ReactElement => {
   });
   const [experimentsPerPage] = useState(20);
 
-  const experiments = useMemo(() => {
-    return (data?.experiments || []).map((exp) => ({
-      ...exp,
-      ownerName: getUserDisplay(exp.owner),
-      metricNames: exp.metrics
-        .map((m) => getMetricById(m)?.name)
-        .filter(Boolean),
-    }));
-  }, [data?.experiments]);
+  const experiments = useAddComputedFields(data?.experiments, (exp) => ({
+    ownerName: getUserDisplay(exp.owner),
+    metricNames: exp.metrics.map((m) => getMetricById(m)?.name).filter(Boolean),
+  }));
 
   const { list, searchInputProps, isFiltered } = useSearch({
     items: experiments,
     fields: [
-      "name",
-      "implementation",
-      "hypothesis",
+      { name: "name", weight: 3 },
+      { name: "trackingKey", weight: 3 },
+      { name: "id", weight: 3 },
+      { name: "hypothesis", weight: 2 },
       "description",
       "tags",
-      "trackingKey",
       "status",
-      "id",
-      "owner",
-      "metrics",
+      "ownerName",
+      "metricNames",
       "results",
       "analysis",
     ],

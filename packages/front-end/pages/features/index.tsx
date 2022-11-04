@@ -1,7 +1,7 @@
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
@@ -38,15 +38,8 @@ import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { FeatureInterface } from "back-end/types/feature";
 
 const NUM_PER_PAGE = 20;
-
-const FEATURE_SEARCH_FIELDS = [
-  { name: "id", weight: 3 },
-  "description",
-  { name: "tags", weight: 2 },
-];
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -72,26 +65,28 @@ export default function FeaturesPage() {
 
   // Searching
   const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: FeatureInterface[], value: string) => {
+  const { searchInputProps, isFiltered, list } = useSearch({
+    items: features,
+    fields: [
+      { name: "id", weight: 3 },
+      "description",
+      { name: "tags", weight: 2 },
+      "defaultValue",
+    ],
+    transformQuery: (q: string) => parseEnvFilterFromSearchTerm(q).searchTerm,
+    filterResults: (items: typeof features, value: string) => {
       if (!showArchived) {
         items = items.filter((f) => !f.archived);
       }
-      items = filterFeaturesByEnvironment(items, value);
+      items = filterFeaturesByEnvironment(
+        items,
+        value,
+        environments.map((e) => e.id)
+      );
       items = filterByTags(items, tagsFilter);
       return items;
     },
-    [showArchived, tagsFilter]
-  );
-  const transformQuery = useCallback(
-    (q: string) => parseEnvFilterFromSearchTerm(q).searchTerm,
-    []
-  );
-  const { searchInputProps, isFiltered, list } = useSearch({
-    items: features,
-    fields: FEATURE_SEARCH_FIELDS,
-    transformQuery,
-    filterResults,
+    dependencies: [showArchived, tagsFilter.tags],
   });
 
   // Sorting
@@ -99,7 +94,7 @@ export default function FeaturesPage() {
     defaultField: "id",
     fieldName: "features",
     items: list,
-    disableSort: isFiltered,
+    isFiltered,
   });
 
   // Reset to page 1 when a filter is applied
