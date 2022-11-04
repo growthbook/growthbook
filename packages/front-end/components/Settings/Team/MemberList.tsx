@@ -11,7 +11,7 @@ import { usingSSO } from "../../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import { useEnvironments } from "../../../services/features";
-import { datetime, getValidDate } from "../../../services/dates";
+import { datetime } from "../../../services/dates";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -46,7 +46,6 @@ const MemberList: FC<{
             environments: roleModalUser.environments || [],
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
-            dateCreated: getValidDate(roleModalUser.dateCreated),
           }}
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
