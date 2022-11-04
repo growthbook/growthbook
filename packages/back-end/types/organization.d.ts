@@ -36,7 +36,6 @@ export type CommercialFeature = "sso" | "advanced-permissions";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
-  dateCreated?: Date;
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
@@ -58,6 +57,7 @@ export interface Invite extends MemberRoleWithProjects {
 
 export interface Member extends MemberRoleWithProjects {
   id: string;
+  dateCreated?: Date;
 }
 
 export interface ExpandedMember extends Member {

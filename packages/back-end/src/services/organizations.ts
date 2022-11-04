@@ -150,7 +150,6 @@ export function getRole(
       role: member.role,
       limitAccessByEnvironment: !!member.limitAccessByEnvironment,
       environments: member.environments || [],
-      dateCreated: member.dateCreated,
     };
   }
 
