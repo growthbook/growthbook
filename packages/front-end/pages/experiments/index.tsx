@@ -40,10 +40,16 @@ const ExperimentsPage = (): React.ReactElement => {
   });
   const [experimentsPerPage] = useState(20);
 
-  const experiments = useAddComputedFields(data?.experiments, (exp) => ({
-    ownerName: getUserDisplay(exp.owner),
-    metricNames: exp.metrics.map((m) => getMetricById(m)?.name).filter(Boolean),
-  }));
+  const experiments = useAddComputedFields(
+    data?.experiments,
+    (exp) => ({
+      ownerName: getUserDisplay(exp.owner),
+      metricNames: exp.metrics
+        .map((m) => getMetricById(m)?.name)
+        .filter(Boolean),
+    }),
+    [getMetricById]
+  );
 
   const { items, SearchBox, isFiltered } = useSearch({
     items: experiments,

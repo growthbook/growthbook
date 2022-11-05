@@ -293,9 +293,14 @@ There's a hook `useAddComputedFields` to help with this:
 const { getMetricById } = useDefinitions();
 
 // Add a `metricName` property to each item
-const withMetricNames = useAddComputedFields(myItems, (item) => ({
-  metricName: getMetricById(item.metricId)?.name || "",
-}));
+const withMetricNames = useAddComputedFields(
+  myItems,
+  (item) => ({
+    metricName: getMetricById(item.metricId)?.name || "",
+  }),
+  // Dependencies
+  [getMetricById]
+);
 
 const { items, SortableTH } = useSearch({
   items: withMetricNames,
@@ -324,6 +329,8 @@ return (
   </table>
 );
 ```
+
+**Note**: Make sure to pass dependencies into the `useAddComputedFields` hook (e.g. `getMetricById` in the example above).
 
 ### Handling empty states
 

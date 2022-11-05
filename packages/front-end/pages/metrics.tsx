@@ -43,12 +43,16 @@ const MetricsPage = (): React.ReactElement => {
 
   const [showArchived, setShowArchived] = useState(false);
 
-  const metrics = useAddComputedFields(data?.metrics, (m) => ({
-    datasourceName: m.datasource
-      ? getDatasourceById(m.datasource)?.name || "Unknown"
-      : "Manual",
-    ownerName: getUserDisplay(m.owner),
-  }));
+  const metrics = useAddComputedFields(
+    data?.metrics,
+    (m) => ({
+      datasourceName: m.datasource
+        ? getDatasourceById(m.datasource)?.name || "Unknown"
+        : "Manual",
+      ownerName: getUserDisplay(m.owner),
+    }),
+    [getDatasourceById]
+  );
 
   // Searching
   const filterResults = useCallback(

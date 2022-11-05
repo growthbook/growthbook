@@ -34,15 +34,11 @@ const ReportsPage = (): React.ReactElement => {
     return expMap.get(experimentId)?.name ?? "";
   };
 
-  const reports = useAddComputedFields(
-    data?.reports,
-    (r) => ({
-      userName: getUserDisplay(r.userId) || "",
-      experimentName: getExperimentName(r.experimentId) || "",
-      status: r.status === "private" ? "private" : "published",
-    }),
-    [data?.reports]
-  );
+  const reports = useAddComputedFields(data?.reports, (r) => ({
+    userName: getUserDisplay(r.userId) || "",
+    experimentName: getExperimentName(r.experimentId) || "",
+    status: r.status === "private" ? "private" : "published",
+  }));
 
   const filterResults = useCallback(
     (items: typeof reports) => {
