@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -19,21 +18,7 @@ const ReportsPage = (): React.ReactElement => {
     reports: ReportInterface[];
     experiments: ExperimentInterface[];
   }>(`/reports`);
-
-  const [reportSort, setReportsSort] = useState({
-    field: "dateUpdated",
-    dir: 1,
-  });
   const [onlyMyReports, setOnlyMyReports] = useState(true);
-
-  const setSort = (field: string) => {
-    if (reportSort.field === field) {
-      // switch dir:
-      setReportsSort({ ...reportSort, dir: reportSort.dir * -1 });
-    } else {
-      setReportsSort({ field, dir: 1 });
-    }
-  };
 
   const { userId, getUserDisplay } = useUser();
   const expMap = useMemo(() => {
@@ -60,7 +45,25 @@ const ReportsPage = (): React.ReactElement => {
     );
   }, [data?.reports]);
 
-  const { items: filteredReports, searchInputProps, isFiltered } = useSearch({
+  const filterResults = useCallback(
+    (items: typeof reports) => {
+      return items.filter((r) => {
+        if (onlyMyReports) {
+          return r.userId === userId;
+        } else {
+          // when showing 'all' show all your reports, but only published reports from everyone else (or if status isn't set because it was before the change)
+          return r.userId === userId || r?.status === "published" || !r?.status;
+        }
+      });
+    },
+    [onlyMyReports, userId]
+  );
+  const {
+    items: filteredReports,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+  } = useSearch({
     items: reports,
     localStorageKey: "reports",
     defaultSortField: "dateUpdated",
@@ -72,6 +75,7 @@ const ReportsPage = (): React.ReactElement => {
       "userName",
       "dateUpdated",
     ],
+    filterResults,
   });
 
   if (error) {
@@ -116,25 +120,6 @@ const ReportsPage = (): React.ReactElement => {
     );
   }
 
-  // filter and sort the Reports:
-  const sortedReports = filteredReports
-    .filter((r) => {
-      if (onlyMyReports) {
-        return r.userId === userId;
-      } else {
-        // when showing 'all' show all your reports, but only published reports from everyone else (or if status isn't set because it was before the change)
-        return r.userId === userId || r?.status === "published" || !r?.status;
-      }
-    })
-    .sort((a, b) => {
-      const comp1 = a[reportSort.field];
-      const comp2 = b[reportSort.field];
-      if (typeof comp1 === "string") {
-        return comp1.localeCompare(comp2) * reportSort.dir;
-      }
-      return (comp1 - comp2) * reportSort.dir;
-    });
-
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       <div className="filters md-form row mb-3 align-items-center">
@@ -169,182 +154,16 @@ const ReportsPage = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <th>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("title");
-                }}
-              >
-                Title{" "}
-                <a
-                  href="#"
-                  className={
-                    reportSort.field === "name" ? "activesort" : "inactivesort"
-                  }
-                >
-                  {reportSort.field === "name" ? (
-                    reportSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
-            <th style={{ maxWidth: "30%" }}>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("description");
-                }}
-              >
-                Description{" "}
-                <a
-                  href="#"
-                  className={
-                    reportSort.field === "description"
-                      ? "activesort"
-                      : "inactivesort"
-                  }
-                >
-                  {reportSort.field === "description" ? (
-                    reportSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
-            <th>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("status");
-                }}
-              >
-                Status{" "}
-                <a
-                  href="#"
-                  className={
-                    reportSort.field === "status"
-                      ? "activesort"
-                      : "inactivesort"
-                  }
-                >
-                  {reportSort.field === "status" ? (
-                    reportSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
-            <th>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("experimentName");
-                }}
-              >
-                Experiment{" "}
-                <a
-                  href="#"
-                  className={
-                    reportSort.field === "experimentName"
-                      ? "activesort"
-                      : "inactivesort"
-                  }
-                >
-                  {reportSort.field === "experimentName" ? (
-                    reportSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
-            <th>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("userId");
-                }}
-              >
-                Created By{" "}
-                <a
-                  href="#"
-                  className={
-                    reportSort.field === "userId"
-                      ? "activesort"
-                      : "inactivesort"
-                  }
-                >
-                  {reportSort.field === "userId" ? (
-                    reportSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
-            <th className="d-none d-md-table-cell">
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSort("dateUpdated");
-                }}
-              >
-                Last Updated{" "}
-                <a
-                  href="#"
-                  className={
-                    reportSort.field === "dateUpdated"
-                      ? "activesort"
-                      : "inactivesort"
-                  }
-                >
-                  {reportSort.field === "dateUpdated" ? (
-                    reportSort.dir < 0 ? (
-                      <FaSortUp />
-                    ) : (
-                      <FaSortDown />
-                    )
-                  ) : (
-                    <FaSort />
-                  )}
-                </a>
-              </span>
-            </th>
+            <SortableTH field="title">Title</SortableTH>
+            <SortableTH field="description">Description</SortableTH>
+            <SortableTH field="status">Status</SortableTH>
+            <SortableTH field="experimentName">Experiment</SortableTH>
+            <SortableTH field="userName">Created By</SortableTH>
+            <SortableTH field="dateUpdated">Last Updated</SortableTH>
           </tr>
         </thead>
         <tbody>
-          {sortedReports.map((report) => {
+          {filteredReports.map((report) => {
             const name = report?.userId ? getUserDisplay(report?.userId) : "-";
             return (
               <tr
@@ -387,7 +206,7 @@ const ReportsPage = (): React.ReactElement => {
             );
           })}
 
-          {!sortedReports.length && (
+          {!filteredReports.length && (
             <tr>
               <td colSpan={6} align={"center"}>
                 {isFiltered
