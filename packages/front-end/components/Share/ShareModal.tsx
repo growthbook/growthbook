@@ -218,7 +218,7 @@ const ShareModal = ({
     }
   }, [existing?.slides]);
 
-  const { items: experiments, searchInputProps, isFiltered } = useSearch({
+  const { items: experiments, SearchBox, isFiltered } = useSearch({
     items: data?.experiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",
@@ -638,13 +638,7 @@ const ShareModal = ({
             <div className="form-group">
               <div className="filters md-form row mb-3 align-items-center">
                 <div className="col">
-                  <input
-                    type="search"
-                    className=" form-control"
-                    placeholder="Search"
-                    aria-controls="dtBasicExample"
-                    {...searchInputProps}
-                  />
+                  <SearchBox />
                 </div>
               </div>
               <Tabs

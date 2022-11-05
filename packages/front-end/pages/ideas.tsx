@@ -25,7 +25,7 @@ const IdeasPage = (): React.ReactElement => {
 
   const { getUserDisplay, permissions } = useUser();
 
-  const { items: displayedIdeas, searchInputProps } = useSearch({
+  const { items: displayedIdeas, SearchBox } = useSearch({
     items: data?.ideas || [],
     searchFields: ["id", "text", "details", "tags"],
     localStorageKey: "ideas",
@@ -91,12 +91,7 @@ const IdeasPage = (): React.ReactElement => {
       <div className="contents ideas container-fluid pagecontents">
         <div className="row mb-3 align-items-center">
           <div className="col-auto">
-            <input
-              type="search"
-              className="form-control"
-              placeholder="Search"
-              {...searchInputProps}
-            />
+            <SearchBox />
           </div>
           {hasArchivedIdeas && (
             <div className="col-auto" style={{ verticalAlign: "middle" }}>

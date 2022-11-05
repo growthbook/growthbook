@@ -99,16 +99,14 @@ const ImportExperimentList: FC<{
       statusFilter,
     ]
   );
-  const { items, searchInputProps, clear: clearSearch, SortableTH } = useSearch(
-    {
-      items: pastExpArr,
-      searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
-      defaultSortField: "startDate",
-      defaultSortDir: -1,
-      localStorageKey: "past-experiments",
-      filterResults,
-    }
-  );
+  const { items, SearchBox, clear: clearSearch, SortableTH } = useSearch({
+    items: pastExpArr,
+    searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
+    defaultSortField: "startDate",
+    defaultSortDir: -1,
+    localStorageKey: "past-experiments",
+    filterResults,
+  });
 
   if (!importId) {
     return <LoadingOverlay />;
@@ -246,12 +244,7 @@ const ImportExperimentList: FC<{
           <div className="row mb-3 text-align-center bg-light border-top border-bottom">
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
-              <input
-                type="search"
-                className=" form-control"
-                placeholder="Search"
-                {...searchInputProps}
-              />
+              <SearchBox />
             </div>
             <div className="col-auto">
               <Field

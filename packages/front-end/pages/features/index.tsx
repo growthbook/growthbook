@@ -14,7 +14,6 @@ import {
   removeEnvFromSearchTerm,
   useSearch,
 } from "../../services/search";
-import Field from "../../components/Forms/Field";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -80,7 +79,7 @@ export default function FeaturesPage() {
     },
     [showArchived, tagsFilter.tags, environments]
   );
-  const { searchInputProps, items, SortableTH } = useSearch({
+  const { SearchBox, items, SortableTH } = useSearch({
     items: features,
     defaultSortField: "id",
     searchFields: ["id^3", "description", "tags^2", "defaultValue"],
@@ -202,7 +201,7 @@ export default function FeaturesPage() {
         <div>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
-              <Field placeholder="Search..." {...searchInputProps} />
+              <SearchBox />
             </div>
             <div className="col-auto">
               <TagsFilter filter={tagsFilter} items={items} />

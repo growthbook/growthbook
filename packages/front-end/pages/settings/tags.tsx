@@ -9,7 +9,6 @@ import Tag from "../../components/Tags/Tag";
 import { GBAddCircle } from "../../components/Icons";
 import { TagInterface } from "back-end/types/tag";
 import { useSearch } from "../../services/search";
-import Field from "../../components/Forms/Field";
 import usePermissions from "../../hooks/usePermissions";
 
 const TagsPage: FC = () => {
@@ -18,7 +17,7 @@ const TagsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
     null
   );
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const { items, SearchBox, isFiltered, SortableTH } = useSearch({
     items: tags || [],
     localStorageKey: "tags",
     defaultSortField: "id",
@@ -59,7 +58,7 @@ const TagsPage: FC = () => {
         <>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
-              <Field placeholder="Search..." {...searchInputProps} />
+              <SearchBox />
             </div>
           </div>
           <table className="table appbox gbtable table-hover">

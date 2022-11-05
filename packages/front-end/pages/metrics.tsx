@@ -61,7 +61,7 @@ const MetricsPage = (): React.ReactElement => {
     },
     [showArchived, tagsFilter.tags]
   );
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const { items, SearchBox, isFiltered, SortableTH } = useSearch({
     items: metrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
@@ -202,13 +202,7 @@ const MetricsPage = (): React.ReactElement => {
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
-          <input
-            type="search"
-            className=" form-control"
-            placeholder="Search"
-            aria-controls="dtBasicExample"
-            {...searchInputProps}
-          />
+          <SearchBox />
         </div>
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">

@@ -45,7 +45,7 @@ const ExperimentsPage = (): React.ReactElement => {
     metricNames: exp.metrics.map((m) => getMetricById(m)?.name).filter(Boolean),
   }));
 
-  const { items, searchInputProps, isFiltered } = useSearch({
+  const { items, SearchBox, isFiltered } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
     defaultSortField: "id",
@@ -187,13 +187,7 @@ const ExperimentsPage = (): React.ReactElement => {
             newStyle={true}
             navExtra={
               <div className="ml-md-5 ml-0 mt-md-0 mt-3 col-lg-3 col-md-4 col-12">
-                <input
-                  type="search"
-                  className="form-control"
-                  placeholder="Search"
-                  aria-controls="dtBasicExample"
-                  {...searchInputProps}
-                />
+                <SearchBox />
               </div>
             }
           >

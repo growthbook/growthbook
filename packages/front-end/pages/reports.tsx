@@ -3,7 +3,7 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useSearch } from "../services/search";
+import { useAddComputedFields, useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip";
 import useApi from "../hooks/useApi";
 import { ReportInterface } from "back-end/types/report";
@@ -30,20 +30,19 @@ const ReportsPage = (): React.ReactElement => {
     }
     return tmp;
   }, [data?.experiments]);
-
   const getExperimentName = (experimentId: string): string => {
     return expMap.get(experimentId)?.name ?? "";
   };
 
-  const reports = useMemo(() => {
-    return (
-      data?.reports?.map((r) => ({
-        ...r,
-        userName: getUserDisplay(r.userId),
-        experimentName: getExperimentName(r.experimentId),
-      })) || []
-    );
-  }, [data?.reports]);
+  const reports = useAddComputedFields(
+    data?.reports,
+    (r) => ({
+      userName: getUserDisplay(r.userId) || "",
+      experimentName: getExperimentName(r.experimentId) || "",
+      status: r.status === "private" ? "private" : "published",
+    }),
+    [data?.reports]
+  );
 
   const filterResults = useCallback(
     (items: typeof reports) => {
@@ -58,12 +57,7 @@ const ReportsPage = (): React.ReactElement => {
     },
     [onlyMyReports, userId]
   );
-  const {
-    items: filteredReports,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-  } = useSearch({
+  const { items, SearchBox, isFiltered, SortableTH } = useSearch({
     items: reports,
     localStorageKey: "reports",
     defaultSortField: "dateUpdated",
@@ -132,13 +126,7 @@ const ReportsPage = (): React.ReactElement => {
           </h3>
         </div>
         <div className="col-lg-3 col-md-4 col-6">
-          <input
-            type="search"
-            className=" form-control"
-            placeholder="Search"
-            aria-controls="dtBasicExample"
-            {...searchInputProps}
-          />
+          <SearchBox />
         </div>
         <div className="col-auto">
           <Toggle
@@ -163,50 +151,45 @@ const ReportsPage = (): React.ReactElement => {
           </tr>
         </thead>
         <tbody>
-          {filteredReports.map((report) => {
-            const name = report?.userId ? getUserDisplay(report?.userId) : "-";
-            return (
-              <tr
-                key={report.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push(`/report/${report.id}`);
+          {items.map((report) => (
+            <tr
+              key={report.id}
+              onClick={(e) => {
+                e.preventDefault();
+                router.push(`/report/${report.id}`);
+              }}
+              style={{ cursor: "pointer" }}
+              className=""
+            >
+              <td>
+                <Link href={`/report/${report.id}`}>
+                  <a className={`text-dark font-weight-bold`}>{report.title}</a>
+                </Link>
+              </td>
+              <td
+                className="text-muted"
+                style={{
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "260px",
+                  overflow: "hidden",
                 }}
-                style={{ cursor: "pointer" }}
-                className=""
               >
-                <td>
-                  <Link href={`/report/${report.id}`}>
-                    <a className={`text-dark font-weight-bold`}>
-                      {report.title}
-                    </a>
-                  </Link>
-                </td>
-                <td
-                  className="text-muted"
-                  style={{
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: "260px",
-                    overflow: "hidden",
-                  }}
-                >
-                  {report.description}
-                </td>
-                <td>{report.status === "private" ? "private" : "published"}</td>
-                <td>{getExperimentName(report.experimentId)}</td>
-                <td>{name}</td>
-                <td
-                  title={datetime(report.dateUpdated)}
-                  className="d-none d-md-table-cell"
-                >
-                  {ago(report.dateUpdated)}
-                </td>
-              </tr>
-            );
-          })}
+                {report.description}
+              </td>
+              <td>{report.status}</td>
+              <td>{report.experimentName}</td>
+              <td>{report.userName}</td>
+              <td
+                title={datetime(report.dateUpdated)}
+                className="d-none d-md-table-cell"
+              >
+                {ago(report.dateUpdated)}
+              </td>
+            </tr>
+          ))}
 
-          {!filteredReports.length && (
+          {!items.length && (
             <tr>
               <td colSpan={6} align={"center"}>
                 {isFiltered
