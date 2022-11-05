@@ -42,6 +42,8 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
 
+  const datasource = getDatasourceById(data.experiments.datasource);
+
   const status = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
@@ -52,7 +54,8 @@ const ImportExperimentList: FC<{
       exposureQueryName: item.exposureQueryId
         ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
         : "experiments",
-    })
+    }),
+    [datasource]
   );
   const { pastExperimentsMinLength } = useOrgSettings();
 
@@ -123,8 +126,6 @@ const ImportExperimentList: FC<{
   const supportedDatasources = datasources.filter(
     (d) => d.properties.pastExperiments
   );
-
-  const datasource = getDatasourceById(data.experiments.datasource);
 
   function clearFilters() {
     setAlreadyImportedFilter(false);

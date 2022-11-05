@@ -22,24 +22,25 @@ const ReportsPage = (): React.ReactElement => {
   const [onlyMyReports, setOnlyMyReports] = useState(true);
 
   const { userId, getUserDisplay } = useUser();
-  const expMap = useMemo(() => {
-    const tmp = new Map();
+  const experimentNames = useMemo(() => {
+    const map = new Map<string, string>();
     if (data?.experiments && data?.experiments.length > 0) {
       data.experiments.forEach((e) => {
-        tmp.set(e.id, e);
+        map.set(e.id, e.name);
       });
     }
-    return tmp;
+    return map;
   }, [data?.experiments]);
-  const getExperimentName = (experimentId: string): string => {
-    return expMap.get(experimentId)?.name ?? "";
-  };
 
-  const reports = useAddComputedFields(data?.reports, (r) => ({
-    userName: getUserDisplay(r.userId) || "",
-    experimentName: getExperimentName(r.experimentId) || "",
-    status: r.status === "private" ? "private" : "published",
-  }));
+  const reports = useAddComputedFields(
+    data?.reports,
+    (r) => ({
+      userName: getUserDisplay(r.userId) || "",
+      experimentName: experimentNames.get(r.experimentId) || "",
+      status: r.status === "private" ? "private" : "published",
+    }),
+    [experimentNames]
+  );
 
   const filterResults = useCallback(
     (items: typeof reports) => {
