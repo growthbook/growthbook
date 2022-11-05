@@ -224,7 +224,7 @@ export async function addMemberToOrg({
   limitAccessByEnvironment: boolean;
   environments: string[];
 }) {
-  // If memebr is already in the org, skip
+  // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
   }
@@ -236,6 +236,7 @@ export async function addMemberToOrg({
       role,
       limitAccessByEnvironment,
       environments,
+      dateCreated: new Date(),
     },
   ];
 
@@ -271,6 +272,7 @@ export async function acceptInvite(key: string, userId: string) {
       role: invite.role || "admin",
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
+      dateCreated: new Date(),
     },
   ];
 

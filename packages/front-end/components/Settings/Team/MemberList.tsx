@@ -1,4 +1,5 @@
 import React, { FC, useState } from "react";
+import { FaCheck, FaTimes } from "react-icons/fa";
 import InviteModal from "./InviteModal";
 import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
 import { useUser } from "../../../services/UserContext";
@@ -10,7 +11,7 @@ import { usingSSO } from "../../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import { useEnvironments } from "../../../services/features";
-import { FaCheck, FaTimes } from "react-icons/fa";
+import { datetime } from "../../../services/dates";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -34,7 +35,7 @@ const MemberList: FC<{
 
   return (
     <div className="my-4">
-      <h5>Active Members</h5>
+      <h5>Active Members{` (${users.size})`}</h5>
       {inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
@@ -67,6 +68,7 @@ const MemberList: FC<{
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Date Joined</th>
             <th>Role</th>
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
@@ -84,6 +86,7 @@ const MemberList: FC<{
               <tr key={id}>
                 <td>{member.name}</td>
                 <td>{member.email}</td>
+                <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                 <td>{roleInfo.role}</td>
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);

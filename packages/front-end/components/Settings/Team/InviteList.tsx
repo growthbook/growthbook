@@ -99,7 +99,7 @@ const InviteList: FC<{
 
   return (
     <div>
-      <h5>Pending Invites</h5>
+      <h5>Pending Invites{` (${invites.length})`}</h5>
       {roleModal && (
         <ChangeRoleModal
           displayInfo={roleModal.displayInfo}
