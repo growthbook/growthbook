@@ -1,16 +1,14 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";
-import { datetime, ago, getValidDate } from "../../services/dates";
+import { datetime, ago } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
 import { useRouter } from "next/router";
 import { useAddComputedFields, useSearch } from "../../services/search";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Tabs from "../../components/Tabs/Tabs";
-import Tab from "../../components/Tabs/Tab";
 import Pagination from "../../components/Pagination";
 import { GBAddCircle } from "../../components/Icons";
 import ImportExperimentModal from "../../components/Experiment/ImportExperimentModal";
@@ -19,6 +17,12 @@ import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStart
 import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
 import SortedTags from "../../components/Tags/SortedTags";
 import Field from "../../components/Forms/Field";
+import TabButtons from "../../components/Tabs/TabButtons";
+import TabButton from "../../components/Tabs/TabButton";
+import { useAnchor } from "../../components/Tabs/ControlledTabs";
+import Toggle from "../../components/Forms/Toggle";
+
+const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
@@ -27,35 +31,54 @@ const ExperimentsPage = (): React.ReactElement => {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project || ""}`);
 
-  const [showOnlyMyDrafts, setShowOnlyMyDrafts] = useState(false);
+  const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
+
+  const [showMineOnly, setShowMineOnly] = useState(false);
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
   const { getUserDisplay, permissions, userId } = useUser();
 
-  const [currentPage, setCurrentPage] = useState({
-    running: 1,
-    stopped: 1,
-    archived: 1,
-    draft: 1,
-  });
-  const [experimentsPerPage] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const experiments = useAddComputedFields(
     data?.experiments,
     (exp) => ({
-      ownerName: getUserDisplay(exp.owner),
+      ownerName: getUserDisplay(exp.owner, false) || "",
       metricNames: exp.metrics
         .map((m) => getMetricById(m)?.name)
         .filter(Boolean),
+      projectName: getProjectById(exp.project)?.name || "",
+      tab: exp.archived
+        ? "archived"
+        : exp.status === "draft"
+        ? "drafts"
+        : exp.status,
+      date:
+        (exp.status === "running"
+          ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+          : exp.status === "stopped"
+          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+          : exp.dateCreated) ?? "",
     }),
-    [getMetricById]
+    [getMetricById, getProjectById]
   );
 
-  const { items, searchInputProps, isFiltered } = useSearch({
+  const filterResults = useCallback(
+    (items: typeof experiments) => {
+      if (showMineOnly) {
+        items = items.filter((item) => item.owner === userId);
+      }
+      return items;
+    },
+    [showMineOnly, userId]
+  );
+
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
-    defaultSortField: "id",
+    defaultSortField: "date",
+    defaultSortDir: -1,
     searchFields: [
       "name^3",
       "trackingKey^3",
@@ -69,10 +92,29 @@ const ExperimentsPage = (): React.ReactElement => {
       "results",
       "analysis",
     ],
+    filterResults,
   });
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    items.forEach((item) => {
+      counts[item.tab] = counts[item.tab] || 0;
+      counts[item.tab]++;
+    });
+    return counts;
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    return items.filter((item) => item.tab === tab);
+  }, [items, tab]);
 
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
+
+  // Reset to page 1 when a filter is applied or tabs change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [items.length, tab, showMineOnly]);
 
   if (error) {
     return (
@@ -103,57 +145,12 @@ const ExperimentsPage = (): React.ReactElement => {
     );
   }
 
-  const byStatus: {
-    archived: ExperimentInterfaceStringDates[];
-    draft: ExperimentInterfaceStringDates[];
-    running: ExperimentInterfaceStringDates[];
-    stopped: ExperimentInterfaceStringDates[];
-    myDrafts: ExperimentInterfaceStringDates[];
-  } = {
-    archived: [],
-    draft: [],
-    running: [],
-    stopped: [],
-    myDrafts: [],
-  };
-
-  items.forEach((test) => {
-    if (test.archived) {
-      byStatus.archived.push(test);
-    } else {
-      byStatus[test.status].push(test);
-    }
-  });
-  items.forEach((test) => {
-    if (!test.archived && test.status === "draft" && test.owner === userId) {
-      byStatus.myDrafts.push(test);
-    }
-  });
-
-  if (!isFiltered) {
-    byStatus.running.sort(
-      (a, b) =>
-        getValidDate(b.phases[b.phases.length - 1]?.dateStarted).getTime() -
-        getValidDate(a.phases[a.phases.length - 1]?.dateStarted).getTime()
-    );
-    byStatus.myDrafts.sort(
-      (a, b) =>
-        getValidDate(b.dateCreated).getTime() -
-        getValidDate(a.dateCreated).getTime()
-    );
-    byStatus.draft.sort(
-      (a, b) =>
-        getValidDate(b.dateCreated).getTime() -
-        getValidDate(a.dateCreated).getTime()
-    );
-    byStatus.stopped.sort(
-      (a, b) =>
-        getValidDate(b.phases[b.phases.length - 1]?.dateEnded).getTime() -
-        getValidDate(a.phases[a.phases.length - 1]?.dateEnded).getTime()
-    );
-  }
-
   const canAdd = permissions.check("createAnalyses", project);
+
+  const hasArchivedExperiments = items.some((item) => item.archived);
+
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
 
   return (
     <>
@@ -181,585 +178,173 @@ const ExperimentsPage = (): React.ReactElement => {
             )}
           </div>
           <NewFeatureExperiments />
-          <Tabs
-            defaultTab={
-              byStatus.running.length > 0
-                ? "running"
-                : byStatus.draft.length > 0
-                ? "drafts"
-                : byStatus.stopped.length > 0
-                ? "stopped"
-                : null
-            }
-            newStyle={true}
-            navExtra={
-              <div className="ml-md-5 ml-0 mt-md-0 mt-3 col-lg-3 col-md-4 col-12">
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
+          <div className="row align-items-center mb-3">
+            <div className="col-auto">
+              <TabButtons newStyle={true} className="mb-0">
+                <TabButton
+                  display="Running"
+                  anchor="running"
+                  count={tabCounts["running"] || 0}
+                  active={tab === "running"}
+                  onClick={() => setTab("running")}
                 />
-              </div>
-            }
-          >
-            <Tab
-              display="Running"
-              id="running"
-              anchor="running"
-              count={byStatus.running.length}
-              padding={false}
-            >
-              {byStatus.running.length > 0 ? (
-                <>
-                  <table className="appbox table experiment-table gbtable responsive-table">
-                    <thead>
-                      <tr>
-                        <th></th>
-                        <th style={{ width: "99%" }}>Experiment</th>
-                        {showProjectColumn && <th>Project</th>}
-                        <th>Tags</th>
-                        <th>Owner</th>
-                        <th>Phase</th>
-                        <th>Started</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {byStatus.running
-                        .filter((e, i) => {
-                          if (
-                            i >=
-                              (currentPage.running - 1) * experimentsPerPage &&
-                            i < currentPage.running * experimentsPerPage
-                          )
-                            return true;
-                        })
-                        .map((e) => {
-                          const phase = e.phases[e.phases.length - 1];
-                          if (!phase) return null;
+                <TabButton
+                  display="Drafts"
+                  anchor="drafts"
+                  count={tabCounts["drafts"] || 0}
+                  active={tab === "drafts"}
+                  onClick={() => setTab("drafts")}
+                />
+                <TabButton
+                  display="Stopped"
+                  anchor="stopped"
+                  count={tabCounts["stopped"] || 0}
+                  active={tab === "stopped"}
+                  onClick={() => setTab("stopped")}
+                  last={!hasArchivedExperiments}
+                />
+                {hasArchivedExperiments && (
+                  <TabButton
+                    display="Archived"
+                    anchor="archived"
+                    count={tabCounts["archived"] || 0}
+                    active={tab === "archived"}
+                    onClick={() => setTab("archived")}
+                    last={true}
+                  />
+                )}
+              </TabButtons>
+            </div>
+            <div className="col-auto">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </div>
+            <div className="col-auto ml-auto">
+              <Toggle
+                id="my-experiments-toggle"
+                type="toggle"
+                value={showMineOnly}
+                setValue={(value) => {
+                  setShowMineOnly(value);
+                }}
+              />{" "}
+              My Experiments Only
+            </div>
+          </div>
 
-                          return (
-                            <tr key={e.id} className="hover-highlight">
-                              <td
-                                data-title="Watching status:"
-                                className="watching"
-                              >
-                                <WatchButton
-                                  item={e.id}
-                                  itemType="experiment"
-                                  type="icon"
-                                />
-                              </td>
-                              <td
-                                onClick={() => {
-                                  router.push(`/experiment/${e.id}`);
-                                }}
-                                className="cursor-pointer"
-                                data-title="Experiment name:"
-                              >
-                                <div className="d-flex flex-column">
-                                  <div>
-                                    <span className="testname">{e.name}</span>
-                                    {e.implementation === "visual" && (
-                                      <small className="text-muted ml-2">
-                                        (visual)
-                                      </small>
-                                    )}
-                                  </div>
-                                  {isFiltered && e.trackingKey && (
-                                    <span
-                                      className="testid text-muted small"
-                                      title="Experiment Id"
-                                    >
-                                      {e.trackingKey}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              {showProjectColumn && (
-                                <td className="nowrap" data-title="Project:">
-                                  {getProjectById(e.project)?.name || ""}
-                                </td>
-                              )}
-                              <td className="nowrap" data-title="Tags:">
-                                <SortedTags tags={Object.values(e.tags)} />
-                              </td>
-                              <td className="nowrap" data-title="Owner:">
-                                {getUserDisplay(e.owner, false)}
-                              </td>
-                              <td className="nowrap" data-title="Phase:">
-                                {phaseSummary(phase)}
-                              </td>
-                              <td
-                                className="nowrap"
-                                title={datetime(phase.dateStarted)}
-                                data-title="Created:"
-                              >
-                                {ago(phase.dateStarted)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                  {Math.ceil(byStatus.running.length / experimentsPerPage) >
-                    1 && (
-                    <Pagination
-                      numItemsTotal={byStatus.running.length}
-                      currentPage={currentPage.running}
-                      perPage={experimentsPerPage}
-                      onPageChange={(d) => {
-                        const tmp = { ...currentPage };
-                        tmp.running = d;
-                        setCurrentPage(tmp);
+          <table className="appbox table experiment-table gbtable responsive-table">
+            <thead>
+              <tr>
+                <th></th>
+                <SortableTH field="name" className="w-100">
+                  Experiment
+                </SortableTH>
+                {showProjectColumn && (
+                  <SortableTH field="projectName">Project</SortableTH>
+                )}
+                <SortableTH field="tags">Tags</SortableTH>
+                {!showMineOnly && (
+                  <SortableTH field="ownerName">Owner</SortableTH>
+                )}
+                {tab === "running" && <th>Phase</th>}
+                <SortableTH field="date">
+                  {tab === "running"
+                    ? "Started"
+                    : tab === "stopped"
+                    ? "Ended"
+                    : tab === "drafts"
+                    ? "Created"
+                    : "Date"}
+                </SortableTH>
+                {tab === "stopped" && (
+                  <SortableTH field="results">Result</SortableTH>
+                )}
+                {tab === "archived" && (
+                  <SortableTH field="status">State</SortableTH>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.slice(start, end).map((e) => {
+                const phase = e.phases?.[e.phases.length - 1];
+                return (
+                  <tr key={e.id} className="hover-highlight">
+                    <td data-title="Watching status:" className="watching">
+                      <WatchButton
+                        item={e.id}
+                        itemType="experiment"
+                        type="icon"
+                      />
+                    </td>
+                    <td
+                      onClick={() => {
+                        router.push(`/experiment/${e.id}`);
                       }}
-                    />
-                  )}
-                </>
-              ) : (
-                <div className="alert alert-info">
-                  No {isFiltered ? "matching" : "running"} experiments
-                </div>
-              )}
-            </Tab>
-            <Tab
-              display={showOnlyMyDrafts ? "My drafts" : "Drafts"}
-              id="drafts"
-              anchor="drafts"
-              count={
-                showOnlyMyDrafts
-                  ? byStatus.myDrafts.length
-                  : byStatus.draft.length
-              }
-              padding={false}
-            >
-              {showOnlyMyDrafts && canAdd && byStatus.myDrafts.length > 0 ? (
-                <>
-                  {byStatus.myDrafts.length > 0 && (
-                    <>
-                      <table className="appbox table experiment-table gbtable responsive-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: "99%" }}>
-                              Experiment{" "}
-                              <a
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  setShowOnlyMyDrafts(false);
-                                }}
-                              >
-                                (show all drafts)
-                              </a>
-                            </th>
-                            {showProjectColumn && <th>Project</th>}
-                            <th>Tags</th>
-                            <th>Created</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {byStatus.myDrafts.map((e) => {
-                            return (
-                              <tr key={e.id} className="hover-highlight">
-                                <td
-                                  onClick={() => {
-                                    router.push(`/experiment/${e.id}`);
-                                  }}
-                                  className="cursor-pointer"
-                                  data-title="Experiment name:"
-                                >
-                                  <div className="d-flex flex-column">
-                                    <div>
-                                      <span className="testname">{e.name}</span>
-                                      {e.implementation === "visual" && (
-                                        <small className="text-muted ml-2">
-                                          (visual)
-                                        </small>
-                                      )}
-                                    </div>
-                                    {isFiltered && e.trackingKey && (
-                                      <span
-                                        className="testid text-muted small"
-                                        title="Experiment Id"
-                                      >
-                                        {e.trackingKey}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                {showProjectColumn && (
-                                  <td className="nowrap" data-title="Project:">
-                                    {getProjectById(e.project)?.name || ""}
-                                  </td>
-                                )}
-                                <td className="nowrap" data-title="Tags:">
-                                  <SortedTags tags={Object.values(e.tags)} />
-                                </td>
-                                <td
-                                  className="nowrap"
-                                  title={datetime(e.dateCreated)}
-                                  data-title="Created:"
-                                >
-                                  {ago(e.dateCreated)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {byStatus.draft.length > 0 ? (
-                    <>
-                      <table className="appbox table experiment-table gbtable responsive-table">
-                        <thead>
-                          <tr>
-                            <th></th>
-                            <th style={{ width: "99%" }}>
-                              Experiment
-                              {canAdd && byStatus.myDrafts.length > 0 && (
-                                <span className="pl-3">
-                                  <a
-                                    className="cursor-pointer"
-                                    onClick={() => {
-                                      setShowOnlyMyDrafts(true);
-                                    }}
-                                  >
-                                    (show only my drafts)
-                                  </a>
-                                </span>
-                              )}
-                            </th>
-                            {showProjectColumn && <th>Project</th>}
-                            <th>Tags</th>
-                            <th>Owner</th>
-                            <th>Created</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {byStatus.draft
-                            .filter((e, i) => {
-                              if (
-                                i >=
-                                  (currentPage.draft - 1) *
-                                    experimentsPerPage &&
-                                i < currentPage.draft * experimentsPerPage
-                              )
-                                return true;
-                            })
-                            .map((e) => {
-                              return (
-                                <tr key={e.id} className="hover-highlight">
-                                  <td
-                                    data-title="Watching status:"
-                                    className="watching"
-                                  >
-                                    <WatchButton
-                                      item={e.id}
-                                      itemType="experiment"
-                                      type="icon"
-                                    />
-                                  </td>
-                                  <td
-                                    onClick={() => {
-                                      router.push(`/experiment/${e.id}`);
-                                    }}
-                                    className="cursor-pointer"
-                                    data-title="Experiment name:"
-                                  >
-                                    <div className="d-flex flex-column">
-                                      <div>
-                                        <span className="testname">
-                                          {e.name}
-                                        </span>
-                                        {e.implementation === "visual" && (
-                                          <small className="text-muted ml-2">
-                                            (visual)
-                                          </small>
-                                        )}
-                                      </div>
-                                      {isFiltered && e.trackingKey && (
-                                        <span
-                                          className="testid text-muted small"
-                                          title="Experiment Id"
-                                        >
-                                          {e.trackingKey}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  {showProjectColumn && (
-                                    <td
-                                      className="nowrap"
-                                      data-title="Project:"
-                                    >
-                                      {getProjectById(e.project)?.name || ""}
-                                    </td>
-                                  )}
-                                  <td className="nowrap" data-title="Tags:">
-                                    <SortedTags tags={Object.values(e.tags)} />
-                                  </td>
-                                  <td className="nowrap" data-title="Owner:">
-                                    {getUserDisplay(e.owner, false)}
-                                  </td>
-                                  <td
-                                    className="nowrap"
-                                    title={datetime(e.dateCreated)}
-                                    data-title="Created:"
-                                  >
-                                    {ago(e.dateCreated)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                      {Math.ceil(byStatus.draft.length / experimentsPerPage) >
-                        1 && (
-                        <Pagination
-                          numItemsTotal={byStatus.draft.length}
-                          currentPage={currentPage.draft}
-                          perPage={experimentsPerPage}
-                          onPageChange={(d) => {
-                            const tmp = { ...currentPage };
-                            tmp.draft = d;
-                            setCurrentPage(tmp);
-                          }}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <div className="alert alert-info">
-                      No {isFiltered ? "matching" : "draft"} experiments
-                    </div>
-                  )}
-                </>
-              )}
-            </Tab>
-
-            <Tab
-              display="Stopped"
-              id="stopped"
-              anchor="stopped"
-              count={byStatus.stopped.length}
-              padding={false}
-            >
-              {byStatus.stopped.length > 0 ? (
-                <>
-                  <table className="table table-hover experiment-table gbtable responsive-table">
-                    <thead>
-                      <tr>
-                        <th></th>
-                        <th style={{ width: "99%" }}>Experiment</th>
-                        {showProjectColumn && <th>Project</th>}
-                        <th>Tags</th>
-                        <th>Owner</th>
-                        <th>Ended</th>
-                        <th>Result</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {byStatus.stopped
-                        .filter((e, i) => {
-                          if (
-                            i >=
-                              (currentPage.stopped - 1) * experimentsPerPage &&
-                            i < currentPage.stopped * experimentsPerPage
-                          )
-                            return true;
-                        })
-                        .map((e) => {
-                          const phase = e.phases[e.phases.length - 1];
-                          if (!phase) return null;
-
-                          return (
-                            <tr
-                              key={e.id}
-                              onClick={() => {
-                                router.push(`/experiment/${e.id}`);
-                              }}
-                              className="hover-highlight"
-                            >
-                              <td
-                                data-title="Watch status:"
-                                className="watching"
-                              >
-                                <WatchButton
-                                  item={e.id}
-                                  itemType="experiment"
-                                  type="icon"
-                                />
-                              </td>
-                              <td
-                                onClick={() => {
-                                  router.push(`/experiment/${e.id}`);
-                                }}
-                                className="cursor-pointer"
-                                data-title="Experiment name:"
-                              >
-                                <div className="d-flex flex-column">
-                                  <div>
-                                    <span className="testname">{e.name}</span>
-                                    {e.implementation === "visual" && (
-                                      <small className="text-muted ml-2">
-                                        (visual)
-                                      </small>
-                                    )}
-                                  </div>
-                                  {isFiltered && e.trackingKey && (
-                                    <span
-                                      className="testid text-muted small"
-                                      title="Experiment Id"
-                                    >
-                                      {e.trackingKey}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              {showProjectColumn && (
-                                <td className="nowrap" data-title="Project:">
-                                  {getProjectById(e.project)?.name || ""}
-                                </td>
-                              )}
-                              <td className="nowrap" data-title="Tags:">
-                                <SortedTags tags={Object.values(e.tags)} />
-                              </td>
-                              <td className="nowrap" data-title="Owner:">
-                                {getUserDisplay(e.owner, false)}
-                              </td>
-                              <td
-                                className="nowrap"
-                                title={datetime(phase.dateEnded)}
-                                data-title="Ended:"
-                              >
-                                {ago(phase.dateEnded)}
-                              </td>
-                              <td className="nowrap" data-title="Results:">
-                                <ResultsIndicator results={e.results} />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                  {Math.ceil(byStatus.stopped.length / experimentsPerPage) >
-                    1 && (
-                    <Pagination
-                      numItemsTotal={byStatus.stopped.length}
-                      currentPage={currentPage.stopped}
-                      perPage={experimentsPerPage}
-                      onPageChange={(d) => {
-                        const tmp = { ...currentPage };
-                        tmp.stopped = d;
-                        setCurrentPage(tmp);
-                      }}
-                    />
-                  )}
-                </>
-              ) : (
-                <div className="alert alert-info">
-                  No {isFiltered ? "matching" : "stopped"} experiments
-                </div>
-              )}
-            </Tab>
-            {byStatus.archived.length > 0 && (
-              <Tab
-                display="Archived"
-                id="archived"
-                anchor="archived"
-                count={byStatus.archived.length}
-                padding={false}
-              >
-                <>
-                  <table className="table table-hover experiment-table gbtable responsive-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: "99%" }}>Experiment</th>
-                        {showProjectColumn && <th>Project</th>}
-                        <th>Tags</th>
-                        <th>Owner</th>
-                        <th>State</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {byStatus.archived
-                        .filter((e, i) => {
-                          if (
-                            i >=
-                              (currentPage.archived - 1) * experimentsPerPage &&
-                            i < currentPage.archived * experimentsPerPage
-                          )
-                            return true;
-                        })
-                        .map((e) => {
-                          return (
-                            <tr
-                              key={e.id}
-                              onClick={() => {
-                                router.push(`/experiment/${e.id}`);
-                              }}
-                              className="hover-highlight"
-                            >
-                              <td
-                                onClick={() => {
-                                  router.push(`/experiment/${e.id}`);
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <div className="d-flex flex-column">
-                                  <div>
-                                    <span className="testname">{e.name}</span>
-                                    {e.implementation === "visual" && (
-                                      <small className="text-muted ml-2">
-                                        (visual)
-                                      </small>
-                                    )}
-                                  </div>
-                                  {isFiltered && e.trackingKey && (
-                                    <span
-                                      className="testid text-muted small"
-                                      title="Experiment Id"
-                                    >
-                                      {e.trackingKey}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              {showProjectColumn && (
-                                <td className="nowrap">
-                                  {getProjectById(e.project)?.name || ""}
-                                </td>
-                              )}
-                              <td className="nowrap">
-                                <SortedTags tags={Object.values(e.tags)} />
-                              </td>
-                              <td className="nowrap">
-                                {getUserDisplay(e.owner, false)}
-                              </td>
-                              <td className="nowrap">{e.status}</td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                  {Math.ceil(byStatus.archived.length / experimentsPerPage) >
-                    1 && (
-                    <Pagination
-                      numItemsTotal={byStatus.archived.length}
-                      currentPage={currentPage.archived}
-                      perPage={experimentsPerPage}
-                      onPageChange={(d) => {
-                        const tmp = { ...currentPage };
-                        tmp.archived = d;
-                        setCurrentPage(tmp);
-                      }}
-                    />
-                  )}
-                </>
-              </Tab>
-            )}
-          </Tabs>
+                      className="cursor-pointer"
+                      data-title="Experiment name:"
+                    >
+                      <div className="d-flex flex-column">
+                        <div>
+                          <span className="testname">{e.name}</span>
+                          {e.implementation === "visual" && (
+                            <small className="text-muted ml-2">(visual)</small>
+                          )}
+                        </div>
+                        {isFiltered && e.trackingKey && (
+                          <span
+                            className="testid text-muted small"
+                            title="Experiment Id"
+                          >
+                            {e.trackingKey}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {showProjectColumn && (
+                      <td className="nowrap" data-title="Project:">
+                        {e.projectName}
+                      </td>
+                    )}
+                    <td className="nowrap" data-title="Tags:">
+                      <SortedTags tags={Object.values(e.tags)} />
+                    </td>
+                    {!showMineOnly && (
+                      <td className="nowrap" data-title="Owner:">
+                        {e.ownerName}
+                      </td>
+                    )}
+                    {tab === "running" && (
+                      <td className="nowrap" data-title="Phase:">
+                        {phase && phaseSummary(phase)}
+                      </td>
+                    )}
+                    <td className="nowrap" title={datetime(e.date)}>
+                      {ago(e.date)}
+                    </td>
+                    {tab === "stopped" && (
+                      <td className="nowrap" data-title="Results:">
+                        <ResultsIndicator results={e.results} />
+                      </td>
+                    )}
+                    {tab === "archived" && (
+                      <td className="nowrap">{e.status}</td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filtered.length > NUM_PER_PAGE && (
+            <Pagination
+              numItemsTotal={filtered.length}
+              currentPage={currentPage}
+              perPage={NUM_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       </div>
       {openNewExperimentModal && (
