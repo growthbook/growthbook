@@ -83,12 +83,7 @@ export default function FeaturesPage() {
   const { searchInputProps, items, SortableTH } = useSearch({
     items: features,
     defaultSortField: "id",
-    searchFields: [
-      { name: "id", weight: 3 },
-      "description",
-      { name: "tags", weight: 2 },
-      "defaultValue",
-    ],
+    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
     transformQuery: removeEnvFromSearchTerm,
     filterResults,
     localStorageKey: "features",

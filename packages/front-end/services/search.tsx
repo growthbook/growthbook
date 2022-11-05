@@ -27,10 +27,7 @@ export function useAddComputedFields<T, ExtraFields>(
 
 export type SearchFields<T> = (
   | keyof T
-  | {
-      name: keyof T;
-      weight: number;
-    }
+  | `${Exclude<keyof T, symbol>}^${number}`
 )[];
 
 export interface SearchProps<T> {
@@ -80,11 +77,15 @@ export function useSearch<T>({
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
   const fuse = useMemo(() => {
+    const keys: Fuse.FuseOptionKey<T>[] = searchFields.map((f) => {
+      const [key, weight] = (f as string).split("^");
+      return { name: key, weight: weight ? parseFloat(weight) : 1 };
+    });
     return new Fuse(items, {
       includeScore: true,
       useExtendedSearch: true,
       findAllMatches: true,
-      keys: searchFields as Fuse.FuseOptionKey<T>[],
+      keys,
     });
   }, [items, JSON.stringify(searchFields)]);
 

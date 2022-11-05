@@ -232,6 +232,18 @@ return (
 );
 ```
 
+### Sort by Date
+
+The default sort direction is ascending, but you can change it if needed. This is commonly done with date columns when you want to show most recent first.
+
+```ts
+useSearch({
+  ...
+  defaultSortField: "dateCreated",
+  defaultSortDir: -1, // Sort descending by default
+});
+```
+
 ### Filtering results
 
 Sometimes you need to filter results by more than just the search term. For example, if you have a toggle on the page that controls whether or not archived items are included.
@@ -240,15 +252,18 @@ Sometimes you need to filter results by more than just the search term. For exam
 const [showArchived, setShowArchived] = useState(false);
 
 // Make sure to use `useCallback` to avoid costly re-renders
-const filterResults = useCallback((features: FeatureInterface[]) => {
-  return features.filter((feature) => showArchived || !feature.archived);
-}, [showArchived])
+const filterResults = useCallback(
+  (features: FeatureInterface[]) => {
+    return features.filter((feature) => showArchived || !feature.archived);
+  },
+  [showArchived]
+);
 
 useSearch({
   items: features,
   localStorageKey: "features",
   searchFields: ["id", "description"],
-  defaultSortField: "id"
+  defaultSortField: "id",
   filterResults,
 });
 ```
@@ -261,13 +276,9 @@ Not all fields in an object are created equal. You can specify weighting to make
 useSearch({
   items: features,
   localStorageKey: "features",
-  searchFields: [
-    // Increase the weight of this field to 2
-    { name: "id", weight: 2 },
-    // Default weight is 1
-    "description",
-  ],
-  defaultSortField: "id"
+  // Boost `id` weight to 2, default weight is 1
+  searchFields: ["id^2", "description"],
+  defaultSortField: "id",
   filterResults,
 });
 ```
@@ -353,9 +364,9 @@ return (
 );
 ```
 
-### Special search syntax (advanced)
+### Custom search syntax (advanced)
 
-Sometimes we want to add support for special syntax to the search box. For example, on the features page, we allow searching by toggled environment (e.g. `on:dev`).
+Sometimes we want to add support for custom syntax to the search box. For example, on the features page, we allow searching by toggled environment (e.g. `on:dev`).
 
 This is handled by the `transformQuery` parameter in the `useSearch` hook, which lets you modify the search term before it's processed by our search engine. Then, you can use `filterResults` to apply your custom logic.
 
@@ -365,23 +376,26 @@ Here's a simplified example:
 const regex = /(\s|^)on:([^s]*)/g;
 
 // Remove the "on:..." part from the search term
-const transformQuery = useCallback((q: string) => q.replace(regex, ''), []);
+const transformQuery = useCallback((q: string) => q.replace(regex, ""), []);
 
 // Get the filtered environment from the original search term and apply it if found
-const filterResults = useCallback((results: FeatureInterface[], originalQuery: string) => {
+const filterResults = useCallback(
+  (results: FeatureInterface[], originalQuery: string) => {
     const env = originalQuery.match(regex)?.[2];
     if (env) {
-      results = results.filter(feature => isEnvEnabled(feature, env))
+      results = results.filter((feature) => isEnvEnabled(feature, env));
     }
     return results;
-}, [])
+  },
+  []
+);
 
 useSearch({
   items: features,
   localStorageKey: "features",
   searchFields: ["id", "description"],
-  defaultSortField: "id"
+  defaultSortField: "id",
   transformQuery,
-  filterResults
+  filterResults,
 });
 ```

@@ -65,13 +65,7 @@ const MetricsPage = (): React.ReactElement => {
     items: metrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
-    searchFields: [
-      { name: "name", weight: 3 },
-      "datasourceName",
-      "ownerName",
-      "tags",
-      "type",
-    ],
+    searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
     filterResults,
   });
 
