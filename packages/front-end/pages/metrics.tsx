@@ -21,6 +21,7 @@ import TagsFilter, {
 import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
 import { useUser } from "../services/UserContext";
+import Field from "../components/Forms/Field";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -65,7 +66,7 @@ const MetricsPage = (): React.ReactElement => {
     },
     [showArchived, tagsFilter.tags]
   );
-  const { items, SearchBox, isFiltered, SortableTH } = useSearch({
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: metrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
@@ -206,7 +207,7 @@ const MetricsPage = (): React.ReactElement => {
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
-          <SearchBox />
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">

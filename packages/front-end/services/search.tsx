@@ -11,7 +11,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import Fuse from "fuse.js";
-import Field, { FieldProps } from "../components/Forms/Field";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -41,16 +40,14 @@ export interface SearchProps<T> {
   filterResults?: (items: T[], originalQuery: string) => T[];
 }
 
-export type SearchBoxProps = Omit<
-  FieldProps,
-  "value" | "onChange" | "type" | "ref"
->;
-
 export interface SearchReturn<T> {
   items: T[];
   isFiltered: boolean;
   clear: () => void;
-  SearchBox: FC<SearchBoxProps>;
+  searchInputProps: {
+    value: string;
+    onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  };
   SortableTH: FC<{
     field: keyof T;
     className?: string;
@@ -190,25 +187,14 @@ export function useSearch<T>({
     setValue(e.target.value);
   }, []);
 
-  const SearchBox = useMemo(() => {
-    const SearchBox: FC<SearchBoxProps> = (fieldProps) => (
-      <Field
-        placeholder="Search..."
-        type="search"
-        value={value}
-        onChange={onChange}
-        {...fieldProps}
-      />
-    );
-
-    return SearchBox;
-  }, [value, onChange]);
-
   return {
     items: sorted,
     isFiltered,
     clear,
-    SearchBox,
+    searchInputProps: {
+      value,
+      onChange,
+    },
     SortableTH,
   };
 }

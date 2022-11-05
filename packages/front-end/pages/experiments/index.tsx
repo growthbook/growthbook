@@ -18,6 +18,7 @@ import { useUser } from "../../services/UserContext";
 import ExperimentsGetStarted from "../../components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "../../components/Experiment/NewFeatureExperiments";
 import SortedTags from "../../components/Tags/SortedTags";
+import Field from "../../components/Forms/Field";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
@@ -51,7 +52,7 @@ const ExperimentsPage = (): React.ReactElement => {
     [getMetricById]
   );
 
-  const { items, SearchBox, isFiltered } = useSearch({
+  const { items, searchInputProps, isFiltered } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
     defaultSortField: "id",
@@ -193,7 +194,11 @@ const ExperimentsPage = (): React.ReactElement => {
             newStyle={true}
             navExtra={
               <div className="ml-md-5 ml-0 mt-md-0 mt-3 col-lg-3 col-md-4 col-12">
-                <SearchBox />
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
               </div>
             }
           >

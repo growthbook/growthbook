@@ -30,6 +30,7 @@ import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import track from "../../services/track";
 import SortedTags from "../Tags/SortedTags";
+import Field from "../Forms/Field";
 
 export const presentationThemes = {
   lblue: {
@@ -218,7 +219,7 @@ const ShareModal = ({
     }
   }, [existing?.slides]);
 
-  const { items: experiments, SearchBox, isFiltered } = useSearch({
+  const { items: experiments, searchInputProps, isFiltered } = useSearch({
     items: data?.experiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",
@@ -638,7 +639,11 @@ const ShareModal = ({
             <div className="form-group">
               <div className="filters md-form row mb-3 align-items-center">
                 <div className="col">
-                  <SearchBox />
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    {...searchInputProps}
+                  />
                 </div>
               </div>
               <Tabs

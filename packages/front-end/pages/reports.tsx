@@ -10,6 +10,7 @@ import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import Toggle from "../components/Forms/Toggle";
 import { useUser } from "../services/UserContext";
+import Field from "../components/Forms/Field";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -53,7 +54,7 @@ const ReportsPage = (): React.ReactElement => {
     },
     [onlyMyReports, userId]
   );
-  const { items, SearchBox, isFiltered, SortableTH } = useSearch({
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: reports,
     localStorageKey: "reports",
     defaultSortField: "dateUpdated",
@@ -122,7 +123,7 @@ const ReportsPage = (): React.ReactElement => {
           </h3>
         </div>
         <div className="col-lg-3 col-md-4 col-6">
-          <SearchBox />
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
         <div className="col-auto">
           <Toggle

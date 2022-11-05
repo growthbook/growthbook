@@ -37,6 +37,7 @@ import usePermissions from "../../hooks/usePermissions";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { FeatureInterface } from "back-end/types/feature";
+import Field from "../../components/Forms/Field";
 
 const NUM_PER_PAGE = 20;
 
@@ -79,7 +80,7 @@ export default function FeaturesPage() {
     },
     [showArchived, tagsFilter.tags, environments]
   );
-  const { SearchBox, items, SortableTH } = useSearch({
+  const { searchInputProps, items, SortableTH } = useSearch({
     items: features,
     defaultSortField: "id",
     searchFields: ["id^3", "description", "tags^2", "defaultValue"],
@@ -201,7 +202,11 @@ export default function FeaturesPage() {
         <div>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
-              <SearchBox />
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
             </div>
             <div className="col-auto">
               <TagsFilter filter={tagsFilter} items={items} />

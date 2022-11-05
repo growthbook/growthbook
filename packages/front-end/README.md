@@ -197,7 +197,7 @@ The `useSearch` hook makes this process much simpler and removes a lot of boiler
 const features: FeatureInterface[];
 
 // Filter by search term and sort results
-const { items, SearchBox, SortableTH } = useSearch({
+const { items, searchInputProps, SortableTH } = useSearch({
   items: features,
   localStorageKey: "features",
   searchFields: ["id", "description"],
@@ -209,7 +209,7 @@ return (
   <div>
     <div className="row mb-2">
       <div className="col-auto">
-        <SearchBox />
+        <Field placeholder="Search..." type="search" {...searchInputProps} />
       </div>
     </div>
     <table className="table">
