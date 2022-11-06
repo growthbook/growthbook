@@ -133,7 +133,15 @@ export async function safeLogout() {
 }
 
 export async function redirectWithTimeout(url: string, timeout: number = 5000) {
-  window.location.href = url;
+  // If the URL is the same as the current one, do a reload instead
+  // This is the only way to force the page to refresh if the URL contains a hash
+  // TODO: this will still break if the paths are identical, but only the hash changed
+  if (url === window.location.href) {
+    window.location.reload();
+  } else {
+    window.location.href = url;
+  }
+
   await new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
