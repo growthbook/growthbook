@@ -7,7 +7,7 @@ import { daysLeft } from "../../services/dates";
 import { isCloud } from "../../services/env";
 import { useUser } from "../../services/UserContext";
 import UpgradeModal from "../Settings/UpgradeModal";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function AccountPlanNotices() {
   const [upgradeModal, setUpgradeModal] = useState(false);

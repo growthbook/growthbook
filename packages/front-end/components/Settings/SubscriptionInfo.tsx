@@ -1,6 +1,6 @@
 import { redirectWithTimeout, useAuth } from "../../services/auth";
 import LoadingOverlay from "../LoadingOverlay";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 import Button from "../Button";
 import { useState } from "react";

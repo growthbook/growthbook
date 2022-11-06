@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
 import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import TagsModal from "../../components/Tags/TagsModal";

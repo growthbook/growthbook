@@ -5,7 +5,7 @@ import WatchProvider from "../services/WatchProvider";
 import CreateOrganization from "./Auth/CreateOrganization";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
-import { ThemeToggler } from "./Layout/ThemeToggler";
+import { ThemeToggler } from "./Layout/ThemeToggler/ThemeToggler";
 import { UserContextProvider, useUser } from "../services/UserContext";
 
 const LoggedInPageGuard = ({

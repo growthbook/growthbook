@@ -1,9 +1,24 @@
-import { ReactNode } from "react";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "./Tooltip";
+import React from "react";
+import { BsThreeDotsVertical } from "react-icons/bs";
 
-export function AttributionModelTooltip({ children }: { children: ReactNode }) {
+export default {
+  title: "Tooltip",
+  component: Tooltip,
+};
+
+export const Default = () => {
+  return (
+    <div>
+      <Tooltip body="This is a tooltip" />
+    </div>
+  );
+};
+
+export const WithIconAndHtml = () => {
   return (
     <Tooltip
+      className="ml-5"
       body={
         <div>
           <div className="mb-2">
@@ -20,7 +35,7 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
         </div>
       }
     >
-      {children}
+      <BsThreeDotsVertical />
     </Tooltip>
   );
-}
+};

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Tooltip from "../components/Tooltip";
+import Tooltip from "../components/Tooltip/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import { GBEdit } from "../components/Icons";
 import EditAttributesModal from "../components/Features/EditAttributesModal";

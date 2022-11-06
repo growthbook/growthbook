@@ -5,7 +5,7 @@ import track from "../../services/track";
 import WelcomeFrame from "./WelcomeFrame";
 import { useUser } from "../../services/UserContext";
 import { FiLogOut } from "react-icons/fi";
-import Tooltip from "../../components/Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function InitialOrgSettings(): ReactElement {
   const techStacks = [

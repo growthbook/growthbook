@@ -8,7 +8,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import Link from "next/link";
 import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import {
   formatConversionRate,

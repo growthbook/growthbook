@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           # Main app
-          yarn
+          yarn install
 
           # Stats engine
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats

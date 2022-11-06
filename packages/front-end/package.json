@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "type-check": "tsc --pretty --noEmit",
-    "test": "jest --forceExit --verbose --detectOpenHandles"
+    "test": "jest --forceExit --verbose --detectOpenHandles",
+    "storybook": "BROWSER=none start-storybook -p 6006",
+    "build-storybook": "build-storybook"
   },
   "dependencies": {
     "@dnd-kit/core": "^4.0.3",
@@ -88,8 +90,21 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.1.1",
-    "sass": "^1.26.5",
+    "sass": "^1.55.0",
     "typescript": "4.7.4"
+  },
+  "optionalDependencies": {
+    "@babel/core": "^7.19.6",
+    "@storybook/addon-actions": "^6.5.13",
+    "@storybook/addon-essentials": "^6.5.13",
+    "@storybook/addon-interactions": "^6.5.13",
+    "@storybook/addon-knobs": "^6.4.0",
+    "@storybook/addon-links": "^6.5.13",
+    "@storybook/builder-webpack5": "^6.5.13",
+    "@storybook/manager-webpack5": "^6.5.13",
+    "@storybook/react": "^6.5.13",
+    "@storybook/testing-library": "^0.0.13",
+    "storybook-addon-next": "^1.6.9"
   },
   "license": "MIT"
 }

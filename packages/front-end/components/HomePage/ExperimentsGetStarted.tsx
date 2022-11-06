@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
 import Button from "../Button";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import { hasFileConfig } from "../../services/env";

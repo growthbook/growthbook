@@ -8,8 +8,8 @@ import {
 import { EditIdentifierType } from "./EditIdentifierType";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import DeleteButton from "../../../DeleteButton";
-import Tooltip from "../../../Tooltip";
+import DeleteButton from "../../../DeleteButton/DeleteButton";
+import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;

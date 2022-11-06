@@ -9,7 +9,7 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import Field from "../../../Forms/Field";
 import CodeTextArea from "../../../Forms/CodeTextArea";
-import Tooltip from "../../../Tooltip";
+import Tooltip from "../../../Tooltip/Tooltip";
 import Toggle from "../../../Forms/Toggle";
 import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";

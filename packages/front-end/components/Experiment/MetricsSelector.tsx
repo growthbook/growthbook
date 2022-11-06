@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import MultiSelectField from "../Forms/MultiSelectField";
 
 const MetricsSelector: FC<{
