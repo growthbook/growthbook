@@ -156,10 +156,14 @@ export function getRole(
   return getDefaultRole(org);
 }
 
-export function getNumberOfMembersAndInvites(
+export function getNumberOfUniqueMembersAndInvites(
   organization: OrganizationInterface
 ) {
-  return organization.members.length + (organization.invites?.length || 0);
+  // There was a bug that allowed duplicate members in the members array
+  const numMembers = new Set(organization.members.map((m) => m.id)).size;
+  const numInvites = new Set(organization.invites.map((i) => i.email)).size;
+
+  return numMembers + numInvites;
 }
 
 export async function userHasAccess(
