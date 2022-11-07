@@ -7,9 +7,9 @@ import {
 } from "../../services/dates";
 import Link from "next/link";
 //import Button from "../Button";
-import React, { FC, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
-import { useSearch } from "../../services/search";
+import { useAddComputedFields, useSearch } from "../../services/search";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useAuth } from "../../services/auth";
@@ -23,7 +23,7 @@ import usePermissions from "../../hooks/usePermissions";
 import Field from "../Forms/Field";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { isCloud } from "../../services/env";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -42,12 +42,21 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
 
+  const datasource = getDatasourceById(data.experiments.datasource);
+
   const status = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
   );
-  const pastExpArr = data?.experiments?.experiments || [];
-  const existing = data?.existing || [];
+  const pastExpArr = useAddComputedFields(
+    data?.experiments?.experiments,
+    (item) => ({
+      exposureQueryName: item.exposureQueryId
+        ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
+        : "experiments",
+    }),
+    [datasource]
+  );
   const { pastExperimentsMinLength } = useOrgSettings();
 
   const [minUsersFilter, setMinUsersFilter] = useState("100");
@@ -59,42 +68,50 @@ const ImportExperimentList: FC<{
     ""
   );
 
-  const {
-    list: filteredExperiments,
-    searchInputProps,
-    clear: clearSearch,
-  } = useSearch(
-    pastExpArr?.filter((e) => {
-      if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
-        return false;
-      }
-      if (alreadyImportedFilter && existing?.[e.trackingKey]) {
-        return false;
-      }
-      const status =
-        daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
-      if (statusFilter && statusFilter !== status) {
-        return false;
-      }
-      if (
-        minLengthFilter &&
-        status === "stopped" &&
-        daysBetween(e.startDate, e.endDate) < (parseInt(minLengthFilter) || 0)
-      ) {
-        return false;
-      }
-
-      // Passed all the filters, include it in the table
-      return true;
-    }) || [],
-    ["trackingKey"]
+  // Searching
+  const filterResults = useCallback(
+    (items: typeof pastExpArr) => {
+      return items.filter((e) => {
+        if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
+          return false;
+        }
+        if (alreadyImportedFilter && data?.existing?.[e.trackingKey]) {
+          return false;
+        }
+        const status =
+          daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
+        if (statusFilter && statusFilter !== status) {
+          return false;
+        }
+        if (
+          minLengthFilter &&
+          status === "stopped" &&
+          daysBetween(e.startDate, e.endDate) < (parseInt(minLengthFilter) || 0)
+        ) {
+          return false;
+        }
+        // Passed all the filters, include it in the table
+        return true;
+      });
+    },
+    [
+      alreadyImportedFilter,
+      data?.existing,
+      minLengthFilter,
+      minUsersFilter,
+      statusFilter,
+    ]
   );
-
-  filteredExperiments.sort((a, b) => {
-    if (a.startDate < b.startDate) return 1;
-    else if (a.startDate > b.startDate) return -1;
-    return 0;
-  });
+  const { items, searchInputProps, clear: clearSearch, SortableTH } = useSearch(
+    {
+      items: pastExpArr,
+      searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
+      defaultSortField: "startDate",
+      defaultSortDir: -1,
+      localStorageKey: "past-experiments",
+      filterResults,
+    }
+  );
 
   if (!importId) {
     return <LoadingOverlay />;
@@ -109,8 +126,6 @@ const ImportExperimentList: FC<{
   const supportedDatasources = datasources.filter(
     (d) => d.properties.pastExperiments
   );
-
-  const datasource = getDatasourceById(data.experiments.datasource);
 
   function clearFilters() {
     setAlreadyImportedFilter(false);
@@ -232,10 +247,9 @@ const ImportExperimentList: FC<{
           <div className="row mb-3 text-align-center bg-light border-top border-bottom">
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
-              <input
+              <Field
+                placeholder="Search..."
                 type="search"
-                className=" form-control"
-                placeholder="Search"
                 {...searchInputProps}
               />
             </div>
@@ -304,9 +318,9 @@ const ImportExperimentList: FC<{
             </div>
           </div>
           <small>
-            Showing <strong>{filteredExperiments.length}</strong> of{" "}
+            Showing <strong>{items.length}</strong> of{" "}
             <strong>{pastExpArr.length}</strong> experiments.{" "}
-            {filteredExperiments.length < pastExpArr.length && (
+            {items.length < pastExpArr.length && (
               <a
                 href="#"
                 onClick={(e) => {
@@ -321,28 +335,21 @@ const ImportExperimentList: FC<{
           <table className="table appbox">
             <thead>
               <tr>
-                <th>Source</th>
-                <th>Experiment</th>
-                <th>Date Started</th>
-                <th>Date Ended</th>
-                <th>Number of Variations</th>
-                <th>Total Users</th>
+                <SortableTH field="exposureQueryName">Source</SortableTH>
+                <SortableTH field="experimentName">Experiment</SortableTH>
+                <SortableTH field="startDate">Date Started</SortableTH>
+                <SortableTH field="endDate">Date Ended</SortableTH>
+                <SortableTH field="numVariations">Variations</SortableTH>
+                <SortableTH field="users">Total Users</SortableTH>
                 <th>Traffic Split</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filteredExperiments.map((e) => {
+              {items.map((e) => {
                 return (
                   <tr key={e.trackingKey}>
-                    <td>
-                      {e.exposureQueryId
-                        ? getExposureQuery(
-                            datasource?.settings,
-                            e.exposureQueryId
-                          )?.name
-                        : "experiments"}
-                    </td>
+                    <td>{e.exposureQueryName}</td>
                     <td>{e.experimentName || e.trackingKey}</td>
                     <td>{date(e.startDate)}</td>
                     <td>{date(e.endDate)}</td>
@@ -352,8 +359,10 @@ const ImportExperimentList: FC<{
                       {e.weights.map((w) => Math.round(w * 100)).join("/")}
                     </td>
                     <td>
-                      {existing?.[e.trackingKey] ? (
-                        <Link href={`/experiment/${existing[e.trackingKey]}`}>
+                      {data?.existing?.[e.trackingKey] ? (
+                        <Link
+                          href={`/experiment/${data.existing[e.trackingKey]}`}
+                        >
                           <a>imported</a>
                         </Link>
                       ) : (
@@ -415,7 +424,7 @@ const ImportExperimentList: FC<{
                   </tr>
                 );
               })}
-              {filteredExperiments.length <= 0 && pastExpArr.length > 0 && (
+              {items.length <= 0 && pastExpArr.length > 0 && (
                 <tr>
                   <td colSpan={8}>
                     <div className="alert alert-info">

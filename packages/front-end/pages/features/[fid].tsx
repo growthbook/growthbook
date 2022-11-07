@@ -8,7 +8,7 @@ import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import useApi from "../../hooks/useApi";
 import React, { useState } from "react";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
 import ForceSummary from "../../components/Features/ForceSummary";

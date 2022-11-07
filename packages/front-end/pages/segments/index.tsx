@@ -6,7 +6,7 @@ import { ago } from "../../services/dates";
 import Button from "../../components/Button";
 import SegmentForm from "../../components/Segments/SegmentForm";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";

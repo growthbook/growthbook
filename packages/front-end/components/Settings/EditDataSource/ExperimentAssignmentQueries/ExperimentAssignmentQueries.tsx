@@ -7,7 +7,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton";
+import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Code from "../../../SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 import usePermissions from "../../../../hooks/usePermissions";

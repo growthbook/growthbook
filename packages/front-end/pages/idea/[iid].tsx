@@ -4,7 +4,7 @@ import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { useState, ReactElement, useEffect } from "react";
 import { useAuth } from "../../services/auth";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import {
   FaAngleLeft,
   FaArchive,

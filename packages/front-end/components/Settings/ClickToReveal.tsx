@@ -1,7 +1,7 @@
 import { ReactElement, ReactNode, useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import LoadingSpinner from "../LoadingSpinner";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export interface Props {
   valueWhenHidden: ReactNode;

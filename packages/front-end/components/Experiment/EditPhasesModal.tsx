@@ -5,7 +5,7 @@ import NewPhaseForm from "./NewPhaseForm";
 import EditPhaseModal from "./EditPhaseModal";
 import { date, datetime } from "../../services/dates";
 import { phaseSummary } from "../../services/utils";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { GBAddCircle } from "../Icons";
 import { useAuth } from "../../services/auth";
 

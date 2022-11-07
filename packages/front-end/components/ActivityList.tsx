@@ -3,7 +3,7 @@ import useApi from "../hooks/useApi";
 import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
-import Avatar from "./Avatar";
+import Avatar from "./Avatar/Avatar";
 import { date, datetime } from "../services/dates";
 //import { phaseSummary } from "../services/utils";
 
