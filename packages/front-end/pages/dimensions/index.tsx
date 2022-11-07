@@ -9,7 +9,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import Link from "next/link";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";

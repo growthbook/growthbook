@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus, FaRegCopy } from "react-icons/fa";
@@ -8,8 +8,8 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
-import { useSearch, useSort } from "../services/search";
-import Tooltip from "../components/Tooltip";
+import { useAddComputedFields, useSearch } from "../services/search";
+import Tooltip from "../components/Tooltip/Tooltip";
 import { GBAddCircle } from "../components/Icons";
 import Toggle from "../components/Forms/Toggle";
 import useApi from "../hooks/useApi";
@@ -20,6 +20,8 @@ import TagsFilter, {
 } from "../components/Tags/TagsFilter";
 import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
+import { useUser } from "../services/UserContext";
+import Field from "../components/Forms/Field";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -34,45 +36,43 @@ const MetricsPage = (): React.ReactElement => {
     `/metrics`
   );
 
+  const { getUserDisplay } = useUser();
+
   const permissions = usePermissions();
 
   const tagsFilter = useTagsFilter("metrics");
 
   const [showArchived, setShowArchived] = useState(false);
 
-  const { list, searchInputProps, isFiltered } = useSearch(
-    data?.metrics || [],
-    ["name", "tags", "type"]
+  const metrics = useAddComputedFields(
+    data?.metrics,
+    (m) => ({
+      datasourceName: m.datasource
+        ? getDatasourceById(m.datasource)?.name || "Unknown"
+        : "Manual",
+      ownerName: getUserDisplay(m.owner),
+    }),
+    [getDatasourceById]
   );
-  const hasArchivedMetrics = list.find((m) => m.status === "archived");
-  const { sorted, SortableTH } = useSort(
-    filterByTags(
-      list.filter((m) => {
-        if (!showArchived) {
-          if (m.status !== "archived") {
-            return m;
-          }
-        } else {
-          return m;
-        }
-      }),
-      tagsFilter
-    ),
-    "name",
-    1,
-    "metrics",
-    {
-      datasource: (a, b) => {
-        const da = a.datasource
-          ? getDatasourceById(a.datasource)?.name || "Unknown"
-          : "Manual";
-        const db = b.datasource
-          ? getDatasourceById(b.datasource)?.name || "Unknown"
-          : "Manual";
-        return da.localeCompare(db);
-      },
-    }
+
+  // Searching
+  const filterResults = useCallback(
+    (items: typeof metrics) => {
+      if (!showArchived) {
+        items = items.filter((m) => m.status !== "archived");
+      }
+      items = filterByTags(items, tagsFilter.tags);
+      return items;
+    },
+    [showArchived, tagsFilter.tags]
   );
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+    items: metrics,
+    defaultSortField: "name",
+    localStorageKey: "metrics",
+    searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
+    filterResults,
+  });
 
   if (error) {
     return (
@@ -84,8 +84,6 @@ const MetricsPage = (): React.ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const metrics = data.metrics;
 
   const closeModal = () => {
     setModalData(null);
@@ -159,6 +157,8 @@ const MetricsPage = (): React.ReactElement => {
     );
   }
 
+  const hasArchivedMetrics = metrics.find((m) => m.status === "archived");
+
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
       {modalData && (
@@ -207,13 +207,7 @@ const MetricsPage = (): React.ReactElement => {
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
-          <input
-            type="search"
-            className=" form-control"
-            placeholder="Search"
-            aria-controls="dtBasicExample"
-            {...searchInputProps}
-          />
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">
@@ -227,7 +221,7 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         )}
         <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={sorted} />
+          <TagsFilter filter={tagsFilter} items={items} />
         </div>
       </div>
       <table className="table appbox gbtable table-hover">
@@ -237,7 +231,10 @@ const MetricsPage = (): React.ReactElement => {
             <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
             <th>Owner</th>
-            <SortableTH field="datasource" className="d-none d-lg-table-cell">
+            <SortableTH
+              field="datasourceName"
+              className="d-none d-lg-table-cell"
+            >
               Data Source
             </SortableTH>
             {!hasFileConfig() && (
@@ -253,7 +250,7 @@ const MetricsPage = (): React.ReactElement => {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((metric) => (
+          {items.map((metric) => (
             <tr
               key={metric.id}
               onClick={(e) => {
@@ -281,9 +278,7 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               <td>{metric.owner}</td>
               <td className="d-none d-lg-table-cell">
-                {metric.datasource
-                  ? getDatasourceById(metric.datasource)?.name || "Unknown"
-                  : "Manual"}
+                {metric.datasourceName}
               </td>
               {!hasFileConfig() && (
                 <td
@@ -321,7 +316,7 @@ const MetricsPage = (): React.ReactElement => {
             </tr>
           ))}
 
-          {!sorted.length && (isFiltered || tagsFilter.tags.length > 0) && (
+          {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>
               <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
                 No matching metrics

@@ -12,7 +12,7 @@ import usePermissions from "../../hooks/usePermissions";
 import { useAuth } from "../../services/auth";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import VariationBox from "./VariationBox";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { useRouter } from "next/router";
 import { GBAddCircle, GBEdit } from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";

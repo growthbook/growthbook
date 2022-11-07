@@ -8,7 +8,7 @@ import {
 import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
 import {
-  getNumberOfMembersAndInvites,
+  getNumberOfUniqueMembersAndInvites,
   getOrgFromReq,
 } from "../services/organizations";
 import {
@@ -37,7 +37,7 @@ export async function postNewSubscription(
 
   const { org } = getOrgFromReq(req);
 
-  const desiredQty = getNumberOfMembersAndInvites(org);
+  const desiredQty = getNumberOfUniqueMembersAndInvites(org);
 
   if (desiredQty !== qty) {
     throw new Error(
@@ -108,8 +108,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   // TODO: handle pricing tiers
   const additionalSeatPrice = unitPrice;
-  const activeAndInvitedUsers =
-    (org.members?.length || 0) + (org.invites?.length || 0);
+  const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
   const currentSeatsPaidFor = org.subscription?.qty || 0;
   const subtotal = currentSeatsPaidFor * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);

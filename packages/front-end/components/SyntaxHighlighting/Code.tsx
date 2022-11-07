@@ -70,14 +70,16 @@ export default function Code({
 
   const enoughLines = code.split("\n").length > 8;
 
-  const style = cloneDeep(theme === "light" ? light : dark);
+  const style = cloneDeep(theme === "dark" ? dark : light);
   style['code[class*="language-"]'].fontSize = "0.85rem";
   style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;
-  delete style['pre[class*="language-"]'].background;
-  delete style['pre[class*="language-"]'].backgroundColor;
-  style['pre[class*="language-"]'].background =
-    "var(--surface-background-color-alt)";
+
+  const codeBackgrounds = {
+    dark: "#212529",
+    light: "#fff",
+  };
+  style['pre[class*="language-"]'].backgroundColor = codeBackgrounds[theme];
   style['pre[class*="language-"]'].border = "1px solid var(--border-color-200)";
 
   const display =

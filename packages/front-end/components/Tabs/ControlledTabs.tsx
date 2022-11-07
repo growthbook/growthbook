@@ -11,6 +11,24 @@ import clsx from "clsx";
 import TabButton from "./TabButton";
 import TabButtons from "./TabButtons";
 
+export function useAnchor<Id extends string>(ids: Id[]) {
+  const [active, setActive] = useState<Id>(ids[0] as Id);
+
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (ids.includes(hash as Id)) {
+        setActive(hash as Id);
+      }
+    };
+    handler();
+    window.addEventListener("hashchange", handler, false);
+    return () => window.removeEventListener("hashchange", handler, false);
+  }, []);
+
+  return [active, setActive] as const;
+}
+
 const ControlledTabs: FC<{
   orientation?: "vertical" | "horizontal";
   className?: string;

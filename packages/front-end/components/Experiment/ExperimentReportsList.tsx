@@ -6,7 +6,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
 import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import usePermissions from "../../hooks/usePermissions";
 import { useUser } from "../../services/UserContext";
 import { useSnapshot } from "./SnapshotProvider";

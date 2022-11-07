@@ -502,7 +502,7 @@ function getTablePrefix(params: DataSourceParams) {
     );
   }
   // PrestoDB
-  else if ("catalog" in params) {
+  else if ("catalog" in params && "schema" in params) {
     return `${params.catalog ? params.catalog + "." : ""}${
       params.schema || "public"
     }.`;

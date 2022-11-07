@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export type SecretKey = {
   [key: string]: string;

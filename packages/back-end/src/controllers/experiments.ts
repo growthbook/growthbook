@@ -13,6 +13,7 @@ import {
   processPastExperiments,
   experimentUpdated,
   getExperimentWatchers,
+  getExperimentByTrackingKey,
 } from "../services/experiments";
 import uniqid from "uniqid";
 import { MetricStats } from "../../types/metric";
@@ -395,7 +396,11 @@ const validateVariationIds = (variations: Variation[]) => {
  * @param res
  */
 export async function postExperiments(
-  req: AuthRequest<Partial<ExperimentInterface>>,
+  req: AuthRequest<
+    Partial<ExperimentInterface>,
+    unknown,
+    { allowDuplicateTrackingKey?: boolean }
+  >,
   res: Response
 ) {
   const { org, userId } = getOrgFromReq(req);
@@ -478,6 +483,22 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations || []);
+
+    // Make sure id is unique
+    if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
+      const existing = await getExperimentByTrackingKey(
+        org.id,
+        obj.trackingKey
+      );
+      if (existing) {
+        return res.status(200).json({
+          status: 200,
+          duplicateTrackingKey: true,
+          existingId: existing.id,
+        });
+      }
+    }
+
     const experiment = await createExperiment(obj, org);
 
     await req.audit({

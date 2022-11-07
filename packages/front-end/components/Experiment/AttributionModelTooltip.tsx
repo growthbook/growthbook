@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export function AttributionModelTooltip({ children }: { children: ReactNode }) {
   return (

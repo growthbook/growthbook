@@ -4,6 +4,7 @@ This document is meant for developers who want to contribute to the GrowthBook p
 
 - Interacting with the API
 - Forms
+- Searching and Sorting
 - Global Context (coming soon)
 - Modals (coming soon)
 - Visualizations (coming soon)
@@ -175,9 +176,266 @@ Example:
 There is also a `render` prop for completely custom inputs.
 
 ```tsx
-<Field label="Price" render={(id, ref) => {
-  return (
-    <MyPriceInput id={id} ref={ref}/>
-  )
-}}
+<Field
+  label="Price"
+  render={(id, ref) => {
+    return <MyPriceInput id={id} ref={ref} />;
+  }}
+/>
 ```
+
+## Searching and Sorting
+
+Whenever we show a list of items, we typically render a table and provide searching and sorting functionality.
+
+The `useSearch` hook makes this process much simpler and removes a lot of boilerplate code.
+
+### Basic Usage
+
+```tsx
+// List of items from the API
+const features: FeatureInterface[];
+
+// Filter by search term and sort results
+const { items, searchInputProps, SortableTH } = useSearch({
+  items: features,
+  localStorageKey: "features",
+  searchFields: ["id", "description"],
+  defaultSortField: "id",
+});
+
+// Render the UI
+return (
+  <div>
+    <div className="row mb-2">
+      <div className="col-auto">
+        <Field placeholder="Search..." type="search" {...searchInputProps} />
+      </div>
+    </div>
+    <table className="table">
+      <thead>
+        <SortableTH field="id">Feature ID</SortableTH>
+        <SortableTH field="description">Description</SortableTH>
+        <th>Non-sortable Column</th>
+      </thead>
+      <tbody>
+        {items.map((item) => (
+          <tr key={item.id}>
+            <td>{item.id}</td>
+            <td>{item.description}</td>
+            <td>{item.somethingElse}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+```
+
+### Sort by Date
+
+The default sort direction is ascending, but you can change it if needed. This is commonly done with date columns when you want to show most recent first.
+
+```ts
+useSearch({
+  ...
+  defaultSortField: "dateCreated",
+  defaultSortDir: -1, // Sort descending by default
+});
+```
+
+### Filtering results
+
+Sometimes you need to filter results by more than just the search term. For example, if you have a toggle on the page that controls whether or not archived items are included.
+
+```ts
+const [showArchived, setShowArchived] = useState(false);
+
+// Make sure to use `useCallback` to avoid costly re-renders
+const filterResults = useCallback(
+  (features: FeatureInterface[]) => {
+    return features.filter((feature) => showArchived || !feature.archived);
+  },
+  [showArchived]
+);
+
+useSearch({
+  items: features,
+  localStorageKey: "features",
+  searchFields: ["id", "description"],
+  defaultSortField: "id",
+  filterResults,
+});
+```
+
+### Field weighting
+
+Not all fields in an object are created equal. You can specify weighting to make some fields more important than others when searching.
+
+```ts
+useSearch({
+  items: features,
+  localStorageKey: "features",
+  // Boost `id` weight to 2, default weight is 1
+  searchFields: ["id^2", "description"],
+  defaultSortField: "id",
+  filterResults,
+});
+```
+
+### Add computed properties
+
+Sometimes you need to add additional properties to items before you can effectively search and sort them. For example, if your items have a `metricId` field, that's not very useful since they are stored as opaque strings (e.g. `met_abc123`) instead of recognizable names.
+
+There's a hook `useAddComputedFields` to help with this:
+
+```tsx
+const { getMetricById } = useDefinitions();
+
+// Add a `metricName` property to each item
+const withMetricNames = useAddComputedFields(
+  myItems,
+  (item) => ({
+    metricName: getMetricById(item.metricId)?.name || "",
+  }),
+  // Dependencies
+  [getMetricById]
+);
+
+const { items, SortableTH } = useSearch({
+  items: withMetricNames,
+  localStorageKey: "my-page",
+  // Reference the computed fields in searchFields
+  searchFields: ["id", "metricName"],
+  defaultSortField: "id",
+});
+
+return (
+  <table className="table">
+    <thead>
+      <SortableTH field="id">Id</SortableTH>
+      {/* Reference computed fields in SortableTH */}
+      <SortableTH field="metricName">Metric</SortableTH>
+    </thead>
+    <tbody>
+      {items.map((item) => (
+        <tr key={item.id}>
+          <td>{item.id}</td>
+          {/* Computed fields are available here too! */}
+          <td>{item.metricName}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
+```
+
+**Note**: Make sure to pass dependencies into the `useAddComputedFields` hook (e.g. `getMetricById` in the example above).
+
+### Handling empty states
+
+If the user searches for something and there are no results, it's helpful to provide an easy way to clear their search term. The hook returns a boolean `isFiltered` flag and a `clear` function to help with this.
+
+```tsx
+const { items, isFiltered, clear } = useSearch({
+  items: features,
+  fields: ["id", "description"],
+});
+
+return (
+  <table>
+    <thead>...</thead>
+    <tbody>
+      {items.length > 0 ? (
+        items.map((item) => <tr>...</tr>)
+      ) : (
+        <tr>
+          <td colSpan={4}>
+            <em>No results found</em>{" "}
+            {isFiltered && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  clear();
+                }}
+              >
+                Clear filters
+              </a>
+            )}
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+);
+```
+
+### Custom search syntax (advanced)
+
+Sometimes we want to add support for custom syntax to the search box. For example, on the features page, we allow searching by toggled environment (e.g. `on:dev`).
+
+This is handled by the `transformQuery` parameter in the `useSearch` hook, which lets you modify the search term before it's processed by our search engine. Then, you can use `filterResults` to apply your custom logic.
+
+Here's a simplified example:
+
+```ts
+const regex = /(\s|^)on:([^s]*)/g;
+
+// Remove the "on:..." part from the search term
+const transformQuery = useCallback((q: string) => q.replace(regex, ""), []);
+
+// Get the filtered environment from the original search term and apply it if found
+const filterResults = useCallback(
+  (results: FeatureInterface[], originalQuery: string) => {
+    const env = originalQuery.match(regex)?.[2];
+    if (env) {
+      results = results.filter((feature) => isEnvEnabled(feature, env));
+    }
+    return results;
+  },
+  []
+);
+
+useSearch({
+  items: features,
+  localStorageKey: "features",
+  searchFields: ["id", "description"],
+  defaultSortField: "id",
+  transformQuery,
+  filterResults,
+});
+```
+
+## Storybook
+
+The project uses [Storybook](https://storybook.js.org/) to help with the development of presentational components.
+
+To run the server at http://localhost:6006 you can execute the following command:
+
+    yarn storybook
+
+When creating a new component, it is recommended to create a directory for it with the same name, and in that directory include both the component and the stories file. Here's an example:
+
+```
+packages/front-end/components/DeleteButton
+├── DeleteButton.stories.tsx
+└── DeleteButton.tsx
+
+0 directories, 2 files
+```
+
+A story must include a default export with a `title` and the component as `component`, as well as named exports of examples. Here's an example.
+
+```tsx
+export default {
+  component: MyComponent,
+  title: "MyComponent",
+};
+
+export const Default = () => {
+  return <MyComponent />;
+};
+```
+
+See files with suffix `.stories.tsx` for real examples that include how to implement a variety of helpful add-ons (e.g. actions, knobs, etc.)

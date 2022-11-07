@@ -11,6 +11,7 @@ import clsx from "clsx";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { useUser } from "../services/UserContext";
 import SortedTags from "../components/Tags/SortedTags";
+import Field from "../components/Forms/Field";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -25,10 +26,12 @@ const IdeasPage = (): React.ReactElement => {
 
   const { getUserDisplay, permissions } = useUser();
 
-  const { list: displayedIdeas, searchInputProps } = useSearch(
-    data?.ideas || [],
-    ["id", "text", "details", "tags", "status"]
-  );
+  const { items: displayedIdeas, searchInputProps } = useSearch({
+    items: data?.ideas || [],
+    searchFields: ["id", "text", "details", "tags"],
+    localStorageKey: "ideas",
+    defaultSortField: "id",
+  });
 
   if (error) {
     return <div className="alert alert-danger">An error occurred</div>;
@@ -89,10 +92,9 @@ const IdeasPage = (): React.ReactElement => {
       <div className="contents ideas container-fluid pagecontents">
         <div className="row mb-3 align-items-center">
           <div className="col-auto">
-            <input
+            <Field
+              placeholder="Search..."
               type="search"
-              className="form-control"
-              placeholder="Search"
               {...searchInputProps}
             />
           </div>

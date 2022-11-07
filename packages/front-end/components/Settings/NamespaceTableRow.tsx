@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
 import { findGaps } from "../../services/features";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 import usePermissions from "../../hooks/usePermissions";
 

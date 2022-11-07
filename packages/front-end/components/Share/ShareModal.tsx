@@ -25,11 +25,12 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
 import track from "../../services/track";
 import SortedTags from "../Tags/SortedTags";
+import Field from "../Forms/Field";
 
 export const presentationThemes = {
   lblue: {
@@ -218,24 +219,25 @@ const ShareModal = ({
     }
   }, [existing?.slides]);
 
-  const {
-    list: experiments,
-    searchInputProps,
-    isFiltered,
-  } = useSearch(data?.experiments || [], [
-    "name",
-    "implementation",
-    "hypothesis",
-    "description",
-    "tags",
-    "trackingKey",
-    "status",
-    "id",
-    "owner",
-    "metrics",
-    "results",
-    "analysis",
-  ]);
+  const { items: experiments, searchInputProps, isFiltered } = useSearch({
+    items: data?.experiments || [],
+    defaultSortField: "id",
+    localStorageKey: "experiments-share",
+    searchFields: [
+      "name",
+      "implementation",
+      "hypothesis",
+      "description",
+      "tags",
+      "trackingKey",
+      "status",
+      "id",
+      "owner",
+      "metrics",
+      "results",
+      "analysis",
+    ],
+  });
 
   const { apiCall } = useAuth();
 
@@ -637,11 +639,9 @@ const ShareModal = ({
             <div className="form-group">
               <div className="filters md-form row mb-3 align-items-center">
                 <div className="col">
-                  <input
+                  <Field
+                    placeholder="Search..."
                     type="search"
-                    className=" form-control"
-                    placeholder="Search"
-                    aria-controls="dtBasicExample"
                     {...searchInputProps}
                   />
                 </div>

@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
