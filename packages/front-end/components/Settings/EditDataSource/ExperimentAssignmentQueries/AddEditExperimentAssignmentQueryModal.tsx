@@ -28,13 +28,9 @@ type EditExperimentAssignmentQueryProps = {
 };
 
 type TestQueryResults = {
-  optionalColumns?: string[];
   duration?: string;
   error?: string;
   results?: TestQueryRow[];
-  includesNameColumns?: boolean;
-  returnedColumns?: string[];
-  missingNameColumn?: string;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
@@ -133,7 +129,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         body: JSON.stringify({
           query: userEnteredQuery,
           datasourceId: dataSource.id,
-          requiredColumns,
         }),
       });
 
@@ -144,21 +139,51 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
       const warningsArr = [];
 
+      const optionalColumns = [];
+      const namedCols = ["experiment_name", "variation_name"];
+      let includesNameColumns = false;
+      const userIdTypes = dataSource.settings.userIdTypes?.map(
+        (type) => type.userIdType || []
+      );
+      const returnedColumns = [];
+
+      if (res.results.length > 0) {
+        for (const column in res.results[0]) {
+          if (
+            !requiredColumns.includes(column) &&
+            !namedCols.includes(column) &&
+            !userIdTypes.includes(column)
+          ) {
+            optionalColumns.push(column);
+          }
+
+          returnedColumns.push(column);
+        }
+
+        // If the user didn't check the box for includesNameColumns, check to see if
+        // both named columns were included in the query
+        if (
+          returnedColumns.includes("experiment_name") &&
+          returnedColumns.includes("variation_name")
+        ) {
+          includesNameColumns = true;
+        }
+      }
+
       // if the user didn't check the box for use name columns, but included
       // both, auto-enable it for them
-      if (res.includesNameColumns && !userEnteredHasNameCol) {
+      if (includesNameColumns && !userEnteredHasNameCol) {
         form.setValue("hasNameCol", true);
       }
 
       // If the user enters 1 name column, but not both,
       // warn them they need to add both.
       if (
-        !res.includesNameColumns &&
-        res.returnedColumns.includes("variation_name") !==
-          res.returnedColumns.includes("experiment_name")
+        !includesNameColumns &&
+        returnedColumns.includes("variation_name") !==
+          returnedColumns.includes("experiment_name")
       ) {
-        if (!res.returnedColumns.includes("variation_name")) {
-          res.missingNameColumn = "variation_name";
+        if (!returnedColumns.includes("variation_name")) {
           warningsArr.push({
             type: "missingNameColumn",
             message:
@@ -174,20 +199,20 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       }
 
       // Serve warning if optional columns are included
-      if (res.optionalColumns?.length > 0) {
+      if (optionalColumns?.length > 0) {
         const message = `The query entered includes ${
-          res.optionalColumns.length === 1 ? "an" : ""
+          optionalColumns.length === 1 ? "an" : ""
         } optional column${
-          res.optionalColumns.length > 1 ? "s" : ""
-        }: ${res.optionalColumns
+          optionalColumns.length > 1 ? "s" : ""
+        }: ${optionalColumns
           .map((col) => '"' + col + '"')
           .join(", ")}. Add these as dimension column${
-          res.optionalColumns.length > 1 ? "s" : ""
+          optionalColumns.length > 1 ? "s" : ""
         } to drill down into experiment results. Or, they can be removed to improve performance.`;
         warningsArr.push({
           type: "optionalColumns",
           message,
-          optionalColumns: res.optionalColumns,
+          optionalColumns: optionalColumns,
         });
       }
 

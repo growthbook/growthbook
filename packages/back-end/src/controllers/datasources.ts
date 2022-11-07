@@ -496,7 +496,6 @@ export async function testLimitedQuery(
   req: AuthRequest<{
     query: string;
     datasourceId: string;
-    requiredColumns: string[];
   }>,
   res: Response
 ) {
@@ -504,7 +503,7 @@ export async function testLimitedQuery(
 
   const { org } = getOrgFromReq(req);
 
-  const { query, datasourceId, requiredColumns } = req.body;
+  const { query, datasourceId } = req.body;
 
   const datasource = await getDataSourceById(datasourceId, org.id);
   if (!datasource) {
@@ -514,46 +513,12 @@ export async function testLimitedQuery(
     });
   }
 
-  const userIdTypes =
-    datasource.settings.userIdTypes?.map((type) => type.userIdType) || [];
-
   const { results, duration, error } = await testQuery(datasource, query);
-
-  const optionalColumns = [];
-  let includesNameColumns = false;
-  const namedCols = ["experiment_name", "variation_name"];
-  const returnedColumns = [];
-
-  if (results.length > 0) {
-    for (const column in results[0]) {
-      if (
-        !requiredColumns.includes(column) &&
-        !namedCols.includes(column) &&
-        !userIdTypes.includes(column)
-      ) {
-        optionalColumns.push(column);
-      }
-
-      returnedColumns.push(column);
-    }
-
-    // If the user didn't check the box for includesNameColumns, check to see if
-    // both named columns were included in the query
-    if (
-      returnedColumns.includes("experiment_name") &&
-      returnedColumns.includes("variation_name")
-    ) {
-      includesNameColumns = true;
-    }
-  }
 
   res.status(200).json({
     status: 200,
-    optionalColumns,
     duration,
     results,
-    includesNameColumns,
     error,
-    returnedColumns,
   });
 }
