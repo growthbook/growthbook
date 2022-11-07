@@ -91,30 +91,32 @@ export async function testDataSourceConnection(
 
 export async function testQuery(
   datasource: DataSourceInterface,
-  sql: string
-): Promise<{ results: TestQueryRow[]; duration: number; error: string }> {
+  query: string
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+}> {
   const integration = getSourceIntegrationObject(datasource);
 
   // The Mixpanel integration does not support test queries
-  if (!integration.testQuery) {
+  if (!integration.getTestQuery || !integration.runTestQuery) {
     throw new Error("Unable to test query.");
   }
 
-  let results: TestQueryRow[] = [];
-  let duration = 0;
-  let error = "";
-
+  const sql = integration.getTestQuery(query);
   try {
-    const res = await integration.testQuery(sql);
-    results = res.results;
-    duration = res.duration;
+    const { results, duration } = await integration.runTestQuery(sql);
+    return {
+      results,
+      duration,
+      sql,
+    };
   } catch (e) {
-    error = e.message;
+    return {
+      error: e.message,
+      sql,
+    };
   }
-
-  return {
-    results,
-    duration,
-    error,
-  };
 }

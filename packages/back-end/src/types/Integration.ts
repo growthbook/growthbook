@@ -166,9 +166,10 @@ export interface SourceIntegrationInterface {
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
   ): Promise<ExperimentQueryResponses>;
-  testConnection(): Promise<boolean>;
-  testQuery?(query: string): Promise<TestQueryResult>;
   getSourceProperties(): DataSourceProperties;
+  testConnection(): Promise<boolean>;
+  getTestQuery?(query: string): string;
+  runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;

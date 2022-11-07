@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import Modal from "../../../Modal";
 import {
   DataSourceInterfaceWithParams,
@@ -14,9 +14,7 @@ import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";
 import { useAuth } from "../../../../services/auth";
 import { FaPlay } from "react-icons/fa";
-import DisplayTestQueryResults, {
-  Results,
-} from "../../DisplayTestQueryResults";
+import DisplayTestQueryResults from "../../DisplayTestQueryResults";
 import { TestQueryRow } from "back-end/src/types/Integration";
 
 type EditExperimentAssignmentQueryProps = {
@@ -31,6 +29,7 @@ type TestQueryResults = {
   duration?: string;
   error?: string;
   results?: TestQueryRow[];
+  sql?: string;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
@@ -40,9 +39,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const [testQueryResults, setTestQueryResults] = useState<Results | null>(
-    null
-  );
+  const [
+    testQueryResults,
+    setTestQueryResults,
+  ] = useState<TestQueryResults | null>(null);
+  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const { apiCall } = useAuth();
   const modalTitle =
     mode === "add"
@@ -77,17 +78,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredHasNameCol = form.watch("hasNameCol");
   const userEnteredDimensions = form.watch("dimensions");
 
-  const getRequiredColumns = (userIdType, dimensions, hasNameCol) => {
-    return [
-      "experiment_id",
-      "variation_id",
-      "timestamp",
-      userIdType,
-      ...(dimensions || []),
-      ...(hasNameCol ? ["experiment_name", "variation_name"] : []),
-    ];
-  };
-
   const handleSubmit = form.handleSubmit(async (value) => {
     await onSave(value);
 
@@ -102,27 +92,21 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     });
   });
 
-  const identityTypes = dataSource.settings.userIdTypes || [];
-
-  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
-
-  if (!exposureQuery && mode === "edit") {
-    console.error(
-      "ImplementationError: exposureQuery is required for Edit mode"
-    );
-    return null;
-  }
+  const requiredColumns = useMemo(() => {
+    return new Set([
+      "experiment_id",
+      "variation_id",
+      "timestamp",
+      userEnteredUserIdType,
+      ...(userEnteredDimensions || []),
+      ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
+    ]);
+  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
 
   const handleTestQuery = async () => {
     setTestQueryResults(null);
-
     try {
-      const requiredColumns = getRequiredColumns(
-        userEnteredUserIdType,
-        userEnteredDimensions,
-        userEnteredHasNameCol
-      );
-      validateSQL(userEnteredQuery, requiredColumns);
+      validateSQL(userEnteredQuery, [...requiredColumns]);
 
       const res: TestQueryResults = await apiCall("/query/test", {
         method: "POST",
@@ -132,103 +116,109 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         }),
       });
 
-      if (res.error) {
-        setTestQueryResults({ error: res.error });
-        return;
-      }
-
-      const warningsArr = [];
-      const optionalColumns = [];
-      const returnedColumns = [];
-      const namedCols = ["experiment_name", "variation_name"];
-      const userIdTypes = dataSource.settings.userIdTypes?.map(
-        (type) => type.userIdType || []
-      );
-
-      if (res.results.length > 0) {
-        for (const column in res.results[0]) {
-          if (
-            !requiredColumns.includes(column) &&
-            !namedCols.includes(column) &&
-            !userIdTypes.includes(column)
-          ) {
-            optionalColumns.push(column);
-          }
-
-          returnedColumns.push(column);
-        }
-
-        // If the user didn't check the box for includesNameColumns, but included
-        // both, auto-enable it for them
-        if (
-          returnedColumns.includes("experiment_name") &&
-          returnedColumns.includes("variation_name")
-        ) {
-          form.setValue("hasNameCol", true);
-        }
-      }
-
-      // If the user enters 1 name column, but not both,
-      // warn them they need to add both.
-      if (
-        !userEnteredHasNameCol &&
-        returnedColumns.includes("variation_name") !==
-          returnedColumns.includes("experiment_name")
-      ) {
-        if (!returnedColumns.includes("variation_name")) {
-          warningsArr.push({
-            type: "missingNameColumn",
-            message:
-              "If you want to use name columns, your query needs to include variation_name.",
-          });
-        } else {
-          warningsArr.push({
-            type: "missingNameColumn",
-            message:
-              "If you want to use name columns, your query needs to include experiment_name",
-          });
-        }
-      }
-
-      // Serve warning if optional columns are included
-      if (optionalColumns?.length > 0) {
-        const showPlural = optionalColumns.length > 1;
-        const message = `The query entered includes ${
-          showPlural ? "" : "an"
-        } optional column${showPlural ? "s" : ""}: ${optionalColumns
-          .map((col) => '"' + col + '"')
-          .join(", ")}. Add ${
-          showPlural ? "these as" : "this as a"
-        } dimension column${
-          showPlural ? "s" : ""
-        } to drill down into experiment results. Or, remove ${
-          showPlural ? "them" : "it"
-        } to improve performance.`;
-        warningsArr.push({
-          type: "optionalColumns",
-          message,
-          optionalColumns: optionalColumns,
-        });
-      }
-
-      if (res.duration && res.results.length === 0) {
-        warningsArr.push({
-          type: "noRowsReturned",
-          message: "The query did not return any rows.",
-        });
-      }
-
-      setTestQueryResults({
-        success:
-          res.duration &&
-          res.results.length > 0 &&
-          `The query ran successfully in ${res.duration} ms.`,
-        warnings: warningsArr,
-      });
+      setTestQueryResults(res);
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }
   };
+
+  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
+    dataSource.settings.userIdTypes,
+  ]);
+
+  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
+
+  useEffect(() => {
+    const result = testQueryResults?.results?.[0];
+    if (!result) return;
+
+    const suggestions: ReactElement[] = [];
+
+    const namedCols = ["experiment_name", "variation_name"];
+    const userIdTypes = identityTypes.map((type) => type.userIdType || []);
+
+    const returnedColumns = new Set<string>(Object.keys(result));
+    const optionalColumns = [...returnedColumns].filter(
+      (col) =>
+        !requiredColumns.has(col) &&
+        !namedCols.includes(col) &&
+        !userIdTypes.includes(col)
+    );
+
+    // Check if `hasNameCol` should be enabled
+    if (!userEnteredHasNameCol) {
+      // Selected both required columns, turn on `hasNameCol` automatically
+      if (
+        returnedColumns.has("experiment_name") &&
+        returnedColumns.has("variation_name")
+      ) {
+        form.setValue("hasNameCol", true);
+      }
+      // Only selected `experiment_name`, add warning
+      else if (returnedColumns.has("experiment_name")) {
+        suggestions.push(
+          <>
+            Add <code>variation_name</code> to your SELECT clause to enable
+            GrowthBook to populate names automatically.
+          </>
+        );
+      }
+      // Only selected `variation_name`, add warning
+      else if (returnedColumns.has("variation_name")) {
+        suggestions.push(
+          <>
+            Add <code>experiment_name</code> to your SELECT clause to enable
+            GrowthBook to populate names automatically.
+          </>
+        );
+      }
+    }
+
+    // Prompt to add optional columns as dimensions
+    if (optionalColumns.length > 0) {
+      suggestions.push(
+        <>
+          The following columns were returned, but will be ignored. Add them as
+          dimensions or disregard this message.
+          <ul className="mb-0 pb-0">
+            {optionalColumns.map((col) => (
+              <li key={col}>
+                <code>{col}</code> -{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    form.setValue("dimensions", [
+                      ...userEnteredDimensions,
+                      col,
+                    ]);
+                  }}
+                >
+                  add as dimension
+                </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      );
+    }
+
+    setSuggestions(suggestions);
+  }, [
+    requiredColumns,
+    testQueryResults,
+    userEnteredDimensions,
+    identityTypes,
+    userEnteredHasNameCol,
+    form,
+  ]);
+
+  if (!exposureQuery && mode === "edit") {
+    console.error(
+      "ImplementationError: exposureQuery is required for Edit mode"
+    );
+    return null;
+  }
 
   return (
     <Modal
@@ -265,7 +255,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               }}
             />
             <div className="row">
-              <div className="col">
+              <div className="col-lg-8 col-md-7">
                 <label className="font-weight-bold mb-1">SQL Query</label>
                 <div>
                   <div className="d-flex justify-content-between align-items-center p-1 border rounded">
@@ -303,6 +293,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     value={userEnteredQuery}
                     setValue={(sql) => form.setValue("query", sql)}
                   />
+                  {testQueryResults && (
+                    <DisplayTestQueryResults
+                      duration={parseInt(testQueryResults.duration || "0")}
+                      requiredColumns={[...requiredColumns]}
+                      result={testQueryResults.results?.[0]}
+                      suggestions={suggestions}
+                      error={testQueryResults.error}
+                      sql={testQueryResults.sql}
+                    />
+                  )}
                 </div>
               </div>
               <div className="col-md-5 col-lg-4">
@@ -347,7 +347,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </div>
               </div>
             </div>
-            <DisplayTestQueryResults results={testQueryResults} form={form} />
           </div>
         </div>
       </div>

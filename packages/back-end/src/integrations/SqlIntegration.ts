@@ -441,18 +441,25 @@ export default abstract class SqlIntegration
     });
   }
 
-  async testQuery(query: string): Promise<TestQueryResult> {
+  getTestQuery(query: string): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
     const limitedQuery = replaceSQLVars(
-      `SELECT * FROM (${query}) as sub_query\nLIMIT 1`,
+      `WITH __table as (
+        ${query}
+      )
+      SELECT * FROM __table LIMIT 1`,
       {
         startDate,
       }
     );
+    return format(limitedQuery, this.getFormatDialect());
+  }
+
+  async runTestQuery(sql: string): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
-    const results = await this.runQuery(limitedQuery);
+    const results = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
     return { results, duration };

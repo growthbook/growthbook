@@ -513,12 +513,13 @@ export async function testLimitedQuery(
     });
   }
 
-  const { results, duration, error } = await testQuery(datasource, query);
+  const { results, sql, duration, error } = await testQuery(datasource, query);
 
   res.status(200).json({
     status: 200,
     duration,
     results,
+    sql,
     error,
   });
 }
