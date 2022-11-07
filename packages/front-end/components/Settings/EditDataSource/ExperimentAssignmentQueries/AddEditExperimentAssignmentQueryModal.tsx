@@ -141,7 +141,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
       const optionalColumns = [];
       const namedCols = ["experiment_name", "variation_name"];
-      let includesNameColumns = false;
       const userIdTypes = dataSource.settings.userIdTypes?.map(
         (type) => type.userIdType || []
       );
@@ -160,26 +159,21 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           returnedColumns.push(column);
         }
 
-        // If the user didn't check the box for includesNameColumns, check to see if
-        // both named columns were included in the query
+        // If the user didn't check the box for includesNameColumns, but included
+        // both, auto-enable it for them
         if (
           returnedColumns.includes("experiment_name") &&
           returnedColumns.includes("variation_name")
         ) {
-          includesNameColumns = true;
+          // includesNameColumns = true;
+          form.setValue("hasNameCol", true);
         }
-      }
-
-      // if the user didn't check the box for use name columns, but included
-      // both, auto-enable it for them
-      if (includesNameColumns && !userEnteredHasNameCol) {
-        form.setValue("hasNameCol", true);
       }
 
       // If the user enters 1 name column, but not both,
       // warn them they need to add both.
       if (
-        !includesNameColumns &&
+        !userEnteredHasNameCol &&
         returnedColumns.includes("variation_name") !==
           returnedColumns.includes("experiment_name")
       ) {
@@ -200,15 +194,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
       // Serve warning if optional columns are included
       if (optionalColumns?.length > 0) {
+        const showPlural = optionalColumns.length > 1;
         const message = `The query entered includes ${
-          optionalColumns.length === 1 ? "an" : ""
-        } optional column${
-          optionalColumns.length > 1 ? "s" : ""
-        }: ${optionalColumns
+          showPlural ? "" : "an"
+        } optional column${showPlural ? "s" : ""}: ${optionalColumns
           .map((col) => '"' + col + '"')
-          .join(", ")}. Add these as dimension column${
-          optionalColumns.length > 1 ? "s" : ""
-        } to drill down into experiment results. Or, they can be removed to improve performance.`;
+          .join(", ")}. Add ${
+          showPlural ? "these as" : "this as a"
+        } dimension column${
+          showPlural ? "s" : ""
+        } to drill down into experiment results. Or, remove ${
+          showPlural ? "them" : "it"
+        } to improve performance.`;
         warningsArr.push({
           type: "optionalColumns",
           message,
