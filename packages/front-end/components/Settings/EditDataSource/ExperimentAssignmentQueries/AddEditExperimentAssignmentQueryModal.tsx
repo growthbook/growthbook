@@ -138,13 +138,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       }
 
       const warningsArr = [];
-
       const optionalColumns = [];
+      const returnedColumns = [];
       const namedCols = ["experiment_name", "variation_name"];
       const userIdTypes = dataSource.settings.userIdTypes?.map(
         (type) => type.userIdType || []
       );
-      const returnedColumns = [];
 
       if (res.results.length > 0) {
         for (const column in res.results[0]) {
@@ -165,7 +164,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           returnedColumns.includes("experiment_name") &&
           returnedColumns.includes("variation_name")
         ) {
-          // includesNameColumns = true;
           form.setValue("hasNameCol", true);
         }
       }
