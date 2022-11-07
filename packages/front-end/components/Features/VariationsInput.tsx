@@ -10,7 +10,7 @@ import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import { GBAddCircle } from "../Icons";
 import React, { useState } from "react";
 import styles from "./VariationsInput.module.scss";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import MoreMenu from "../Dropdown/MoreMenu";
 
 export interface Props {

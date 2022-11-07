@@ -2,13 +2,13 @@ import React, { FC, Fragment, useState } from "react";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import { WebhookInterface } from "back-end/types/webhook";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
 
 const Webhooks: FC = () => {

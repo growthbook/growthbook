@@ -1,8 +1,9 @@
 import React, { FC, useState } from "react";
+import { FaCheck, FaTimes } from "react-icons/fa";
 import InviteModal from "./InviteModal";
 import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
 import { useUser } from "../../../services/UserContext";
-import DeleteButton from "../../DeleteButton";
+import DeleteButton from "../../DeleteButton/DeleteButton";
 import { GBAddCircle } from "../../Icons";
 import { ExpandedMember } from "back-end/types/organization";
 import MoreMenu from "../../Dropdown/MoreMenu";
@@ -10,7 +11,7 @@ import { usingSSO } from "../../../services/env";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import { useEnvironments } from "../../../services/features";
-import { FaCheck, FaTimes } from "react-icons/fa";
+import { datetime } from "../../../services/dates";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -67,6 +68,7 @@ const MemberList: FC<{
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Date Joined</th>
             <th>Role</th>
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
@@ -84,6 +86,7 @@ const MemberList: FC<{
               <tr key={id}>
                 <td>{member.name}</td>
                 <td>{member.email}</td>
+                <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                 <td>{roleInfo.role}</td>
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);

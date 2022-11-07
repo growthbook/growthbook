@@ -1,16 +1,16 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
 import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import TagsModal from "../../components/Tags/TagsModal";
 import Tag from "../../components/Tags/Tag";
 import { GBAddCircle } from "../../components/Icons";
 import { TagInterface } from "back-end/types/tag";
-import { useSearch, useSort } from "../../services/search";
-import Field from "../../components/Forms/Field";
+import { useSearch } from "../../services/search";
 import usePermissions from "../../hooks/usePermissions";
+import Field from "../../components/Forms/Field";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -18,11 +18,13 @@ const TagsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
     null
   );
-  const { list, searchInputProps, isFiltered } = useSearch(tags || [], [
-    "id",
-    "description",
-  ]);
-  const { sorted, SortableTH } = useSort(list, "id", 1, "tags");
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+    items: tags || [],
+    localStorageKey: "tags",
+    defaultSortField: "id",
+    searchFields: ["id", "description"],
+  });
+
   const permissions = usePermissions();
 
   if (!permissions.manageTags) {
@@ -57,7 +59,11 @@ const TagsPage: FC = () => {
         <>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
-              <Field placeholder="Search..." {...searchInputProps} />
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
             </div>
           </div>
           <table className="table appbox gbtable table-hover">
@@ -70,7 +76,7 @@ const TagsPage: FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sorted?.map((t, i) => {
+              {items?.map((t, i) => {
                 return (
                   <tr key={i}>
                     <td
@@ -111,7 +117,7 @@ const TagsPage: FC = () => {
                   </tr>
                 );
               })}
-              {!sorted.length && isFiltered && (
+              {!items.length && isFiltered && (
                 <tr>
                   <td colSpan={4} align={"center"}>
                     No matching tags found.

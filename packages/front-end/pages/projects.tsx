@@ -1,7 +1,7 @@
 import { useState, FC } from "react";
 import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
-import DeleteButton from "../components/DeleteButton";
+import DeleteButton from "../components/DeleteButton/DeleteButton";
 import ProjectModal from "../components/Projects/ProjectModal";
 import { useAuth } from "../services/auth";
 import { date } from "../services/dates";
