@@ -160,18 +160,10 @@ export function getNumberOfUniqueMembersAndInvites(
   organization: OrganizationInterface
 ) {
   // There was a bug that allowed duplicate members in the members array
-  const uniqueMembers = [
-    ...new Map(
-      organization.members.map((member) => [member.id, member])
-    ).values(),
-  ];
+  const numMembers = new Set(organization.members.map((m) => m.id)).size;
+  const numInvites = new Set(organization.invites.map((i) => i.email)).size;
 
-  const uniqueInvites = [
-    ...new Map(
-      organization.invites.map((invite) => [invite.email, invite])
-    ).values(),
-  ];
-  return uniqueMembers.length + uniqueInvites.length;
+  return numMembers + numInvites;
 }
 
 export async function userHasAccess(
