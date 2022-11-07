@@ -12,6 +12,7 @@ import Tooltip from "../Tooltip/Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "../Settings/ClickToReveal";
+import ClickToCopy from "../Settings/ClickToCopy";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -19,7 +20,6 @@ const SDKEndpoints: FC<{
 }> = ({ keys, mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
-  const [currentCopiedString, setCurrentCopiedString] = useState("");
 
   const { projects } = useDefinitions();
 
@@ -115,27 +115,7 @@ const SDKEndpoints: FC<{
                     </span>
                   </td>
                   <td>
-                    <Tooltip
-                      role="button"
-                      tipMinWidth="45px"
-                      tipPosition="top"
-                      body={
-                        currentCopiedString !== endpoint ? "Copy" : "Copied!"
-                      }
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigator.clipboard
-                          .writeText(endpoint)
-                          .then(() => {
-                            setCurrentCopiedString(endpoint);
-                          })
-                          .catch((e) => {
-                            console.error(e);
-                          });
-                      }}
-                    >
-                      {endpoint}
-                    </Tooltip>
+                    <ClickToCopy valueToCopy={endpoint}>{endpoint}</ClickToCopy>
                   </td>
                   {hasEncryptedEndpoints && (
                     <td>
@@ -160,8 +140,6 @@ const SDKEndpoints: FC<{
                             }
                             return res.key.encryptionKey;
                           }}
-                          currentCopiedString={currentCopiedString}
-                          setCurrentCopiedString={setCurrentCopiedString}
                         />
                       ) : (
                         <div style={{ textAlign: "right" }}>No</div>

@@ -12,7 +12,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   keys,
   mutate,
 }) => {
-  const [currentCopiedString, setCurrentCopiedString] = useState("");
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -68,8 +67,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                         }
                         return res.key.key;
                       }}
-                      currentCopiedString={currentCopiedString}
-                      setCurrentCopiedString={setCurrentCopiedString}
                     />
                   ) : (
                     <em>hidden</em>

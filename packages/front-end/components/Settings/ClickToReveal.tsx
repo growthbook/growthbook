@@ -2,23 +2,17 @@ import clsx from "clsx";
 import { useState } from "react";
 import { FaExclamationTriangle, FaEye, FaEyeSlash } from "react-icons/fa";
 import Tooltip from "../Tooltip/Tooltip";
+import ClickToCopy from "./ClickToCopy";
 
 export type SecretKey = {
   [key: string]: string;
 };
 export interface Props {
   rowReverse?: boolean;
-  currentCopiedString: string;
-  setCurrentCopiedString: (value: string) => void;
   getValue: () => Promise<string>;
 }
 
-export default function ClickToReveal({
-  rowReverse,
-  currentCopiedString,
-  setCurrentCopiedString,
-  getValue,
-}: Props) {
+export default function ClickToReveal({ rowReverse, getValue }: Props) {
   const [error, setError] = useState("");
   const [revealedValue, setRevealedValue] = useState<null | string>(null);
   const [showRevealedValue, setShowRevaledValue] = useState(false);
@@ -45,34 +39,7 @@ export default function ClickToReveal({
       >
         {!showRevealedValue ? <FaEyeSlash /> : <FaEye />}
       </span>
-      <Tooltip
-        className={showRevealedValue && "w-100"}
-        role="button"
-        tipMinWidth="45px"
-        tipPosition="top"
-        body={
-          !showRevealedValue
-            ? "Click the eye to reveal"
-            : currentCopiedString === revealedValue
-            ? "Copied!"
-            : "Copy"
-        }
-        style={{ paddingLeft: "5px" }}
-        onClick={(e) => {
-          e.preventDefault();
-          if (showRevealedValue) {
-            navigator.clipboard
-              .writeText(revealedValue)
-              .then(() => {
-                setCurrentCopiedString(revealedValue);
-              })
-              .catch((e) => {
-                setError(e.message);
-                console.error(e);
-              });
-          }
-        }}
-      >
+      <ClickToCopy valueToCopy={revealedValue}>
         <input
           role="button"
           type={!showRevealedValue ? "password" : "text"}
@@ -88,7 +55,7 @@ export default function ClickToReveal({
             width: "100%",
           }}
         />
-      </Tooltip>
+      </ClickToCopy>
       {error && (
         <Tooltip body={error}>
           <FaExclamationTriangle className="text-danger" />
