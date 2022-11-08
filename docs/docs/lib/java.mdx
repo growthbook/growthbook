@@ -12,6 +12,9 @@ import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-
 import CodeTabsGBContextStaticCreatePartial from '@site/src/partials/java/_code-tabs-gbcontext-static-create.mdx'
 import CodeTabsUsingFeaturesPartial from '@site/src/partials/java/_code-tabs-using-features.mdx'
 import CodeTabsTrackingCallbackPartial from '@site/src/partials/java/_code-tabs-tracking-callback.mdx'
+import CodeTabsRunExperimentPartial from '@site/src/partials/java/_code-tabs-run-experiment.mdx'
+import CodeTabsExperimentResultCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-experiment-run.mdx'
+import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-multiple.mdx'
 
 # Java
 
@@ -138,15 +141,41 @@ As expected in Kotlin, you can access these getters using property accessors.
 
 ### Inline Experiments
 
-todo
+Instead of declaring all features up-front in the context and referencing them by IDs in your code, you can also just run an experiment directly. This is done with the `growthbook.run(Experiment<T>)` method.
+
+<CodeTabsRunExperimentPartial />
 
 #### Inline experiment return value
 
-todo
+An `ExperimentResult<T>` is returned where `T` is the generic value type for the experiment.
 
-#### Subscribing to experiment evaluations
+There's also a number of methods available:
 
-todo
+- **getValue()** - a nullable value of the feature
+- **getVariationId()** - index of the variation used, if applicable
+- **getInExperiment()** - boolean if they were in the experiment
+- **getHashAttribute()** - attribute used for hashing, defaulting to `id`
+- **getHashValue()** - the hash value used for evaluating the experiment, if applicable
+- **getFeatureId()** - get the feature key
+- **getHashUsed()** - boolean if a hash was used to evaluate the experiment
+
+The `getInExperiment()` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
+
+The `getHashUsed()` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
+
+As expected in Kotlin, you can access these getters using property accessors.
+
+### Subscribing to experiment runs with the ExperimentRunCallback
+
+You can subscribe to experiment run evaluations using the `ExperimentRunCallback`.
+
+<CodeTabsExperimentResultCallbackPartial />
+
+Every time an experiment is evaluated when calling `growthBook.run(Experiment)`, the callbacks will be called.
+
+You can subscribe with as many callbacks as you like:
+
+<CodeTabsExperimentResultSubscribeMultipleCallbackPartial />
 
 ## Code Examples
 
