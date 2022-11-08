@@ -10,6 +10,7 @@ import ExternalLink from '@site/src/components/ExternalLink'
 import CodeTabsAddDependencyPartial from '@site/src/partials/java/_code-tabs-add-dependency.mdx'
 import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder.mdx'
 import CodeTabsGBContextStaticCreatePartial from '@site/src/partials/java/_code-tabs-gbcontext-static-create.mdx'
+import CodeTabsUserAttributesPartial from '@site/src/partials/java/_code-tabs-user-attributes.mdx'
 import CodeTabsUsingFeaturesPartial from '@site/src/partials/java/_code-tabs-using-features.mdx'
 import CodeTabsTrackingCallbackPartial from '@site/src/partials/java/_code-tabs-tracking-callback.mdx'
 import CodeTabsRunExperimentPartial from '@site/src/partials/java/_code-tabs-run-experiment.mdx'
@@ -68,8 +69,8 @@ There are 2 steps to initializing the GrowthBook SDK:
 
 The GrowthBook context `GBContext` can be created either by implementing the builder class, or by implementing the static method `create()`.
 
-- the `featureJson` method takes a JSON string that is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Settings &rarr; API Keys page <ExternalLink/>](https://app.growthbook.io/settings/keys).
-- the `attributesJson` method takes a JSON string of the user attributes, e.g. `{ "id": 100, "country": "canada" }`
+- the `featureJson` method takes a JSON string of the features. See [Features](#features) below.
+- the `attributesJson` method takes a JSON string of the user attributes. See [Attributes](#attributes) below.
 
 #### Using the Builder class
 
@@ -89,26 +90,16 @@ For complete examples, see the [Examples](#examples) section below.
 
 #### Features
 
-todo
+The features JSON is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Settings &rarr; API Keys page <ExternalLink/>](https://app.growthbook.io/settings/keys).
+
+- You can read more [about features here](/app/features)
+- You can see an [example features JSON here <ExternalLink/>](https://github.com/growthbook/examples/blob/main/jvm-spring-web/src/main/resources/static/features.json)
 
 #### Attributes
 
 Attributes are a JSON string. You can specify attributes about the current user and request. Here's an example:
 
-```java
-// Java example
-String userAttributes = "{\"country\": \"canada\", \"id\": \"user-abc123\"}";
-```
-
-```kotlin
-// Kotlin example
-val userAttributes = """
-    {
-        "id": "user-abc123",
-        "country": "canada"
-    }
-""".trimIndent()
-```
+<CodeTabsUserAttributesPartial />
 
 If you need to set or update attributes asynchronously, you can do so with `Context#attributesJson` or `GrowthBook#setAttributes`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
 
