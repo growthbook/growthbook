@@ -21,7 +21,7 @@ TrackingCallback trackingCallback = new TrackingCallback() {
     }
 };
 
-GBContext context = GBContext.create(
+GBContext context = new GBContext(
     user.toJson(),
     featuresRepository.getFeaturesJson(),
     isEnabled,
@@ -60,7 +60,7 @@ val trackingCallback: TrackingCallback = object : TrackingCallback {
     }
 }
 
-val context = GBContext.create(
+val context = GBContext(
     userAttributes,
     featuresJson,
     isEnabled,

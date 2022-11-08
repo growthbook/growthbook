@@ -9,7 +9,7 @@ toc_max_heading_level: 5
 import ExternalLink from '@site/src/components/ExternalLink'
 import CodeTabsAddDependencyPartial from '@site/src/partials/java/_code-tabs-add-dependency.mdx'
 import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder.mdx'
-import CodeTabsGBContextStaticCreatePartial from '@site/src/partials/java/_code-tabs-gbcontext-static-create.mdx'
+import CodeTabsGBContextConstructorPartial from '@site/src/partials/java/_code-tabs-gbcontext-constructor.mdx'
 import CodeTabsUserAttributesPartial from '@site/src/partials/java/_code-tabs-user-attributes.mdx'
 import CodeTabsUsingFeaturesPartial from '@site/src/partials/java/_code-tabs-using-features.mdx'
 import CodeTabsTrackingCallbackPartial from '@site/src/partials/java/_code-tabs-tracking-callback.mdx'
@@ -67,24 +67,29 @@ There are 2 steps to initializing the GrowthBook SDK:
 
 ### GrowthBook context
 
-The GrowthBook context `GBContext` can be created either by implementing the builder class, or by implementing the static method `create()`.
+The GrowthBook context `GBContext` can be created either by implementing the builder class, available at `GBContext.builder()`, or by using the `GBContext` constructor.
 
-- the `featureJson` method takes a JSON string of the features. See [Features](#features) below.
-- the `attributesJson` method takes a JSON string of the user attributes. See [Attributes](#attributes) below.
+| Field name            | Type                   | Description                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attributesJson`      | `String`               | The user attributes JSON. See [Attributes](#attributes).                                                                                                                                                                                                                                                                                                       |
+| `featuresJson`        | `String`               | The features JSON served by the GrowthBook API (or equivalent). See [Features](#features).                                                                                                                                                                                                                                                                     |
+| `enabled`             | `Boolean`              | Whether to enable the functionality of the SDK (default: `true`)                                                                                                                                                                                                                                                                                               |
+| `isQaMode`            | `Boolean`              | Whether the SDK is in QA mode. Not for production use. If true, random assignment is disabled and only explicitly forced variations are used (default: `false`)                                                                                                                                                                                                |
+| `url`                 | `String`               | The URL of the current page. Useful when evaluating features based on the page URL.                                                                                                                                                                                                                                                                            |
+| `forcedVariationsMap` | `Map<String, Integer>` | Force specific experiments to always assign a specific variation (used for QA)                                                                                                                                                                                                                                                                                 |
+| `trackingCallback`    | `TrackingCallback`     | A callback that will be invoked with every experiment evaluation where the user **is** included in the experiment. See [TrackingCallback](#tracking-callback). To subscribe to all evaluated events regardless of whether the user is in the experiment, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback). |
 
-#### Using the Builder class
+#### Using the GBContext builder
 
-The builder is the easiest to use way to construct a `GBContext`, allowing you to provide as many or few arguments as you'd like:
+The builder is the easiest to use way to construct a `GBContext`, allowing you to provide as many or few arguments as you'd like. All fields mentioned above are available via the builder.
 
 <CodeTabsGBContextBuilderPartial />
 
-#### Using the static create() method
+#### Using the GBContext constructor
 
-You can also use the static method `create()` if you prefer, which will require you to pass all arguments. All arguments passed are available to be set using the builder above:
+You can also use `GBContext` constructor if you prefer, which will require you to pass all arguments explicitly.
 
-<CodeTabsGBContextStaticCreatePartial />
-
-The implementation of this method actually uses [the builder mentioned above](#using-the-builder-class).
+<CodeTabsGBContextConstructorPartial />
 
 For complete examples, see the [Examples](#examples) section below.
 
@@ -105,7 +110,9 @@ If you need to set or update attributes asynchronously, you can do so with `Cont
 
 #### Tracking Callback
 
-Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
+Any time an experiment is run to determine the value of a feature, we may call this callback so you can record the assigned value in your event tracking or analytics system of choice.
+
+**The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called. If you'd like to subscribe to all evaluations, regardless of experiment result, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback).
 
 <CodeTabsTrackingCallbackPartial />
 
@@ -122,7 +129,7 @@ There are 4 main methods for evaluating features:
 
 <CodeTabsUsingFeaturesPartial />
 
-The `evalFeature` method returns a `FeatureResult<T>` object with more info about why the feature was assigned to the user. The `T` type corresponds to the value type of the feature.
+The `evalFeature` method returns a `FeatureResult<T>` object with more info about why the feature was assigned to the user. The `T` type corresponds to the value type of the feature. In the above example, `T` is `Float`.
 
 `FeatureResult<T>` It has the following getters:
 
@@ -171,6 +178,8 @@ Every time an experiment is evaluated when calling `growthBook.run(Experiment)`,
 You can subscribe with as many callbacks as you like:
 
 <CodeTabsExperimentResultSubscribeMultipleCallbackPartial />
+
+The experiment run callback is called for every experiment run, regardless of experiment result. If you would like to subscribe only to evaluations where the user falls into an experiment, see [TrackingCallback](#tracking-callback).
 
 ## Code Examples
 
