@@ -158,7 +158,7 @@ const features = JSON.parse(featuresStr);
 
 In addition to the public API endpoints, GrowthBook also offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
 
-All request and response bodies are JSON-encoded.
+Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
 
 The API base URL for GrowthBook Cloud is `https://api.growthbook.io`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100`). The rest of these docs will assume you are using GrowthBook Cloud.
 
@@ -459,6 +459,82 @@ interface ListFeaturesResponse {
   "total": 20,
   "hasMore": true,
   "nextOffset": 1
+}
+```
+
+</details>
+
+#### Toggle Feature
+
+`POST /api/v1/features/:key/toggle`
+
+This endpoint controls the environment toggles for features.
+
+```bash
+curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
+  -u secret_abc123DEF456: \
+  -H "Content-Type: application/json" \
+  -d "environments[production]"=false \
+  -d reason="Kill switch activated"
+```
+
+The request body contains the following fields:
+
+- **environments** - An object mapping environment names to the desired toggle state. Not all environments need to be specified, only those you want to change.
+- **reason** - An optional string explaining why you are making this change (for the audit trail)
+
+<details className="mb-3">
+<summary className="cursor-pointer">Example JSON</summary>
+
+```json
+{
+  "environments": {
+    "dev": true,
+    "production": false
+  },
+  "reason": "Kill switch activated"
+}
+```
+
+</details>
+
+The reponse body contains the new Feature object after the changes are applied.
+
+<details className="mb-3">
+<summary className="cursor-pointer">Typescript Type Definition</summary>
+
+```ts
+interface ToggleFeaturesResponse {
+  feature: Feature;
+}
+```
+
+</details>
+
+<details className="mb-8">
+<summary className="cursor-pointer">Example JSON object</summary>
+
+```json
+{
+  "feature": {
+    "id": "my-test-feature",
+    "description": "My test feature!!!",
+    "archived": false,
+    "dateCreated": "2022-10-18T21:19:58.288Z",
+    "dateUpdated": "2022-10-18T21:42:29.835Z",
+    "defaultValue": "false",
+    "environments": {
+      "production": {
+        "defaultValue": "false",
+        "enabled": false,
+        "rules": [],
+        "draft": null,
+        "definition": {
+          "defaultValue": false
+        }
+      }
+    }
+  }
 }
 ```
 

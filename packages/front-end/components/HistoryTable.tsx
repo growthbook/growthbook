@@ -79,6 +79,11 @@ export function HistoryTableRow({
   url?: string;
 }) {
   itemName = itemName || event.entity.id;
+  const user = event.user;
+  const userDisplay =
+    ("name" in user && user.name) ||
+    ("email" in user && user.email) ||
+    ("apiKey" in user && "API Key");
   return (
     <>
       <tr
@@ -105,7 +110,7 @@ export function HistoryTableRow({
             </td>
           </>
         )}
-        <td>{event.user.name || event.user.email}</td>
+        <td>{userDisplay}</td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}

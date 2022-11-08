@@ -4,6 +4,7 @@ import {
   getFeature,
   toggleMultipleEnvironments,
 } from "../../models/FeatureModel";
+import { auditDetailsUpdate } from "../../services/audit";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { getEnvironments } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
@@ -41,8 +42,17 @@ export const toggleFeature = createApiRequestHandler({
 
     const newFeature = await toggleMultipleEnvironments(feature, toggles);
 
-    // TODO: add an audit log entry
-    console.log(req.body.reason);
+    if (newFeature !== feature) {
+      await req.audit({
+        event: "feature.toggle",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(feature, newFeature),
+        reason: req.body.reason,
+      });
+    }
 
     const groupMap = await getSavedGroupMap(req.organization);
     return {
