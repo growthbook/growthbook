@@ -18,10 +18,10 @@ ExperimentRunCallback experimentRunCallback = new ExperimentRunCallback() {
 };
 
 GBContext context = GBContext
-        .builder()
-        .featuresJson(featuresJson)
-        .attributesJson(userAttributesJson)
-        .build();
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .build();
 
 GrowthBook growthBook = new GrowthBook(context);
 
