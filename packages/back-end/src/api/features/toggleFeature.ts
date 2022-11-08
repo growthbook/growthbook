@@ -1,0 +1,52 @@
+import { z } from "zod";
+import { ApiFeatureInterface } from "../../../types/api";
+import {
+  getFeature,
+  toggleMultipleEnvironments,
+} from "../../models/FeatureModel";
+import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
+import { getEnvironments } from "../../services/organizations";
+import { createApiRequestHandler } from "../../util/handler";
+
+export const toggleFeature = createApiRequestHandler({
+  paramsSchema: z
+    .object({
+      key: z.string(),
+    })
+    .strict(),
+  bodySchema: z
+    .object({
+      environments: z.record(z.string(), z.boolean()),
+      reason: z.string().optional(),
+    })
+    .strict(),
+})(
+  async (req): Promise<{ feature: ApiFeatureInterface }> => {
+    const feature = await getFeature(req.organization.id, req.params.key);
+    if (!feature) {
+      throw new Error("Could not find a feature with that key");
+    }
+
+    const environmentIds = new Set(
+      getEnvironments(req.organization).map((e) => e.id)
+    );
+
+    const toggles: Record<string, boolean> = {};
+    Object.keys(req.body.environments).forEach((env) => {
+      if (!environmentIds.has(env)) {
+        throw new Error(`Unknown environment: '${env}'`);
+      }
+      toggles[env] = !!req.body.environments[env];
+    });
+
+    const newFeature = await toggleMultipleEnvironments(feature, toggles);
+
+    // TODO: add an audit log entry
+    console.log(req.body.reason);
+
+    const groupMap = await getSavedGroupMap(req.organization);
+    return {
+      feature: getApiFeatureObj(newFeature, req.organization, groupMap),
+    };
+  }
+);

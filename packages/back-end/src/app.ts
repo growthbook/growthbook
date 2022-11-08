@@ -22,7 +22,7 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import apiRouter from "./controllers/api/api.router";
+import apiRouter from "./api/api.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });

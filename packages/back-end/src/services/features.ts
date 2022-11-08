@@ -1,4 +1,9 @@
-import { FeatureDefinitionRule, FeatureDefinition } from "../../types/api";
+import {
+  FeatureDefinitionRule,
+  FeatureDefinition,
+  ApiFeatureInterface,
+  ApiFeatureEnvironmentInterface,
+} from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -12,7 +17,7 @@ import isEqual from "lodash/isEqual";
 import { webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { getOrganizationById } from "./organizations";
+import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
 
 export type GroupMap = Map<string, string[] | number[]>;
@@ -320,4 +325,71 @@ export async function encrypt(
     new TextEncoder().encode(plainText)
   );
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+}
+
+export function getApiFeatureObj(
+  feature: FeatureInterface,
+  organization: OrganizationInterface,
+  groupMap: GroupMap
+): ApiFeatureInterface {
+  const featureEnvironments: Record<
+    string,
+    ApiFeatureEnvironmentInterface
+  > = {};
+  const environments = getEnvironments(organization);
+  environments.forEach((env) => {
+    const defaultValue = feature.defaultValue;
+    const envSettings = feature.environmentSettings?.[env.id];
+    const enabled = !!envSettings?.enabled;
+    const rules = envSettings?.rules || [];
+    const definition = getFeatureDefinition({
+      feature,
+      groupMap,
+      environment: env.id,
+    });
+
+    const draft = feature.draft?.active
+      ? {
+          enabled,
+          defaultValue: feature.draft?.defaultValue ?? defaultValue,
+          rules: feature.draft?.rules?.[env.id] ?? rules,
+          definition: getFeatureDefinition({
+            feature,
+            groupMap,
+            environment: env.id,
+            useDraft: true,
+          }),
+        }
+      : null;
+
+    featureEnvironments[env.id] = {
+      defaultValue,
+      enabled,
+      rules,
+      draft,
+      definition,
+    };
+  });
+
+  const featureRecord: ApiFeatureInterface = {
+    id: feature.id,
+    description: feature.description || "",
+    archived: !!feature.archived,
+    dateCreated: feature.dateCreated.toISOString(),
+    dateUpdated: feature.dateUpdated.toISOString(),
+    defaultValue: feature.defaultValue,
+    environments: featureEnvironments,
+    owner: feature.owner || "",
+    project: feature.project || "",
+    tags: feature.tags || [],
+    valueType: feature.valueType,
+    revision: {
+      comment: feature.revision?.comment || "",
+      date: (feature.revision?.date || feature.dateCreated).toISOString(),
+      publishedBy: feature.revision?.publishedBy?.email || "",
+      version: feature.revision?.version || 1,
+    },
+  };
+
+  return featureRecord;
 }

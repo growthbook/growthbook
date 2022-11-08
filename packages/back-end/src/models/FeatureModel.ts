@@ -132,33 +132,54 @@ function setEnvironmentSettings(
   return newFeature;
 }
 
+export async function toggleMultipleEnvironments(
+  feature: FeatureInterface,
+  toggles: Record<string, boolean>
+) {
+  const changes: Record<string, boolean> = {};
+  let newFeature = feature;
+  const affectedEnvs: string[] = [];
+  Object.keys(toggles).forEach((env) => {
+    const state = toggles[env];
+    const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
+    if (currentState !== state) {
+      changes[`environmentSettings.${env}.enabled`] = state;
+      newFeature = setEnvironmentSettings(feature, env, { enabled: state });
+      if (currentState) {
+        affectedEnvs.push(env);
+      }
+    }
+  });
+
+  // If there are changes we need to apply
+  if (Object.keys(changes).length > 0) {
+    await FeatureModel.updateOne(
+      {
+        id: feature.id,
+        organization: feature.organization,
+      },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          ...changes,
+        },
+      }
+    );
+
+    featureUpdated(newFeature, affectedEnvs);
+  }
+
+  return newFeature;
+}
+
 export async function toggleFeatureEnvironment(
   feature: FeatureInterface,
   environment: string,
   state: boolean
 ) {
-  const currentState =
-    feature.environmentSettings?.[environment]?.enabled ?? false;
-
-  if (currentState === state) return;
-
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        [`environmentSettings.${environment}.enabled`]: state,
-      },
-    }
-  );
-
-  featureUpdated(
-    setEnvironmentSettings(feature, environment, { enabled: state }),
-    currentState ? [environment] : []
-  );
+  await toggleMultipleEnvironments(feature, {
+    [environment]: state,
+  });
 }
 
 export function getDraftRules(feature: FeatureInterface, environment: string) {
