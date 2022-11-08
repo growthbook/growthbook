@@ -17,7 +17,7 @@ Map<String, Integer> forcedVariations = new HashMap<>();
 TrackingCallback trackingCallback = new TrackingCallback() {
     @Override
     public <ValueType> void onTrack(Experiment<ValueType> experiment, ExperimentResult<ValueType> experimentResult) {
-        // TODO: Something
+        // TODO: Something after it's been tracked
     }
 };
 
@@ -48,7 +48,7 @@ val userAttributes = """
 """.trimIndent()
 
 val isEnabled = true
-val isQaMode = true
+val isQaMode = false
 val url: String? = null
 val forcedVariations = mapOf<String, Int>()
 val trackingCallback: TrackingCallback = object : TrackingCallback {
