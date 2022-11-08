@@ -15,7 +15,7 @@ export default function RoleUpgradeMessage({
   if (isCloud()) {
     return (
       <div className="alert alert-info">
-        Upgrade your plan to encrypted the response from this SDK endpoint.{" "}
+        Upgrade your plan to encrypt the response from this SDK endpoint.{" "}
         {canSubscribe ? (
           <a
             href="#"
@@ -39,7 +39,7 @@ export default function RoleUpgradeMessage({
   // Self-hosted
   return (
     <div className="alert alert-info">
-      Purchase a commercial license key to encrypted the response from this SDK
+      Purchase a commercial license key to encrypt the response from this SDK
       endpoint. Contact{" "}
       <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for more
       info.
