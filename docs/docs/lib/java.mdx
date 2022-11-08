@@ -3,11 +3,13 @@ title: Java SDK
 description: GrowthBook SDK for Java
 sidebar_label: Java
 slug: java
-toc_max_heading_level: 4
+toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
-import CodeTabsAddDependencyPartial from '@site/src/partials/java/_01-code-tabs-add-dependency.mdx'
+import CodeTabsAddDependencyPartial from '@site/src/partials/java/_code-tabs-add-dependency.mdx'
+import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder.mdx'
+import CodeTabsGBContextStaticCreatePartial from '@site/src/partials/java/_code-tabs-gbcontext-static-create.mdx'
 
 # Java
 
@@ -60,40 +62,49 @@ The GrowthBook context `GBContext` can be created either by implementing the bui
 - the `featureJson` method takes a JSON string that is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Settings &rarr; API Keys page <ExternalLink/>](https://app.growthbook.io/settings/keys).
 - the `attributesJson` method takes a JSON string of the user attributes, e.g. `{ "id": 100, "country": "canada" }`
 
-Here is an example context created using the builder:
+#### Using the Builder class
 
-```java
-String featuresJson = featuresRepository.getFeaturesJson();
-String userAttributesJson = user.toJson();
+The builder is the easiest to use way to construct a `GBContext`, allowing you to provide as many or few arguments as you'd like:
 
-GBContext context = GBContext
-    .builder()
-    .featuresJson(featuresJson)
-    .attributesJson(userAttributesJson)
-    .build();
-```
+<CodeTabsGBContextBuilderPartial />
 
-If you can also use the static method `create()` if you prefer, which will require you to pass all possible arguments:
+#### Using the static create() method
 
-```java
-boolean isEnabled = true;
-boolean isQaMode = false;
-String url = null;
-Map<String, Integer> forcedVariations = new HashMap<>();
-TrackingCallback trackingCallback = null;
+You can also use the static method `create()` if you prefer, which will require you to pass all arguments. All arguments passed are available to be set using the builder above:
 
-GBContext context = GBContext.create(
-    user.toJson(),
-    featuresRepository.getFeaturesJson(),
-    isEnabled,
-    isQaMode,
-    url,
-    forcedVariations,
-    trackingCallback
-);
-```
+<CodeTabsGBContextStaticCreatePartial />
+
+The implementation of this method actually uses [the builder mentioned above](#using-the-builder-class).
 
 For complete examples, see the [Examples](#examples) section below.
+
+#### Features
+
+todo
+
+#### Attributes
+
+todo
+
+#### Tracking Callback
+
+todo
+
+### Using Features
+
+todo
+
+### Inline Experiments
+
+todo
+
+#### Inline experiment return value
+
+todo
+
+#### Subscribing to experiment evaluations
+
+todo
 
 ## Code Examples
 

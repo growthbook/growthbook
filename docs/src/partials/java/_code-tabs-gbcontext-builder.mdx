@@ -1,0 +1,49 @@
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+```mdx-code-block
+<Tabs>
+  <TabItem value="java" label="Java">
+```
+
+```java
+String featuresJson = featuresRepository.getFeaturesJson();
+String userAttributesJson = user.toJson();
+
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+```
+
+```kotlin
+val featuresJson = featuresRepository.getFeaturesJson()
+val userAttributes = """
+    {
+        "id": "user-abc123",
+        "country": "canada"
+    }
+""".trimIndent()
+
+val context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributes)
+    .build()
+
+val growthBook = GrowthBook(context)
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
