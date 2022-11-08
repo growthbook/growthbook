@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
@@ -11,7 +11,7 @@ import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
-import ClickToReveal from "../Settings/ClickToReveal";
+import ClickToRevealKey from "../Settings/ClickToRevealKey";
 import ClickToCopy from "../Settings/ClickToCopy";
 
 const SDKEndpoints: FC<{
@@ -80,11 +80,9 @@ const SDKEndpoints: FC<{
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              <th>Environment</th>
+              <th style={{ width: 150 }}>Environment</th>
               <th>Endpoint</th>
-              {hasEncryptedEndpoints && (
-                <th style={{ textAlign: "right" }}>Encrypted?</th>
-              )}
+              {hasEncryptedEndpoints && <th>Encrypted?</th>}
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -115,34 +113,18 @@ const SDKEndpoints: FC<{
                     </span>
                   </td>
                   <td>
-                    <ClickToCopy valueToCopy={endpoint}>{endpoint}</ClickToCopy>
+                    <ClickToCopy valueToCopy={endpoint}>
+                      <span style={{ overflowWrap: "anywhere" }}>
+                        {endpoint}
+                      </span>
+                    </ClickToCopy>
                   </td>
                   {hasEncryptedEndpoints && (
-                    <td>
+                    <td style={{ width: 280 }}>
                       {canManageKeys && key.encryptSDK ? (
-                        <ClickToReveal
-                          rowReverse
-                          getValue={async () => {
-                            const res = await apiCall<{ key: SecretApiKey }>(
-                              `/keys/reveal`,
-                              {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  id: key.id,
-                                }),
-                              }
-                            );
-
-                            if (!res.key.encryptionKey) {
-                              throw new Error(
-                                "Could not load the encryption key"
-                              );
-                            }
-                            return res.key.encryptionKey;
-                          }}
-                        />
+                        <ClickToRevealKey keyId={key.id} />
                       ) : (
-                        <div style={{ textAlign: "right" }}>No</div>
+                        <div>No</div>
                       )}
                     </td>
                   )}

@@ -1,21 +1,22 @@
+import clsx from "clsx";
 import { ReactNode, useState } from "react";
 import Tooltip from "../Tooltip/Tooltip";
+import styles from "./ClickToRevealKey.module.scss";
 
 type Props = {
   valueToCopy?: string;
-  children: ReactNode;
+  children?: ReactNode;
 };
 
 export default function ClickToCopy({ valueToCopy, children }: Props) {
   const [copyText, setCopyText] = useState("Copy");
   return (
     <Tooltip
-      className={valueToCopy && "w-100"}
+      className={clsx(!valueToCopy && styles.hideText)}
       role="button"
       tipMinWidth="45px"
       tipPosition="top"
       body={!valueToCopy ? "Click the eye to reveal" : copyText}
-      style={{ paddingLeft: "5px" }}
       onClick={(e) => {
         e.preventDefault();
         if (valueToCopy) {
