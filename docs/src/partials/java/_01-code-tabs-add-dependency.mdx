@@ -1,0 +1,42 @@
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+```mdx-code-block
+<Tabs>
+  <TabItem value="groovy" label="Groovy">
+```
+
+```groovy title="build.gradle"
+allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+dependencies {
+    implementation 'com.github.growthbook:growthbook-sdk-java:0.1.1'
+}
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+```
+
+```kotlin title="build.gradle.kts"
+repositories {
+    maven {
+        setUrl("https://jitpack.io")
+    }
+}
+
+dependencies {
+    implementation("com.github.growthbook:growthbook-sdk-java:0.1.1")
+}
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```

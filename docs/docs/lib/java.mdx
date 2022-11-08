@@ -1,0 +1,104 @@
+---
+title: Java SDK
+description: GrowthBook SDK for Java
+sidebar_label: Java
+slug: java
+toc_max_heading_level: 4
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+import CodeTabsAddDependencyPartial from '@site/src/partials/java/_01-code-tabs-add-dependency.mdx'
+
+# Java
+
+This supports Java applications using Java version 1.8 and higher.
+
+## Installation
+
+[![](https://jitpack.io/v/growthbook/growthbook-sdk-java.svg)](https://jitpack.io/#growthbook/growthbook-sdk-java)
+
+### Gradle
+
+To install in a Gradle project, add Jitpack to your repositories, and then add the dependency with the latest version to your project's dependencies.
+
+<CodeTabsAddDependencyPartial />
+
+### Maven
+
+To install in a Maven project, add Jitpack to your repositories:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+```
+
+Next, add the dependency with the latest version to your project's dependencies:
+
+```xml
+<dependency>
+    <groupId>com.github.growthbook</groupId>
+    <artifactId>growthbook-sdk-java</artifactId>
+    <version>0.1.1</version>
+</dependency>
+```
+
+## Usage
+
+There are 2 steps to initializing the GrowthBook SDK:
+
+1. Create a GrowthBook context `GBContext` with the features JSON and the user attributes
+2. Create the `GrowthBook` SDK class with the context
+
+### GrowthBook context
+
+The GrowthBook context `GBContext` can be created either by implementing the builder class, or by implementing the static method `create()`.
+
+- the `featureJson` method takes a JSON string that is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Settings &rarr; API Keys page <ExternalLink/>](https://app.growthbook.io/settings/keys).
+- the `attributesJson` method takes a JSON string of the user attributes, e.g. `{ "id": 100, "country": "canada" }`
+
+Here is an example context created using the builder:
+
+```java
+String featuresJson = featuresRepository.getFeaturesJson();
+String userAttributesJson = user.toJson();
+
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .build();
+```
+
+If you can also use the static method `create()` if you prefer, which will require you to pass all possible arguments:
+
+```java
+boolean isEnabled = true;
+boolean isQaMode = false;
+String url = null;
+Map<String, Integer> forcedVariations = new HashMap<>();
+TrackingCallback trackingCallback = null;
+
+GBContext context = GBContext.create(
+    user.toJson(),
+    featuresRepository.getFeaturesJson(),
+    isEnabled,
+    isQaMode,
+    url,
+    forcedVariations,
+    trackingCallback
+);
+```
+
+For complete examples, see the [Examples](#examples) section below.
+
+## Code Examples
+
+- [JVM with Spring Web example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-spring-web)
+
+## Further Reading
+
+- [JavaDoc class documentation <ExternalLink/>](https://growthbook.github.io/growthbook-sdk-java/)
