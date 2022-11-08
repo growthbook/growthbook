@@ -42,7 +42,7 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
 
-  const datasource = getDatasourceById(data.experiments.datasource);
+  const datasource = getDatasourceById(data?.experiments?.datasource);
 
   const status = getQueryStatus(
     data?.experiments?.queries || [],
