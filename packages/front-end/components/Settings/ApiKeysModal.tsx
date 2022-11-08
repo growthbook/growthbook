@@ -5,8 +5,9 @@ import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { useEnvironments } from "../../services/features";
-import Toggle from "../Forms/Toggle";
-import { DocLink } from "../DocLink";
+import { isCloud } from "../../services/env";
+import EncryptionToggle from "./EncryptionToggle";
+import UpgradeModal from "./UpgradeModal";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -17,6 +18,7 @@ const ApiKeysModal: FC<{
   const { apiCall } = useAuth();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const environments = useEnvironments();
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -45,6 +47,16 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
+  if (upgradeModal && isCloud()) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To enable SDK encryption,"
+        source="encrypt-features-endpoint"
+      />
+    );
+  }
+
   return (
     <Modal
       close={close}
@@ -72,28 +84,10 @@ const ApiKeysModal: FC<{
         {...form.register("description")}
       />
       {!secret && showAdvanced && (
-        <div>
-          <div className="mb-2 d-flex flex-column">
-            <span>
-              <label htmlFor="encryptFeatures">
-                Encrypt features in the SDK Endpoint?
-              </label>
-            </span>
-            <Toggle
-              id={"encryptSDK"}
-              value={!!form.watch("encryptSDK")}
-              setValue={(value) => {
-                form.setValue("encryptSDK", value);
-              }}
-            />
-          </div>
-          <div className="alert alert-warning">
-            When enabled, you will need to decrypt features before passing into
-            our SDKs.{" "}
-            <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink> for
-            more info and sample code.
-          </div>
-        </div>
+        <EncryptionToggle
+          showUpgradeModal={() => setUpgradeModal(true)}
+          form={form}
+        />
       )}
       {!secret && !showAdvanced && (
         <a
