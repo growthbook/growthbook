@@ -13,10 +13,11 @@ export default function ClickToCopy({ valueToCopy, children }: Props) {
   return (
     <Tooltip
       className={clsx(!valueToCopy && styles.hideText)}
-      role="button"
+      role={valueToCopy && "button"}
       tipMinWidth="45px"
       tipPosition="top"
-      body={!valueToCopy ? "Click the eye to reveal" : copyText}
+      style={{ overflowWrap: "anywhere" }}
+      body={valueToCopy && copyText}
       onClick={(e) => {
         e.preventDefault();
         if (valueToCopy) {
