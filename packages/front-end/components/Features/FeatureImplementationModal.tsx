@@ -181,8 +181,8 @@ echo $value;`,
       display: "Java",
       language: "java",
       boolean: `if (growthBook.isOn(${JSON.stringify(feature.id)})) {
-        // Do something!
-      }`,
+  // Do something!
+}`,
       value: `${javaType(
         feature.valueType
       )} featureValue = growthBook.getFeatureValue(${JSON.stringify(
