@@ -131,6 +131,43 @@ There are 4 main methods for evaluating features.
 
 <CodeTabsUsingFeaturesPartial />
 
+#### isOn() / isOff()
+
+These methods return a boolean for truthy and falsy values.
+
+Only the following values are considered to be "falsy":
+
+- `null`
+- `false`
+- `""`
+- `0`
+
+Everything else is considered "truthy", including empty arrays and objects.
+
+If the value is "truthy", then `isOn()` will return true and `isOff()` will return false. If the value is "falsy", then the opposite values will be returned.
+
+#### getFeatureValue(featureKey, defaultValue)
+
+This method has a variety of overloads to help with casting values to primitive and complex types.
+
+In short, the type of the `defaultValue` argument will determine the return type of the function.
+
+| Return type             | Method                                                                                                     | Additional Info                                                                                                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Boolean`               | **`getFeatureValue(String featureKey, Boolean defaultValue)`**                                             |                                                                                                                                                                                   |
+| `Double`                | **`getFeatureValue(String featureKey, Double defaultValue)`**                                              |                                                                                                                                                                                   |
+| `Float`                 | **`getFeatureValue(String featureKey, Float defaultValue)`**                                               |                                                                                                                                                                                   |
+| `Integer`               | **`getFeatureValue(String featureKey, Integer defaultValue)`**                                             |                                                                                                                                                                                   |
+| `String`                | **`getFeatureValue(String featureKey, String defaultValue)`**                                              |                                                                                                                                                                                   |
+| `<ValueType> ValueType` | **`getFeatureValue(String featureKey, ValueType defaultValue, Class<ValueType> gsonDeserializableClass)`** | Internally, the SDK uses Gson. You can pass any class that does not require a custom deserializer.                                                                                |
+| `Object`                | **`getFeatureValue(String featureKey, Object defaultValue)`**                                              | Use this method if you need to cast a complex object that uses a custom deserializer, or if you use a different JSON serialization library than Gson, and cast the type yourself. |
+
+[See the Java Docs](https://growthbook.github.io/growthbook-sdk-java/growthbook/sdk/java/GrowthBook.html) for more information.
+
+[See the unit tests <ExternalLink />](https://github.com/growthbook/growthbook-sdk-java/blob/main/lib/src/test/java/growthbook/sdk/java/GrowthBookTest.java#L220) for example implementations including type casting for all above-mentioned methods.
+
+#### evalFeature(String)
+
 The `evalFeature` method returns a `FeatureResult<T>` object with more info about why the feature was assigned to the user. The `T` type corresponds to the value type of the feature. In the above example, `T` is `Float`.
 
 `FeatureResult<T>` It has the following getters.
@@ -186,6 +223,7 @@ You can subscribe with as many callbacks as you like:
 ## Code Examples
 
 - [JVM with Spring Web example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-spring-web)
+- [Android Java example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/android-example)
 
 ## Further Reading
 
