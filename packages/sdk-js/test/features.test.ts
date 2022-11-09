@@ -1,13 +1,11 @@
 import { Context, GrowthBook } from "../src";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+/* eslint-disable */
 const { subtle } = require("node:crypto").webcrypto;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
-(global as any).TextEncoder = TextEncoder;
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
+/* eslint-enable */
 
 const mockCallback = (context: Context) => {
   const onFeatureUsage = jest.fn((a) => {
