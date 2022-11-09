@@ -253,42 +253,37 @@ With encryption enabled, the response from the SDK Endpoint will be in the forma
 
 The features are encrypted using the AES-CBC algorithm. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
 
-The JS SDK contains a built-in method `setEncryptedFeatures` that makes decrypting simple.
+The React SDK contains a built-in method `setEncryptedFeatures` that makes decrypting simple.
 
 ```ts
-// Load features from the encrypted SDK Endpoint and decrypt them
-fetch("https://cdn.growthbook.io/api/features/<your api key>")
-  .then((res) => res.json())
-  .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>));
-  .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+function MyApp() {
+  useEffect(() => {
+  // Load features from the encrypted SDK Endpoint and decrypt them
+    fetch("https://cdn.growthbook.io/api/features/<your api key>")
+      .then((res) => res.json())
+      .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>));
+      .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+    }, []);
+  // ...
+}
 ```
 
-**Note: If you're not in a browser environment (E.G Node, React Native), you will need to pass in a SubtleCrpyto implementation as the 3rd argument when calling `setEncryptedFeatures`. **
+**Note: If you're not in a browser environment (E.G React Native), you will need to pass in a SubtleCrpyto implementation as the 3rd argument when calling `setEncryptedFeatures`. **
 
 ```ts
 const { subtle } = require('node:crypto').webcrypto;
 
-growthbook.setEncryptedFeatures(encryptedString, encryptionKey, subtle);
-// Load features from the encrypted SDK Endpoint and decrypt them
-fetch("https://cdn.growthbook.io/api/features/<your api key>")
-  .then((res) => res.json())
-  .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>, subtle));
-  .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
-```
-
 function MyApp() {
-useEffect(() => {
-// Load features from the encrypted SDK Endpoint and decrypt them
-fetch("https://cdn.growthbook.io/api/features/<your api key>")
-.then((res) => res.json())
-.then((json) => decrypt(json.encryptedFeatures))
-.then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr)))
-.catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
-}, []);
-// ...
+  useEffect(() => {
+  // Load features from the encrypted SDK Endpoint and decrypt them
+    fetch("https://cdn.growthbook.io/api/features/<your api key>")
+      .then((res) => res.json())
+      .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>, subtle));
+      .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+    }, []);
+  // ...
 }
-
-````
+```
 
 **Note**: This method is not completely private. Users could find your encryption key if they inspect your minified javascript files.
 
@@ -311,7 +306,7 @@ export default function OtherComponent() {
 
   return <h1>{value}</h1>;
 }
-````
+```
 
 ### Class Components
 

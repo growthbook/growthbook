@@ -221,11 +221,11 @@ fetch("https://cdn.growthbook.io/api/features/<your api key>")
 const { subtle } = require('node:crypto').webcrypto;
 
 growthbook.setEncryptedFeatures(encryptedString, encryptionKey, subtle);
-// Load features from the encrypted SDK Endpoint and decrypt them
-fetch("https://cdn.growthbook.io/api/features/<your api key>")
-  .then((res) => res.json())
-  .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>, subtle));
-  .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+  // Load features from the encrypted SDK Endpoint and decrypt them
+  fetch("https://cdn.growthbook.io/api/features/<your api key>")
+    .then((res) => res.json())
+    .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>, subtle));
+    .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
 ```
 
 ## Inline Experiments
