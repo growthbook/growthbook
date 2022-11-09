@@ -7,9 +7,19 @@ import TabItem from '@theme/TabItem'
 ```
 
 ```java
-String featuresJson = featuresRepository.getFeaturesJson();
+// Fetch feature definitions from the GrowthBook API
+// We recommend adding a caching layer in production
+// Get your endpoint in the Environments tab -> SDK Endpoints: https://app.growthbook.io/environments
+URI featuresEndpoint = new URI("https://cdn.growthbook.io/api/features/<environment_key>");
+HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
+HttpResponse<String> response = HttpClient.newBuilder().build()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+String featuresJson = new JSONObject(response.body()).get("features").toString();
+
+// JSON serializable user attributes
 String userAttributesJson = user.toJson();
 
+// Initialize the GrowthBook SDK with the GBContext
 GBContext context = GBContext
     .builder()
     .featuresJson(featuresJson)
@@ -26,7 +36,16 @@ GrowthBook growthBook = new GrowthBook(context);
 ```
 
 ```kotlin
-val featuresJson = featuresRepository.getFeaturesJson()
+// Fetch feature definitions from the GrowthBook API
+// We recommend adding a caching layer in production
+// Get your endpoint in the Environments tab -> SDK Endpoints: https://app.growthbook.io/environments
+val featuresEndpoint = URI.create("https://cdn.growthbook.io/api/features/<environment_key>")
+val request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
+val response = HttpClient.newBuilder().build()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+val featuresJson = JSONObject(response.body()).get("features").toString()
+
+// JSON serializable user attributes
 val userAttributes = """
     {
         "id": "user-abc123",
@@ -34,6 +53,7 @@ val userAttributes = """
     }
 """.trimIndent()
 
+// Initialize the GrowthBook SDK with the GBContext
 val context = GBContext
     .builder()
     .featuresJson(featuresJson)
