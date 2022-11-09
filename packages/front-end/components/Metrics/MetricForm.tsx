@@ -603,7 +603,13 @@ const MetricForm: FC<MetricFormProps> = ({
                   <ControlledTabs
                     newStyle={false}
                     active={value.queryFormat}
-                    setActive={(format) => form.setValue("queryFormat", format)}
+                    setActive={(format) => {
+                      if (format === "sql") {
+                        form.setValue("queryFormat", "sql");
+                      } else {
+                        form.setValue("queryFormat", "builder");
+                      }
+                    }}
                   >
                     <Tab
                       display="SQL"
