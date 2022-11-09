@@ -660,9 +660,11 @@ dependencies {
             code={`
 // Fetch feature definitions from GrowthBook API
 // We recommend adding a caching layer in production
-URL featuresEndpoint = new URL("${getSDKEndpoint(apiKey, currentProject)}");
-String featuresApiResp = new String(featuresEndpoint.openStream().readAllBytes(), "UTF-8")
-String featuresJson = (new JSONObject(featuresApiResp)).getJSONObject("features").toString();
+URI featuresEndpoint = new URI("${getSDKEndpoint(apiKey, currentProject)}");
+HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
+HttpResponse<String> response = HttpClient.newBuilder().build()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+String featuresJson = new JSONObject(response.body()).get("features").toString();
 
 // Get user attributes as a JSON string
 JSONObject userAttributesObj = new JSONObject();
