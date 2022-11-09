@@ -17,7 +17,19 @@ export const toggleFeature = createApiRequestHandler({
     .strict(),
   bodySchema: z
     .object({
-      environments: z.record(z.string(), z.boolean()),
+      environments: z.record(
+        z.string(),
+        z.union([
+          z.boolean(),
+          z.literal("true"),
+          z.literal("false"),
+          z.literal("1"),
+          z.literal("0"),
+          z.literal(""),
+          z.literal(0),
+          z.literal(1),
+        ])
+      ),
       reason: z.string().optional(),
     })
     .strict(),
@@ -37,7 +49,9 @@ export const toggleFeature = createApiRequestHandler({
       if (!environmentIds.has(env)) {
         throw new Error(`Unknown environment: '${env}'`);
       }
-      toggles[env] = !!req.body.environments[env];
+
+      const state = [true, "true", "1", 1].includes(req.body.environments[env]);
+      toggles[env] = state;
     });
 
     const newFeature = await toggleMultipleEnvironments(feature, toggles);
