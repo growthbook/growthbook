@@ -1,7 +1,11 @@
+.wrapper {
+  width: fit-content;
+  position: relative;
+}
+
 .hideText {
   color: transparent;
-  text-shadow: 0 0 5px #000;
-  position: absolute;
+  text-shadow: 0 0 5px #3b3b3b;
 }
 
 .button {
@@ -10,5 +14,5 @@
 }
 
 .buttonLeft {
-  left: 6%;
+  right: 50%;
 }

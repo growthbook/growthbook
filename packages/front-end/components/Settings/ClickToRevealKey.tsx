@@ -14,8 +14,8 @@ export default function ClickToRevealKey({ keyId }) {
   return (
     <div
       className={clsx(
-        "d-flex",
-        !keyValue ? "align-items-center" : "flex-column align-items-start"
+        styles.wrapper,
+        keyValue && "d-flex flex-column align-items-baseline"
       )}
     >
       <ClickToCopy valueToCopy={keyValue}>

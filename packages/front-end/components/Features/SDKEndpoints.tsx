@@ -120,7 +120,7 @@ const SDKEndpoints: FC<{
                     </ClickToCopy>
                   </td>
                   {hasEncryptedEndpoints && (
-                    <td style={{ width: 280 }}>
+                    <td style={{ width: 270 }}>
                       {canManageKeys && key.encryptSDK ? (
                         <ClickToRevealKey keyId={key.id} />
                       ) : (
