@@ -1,7 +1,7 @@
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import SingleRoleSelector from "./SingleRoleSelector";
 import ProjectRolesSelector from "./ProjectRolesSelector";
-import UniversalUpgradeMessage from "../UniversalUpgradeMessage";
+import UniversalUpgradeMessage from "../../UniversalUpgradeMessage";
 
 export default function RoleSelector({
   value,

@@ -1,9 +1,9 @@
-import { useUser } from "../../services/UserContext";
-import { isCloud } from "../../services/env";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
+import { useUser } from "../services/UserContext";
+import { isCloud } from "../services/env";
+import useStripeSubscription from "../hooks/useStripeSubscription";
 import { CommercialFeature } from "back-end/types/organization";
 
-export default function RoleUpgradeMessage({
+export default function UniversalUpgradeMessage({
   showUpgradeModal,
   commercialFeature,
   upgradeMessage,

@@ -2,7 +2,7 @@ import { UseFormReturn } from "react-hook-form";
 import { useUser } from "../../services/UserContext";
 import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
-import UniversalUpgradeMessage from "./UniversalUpgradeMessage";
+import UniversalUpgradeMessage from "../UniversalUpgradeMessage";
 
 type FormKeys = {
   description: string;
