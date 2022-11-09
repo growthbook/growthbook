@@ -1,12 +1,6 @@
+@import "../mixins";
+
 .pill {
   display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 100%;
-  text-transform: uppercase;
-  color: #fff;
-  background: #7817d3;
-  border-radius: 200px;
-  padding: 0.125rem 0.5rem;
-  margin-inline-start: 0.5rem;
+  @include pill(#7817d3, #fff);
 }
