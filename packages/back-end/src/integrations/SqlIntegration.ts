@@ -950,7 +950,7 @@ export default abstract class SqlIntegration
         SELECT
           variation,
           dimension,
-          COUNT(*) as users
+          ${this.ensureFloat("COUNT(*)")} as users
         FROM
           __distinctUsers
         GROUP BY
