@@ -211,7 +211,7 @@ The JS SDK contains a built-in method `setEncryptedFeatures` that makes decrypti
 // Load features from the encrypted SDK Endpoint and decrypt them
 fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
-  .then((json) => growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>));
+  .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>));
   .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
 ```
 
@@ -224,7 +224,7 @@ growthbook.setEncryptedFeatures(encryptedString, encryptionKey, subtle);
 // Load features from the encrypted SDK Endpoint and decrypt them
 fetch("https://cdn.growthbook.io/api/features/<your api key>")
   .then((res) => res.json())
-  .then((json) => growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>, subtle));
+  .then(async (json) => await growthbook.setEncryptedFeatures(json.encryptedFeatures, <your encryption key>, subtle));
   .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
 ```
 

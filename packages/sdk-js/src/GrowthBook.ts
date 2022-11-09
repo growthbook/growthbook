@@ -85,7 +85,7 @@ export class GrowthBook {
 
     const base64ToBuf = (b: string) =>
       Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-    const key = await window.crypto.subtle.importKey(
+    const key = await crypto.importKey(
       "raw",
       base64ToBuf(encryptionKey),
       { name: "AES-CBC", length: 128 },
@@ -93,7 +93,7 @@ export class GrowthBook {
       ["encrypt", "decrypt"] //TODO: I think we only need decrypt in this array, right?
     );
     const [iv, cipherText] = encryptedString.split(".");
-    const plainTextBuffer = await window.crypto.subtle.decrypt(
+    const plainTextBuffer = await crypto.decrypt(
       { name: "AES-CBC", iv: base64ToBuf(iv) },
       key,
       base64ToBuf(cipherText)
