@@ -1,4 +1,3 @@
-import { useUser } from "../../services/UserContext";
 import { isCloud } from "../../services/env";
 import useStripeSubscription from "../../hooks/useStripeSubscription";
 
@@ -8,9 +7,6 @@ export default function RoleUpgradeMessage({
   showUpgradeModal: () => void;
 }) {
   const { canSubscribe } = useStripeSubscription();
-  const { hasCommercialFeature } = useUser();
-
-  if (hasCommercialFeature("advanced-permissions")) return null;
 
   if (isCloud()) {
     return (

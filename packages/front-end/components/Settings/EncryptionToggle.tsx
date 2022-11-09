@@ -4,14 +4,14 @@ import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
 import EncryptionUpgradeMessage from "./EncryptionUpgradeMessage";
 
-type FormValues = {
+type FormKeys = {
   description: string;
   environment: string;
   encryptSDK: boolean;
 };
 
 type Props = {
-  form: UseFormReturn<FormValues>;
+  form: UseFormReturn<FormKeys>;
   showUpgradeModal: () => void;
 };
 

@@ -5,7 +5,7 @@ import track from "../../services/track";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
-import LoadingOverlay from "../LoadingOverlay";
+// import LoadingOverlay from "../LoadingOverlay";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
@@ -19,7 +19,7 @@ export interface Props {
 }
 
 export default function UpgradeModal({ close, source, reason }: Props) {
-  const { quote, loading } = useStripeSubscription();
+  const { quote } = useStripeSubscription();
 
   useEffect(() => {
     track("View Upgrade Modal", {
@@ -71,7 +71,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
 
   return (
     <Modal open={true} close={close} closeCta="cancel" size="lg">
-      {loading && <LoadingOverlay />}
+      {/* {loading && <LoadingOverlay />} */}
       <p className="text-center mb-4" style={{ fontSize: "1.3em" }}>
         {reason} Upgrade to a <strong>Pro Plan</strong>
       </p>
@@ -113,6 +113,14 @@ export default function UpgradeModal({ close, source, reason }: Props) {
               <Tooltip
                 body={
                   "Shared Slack channel with our engineering team to quickly help with any issues."
+                }
+              />
+            </li>
+            <li>
+              Encrypt SDK endpoint response{" "}
+              <Tooltip
+                body={
+                  "When enabled, your list of feature flags will be encrypted in the API response."
                 }
               />
             </li>
