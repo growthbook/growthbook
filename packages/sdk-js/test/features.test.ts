@@ -1,4 +1,13 @@
 import { Context, GrowthBook } from "../src";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { subtle } = require("node:crypto").webcrypto;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { webcrypto } = require("node:crypto");
+import { TextEncoder, TextDecoder } from "util";
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+(global as any).TextEncoder = TextEncoder;
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+(global as any).TextDecoder = TextDecoder;
 
 const mockCallback = (context: Context) => {
   const onFeatureUsage = jest.fn((a) => {
@@ -23,6 +32,59 @@ describe("features", () => {
     growthbook.setFeatures({ id: {} });
     expect(called).toEqual(true);
 
+    growthbook.destroy();
+  });
+
+  it("renders encrypedFeatures correctly", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const key = await webcrypto.subtle.generateKey(
+      {
+        name: "AES-CBC",
+        length: 128,
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    const keyString = Buffer.from(
+      await webcrypto.subtle.exportKey("raw", key)
+    ).toString("base64");
+
+    const bufToBase64 = (x: ArrayBuffer) => Buffer.from(x).toString("base64");
+
+    const iv = webcrypto.getRandomValues(new Uint8Array(16));
+    const encryptedBuffer = await subtle.encrypt(
+      {
+        name: "AES-CBC",
+        iv,
+      },
+      key,
+      new TextEncoder().encode(
+        JSON.stringify({
+          feature: {
+            defaultValue: 0,
+          },
+        })
+      )
+    );
+
+    const encrypedFeatures =
+      bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+
+    await growthbook.setEncryptedFeatures(encrypedFeatures, keyString, subtle);
+
+    expect(growthbook.feature("feature")).toEqual({
+      value: 0,
+      on: false,
+      off: true,
+      ruleId: "",
+      source: "defaultValue",
+    });
     growthbook.destroy();
   });
 
