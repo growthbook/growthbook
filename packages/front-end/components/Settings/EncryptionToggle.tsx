@@ -2,7 +2,7 @@ import { UseFormReturn } from "react-hook-form";
 import { useUser } from "../../services/UserContext";
 import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
-import EncryptionUpgradeMessage from "./EncryptionUpgradeMessage";
+import UniversalUpgradeMessage from "./UniversalUpgradeMessage";
 
 type FormKeys = {
   description: string;
@@ -19,7 +19,13 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
   const { hasCommercialFeature } = useUser();
 
   if (!hasCommercialFeature("encrypt-features-endpoint")) {
-    return <EncryptionUpgradeMessage showUpgradeModal={showUpgradeModal} />;
+    return (
+      <UniversalUpgradeMessage
+        showUpgradeModal={showUpgradeModal}
+        commercialFeature="encrypt-features-endpoint"
+        upgradeMessage="encrypt the response from this SDK endpoint"
+      />
+    );
   }
 
   return (
