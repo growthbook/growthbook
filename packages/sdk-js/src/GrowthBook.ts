@@ -68,6 +68,40 @@ export class GrowthBook {
     this.render();
   }
 
+  public async setEncryptedFeatures(
+    encryptedString: string,
+    encryptionKey: string,
+    crypto?: SubtleCrypto
+  ): Promise<void> {
+    if (!crypto) {
+      if (typeof window !== "undefined") {
+        crypto = window.crypto.subtle;
+      } else {
+        throw new Error(
+          "Must pass a SubtleCrypto implementation to this function"
+        );
+      }
+    }
+
+    const base64ToBuf = (b: string) =>
+      Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+    const key = await window.crypto.subtle.importKey(
+      "raw",
+      base64ToBuf(encryptionKey),
+      { name: "AES-CBC", length: 128 },
+      true,
+      ["encrypt", "decrypt"] //TODO: I think we only need decrypt in this array, right?
+    );
+    const [iv, cipherText] = encryptedString.split(".");
+    const plainTextBuffer = await window.crypto.subtle.decrypt(
+      { name: "AES-CBC", iv: base64ToBuf(iv) },
+      key,
+      base64ToBuf(cipherText)
+    );
+
+    this.setFeatures(JSON.parse(new TextDecoder().decode(plainTextBuffer)));
+  }
+
   public setAttributes(attributes: Attributes) {
     this.context.attributes = attributes;
     this.render();
