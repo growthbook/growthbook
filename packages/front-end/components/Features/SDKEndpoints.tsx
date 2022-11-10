@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
@@ -11,7 +11,7 @@ import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
-import ClickToRevealKey from "../Settings/ClickToRevealKey";
+import ClickToReveal from "../Settings/ClickToReveal";
 import ClickToCopy from "../Settings/ClickToCopy";
 
 const SDKEndpoints: FC<{
@@ -120,9 +120,26 @@ const SDKEndpoints: FC<{
                     </ClickToCopy>
                   </td>
                   {hasEncryptedEndpoints && (
-                    <td style={{ width: 270 }}>
+                    <td style={{ width: 295 }}>
                       {canManageKeys && key.encryptSDK ? (
-                        <ClickToRevealKey keyId={key.id} />
+                        <ClickToReveal
+                          valueWhenHidden="Click to reveal encryption key"
+                          getValue={async () => {
+                            const res = await apiCall<{ key: SecretApiKey }>(
+                              `/keys/reveal`,
+                              {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  id: key.id,
+                                }),
+                              }
+                            );
+                            if (!res.key.key) {
+                              throw new Error("Could not load the secret key");
+                            }
+                            return res.key.key;
+                          }}
+                        />
                       ) : (
                         <div>No</div>
                       )}
