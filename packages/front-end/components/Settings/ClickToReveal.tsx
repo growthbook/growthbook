@@ -6,7 +6,12 @@ import Tooltip from "../Tooltip/Tooltip";
 import ClickToCopy from "./ClickToCopy";
 import styles from "./ClickToReveal.module.scss";
 
-export default function ClickToReveal({ getValue, valueWhenHidden }) {
+type Props = {
+  valueWhenHidden: string;
+  getValue: () => Promise<string>;
+};
+
+export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
   const [error, setError] = useState("");
   const [value, setValue] = useState<string | null>();
   const [loading, setLoading] = useState(false);
