@@ -135,7 +135,9 @@ const SDKEndpoints: FC<{
                               }
                             );
                             if (!res.key.key) {
-                              throw new Error("Could not load the secret key");
+                              throw new Error(
+                                "Could not load the encryption key"
+                              );
                             }
                             return res.key.key;
                           }}
