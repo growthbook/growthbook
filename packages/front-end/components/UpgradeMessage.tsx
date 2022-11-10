@@ -3,7 +3,7 @@ import { isCloud } from "../services/env";
 import useStripeSubscription from "../hooks/useStripeSubscription";
 import { CommercialFeature } from "back-end/types/organization";
 
-export default function UniversalUpgradeMessage({
+export default function UpgradeMessage({
   showUpgradeModal,
   commercialFeature,
   upgradeMessage,
