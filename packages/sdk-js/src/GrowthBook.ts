@@ -90,7 +90,7 @@ export class GrowthBook {
       base64ToBuf(encryptionKey),
       { name: "AES-CBC", length: 128 },
       true,
-      ["encrypt", "decrypt"] //TODO: I think we only need decrypt in this array, right?
+      ["encrypt", "decrypt"]
     );
     const [iv, cipherText] = encryptedString.split(".");
     const plainTextBuffer = await crypto.decrypt(
