@@ -40,49 +40,119 @@ describe("features", () => {
       },
     });
 
-    const key = await webcrypto.subtle.generateKey(
-      {
-        name: "AES-CBC",
-        length: 128,
-      },
-      true,
-      ["encrypt", "decrypt"]
-    );
-
-    const keyString = Buffer.from(
-      await webcrypto.subtle.exportKey("raw", key)
-    ).toString("base64");
-
-    const bufToBase64 = (x: ArrayBuffer) => Buffer.from(x).toString("base64");
-
-    const iv = webcrypto.getRandomValues(new Uint8Array(16));
-    const encryptedBuffer = await subtle.encrypt(
-      {
-        name: "AES-CBC",
-        iv,
-      },
-      key,
-      new TextEncoder().encode(
-        JSON.stringify({
-          feature: {
-            defaultValue: 0,
-          },
-        })
-      )
-    );
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
 
     const encrypedFeatures =
-      bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     await growthbook.setEncryptedFeatures(encrypedFeatures, keyString, subtle);
 
-    expect(growthbook.feature("feature")).toEqual({
-      value: 0,
-      on: false,
-      off: true,
+    expect(growthbook.feature("testfeature1")).toEqual({
+      value: true,
+      on: true,
+      off: false,
       ruleId: "",
       source: "defaultValue",
     });
+    growthbook.destroy();
+  });
+
+  it("throws an error when the keyString is incorrect", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const keyString = "fakeT5n9+59rl2x3SlNHtQ==";
+
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    try {
+      await growthbook.setEncryptedFeatures(
+        encrypedFeatures,
+        keyString,
+        subtle
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      expect(e.message).toEqual(
+        "The operation failed for an operation-specific reason"
+      );
+    }
+    growthbook.destroy();
+  });
+
+  it("throws an error when the encryptedFeatures string is incorrect", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+
+    const encrypedFeatures =
+      "FAKE2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    try {
+      await growthbook.setEncryptedFeatures(
+        encrypedFeatures,
+        keyString,
+        subtle
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      expect(e.message).toEqual("Unexpected token � in JSON at position 0");
+    }
+    growthbook.destroy();
+  });
+
+  it("renders encrypedFeatures correctly if window.crypto does exists", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+    });
+    window.crypto = webcrypto;
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    await growthbook.setEncryptedFeatures(encrypedFeatures, keyString);
+
+    expect(growthbook.feature("testfeature1")).toEqual({
+      value: true,
+      on: true,
+      off: false,
+      ruleId: "",
+      source: "defaultValue",
+    });
+    growthbook.destroy();
+  });
+
+  it("should throw an error if window.crypto.subtle doesn't exist and SubtleCrypto isn't passed in", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+      },
+    });
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    try {
+      await growthbook.setEncryptedFeatures(encrypedFeatures, keyString);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      expect(e.message).toEqual(
+        "Cannot read properties of undefined (reading 'subtle')"
+      );
+    }
     growthbook.destroy();
   });
 

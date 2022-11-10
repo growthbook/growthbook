@@ -120,7 +120,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
               Encrypt SDK endpoint response{" "}
               <Tooltip
                 body={
-                  "When enabled, your list of feature flags will be encrypted in the API response."
+                  "Prevent your users from inspecting your feature flags and experiments when using client-side and mobile SDKs"
                 }
               />
             </li>
