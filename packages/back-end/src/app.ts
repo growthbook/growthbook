@@ -178,7 +178,7 @@ app.post(
 );
 
 // increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "500kb" }));
+app.use(bodyParser.json({ limit: "1mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
