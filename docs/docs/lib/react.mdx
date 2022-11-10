@@ -253,7 +253,7 @@ With encryption enabled, the response from the SDK Endpoint will be in the forma
 
 The features are encrypted using the AES-CBC algorithm. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
 
-The React SDK contains a built-in method `setEncryptedFeatures` that makes decrypting simple.
+The React SDK contains a built-in method `setEncryptedFeatures` that automatically decrypts the encryptedFeatures before calling `setFeatures`.
 
 ```ts
 function MyApp() {

@@ -37,7 +37,6 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
           </label>
         </span>
         <Toggle
-          disabled={!hasCommercialFeature("encrypt-features-endpoint")}
           id={"encryptSDK"}
           value={!!form.watch("encryptSDK")}
           setValue={(value) => {
