@@ -1,5 +1,7 @@
+import clsx from "clsx";
 import { ReactNode, useState } from "react";
 import Tooltip from "../Tooltip/Tooltip";
+import styles from "./ClickToCopy.module.scss";
 
 type Props = {
   valueToCopy?: string;
@@ -10,14 +12,10 @@ export default function ClickToCopy({ valueToCopy, children }: Props) {
   const [copyText, setCopyText] = useState("Copy");
   return (
     <Tooltip
+      className={clsx(!valueToCopy && styles.blurText, styles.tooltip)}
       role={valueToCopy && "button"}
       tipMinWidth="45px"
       tipPosition="top"
-      style={{
-        color: !valueToCopy && "transparent",
-        textShadow: !valueToCopy && "0 0 5px #3b3b3b",
-        overflowWrap: "anywhere",
-      }}
       body={valueToCopy && copyText}
       onClick={(e) => {
         e.preventDefault();
@@ -30,7 +28,7 @@ export default function ClickToCopy({ valueToCopy, children }: Props) {
             .then(() => {
               setTimeout(() => {
                 setCopyText("Copy");
-              }, 2000);
+              }, 5000);
             })
             .catch((e) => {
               console.error(e);
