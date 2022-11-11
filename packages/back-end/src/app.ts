@@ -178,7 +178,7 @@ app.post(
 );
 
 // increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "500kb" }));
+app.use(bodyParser.json({ limit: "1mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -293,6 +293,7 @@ app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
+app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {

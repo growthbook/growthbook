@@ -31,6 +31,7 @@ export type Language =
   | "sh"
   | "yml"
   | "kotlin"
+  | "xml"
   | "java";
 
 const LanguageDisplay: Record<string, string> = {

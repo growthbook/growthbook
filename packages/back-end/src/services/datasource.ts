@@ -6,7 +6,7 @@ import Presto from "../integrations/Presto";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface } from "../types/Integration";
+import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
@@ -87,4 +87,36 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(datasource);
   await integration.testConnection();
+}
+
+export async function testQuery(
+  datasource: DataSourceInterface,
+  query: string
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+}> {
+  const integration = getSourceIntegrationObject(datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Unable to test query.");
+  }
+
+  const sql = integration.getTestQuery(query);
+  try {
+    const { results, duration } = await integration.runTestQuery(sql);
+    return {
+      results,
+      duration,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
 }

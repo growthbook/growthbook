@@ -15,10 +15,14 @@ import {
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
   Dimension,
+  TestQueryResult,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import {
+  DEFAULT_CONVERSION_WINDOW_HOURS,
+  IMPORT_LIMIT_DAYS,
+} from "../util/secrets";
 import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
 import {
@@ -435,6 +439,30 @@ export default abstract class SqlIntegration
 
       return ret;
     });
+  }
+
+  getTestQuery(query: string): string {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
+    const limitedQuery = replaceSQLVars(
+      `WITH __table as (
+        ${query}
+      )
+      SELECT * FROM __table LIMIT 1`,
+      {
+        startDate,
+      }
+    );
+    return format(limitedQuery, this.getFormatDialect());
+  }
+
+  async runTestQuery(sql: string): Promise<TestQueryResult> {
+    // Calculate the run time of the query
+    const queryStartTime = Date.now();
+    const results = await this.runQuery(sql);
+    const queryEndTime = Date.now();
+    const duration = queryEndTime - queryStartTime;
+    return { results, duration };
   }
 
   private getIdentifiesCTE(
@@ -922,7 +950,7 @@ export default abstract class SqlIntegration
         SELECT
           variation,
           dimension,
-          COUNT(*) as users
+          ${this.ensureFloat("COUNT(*)")} as users
         FROM
           __distinctUsers
         GROUP BY
