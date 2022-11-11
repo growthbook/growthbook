@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import Modal from "../Modal";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
@@ -15,6 +15,20 @@ export interface Props {
 
 function rubySymbol(name: string): string {
   return name.match(/[^a-zA-Z0-9_]+/) ? `'${name}'` : `:${name}`;
+}
+
+function javaType(type: FeatureValueType): string {
+  if (type === "boolean") return "Boolean";
+  if (type === "number") return "Float";
+  if (type === "string") return "String";
+  return "Object";
+}
+
+function javaDefaultValue(type: FeatureValueType) {
+  if (type === "boolean") return "true";
+  if (type === "number") return "1.0f";
+  if (type === "string") return '"fallback value"';
+  return "new Object()";
 }
 
 export default function FeatureImplementationModal({
@@ -160,6 +174,21 @@ echo $value;`,
         feature.id
       )}, "blue")`,
       docSection: "python",
+    },
+
+    {
+      id: "java",
+      display: "Java",
+      language: "java",
+      boolean: `if (growthBook.isOn(${JSON.stringify(feature.id)})) {
+  // Do something!
+}`,
+      value: `${javaType(
+        feature.valueType
+      )} featureValue = growthBook.getFeatureValue(${JSON.stringify(
+        feature.id
+      )}, ${javaDefaultValue(feature.valueType)});`,
+      docSection: "java",
     },
 
     // ruby: {

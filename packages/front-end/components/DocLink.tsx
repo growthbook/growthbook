@@ -25,6 +25,7 @@ const docSections = {
   ruby: "/lib/ruby",
   php: "/lib/php",
   python: "/lib/python",
+  java: "/lib/java",
   //Other
   user_guide: "/app",
   config: "/self-host/config",

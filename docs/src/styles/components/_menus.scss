@@ -1,3 +1,5 @@
+@import "../mixins";
+
 html[data-theme="light"] {
   --sidebar-category-c: var(--c-gray-100);
   --sidebar-border-c: var(--c-gray-0);
@@ -88,15 +90,16 @@ html[data-theme="dark"] {
         .menu__link {
           &::after {
             content: "beta";
-            font-size: 0.75rem;
-            font-weight: 600;
-            line-height: 100%;
-            text-transform: uppercase;
-            color: #fff;
-            background: #7817d3;
-            border-radius: 200px;
-            padding: 0.125rem 0.5rem;
-            margin-inline-start: 0.5rem;
+            @include pill(#7817d3, #fff);
+          }
+        }
+      }
+
+      &.pill-new {
+        .menu__link {
+          &::after {
+            content: "new";
+            @include pill(#13a100, #fff);
           }
         }
       }
