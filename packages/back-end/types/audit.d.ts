@@ -51,14 +51,20 @@ export type EventType =
   | "savedGroup.created"
   | "savedGroup.updated";
 
+export interface AuditUserLoggedIn {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface AuditUserApiKey {
+  apiKey: string;
+}
+
 export interface AuditInterface {
   id: string;
   organization: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-  };
+  user: AuditUserLoggedIn | AuditUserApiKey;
   event: EventType;
   entity: {
     object: EntityType;
@@ -68,6 +74,7 @@ export interface AuditInterface {
     object: EntityType;
     id: string;
   };
+  reason?: string;
   details?: string;
   dateCreated: Date;
 }

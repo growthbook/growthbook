@@ -1,9 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { AuditInterface } from "back-end/types/audit";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 import { useAuth } from "../../services/auth";
@@ -11,13 +8,12 @@ import { BsGear } from "react-icons/bs";
 import Field from "../Forms/Field";
 import { useUser } from "../../services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
-const NorthStar: FC = () => {
+const NorthStar: FC<{
+  experiments: ExperimentInterfaceStringDates[];
+}> = ({ experiments }) => {
   const { apiCall } = useAuth();
-  const { data, error } = useApi<{
-    events: AuditInterface[];
-    experiments: { id: string; name: string }[];
-  }>("/activity");
 
   const { permissions, refreshOrganization } = useUser();
   const settings = useOrgSettings();
@@ -42,14 +38,8 @@ const NorthStar: FC = () => {
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
   const nameMap = new Map<string, string>();
-  data.experiments.forEach((e) => {
+  experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
 

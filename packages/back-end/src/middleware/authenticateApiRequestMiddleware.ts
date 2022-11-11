@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
+import { insertAudit } from "../services/audit";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 
@@ -56,6 +57,18 @@ export default function authencateApiRequestMiddleware(
 
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+
+      // Add audit method to req
+      req.audit = async (data) => {
+        await insertAudit({
+          ...data,
+          user: {
+            apiKey: req.apiKey,
+          },
+          organization: org.id,
+          dateCreated: new Date(),
+        });
+      };
 
       // Continue to the actual request handler
       next();
