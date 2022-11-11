@@ -114,6 +114,23 @@ const sidebars = {
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },
+    {
+      type: "category",
+      label: "Tools",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "tools/chrome-extension",
+          label: "Chrome Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/vscode-extension",
+          label: "Visual Studio Code Extension",
+        },
+      ],
+    },
     { type: "doc", id: "faq", label: "FAQ" },
     { type: "doc", id: "statistics", label: "Statistics" },
 
