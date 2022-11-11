@@ -8,8 +8,8 @@ import bodyParser from "body-parser";
 
 const router = Router();
 
-router.use(bodyParser.json({ limit: "500kb" }));
-router.use(bodyParser.urlencoded({ limit: "500kb", extended: true }));
+router.use(bodyParser.json({ limit: "1mb" }));
+router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
 
 router.use(authencateApiRequestMiddleware);
 

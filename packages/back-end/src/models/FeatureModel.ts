@@ -138,7 +138,7 @@ export async function toggleMultipleEnvironments(
 ) {
   const changes: Record<string, boolean> = {};
   let newFeature = feature;
-  const affectedEnvs: string[] = [];
+  const previousEnvs: string[] = [];
   Object.keys(toggles).forEach((env) => {
     const state = toggles[env];
     const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
@@ -146,7 +146,7 @@ export async function toggleMultipleEnvironments(
       changes[`environmentSettings.${env}.enabled`] = state;
       newFeature = setEnvironmentSettings(newFeature, env, { enabled: state });
       if (currentState) {
-        affectedEnvs.push(env);
+        previousEnvs.push(env);
       }
     }
   });
@@ -166,7 +166,7 @@ export async function toggleMultipleEnvironments(
       }
     );
 
-    featureUpdated(newFeature, affectedEnvs);
+    featureUpdated(newFeature, previousEnvs);
   }
 
   return newFeature;
