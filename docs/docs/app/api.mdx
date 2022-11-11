@@ -473,7 +473,6 @@ This endpoint controls the environment toggles for features.
 ```bash
 curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
   -u secret_abc123DEF456: \
-  -H "Content-Type: application/json" \
   -d "environments[production]"=false \
   -d reason="Kill switch activated"
 ```

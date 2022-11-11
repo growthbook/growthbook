@@ -20,7 +20,9 @@ type ApiRequest<
 function validate(schema: Schema, value: unknown): string[] {
   const result = schema.safeParse(value);
   if (!result.success) {
-    return result.error.issues.map((i) => i.message);
+    return result.error.issues.map((i) => {
+      return "[" + i.path.join(".") + "] " + i.message;
+    });
   }
   return [];
 }

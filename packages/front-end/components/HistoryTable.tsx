@@ -13,9 +13,11 @@ import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 function EventDetails({
   eventType,
   details,
+  reason,
 }: {
   eventType: EventType;
   details: string;
+  reason?: string;
 }) {
   const json = useMemo(() => {
     try {
@@ -40,6 +42,12 @@ function EventDetails({
   if (json.pre || json.post) {
     return (
       <div className="diff-wrapper">
+        {reason && (
+          <p>
+            <strong>Reason: </strong>
+            {reason}
+          </p>
+        )}
         {json.context && (
           <div className="row">
             {Object.keys(json.context).map((k) => (
@@ -60,7 +68,17 @@ function EventDetails({
   }
 
   // Other - show JSON
-  return <Code language="json" code={JSON.stringify(json, null, 2)} />;
+  return (
+    <>
+      {reason && (
+        <p>
+          <strong>Reason: </strong>
+          {reason}
+        </p>
+      )}
+      <Code language="json" code={JSON.stringify(json, null, 2)} />
+    </>
+  );
 }
 
 export function HistoryTableRow({
@@ -119,7 +137,11 @@ export function HistoryTableRow({
       {open && event.details && (
         <tr>
           <td colSpan={isActivity ? 6 : 4} className="bg-light p-3">
-            <EventDetails eventType={event.event} details={event.details} />
+            <EventDetails
+              eventType={event.event}
+              details={event.details}
+              reason={event.reason}
+            />
           </td>
         </tr>
       )}

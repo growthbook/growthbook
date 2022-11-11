@@ -144,7 +144,7 @@ export async function toggleMultipleEnvironments(
     const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
     if (currentState !== state) {
       changes[`environmentSettings.${env}.enabled`] = state;
-      newFeature = setEnvironmentSettings(feature, env, { enabled: state });
+      newFeature = setEnvironmentSettings(newFeature, env, { enabled: state });
       if (currentState) {
         affectedEnvs.push(env);
       }
