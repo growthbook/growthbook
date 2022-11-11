@@ -35,6 +35,7 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+  archived: boolean;
 }
 
 export function validateFeatureValue(
@@ -657,6 +658,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
             ? schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
+        archived: !!schema.archived,
       });
     });
 

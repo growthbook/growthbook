@@ -223,10 +223,12 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                      }))}
+                      options={attributeSchema
+                        .filter((s) => !s.archived)
+                        .map((s) => ({
+                          label: s.property,
+                          value: s.property,
+                        }))}
                       name="field"
                       className={`${styles.firstselect} form-control`}
                       onChange={(value) => {
@@ -345,29 +347,31 @@ export default function ConditionInput(props: Props) {
           })}
         </ul>
         <div className="d-flex align-items-center">
-          <a
-            className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              const prop = attributeSchema[0];
-              setConds([
-                ...conds,
-                {
-                  field: prop?.property || "",
-                  operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                  value: "",
-                },
-              ]);
-            }}
-          >
-            <span
-              className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
+          {attributeSchema.filter((s) => !s.archived).length > 0 && (
+            <a
+              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                const prop = attributeSchema.filter((s) => !s.archived)[0];
+                setConds([
+                  ...conds,
+                  {
+                    field: prop?.property || "",
+                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                    value: "",
+                  },
+                ]);
+              }}
             >
-              <GBAddCircle />
-            </span>
-            Add another condition
-          </a>
+              <span
+                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
+              >
+                <GBAddCircle />
+              </span>
+              Add another condition
+            </a>
+          )}
           <a
             href="#"
             className="ml-auto"

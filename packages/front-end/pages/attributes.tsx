@@ -5,11 +5,24 @@ import { GBEdit } from "../components/Icons";
 import EditAttributesModal from "../components/Features/EditAttributesModal";
 import { useAttributeSchema } from "../services/features";
 import usePermissions from "../hooks/usePermissions";
+import { SDKAttribute } from "back-end/types/organization";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
   const permissions = usePermissions();
   const attributeSchema = useAttributeSchema();
+
+  const drawRow = (v: SDKAttribute, i: number) => (
+    <tr style={v.archived ? { opacity: 0.5 } : {}} key={i}>
+      <td className="text-gray font-weight-bold">{v.property}</td>
+      <td className="text-gray">
+        {v.datatype}
+        {v.datatype === "enum" && <>: ({v.enum})</>}
+      </td>
+      <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
+      <td className="text-gray">{v.archived && <>yes</>}</td>
+    </tr>
+  );
 
   return (
     <>
@@ -53,25 +66,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     />
                   </Tooltip>
                 </th>
+                <th>Archived</th>
               </tr>
             </thead>
             <tbody>
               {attributeSchema && attributeSchema.length > 0 ? (
                 <>
-                  {attributeSchema.map((v, i) => (
-                    <tr key={i}>
-                      <td className="text-gray font-weight-bold">
-                        {v.property}
-                      </td>
-                      <td className="text-gray">
-                        {v.datatype}
-                        {v.datatype === "enum" && <>: ({v.enum})</>}
-                      </td>
-                      <td className="text-gray">
-                        {v.hashAttribute && <>yes</>}
-                      </td>
-                    </tr>
-                  ))}
+                  {attributeSchema
+                    .filter((o) => o?.archived !== true)
+                    .map((v, i) => drawRow(v, i))}
+                  {attributeSchema
+                    .filter((o) => o?.archived === true)
+                    .map((v, i) => drawRow(v, i))}
                 </>
               ) : (
                 <>

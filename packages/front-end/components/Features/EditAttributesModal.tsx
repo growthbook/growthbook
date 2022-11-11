@@ -6,7 +6,7 @@ import { useUser } from "../../services/UserContext";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip/Tooltip";
-import { FaQuestionCircle } from "react-icons/fa";
+import { FaQuestionCircle, FaTrash } from "react-icons/fa";
 import track from "../../services/track";
 import { useAttributeSchema } from "../../services/features";
 import useOrgSettings from "../../hooks/useOrgSettings";
@@ -75,12 +75,20 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <FaQuestionCircle />
                 </Tooltip>
               </th>
+              <th>Archived</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {attributeSchema.fields.map((v, i) => (
-              <tr key={i}>
+              <tr
+                className={
+                  form.watch(`attributeSchema.${i}.archived`)
+                    ? "alert alert-danger"
+                    : ""
+                }
+                key={i}
+              >
                 <td>
                   <input
                     {...form.register(`attributeSchema.${i}.property`)}
@@ -127,6 +135,16 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   />
                 </td>
                 <td>
+                  <Toggle
+                    id={"archived" + i}
+                    label="Archived"
+                    value={!!form.watch(`attributeSchema.${i}.archived`)}
+                    setValue={(value) => {
+                      form.setValue(`attributeSchema.${i}.archived`, value);
+                    }}
+                  />
+                </td>
+                <td>
                   <button
                     className="btn btn-link text-danger close"
                     type="button"
@@ -135,7 +153,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                       attributeSchema.remove(i);
                     }}
                   >
-                    x
+                    <FaTrash />
                   </button>
                 </td>
               </tr>
