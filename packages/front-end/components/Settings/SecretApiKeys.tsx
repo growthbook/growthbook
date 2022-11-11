@@ -4,10 +4,9 @@ import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
 import ApiKeysModal from "./ApiKeysModal";
-import CopyToClipboard from "../CopyToClipboard";
 import MoreMenu from "../Dropdown/MoreMenu";
-import ClickToReveal from "./ClickToReveal";
 import usePermissions from "../../hooks/usePermissions";
+import ClickToReveal from "./ClickToReveal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   keys,
@@ -41,7 +40,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              <th>Description</th>
+              <th style={{ width: 150 }}>Description</th>
               <th>Key</th>
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
@@ -50,10 +49,10 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             {secretKeys.map((key) => (
               <tr key={key.id}>
                 <td>{key.description}</td>
-                <td>
+                <td style={{ minWidth: 295 }}>
                   {canManageKeys ? (
                     <ClickToReveal
-                      valueWhenHidden="Reveal key"
+                      valueWhenHidden="secret_abcdefghijklmnop123"
                       getValue={async () => {
                         const res = await apiCall<{ key: SecretApiKey }>(
                           `/keys/reveal`,
@@ -64,14 +63,12 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                             }),
                           }
                         );
-                        if (!res.key?.key) {
-                          throw new Error("Could not load secret key value");
+                        if (!res.key.key) {
+                          throw new Error("Could not load the secret key");
                         }
                         return res.key.key;
                       }}
-                    >
-                      {(value) => <CopyToClipboard text={value} />}
-                    </ClickToReveal>
+                    />
                   ) : (
                     <em>hidden</em>
                   )}
