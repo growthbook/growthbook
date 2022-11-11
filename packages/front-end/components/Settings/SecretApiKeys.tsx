@@ -49,10 +49,10 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             {secretKeys.map((key) => (
               <tr key={key.id}>
                 <td>{key.description}</td>
-                <td>
+                <td style={{ minWidth: 295 }}>
                   {canManageKeys ? (
                     <ClickToReveal
-                      valueWhenHidden="Click to reveal secret key"
+                      valueWhenHidden="secret_abcdefghijklmnop123"
                       getValue={async () => {
                         const res = await apiCall<{ key: SecretApiKey }>(
                           `/keys/reveal`,

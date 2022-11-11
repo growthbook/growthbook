@@ -22,9 +22,13 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
         value && "d-flex flex-column align-items-baseline"
       )}
     >
-      <ClickToCopy valueToCopy={value}>
-        {value ? value : valueWhenHidden}
-      </ClickToCopy>
+      {value ? (
+        <ClickToCopy valueToCopy={value}>
+          <span style={{ wordBreak: "break-all" }}>{value}</span>
+        </ClickToCopy>
+      ) : (
+        <span className={styles.blurText}>{valueWhenHidden}</span>
+      )}
       <button
         className={clsx(
           "btn btn-sm btn-outline-secondary",

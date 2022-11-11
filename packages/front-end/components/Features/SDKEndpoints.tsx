@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
@@ -114,32 +114,27 @@ const SDKEndpoints: FC<{
                   </td>
                   <td>
                     <ClickToCopy valueToCopy={endpoint}>
-                      <span style={{ overflowWrap: "anywhere" }}>
-                        {endpoint}
-                      </span>
+                      <span style={{ wordBreak: "break-all" }}>{endpoint}</span>
                     </ClickToCopy>
                   </td>
                   {hasEncryptedEndpoints && (
                     <td style={{ width: 295 }}>
                       {canManageKeys && key.encryptSDK ? (
                         <ClickToReveal
-                          valueWhenHidden="Click to reveal encryption key"
+                          valueWhenHidden="secret_abcdefghijklmnop123"
                           getValue={async () => {
-                            const res = await apiCall<{ key: SecretApiKey }>(
-                              `/keys/reveal`,
-                              {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  id: key.id,
-                                }),
-                              }
-                            );
-                            if (!res.key.key) {
-                              throw new Error(
-                                "Could not load the encryption key"
-                              );
+                            const res = await apiCall<{
+                              key: ApiKeyInterface;
+                            }>(`/keys/reveal`, {
+                              method: "POST",
+                              body: JSON.stringify({
+                                id: key.id,
+                              }),
+                            });
+                            if (!res.key?.encryptionKey) {
+                              throw new Error("Could not load encryption key");
                             }
-                            return res.key.key;
+                            return res.key.encryptionKey;
                           }}
                         />
                       ) : (
