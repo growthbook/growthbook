@@ -1946,4 +1946,10 @@ html {
   }
 }
 
+tr.disabled,
+td.disabled {
+  background: var(--disabled-background);
+  font-style: italic;
+}
+
 @import "./components/react-select.scss";

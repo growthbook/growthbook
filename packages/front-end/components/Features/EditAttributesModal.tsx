@@ -18,7 +18,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
 
   const form = useForm<{ attributeSchema: SDKAttributeSchema }>({
     defaultValues: {
-      attributeSchema: useAttributeSchema(),
+      attributeSchema: useAttributeSchema(true),
     },
   });
 
@@ -75,7 +75,6 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <FaQuestionCircle />
                 </Tooltip>
               </th>
-              <th>Archived</th>
               <th></th>
             </tr>
           </thead>
@@ -84,7 +83,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
               <tr
                 className={
                   form.watch(`attributeSchema.${i}.archived`)
-                    ? "alert alert-danger"
+                    ? "disabled"
                     : ""
                 }
                 key={i}
@@ -125,6 +124,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <Toggle
                     id={"toggle" + i}
                     label="Identifier"
+                    style={{marginTop: 5}}
                     value={!!form.watch(`attributeSchema.${i}.hashAttribute`)}
                     setValue={(value) => {
                       form.setValue(
@@ -135,18 +135,9 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   />
                 </td>
                 <td>
-                  <Toggle
-                    id={"archived" + i}
-                    label="Archived"
-                    value={!!form.watch(`attributeSchema.${i}.archived`)}
-                    setValue={(value) => {
-                      form.setValue(`attributeSchema.${i}.archived`, value);
-                    }}
-                  />
-                </td>
-                <td>
                   <button
                     className="btn btn-link text-danger close"
+                    style={{marginTop: 5}}
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();

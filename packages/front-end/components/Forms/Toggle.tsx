@@ -9,6 +9,7 @@ export default function Toggle({
   disabled = false,
   type = "toggle",
   className,
+  style,
   disabledMessage,
 }: {
   id: string;
@@ -18,6 +19,7 @@ export default function Toggle({
   disabled?: boolean;
   type?: "featureValue" | "environment" | "toggle";
   className?: string;
+  style?: { [key: string]: string | number };
   disabledMessage?: string;
 }) {
   return (
@@ -26,6 +28,7 @@ export default function Toggle({
         className={`toggle-switch ${
           disabled ? "disabled" : ""
         } toggle-${type} ${className || ""}`}
+        style={style}
       >
         <input
           type="checkbox"

@@ -223,9 +223,7 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={attributeSchema
-                        .filter((s) => !s.archived)
-                        .map((s) => ({
+                      options={attributeSchema.map((s) => ({
                           label: s.property,
                           value: s.property,
                         }))}
@@ -347,7 +345,7 @@ export default function ConditionInput(props: Props) {
           })}
         </ul>
         <div className="d-flex align-items-center">
-          {attributeSchema.filter((s) => !s.archived).length > 0 && (
+          {attributeSchema.length > 0 && (
             <a
               className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
               href="#"

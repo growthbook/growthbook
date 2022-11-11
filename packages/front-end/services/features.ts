@@ -205,9 +205,12 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema() {
-  const { attributeSchema } = useOrgSettings();
-  return attributeSchema || [];
+export function useAttributeSchema(showArchived = false) {
+  let attributeSchema = useOrgSettings().attributeSchema || []
+  if (!showArchived) {
+    attributeSchema = attributeSchema.filter(s => !s.archived)
+  }
+  return attributeSchema
 }
 
 export function validateFeatureRule(
