@@ -2,6 +2,7 @@ import { UseFormReturn } from "react-hook-form";
 import { useUser } from "../../services/UserContext";
 import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip/Tooltip";
 import UpgradeMessage from "../UpgradeMessage";
 
 type FormKeys = {
@@ -18,38 +19,39 @@ type Props = {
 export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
   const { hasCommercialFeature } = useUser();
 
-  if (!hasCommercialFeature("encrypt-features-endpoint")) {
-    return (
-      <UpgradeMessage
-        showUpgradeModal={showUpgradeModal}
-        commercialFeature="encrypt-features-endpoint"
-        upgradeMessage="encrypt the response from this SDK endpoint"
-      />
-    );
-  }
+  const hasFeature = hasCommercialFeature("encrypt-features-endpoint");
 
   return (
-    <div>
-      <div className="mb-2 d-flex flex-column">
-        <span>
-          <label htmlFor="encryptFeatures">
-            Encrypt this endpoint&apos;s response?
-          </label>
-        </span>
-        <Toggle
-          id={"encryptSDK"}
-          value={!!form.watch("encryptSDK")}
-          setValue={(value) => {
-            form.setValue("encryptSDK", value);
-          }}
+    <div className="bg-light px-3 pt-3 appbox mt-2">
+      <div className="form-group">
+        <label htmlFor="encryptSDK">
+          Encrypt this endpoint&apos;s response?
+        </label>
+        <div>
+          <Tooltip body={!hasFeature && "Upgrade to enable this feature"}>
+            <Toggle
+              id={"encryptSDK"}
+              value={!!form.watch("encryptSDK")}
+              setValue={(value) => {
+                form.setValue("encryptSDK", value);
+              }}
+              disabled={!hasFeature}
+            />
+          </Tooltip>
+        </div>
+      </div>
+      <div className="mb-3">
+        Only supported when using our Javascript or React SDKs. Requires changes
+        to your implementation.{" "}
+        <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
+      </div>
+      {!hasFeature && (
+        <UpgradeMessage
+          showUpgradeModal={showUpgradeModal}
+          commercialFeature="encrypt-features-endpoint"
+          upgradeMessage="enable encryption"
         />
-      </div>
-      <div className="alert alert-warning">
-        When enabled, you will need to decrypt the feature list before passing
-        into our SDKs.{" "}
-        <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink> for more
-        info and sample code.
-      </div>
+      )}
     </div>
   );
 }

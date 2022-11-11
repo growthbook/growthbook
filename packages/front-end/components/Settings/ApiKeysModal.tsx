@@ -83,22 +83,22 @@ const ApiKeysModal: FC<{
         placeholder={secret ? "" : form.watch("environment")}
         {...form.register("description")}
       />
+      {!secret && (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowAdvanced(!showAdvanced);
+          }}
+        >
+          {showAdvanced ? "Hide" : "Show"} advanced settings
+        </a>
+      )}
       {!secret && showAdvanced && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           form={form}
         />
-      )}
-      {!secret && !showAdvanced && (
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowAdvanced(true);
-          }}
-        >
-          Show advanced settings
-        </a>
       )}
     </Modal>
   );
