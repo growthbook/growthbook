@@ -1,6 +1,6 @@
 import { Context, GrowthBook } from "../src";
+
 /* eslint-disable */
-const { subtle } = require("node:crypto").webcrypto;
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
 global.TextEncoder = TextEncoder;
@@ -33,127 +33,122 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("renders encrypedFeatures correctly", async () => {
-    const growthbook = new GrowthBook({
-      attributes: {
-        id: "123",
-      },
-    });
+  it("decrypts features with custom SubtleCrypto implementation", async () => {
+    const growthbook = new GrowthBook();
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-
     const encrypedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
-    await growthbook.setEncryptedFeatures(encrypedFeatures, keyString, subtle);
+    // Make sure it's not using the built-in crypto implementation
+    const originalCrypto = globalThis.crypto;
+    // eslint-disable-next-line
+    (globalThis.crypto as any) = undefined;
 
-    expect(growthbook.feature("testfeature1")).toEqual({
-      value: true,
-      on: true,
-      off: false,
-      ruleId: "",
-      source: "defaultValue",
-    });
-    growthbook.destroy();
-  });
+    await growthbook.setEncryptedFeatures(
+      encrypedFeatures,
+      keyString,
+      webcrypto.subtle
+    );
 
-  it("throws an error when the keyString is incorrect", async () => {
-    const growthbook = new GrowthBook({
-      attributes: {
-        id: "123",
+    expect(growthbook.getFeatures()).toEqual({
+      testfeature1: {
+        defaultValue: true,
+        rules: [
+          {
+            condition: { id: "1234" },
+            force: false,
+          },
+        ],
       },
     });
 
-    const keyString = "fakeT5n9+59rl2x3SlNHtQ==";
-
-    const encrypedFeatures =
-      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
-
-    try {
-      await growthbook.setEncryptedFeatures(
-        encrypedFeatures,
-        keyString,
-        subtle
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      expect(e.message).toEqual(
-        "The operation failed for an operation-specific reason"
-      );
-    }
     growthbook.destroy();
+    globalThis.crypto = originalCrypto;
   });
 
-  it("throws an error when the encryptedFeatures string is incorrect", async () => {
-    const growthbook = new GrowthBook({
-      attributes: {
-        id: "123",
-      },
-    });
+  it("decrypts features using the native SubtleCrypto implementation", async () => {
+    const growthbook = new GrowthBook();
+
+    const originalCrypto = globalThis.crypto;
+    globalThis.crypto = webcrypto;
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-
-    const encrypedFeatures =
-      "FAKE2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
-
-    try {
-      await growthbook.setEncryptedFeatures(
-        encrypedFeatures,
-        keyString,
-        subtle
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      expect(e.message).toEqual("Unexpected token � in JSON at position 0");
-    }
-    growthbook.destroy();
-  });
-
-  it("renders encrypedFeatures correctly if window.crypto does exists", async () => {
-    const growthbook = new GrowthBook({
-      attributes: {
-        id: "123",
-      },
-    });
-    window.crypto = webcrypto;
-
-    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-
     const encrypedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     await growthbook.setEncryptedFeatures(encrypedFeatures, keyString);
 
-    expect(growthbook.feature("testfeature1")).toEqual({
-      value: true,
-      on: true,
-      off: false,
-      ruleId: "",
-      source: "defaultValue",
-    });
-    growthbook.destroy();
-  });
-
-  it("should throw an error if window.crypto.subtle doesn't exist and SubtleCrypto isn't passed in", async () => {
-    const growthbook = new GrowthBook({
-      attributes: {
-        id: "123",
+    expect(growthbook.getFeatures()).toEqual({
+      testfeature1: {
+        defaultValue: true,
+        rules: [
+          {
+            condition: { id: "1234" },
+            force: false,
+          },
+        ],
       },
     });
-    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    growthbook.destroy();
 
+    // Reset
+    globalThis.crypto = originalCrypto;
+  });
+
+  it("throws when decrypting features with invalid key", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "fakeT5n9+59rl2x3SlNHtQ==";
     const encrypedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
-    try {
-      await growthbook.setEncryptedFeatures(encrypedFeatures, keyString);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      expect(e.message).toEqual(
-        "Cannot read properties of undefined (reading 'subtle')"
-      );
-    }
+    await expect(
+      growthbook.setEncryptedFeatures(
+        encrypedFeatures,
+        keyString,
+        webcrypto.subtle
+      )
+    ).rejects.toThrow("Failed to decrypt features");
+
     growthbook.destroy();
+  });
+
+  it("throws when decrypting features with invalid encrypted value", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "FAKE2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    await expect(
+      growthbook.setEncryptedFeatures(
+        encrypedFeatures,
+        keyString,
+        webcrypto.subtle
+      )
+    ).rejects.toThrow("Failed to decrypt features");
+
+    growthbook.destroy();
+  });
+
+  it("throws when decrypting features and no SubtleCrypto implementation exists", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    const originalCrypto = globalThis.crypto;
+    // eslint-disable-next-line
+    (globalThis.crypto as any) = undefined;
+
+    await expect(
+      growthbook.setEncryptedFeatures(encrypedFeatures, keyString)
+    ).rejects.toThrow("No SubtleCrypto implementation found");
+
+    growthbook.destroy();
+    globalThis.crypto = originalCrypto;
   });
 
   it("can set features asynchronously", () => {

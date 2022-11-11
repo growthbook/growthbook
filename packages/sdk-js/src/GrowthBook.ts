@@ -26,6 +26,9 @@ import { evalCondition } from "./mongrule";
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
 
+const base64ToBuf = (b: string) =>
+  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+
 export class GrowthBook {
   private context: Context;
   private _renderer: null | (() => void) = null;
@@ -71,35 +74,31 @@ export class GrowthBook {
   public async setEncryptedFeatures(
     encryptedString: string,
     encryptionKey: string,
-    crypto?: SubtleCrypto
+    subtle?: SubtleCrypto
   ): Promise<void> {
-    if (!crypto) {
-      if (typeof window !== "undefined") {
-        crypto = window.crypto.subtle;
-      } else {
-        throw new Error(
-          "Must pass a SubtleCrypto implementation to this function"
-        );
-      }
+    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+    if (!subtle) {
+      throw new Error("No SubtleCrypto implementation found");
     }
+    try {
+      const key = await subtle.importKey(
+        "raw",
+        base64ToBuf(encryptionKey),
+        { name: "AES-CBC", length: 128 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+      const [iv, cipherText] = encryptedString.split(".");
+      const plainTextBuffer = await subtle.decrypt(
+        { name: "AES-CBC", iv: base64ToBuf(iv) },
+        key,
+        base64ToBuf(cipherText)
+      );
 
-    const base64ToBuf = (b: string) =>
-      Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-    const key = await crypto.importKey(
-      "raw",
-      base64ToBuf(encryptionKey),
-      { name: "AES-CBC", length: 128 },
-      true,
-      ["encrypt", "decrypt"]
-    );
-    const [iv, cipherText] = encryptedString.split(".");
-    const plainTextBuffer = await crypto.decrypt(
-      { name: "AES-CBC", iv: base64ToBuf(iv) },
-      key,
-      base64ToBuf(cipherText)
-    );
-
-    this.setFeatures(JSON.parse(new TextDecoder().decode(plainTextBuffer)));
+      this.setFeatures(JSON.parse(new TextDecoder().decode(plainTextBuffer)));
+    } catch (e) {
+      throw new Error("Failed to decrypt features");
+    }
   }
 
   public setAttributes(attributes: Attributes) {
