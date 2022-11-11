@@ -1,3 +1,4 @@
+import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { FeatureRule, FeatureValueType } from "./feature";
 import { OrganizationInterface } from "./organization";
@@ -45,6 +46,7 @@ export interface ErrorResponse {
 export interface ApiRequestLocals {
   apiKey: string;
   organization: OrganizationInterface;
+  audit: (data: Partial<AuditInterface>) => Promise<void>;
 }
 
 export interface ApiErrorResponse {
