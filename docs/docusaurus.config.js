@@ -133,7 +133,14 @@ const config = {
       prism: {
         theme: require("prism-react-renderer/themes/github"),
         darkTheme: require("prism-react-renderer/themes/dracula"),
-        additionalLanguages: ["ruby", "php", "java", "kotlin", "dart"],
+        additionalLanguages: [
+          "ruby",
+          "php",
+          "java",
+          "kotlin",
+          "dart",
+          "groovy",
+        ],
       },
       colorMode: {
         defaultMode: "light",

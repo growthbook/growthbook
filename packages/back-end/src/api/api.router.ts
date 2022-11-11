@@ -1,15 +1,19 @@
 import { Router, Request } from "express";
-import authencateApiRequestMiddleware from "../../middleware/authenticateApiRequestMiddleware";
-import { getBuild } from "../../util/handler";
-import { listFeatures } from "./features.controller";
+import authencateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
+import { getBuild } from "../util/handler";
 import rateLimit from "express-rate-limit";
-import { ApiRequestLocals } from "../../../types/api";
+import { ApiRequestLocals } from "../../types/api";
+import featuresRouter from "./features/features.router";
+import bodyParser from "body-parser";
 
 const router = Router();
 
+router.use(bodyParser.json({ limit: "1mb" }));
+router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
+
 router.use(authencateApiRequestMiddleware);
 
-// Limit API keys to 60 requests per minute
+// Rate limit API keys to 60 requests per minute
 router.use(
   rateLimit({
     windowMs: 60 * 1000,
@@ -30,8 +34,8 @@ router.get("/", (req, res) => {
   });
 });
 
-// Feature Endpoints
-router.get("/features", listFeatures);
+// API endpoints
+router.use("/features", featuresRouter);
 
 // 404 route
 router.use(function (req, res) {

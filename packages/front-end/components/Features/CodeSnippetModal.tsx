@@ -620,6 +620,88 @@ if gb.isOn(${JSON.stringify(featureId)}):
             `.trim()}
           />
         </Tab>
+        <Tab display="Java" id="java">
+          <p>
+            Read the <DocLink docSection="java">full Java SDK docs</DocLink> for
+            more details.
+          </p>
+          <strong>Maven Installation</strong>
+          <Code
+            language="xml"
+            code={`<repositories>
+  <repository>
+    <id>jitpack.io</id>
+    <url>https://jitpack.io</url>
+  </repository>
+</repositories>
+
+<dependency>
+  <groupId>com.github.growthbook</groupId>
+  <artifactId>growthbook-sdk-java</artifactId>
+  <version>0.2.2</version>
+</dependency>`}
+          />
+          <strong>Gradle Installation</strong>
+          <Code
+            language="javascript"
+            filename="build.gradle"
+            code={`allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
+}
+dependencies {
+    implementation 'com.github.growthbook:growthbook-sdk-java:0.2.2'
+}`}
+          />
+          <strong>Usage Instructions</strong>
+          <Code
+            language="java"
+            code={`
+// Fetch feature definitions from GrowthBook API
+// We recommend adding a caching layer in production
+URI featuresEndpoint = new URI("${getSDKEndpoint(apiKey, currentProject)}");
+HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
+HttpResponse<String> response = HttpClient.newBuilder().build()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+String featuresJson = new JSONObject(response.body()).get("features").toString();
+
+// Get user attributes as a JSON string
+JSONObject userAttributesObj = new JSONObject();
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
+      value
+    )});`;
+  })
+  .join("\n")}
+String userAttributesJson = userAttributesObj.toString();
+
+// Experiment tracking callback
+TrackingCallback trackingCallback = new TrackingCallback() {
+  public <ValueType> void onTrack(
+      Experiment<ValueType> experiment,
+      ExperimentResult<ValueType> experimentResult
+  ) {
+      // TODO: Log to event tracking system
+  }
+};
+
+// Create a GrowthBook instance
+GBContext context = GBContext.builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .trackingCallback(trackingCallback)
+    .build();
+GrowthBook growthBook = new GrowthBook(context);
+
+// Evaluate a feature flag
+if (growthBook.isOn(${JSON.stringify(featureId)})) {
+  // Do something!
+}
+            `.trim()}
+          />
+        </Tab>
       </ControlledTabs>
     </Modal>
   );

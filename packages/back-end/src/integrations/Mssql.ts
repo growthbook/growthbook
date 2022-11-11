@@ -20,7 +20,7 @@ export default class Mssql extends SqlIntegration {
   async runQuery(sqlStr: string) {
     const conn = await mssql.connect({
       server: this.params.server,
-      port: this.params.port,
+      port: parseInt(this.params.port + "", 10),
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,
