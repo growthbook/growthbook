@@ -10,7 +10,7 @@ import {
 import { MetricInterface } from "back-end/types/metric";
 import MetricValueColumn from "./MetricValueColumn";
 import { ExperimentReportVariation } from "back-end/types/report";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import Link from "next/link";
 

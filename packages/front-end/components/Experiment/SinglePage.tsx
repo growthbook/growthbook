@@ -12,7 +12,7 @@ import usePermissions from "../../hooks/usePermissions";
 import { useAuth } from "../../services/auth";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import VariationBox from "./VariationBox";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { useRouter } from "next/router";
 import { GBAddCircle, GBEdit } from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
@@ -32,7 +32,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import ResultsIndicator from "./ResultsIndicator";
 import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
@@ -115,7 +115,9 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
-  const canEdit = permissions.createAnalyses && !experiment.archived;
+  const hasPermission = permissions.check("createAnalyses", experiment.project);
+
+  const canEdit = hasPermission && !experiment.archived;
 
   const variationCols = getColWidth(experiment.variations.length);
 
@@ -237,7 +239,7 @@ export default function SinglePage({
                 Duplicate
               </button>
             )}
-            {!experiment.archived && permissions.createAnalyses && (
+            {!experiment.archived && hasPermission && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -255,7 +257,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {experiment.archived && permissions.createAnalyses && (
+            {experiment.archived && hasPermission && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -273,7 +275,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {permissions.createAnalyses && (
+            {hasPermission && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
@@ -627,6 +629,7 @@ export default function SinglePage({
           type="experiment"
           id={experiment.id}
           allowNewComments={!experiment.archived}
+          project={experiment.project}
         />
       </div>
     </div>

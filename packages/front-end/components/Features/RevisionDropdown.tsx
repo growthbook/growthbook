@@ -9,7 +9,7 @@ import { ago, datetime } from "../../services/dates";
 import Dropdown from "../Dropdown/Dropdown";
 import Modal from "../Modal";
 import Pagination from "../Pagination";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export interface Props {
   feature: FeatureInterface;
@@ -167,7 +167,10 @@ export default function RevisionDropdown({
                             draft
                           </span>
                         </div>
-                      ) : permissions.createFeatureDrafts ? (
+                      ) : permissions.check(
+                          "createFeatureDrafts",
+                          feature.project
+                        ) ? (
                         <a
                           href="#"
                           onClick={async (e) => {

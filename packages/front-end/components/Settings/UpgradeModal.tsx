@@ -3,7 +3,7 @@ import useStripeSubscription from "../../hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "../../services/auth";
 import track from "../../services/track";
 import Modal from "../Modal";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import LoadingOverlay from "../LoadingOverlay";
 
@@ -88,10 +88,15 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           <ul className="mb-3 pl-3">
             <li>Up to 100 team members</li>
             <li>
-              Advanced permissioning*{" "}
+              Advanced permissioning{" "}
               <Tooltip
                 body={
-                  "Per-environment and per-project permissions. Allow someone full access on dev, but readonly on production. Coming soon."
+                  <>
+                    Let someone toggle a feature in dev, but not production.
+                    <br />
+                    Or make them read-only in Project A and an admin for Project
+                    B.
+                  </>
                 }
               />
             </li>
@@ -113,7 +118,6 @@ export default function UpgradeModal({ close, source, reason }: Props) {
             </li>
             <li>Early access to new features</li>
           </ul>
-          <small>* coming soon</small>
         </div>
         <div className="col-auto mb-4">
           <div className="bg-light border rounded p-3 p-lg-4">

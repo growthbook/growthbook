@@ -1,11 +1,6 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, {
-  RequestHandler,
-  ErrorRequestHandler,
-  Request,
-  Response,
-} from "express";
+import express, { ErrorRequestHandler, Request, Response } from "express";
 import { usingFileConfig } from "./init/config";
 import cors from "cors";
 import { AuthRequest } from "./types/AuthRequest";
@@ -24,10 +19,10 @@ import {
 import asyncHandler from "express-async-handler";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { wrapController } from "./routers/wrapController";
 import compression from "compression";
-import fs from "fs";
 import * as Sentry from "@sentry/node";
-import apiRouter from "./controllers/api/api.router";
+import apiRouter from "./api/api.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -36,9 +31,6 @@ if (SENTRY_DSN) {
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
 const authController = wrapController(authControllerRaw);
-
-import * as organizationsControllerRaw from "./controllers/organizations";
-const organizationsController = wrapController(organizationsControllerRaw);
 
 import * as datasourcesControllerRaw from "./controllers/datasources";
 const datasourcesController = wrapController(datasourcesControllerRaw);
@@ -93,30 +85,13 @@ const savedGroupsController = wrapController(savedGroupsControllerRaw);
 
 // End Controllers
 
-import { getUploadsDir } from "./services/files";
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
-
-// eslint-disable-next-line
-type Handler = RequestHandler<any>;
-type Controller<T extends string> = Record<T, Handler>;
-
-// Wrap every controller function in asyncHandler to catch errors properly
-function wrapController<T extends string>(
-  // eslint-disable-next-line
-  controller: Record<T, any>
-): Controller<T> {
-  const newController = {} as Controller<T>;
-  Object.keys(controller).forEach((key: T) => {
-    // Sanity check in case someone exports a non-function from the controller file
-    if (typeof controller[key] === "function") {
-      newController[key] = asyncHandler(controller[key]);
-    }
-  });
-  return newController;
-}
+import { usersRouter } from "./routers/users/users.router";
+import { organizationsRouter } from "./routers/organizations/organizations.router";
+import { uploadsRouter } from "./routers/upload/upload.router";
 
 const app = express();
 
@@ -203,7 +178,7 @@ app.post(
 );
 
 // increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "500kb" }));
+app.use(bodyParser.json({ limit: "1mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -274,26 +249,7 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 // File uploads don't require auth tokens.
 // Upload urls are signed and image access is public.
 if (UPLOAD_METHOD === "local") {
-  // Create 'uploads' directory if it doesn't exist yet
-  const uploadDir = getUploadsDir();
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-  }
-
-  app.put(
-    "/upload",
-    bodyParser.raw({
-      type: "image/*",
-      limit: "10mb",
-    }),
-    organizationsController.putUpload
-  );
-  app.use("/upload", express.static(uploadDir));
-
-  // Stop upload requests from running any of the middlewares defined below
-  app.use("/upload", () => {
-    return;
-  });
+  app.use("/upload", uploadsRouter);
 }
 
 // All other routes require a valid JWT
@@ -316,8 +272,7 @@ if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
 }
 
-// Organizations
-app.get("/user", organizationsController.getUser);
+app.use("/user", usersRouter);
 
 // Every other route requires a userId to be set
 app.use(
@@ -330,49 +285,16 @@ app.use(
 );
 
 // Organization and Settings
-app.put("/user/name", organizationsController.putUserName);
-app.get("/user/watching", organizationsController.getWatchedItems);
-app.post("/user/watch/:type/:id", organizationsController.postWatchItem);
-app.post("/user/unwatch/:type/:id", organizationsController.postUnwatchItem);
-app.get("/organization/definitions", organizationsController.getDefinitions);
-app.get("/activity", organizationsController.getActivityFeed);
-app.get("/history/:type/:id", organizationsController.getHistory);
-app.get("/organization", organizationsController.getOrganization);
-app.post("/organization", organizationsController.signup);
-app.put("/organization", organizationsController.putOrganization);
-app.post(
-  "/organization/config/import",
-  organizationsController.postImportConfig
-);
-app.get("/organization/namespaces", organizationsController.getNamespaces);
-app.post("/organization/namespaces", organizationsController.postNamespaces);
-app.put(
-  "/organization/namespaces/:name",
-  organizationsController.putNamespaces
-);
-app.delete(
-  "/organization/namespaces/:name",
-  organizationsController.deleteNamespace
-);
-app.post("/invite/accept", organizationsController.postInviteAccept);
-app.post("/invite", organizationsController.postInvite);
-app.post("/invite/resend", organizationsController.postInviteResend);
-app.put("/invite/:key/role", organizationsController.putInviteRole);
-app.delete("/invite", organizationsController.deleteInvite);
-app.get("/members", organizationsController.getUsers);
-app.delete("/member/:id", organizationsController.deleteMember);
-app.put("/member/:id/role", organizationsController.putMemberRole);
+app.use(organizationsRouter);
+
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post("/subscription/checkout", stripeController.postNewSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
+app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
-app.put(
-  "/member/:id/admin-password-reset",
-  organizationsController.putAdminResetUserPassword
-);
 
 if (IS_CLOUD) {
   app.get("/vercel/has-token", vercelController.getHasToken);
@@ -544,18 +466,6 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
-
-// API keys
-app.get("/keys", organizationsController.getApiKeys);
-app.post("/keys", organizationsController.postApiKey);
-app.delete("/keys", organizationsController.deleteApiKey);
-app.post("/keys/reveal", organizationsController.postApiKeyReveal);
-
-// Webhooks
-app.get("/webhooks", organizationsController.getWebhooks);
-app.post("/webhooks", organizationsController.postWebhook);
-app.put("/webhook/:id", organizationsController.putWebhook);
-app.delete("/webhook/:id", organizationsController.deleteWebhook);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);

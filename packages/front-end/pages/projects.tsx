@@ -1,19 +1,32 @@
 import { useState, FC } from "react";
 import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
-import DeleteButton from "../components/DeleteButton";
+import DeleteButton from "../components/DeleteButton/DeleteButton";
 import ProjectModal from "../components/Projects/ProjectModal";
 import { useAuth } from "../services/auth";
 import { date } from "../services/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
+import usePermissions from "../hooks/usePermissions";
 
 const ProjectsPage: FC = () => {
+  const permissions = usePermissions();
+
   const { projects, mutateDefinitions } = useDefinitions();
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null
   );
+
+  if (!permissions.manageProjects) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid  pagecontents">

@@ -25,6 +25,7 @@ const docSections = {
   ruby: "/lib/ruby",
   php: "/lib/php",
   python: "/lib/python",
+  java: "/lib/java",
   //Other
   user_guide: "/app",
   config: "/self-host/config",
@@ -33,6 +34,7 @@ const docSections = {
   config_organization_settings: "/self-host/config#organization-settings",
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
+  encryptedSDKEndpoints: "/lib/js#hiding-features-from-users",
 };
 
 export type DocSection = keyof typeof docSections;

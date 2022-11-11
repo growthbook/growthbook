@@ -1,4 +1,5 @@
 import { ReactElement } from "react";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function Toggle({
   value,
@@ -8,6 +9,7 @@ export default function Toggle({
   disabled = false,
   type = "toggle",
   className,
+  disabledMessage,
 }: {
   id: string;
   value: boolean;
@@ -16,23 +18,26 @@ export default function Toggle({
   disabled?: boolean;
   type?: "featureValue" | "environment" | "toggle";
   className?: string;
+  disabledMessage?: string;
 }) {
   return (
-    <div
-      className={`toggle-switch ${disabled ? "disabled" : ""} toggle-${type} ${
-        className || ""
-      }`}
-    >
-      <input
-        type="checkbox"
-        id={id}
-        checked={value}
-        onChange={(e) => {
-          if (disabled) return;
-          setValue(e.target.checked);
-        }}
-      />
-      <label htmlFor={id}>{label || id}</label>
-    </div>
+    <Tooltip body={disabled && disabledMessage}>
+      <div
+        className={`toggle-switch ${
+          disabled ? "disabled" : ""
+        } toggle-${type} ${className || ""}`}
+      >
+        <input
+          type="checkbox"
+          id={id}
+          checked={value}
+          onChange={(e) => {
+            if (disabled) return;
+            setValue(e.target.checked);
+          }}
+        />
+        <label htmlFor={id}>{label || id}</label>
+      </div>
+    </Tooltip>
   );
 }

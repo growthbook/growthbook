@@ -1,0 +1,65 @@
+---
+title: Self-Hosting GrowthBook
+description: Learn how to set a self-hosted version of GrowthBook
+id: index
+slug: /self-host
+---
+
+# Self Hosting GrowthBook
+
+GrowthBook consists of a NextJS front-end, an ExpressJS API, and a Python stats engine. Everything is bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
+
+In addition to the app itself, you will also need a MongoDB instance to store login credentials, cached experiment results, and metadata.
+
+:::tip
+Don't want to install or host the app yourself? <a href="https://app.growthbook.io">GrowthBook Cloud</a> is a fully managed
+version that's free to get started.
+:::
+
+## Installation
+
+You can use **docker-compose** to get started quickly:
+
+```yml
+# docker-compose.yml
+version: "3"
+services:
+  mongo:
+    image: "mongo:latest"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
+    volumes:
+      - uploads:/usr/local/src/app/packages/back-end/uploads
+volumes:
+  uploads:
+```
+
+Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
+
+## Docker Tags
+
+Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch. The most recent commit is tagged with `latest`.
+
+GitHub Releases are also tagged using SemVer (e.g. `0.2.1`).
+
+If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
+
+## Updating to Latest
+
+If you are using docker-compose, and assuming you specify the growthbook container with `:latest`, you can update with:
+
+```bash
+docker-compose pull growthbook
+docker-compose stop growthbook
+docker-compose up -d growthbook
+```

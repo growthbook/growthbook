@@ -1,0 +1,608 @@
+---
+title: Javascript SDK
+description: GrowthBook SDK for Javascript
+sidebar_label: Javascript
+slug: js
+---
+
+# Javascript
+
+Supports both browser and NodeJS environments.
+
+## Installation
+
+```
+yarn add @growthbook/growthbook
+```
+
+or
+
+```
+npm i --save @growthbook/growthbook
+```
+
+or use directly in your HTML without installing first:
+
+```html
+<script type="module">
+  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/bundles/esm.min.js";
+  //...
+</script>
+```
+
+## Quick Usage
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook";
+
+// Create a GrowthBook context
+const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
+});
+
+// Load feature definitions (from API, database, etc.)
+fetch("https://cdn.growthbook.io/api/features/<your api key>")
+  .then((res) => res.json())
+  .then((parsed) => {
+    growthbook.setFeatures(parsed.features);
+  });
+
+// Simple boolean (on/off) feature flag
+if (growthbook.isOn("my-feature")) {
+  console.log("Feature enabled!");
+}
+
+// Get the value of a non-boolean feature with a fallback
+const color = growthbook.getFeatureValue("button-color", "blue");
+```
+
+## The GrowthBook Context
+
+The `GrowthBook` constructor takes a number of optional settings.
+
+### Features
+
+If you already have features loaded as a JSON object, you can pass them into the constructor with the `features` field:
+
+```ts
+new GrowthBook({
+  features: {
+    "feature-1": {...},
+    "feature-2": {...},
+    "another-feature": {...},
+  }
+})
+```
+
+If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start). **Note** - if you try to use a feature before it is loaded, it will always evaluate to `null`.
+
+If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
+
+If you prefer to build this file by hand or you want to know how it works under the hood, check out the detailed [Feature Definitions](#feature-definitions) section below.
+
+### Attributes
+
+You can specify attributes about the current user and request. These are used for two things:
+
+1.  Feature targeting (e.g. paid users get one value, free users get another)
+2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
+
+The following are some comonly used attributes, but use whatever makes sense for your application.
+
+```ts
+new GrowthBook({
+  attributes: {
+    id: "123",
+    loggedIn: true,
+    deviceId: "abc123def456",
+    company: "acme",
+    paid: false,
+    url: "/pricing",
+    browser: "chrome",
+    mobile: false,
+    country: "US",
+  },
+});
+```
+
+If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+### Tracking Callback
+
+Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
+
+```ts
+new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    // Example using Segment.io
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
+
+### Feature Usage Callback
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+```ts
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
+```
+
+The `result` argument is the same thing returned from `growthbook.evalFeature`.
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
+```
+
+## Using Features
+
+Every feature has a "value" which is assigned to a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
+
+There are 4 main methods for evaluating features:
+
+```ts
+if (growthbook.isOn("my-feature")) {
+  // Value is truthy
+}
+
+if (growthbook.isOff("my-feature")) {
+  // Value is falsy (null, 0, "", or false)
+}
+
+// Get the value with a fallback for when it's null
+const value = growthbook.getFeatureValue("my-feature", 123);
+
+// Get detailed information about the feature evaluation
+const result = growthbook.evalFeature("my-feature");
+```
+
+The `evalFeature` method returns a `FeatureResult` object with more info about why the feature was assigned to the user. It has the following properties:
+
+- **value** - The value of the feature (or `null` if not defined)
+- **source** - Why the value was assigned to the user. One of `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
+- **ruleId** - The string id of the rule (if any) which was used to assign the value to the user
+- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
+- **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
+
+## Hiding Features from Users
+
+If you fetch the list of features from a client-side app, any of your users could inspect the network request and see which features and experiments you are running. In most cases, this is not a big deal, but if you did want to prevent that, you have two options:
+
+1. Evaluate feature flags using a server-side SDK and only pass the result to the browser
+2. Enable encryption for your SDK Endpoint
+
+If you enable encryption for an SDK Endpoint, instead of returning features as human-readable JSON, we will return it as an encrypted string that must be decrypted before being passed into the SDK.
+
+With encryption enabled, the response from the SDK Endpoint will be in the format:
+
+```js
+  {
+    status: 200,
+    encryptedFeatures: "abcdef123456GHIJKL0987654321..."
+  }
+```
+
+The features are encrypted using the AES-CBC algorithm. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
+
+Here's an example of decrypting features using the SubtleCrypto api, which is built into all modern browsers:
+
+```ts
+// Helper function to decrypt using SubtleCrypto
+async function decrypt(encryptedText) {
+  const GB_ENCRYPTION_KEY = "MY_ENCRYPTION_KEY"; // <-- Set your encryption key here
+  const base64ToBuf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+  const key = await window.crypto.subtle.importKey(
+    "raw", base64ToBuf(GB_ENCRYPTION_KEY),
+    { name: "AES-CBC", length: 128 }, true, ["encrypt", "decrypt"]
+  );
+  const [iv, cipherText] = encryptedText.split(".");
+  const plainTextBuffer = await window.crypto.subtle
+    .decrypt({name: "AES-CBC", iv: base64ToBuf(iv)}, key, base64ToBuf(cipherText));
+  return new TextDecoder().decode(plainTextBuffer);
+}
+
+// Load features from the encrypted SDK Endpoint and decrypt them
+fetch("https://cdn.growthbook.io/api/features/<your api key>")
+  .then((res) => res.json())
+  .then((json) => decrypt(json.encryptedFeatures))
+  .then((featuresStr) => growthbook.setFeatures(JSON.parse(featuresStr)))
+  .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+```
+
+## Inline Experiments
+
+Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
+
+```js
+const { value } = growthbook.run({
+  key: "my-experiment",
+  variations: ["red", "blue", "green"],
+});
+```
+
+All of the other settings (`weights`, `hashAttribute`, `coverage`, `namespace`, `condition`) are supported when using inline experiments.
+
+In addition, there are a few other settings that only really make sense for inline experiments:
+
+- `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
+- `active` can be set to false to disable the experiment and return the control for everyone
+
+### Inline Experiment Return Value
+
+A call to `growthbook.run(experiment)` returns an object with a few useful properties:
+
+```ts
+const {
+  inExperiment,
+  hashUsed,
+  variationId,
+  value,
+  hashAttribute,
+  hashValue,
+} = growthbook.run({
+  key: "my-experiment",
+  variations: ["A", "B"],
+});
+
+// If user is included in the experiment
+console.log(inExperiment); // true or false
+
+// The index of the assigned variation
+console.log(variationId); // 0 or 1
+
+// The value of the assigned variation
+console.log(value); // "A" or "B"
+
+// If the variation was randomly assigned by hashing
+console.log(hashUsed);
+
+// The user attribute that was hashed
+console.log(hashAttribute); // "id"
+
+// The value of that attribute
+console.log(hashValue); // e.g. "123"
+```
+
+The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
+
+The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
+
+## Typescript
+
+When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
+
+```ts
+// color will be type "string"
+const color = growthbook.getFeatureValue("button-color", "blue");
+```
+
+When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type:
+
+```ts
+// result.value will be type "number" now
+const result = growthbook.evalFeature<number>("button-size");
+```
+
+When using inline experiments, the returned value is inferred from the variations you pass in:
+
+```ts
+// result.value will be type "string"
+const result = growthbook.run({
+  key: "my-test",
+  variations: ["blue", "green"],
+});
+```
+
+There are a number of types you can import as well if needed:
+
+```ts
+import type {
+  Context,
+  ConditionInterface,
+  Experiment,
+  FeatureDefinition,
+  FeatureResult,
+  ExperimentResult,
+} from "@growthbook/growthbook";
+```
+
+## Feature Definitions (reference)
+
+The feature definition JSON file contains information about all of the features in your application.
+
+Each feature consists of a unique key, a list of possible values, and rules for how to assign those values to users.
+
+```ts
+{
+  "feature-1": {...},
+  "feature-2": {...},
+  "another-feature": {...},
+}
+```
+
+### Basic Feature
+
+An empty feature always has the value `null`:
+
+```js
+{
+  "my-feature": {}
+}
+```
+
+#### Default Values
+
+You can change the default assigned value with the `defaultValue` property:
+
+```js
+{
+  "my-feature": {
+    defaultValue: "green"
+  }
+}
+```
+
+### Override Rules
+
+You can override the default value with **rules**.
+
+Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`. Force rules give the same value to everyone. Experiment rules assign values to users randomly.
+
+#### Rule Ids
+
+Rules can specify a unique identifier with the `id` property. This can help with debugging and QA by letting you see exactly why a specific value was assigned to a user.
+
+#### Rule Conditions
+
+Rules can optionally define targeting conditions that limit which users the rule applies to. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
+
+For example, if the attributes are:
+
+```json
+{
+  "id": "123",
+  "browser": {
+    "vendor": "firefox",
+    "version": 94
+  },
+  "country": "CA"
+}
+```
+
+The following condition would evaluate to `true`:
+
+```json
+{
+  "browser.vendor": "firefox",
+  "country": {
+    "$in": ["US", "CA", "IN"]
+  }
+}
+```
+
+If a condition evaluates to `false`, the rule will be skipped. This means you can chain rules together with different conditions to support even the most complex use cases.
+
+#### Force Rules
+
+Force rules do what you'd expect - force a specific value for the feature
+
+```js
+// Firefox users in the US or Canada get "green"
+// Everyone else gets the default "blue"
+{
+  "button-color": {
+    defaultValue: "blue",
+    rules: [
+      {
+        id: "rule-123",
+        condition: {
+          browser: "firefox",
+          country: {
+            $in: ["US", "CA"]
+          }
+        },
+        force: "green"
+      }
+    ],
+  }
+}
+```
+
+##### Gradual Rollouts
+
+You can specify a `coverage` value for your rule, which is a number between 0 and 1 and represents what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value).
+
+This is useful for gradually rolling out features to users (start coverage at 0 and slowly increase towards 1 as you watch metrics).
+
+```js
+// 20% of users will get the new feature
+{
+  "new-feature": {
+    defaultValue: false,
+    rules: [
+      {
+        force: true,
+        coverage: 0.2
+      }
+    ]
+  }
+}
+```
+
+In order to figure out if a user is included or not, we use deterministic hashing. By default, we use the user attribute `id` for this, but you can override this by specifying `hashAttribute` for the rule:
+
+```js
+// 20% of companies will get the new feature
+// Users in the same company will always get the same value (either true or false)
+{
+  "new-feature": {
+    defaultValue: false,
+    rules: [
+      {
+        force: true,
+        coverage: 0.2,
+        hashAttribute: "company"
+      }
+    ]
+  }
+}
+```
+
+#### Experiment Rules
+
+Experiment rules let you adjust the percent of users who get randomly assigned to each variation. This can either be used for hypothesis-driven A/B tests or to simply mitigate risk by gradually rolling out new features to your users.
+
+```js
+// Each variation gets assigned to a random 1/3rd of users
+{
+  "image-size": {
+    rules: [
+      {
+        variations: ["small", "medium", "large"]
+      }
+    ]
+  }
+}
+```
+
+##### Weights
+
+You can use the `weights` setting to control what percent of users get assigned to each variation. Weights determine the traffic split between variations and must add to 1.
+
+```js
+{
+  "results-per-page": {
+    rules: [
+      {
+        variations: ["small", "medium", "large"],
+        // 50% of users will get "small" (index 0)
+        // 30% will get "medium" (index 1)
+        // 20% will get "large" (index 2)
+        weights: [0.5, 0.3, 0.2]
+      }
+    ]
+  }
+}
+```
+
+##### Tracking Key
+
+When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting:
+
+```js
+{
+  "feature-1": {
+    rules: [
+      {
+        // Use "my-experiment" as the key instead of "feature-1"
+        key: "my-experiment",
+        variations: ["A", "B"]
+      }
+    ]
+  },
+}
+```
+
+##### Hash Attribute
+
+We use deterministic hashing to make sure the same user always gets assigned the same value. By default, we use the attribute `id`, but this can be overridden with the `hashAttribute` setting:
+
+```js
+const growthbook = new GrowthBook({
+  attributes: {
+    id: "123",
+    company: "acme",
+  },
+  features: {
+    "my-feature": {
+      rules: [
+        // All users with the same "company" value
+        // will be assigned the same variation
+        {
+          variations: ["A", "B"],
+          hashAttribute: "company",
+        },
+        // If "company" is empty for the user (e.g. if they are logged out)
+        // The experiment will be skipped and fall through to this next rule
+        {
+          force: "A",
+        },
+      ],
+    },
+  },
+});
+```
+
+##### Coverage
+
+You can use the `coverage` setting to introduce sampling and reduce the percent of users who are included in your experiment. Coverage must be between 0 and 1 and defaults to 1 (everyone included). This feature uses deterministic hashing to ensure consistent sampling.
+
+```js
+{
+  "my-feature": {
+    rules: [
+      // 80% of users will be included in the experiment
+      {
+        variations: [false, true],
+        coverage: 0.8
+      },
+      // The remaining 20% will fall through to this next matching rule
+      {
+        force: false
+      }
+    ]
+  }
+}
+```
+
+##### Namespaces
+
+Sometimes you want to run multiple conflicting experiments at the same time. You can use the `namespace` setting to run mutually exclusive experiments.
+
+We do this using deterministic hashing to assign users a value between 0 and 1 for each namespace. Experiments can specify which namespace it is in and what part of the range [0,1] it should include. If the ranges for two experiments in a namespace don't overlap, they will be mutually exclusive.
+
+```js
+{
+  "feature1": {
+    rules: [
+      // Will include 60% of users - ones with a hash between 0 and 0.6
+      {
+        variations: [false, true],
+        namespace: ["pricing", 0, 0.6]
+      }
+    ]
+  },
+  "feature2": {
+    rules: [
+      // Will include the other 40% of users - ones with a hash between 0.6 and 1
+      {
+        variations: [false, true],
+        namespace: ["pricing", 0.6, 1]
+      },
+    ]
+  }
+}
+```
+
+**Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.

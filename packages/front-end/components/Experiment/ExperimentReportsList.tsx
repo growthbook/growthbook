@@ -6,9 +6,9 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../../hooks/useApi";
 import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import usePermissions from "../../hooks/usePermissions";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useSnapshot } from "./SnapshotProvider";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
@@ -46,7 +46,10 @@ export default function ExperimentReportsList({
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports =
-    hasData && snapshot?.queries && !hasUserQuery && permissions.createAnalyses;
+    hasData &&
+    snapshot?.queries &&
+    !hasUserQuery &&
+    permissions.check("createAnalyses", "");
 
   return (
     <div>

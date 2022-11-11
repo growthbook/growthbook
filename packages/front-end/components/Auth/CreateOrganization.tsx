@@ -2,7 +2,7 @@ import { ReactElement, useState } from "react";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import WelcomeFrame from "./WelcomeFrame";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import Field from "../Forms/Field";
@@ -24,7 +24,7 @@ export default function CreateOrganization(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { apiCall, logout } = useAuth();
-  const { update } = useUser();
+  const { updateUser } = useUser();
 
   if (!data) {
     return <LoadingOverlay />;
@@ -70,7 +70,7 @@ export default function CreateOrganization(): ReactElement {
                   body: JSON.stringify(value),
                 });
                 track("Create Organization");
-                update();
+                updateUser();
                 setLoading(false);
               } catch (e) {
                 setError(e.message);

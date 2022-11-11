@@ -88,7 +88,6 @@
       "files": [
         "./packages/docs/pages/_app.tsx",
         "./packages/front-end/components/Auth/InAppHelp.tsx",
-        "./packages/front-end/components/DeleteButton.tsx",
         "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
         "./packages/front-end/components/Experiment/BreakDownResults.tsx",
         "./packages/front-end/components/Experiment/CompactResults.tsx",
@@ -115,7 +114,6 @@
         "./packages/front-end/components/Share/ShareModal.tsx",
         "./packages/front-end/components/Tabs/ControlledTabs.tsx",
         "./packages/front-end/components/TempMessage.tsx",
-        "./packages/front-end/hooks/useAdminSettings.ts",
         "./packages/front-end/hooks/useStripeSubscription.ts",
         "./packages/front-end/pages/experiments/designer/*.tsx",
         "./packages/front-end/pages/experiments/index.tsx",

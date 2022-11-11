@@ -5,7 +5,7 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import NamespaceModal from "../components/Experiment/NamespaceModal";
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";
 import { useAuth } from "../services/auth";
 import usePermissions from "../hooks/usePermissions";
@@ -22,7 +22,7 @@ const NamespacesPage: FC = () => {
   const permissions = usePermissions();
   const canEdit = permissions.manageNamespaces;
 
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
   const { namespaces } = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
   const [editNamespace, setEditNamespace] = useState<{
@@ -52,7 +52,7 @@ const NamespacesPage: FC = () => {
             setEditNamespace(null);
           }}
           onSuccess={() => {
-            update();
+            refreshOrganization();
             setEditNamespace(null);
           }}
         />
@@ -94,7 +94,7 @@ const NamespacesPage: FC = () => {
                     await apiCall(`/organization/namespaces/${ns.name}`, {
                       method: "DELETE",
                     });
-                    await update();
+                    await refreshOrganization();
                   }}
                   onArchive={async () => {
                     const newNamespace = {
@@ -106,7 +106,7 @@ const NamespacesPage: FC = () => {
                       method: "PUT",
                       body: JSON.stringify(newNamespace),
                     });
-                    await update();
+                    await refreshOrganization();
                   }}
                 />
               );

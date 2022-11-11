@@ -94,7 +94,7 @@ export default function DocumentationLinksSidebar({
           </span>
         </div>
       )}
-      {showVisualEditor && permissions.manageEnvironments && (
+      {showVisualEditor && permissions.check("manageEnvironments", "", []) && (
         <div className="card-body border-top">
           <div className="card-title">
             <h4 className="">Enable the Visual Editor</h4>

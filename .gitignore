@@ -31,3 +31,8 @@ coverage.xml
 # Python virtual environment
 venv/
 .eslintcache
+
+# Docs
+docs/build
+.docusaurus
+.cache-loader

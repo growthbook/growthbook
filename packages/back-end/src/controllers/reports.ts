@@ -23,8 +23,6 @@ export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
 
   const snapshot = await ExperimentSnapshotModel.findOne({
@@ -44,6 +42,8 @@ export async function postReportFromSnapshot(
   if (!experiment) {
     throw new Error("Could not find experiment");
   }
+
+  req.checkPermissions("createAnalyses", experiment.project);
 
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -208,7 +208,8 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses", "runQueries");
+  req.checkPermissions("createAnalyses", "");
+  req.checkPermissions("runQueries");
 
   const { org } = getOrgFromReq(req);
 

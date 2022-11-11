@@ -8,12 +8,12 @@ import { date } from "../services/dates";
 import { useAuth } from "../services/auth";
 import useApi from "../hooks/useApi";
 import LoadingSpinner from "./LoadingSpinner";
-import Avatar from "./Avatar";
+import Avatar from "./Avatar/Avatar";
 import { FaPencilAlt } from "react-icons/fa";
-import DeleteButton from "./DeleteButton";
+import DeleteButton from "./DeleteButton/DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 import usePermissions from "../hooks/usePermissions";
 
 const DiscussionThread: FC<{
@@ -22,12 +22,14 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
+  project?: string;
 }> = ({
   type,
   id,
   allowNewComments = true,
   showTitle = false,
   title = "Add comment",
+  project,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -35,7 +37,7 @@ const DiscussionThread: FC<{
 
   const permissions = usePermissions();
 
-  if (!permissions.addComments) {
+  if (!permissions.check("addComments", project)) {
     allowNewComments = false;
   }
 

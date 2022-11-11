@@ -9,7 +9,7 @@ import { GBAddCircle } from "../Icons";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import NewDataSourceForm from "./NewDataSourceForm";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
 
 const DataSources: FC = () => {

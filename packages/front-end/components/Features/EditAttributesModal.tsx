@@ -2,17 +2,17 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import track from "../../services/track";
 import { useAttributeSchema } from "../../services/features";
 import useOrgSettings from "../../hooks/useOrgSettings";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
@@ -50,7 +50,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
             settings: value,
           }),
         });
-        await update();
+        await refreshOrganization();
       })}
     >
       <p>

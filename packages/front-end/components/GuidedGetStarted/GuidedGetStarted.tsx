@@ -9,7 +9,7 @@ import MetricForm from "../Metrics/MetricForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import useUser from "../../hooks/useUser";
+import { useUser } from "../../services/UserContext";
 import { useAuth } from "../../services/auth";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import styles from "./GuidedGetStarted.module.scss";
@@ -52,7 +52,7 @@ export default function GuidedGetStarted({
   const settings = useOrgSettings();
   const { datasources, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
   const hasDataSource = datasources.length > 0;
   const hasMetrics =
     metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
@@ -123,7 +123,7 @@ export default function GuidedGetStarted({
                       },
                     }),
                   });
-                  await update();
+                  await refreshOrganization();
                 }}
               />
             )}

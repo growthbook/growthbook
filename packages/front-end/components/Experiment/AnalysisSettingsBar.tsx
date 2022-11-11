@@ -215,6 +215,7 @@ export default function AnalysisSettingsBar({
             variations={variations}
             trackingKey={experiment.trackingKey}
             dimension={dimension}
+            project={experiment.project}
           />
         </div>
       </div>

@@ -8,7 +8,7 @@ import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import useApi from "../../hooks/useApi";
 import React, { useState } from "react";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import RuleModal from "../../components/Features/RuleModal";
 import ForceSummary from "../../components/Features/ForceSummary";
@@ -27,6 +27,8 @@ import {
   getRules,
   useEnvironmentState,
   useEnvironments,
+  getEnabledEnvironments,
+  getAffectedEnvs,
 } from "../../services/features";
 import Tab from "../../components/Tabs/Tab";
 import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
@@ -89,6 +91,23 @@ export default function FeaturePage() {
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
+
+  const enabledEnvs = getEnabledEnvironments(data.feature);
+
+  const project = data.feature.project;
+
+  const hasDraftPublishPermission =
+    isDraft &&
+    permissions.check(
+      "publishFeatures",
+      project,
+      "defaultValue" in data.feature.draft
+        ? getEnabledEnvironments(data.feature)
+        : getAffectedEnvs(
+            data.feature,
+            Object.keys(data.feature.draft?.rules || {})
+          )
+    );
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -186,7 +205,7 @@ export default function FeaturePage() {
               setDraftModal(true);
             }}
           >
-            Review{permissions.publishFeatures && " and Publish"}
+            Review{hasDraftPublishPermission && " and Publish"}
           </button>
         </div>
       )}
@@ -222,57 +241,59 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.createFeatures && (
-              <DeleteButton
-                useIcon={false}
-                displayName="Feature"
-                onClick={async () => {
-                  await apiCall(`/feature/${data.feature.id}`, {
-                    method: "DELETE",
-                  });
-                  router.push("/features");
-                }}
-                className="dropdown-item"
-                text="Delete feature"
-              />
-            )}
-            {permissions.createFeatures && (
-              <ConfirmButton
-                onClick={async () => {
-                  await apiCall(`/feature/${data.feature.id}/archive`, {
-                    method: "POST",
-                  });
-                  mutate();
-                }}
-                modalHeader={
-                  isArchived ? "Unarchive Feature" : "Archive Feature"
-                }
-                confirmationText={
-                  isArchived ? (
-                    <>
-                      <p>
-                        Are you sure you want to continue? This will make the
-                        current feature active again.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        Are you sure you want to continue? This will make the
-                        current feature inactive. It will not be included in API
-                        responses or Webhook payloads.
-                      </p>
-                    </>
-                  )
-                }
-                cta={isArchived ? "Unarchive" : "Archive"}
-                ctaColor="danger"
-              >
-                <button className="dropdown-item">
-                  {isArchived ? "Unarchive" : "Archive"} feature
-                </button>
-              </ConfirmButton>
-            )}
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
+                <DeleteButton
+                  useIcon={false}
+                  displayName="Feature"
+                  onClick={async () => {
+                    await apiCall(`/feature/${data.feature.id}`, {
+                      method: "DELETE",
+                    });
+                    router.push("/features");
+                  }}
+                  className="dropdown-item"
+                  text="Delete feature"
+                />
+              )}
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
+                <ConfirmButton
+                  onClick={async () => {
+                    await apiCall(`/feature/${data.feature.id}/archive`, {
+                      method: "POST",
+                    });
+                    mutate();
+                  }}
+                  modalHeader={
+                    isArchived ? "Unarchive Feature" : "Archive Feature"
+                  }
+                  confirmationText={
+                    isArchived ? (
+                      <>
+                        <p>
+                          Are you sure you want to continue? This will make the
+                          current feature active again.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          Are you sure you want to continue? This will make the
+                          current feature inactive. It will not be included in
+                          API responses or Webhook payloads.
+                        </p>
+                      </>
+                    )
+                  }
+                  cta={isArchived ? "Unarchive" : "Archive"}
+                  ctaColor="danger"
+                >
+                  <button className="dropdown-item">
+                    {isArchived ? "Unarchive" : "Archive"} feature
+                  </button>
+                </ConfirmButton>
+              )}
           </MoreMenu>
         </div>
       </div>
@@ -281,7 +302,7 @@ export default function FeaturePage() {
         {isArchived && (
           <div className="alert alert-secondary mb-2">
             <strong>This feature is archived.</strong> It will not be included
-            in API responses or Webhook payloads.
+            in SDK Endpoints or Webhook payloads.
           </div>
         )}
       </div>
@@ -301,20 +322,21 @@ export default function FeaturePage() {
             ) : (
               <em className="text-muted">none</em>
             )}
-            {permissions.createFeatures && (
-              <a
-                className="ml-2 cursor-pointer"
-                onClick={() => setEditProjectModal(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditProjectModal(true)}
+                >
+                  <GBEdit />
+                </a>
+              )}
           </div>
         )}
 
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
-          {permissions.createFeatureDrafts && (
+          {permissions.check("manageFeatures", project) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
@@ -330,7 +352,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Owner: {data.feature.owner ? data.feature.owner : "None"}
-          {permissions.createFeatures && (
+          {permissions.check("manageFeatures", project) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditOwnerModal(true)}
@@ -360,8 +382,8 @@ export default function FeaturePage() {
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
             value={data.feature.description}
-            canEdit={permissions.createFeatureDrafts}
-            canCreate={permissions.createFeatureDrafts}
+            canEdit={permissions.check("manageFeatures", project)}
+            canCreate={permissions.check("manageFeatures", project)}
             save={async (description) => {
               await apiCall(`/feature/${data.feature.id}`, {
                 method: "PUT",
@@ -405,7 +427,7 @@ export default function FeaturePage() {
 
       <h3>
         Default Value
-        {permissions.createFeatureDrafts && (
+        {permissions.check("createFeatureDrafts", project) && (
           <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
             <GBEdit />
           </a>
@@ -461,7 +483,7 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      {permissions.createFeatureDrafts && (
+      {permissions.check("createFeatureDrafts", project) && (
         <div className="row">
           <div className="col mb-3">
             <div
@@ -561,7 +583,11 @@ export default function FeaturePage() {
 
       <div className="mb-4">
         <h3>Comments</h3>
-        <DiscussionThread type="feature" id={data.feature.id} />
+        <DiscussionThread
+          type="feature"
+          id={data.feature.id}
+          project={data.feature.project}
+        />
       </div>
     </div>
   );

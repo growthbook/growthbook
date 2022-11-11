@@ -10,7 +10,7 @@ import { date } from "../services/dates";
 import { FaPlus } from "react-icons/fa";
 import Modal from "../components/Modal";
 import CopyToClipboard from "../components/CopyToClipboard";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(

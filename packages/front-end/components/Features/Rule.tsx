@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Button from "../Button";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
@@ -14,6 +14,7 @@ import ExperimentSummary from "./ExperimentSummary";
 import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
+import usePermissions from "../../hooks/usePermissions";
 
 interface SortableProps {
   i: number;
@@ -53,6 +54,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
     const rules = getRules(feature, environment);
     const environments = useEnvironments();
+    const permissions = usePermissions();
+
+    const canEdit =
+      permissions.check("manageFeatures", feature.project) &&
+      permissions.check("createFeatureDrafts", feature.project);
 
     return (
       <div
@@ -92,7 +98,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </div>
             </div>
           )}
-          {rules.length > 1 && (
+          {rules.length > 1 && canEdit && (
             <div
               {...handle}
               title="Drag and drop to re-order rules"
@@ -102,95 +108,97 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </div>
           )}
           <div>
-            <MoreMenu id={"edit_rule_" + rule.id}>
-              <a
-                href="#"
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setRuleModal({ environment, i });
-                }}
-              >
-                Edit
-              </a>
-              <Button
-                color=""
-                className="dropdown-item"
-                onClick={async () => {
-                  track(
-                    rule.enabled
-                      ? "Disable Feature Rule"
-                      : "Enable Feature Rule",
-                    {
-                      ruleIndex: i,
-                      environment,
-                      type: rule.type,
-                    }
-                  );
-                  await apiCall(`/feature/${feature.id}/rule`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      environment,
-                      rule: {
-                        ...rule,
-                        enabled: !rule.enabled,
-                      },
-                      i,
-                    }),
-                  });
-                  mutate();
-                }}
-              >
-                {rule.enabled ? "Disable" : "Enable"}
-              </Button>
-              {environments
-                .filter((e) => e.id !== environment)
-                .map((en) => (
-                  <Button
-                    key={en.id}
-                    color=""
-                    className="dropdown-item"
-                    onClick={async () => {
-                      await apiCall(`/feature/${feature.id}/rule`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          environment: en.id,
-                          rule: { ...rule, id: "" },
-                        }),
-                      });
-                      track("Clone Feature Rule", {
+            {canEdit && (
+              <MoreMenu id={"edit_rule_" + rule.id}>
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setRuleModal({ environment, i });
+                  }}
+                >
+                  Edit
+                </a>
+                <Button
+                  color=""
+                  className="dropdown-item"
+                  onClick={async () => {
+                    track(
+                      rule.enabled
+                        ? "Disable Feature Rule"
+                        : "Enable Feature Rule",
+                      {
                         ruleIndex: i,
                         environment,
                         type: rule.type,
-                      });
-                      mutate();
-                    }}
-                  >
-                    Copy to {en.id}
-                  </Button>
-                ))}
-              <DeleteButton
-                className="dropdown-item"
-                displayName="Rule"
-                useIcon={false}
-                text="Delete"
-                onClick={async () => {
-                  track("Delete Feature Rule", {
-                    ruleIndex: i,
-                    environment,
-                    type: rule.type,
-                  });
-                  await apiCall(`/feature/${feature.id}/rule`, {
-                    method: "DELETE",
-                    body: JSON.stringify({
+                      }
+                    );
+                    await apiCall(`/feature/${feature.id}/rule`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        environment,
+                        rule: {
+                          ...rule,
+                          enabled: !rule.enabled,
+                        },
+                        i,
+                      }),
+                    });
+                    mutate();
+                  }}
+                >
+                  {rule.enabled ? "Disable" : "Enable"}
+                </Button>
+                {environments
+                  .filter((e) => e.id !== environment)
+                  .map((en) => (
+                    <Button
+                      key={en.id}
+                      color=""
+                      className="dropdown-item"
+                      onClick={async () => {
+                        await apiCall(`/feature/${feature.id}/rule`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            environment: en.id,
+                            rule: { ...rule, id: "" },
+                          }),
+                        });
+                        track("Clone Feature Rule", {
+                          ruleIndex: i,
+                          environment,
+                          type: rule.type,
+                        });
+                        mutate();
+                      }}
+                    >
+                      Copy to {en.id}
+                    </Button>
+                  ))}
+                <DeleteButton
+                  className="dropdown-item"
+                  displayName="Rule"
+                  useIcon={false}
+                  text="Delete"
+                  onClick={async () => {
+                    track("Delete Feature Rule", {
+                      ruleIndex: i,
                       environment,
-                      i,
-                    }),
-                  });
-                  mutate();
-                }}
-              />
-            </MoreMenu>
+                      type: rule.type,
+                    });
+                    await apiCall(`/feature/${feature.id}/rule`, {
+                      method: "DELETE",
+                      body: JSON.stringify({
+                        environment,
+                        i,
+                      }),
+                    });
+                    mutate();
+                  }}
+                />
+              </MoreMenu>
+            )}
           </div>
         </div>
         <div className="d-flex">

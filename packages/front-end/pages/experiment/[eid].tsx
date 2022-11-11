@@ -66,7 +66,9 @@ const ExperimentPage = (): ReactElement => {
   // TODO: more cases where the new page won't work?
   const supportsSinglePage = experiment.implementation !== "visual";
 
-  const canEdit = permissions.createAnalyses && !experiment.archived;
+  const canEdit =
+    permissions.check("createAnalyses", experiment.project) &&
+    !experiment.archived;
 
   const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
   const editResult = canEdit ? () => setStopModalOpen(true) : null;

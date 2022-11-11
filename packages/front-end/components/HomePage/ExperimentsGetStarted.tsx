@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import MetricForm from "../Metrics/MetricForm";
 import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
 import Button from "../Button";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import { hasFileConfig } from "../../services/env";
@@ -25,7 +25,7 @@ const ExperimentsGetStarted = ({
   experiments: ExperimentInterfaceStringDates[];
   mutate: () => void;
 }): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions } = useDefinitions();
+  const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
   const { apiCall } = useAuth();
 
   const { visualEditorEnabled } = useOrgSettings();
@@ -145,7 +145,8 @@ const ExperimentsGetStarted = ({
               </div>
             ) : (
               allowImport &&
-              (hasSampleExperiment || permissions.createAnalyses) && (
+              (hasSampleExperiment ||
+                permissions.check("createAnalyses", project)) && (
                 <div className="alert alert-info mb-3 d-none d-md-block">
                   <div className="d-flex align-items-center">
                     <strong className="mr-2">Just here to explore?</strong>
@@ -276,7 +277,8 @@ const ExperimentsGetStarted = ({
                     }
                     finishedCTA="View experiments"
                     permissionsError={
-                      !permissions.createAnalyses && !hasExperiments
+                      !permissions.check("createAnalyses", project) &&
+                      !hasExperiments
                     }
                     imageLeft={true}
                     onClick={(finished) => {

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { OrganizationInterface } from "../../types/organization";
 import uniqid from "uniqid";
-import { getConfigOrganizationSettings } from "../init/config";
+import { upgradeOrganizationDoc } from "../util/migrations";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -19,6 +19,18 @@ const organizationSchema = new mongoose.Schema({
       _id: false,
       id: String,
       role: String,
+      dateCreated: Date,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+      projectRoles: [
+        {
+          _id: false,
+          project: String,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   invites: [
@@ -28,6 +40,17 @@ const organizationSchema = new mongoose.Schema({
       key: String,
       dateCreated: Date,
       role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+      projectRoles: [
+        {
+          _id: false,
+          project: String,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   stripeCustomerId: String,
@@ -72,37 +95,7 @@ const OrganizationModel = mongoose.model<OrganizationDocument>(
 );
 
 function toInterface(doc: OrganizationDocument): OrganizationInterface {
-  const json = doc.toJSON();
-
-  // Change old `implementationTypes` field to new `visualEditorEnabled` field
-  if (json.settings?.implementationTypes) {
-    if (!("visualEditorEnabled" in json.settings)) {
-      json.settings.visualEditorEnabled = json.settings.implementationTypes.includes(
-        "visual"
-      );
-    }
-    delete json.settings.implementationTypes;
-  }
-
-  // Add settings from config.json
-  const configSettings = getConfigOrganizationSettings();
-  json.settings = Object.assign({}, json.settings || {}, configSettings);
-
-  // Default attribute schema
-  if (!json.settings.attributeSchema) {
-    json.settings.attributeSchema = [
-      { property: "id", datatype: "string", hashAttribute: true },
-      { property: "deviceId", datatype: "string", hashAttribute: true },
-      { property: "company", datatype: "string", hashAttribute: true },
-      { property: "loggedIn", datatype: "boolean" },
-      { property: "employee", datatype: "boolean" },
-      { property: "country", datatype: "string" },
-      { property: "browser", datatype: "string" },
-      { property: "url", datatype: "string" },
-    ];
-  }
-
-  return json;
+  return upgradeOrganizationDoc(doc.toJSON());
 }
 
 export async function createOrganization(
@@ -121,6 +114,9 @@ export async function createOrganization(
       {
         id: userId,
         role: "admin",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
     ],
     id: uniqid("org_"),
