@@ -206,11 +206,11 @@ export function getVariationColor(i: number) {
 }
 
 export function useAttributeSchema(showArchived = false) {
-  let attributeSchema = useOrgSettings().attributeSchema || []
+  let attributeSchema = useOrgSettings().attributeSchema || [];
   if (!showArchived) {
-    attributeSchema = attributeSchema.filter(s => !s.archived)
+    attributeSchema = attributeSchema.filter((s) => !s.archived);
   }
-  return attributeSchema
+  return attributeSchema;
 }
 
 export function validateFeatureRule(
@@ -643,7 +643,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(true);
 
   return useMemo(() => {
     if (!attributeSchema.length) {
