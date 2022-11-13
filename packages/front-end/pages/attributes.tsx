@@ -16,10 +16,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { apiCall } = useAuth();
   const allAttributes = useAttributeSchema(true);
   const orderedAttributes = [
-    ...allAttributes.filter(o => !o.archived),
-    ...allAttributes.filter(o => o.archived)
-  ]
-  const [attributes, setAttributes] = useState(orderedAttributes)
+    ...allAttributes.filter((o) => !o.archived),
+    ...allAttributes.filter((o) => o.archived),
+  ];
+  const [viewAttributes, setViewAttributes] = useState(orderedAttributes);
   const { refreshOrganization } = useUser();
 
   const drawRow = (v: SDKAttribute, i: number) => (
@@ -37,25 +37,38 @@ const FeatureAttributesPage = (): React.ReactElement => {
             className="dropdown-item"
             onClick={async (e) => {
               e.preventDefault();
-              let updatedAttributes = [...attributes]
-              const idx = updatedAttributes.findIndex(a => a.property === v.property)
-              updatedAttributes[idx].archived = !v.archived
-              setAttributes(updatedAttributes)
+
+              // update attributes as they render in the view (do not reorder after changing archived state)
+              setViewAttributes(
+                viewAttributes.map((attribute) =>
+                  attribute.property === v.property
+                    ? { ...attribute, archived: !v.archived }
+                    : attribute
+                )
+              );
+
+              // update SDK attributes while preserving original order
+              const newAttributeSchema = allAttributes.map((attribute) =>
+                attribute.property === v.property
+                  ? { ...attribute, archived: !v.archived }
+                  : attribute
+              );
               await apiCall(`/organization`, {
                 method: "PUT",
                 body: JSON.stringify({
-                  settings: { attributeSchema: updatedAttributes },
+                  settings: { attributeSchema: newAttributeSchema },
                 }),
               });
+
               await refreshOrganization();
             }}
           >
             {v.archived ? "unarchive" : "archive"}
           </button>
         </MoreMenu>
-        </td>
+      </td>
     </tr>
-  )
+  );
 
   return (
     <>
@@ -100,14 +113,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   </Tooltip>
                 </th>
                 <th>Archived</th>
-                <th style={{width: 30}}></th>
+                <th style={{ width: 30 }}></th>
               </tr>
             </thead>
             <tbody>
-              {attributes && attributes.length > 0 ? (
-                <>
-                  {attributes.map((v, i) => drawRow(v, i))}
-                </>
+              {viewAttributes && viewAttributes.length > 0 ? (
+                <>{viewAttributes.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
                   <tr>
