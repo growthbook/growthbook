@@ -14,12 +14,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  const allAttributes = useAttributeSchema(true);
+  let attributeSchema = useAttributeSchema(true);
   const orderedAttributes = [
-    ...allAttributes.filter((o) => !o.archived),
-    ...allAttributes.filter((o) => o.archived),
+    ...attributeSchema.filter((o) => !o.archived),
+    ...attributeSchema.filter((o) => o.archived),
   ];
-  const [viewAttributes, setViewAttributes] = useState(orderedAttributes);
+  const [attributesForView, setAttributesForView] = useState(orderedAttributes);
   const { refreshOrganization } = useUser();
 
   const drawRow = (v: SDKAttribute, i: number) => (
@@ -39,8 +39,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               e.preventDefault();
 
               // update attributes as they render in the view (do not reorder after changing archived state)
-              setViewAttributes(
-                viewAttributes.map((attribute) =>
+              setAttributesForView(
+                attributesForView.map((attribute) =>
                   attribute.property === v.property
                     ? { ...attribute, archived: !v.archived }
                     : attribute
@@ -48,7 +48,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               );
 
               // update SDK attributes while preserving original order
-              const newAttributeSchema = allAttributes.map((attribute) =>
+              attributeSchema = attributeSchema.map((attribute) =>
                 attribute.property === v.property
                   ? { ...attribute, archived: !v.archived }
                   : attribute
@@ -56,7 +56,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               await apiCall(`/organization`, {
                 method: "PUT",
                 body: JSON.stringify({
-                  settings: { attributeSchema: newAttributeSchema },
+                  settings: { attributeSchema },
                 }),
               });
 
@@ -117,8 +117,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody>
-              {viewAttributes && viewAttributes.length > 0 ? (
-                <>{viewAttributes.map((v, i) => drawRow(v, i))}</>
+              {attributesForView?.length > 0 ? (
+                <>{attributesForView.map((v, i) => drawRow(v, i))}</>
               ) : (
                 <>
                   <tr>
