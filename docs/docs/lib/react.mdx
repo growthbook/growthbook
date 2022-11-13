@@ -45,11 +45,10 @@ const growthbook = new GrowthBook({
 export default function App() {
   useEffect(() => {
     // Load feature definitions from GrowthBook API
-    fetch("https://cdn.growthbook.io/api/features/<your api key>")
+    fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
       .then((res) => res.json())
-      .then((parsed) => {
-        growthbook.setFeatures(parsed.features);
-      });
+      .then((json) => growthbook.setFeatures(json.features))
+      .catch((e) => console.error("Failed to fetch features", e));
 
     // Set user attributes for targeting (from cookie, auth system, etc.)
     growthbook.setAttributes({
@@ -79,7 +78,7 @@ export default function OtherComponent() {
   // Boolean on/off flags
   const newLogin = useFeature("new-login-form").on;
 
-  // Multivariate or string/JSON values
+  // Multivariate or string/JSON values with a fallback
   const buttonColor = useFeature("login-button-color").value || "blue";
 
   if (newLogin) {
@@ -259,7 +258,7 @@ function MyApp() {
     // Load features from the encrypted SDK Endpoint and decrypt them
     fetch("https://cdn.growthbook.io/api/features/<your api key>")
       .then((res) => res.json())
-      .then((json) => growthbook.setEncryptedFeatures(json.encryptedFeatures, "MY_ENCRYPTION_KEY))
+      .then((json) => growthbook.setEncryptedFeatures(json.encryptedFeatures, "MY_ENCRYPTION_KEY"))
       .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
   }, []);
   // ...

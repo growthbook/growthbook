@@ -42,11 +42,11 @@ const growthbook = new GrowthBook({
 });
 
 // Load feature definitions (from API, database, etc.)
-fetch("https://cdn.growthbook.io/api/features/<your api key>")
+fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
   .then((res) => res.json())
-  .then((parsed) => {
-    growthbook.setFeatures(parsed.features);
-  });
+  .then((json) => growthbook.setFeatures(json.features))
+  .catch((e) => console.error("Failed to fetch features", e));
+
 
 // Simple boolean (on/off) feature flag
 if (growthbook.isOn("my-feature")) {

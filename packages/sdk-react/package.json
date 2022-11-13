@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -29,14 +29,14 @@
     "build": "yarn build:clean && npm-run-all --parallel build:types build:bundles",
     "test": "jest",
     "type-check": "tsc --pretty --noEmit",
-    "size": "gzip-size ./dist/esm/index.js --include-original"
+    "size": "cat ./dist/esm/index.js ../sdk-js/dist/bundles/index.min.js | terser | gzip-size --include-original"
   },
   "author": "Jeremy Dorn",
   "peerDependencies": {
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^0.19.0"
+    "@growthbook/growthbook": "^0.20.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
