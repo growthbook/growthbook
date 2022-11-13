@@ -32,7 +32,10 @@ export type Role = {
 };
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type CommercialFeature = "sso" | "advanced-permissions";
+export type CommercialFeature =
+  | "sso"
+  | "advanced-permissions"
+  | "encrypt-features-endpoint";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {

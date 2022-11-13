@@ -116,6 +116,14 @@ export default function UpgradeModal({ close, source, reason }: Props) {
                 }
               />
             </li>
+            <li>
+              Encrypt SDK endpoint response{" "}
+              <Tooltip
+                body={
+                  "Prevent your users from inspecting your feature flags and experiments when using client-side and mobile SDKs"
+                }
+              />
+            </li>
             <li>Early access to new features</li>
           </ul>
         </div>

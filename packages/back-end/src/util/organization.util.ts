@@ -20,9 +20,20 @@ export function isActiveSubscriptionStatus(
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
   starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>(["advanced-permissions"]),
-  pro_sso: new Set<CommercialFeature>(["sso", "advanced-permissions"]),
-  enterprise: new Set<CommercialFeature>(["sso", "advanced-permissions"]),
+  pro: new Set<CommercialFeature>([
+    "advanced-permissions",
+    "encrypt-features-endpoint",
+  ]),
+  pro_sso: new Set<CommercialFeature>([
+    "sso",
+    "advanced-permissions",
+    "encrypt-features-endpoint",
+  ]),
+  enterprise: new Set<CommercialFeature>([
+    "sso",
+    "advanced-permissions",
+    "encrypt-features-endpoint",
+  ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
   if (IS_CLOUD) {
