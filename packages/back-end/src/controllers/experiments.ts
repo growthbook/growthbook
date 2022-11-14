@@ -462,6 +462,7 @@ export async function postExperiments(
     description: data.description || "",
     hypothesis: data.hypothesis || "",
     metrics: data.metrics || [],
+    metricOverrides: data.metricOverrides || [],
     guardrails: data.guardrails || [],
     activationMetric: data.activationMetric || "",
     segment: data.segment || "",

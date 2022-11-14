@@ -24,6 +24,13 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  metricOverrides: [
+    {
+      id: String,
+      conversionWindowHours: Number,
+      conversionDelayHours: Number,
+    },
+  ],
   guardrails: [String],
   activationMetric: String,
   segment: String,

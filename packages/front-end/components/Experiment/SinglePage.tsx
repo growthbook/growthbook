@@ -39,6 +39,7 @@ import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
 import Code from "../SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import { getDefaultConversionWindowHours } from "../../services/env";
 
 function getColWidth(v: number) {
   // 2 across
@@ -109,6 +110,18 @@ export default function SinglePage({
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
   const activationMetric = getMetricById(experiment.activationMetric || "");
+
+  // let metricDefs = {}
+  // const { data: metricData } = useApi<{ metrics: MetricInterface[] }>(
+  //   `/metrics`
+  // );
+  // if (metricData?.metrics) {
+  //   console.log(experiment.metrics)
+  //   metricDefs = metricData.metrics
+  //     .filter(o => experiment.metrics.includes(o.id))
+  //     .reduce((a, v) => ({ ...a, [v.id]: v }), {})
+  // }
+  // console.log({metricDefs})
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = exposureQueries.find(
@@ -513,14 +526,42 @@ export default function SinglePage({
             <div className="appbox p-3">
               <RightRailSectionGroup title="Goals" type="custom">
                 {experiment.metrics.map((m) => {
+                  // const metricData = metricDevs?.[m]
+                  const metric = getMetricById(m);
+                  let metricWithOverrides = metric;
+                  experiment?.metricOverrides.forEach((mo) => {
+                    if (
+                      metricWithOverrides &&
+                      mo.id === metricWithOverrides.id
+                    ) {
+                      metricWithOverrides = { ...metricWithOverrides, ...mo };
+                    }
+                  });
+                  console.log(m, { metric, metricWithOverrides });
                   return (
                     <div key={m} className="ml-2">
                       <span className="mr-1">-</span>
                       <Link href={`/metric/${m}`}>
-                        <a className="mr-2 font-weight-bold">
-                          {getMetricById(m)?.name}
-                        </a>
+                        <a className="mr-2 font-weight-bold">{metric?.name}</a>
                       </Link>
+                      {metricWithOverrides && (
+                        <RightRailSectionGroup
+                          type="commaList"
+                          title="Conversion Window"
+                          style={{ marginLeft: 20 }}
+                        >
+                          <span>
+                            {metricWithOverrides.conversionDelayHours
+                              ? metricWithOverrides.conversionDelayHours +
+                                " to "
+                              : ""}
+                            {(metricWithOverrides.conversionDelayHours || 0) +
+                              (metricWithOverrides.conversionWindowHours ||
+                                getDefaultConversionWindowHours())}{" "}
+                            hours
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
                     </div>
                   );
                 })}

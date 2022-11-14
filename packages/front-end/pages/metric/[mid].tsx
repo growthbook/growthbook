@@ -832,7 +832,6 @@ const MetricPage: FC = () => {
                   title="Conversion Window"
                 >
                   <span>
-                    {" "}
                     {metric.conversionDelayHours
                       ? metric.conversionDelayHours + " to "
                       : ""}
