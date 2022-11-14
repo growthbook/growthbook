@@ -224,9 +224,9 @@ export default function ConditionInput(props: Props) {
                     <SelectField
                       value={field}
                       options={attributeSchema.map((s) => ({
-                          label: s.property,
-                          value: s.property,
-                        }))}
+                        label: s.property,
+                        value: s.property,
+                      }))}
                       name="field"
                       className={`${styles.firstselect} form-control`}
                       onChange={(value) => {
@@ -351,7 +351,7 @@ export default function ConditionInput(props: Props) {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                const prop = attributeSchema.filter((s) => !s.archived)[0];
+                const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {

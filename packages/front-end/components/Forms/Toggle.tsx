@@ -1,4 +1,4 @@
-import { ReactElement } from "react";
+import { CSSProperties, ReactElement } from "react";
 import Tooltip from "../Tooltip/Tooltip";
 
 export default function Toggle({
@@ -19,7 +19,7 @@ export default function Toggle({
   disabled?: boolean;
   type?: "featureValue" | "environment" | "toggle";
   className?: string;
-  style?: { [key: string]: string | number };
+  style?: CSSProperties;
   disabledMessage?: string;
 }) {
   return (
