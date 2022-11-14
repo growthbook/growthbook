@@ -206,11 +206,13 @@ export function getVariationColor(i: number) {
 }
 
 export function useAttributeSchema(showArchived = false) {
-  let attributeSchema = useOrgSettings().attributeSchema || [];
-  if (!showArchived) {
-    attributeSchema = attributeSchema.filter((s) => !s.archived);
-  }
-  return attributeSchema;
+  const attributeSchema = useOrgSettings().attributeSchema || [];
+  return useMemo(() => {
+    if (!showArchived) {
+      return attributeSchema.filter((s) => !s.archived);
+    }
+    return attributeSchema;
+  }, [attributeSchema, showArchived]);
 }
 
 export function validateFeatureRule(
