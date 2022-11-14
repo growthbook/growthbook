@@ -22,26 +22,43 @@ export default function ConditionInput(props: Props) {
 
   const attributes = useAttributeMap();
 
+  //TODO: Fix this any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conditions: any = attributes.set("date", {
+    array: false,
+    attribute: "date",
+    datatype: "date",
+    enum: [],
+    identifier: false,
+  });
+
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, attributes) === null
+    () => jsonToConds(props.defaultValue, conditions) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(() =>
-    jsonToConds(props.defaultValue, attributes)
+    jsonToConds(props.defaultValue, conditions)
   );
 
   const attributeSchema = useAttributeSchema();
 
+  const conditionSchema = attributeSchema.concat([
+    {
+      property: "date",
+      datatype: "date",
+    },
+  ]);
+
   useEffect(() => {
     if (advanced) return;
-    setValue(condToJson(conds, attributes));
+    setValue(condToJson(conds, conditions));
   }, [advanced, conds]);
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value, attributes) !== null);
-  }, [value, attributes]);
+    setSimpleAllowed(jsonToConds(value, conditions) !== null);
+  }, [value, conditions]);
 
   const savedGroupOperators = [
     {
@@ -54,8 +71,7 @@ export default function ConditionInput(props: Props) {
     },
   ];
 
-  if (advanced || !attributes.size || !simpleAllowed) {
-    console.log("simpleAllowed", simpleAllowed);
+  if (advanced || !conditions.size || !simpleAllowed) {
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -66,13 +82,13 @@ export default function ConditionInput(props: Props) {
           helpText={
             <div className="d-flex">
               <div>JSON format using MongoDB query syntax.</div>
-              {simpleAllowed && attributes.size && (
+              {simpleAllowed && conditions.size && (
                 <div className="ml-auto">
                   <a
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      const newConds = jsonToConds(value, attributes);
+                      const newConds = jsonToConds(value, conditions);
                       // TODO: show error
                       if (newConds === null) return;
                       setConds(newConds);
@@ -100,7 +116,7 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const prop = attributeSchema[0];
+              const prop = conditionSchema[0];
               setConds([
                 {
                   field: prop?.property || "",
@@ -123,7 +139,7 @@ export default function ConditionInput(props: Props) {
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
-            const attribute = attributes.get(field);
+            const condition = conditions.get(field);
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
@@ -137,9 +153,15 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
+              let updatedValue: string | null = null;
+
+              if (field === "date") {
+                updatedValue = `new Date('${value}').toISOString()`;
+              }
+
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
-              newConds[i][name] = value;
+              newConds[i][name] = updatedValue || value;
               setConds(newConds);
             };
 
@@ -151,14 +173,20 @@ export default function ConditionInput(props: Props) {
             };
 
             const operatorOptions =
-              attribute.datatype === "boolean"
+              condition.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.array
+                : condition.datatype === "date"
+                ? [
+                    { label: "is before", value: "$lt" },
+                    { label: "is after", value: "$gt" },
+                    { label: "is on", value: "eq" },
+                  ]
+                : condition.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
@@ -167,7 +195,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.enum?.length > 0
+                : condition.enum?.length > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -176,7 +204,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.datatype === "string"
+                : condition.datatype === "string"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -194,7 +222,7 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute.datatype === "number"
+                : condition.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -212,6 +240,12 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
+            if (condition.datatype === "date") {
+              const split = value.split("'");
+              console.log("split", split);
+              value = split[1];
+            }
+
             return (
               <li key={i} className={styles.listitem}>
                 <div className={`row ${styles.listrow}`}>
@@ -223,7 +257,7 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={attributeSchema.map((s) => ({
+                      options={conditionSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
                       }))}
@@ -234,9 +268,9 @@ export default function ConditionInput(props: Props) {
                         newConds[i] = { ...newConds[i] };
                         newConds[i]["field"] = value;
 
-                        const newAttribute = attributes.get(value);
-                        if (newAttribute.datatype !== attribute.datatype) {
-                          if (newAttribute.datatype === "boolean") {
+                        const newCondition = conditions.get(value);
+                        if (newCondition.datatype !== conditions.datatype) {
+                          if (newCondition.datatype === "boolean") {
                             newConds[i]["operator"] = "$true";
                           } else {
                             newConds[i]["operator"] = "$eq";
@@ -290,9 +324,9 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       helpText="separate values by comma"
                     />
-                  ) : attribute.enum.length ? (
+                  ) : condition.enum.length ? (
                     <SelectField
-                      options={attribute.enum.map((v) => ({
+                      options={condition.enum.map((v) => ({
                         label: v,
                         value: v,
                       }))}
@@ -304,7 +338,7 @@ export default function ConditionInput(props: Props) {
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
                     />
-                  ) : attribute.datatype === "number" ? (
+                  ) : condition.datatype === "number" ? (
                     <Field
                       type="number"
                       step="any"
@@ -314,8 +348,17 @@ export default function ConditionInput(props: Props) {
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                     />
-                  ) : attribute.datatype === "string" ? (
+                  ) : condition.datatype === "string" ? (
                     <Field
+                      value={value}
+                      onChange={onChange}
+                      name="value"
+                      className={styles.matchingInput}
+                      containerClassName="col-sm-12 col-md mb-2"
+                    />
+                  ) : condition.datatype === "date" ? (
+                    <Field
+                      type="date"
                       value={value}
                       onChange={onChange}
                       name="value"
@@ -350,7 +393,7 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const prop = attributeSchema[0];
+              const prop = conditionSchema[0];
               setConds([
                 ...conds,
                 {

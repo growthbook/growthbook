@@ -96,7 +96,8 @@ export type SDKAttributeType =
   | "boolean"
   | "string[]"
   | "number[]"
-  | "enum";
+  | "enum"
+  | "date";
 
 export type SDKAttributeSchema = {
   property: string;

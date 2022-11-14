@@ -31,7 +31,7 @@ export interface Condition {
 
 export interface AttributeData {
   attribute: string;
-  datatype: "boolean" | "number" | "string";
+  datatype: "boolean" | "number" | "string" | "date";
   array: boolean;
   identifier: boolean;
   enum: string[];
