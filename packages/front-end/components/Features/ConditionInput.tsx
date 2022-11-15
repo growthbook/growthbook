@@ -27,11 +27,11 @@ export default function ConditionInput(props: Props) {
 
   const attributes = useAttributeMap();
 
-  // If the user passed '$CURRENT_DATE' into the SDK, add current_date to conditions
+  // If the user passed '$CURRENT_DATE' into the SDK, add $CURRENT_DATE to conditions
   if (allowTargetingByDate) {
-    attributes.set("current_date", {
+    attributes.set("$CURRENT_DATE", {
       array: false,
-      attribute: "current_date",
+      attribute: "$CURRENT_DATE",
       datatype: "date",
       enum: [],
       identifier: false,
@@ -49,12 +49,12 @@ export default function ConditionInput(props: Props) {
 
   const attributeSchema = useAttributeSchema();
 
-  // If the user passed '$CURRENT_DATE' into the SDK, add current_date to conditionsSchema
+  // If the user passed '$CURRENT_DATE' into the SDK, add $CURRENT_DATE to conditionsSchema
   const conditionSchema = attributeSchema.concat(
     allowTargetingByDate
       ? [
           {
-            property: "current_date",
+            property: "$CURRENT_DATE",
             datatype: "date",
           },
         ]
@@ -150,7 +150,7 @@ export default function ConditionInput(props: Props) {
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
-            const condition = attributes.get(field);
+            const attribute = attributes.get(field);
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
@@ -166,7 +166,7 @@ export default function ConditionInput(props: Props) {
 
               let updatedValue: string | null = null;
 
-              if (field === "date") {
+              if (field === "$CURRENT_DATE") {
                 updatedValue = `new Date('${value}').toISOString()`;
               }
 
@@ -184,19 +184,19 @@ export default function ConditionInput(props: Props) {
             };
 
             const operatorOptions =
-              condition.datatype === "boolean"
+              attribute.datatype === "date"
+                ? [
+                    { label: "is before", value: "$lt" },
+                    { label: "is after", value: "$gt" },
+                  ]
+                : attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : condition.datatype === "date"
-                ? [
-                    { label: "is before", value: "$lt" },
-                    { label: "is after", value: "$gt" },
-                  ]
-                : condition.array
+                : attribute.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
@@ -205,7 +205,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : condition.enum?.length > 0
+                : attribute.enum?.length > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -214,7 +214,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : condition.datatype === "string"
+                : attribute.datatype === "string"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -232,7 +232,7 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : condition.datatype === "number"
+                : attribute.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -250,9 +250,9 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
-            if (condition.datatype === "date") {
+            if (attribute.datatype === "date") {
               const split = value.split("'");
-              value = split[0];
+              value = split[1];
             }
 
             return (
@@ -267,7 +267,10 @@ export default function ConditionInput(props: Props) {
                     <SelectField
                       value={field}
                       options={conditionSchema.map((s) => ({
-                        label: s.property,
+                        label:
+                          s.property === "$CURRENT_DATE"
+                            ? "current_date"
+                            : s.property,
                         value: s.property,
                       }))}
                       name="field"
@@ -278,7 +281,7 @@ export default function ConditionInput(props: Props) {
                         newConds[i]["field"] = value;
 
                         const newCondition = attributes.get(value);
-                        if (newCondition.datatype !== condition.datatype) {
+                        if (newCondition.datatype !== attribute.datatype) {
                           if (newCondition.datatype === "boolean") {
                             newConds[i]["operator"] = "$true";
                           } else {
@@ -333,9 +336,9 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       helpText="separate values by comma"
                     />
-                  ) : condition.enum.length ? (
+                  ) : attribute.enum.length ? (
                     <SelectField
-                      options={condition.enum.map((v) => ({
+                      options={attribute.enum.map((v) => ({
                         label: v,
                         value: v,
                       }))}
@@ -347,7 +350,7 @@ export default function ConditionInput(props: Props) {
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
                     />
-                  ) : condition.datatype === "number" ? (
+                  ) : attribute.datatype === "number" ? (
                     <Field
                       type="number"
                       step="any"
@@ -357,7 +360,7 @@ export default function ConditionInput(props: Props) {
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                     />
-                  ) : condition.datatype === "string" ? (
+                  ) : attribute.datatype === "string" ? (
                     <Field
                       value={value}
                       onChange={onChange}
@@ -365,7 +368,7 @@ export default function ConditionInput(props: Props) {
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                     />
-                  ) : condition.datatype === "date" ? (
+                  ) : attribute.datatype === "date" ? (
                     <Field
                       type="date"
                       value={value}

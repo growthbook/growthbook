@@ -6,7 +6,7 @@ import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
 
 function operatorToText(operator: string, field: string): string {
-  if (field === "current_date") {
+  if (field === "$CURRENT_DATE") {
     switch (operator) {
       case "$lt":
         return `is before`;
@@ -66,10 +66,17 @@ function needsValue(operator: string) {
 function getValue(
   operator: string,
   value: string,
+  field: string,
   savedGroups?: SavedGroupInterface[]
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
+
+  if (field === "$CURRENT_DATE") {
+    const split = value.split("'");
+    const date = split[1];
+    return date;
+  }
 
   // Get the groupName from the associated group.id to display a human readable name.
   if (operator === ("$inGroup" || "$notInGroup") && savedGroups) {
@@ -107,11 +114,13 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
       {conds.map(({ field, operator, value }, i) => (
         <div key={i} className="col-auto d-flex flex-wrap">
           {i > 0 && <span className="mr-1">AND</span>}
-          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+          <span className="mr-1 border px-2 bg-light rounded">
+            {field === "$CURRENT_DATE" ? "current_date" : field}
+          </span>
           <span className="mr-1">{operatorToText(operator, field)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value, savedGroups)}
+              {getValue(operator, value, field, savedGroups)}
             </span>
           ) : (
             ""
