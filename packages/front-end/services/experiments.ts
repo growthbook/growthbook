@@ -185,12 +185,15 @@ export function useDomain(
 export function applyMetricOverrides(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
-): MetricInterface {
+): {
+  metric: MetricInterface;
+  override: boolean;
+} {
   const metricOverride = experiment?.metricOverrides?.find(
     (mo) => mo.id === metric.id
   );
   if (metricOverride) {
-    return { ...metric, ...metricOverride };
+    return { metric: { ...metric, ...metricOverride }, override: true };
   }
-  return metric;
+  return { metric, override: false };
 }

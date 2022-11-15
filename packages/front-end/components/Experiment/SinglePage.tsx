@@ -41,6 +41,7 @@ import Code from "../SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import { applyMetricOverrides } from "../../services/experiments";
+import { MetricInterface } from "back-end/types/metric";
 
 function getColWidth(v: number) {
   // 2 across
@@ -51,6 +52,42 @@ function getColWidth(v: number) {
 
   // 4 across
   return 3;
+}
+
+function drawMetricRow(
+  m: string,
+  metric: MetricInterface,
+  experiment: ExperimentInterfaceStringDates
+) {
+  const { metric: newMetric, override } = applyMetricOverrides(
+    metric,
+    experiment
+  );
+  return (
+    <div key={m} className="ml-2">
+      <span className="mr-1">-</span>
+      <Link href={`/metric/${m}`}>
+        <a className="mr-2 font-weight-bold">{newMetric?.name}</a>
+      </Link>
+      {newMetric && (
+        <RightRailSectionGroup
+          type="commaList"
+          title="Conversion Window"
+          style={{ marginLeft: 20, fontSize: 12 }}
+        >
+          <span>
+            {newMetric.conversionDelayHours
+              ? newMetric.conversionDelayHours + " to "
+              : ""}
+            {(newMetric.conversionDelayHours || 0) +
+              (newMetric.conversionWindowHours ||
+                getDefaultConversionWindowHours())}{" "}
+            hours {override && <span style={{ fontSize: 10 }}>(override)</span>}
+          </span>
+        </RightRailSectionGroup>
+      )}
+    </div>
+  );
 }
 
 export interface Props {
@@ -528,51 +565,14 @@ export default function SinglePage({
               <RightRailSectionGroup title="Goals" type="custom">
                 {experiment.metrics.map((m) => {
                   const metric = getMetricById(m);
-                  const metricWithOverrides = applyMetricOverrides(
-                    metric,
-                    experiment
-                  );
-                  return (
-                    <div key={m} className="ml-2">
-                      <span className="mr-1">-</span>
-                      <Link href={`/metric/${m}`}>
-                        <a className="mr-2 font-weight-bold">{metric?.name}</a>
-                      </Link>
-                      {metricWithOverrides && (
-                        <RightRailSectionGroup
-                          type="commaList"
-                          title="Conversion Window"
-                          style={{ marginLeft: 20 }}
-                        >
-                          <span>
-                            {metricWithOverrides.conversionDelayHours
-                              ? metricWithOverrides.conversionDelayHours +
-                                " to "
-                              : ""}
-                            {(metricWithOverrides.conversionDelayHours || 0) +
-                              (metricWithOverrides.conversionWindowHours ||
-                                getDefaultConversionWindowHours())}{" "}
-                            hours
-                          </span>
-                        </RightRailSectionGroup>
-                      )}
-                    </div>
-                  );
+                  return drawMetricRow(m, metric, experiment);
                 })}
               </RightRailSectionGroup>
               {experiment.guardrails?.length > 0 && (
                 <RightRailSectionGroup title="Guardrails" type="custom">
                   {experiment.guardrails.map((m) => {
-                    return (
-                      <div key={m} className="ml-2">
-                        <span className="mr-1">-</span>
-                        <Link href={`/metric/${m}`}>
-                          <a className="mr-2 font-weight-bold">
-                            {getMetricById(m)?.name}
-                          </a>
-                        </Link>
-                      </div>
-                    );
+                    const metric = getMetricById(m);
+                    return drawMetricRow(m, metric, experiment);
                   })}
                 </RightRailSectionGroup>
               )}
