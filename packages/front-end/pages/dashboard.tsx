@@ -3,20 +3,18 @@ import Head from "next/head";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../hooks/useApi";
 import ExperimentsGetStarted from "../components/HomePage/ExperimentsGetStarted";
+import { useExperiments } from "../hooks/useExperiments";
 
 export default function Analysis(): React.ReactElement {
   const { ready, error: definitionsError, project } = useDefinitions();
 
   const {
-    data: experiments,
+    experiments,
     error: experimentsError,
-    mutate: mutateExperiments,
-  } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project}`);
+    mutateExperiments,
+    loading,
+  } = useExperiments(project);
 
   if (experimentsError || definitionsError) {
     return (
@@ -26,13 +24,12 @@ export default function Analysis(): React.ReactElement {
     );
   }
 
-  if (!experiments || !ready) {
+  if (loading || !ready) {
     return <LoadingOverlay />;
   }
 
   const hasExperiments =
-    experiments?.experiments?.filter((e) => !e.id.match(/^exp_sample/))
-      ?.length > 0;
+    experiments.filter((e) => !e.id.match(/^exp_sample/))?.length > 0;
 
   return (
     <>
@@ -43,7 +40,7 @@ export default function Analysis(): React.ReactElement {
 
       <div className="container pagecontents position-relative">
         {hasExperiments ? (
-          <Dashboard experiments={experiments?.experiments || []} />
+          <Dashboard experiments={experiments} />
         ) : (
           <div className="getstarted">
             <h1>Experiment Analysis</h1>
@@ -53,7 +50,7 @@ export default function Analysis(): React.ReactElement {
               connecting to your data source and defining metrics.
             </p>
             <ExperimentsGetStarted
-              experiments={experiments?.experiments || []}
+              experiments={experiments}
               mutate={mutateExperiments}
             />
           </div>

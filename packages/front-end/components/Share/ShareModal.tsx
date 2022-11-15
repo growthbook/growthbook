@@ -27,10 +27,10 @@ import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
 import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
-import useApi from "../../hooks/useApi";
 import track from "../../services/track";
 import SortedTags from "../Tags/SortedTags";
 import Field from "../Forms/Field";
+import { useExperiments } from "../../hooks/useExperiments";
 
 export const presentationThemes = {
   lblue: {
@@ -175,9 +175,7 @@ const ShareModal = ({
   refreshList?: () => void;
   onSuccess?: () => void;
 }): React.ReactElement => {
-  const { data, error } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
+  const { experiments: allExperiments, error } = useExperiments();
   //const [expStatus, setExpStatus] = useState("stopped");
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -220,7 +218,7 @@ const ShareModal = ({
   }, [existing?.slides]);
 
   const { items: experiments, searchInputProps, isFiltered } = useSearch({
-    items: data?.experiments || [],
+    items: allExperiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",
     searchFields: [
@@ -273,7 +271,7 @@ const ShareModal = ({
     }
   });
 
-  if (!data) {
+  if (loading) {
     // still loading...
     return null;
   }

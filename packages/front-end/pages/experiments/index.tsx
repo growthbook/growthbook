@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";
 import { datetime, ago } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
@@ -21,15 +19,19 @@ import TabButtons from "../../components/Tabs/TabButtons";
 import TabButton from "../../components/Tabs/TabButton";
 import { useAnchor } from "../../components/Tabs/ControlledTabs";
 import Toggle from "../../components/Forms/Toggle";
+import { useExperiments } from "../../hooks/useExperiments";
 
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
-  const { data, error, mutate } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
+  const {
+    experiments,
+    loading,
+    error,
+    mutateExperiments: mutate,
+  } = useExperiments(project);
 
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
@@ -41,8 +43,8 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const experiments = useAddComputedFields(
-    data?.experiments,
+  const expandedExperiments = useAddComputedFields(
+    experiments,
     (exp) => ({
       ownerName: getUserDisplay(exp.owner, false) || "",
       metricNames: exp.metrics
@@ -65,7 +67,7 @@ const ExperimentsPage = (): React.ReactElement => {
   );
 
   const filterResults = useCallback(
-    (items: typeof experiments) => {
+    (items: typeof expandedExperiments) => {
       if (showMineOnly) {
         items = items.filter((item) => item.owner === userId);
       }
@@ -75,7 +77,7 @@ const ExperimentsPage = (): React.ReactElement => {
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: experiments,
+    items: expandedExperiments,
     localStorageKey: "experiments",
     defaultSortField: "date",
     defaultSortDir: -1,
@@ -123,12 +125,12 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-  if (!data || !ready) {
+  if (loading || !ready) {
     return <LoadingOverlay />;
   }
 
   const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+    expandedExperiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
 
   if (!hasExperiments) {
     return (
@@ -140,7 +142,10 @@ const ExperimentsPage = (): React.ReactElement => {
           data source and defining metrics.
         </p>
         <NewFeatureExperiments />
-        <ExperimentsGetStarted experiments={experiments} mutate={mutate} />
+        <ExperimentsGetStarted
+          experiments={expandedExperiments}
+          mutate={mutate}
+        />
       </div>
     );
   }
