@@ -102,6 +102,7 @@ const sidebars = {
         { type: "doc", id: "lib/php", label: "PHP)" },
         { type: "doc", id: "lib/ruby", label: "Ruby" },
         { type: "doc", id: "lib/python", label: "Python" },
+        { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
         { type: "doc", id: "lib/go", label: "Go" },
         { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
         { type: "doc", id: "lib/flutter", label: "Flutter" },
@@ -111,6 +112,23 @@ const sidebars = {
           href: "https://github.com/growthbook/growthbook-swift",
         },
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
+      ],
+    },
+    {
+      type: "category",
+      label: "Tools",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "tools/chrome-extension",
+          label: "Chrome Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/vscode-extension",
+          label: "Visual Studio Code Extension",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },

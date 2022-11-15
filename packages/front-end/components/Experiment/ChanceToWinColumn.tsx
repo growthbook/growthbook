@@ -9,7 +9,7 @@ import {
 } from "../../services/experiments";
 import NotEnoughData from "./NotEnoughData";
 import { ExperimentStatus } from "back-end/types/experiment";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

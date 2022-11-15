@@ -1,59 +1,62 @@
-import { ReactElement, ReactNode, useState } from "react";
+import clsx from "clsx";
+import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import LoadingSpinner from "../LoadingSpinner";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
+import ClickToCopy from "./ClickToCopy";
+import styles from "./ClickToReveal.module.scss";
 
-export interface Props {
-  valueWhenHidden: ReactNode;
+type Props = {
+  valueWhenHidden: string;
   getValue: () => Promise<string>;
-  children: (value: string) => ReactElement;
-}
+};
 
-export default function ClickToReveal({
-  valueWhenHidden,
-  getValue,
-  children,
-}: Props) {
-  const [value, setValue] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
   const [error, setError] = useState("");
-
-  if (value) {
-    return children(value);
-  }
-
-  if (loading) {
-    return (
-      <span>
-        <LoadingSpinner /> loading...
-      </span>
-    );
-  }
-
+  const [value, setValue] = useState<string | null>();
+  const [loading, setLoading] = useState(false);
   return (
-    <a
-      href="#"
-      onClick={async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
-
-        try {
-          const actualValue = await getValue();
-          setValue(actualValue);
-        } catch (e) {
-          console.error(e);
-          setError(e.message);
-        }
-        setLoading(false);
-      }}
+    <div
+      className={clsx(
+        styles.wrapper,
+        value && "d-flex flex-column align-items-baseline"
+      )}
     >
-      {valueWhenHidden}{" "}
+      {value ? (
+        <ClickToCopy valueToCopy={value}>
+          <span style={{ wordBreak: "break-all" }}>{value}</span>
+        </ClickToCopy>
+      ) : (
+        <span className={styles.blurText}>{valueWhenHidden}</span>
+      )}
+      <button
+        className={clsx(
+          "btn btn-sm btn-outline-secondary",
+          styles.button,
+          value && "mt-2",
+          !value && styles.buttonLeft
+        )}
+        onClick={async () => {
+          if (!value) {
+            try {
+              setLoading(true);
+              setValue(await getValue());
+              setLoading(false);
+            } catch (e) {
+              setError(e.message);
+            }
+          } else {
+            setValue(null);
+          }
+        }}
+      >
+        {loading ? <LoadingSpinner /> : !value ? "Reveal key" : "Hide key"}
+      </button>
       {error && (
         <Tooltip body={error}>
           <FaExclamationTriangle className="text-danger" />
         </Tooltip>
       )}
-    </a>
+    </div>
   );
 }

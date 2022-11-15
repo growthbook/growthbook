@@ -31,7 +31,7 @@ import ConfirmButton from "../../components/Modal/ConfirmButton";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { IdeaInterface } from "back-end/types/idea";
-import DeleteButton from "../../components/DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";

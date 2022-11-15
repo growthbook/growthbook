@@ -19,6 +19,7 @@ const organizationSchema = new mongoose.Schema({
       _id: false,
       id: String,
       role: String,
+      dateCreated: Date,
       limitAccessByEnvironment: Boolean,
       environments: [String],
       projectRoles: [
@@ -113,6 +114,7 @@ export async function createOrganization(
       {
         id: userId,
         role: "admin",
+        dateCreated: new Date(),
         limitAccessByEnvironment: false,
         environments: [],
       },

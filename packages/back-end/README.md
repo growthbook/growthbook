@@ -120,3 +120,7 @@ To make it available from the front-end, you'll need to import your controller a
 We use Jest to write tests on the back-end.
 
 To avoid pulling in Mongo dependencies, all tested code should be in small standalone util files that do not import db models.
+
+## REST API endpoints
+
+_Coming soon_

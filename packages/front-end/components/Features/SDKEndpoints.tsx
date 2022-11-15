@@ -1,18 +1,18 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
-import { FaCopy, FaExclamationTriangle, FaKey } from "react-icons/fa";
+import { FaExclamationTriangle, FaKey } from "react-icons/fa";
 import ApiKeysModal from "../Settings/ApiKeysModal";
-import MoreMenu from "../Dropdown/MoreMenu";
 import { getSDKEndpoint } from "./CodeSnippetModal";
 import usePermissions from "../../hooks/usePermissions";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import { useEnvironments } from "../../services/features";
-import CopyToClipboard from "../CopyToClipboard";
+import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "../Settings/ClickToReveal";
+import ClickToCopy from "../Settings/ClickToCopy";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -41,8 +41,6 @@ const SDKEndpoints: FC<{
       );
     }
   });
-
-  const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
 
   return (
     <div className="mt-4">
@@ -80,10 +78,9 @@ const SDKEndpoints: FC<{
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              <th>Description</th>
-              <th>Environment</th>
+              <th style={{ width: 150 }}>Environment</th>
               <th>Endpoint</th>
-              {hasEncryptedEndpoints && <th>Encrypted?</th>}
+              <th>Encrypted?</th>
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -93,74 +90,56 @@ const SDKEndpoints: FC<{
               const endpoint = getSDKEndpoint(key.key, selectedProject);
 
               const envExists = environments?.some((e) => e.id === env);
+
               return (
                 <tr key={key.key}>
-                  <td>{key.description}</td>
                   <td>
-                    <Tooltip
-                      body={
-                        envExists
-                          ? ""
-                          : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
-                      }
-                    >
-                      {env}{" "}
-                      {!envExists && (
-                        <FaExclamationTriangle className="text-danger" />
-                      )}
-                    </Tooltip>
+                    <div className="d-flex flex-column">
+                      <Tooltip
+                        body={
+                          envExists
+                            ? ""
+                            : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                        }
+                      >
+                        <strong className="mr-1">{env}</strong>
+                        {!envExists && (
+                          <FaExclamationTriangle className="text-danger" />
+                        )}
+                      </Tooltip>
+                      <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
+                        {key.description}
+                      </span>
+                    </div>
                   </td>
                   <td>
-                    <code>{endpoint}</code>{" "}
-                    <FaCopy
-                      className="cursor-pointer"
-                      title="Copy to Clipboard"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigator.clipboard
-                          .writeText(endpoint)
-                          .then(() => {
-                            console.log("Copied!");
-                          })
-                          .catch((e) => {
-                            console.error(e);
+                    <ClickToCopy valueToCopy={endpoint}>
+                      <span style={{ wordBreak: "break-all" }}>{endpoint}</span>
+                    </ClickToCopy>
+                  </td>
+                  <td style={{ width: 295 }}>
+                    {canManageKeys && key.encryptSDK ? (
+                      <ClickToReveal
+                        valueWhenHidden="secret_abcdefghijklmnop123"
+                        getValue={async () => {
+                          const res = await apiCall<{
+                            key: ApiKeyInterface;
+                          }>(`/keys/reveal`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              id: key.id,
+                            }),
                           });
-                      }}
-                    />
+                          if (!res.key?.encryptionKey) {
+                            throw new Error("Could not load encryption key");
+                          }
+                          return res.key.encryptionKey;
+                        }}
+                      />
+                    ) : (
+                      <div>No</div>
+                    )}
                   </td>
-                  {hasEncryptedEndpoints && (
-                    <td>
-                      {key.encryptSDK ? (
-                        canManageKeys ? (
-                          <ClickToReveal
-                            valueWhenHidden="Reveal key"
-                            getValue={async () => {
-                              const res = await apiCall<{
-                                key: ApiKeyInterface;
-                              }>(`/keys/reveal`, {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  id: key.id,
-                                }),
-                              });
-                              if (!res.key?.encryptionKey) {
-                                throw new Error(
-                                  "Could not load encryption key"
-                                );
-                              }
-                              return res.key.encryptionKey;
-                            }}
-                          >
-                            {(value) => <CopyToClipboard text={value} />}
-                          </ClickToReveal>
-                        ) : (
-                          "yes"
-                        )
-                      ) : (
-                        "no"
-                      )}
-                    </td>
-                  )}
                   {canManageKeys && (
                     <td>
                       <MoreMenu id={key.key + "_actions"}>

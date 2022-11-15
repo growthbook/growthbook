@@ -3,7 +3,7 @@ import useStripeSubscription from "../../hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "../../services/auth";
 import track from "../../services/track";
 import Modal from "../Modal";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import LoadingOverlay from "../LoadingOverlay";
 
@@ -113,6 +113,14 @@ export default function UpgradeModal({ close, source, reason }: Props) {
               <Tooltip
                 body={
                   "Shared Slack channel with our engineering team to quickly help with any issues."
+                }
+              />
+            </li>
+            <li>
+              Encrypt SDK endpoint response{" "}
+              <Tooltip
+                body={
+                  "Prevent your users from inspecting your feature flags and experiments when using client-side and mobile SDKs"
                 }
               />
             </li>

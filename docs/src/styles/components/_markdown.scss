@@ -175,3 +175,7 @@ pre[class*="language-"] {
   max-width: 60rem;
   margin: 0 auto;
 }
+
+article [class^="details_node_modules"] > summary::before {
+  top: 0.2rem;
+}

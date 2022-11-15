@@ -67,9 +67,7 @@ function App({
     // Load feature definitions JSON from GrowthBook API
     fetch("https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44")
       .then((res) => res.json())
-      .then((json) => {
-        growthbook.setFeatures(json.features);
-      })
+      .then((json) => growthbook.setFeatures(json.features))
       .catch(() => {
         console.log("Failed to fetch GrowthBook feature definitions");
       });

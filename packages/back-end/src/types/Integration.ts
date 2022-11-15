@@ -128,12 +128,20 @@ export type ExperimentMetricQueryResponse = {
   mean: number;
   stddev: number;
 }[];
-
 export interface SourceIntegrationConstructor {
   new (
     encryptedParams: string,
     settings: DataSourceSettings
   ): SourceIntegrationInterface;
+}
+
+export interface TestQueryRow {
+  [key: string]: unknown;
+}
+
+export interface TestQueryResult {
+  results: TestQueryRow[];
+  duration: number;
 }
 
 export interface SourceIntegrationInterface {
@@ -158,8 +166,10 @@ export interface SourceIntegrationInterface {
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
   ): Promise<ExperimentQueryResponses>;
-  testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
+  testConnection(): Promise<boolean>;
+  getTestQuery?(query: string): string;
+  runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;

@@ -9,7 +9,7 @@ import {
 import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
 import Portal from "./Modal/Portal";
-import Tooltip from "./Tooltip";
+import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {

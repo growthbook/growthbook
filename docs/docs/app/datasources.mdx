@@ -195,9 +195,7 @@ We query Mixpanel using JQL. We have sensible defaults for the event and propert
   - **View Experiments Event** - The name of the event you are firing when a user is put into a variation
   - **Experiment Id Property** - The property name that stores the experiment tracking key
   - **Variation Id Property** - The property name that stores the variation the user was assigned
-  - **Variation Id Format** - What format the variation id is stored in.
-    1.  Numeric (0 = control, 1 = variation 1, etc.)
-    2.  Unique String Keys (e.g. "blue", "random-uuid", etc.)
+  - **Extra UserId Property** - _(optional)_ An additional event property to add to the groupBy (`distinct_id` is always included)
 
 Below is an example of what your Mixpanel tracking call would look like in Javascript using our default settings:
 

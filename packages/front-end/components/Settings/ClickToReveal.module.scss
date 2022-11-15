@@ -1,0 +1,18 @@
+.wrapper {
+  width: fit-content;
+  position: relative;
+}
+
+.button {
+  position: relative;
+  background-color: var(--surface-background-color);
+}
+
+.buttonLeft {
+  right: 50%;
+}
+
+.blurText {
+  text-shadow: 0 0 5px var(--text-color-main);
+  color: transparent;
+}

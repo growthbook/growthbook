@@ -1,4 +1,9 @@
-import { FeatureDefinitionRule, FeatureDefinition } from "../../types/api";
+import {
+  FeatureDefinitionRule,
+  FeatureDefinition,
+  ApiFeatureInterface,
+  ApiFeatureEnvironmentInterface,
+} from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -12,13 +17,14 @@ import isEqual from "lodash/isEqual";
 import { webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { getOrganizationById } from "./organizations";
+import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
 import { ExperimentFeatureSummary } from "../../types/experiment";
 import { getAllExperimentSummaries } from "./experiments";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
+export type ExperimentSummaryMap = Map<string, ExperimentFeatureSummary>;
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -49,7 +55,7 @@ export function getFeatureDefinition({
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
-  expMap: Map<string, ExperimentFeatureSummary>;
+  expMap: ExperimentSummaryMap;
   useDraft?: boolean;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
@@ -191,7 +197,7 @@ export function getFeatureDefinition({
 export async function getExpMap(
   org: string,
   features: FeatureInterface[]
-): Promise<Map<string, ExperimentFeatureSummary>> {
+): Promise<ExperimentSummaryMap> {
   const expIds: Set<string> = new Set();
   features.forEach((feature) => {
     feature.linkedExperiments?.forEach((expId) => {
@@ -199,7 +205,7 @@ export async function getExpMap(
     });
   });
 
-  const expMap: Map<string, ExperimentFeatureSummary> = new Map();
+  const expMap: ExperimentSummaryMap = new Map();
 
   if (!expIds.size) return expMap;
 
@@ -399,4 +405,79 @@ export async function encrypt(
     new TextEncoder().encode(plainText)
   );
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
+}
+
+export function getApiFeatureObj({
+  feature,
+  organization,
+  groupMap,
+  expMap,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  groupMap: GroupMap;
+  expMap: ExperimentSummaryMap;
+}): ApiFeatureInterface {
+  const featureEnvironments: Record<
+    string,
+    ApiFeatureEnvironmentInterface
+  > = {};
+  const environments = getEnvironments(organization);
+  environments.forEach((env) => {
+    const defaultValue = feature.defaultValue;
+    const envSettings = feature.environmentSettings?.[env.id];
+    const enabled = !!envSettings?.enabled;
+    const rules = envSettings?.rules || [];
+    const definition = getFeatureDefinition({
+      feature,
+      groupMap,
+      expMap,
+      environment: env.id,
+    });
+
+    const draft = feature.draft?.active
+      ? {
+          enabled,
+          defaultValue: feature.draft?.defaultValue ?? defaultValue,
+          rules: feature.draft?.rules?.[env.id] ?? rules,
+          definition: getFeatureDefinition({
+            feature,
+            groupMap,
+            expMap,
+            environment: env.id,
+            useDraft: true,
+          }),
+        }
+      : null;
+
+    featureEnvironments[env.id] = {
+      defaultValue,
+      enabled,
+      rules,
+      draft,
+      definition,
+    };
+  });
+
+  const featureRecord: ApiFeatureInterface = {
+    id: feature.id,
+    description: feature.description || "",
+    archived: !!feature.archived,
+    dateCreated: feature.dateCreated.toISOString(),
+    dateUpdated: feature.dateUpdated.toISOString(),
+    defaultValue: feature.defaultValue,
+    environments: featureEnvironments,
+    owner: feature.owner || "",
+    project: feature.project || "",
+    tags: feature.tags || [],
+    valueType: feature.valueType,
+    revision: {
+      comment: feature.revision?.comment || "",
+      date: (feature.revision?.date || feature.dateCreated).toISOString(),
+      publishedBy: feature.revision?.publishedBy?.email || "",
+      version: feature.revision?.version || 1,
+    },
+  };
+
+  return featureRecord;
 }

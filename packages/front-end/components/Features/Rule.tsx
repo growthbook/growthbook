@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Button from "../Button";
-import DeleteButton from "../DeleteButton";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
