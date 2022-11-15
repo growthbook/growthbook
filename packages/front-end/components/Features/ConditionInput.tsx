@@ -282,9 +282,9 @@ export default function ConditionInput(props: Props) {
                         newConds[i] = { ...newConds[i] };
                         newConds[i]["field"] = value;
 
-                        const newCondition = attributes.get(value);
-                        if (newCondition.datatype !== attribute.datatype) {
-                          if (newCondition.datatype === "boolean") {
+                        const newAttribute = attributes.get(value);
+                        if (newAttribute.datatype !== attribute.datatype) {
+                          if (newAttribute.datatype === "boolean") {
                             newConds[i]["operator"] = "$true";
                           } else {
                             newConds[i]["operator"] = "$eq";
