@@ -250,9 +250,11 @@ export default function ConditionInput(props: Props) {
                   ]
                 : [];
 
-            if (attribute.datatype === "date") {
-              const split = value.split("'");
-              value = split[1];
+            if (attribute.datatype === "date" && value) {
+              const date = value.match(
+                /([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/g
+              );
+              value = date[0];
             }
 
             return (

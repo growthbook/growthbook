@@ -73,9 +73,10 @@ function getValue(
   if (operator === "$false") return "FALSE";
 
   if (field === "$CURRENT_DATE") {
-    const split = value.split("'");
-    const date = split[1];
-    return date;
+    const date = value.match(
+      /([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/g
+    );
+    return date[0];
   }
 
   // Get the groupName from the associated group.id to display a human readable name.
