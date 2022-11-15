@@ -42,8 +42,6 @@ const SDKEndpoints: FC<{
     }
   });
 
-  const hasEncryptedEndpoints = publishableKeys.some((key) => key.encryptSDK);
-
   return (
     <div className="mt-4">
       {open && canManageKeys && (
@@ -82,7 +80,7 @@ const SDKEndpoints: FC<{
             <tr>
               <th style={{ width: 150 }}>Environment</th>
               <th>Endpoint</th>
-              {hasEncryptedEndpoints && <th>Encrypted?</th>}
+              <th>Encrypted?</th>
               {canManageKeys && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
@@ -95,53 +93,53 @@ const SDKEndpoints: FC<{
 
               return (
                 <tr key={key.key}>
-                  <td className="d-flex flex-column">
-                    <Tooltip
-                      body={
-                        envExists
-                          ? ""
-                          : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
-                      }
-                    >
-                      <strong className="mr-1">{env}</strong>
-                      {!envExists && (
-                        <FaExclamationTriangle className="text-danger" />
-                      )}
-                    </Tooltip>
-                    <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
-                      {key.description}
-                    </span>
+                  <td>
+                    <div className="d-flex flex-column">
+                      <Tooltip
+                        body={
+                          envExists
+                            ? ""
+                            : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                        }
+                      >
+                        <strong className="mr-1">{env}</strong>
+                        {!envExists && (
+                          <FaExclamationTriangle className="text-danger" />
+                        )}
+                      </Tooltip>
+                      <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
+                        {key.description}
+                      </span>
+                    </div>
                   </td>
                   <td>
                     <ClickToCopy valueToCopy={endpoint}>
                       <span style={{ wordBreak: "break-all" }}>{endpoint}</span>
                     </ClickToCopy>
                   </td>
-                  {hasEncryptedEndpoints && (
-                    <td style={{ width: 295 }}>
-                      {canManageKeys && key.encryptSDK ? (
-                        <ClickToReveal
-                          valueWhenHidden="secret_abcdefghijklmnop123"
-                          getValue={async () => {
-                            const res = await apiCall<{
-                              key: ApiKeyInterface;
-                            }>(`/keys/reveal`, {
-                              method: "POST",
-                              body: JSON.stringify({
-                                id: key.id,
-                              }),
-                            });
-                            if (!res.key?.encryptionKey) {
-                              throw new Error("Could not load encryption key");
-                            }
-                            return res.key.encryptionKey;
-                          }}
-                        />
-                      ) : (
-                        <div>No</div>
-                      )}
-                    </td>
-                  )}
+                  <td style={{ width: 295 }}>
+                    {canManageKeys && key.encryptSDK ? (
+                      <ClickToReveal
+                        valueWhenHidden="secret_abcdefghijklmnop123"
+                        getValue={async () => {
+                          const res = await apiCall<{
+                            key: ApiKeyInterface;
+                          }>(`/keys/reveal`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              id: key.id,
+                            }),
+                          });
+                          if (!res.key?.encryptionKey) {
+                            throw new Error("Could not load encryption key");
+                          }
+                          return res.key.encryptionKey;
+                        }}
+                      />
+                    ) : (
+                      <div>No</div>
+                    )}
+                  </td>
                   {canManageKeys && (
                     <td>
                       <MoreMenu id={key.key + "_actions"}>
