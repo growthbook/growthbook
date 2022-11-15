@@ -812,3 +812,16 @@ export async function experimentUpdated(
       : `/config/${key}`;
   });
 }
+
+export function applyMetricOverrides(
+  metric: MetricInterface,
+  experiment: ExperimentInterface
+): MetricInterface {
+  const metricOverride = experiment?.metricOverrides?.find(
+    (mo) => mo.id === metric.id
+  );
+  if (metricOverride) {
+    return { ...metric, ...metricOverride };
+  }
+  return metric;
+}

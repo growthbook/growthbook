@@ -31,6 +31,7 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
+import { applyMetricOverrides } from "../services/experiments";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -620,14 +621,15 @@ export default abstract class SqlIntegration
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const {
-      metric,
-      experiment,
-      phase,
-      activationMetrics,
-      denominatorMetrics,
-      segment,
-    } = params;
+    const { experiment, phase, segment } = params;
+    let { metric, activationMetrics, denominatorMetrics } = params;
+    metric = applyMetricOverrides(metric, experiment);
+    activationMetrics = activationMetrics.map((m) =>
+      applyMetricOverrides(m, experiment)
+    );
+    denominatorMetrics = denominatorMetrics.map((m) =>
+      applyMetricOverrides(m, experiment)
+    );
 
     let dimension = params.dimension;
     if (dimension?.type === "activation" && !activationMetrics.length) {

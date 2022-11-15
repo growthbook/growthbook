@@ -40,6 +40,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import Code from "../SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import { getDefaultConversionWindowHours } from "../../services/env";
+import { applyMetricOverrides } from "../../services/experiments";
 
 function getColWidth(v: number) {
   // 2 across
@@ -526,18 +527,11 @@ export default function SinglePage({
             <div className="appbox p-3">
               <RightRailSectionGroup title="Goals" type="custom">
                 {experiment.metrics.map((m) => {
-                  // const metricData = metricDevs?.[m]
                   const metric = getMetricById(m);
-                  let metricWithOverrides = metric;
-                  experiment?.metricOverrides.forEach((mo) => {
-                    if (
-                      metricWithOverrides &&
-                      mo.id === metricWithOverrides.id
-                    ) {
-                      metricWithOverrides = { ...metricWithOverrides, ...mo };
-                    }
-                  });
-                  console.log(m, { metric, metricWithOverrides });
+                  const metricWithOverrides = applyMetricOverrides(
+                    metric,
+                    experiment
+                  );
                   return (
                     <div key={m} className="ml-2">
                       <span className="mr-1">-</span>

@@ -4,17 +4,22 @@ import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import MetricsSelector from "./MetricsSelector";
+import CodeTextArea from "../Forms/CodeTextArea";
+import { jsonToMetricOverrides } from "../../services/metrics";
 
 const EditMetricsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
+  const metricOverridesJson =
+    JSON.stringify(experiment.metricOverrides || [], null, 2) || "";
   const form = useForm({
     defaultValues: {
       metrics: experiment.metrics || [],
       guardrails: experiment.guardrails || [],
       activationMetric: experiment.activationMetric || "",
+      metricOverridesJson: metricOverridesJson || "",
     },
   });
   const { apiCall } = useAuth();
@@ -26,9 +31,15 @@ const EditMetricsForm: FC<{
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {
+        const payload = {
+          metrics: value.metrics,
+          guardrails: value.guardrails,
+          activationMetric: value.activationMetric,
+          metricOverrides: jsonToMetricOverrides(value.metricOverridesJson),
+        };
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify(payload),
         });
         mutate();
       })}
@@ -46,6 +57,7 @@ const EditMetricsForm: FC<{
           autoFocus={true}
         />
       </div>
+
       <div className="form-group">
         <label className="font-weight-bold mb-1">Guardrail Metrics</label>
         <div className="mb-1 font-italic">
@@ -58,7 +70,19 @@ const EditMetricsForm: FC<{
           datasource={experiment.datasource}
         />
       </div>
-      <div style={{ height: 100 }} />
+
+      <div className="form-group">
+        <label className="font-weight-bold mb-1">
+          Metric Conversion Windows
+        </label>
+        <CodeTextArea
+          label="Targeting Conditions"
+          language="json"
+          value={form.watch("metricOverridesJson")}
+          setValue={(str) => form.setValue("metricOverridesJson", str)}
+        />
+      </div>
+      <div style={{ height: 50 }} />
     </Modal>
   );
 };
