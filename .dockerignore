@@ -17,7 +17,7 @@ docker-compose.yml
 **/dummy
 
 # Other packages
-packages/docs
+./docs
 packages/sdk-**
 
 # Secrets / private data

@@ -23,6 +23,7 @@ import { wrapController } from "./routers/wrapController";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import apiRouter from "./api/api.router";
+import { sayHello } from "enterprise";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -140,6 +141,12 @@ app.get("/", (req, res) => {
     config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
     build: getBuild(),
+  });
+});
+
+app.get("/enterprise", (req, res) => {
+  res.json({
+    message: sayHello("Jeremy"),
   });
 });
 

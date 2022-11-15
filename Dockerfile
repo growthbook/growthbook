@@ -16,6 +16,7 @@ COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
 COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
+COPY packages/enterprise/package.json ./packages/enterprise/package.json
 RUN yarn install --frozen-lockfile --ignore-optional
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
@@ -24,6 +25,7 @@ RUN \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
+  && rm -rf packages/enterprise/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && yarn install --frozen-lockfile --production=true --ignore-optional
 

@@ -9,6 +9,7 @@ on:
       - "packages/front-end/**"
       - "packages/back-end/**"
       - "packages/stats/**"
+      - "packages/enterprise/**"
       - "!**.md"
       - "yarn.lock"
       - "Dockerfile"

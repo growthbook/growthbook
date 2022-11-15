@@ -3,11 +3,14 @@ import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
   refreshMetric,
   DEFAULT_METRIC_ANALYSIS_DAYS,
+  getMetricAnalysis,
 } from "../services/experiments";
-import { getMetricById } from "../models/MetricModel";
+import { getMetricById, updateMetric } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { OrganizationSettings } from "../../types/organization";
 import { logger } from "../util/logger";
+import { getStatusEndpoint } from "../services/queries";
+import { MetricAnalysis, MetricInterface } from "../../types/metric";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -103,6 +106,40 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
     const days =
       orgSettings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS;
     await refreshMetric(metric, orgId, days);
+
+    await new Promise<void>((resolve, reject) => {
+      const check = async () => {
+        const res = await getStatusEndpoint(
+          metric,
+          orgId,
+          (queryData) => getMetricAnalysis(metric, queryData),
+          async (updates, result?: MetricAnalysis, error?: string) => {
+            const metricUpdates: Partial<MetricInterface> = {
+              ...updates,
+              analysisError: error,
+            };
+            if (result) {
+              metricUpdates.analysis = result;
+            }
+
+            await updateMetric(metric.id, metricUpdates, orgId);
+          },
+          metric.analysisError
+        );
+        if (res.queryStatus === "succeeded") {
+          resolve();
+          return;
+        }
+        if (res.queryStatus === "failed") {
+          reject("Queries failed to run");
+          return;
+        }
+        // Check every 10 seconds
+        setTimeout(check, 10000);
+      };
+      // Do the first check after a 2 second delay to quickly handle fast queries
+      setTimeout(check, 2000);
+    });
   } catch (e) {
     log.error("Error refreshing metric: " + e.message);
   }

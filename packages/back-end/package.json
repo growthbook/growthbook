@@ -9,14 +9,16 @@
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "build:clean": "rm -rf dist",
     "build:typescript": "tsc",
-    "dev": "yarn build:clean && concurrently \"yarn watch-compile\" \"yarn watch-dev | yarn pino-pretty\"",
+    "dev": "yarn build:clean && concurrently \"yarn watch:compile\" \"yarn watch:enterprise\" \"yarn watch:dev | yarn pino-pretty\"",
     "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
     "start": "node dist/server.js",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
-    "watch-compile": "swc src -w --out-dir dist",
-    "watch-dev": "sleep 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
+    "watch:compile": "swc src -w --out-dir dist",
+    "watch:enterprise": "tsc-watch --noClear -p ../enterprise --onSuccess \"yarn add-enterprise-hash\"",
+    "watch:dev": "sleep 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
+    "add-enterprise-hash": "hash-files -f '[\"../enterprise/dist/**\"]' > dist/_enterprise_dev_checksum.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js"
   },
   "dependencies": {
@@ -38,6 +40,7 @@
     "crypto-js": "^4.0.0",
     "date-fns": "^2.15.0",
     "dotenv": "^8.2.0",
+    "enterprise": "0.0.1",
     "errorhandler": "^1.5.1",
     "express": "^4.17.1",
     "express-async-handler": "^1.1.4",
@@ -104,11 +107,13 @@
     "typescript": "4.7.4"
   },
   "optionalDependencies": {
-    "pino-pretty": "^9.1.1",
-    "objects-to-csv": "^1.3.6",
-    "ts-node": "^10.9.1",
     "concurrently": "^7.4.0",
-    "nodemon": "^2.0.20"
+    "nodemon": "^2.0.20",
+    "objects-to-csv": "^1.3.6",
+    "pino-pretty": "^9.1.1",
+    "ts-node": "^10.9.1",
+    "tsc-watch": "^5.0.3",
+    "hash-files": "^1.1.1"
   },
   "license": "MIT"
 }
