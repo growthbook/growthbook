@@ -185,15 +185,15 @@ export function useDomain(
 export function applyMetricOverrides(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
-): {
-  metric: MetricInterface;
-  override: boolean;
-} {
+): boolean {
+  if (!metric) return false;
   const metricOverride = experiment?.metricOverrides?.find(
     (mo) => mo.id === metric.id
   );
   if (metricOverride) {
-    return { metric: { ...metric, ...metricOverride }, override: true };
+    metric.conversionWindowHours = metricOverride.conversionWindowHours;
+    metric.conversionDelayHours = metricOverride.conversionDelayHours;
+    return true;
   }
-  return { metric, override: false };
+  return false;
 }

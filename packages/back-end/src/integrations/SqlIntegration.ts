@@ -31,7 +31,6 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
-import { applyMetricOverrides } from "../services/experiments";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -157,6 +156,21 @@ export default abstract class SqlIntegration
   }
   useAliasInGroupBy(): boolean {
     return true;
+  }
+
+  applyMetricOverrides(
+    metric: MetricInterface,
+    experiment: ExperimentInterface
+  ) {
+    if (!metric) return;
+    const metricOverride = experiment?.metricOverrides?.find(
+      (mo) => mo.id === metric.id
+    );
+    if (metricOverride) {
+      metric.conversionDelayHours = metricOverride.conversionDelayHours;
+      metric.conversionWindowHours = metricOverride.conversionWindowHours;
+    }
+    return;
   }
 
   private getExposureQuery(
@@ -621,15 +635,18 @@ export default abstract class SqlIntegration
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    const { experiment, phase, segment } = params;
-    let { metric, activationMetrics, denominatorMetrics } = params;
-    metric = applyMetricOverrides(metric, experiment);
-    activationMetrics = activationMetrics.map((m) =>
-      applyMetricOverrides(m, experiment)
-    );
-    denominatorMetrics = denominatorMetrics.map((m) =>
-      applyMetricOverrides(m, experiment)
-    );
+    const {
+      metric,
+      activationMetrics,
+      denominatorMetrics,
+      experiment,
+      phase,
+      segment,
+    } = params;
+
+    this.applyMetricOverrides(metric, experiment);
+    activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
+    denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
 
     let dimension = params.dimension;
     if (dimension?.type === "activation" && !activationMetrics.length) {
@@ -690,7 +707,7 @@ export default abstract class SqlIntegration
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const isRatio = denominator?.type === "count";
 
-    return format(
+    const ret = format(
       `-- ${metric.name} (${metric.type})
     WITH
       ${idJoinSQL}
@@ -1017,6 +1034,8 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
+    console.log(ret);
+    return ret;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");

@@ -59,30 +59,30 @@ function drawMetricRow(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
 ) {
-  const { metric: newMetric, override } = applyMetricOverrides(
-    metric,
-    experiment
-  );
+  const override = applyMetricOverrides(metric, experiment);
   return (
     <div key={m} className="ml-2">
       <span className="mr-1">-</span>
       <Link href={`/metric/${m}`}>
-        <a className="mr-2 font-weight-bold">{newMetric?.name}</a>
+        <a className="mr-2 font-weight-bold">{metric?.name}</a>
       </Link>
-      {newMetric && (
+      {metric && (
         <RightRailSectionGroup
           type="commaList"
           title="Conversion Window"
           style={{ marginLeft: 20, fontSize: 12 }}
         >
           <span>
-            {newMetric.conversionDelayHours
-              ? newMetric.conversionDelayHours + " to "
+            {metric.conversionDelayHours
+              ? metric.conversionDelayHours + " to "
               : ""}
-            {(newMetric.conversionDelayHours || 0) +
-              (newMetric.conversionWindowHours ||
+            {(metric.conversionDelayHours || 0) +
+              (metric.conversionWindowHours ||
                 getDefaultConversionWindowHours())}{" "}
-            hours {override && <span style={{ fontSize: 10 }}>(override)</span>}
+            hours{" "}
+            {override && (
+              <span style={{ fontSize: 10 }}>(override)</span>
+            )}
           </span>
         </RightRailSectionGroup>
       )}
