@@ -8,8 +8,6 @@ import { useMemo } from "react";
 function operatorToText(operator: string, field: string): string {
   if (field === "current_date") {
     switch (operator) {
-      case "$eq":
-        return `is on`;
       case "$lt":
         return `is before`;
       case "$gt":
@@ -68,19 +66,10 @@ function needsValue(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  field: string,
   savedGroups?: SavedGroupInterface[]
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
-
-  if (field === "date") {
-    // console.log("value", value);
-    //TODO: Clean up this logic - it works for now
-    const split = value.split("'");
-    const date = split[1];
-    return date;
-  }
 
   // Get the groupName from the associated group.id to display a human readable name.
   if (operator === ("$inGroup" || "$notInGroup") && savedGroups) {
@@ -122,7 +111,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
           <span className="mr-1">{operatorToText(operator, field)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value, field, savedGroups)}
+              {getValue(operator, value, savedGroups)}
             </span>
           ) : (
             ""

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  AttributeData,
   condToJson,
   jsonToConds,
   useAttributeMap,
@@ -24,15 +23,13 @@ export default function ConditionInput(props: Props) {
 
   const attributesPassedIntoSDK = useGrowthBook().getAttributes();
 
-  const allowTargetingByDate = !!attributesPassedIntoSDK.current_date;
+  const allowTargetingByDate = !!attributesPassedIntoSDK.$CURRENT_DATE;
 
   const attributes = useAttributeMap();
 
-  const conditions: Map<string, AttributeData> = attributes;
-
-  // If the user passed 'current_date' into the SDK, add current_date to conditions
+  // If the user passed '$CURRENT_DATE' into the SDK, add current_date to conditions
   if (allowTargetingByDate) {
-    conditions.set("current_date", {
+    attributes.set("current_date", {
       array: false,
       attribute: "current_date",
       datatype: "date",
@@ -42,17 +39,17 @@ export default function ConditionInput(props: Props) {
   }
 
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, conditions) === null
+    () => jsonToConds(props.defaultValue, attributes) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(() =>
-    jsonToConds(props.defaultValue, conditions)
+    jsonToConds(props.defaultValue, attributes)
   );
 
   const attributeSchema = useAttributeSchema();
 
-  // If the user passed 'current_date' into the SDK, add current_date to conditionsSchema
+  // If the user passed '$CURRENT_DATE' into the SDK, add current_date to conditionsSchema
   const conditionSchema = attributeSchema.concat(
     allowTargetingByDate
       ? [
@@ -66,13 +63,13 @@ export default function ConditionInput(props: Props) {
 
   useEffect(() => {
     if (advanced) return;
-    setValue(condToJson(conds, conditions));
+    setValue(condToJson(conds, attributes));
   }, [advanced, conds]);
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value, conditions) !== null);
-  }, [value, conditions]);
+    setSimpleAllowed(jsonToConds(value, attributes) !== null);
+  }, [value, attributes]);
 
   const savedGroupOperators = [
     {
@@ -85,7 +82,7 @@ export default function ConditionInput(props: Props) {
     },
   ];
 
-  if (advanced || !conditions.size || !simpleAllowed) {
+  if (advanced || !attributes.size || !simpleAllowed) {
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -96,13 +93,13 @@ export default function ConditionInput(props: Props) {
           helpText={
             <div className="d-flex">
               <div>JSON format using MongoDB query syntax.</div>
-              {simpleAllowed && conditions.size && (
+              {simpleAllowed && attributes.size && (
                 <div className="ml-auto">
                   <a
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      const newConds = jsonToConds(value, conditions);
+                      const newConds = jsonToConds(value, attributes);
                       // TODO: show error
                       if (newConds === null) return;
                       setConds(newConds);
@@ -153,7 +150,7 @@ export default function ConditionInput(props: Props) {
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
-            const condition = conditions.get(field);
+            const condition = attributes.get(field);
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
@@ -198,7 +195,6 @@ export default function ConditionInput(props: Props) {
                 ? [
                     { label: "is before", value: "$lt" },
                     { label: "is after", value: "$gt" },
-                    { label: "is on", value: "eq" },
                   ]
                 : condition.array
                 ? [
@@ -281,7 +277,7 @@ export default function ConditionInput(props: Props) {
                         newConds[i] = { ...newConds[i] };
                         newConds[i]["field"] = value;
 
-                        const newCondition = conditions.get(value);
+                        const newCondition = attributes.get(value);
                         if (newCondition.datatype !== condition.datatype) {
                           if (newCondition.datatype === "boolean") {
                             newConds[i]["operator"] = "$true";

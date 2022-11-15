@@ -102,7 +102,6 @@ export class GrowthBook {
   }
 
   public setAttributes(attributes: Attributes) {
-    attributes.date = new Date().toISOString();
     this.context.attributes = attributes;
     this.render();
   }
