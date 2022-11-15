@@ -6,7 +6,7 @@ import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
 
 function operatorToText(operator: string, field: string): string {
-  if (field === "date") {
+  if (field === "current_date") {
     switch (operator) {
       case "$eq":
         return `is on`;

@@ -31,7 +31,7 @@ export interface Condition {
 
 export interface AttributeData {
   attribute: string;
-  datatype: "boolean" | "number" | "string" | "date";
+  datatype: "string" | "number" | "boolean" | "date";
   array: boolean;
   identifier: boolean;
   enum: string[];
@@ -573,7 +573,10 @@ export function jsonToConds(
   }
 }
 
-function parseValue(value: string, type?: "string" | "number" | "boolean") {
+function parseValue(
+  value: string,
+  type?: "string" | "number" | "boolean" | "date"
+) {
   if (type === "number") return parseFloat(value) || 0;
   if (type === "boolean") return value === "false" ? false : true;
   return value;

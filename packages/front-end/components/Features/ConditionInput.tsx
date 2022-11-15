@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
+  AttributeData,
   condToJson,
   jsonToConds,
   useAttributeMap,
@@ -11,6 +12,7 @@ import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import CodeTextArea from "../Forms/CodeTextArea";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 
 interface Props {
   defaultValue: string;
@@ -20,17 +22,24 @@ interface Props {
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
+  const attributesPassedIntoSDK = useGrowthBook().getAttributes();
+
+  const allowTargetingByDate = !!attributesPassedIntoSDK.current_date;
+
   const attributes = useAttributeMap();
 
-  //TODO: Fix this any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const conditions: any = attributes.set("date", {
-    array: false,
-    attribute: "date",
-    datatype: "date",
-    enum: [],
-    identifier: false,
-  });
+  const conditions: Map<string, AttributeData> = attributes;
+
+  // If the user passed 'current_date' into the SDK, add current_date to conditions
+  if (allowTargetingByDate) {
+    conditions.set("current_date", {
+      array: false,
+      attribute: "current_date",
+      datatype: "date",
+      enum: [],
+      identifier: false,
+    });
+  }
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, conditions) === null
@@ -43,12 +52,17 @@ export default function ConditionInput(props: Props) {
 
   const attributeSchema = useAttributeSchema();
 
-  const conditionSchema = attributeSchema.concat([
-    {
-      property: "date",
-      datatype: "date",
-    },
-  ]);
+  // If the user passed 'current_date' into the SDK, add current_date to conditionsSchema
+  const conditionSchema = attributeSchema.concat(
+    allowTargetingByDate
+      ? [
+          {
+            property: "current_date",
+            datatype: "date",
+          },
+        ]
+      : []
+  );
 
   useEffect(() => {
     if (advanced) return;
@@ -242,8 +256,7 @@ export default function ConditionInput(props: Props) {
 
             if (condition.datatype === "date") {
               const split = value.split("'");
-              console.log("split", split);
-              value = split[1];
+              value = split[0];
             }
 
             return (
@@ -269,7 +282,7 @@ export default function ConditionInput(props: Props) {
                         newConds[i]["field"] = value;
 
                         const newCondition = conditions.get(value);
-                        if (newCondition.datatype !== conditions.datatype) {
+                        if (newCondition.datatype !== condition.datatype) {
                           if (newCondition.datatype === "boolean") {
                             newConds[i]["operator"] = "$true";
                           } else {
