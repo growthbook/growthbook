@@ -59,7 +59,7 @@ function drawMetricRow(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
 ) {
-  const newMetric = structuredClone(metric);
+  const newMetric = structuredClone(metric) as MetricInterface;
   const override = applyMetricOverrides(newMetric, experiment);
   return (
     <div key={m} className="ml-2">

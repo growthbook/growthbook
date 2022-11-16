@@ -37,7 +37,9 @@ export default function MetricsOverridesSelector({
                 className="text-danger"
                 onClick={(e) => {
                   e.preventDefault();
-                  const newMetricOverrides = structuredClone(metricOverrides);
+                  const newMetricOverrides = structuredClone(
+                    metricOverrides
+                  ) as MetricOverride[];
                   newMetricOverrides.splice(i, 1);
                   onChange(newMetricOverrides);
                 }}
@@ -62,7 +64,7 @@ export default function MetricsOverridesSelector({
                         onChange={(e) => {
                           const newMetricOverrides = structuredClone(
                             metricOverrides
-                          );
+                          ) as MetricOverride[];
                           newMetricOverrides[i].conversionDelayHours = Math.max(
                             parseInt(e.target.value) || 0,
                             0
@@ -80,7 +82,7 @@ export default function MetricsOverridesSelector({
                         onChange={(e) => {
                           const newMetricOverrides = structuredClone(
                             metricOverrides
-                          );
+                          ) as MetricOverride[];
                           newMetricOverrides[
                             i
                           ].conversionWindowHours = Math.max(
@@ -123,7 +125,7 @@ export default function MetricsOverridesSelector({
               disabled={!selectedMetricId}
               onClick={(e) => {
                 e.preventDefault();
-                const newMetricOverrides = [
+                const newMetricOverrides: MetricOverride[] = [
                   ...structuredClone(metricOverrides),
                   {
                     id: selectedMetricId,

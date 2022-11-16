@@ -645,9 +645,13 @@ export default abstract class SqlIntegration
     } = params;
 
     // clone the metrics before we mutate them
-    const metric = structuredClone(metricDoc);
-    const activationMetrics = structuredClone(activationMetricsDocs);
-    const denominatorMetrics = structuredClone(denominatorMetricsDocs);
+    const metric = structuredClone(metricDoc) as MetricInterface;
+    const activationMetrics = structuredClone(
+      activationMetricsDocs
+    ) as MetricInterface[];
+    const denominatorMetrics = structuredClone(
+      denominatorMetricsDocs
+    ) as MetricInterface[];
 
     this.applyMetricOverrides(metric, experiment);
     activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
