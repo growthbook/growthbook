@@ -127,13 +127,13 @@ export default function ConditionInput(props: Props) {
             let localDateTime: string | null;
 
             if (field === "current_datetime" && value) {
-              const originalDate = new Date(value);
+              const utcDateTime = new Date(value);
 
-              originalDate.setHours(
-                originalDate.getHours() - new Date().getTimezoneOffset() / 60
+              utcDateTime.setHours(
+                utcDateTime.getHours() - new Date().getTimezoneOffset() / 60
               );
 
-              localDateTime = originalDate.toISOString().substring(0, 16);
+              localDateTime = utcDateTime.toISOString().substring(0, 16);
             }
 
             const savedGroupOptions = savedGroups

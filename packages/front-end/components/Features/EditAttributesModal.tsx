@@ -91,7 +91,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
             id="full-stats"
             label="Show Full Stats"
           />
-          Enable date-based feature rules
+          Enable date/time based feature rules
           <DocLink className="pl-1" docSection={"targeting_attributes"}>
             View Docs
           </DocLink>
