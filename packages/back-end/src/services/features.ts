@@ -1,4 +1,3 @@
-import Agenda from "agenda";
 import {
   FeatureDefinitionRule,
   FeatureDefinition,
@@ -251,9 +250,8 @@ export function getAffectedEnvs(
 
 export async function featureUpdated(
   feature: FeatureInterface,
-  agenda: Agenda,
   previousEnvironments: string[] = [],
-  previousProject: string = "",
+  previousProject: string = ""
 ) {
   const currentEnvironments = getEnabledEnvironments(feature);
 

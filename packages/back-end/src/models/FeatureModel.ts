@@ -11,7 +11,6 @@ import { featureUpdated, generateRuleId } from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
-import { getAgendaInstance } from '../services/queueing';
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -167,7 +166,7 @@ export async function toggleMultipleEnvironments(
       }
     );
 
-    featureUpdated(newFeature, getAgendaInstance(), previousEnvs);
+    featureUpdated(newFeature, previousEnvs);
   }
 
   return newFeature;
@@ -375,7 +374,7 @@ export async function publishDraft(
     ...changes,
   };
 
-  featureUpdated(newFeature, getAgendaInstance());
+  featureUpdated(newFeature);
   await saveRevision(newFeature);
   return newFeature;
 }

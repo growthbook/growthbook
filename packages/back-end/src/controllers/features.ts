@@ -47,7 +47,6 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
-import { getAgendaInstance } from '../services/queueing';
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -184,7 +183,7 @@ export async function postFeatures(
     details: auditDetailsCreate(feature),
   });
 
-  featureUpdated(feature, getAgendaInstance());
+  featureUpdated(feature);
   res.status(200).json({
     status: 200,
     feature,
@@ -565,7 +564,6 @@ export async function putFeature(
   if (requiresWebhook) {
     featureUpdated(
       newFeature,
-      getAgendaInstance(),
       getEnabledEnvironments(feature),
       feature.project || ""
     );
@@ -606,7 +604,7 @@ export async function deleteFeatureById(
       },
       details: auditDetailsDelete(feature),
     });
-    featureUpdated(feature, getAgendaInstance());
+    featureUpdated(feature);
   }
 
   res.status(200).json({
@@ -644,7 +642,7 @@ export async function postFeatureArchive(
       { archived: !feature.archived } // New state
     ),
   });
-  featureUpdated(feature, getAgendaInstance());
+  featureUpdated(feature);
 
   res.status(200).json({
     status: 200,
