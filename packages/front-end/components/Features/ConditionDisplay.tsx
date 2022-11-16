@@ -73,10 +73,11 @@ function getValue(
   if (operator === "$false") return "FALSE";
 
   if (field === "$CURRENT_DATE") {
-    const date = value.match(
-      /([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/g
-    );
-    return date[0];
+    return `${new Date(value).toLocaleDateString()} at ${new Date(
+      value
+    ).toLocaleTimeString()} ${new Date(value)
+      .toLocaleDateString(undefined, { day: "2-digit", timeZoneName: "short" })
+      .substring(4)}`;
   }
 
   // Get the groupName from the associated group.id to display a human readable name.

@@ -50,6 +50,7 @@ export default function ConditionInput(props: Props) {
   const attributeSchema = useAttributeSchema();
 
   // If the user passed '$CURRENT_DATE' into the SDK, add $CURRENT_DATE to conditionsSchema
+  //TODO: Fix this so instead of concatenation, just push in a single time
   const conditionSchema = attributeSchema.concat(
     allowTargetingByDate
       ? [
@@ -152,6 +153,18 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
+            let localDateTime: string | null;
+
+            if (field === "$CURRENT_DATE" && value) {
+              const originalDate = new Date(value);
+
+              originalDate.setHours(
+                originalDate.getHours() - new Date().getTimezoneOffset() / 60
+              );
+
+              localDateTime = originalDate.toISOString().substring(0, 16);
+            }
+
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
               .filter((g) => g.attributeKey === field)
@@ -164,15 +177,9 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
-              let updatedValue: string | null = null;
-
-              if (field === "$CURRENT_DATE") {
-                updatedValue = `new Date('${value}').toISOString()`;
-              }
-
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
-              newConds[i][name] = updatedValue || value;
+              newConds[i][name] = value;
               setConds(newConds);
             };
 
@@ -249,13 +256,6 @@ export default function ConditionInput(props: Props) {
                       : []),
                   ]
                 : [];
-
-            if (attribute.datatype === "date" && value) {
-              const date = value.match(
-                /([12]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/g
-              );
-              value = date[0];
-            }
 
             return (
               <li key={i} className={styles.listitem}>
@@ -371,14 +371,28 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                     />
                   ) : attribute.datatype === "date" ? (
-                    <Field
-                      type="date"
-                      value={value}
-                      onChange={onChange}
-                      name="value"
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
-                    />
+                    <div>
+                      <Field
+                        type="datetime-local"
+                        value={localDateTime || undefined}
+                        onChange={onChange}
+                        name="value"
+                        className={styles.matchingInput}
+                        containerClassName="col-sm-12 col-md mb-2"
+                      />
+                      <span
+                        className="pl-2 font-italic font-weight-light"
+                        style={{ fontSize: "12px" }}
+                      >
+                        Time displayed in{" "}
+                        {new Date()
+                          .toLocaleDateString(undefined, {
+                            day: "2-digit",
+                            timeZoneName: "short",
+                          })
+                          .substring(4)}
+                      </span>
+                    </div>
                   ) : (
                     ""
                   )}
