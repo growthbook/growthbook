@@ -29,15 +29,9 @@ const EditMetricsForm: FC<{
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {
-        const payload = {
-          metrics: value.metrics,
-          guardrails: value.guardrails,
-          activationMetric: value.activationMetric,
-          metricOverrides: value.metricOverrides,
-        };
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify(value),
         });
         mutate();
       })}
