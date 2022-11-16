@@ -79,10 +79,7 @@ function drawMetricRow(
             {(metric.conversionDelayHours || 0) +
               (metric.conversionWindowHours ||
                 getDefaultConversionWindowHours())}{" "}
-            hours{" "}
-            {override && (
-              <span style={{ fontSize: 10 }}>(override)</span>
-            )}
+            hours {override && <span style={{ fontSize: 10 }}>(override)</span>}
           </span>
         </RightRailSectionGroup>
       )}
@@ -148,18 +145,6 @@ export default function SinglePage({
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
   const activationMetric = getMetricById(experiment.activationMetric || "");
-
-  // let metricDefs = {}
-  // const { data: metricData } = useApi<{ metrics: MetricInterface[] }>(
-  //   `/metrics`
-  // );
-  // if (metricData?.metrics) {
-  //   console.log(experiment.metrics)
-  //   metricDefs = metricData.metrics
-  //     .filter(o => experiment.metrics.includes(o.id))
-  //     .reduce((a, v) => ({ ...a, [v.id]: v }), {})
-  // }
-  // console.log({metricDefs})
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = exposureQueries.find(
