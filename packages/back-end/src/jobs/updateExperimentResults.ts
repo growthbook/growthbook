@@ -162,6 +162,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
     if (!datasource) return;
     lastSnapshot = await getLatestSnapshot(
+      experiment.organization,
       experiment.id,
       experiment.phases.length - 1
     );

@@ -115,7 +115,7 @@ export async function getReports(
   }
 
   const experiments = experimentsIds.length
-    ? await getExperimentsByIds(experimentsIds)
+    ? await getExperimentsByIds(org.id, experimentsIds)
     : [];
 
   res.status(200).json({

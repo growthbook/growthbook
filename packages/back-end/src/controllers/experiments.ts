@@ -24,7 +24,7 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
-import { getOrgFromReq, userHasAccess } from "../services/organizations";
+import { getOrgFromReq } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   getStatusEndpoint,
@@ -152,21 +152,14 @@ export async function getExperiment(
   res: Response
 ) {
   const { id } = req.params;
+  const { org } = getOrgFromReq(req);
 
-  const experiment = await getExperimentById(id);
+  const experiment = await getExperimentById(org.id, id);
 
   if (!experiment) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (!(await userHasAccess(req, experiment.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this experiment",
     });
     return;
   }
@@ -194,14 +187,10 @@ async function _getSnapshot(
   dimension?: string,
   withResults: boolean = true
 ) {
-  const experiment = await getExperimentById(id);
+  const experiment = await getExperimentById(organization, id);
 
   if (!experiment) {
     throw new Error("Experiment not found");
-  }
-
-  if (experiment.organization !== organization) {
-    throw new Error("You do not have access to view this experiment");
   }
 
   if (!phase) {
@@ -210,6 +199,7 @@ async function _getSnapshot(
   }
 
   return await getLatestSnapshot(
+    organization,
     experiment.id,
     parseInt(phase),
     dimension,
@@ -546,20 +536,12 @@ export async function postExperiment(
   const { id } = req.params;
   const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
     });
     return;
   }
@@ -722,20 +704,12 @@ export async function postExperimentArchive(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
     });
     return;
   }
@@ -776,20 +750,12 @@ export async function postExperimentUnarchive(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
     });
     return;
   }
@@ -838,12 +804,9 @@ export async function postExperimentStatus(
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
   if (!exp) {
     throw new Error("Experiment not found");
-  }
-  if (exp.organization !== org.id) {
-    throw new Error("You do not have access to this experiment");
   }
   req.checkPermissions("createAnalyses", exp.project);
 
@@ -896,7 +859,7 @@ export async function postExperimentStop(
   const { id } = req.params;
   const { reason, results, analysis, winner, dateEnded } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -906,13 +869,6 @@ export async function postExperimentStop(
     return;
   }
 
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
   req.checkPermissions("createAnalyses", exp.project);
 
   const existing = exp.toJSON();
@@ -973,20 +929,12 @@ export async function deleteExperimentPhase(
   const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
     });
     return;
   }
@@ -1055,14 +1003,10 @@ export async function putExperimentPhase(
   const i = parseInt(req.params.phase);
   const phase = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     throw new Error("Experiment not found");
-  }
-
-  if (exp.organization !== org.id) {
-    throw new Error("You do not have access to this experiment");
   }
 
   req.checkPermissions("createAnalyses", exp.project);
@@ -1112,7 +1056,7 @@ export async function postExperimentPhase(
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
@@ -1122,13 +1066,6 @@ export async function postExperimentPhase(
     return;
   }
 
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
   req.checkPermissions("createAnalyses", exp.project);
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
@@ -1211,7 +1148,7 @@ export async function deleteExperiment(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -1221,19 +1158,12 @@ export async function deleteExperiment(
     return;
   }
 
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
   req.checkPermissions("createAnalyses", exp.project);
 
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentById(exp.id),
+    deleteExperimentById(org.id, exp.id),
     removeExperimentFromPresentations(exp.id),
   ]);
 
@@ -1264,8 +1194,9 @@ export async function previewManualSnapshot(
   res: Response
 ) {
   const { id, phase } = req.params;
+  const { org } = getOrgFromReq(req);
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
@@ -1309,16 +1240,16 @@ export async function getSnapshotStatus(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({ id });
+  const snapshot = await ExperimentSnapshotModel.findOne({
+    id,
+    organization: org.id,
+  });
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
       message: "Unknown snapshot id",
     });
   }
-
-  if (snapshot.organization !== org?.id)
-    throw new Error("You don't have access to that snapshot");
 
   const experiment = await ExperimentModel.findOne({
     id: snapshot.experiment,
@@ -1411,7 +1342,7 @@ export async function postSnapshot(
 
   const { id } = req.params;
   const { phase, dimension } = req.body;
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
@@ -1467,14 +1398,6 @@ export async function postSnapshot(
     }
   }
 
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
-
   try {
     const snapshot = await createSnapshot(
       exp,
@@ -1517,20 +1440,12 @@ export async function deleteScreenshot(
   const { id, variation } = req.params;
   const { url } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
     });
     return;
   }
@@ -1584,7 +1499,7 @@ export async function addScreenshot(
   const { id, variation } = req.params;
   const { url, description } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -1594,13 +1509,6 @@ export async function addScreenshot(
     return;
   }
 
-  if (exp.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
   req.checkPermissions("createAnalyses", exp.project);
 
   if (!exp.variations[variation]) {

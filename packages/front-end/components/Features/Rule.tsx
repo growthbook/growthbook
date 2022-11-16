@@ -15,6 +15,7 @@ import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
+import ExperimentRefSummary from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -247,6 +248,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <ExperimentSummary
                 feature={feature}
                 experiment={experiments[rule.trackingKey || feature.id]}
+                rule={rule}
+              />
+            )}
+            {rule.type === "experiment-ref" && (
+              <ExperimentRefSummary
+                feature={feature}
+                experiment={experiments[rule.id]}
                 rule={rule}
               />
             )}

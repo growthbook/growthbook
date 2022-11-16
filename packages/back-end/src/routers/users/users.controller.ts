@@ -133,14 +133,7 @@ export async function postWatchItem(
   if (type === "feature") {
     item = await getFeature(org.id, id);
   } else if (type === "experiment") {
-    item = await getExperimentById(id);
-    if (item && item.organization !== org.id) {
-      res.status(403).json({
-        status: 403,
-        message: "You do not have access to this experiment",
-      });
-      return;
-    }
+    item = await getExperimentById(org.id, id);
   }
   if (!item) {
     throw new Error(`Could not find ${item}`);

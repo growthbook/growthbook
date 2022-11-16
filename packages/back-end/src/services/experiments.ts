@@ -75,8 +75,9 @@ export function getExperimentsByOrganization(
 
   return ExperimentModel.find(query);
 }
-export async function getExperimentById(id: string) {
+export async function getExperimentById(organization: string, id: string) {
   const experiment = await ExperimentModel.findOne({
+    organization,
     id,
   });
   return experiment;
@@ -92,8 +93,9 @@ export function getExperimentByTrackingKey(
   });
 }
 
-export async function getExperimentsByIds(ids: string[]) {
+export async function getExperimentsByIds(organization: string, ids: string[]) {
   return ExperimentModel.find({
+    organization,
     id: { $in: ids },
   });
 }
@@ -181,8 +183,9 @@ export async function removeMetricFromExperiments(
   );
 }
 
-export function deleteExperimentById(id: string) {
+export function deleteExperimentById(organization: string, id: string) {
   return ExperimentModel.deleteOne({
+    organization,
     id,
   });
 }
@@ -198,12 +201,14 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
 }
 
 export async function getLatestSnapshot(
+  organization: string,
   experiment: string,
   phase: number,
   dimension?: string,
   withResults: boolean = true
 ) {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization,
     experiment,
     phase,
     dimension: dimension || null,
@@ -789,10 +794,8 @@ export async function processPastExperiments(
     exp.weights = exp.weights.map((w) => w / 100);
   });
 
-  // Filter out experiments with too few or too many variations
-  return Array.from(experimentMap.values()).filter(
-    (e) => e.numVariations > 1 && e.numVariations < 10
-  );
+  // Filter out experiments with too few variations
+  return Array.from(experimentMap.values()).filter((e) => e.numVariations > 1);
 }
 
 export async function experimentUpdated(
