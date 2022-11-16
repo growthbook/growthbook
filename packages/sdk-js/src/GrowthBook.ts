@@ -102,6 +102,9 @@ export class GrowthBook {
   }
 
   public setAttributes(attributes: Attributes) {
+    if (!attributes.current_date) {
+      attributes.current_date = new Date().toISOString();
+    }
     this.context.attributes = attributes;
     this.render();
   }
