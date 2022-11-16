@@ -68,22 +68,22 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         <div className="pb-2 d-flex align-items-center">
           <Toggle
             value={attributeSchema.fields.some(
-              (attribute) => attribute.property === "current_date"
+              (attribute) => attribute.property === "current_datetime"
             )}
             setValue={() => {
               if (
                 !attributeSchema.fields.some(
-                  (attribute) => attribute.property === "current_date"
+                  (attribute) => attribute.property === "current_datetime"
                 )
               ) {
                 attributeSchema.append({
-                  property: "current_date",
+                  property: "current_datetime",
                   datatype: "date",
                 });
               } else {
                 attributeSchema.remove(
                   attributeSchema.fields.findIndex(
-                    (attribute) => attribute.property === "current_date"
+                    (attribute) => attribute.property === "current_datetime"
                   )
                 );
               }

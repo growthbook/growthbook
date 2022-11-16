@@ -6,7 +6,7 @@ import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
 
 function operatorToText(operator: string, field: string): string {
-  if (field === "current_date") {
+  if (field === "current_datetime") {
     switch (operator) {
       case "$lt":
         return `is before`;
@@ -72,7 +72,7 @@ function getValue(
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
 
-  if (field === "current_date") {
+  if (field === "current_datetime") {
     return `${new Date(value).toLocaleDateString()} at ${new Date(
       value
     ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(value)

@@ -102,8 +102,8 @@ export class GrowthBook {
   }
 
   public setAttributes(attributes: Attributes) {
-    if (!attributes.current_date) {
-      attributes.current_date = new Date().toISOString();
+    if (!attributes.current_datetime) {
+      attributes.current_datetime = new Date().toISOString();
     }
     this.context.attributes = attributes;
     this.render();

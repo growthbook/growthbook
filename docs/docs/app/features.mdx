@@ -95,13 +95,13 @@ If you would like to build feature rules around date and time, you need to do tw
 
 ![Date/Time toggle UI](/images/date-time-toggle.png)
 
-2). B sure to pass in a `current_date` attribute when setting attributes. This date needs to be a string in the simplified extended ISO format (ISO 8601).
+2). B sure to pass in a `current_datetime` attribute when setting attributes. This date needs to be a string in the simplified extended ISO format (ISO 8601).
 
 ```ts
 growthbook.setAttributes({
   id: user.id,
   email: user.email,
-  current_date: new Date().toISOString(),
+  current_datetime: new Date().toISOString(),
 });
 ```
 

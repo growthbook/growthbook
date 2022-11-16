@@ -126,7 +126,7 @@ export default function ConditionInput(props: Props) {
 
             let localDateTime: string | null;
 
-            if (field === "current_date" && value) {
+            if (field === "current_datetime" && value) {
               const originalDate = new Date(value);
 
               originalDate.setHours(
