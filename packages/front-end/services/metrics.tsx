@@ -1,5 +1,4 @@
 import { MetricType } from "back-end/types/metric";
-import { MetricOverride } from "back-end/types/experiment";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -96,15 +95,4 @@ export function formatConversionRate(type: MetricType, value: number): string {
   }
 
   return percentFormatter.format(value);
-}
-
-export function jsonToMetricOverrides(
-  json: string
-): MetricOverride[] | null {
-  try {
-    const parsed = JSON.parse(json);
-    return parsed;
-  } catch (e) {
-    return null;
-  }
 }

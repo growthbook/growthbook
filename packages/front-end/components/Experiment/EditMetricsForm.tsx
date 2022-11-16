@@ -4,22 +4,19 @@ import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import MetricsSelector from "./MetricsSelector";
-import CodeTextArea from "../Forms/CodeTextArea";
-import { jsonToMetricOverrides } from "../../services/metrics";
+import MetricsOverridesSelector from "./MetricsOverridesSelector";
 
 const EditMetricsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const metricOverridesJson =
-    JSON.stringify(experiment.metricOverrides || [], null, 2) || "";
   const form = useForm({
     defaultValues: {
       metrics: experiment.metrics || [],
       guardrails: experiment.guardrails || [],
       activationMetric: experiment.activationMetric || "",
-      metricOverridesJson: metricOverridesJson || "",
+      metricOverrides: experiment.metricOverrides || [],
     },
   });
   const { apiCall } = useAuth();
@@ -27,7 +24,8 @@ const EditMetricsForm: FC<{
   return (
     <Modal
       autoFocusSelector=""
-      header={"Edit Metrics"}
+      header="Edit Metrics"
+      size="lg"
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {
@@ -35,7 +33,7 @@ const EditMetricsForm: FC<{
           metrics: value.metrics,
           guardrails: value.guardrails,
           activationMetric: value.activationMetric,
-          metricOverrides: jsonToMetricOverrides(value.metricOverridesJson),
+          metricOverrides: value.metricOverrides,
         };
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -71,18 +69,18 @@ const EditMetricsForm: FC<{
         />
       </div>
 
-      <div className="form-group">
+      <div className="form-group mb-4">
         <label className="font-weight-bold mb-1">
-          Metric Conversion Windows
+          Metric Overrides (optional)
         </label>
-        <CodeTextArea
-          label="Targeting Conditions"
-          language="json"
-          value={form.watch("metricOverridesJson")}
-          setValue={(str) => form.setValue("metricOverridesJson", str)}
+        <MetricsOverridesSelector
+          experiment={experiment}
+          metricOverrides={form.watch("metricOverrides")}
+          onChange={(metricOverrides) => {
+            form.setValue("metricOverrides", metricOverrides);
+          }}
         />
       </div>
-      <div style={{ height: 50 }} />
     </Modal>
   );
 };
