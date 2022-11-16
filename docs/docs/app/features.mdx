@@ -95,7 +95,7 @@ If you would like to build feature rules around date and time, you need to do tw
 
 ![Date/Time toggle UI](/images/date-time-toggle.png)
 
-2). B sure to pass in a `current_datetime` attribute when setting attributes. This date needs to be a string in the simplified extended ISO format (ISO 8601).
+2). If you're using an SDK other than the JS or React SDKs, you will need to pass in a `current_datetime` attribute when setting attributes. This date needs to be a string in the simplified extended ISO format (ISO 8601).
 
 ```ts
 growthbook.setAttributes({
