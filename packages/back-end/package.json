@@ -25,7 +25,7 @@
     "@growthbook/growthbook": "^0.20.0",
     "@sentry/node": "^7.14.2",
     "@slack/web-api": "^5.14.0",
-    "agenda": "^4.3.0",
+    "agenda": "^5.0.0",
     "asn1.js": "^5.4.1",
     "async": "^3.1.0",
     "aws-sdk": "^2.696.0",
