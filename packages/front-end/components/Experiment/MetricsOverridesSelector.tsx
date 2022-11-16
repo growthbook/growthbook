@@ -52,50 +52,44 @@ export default function MetricsOverridesSelector({
               <label>
                 <strong>{metricDefinition.name}</strong>
               </label>
-              <table className="table table-borderless mb-0" width="100%">
-                <tbody>
-                  <tr>
-                    <td className="pt-0">
-                      <Field
-                        label="Conversion Delay (hours)"
-                        type="number"
-                        containerClassName="mb-1"
-                        defaultValue={mo.conversionDelayHours}
-                        onChange={(e) => {
-                          const newMetricOverrides = structuredClone(
-                            metricOverrides
-                          ) as MetricOverride[];
-                          newMetricOverrides[i].conversionDelayHours = Math.max(
-                            parseInt(e.target.value) || 0,
-                            0
-                          );
-                          onChange(newMetricOverrides);
-                        }}
-                      />
-                    </td>
-                    <td className="pt-0">
-                      <Field
-                        label="Conversion Window (hours)"
-                        type="number"
-                        containerClassName="mb-1"
-                        defaultValue={mo.conversionWindowHours}
-                        onChange={(e) => {
-                          const newMetricOverrides = structuredClone(
-                            metricOverrides
-                          ) as MetricOverride[];
-                          newMetricOverrides[
-                            i
-                          ].conversionWindowHours = Math.max(
-                            parseInt(e.target.value) || 0,
-                            0
-                          );
-                          onChange(newMetricOverrides);
-                        }}
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="row mb-2">
+                <div className="col">
+                  <Field
+                    label="Conversion Delay (hours)"
+                    type="number"
+                    containerClassName="mb-1"
+                    value={mo.conversionDelayHours}
+                    onChange={(e) => {
+                      const newMetricOverrides = structuredClone(
+                        metricOverrides
+                      ) as MetricOverride[];
+                      newMetricOverrides[i].conversionDelayHours = Math.max(
+                        parseInt(e.target.value) || 0,
+                        0
+                      );
+                      onChange(newMetricOverrides);
+                    }}
+                  />
+                </div>
+                <div className="col">
+                  <Field
+                    label="Conversion Window (hours)"
+                    type="number"
+                    containerClassName="mb-1"
+                    value={mo.conversionWindowHours}
+                    onChange={(e) => {
+                      const newMetricOverrides = structuredClone(
+                        metricOverrides
+                      ) as MetricOverride[];
+                      newMetricOverrides[i].conversionWindowHours = Math.max(
+                        parseInt(e.target.value) || 0,
+                        0
+                      );
+                      onChange(newMetricOverrides);
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -125,12 +119,17 @@ export default function MetricsOverridesSelector({
               disabled={!selectedMetricId}
               onClick={(e) => {
                 e.preventDefault();
+                const metricDefinition = metricDefinitions.find(
+                  (md) => md.id === selectedMetricId
+                );
                 const newMetricOverrides: MetricOverride[] = [
                   ...structuredClone(metricOverrides),
                   {
                     id: selectedMetricId,
-                    conversionDelayHours: 0,
-                    conversionWindowHours: 0,
+                    conversionDelayHours:
+                      metricDefinition?.conversionDelayHours || 0,
+                    conversionWindowHours:
+                      metricDefinition?.conversionWindowHours || 0,
                   },
                 ];
                 setSelectedMetricId("");
