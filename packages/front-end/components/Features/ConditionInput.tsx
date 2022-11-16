@@ -126,7 +126,7 @@ export default function ConditionInput(props: Props) {
 
             let localDateTime: string | null;
 
-            if (field === "current_datetime" && value) {
+            if (attribute.datatype === "date" && value) {
               const utcDateTime = new Date(value);
 
               utcDateTime.setHours(
