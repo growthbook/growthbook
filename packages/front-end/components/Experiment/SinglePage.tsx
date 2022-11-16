@@ -62,15 +62,15 @@ function drawMetricRow(
   const newMetric = structuredClone(metric) as MetricInterface;
   const override = applyMetricOverrides(newMetric, experiment);
   return (
-    <div key={m} className="ml-2">
-      <span className="mr-1">-</span>
-      <Link href={`/metric/${m}`}>
-        <a className="mr-2 font-weight-bold">{newMetric?.name}</a>
-      </Link>
-      {newMetric && (
-        <div className="ml-4 small">
-          <label className="text-muted">Conversion Window:</label>{" "}
-          <span>
+    <div className="row align-items-center" key={m}>
+      <div className="col">
+        <Link href={`/metric/${m}`}>
+          <a className="font-weight-bold">{newMetric?.name}</a>
+        </Link>
+      </div>
+      <div className="col">
+        {newMetric && (
+          <div className="small">
             {newMetric.conversionDelayHours
               ? newMetric.conversionDelayHours + " to "
               : ""}
@@ -78,9 +78,9 @@ function drawMetricRow(
               (newMetric.conversionWindowHours ||
                 getDefaultConversionWindowHours())}{" "}
             hours {override && <span className="font-italic">(override)</span>}
-          </span>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -545,20 +545,28 @@ export default function SinglePage({
             canOpen={editMetrics && !experiment.archived}
           >
             <div className="appbox p-3">
-              <RightRailSectionGroup title="Goals" type="custom">
+              <div className="row mb-1 text-muted">
+                <div className="col">Goals</div>
+                <div className="col">Conversion Window</div>
+              </div>
+              <>
                 {experiment.metrics.map((m) => {
                   const metric = getMetricById(m);
                   return drawMetricRow(m, metric, experiment);
                 })}
-              </RightRailSectionGroup>
-              {experiment.guardrails?.length > 0 && (
-                <RightRailSectionGroup title="Guardrails" type="custom">
-                  {experiment.guardrails.map((m) => {
-                    const metric = getMetricById(m);
-                    return drawMetricRow(m, metric, experiment);
-                  })}
-                </RightRailSectionGroup>
-              )}
+                {experiment.guardrails?.length > 0 && (
+                  <>
+                    <div className="row mb-1 mt-3 text-muted">
+                      <div className="col">Guardrails</div>
+                      <div className="col">Conversion Window</div>
+                    </div>
+                    {experiment.guardrails.map((m) => {
+                      const metric = getMetricById(m);
+                      return drawMetricRow(m, metric, experiment);
+                    })}
+                  </>
+                )}
+              </>
             </div>
           </RightRailSection>
           <div className="mb-4"></div>

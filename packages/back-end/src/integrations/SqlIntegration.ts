@@ -31,6 +31,7 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
+import cloneDeep from "lodash/cloneDeep";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -645,13 +646,13 @@ export default abstract class SqlIntegration
     } = params;
 
     // clone the metrics before we mutate them
-    const metric = structuredClone(metricDoc) as MetricInterface;
-    const activationMetrics = structuredClone(
+    const metric = cloneDeep<MetricInterface>(metricDoc);
+    const activationMetrics = cloneDeep<MetricInterface[]>(
       activationMetricsDocs
-    ) as MetricInterface[];
-    const denominatorMetrics = structuredClone(
+    );
+    const denominatorMetrics = cloneDeep<MetricInterface[]>(
       denominatorMetricsDocs
-    ) as MetricInterface[];
+    );
 
     this.applyMetricOverrides(metric, experiment);
     activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
