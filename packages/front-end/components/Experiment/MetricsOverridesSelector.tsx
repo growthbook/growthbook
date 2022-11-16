@@ -37,7 +37,7 @@ export default function MetricsOverridesSelector({
                 className="text-danger"
                 onClick={(e) => {
                   e.preventDefault();
-                  const newMetricOverrides = [...metricOverrides];
+                  const newMetricOverrides = structuredClone(metricOverrides);
                   newMetricOverrides.splice(i, 1);
                   onChange(newMetricOverrides);
                 }}
@@ -60,7 +60,9 @@ export default function MetricsOverridesSelector({
                         containerClassName="mb-1"
                         defaultValue={mo.conversionDelayHours}
                         onChange={(e) => {
-                          const newMetricOverrides = [...metricOverrides];
+                          const newMetricOverrides = structuredClone(
+                            metricOverrides
+                          );
                           newMetricOverrides[i].conversionDelayHours = Math.max(
                             parseInt(e.target.value) || 0,
                             0
@@ -76,7 +78,9 @@ export default function MetricsOverridesSelector({
                         containerClassName="mb-1"
                         defaultValue={mo.conversionWindowHours}
                         onChange={(e) => {
-                          const newMetricOverrides = [...metricOverrides];
+                          const newMetricOverrides = structuredClone(
+                            metricOverrides
+                          );
                           newMetricOverrides[
                             i
                           ].conversionWindowHours = Math.max(
@@ -120,7 +124,7 @@ export default function MetricsOverridesSelector({
               onClick={(e) => {
                 e.preventDefault();
                 const newMetricOverrides = [
-                  ...metricOverrides,
+                  ...structuredClone(metricOverrides),
                   {
                     id: selectedMetricId,
                     conversionDelayHours: 0,

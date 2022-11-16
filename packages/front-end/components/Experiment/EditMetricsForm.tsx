@@ -67,6 +67,9 @@ const EditMetricsForm: FC<{
         <label className="font-weight-bold mb-1">
           Metric Overrides (optional)
         </label>
+        <div className="mb-1 font-italic">
+          Override metric conversion windows within this experiment.
+        </div>
         <MetricsOverridesSelector
           experiment={experiment}
           metricOverrides={form.watch("metricOverrides")}

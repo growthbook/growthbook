@@ -636,13 +636,18 @@ export default abstract class SqlIntegration
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
-      metric,
-      activationMetrics,
-      denominatorMetrics,
+      metric: metricDoc,
+      activationMetrics: activationMetricsDocs,
+      denominatorMetrics: denominatorMetricsDocs,
       experiment,
       phase,
       segment,
     } = params;
+
+    // clone the metrics before we mutate them
+    const metric = structuredClone(metricDoc);
+    const activationMetrics = structuredClone(activationMetricsDocs);
+    const denominatorMetrics = structuredClone(denominatorMetricsDocs);
 
     this.applyMetricOverrides(metric, experiment);
     activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));

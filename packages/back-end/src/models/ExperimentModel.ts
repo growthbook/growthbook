@@ -26,6 +26,7 @@ const experimentSchema = new mongoose.Schema({
   metrics: [String],
   metricOverrides: [
     {
+      _id: false,
       id: String,
       conversionWindowHours: Number,
       conversionDelayHours: Number,
