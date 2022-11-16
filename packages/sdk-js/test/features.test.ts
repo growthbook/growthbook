@@ -200,11 +200,14 @@ describe("features", () => {
 
     const growthbook = new GrowthBook(context);
 
-    growthbook.setAttributes({ foo: 2, baz: 3 });
+    const dateTime = new Date("2022-11-01").toISOString();
+
+    growthbook.setAttributes({ foo: 2, baz: 3, current_datetime: dateTime });
 
     expect(context.attributes).toEqual({
       foo: 2,
       baz: 3,
+      current_datetime: dateTime,
     });
   });
 
