@@ -11,7 +11,6 @@ import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import CodeTextArea from "../Forms/CodeTextArea";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 
 interface Props {
   defaultValue: string;
@@ -21,22 +20,7 @@ interface Props {
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
-  const attributesPassedIntoSDK = useGrowthBook().getAttributes();
-
-  const allowTargetingByDate = !!attributesPassedIntoSDK.$CURRENT_DATE;
-
   const attributes = useAttributeMap();
-
-  // If the user passed '$CURRENT_DATE' into the SDK, add $CURRENT_DATE to conditions
-  if (allowTargetingByDate) {
-    attributes.set("$CURRENT_DATE", {
-      array: false,
-      attribute: "$CURRENT_DATE",
-      datatype: "date",
-      enum: [],
-      identifier: false,
-    });
-  }
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -48,19 +32,6 @@ export default function ConditionInput(props: Props) {
   );
 
   const attributeSchema = useAttributeSchema();
-
-  // If the user passed '$CURRENT_DATE' into the SDK, add $CURRENT_DATE to conditionsSchema
-  //TODO: Fix this so instead of concatenation, just push in a single time
-  const conditionSchema = attributeSchema.concat(
-    allowTargetingByDate
-      ? [
-          {
-            property: "$CURRENT_DATE",
-            datatype: "date",
-          },
-        ]
-      : []
-  );
 
   useEffect(() => {
     if (advanced) return;
@@ -128,7 +99,7 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const prop = conditionSchema[0];
+              const prop = attributeSchema[0];
               setConds([
                 {
                   field: prop?.property || "",
@@ -155,7 +126,7 @@ export default function ConditionInput(props: Props) {
 
             let localDateTime: string | null;
 
-            if (field === "$CURRENT_DATE" && value) {
+            if (field === "current_date" && value) {
               const originalDate = new Date(value);
 
               originalDate.setHours(
@@ -268,11 +239,8 @@ export default function ConditionInput(props: Props) {
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
                       value={field}
-                      options={conditionSchema.map((s) => ({
-                        label:
-                          s.property === "$CURRENT_DATE"
-                            ? "current_date"
-                            : s.property,
+                      options={attributeSchema.map((s) => ({
+                        label: s.property,
                         value: s.property,
                       }))}
                       name="field"
@@ -421,7 +389,7 @@ export default function ConditionInput(props: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              const prop = conditionSchema[0];
+              const prop = attributeSchema[0];
               setConds([
                 ...conds,
                 {

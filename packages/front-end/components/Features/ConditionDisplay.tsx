@@ -6,7 +6,7 @@ import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
 
 function operatorToText(operator: string, field: string): string {
-  if (field === "$CURRENT_DATE") {
+  if (field === "current_date") {
     switch (operator) {
       case "$lt":
         return `is before`;
@@ -72,10 +72,10 @@ function getValue(
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
 
-  if (field === "$CURRENT_DATE") {
+  if (field === "current_date") {
     return `${new Date(value).toLocaleDateString()} at ${new Date(
       value
-    ).toLocaleTimeString()} ${new Date(value)
+    ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(value)
       .toLocaleDateString(undefined, { day: "2-digit", timeZoneName: "short" })
       .substring(4)}`;
   }
@@ -116,9 +116,7 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
       {conds.map(({ field, operator, value }, i) => (
         <div key={i} className="col-auto d-flex flex-wrap">
           {i > 0 && <span className="mr-1">AND</span>}
-          <span className="mr-1 border px-2 bg-light rounded">
-            {field === "$CURRENT_DATE" ? "current_date" : field}
-          </span>
+          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
           <span className="mr-1">{operatorToText(operator, field)}</span>
           {needsValue(operator) ? (
             <span className="mr-1 border px-2 bg-light rounded">

@@ -87,6 +87,30 @@ Each attribute has 3 parts:
   - Enum - When there are only a small list of pre-defined values it could take
 - Whether or not it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device.
 
+### Enable Date/Time Based Feature Rules
+
+If you would like to build feature rules around date and time, you need to do two things.
+
+1). Enable the date-time attribute toggle in the Growthbook App under **Settings** > **Attributes**.
+
+![Date/Time toggle UI](/images/date-time-toggle.png)
+
+2). B sure to pass in a `current_date` attribute when setting attributes. This date needs to be a string in the simplified extended ISO format (ISO 8601).
+
+```ts
+growthbook.setAttributes({
+  id: user.id,
+  email: user.email,
+  current_date: new Date().toISOString(),
+});
+```
+
+Now, you can create feature rules based on date and time.
+
+![Date/Time conditions UI](/images/date-time-condition.png)
+
+**Note**: The timezone will be set automatically by your browser.
+
 ## Override Rules
 
 Every feature has a default value that is served to all users. The real power comes when you define **override rules** that let you run experiments and/or change the value based on targeting attributes.

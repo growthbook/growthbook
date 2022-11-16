@@ -634,7 +634,13 @@ export function condToJson(
 }
 
 function getAttributeDataType(type: SDKAttributeType) {
-  if (type === "boolean" || type === "number" || type === "string") return type;
+  if (
+    type === "boolean" ||
+    type === "number" ||
+    type === "string" ||
+    type === "date"
+  )
+    return type;
 
   if (type === "enum" || type === "string[]") return "string";
 

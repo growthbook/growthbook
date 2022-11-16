@@ -35,6 +35,7 @@ const docSections = {
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
   encryptedSDKEndpoints: "/lib/js#hiding-features-from-users",
+  targeting_attributes: "/app/features#targeting-attributes",
 };
 
 export type DocSection = keyof typeof docSections;
