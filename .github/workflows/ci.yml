@@ -46,9 +46,10 @@ jobs:
 
       - name: Build, lint, type-check, and test 
         run: |
-          # Build SDK packages (required for linting/type checks to work)
+          # Build SDK and enterprise packages (required for linting/type checks to work)
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
+          yarn workspace enterprise build
 
           # Linting
           yarn lint
