@@ -717,7 +717,7 @@ export default abstract class SqlIntegration
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const isRatio = denominator?.type === "count";
 
-    const ret = format(
+    return format(
       `-- ${metric.name} (${metric.type})
     WITH
       ${idJoinSQL}
@@ -1044,8 +1044,6 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
-    console.log(ret);
-    return ret;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");

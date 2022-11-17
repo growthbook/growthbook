@@ -566,6 +566,19 @@ export default function SinglePage({
                     })}
                   </>
                 )}
+                {experiment.activationMetric && (
+                  <>
+                    <div className="row mb-1 mt-3 text-muted">
+                      <div className="col">Activation Metric</div>
+                      <div className="col">Conversion Window</div>
+                    </div>
+                    {drawMetricRow(
+                      experiment.activationMetric,
+                      getMetricById(experiment.activationMetric),
+                      experiment
+                    )}
+                  </>
+                )}
               </>
             </div>
           </RightRailSection>

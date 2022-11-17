@@ -28,7 +28,6 @@ export default function MetricsOverridesSelector({
   });
 
   const usedMetrics = new Set(form.watch("metricOverrides").map((m) => m.id));
-
   const unusedMetrics = metrics.filter((m) => !usedMetrics.has(m));
 
   return (

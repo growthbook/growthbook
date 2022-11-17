@@ -5,6 +5,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Modal from "../Modal";
 import MetricsSelector from "./MetricsSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
+import SelectField from "../Forms/SelectField";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -22,6 +24,11 @@ const EditMetricsForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
+  const { metrics: metricDefinitions, getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(experiment.datasource);
+  const filteredMetrics = metricDefinitions.filter(
+    (m) => m.datasource === datasource?.id
+  );
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       metrics: experiment.metrics || [],
@@ -71,6 +78,24 @@ const EditMetricsForm: FC<{
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
+        />
+      </div>
+
+      <div className="form-group">
+        <label className="font-weight-bold mb-1">Activation Metric</label>
+        <div className="mb-1 font-italic">
+          Users must convert on this metric before being included.
+        </div>
+        <SelectField
+          options={filteredMetrics.map((m) => {
+            return {
+              label: m.name,
+              value: m.id,
+            };
+          })}
+          initialOption="None"
+          value={form.watch("activationMetric")}
+          onChange={(metric) => form.setValue("activationMetric", metric)}
         />
       </div>
 
