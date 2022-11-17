@@ -9,6 +9,7 @@ describe("json <-> conds", () => {
     array: false,
     enum: [],
     identifier: false,
+    archived: false,
   });
   attributeMap.set("num", {
     attribute: "num",
@@ -16,6 +17,7 @@ describe("json <-> conds", () => {
     array: false,
     enum: [],
     identifier: false,
+    archived: false,
   });
   attributeMap.set("bool", {
     attribute: "bool",
@@ -23,6 +25,7 @@ describe("json <-> conds", () => {
     array: false,
     enum: [],
     identifier: false,
+    archived: false,
   });
   attributeMap.set("enum", {
     attribute: "enum",
@@ -30,6 +33,7 @@ describe("json <-> conds", () => {
     array: false,
     enum: ["foo", "bar"],
     identifier: false,
+    archived: false,
   });
   attributeMap.set("str_arr", {
     attribute: "str_arr",
@@ -37,6 +41,7 @@ describe("json <-> conds", () => {
     array: true,
     enum: [],
     identifier: false,
+    archived: false,
   });
   attributeMap.set("num_arr", {
     attribute: "num_arr",
@@ -44,6 +49,7 @@ describe("json <-> conds", () => {
     array: true,
     enum: [],
     identifier: false,
+    archived: false,
   });
 
   // Global operators
