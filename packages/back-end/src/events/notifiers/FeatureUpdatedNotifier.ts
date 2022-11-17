@@ -6,6 +6,7 @@ import { getApiFeatureObjForFeatureIdOrganizationId } from "../../services/featu
 import { FeatureUpdatedNotificationEvent } from "../base-events";
 import { NotificationEventHandler } from "../base-types";
 import { getEventEmitterInstance } from "../../services/event-emitter";
+import { randomUUID } from 'crypto';
 
 interface Notifier {
   enqueue(featureId: string, organizationId: string): Promise<void>;
@@ -49,6 +50,7 @@ export class FeatureUpdatedNotifier implements Notifier {
         );
 
         const payload: FeatureUpdatedNotificationEvent = {
+          event_id: `event-${randomUUID()}`,
           object: "feature",
           event: "feature.updated",
           data,

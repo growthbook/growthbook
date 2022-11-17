@@ -1,8 +1,8 @@
 import { FeatureUpdatedNotifier } from "../events/notifiers/FeatureUpdatedNotifier";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { getEventEmitterInstance } from "../services/event-emitter";
-import { webHooksHandleFeatureUpdatedNotifier } from "../events/webhooks/handlers/webHooksHandleFeatureUpdatedNotifier";
-import { slackHandleFeatureUpdatedNotifier } from "../events/slack/handlers/slackHandleFeatureUpdatedNotifier";
+import { webHooksHandleFeatureUpdatedNotification } from "../events/handlers/webhooks/webHooksHandleFeatureUpdatedNotification";
+import { slackHandleFeatureUpdatedNotification } from "../events/handlers/slack/slackHandleFeatureUpdatedNotification";
 
 let initialized = false;
 
@@ -19,8 +19,8 @@ export const initializeEventEmitters = () => {
     (event: FeatureUpdatedNotificationEvent) => {
       console.log("EventEmitter -> emitted:", FeatureUpdatedNotifier.JOB_NAME);
 
-      webHooksHandleFeatureUpdatedNotifier(event);
-      slackHandleFeatureUpdatedNotifier(event);
+      webHooksHandleFeatureUpdatedNotification(event);
+      slackHandleFeatureUpdatedNotification(event);
     }
   );
 

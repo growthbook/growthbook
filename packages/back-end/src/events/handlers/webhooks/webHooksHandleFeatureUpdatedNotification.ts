@@ -1,10 +1,10 @@
 import { FeatureUpdatedNotificationHandler } from "../../notifiers/FeatureUpdatedNotifier";
 import { ApiFeatureInterface } from "../../../../types/api";
 
-export const slackHandleFeatureUpdatedNotifier: FeatureUpdatedNotificationHandler = async (
+export const webHooksHandleFeatureUpdatedNotification: FeatureUpdatedNotificationHandler = async (
   payload
 ) => {
-  console.log("slackHandleFeatureUpdatedNotifier -> ", payload);
+  console.log("webHooksHandleFeatureUpdatedNotification -> ", payload);
 
   const feature: ApiFeatureInterface = payload.data;
 
