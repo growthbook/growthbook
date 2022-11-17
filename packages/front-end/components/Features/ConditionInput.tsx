@@ -129,8 +129,10 @@ export default function ConditionInput(props: Props) {
             if (attribute.datatype === "date" && value) {
               const utcDateTime = new Date(value);
 
+              // We need to adjust for timezone/daylight savings time before converting to ISO String
               utcDateTime.setHours(
-                utcDateTime.getHours() - new Date().getTimezoneOffset() / 60
+                utcDateTime.getHours() -
+                  new Date(value).getTimezoneOffset() / 60
               );
 
               localDateTime = utcDateTime.toISOString().substring(0, 16);
