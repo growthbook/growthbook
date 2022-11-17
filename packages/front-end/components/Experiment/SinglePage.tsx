@@ -42,6 +42,7 @@ import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import { applyMetricOverrides } from "../../services/experiments";
 import { MetricInterface } from "back-end/types/metric";
+import Tooltip from "../Tooltip/Tooltip";
 
 function getColWidth(v: number) {
   // 2 across
@@ -547,7 +548,25 @@ export default function SinglePage({
             <div className="appbox p-3">
               <div className="row mb-1 text-muted">
                 <div className="col">Goals</div>
-                <div className="col">Conversion Window</div>
+                <div className="col">
+                  Conversion Window{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          Only measure conversions within a specified number of
+                          hours after the user is put into an experiment.
+                        </p>
+                        <p className="mb-0">
+                          The conversion window is defined at the metric, but
+                          the window may be overridden per this experiment.
+                        </p>
+                      </>
+                    }
+                  >
+                    <FaQuestionCircle />
+                  </Tooltip>
+                </div>
               </div>
               <>
                 {experiment.metrics.map((m) => {
