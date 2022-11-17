@@ -98,12 +98,14 @@ export type SDKAttributeType =
   | "number[]"
   | "enum";
 
-export type SDKAttributeSchema = {
+export type SDKAttribute = {
   property: string;
   datatype: SDKAttributeType;
   hashAttribute?: boolean;
   enum?: string;
-}[];
+  archived?: boolean;
+};
+export type SDKAttributeSchema = SDKAttribute[];
 
 export type ExperimentUpdateSchedule = {
   type: "cron" | "never" | "stale";

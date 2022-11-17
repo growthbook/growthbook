@@ -35,6 +35,7 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+  archived: boolean;
 }
 
 export function validateFeatureValue(
@@ -204,9 +205,14 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema() {
-  const { attributeSchema } = useOrgSettings();
-  return attributeSchema || [];
+export function useAttributeSchema(showArchived = false) {
+  const attributeSchema = useOrgSettings().attributeSchema || [];
+  return useMemo(() => {
+    if (!showArchived) {
+      return attributeSchema.filter((s) => !s.archived);
+    }
+    return attributeSchema;
+  }, [attributeSchema, showArchived]);
 }
 
 export function validateFeatureRule(
@@ -639,7 +645,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(true);
 
   return useMemo(() => {
     if (!attributeSchema.length) {
@@ -657,6 +663,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
             ? schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
+        archived: !!schema.archived,
       });
     });
 
