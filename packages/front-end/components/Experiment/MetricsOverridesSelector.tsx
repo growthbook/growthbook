@@ -17,9 +17,11 @@ export default function MetricsOverridesSelector({
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
 
-  const metrics = form.watch("metrics").concat(form.watch("guardrails"));
+  const metrics = new Set(
+    form.watch("metrics").concat(form.watch("guardrails"))
+  );
   if (experiment.activationMetric) {
-    metrics.push(experiment.activationMetric);
+    metrics.add(experiment.activationMetric);
   }
 
   const metricOverrides = useFieldArray({
@@ -28,7 +30,7 @@ export default function MetricsOverridesSelector({
   });
 
   const usedMetrics = new Set(form.watch("metricOverrides").map((m) => m.id));
-  const unusedMetrics = metrics.filter((m) => !usedMetrics.has(m));
+  const unusedMetrics = [...metrics].filter((m) => !usedMetrics.has(m));
 
   return (
     <>
