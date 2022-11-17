@@ -91,12 +91,14 @@ export interface ExperimentRule extends BaseRule {
   values: ExperimentValue[];
 }
 
+export interface ExperimentRefValue {
+  value: string;
+}
+
 export interface ExperimentReferenceRule extends BaseRule {
   type: "experiment-ref";
   experimentId: string;
-  variations: {
-    value: string;
-  }[];
+  variations: ExperimentRefValue[];
 }
 
 export type FeatureRule =
