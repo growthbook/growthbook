@@ -1,6 +1,5 @@
 import { getEventEmitterInstance } from "../services/event-emitter";
 import { webHooksEventHandler } from "../events/handlers/webhooks/webHooksEventHandler";
-import { slackEventHandler } from "../events/handlers/slack/slackEventHandler";
 import {
   APP_NOTIFICATION_EVENT_EMITTER_NAME,
   NotificationEventName,
@@ -31,7 +30,8 @@ export const initializeEventEmitters = () => {
         "EventEmitter -> emitted:",
         APP_NOTIFICATION_EVENT_EMITTER_NAME
       );
-      slackEventHandler(event);
+
+      // slackEventHandler(event);
       webHooksEventHandler(event);
     }
   );
