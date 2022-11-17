@@ -556,6 +556,10 @@ pre {
 
 .gb-tooltip {
   border-radius: 5px;
+  white-space: normal;
+  font-size: 13px;
+  text-transform: initial;
+  font-weight: normal;
 
   .arrow {
     position: absolute;
@@ -1944,6 +1948,12 @@ html {
       }
     }
   }
+}
+
+tr.disabled,
+td.disabled {
+  background: var(--disabled-background);
+  font-style: italic;
 }
 
 @import "./components/react-select.scss";
