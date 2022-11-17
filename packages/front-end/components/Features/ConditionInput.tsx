@@ -124,34 +124,16 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
-            let dateValue: string | null;
             let localDateTime: string | null;
 
             if (attribute.datatype === "date") {
-              // We need to parse the string since it's saved as a string like {"current_datetime": {"$lt": "new Date('Fri, 18 Nov 2022 06:42:00 GMT')"}}
-              const array = value.split("'");
-              dateValue = array[1];
-
-              const utcDateTime = new Date(dateValue);
+              const utcDateTime = new Date(parseInt(value));
 
               // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
               utcDateTime.setHours(
                 utcDateTime.getHours() -
-                  new Date(dateValue).getTimezoneOffset() / 60
+                  new Date(parseInt(value)).getTimezoneOffset() / 60
               );
-
-              localDateTime = utcDateTime.toISOString().substring(0, 16);
-            }
-
-            if (attribute.datatype === "date" && dateValue) {
-              const utcDateTime = new Date(dateValue);
-
-              // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
-              utcDateTime.setHours(
-                utcDateTime.getHours() -
-                  new Date(dateValue).getTimezoneOffset() / 60
-              );
-
               localDateTime = utcDateTime.toISOString().substring(0, 16);
             }
 
@@ -165,17 +147,16 @@ export default function ConditionInput(props: Props) {
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
               const name = e.target.name;
-              const value: string | number = e.target.value;
-              let dateValue: string | null;
+              let value: string | number = e.target.value;
 
               // If this is an incoming date, we need to convert it back to UTC
               if (e.target.type === "datetime-local") {
-                dateValue = `new Date('${new Date(value).toUTCString()}')`; //TODO: Only do this if it's datetime
+                value = new Date(value).valueOf();
               }
 
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
-              newConds[i][name] = dateValue || value;
+              newConds[i][name] = value;
               setConds(newConds);
             };
 

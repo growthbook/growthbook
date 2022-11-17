@@ -73,11 +73,11 @@ function getValue(
   if (operator === "$false") return "FALSE";
 
   if (datatype === "date") {
-    const array = value.split("'");
-    const dateValue = array[1];
-    return `${new Date(dateValue).toLocaleDateString()} at ${new Date(
-      dateValue
-    ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(dateValue)
+    return `${new Date(parseInt(value)).toLocaleDateString()} at ${new Date(
+      parseInt(value)
+    ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
+      parseInt(value)
+    )
       .toLocaleDateString(undefined, { day: "2-digit", timeZoneName: "short" })
       .substring(4)}`;
   }
