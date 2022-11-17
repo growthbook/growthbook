@@ -1,31 +1,40 @@
 import { useState } from "react";
 import SelectField from "../Forms/SelectField";
-import {
-  ExperimentInterfaceStringDates,
-  MetricOverride,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
+import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { EditMetricsFormInterface } from "./EditMetricsForm";
+import { getDefaultConversionWindowHours } from "../../services/env";
 
 export default function MetricsOverridesSelector({
   experiment,
-  metricOverrides,
-  onChange,
+  form,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  metricOverrides: MetricOverride[];
-  onChange: (metricOverrides: MetricOverride[]) => void;
+  form: UseFormReturn<EditMetricsFormInterface>;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
-  const metrics = experiment.metrics;
-  const unusedMetrics = metrics.filter(
-    (m) => metricOverrides.findIndex((mo) => m === mo.id) < 0
-  );
+
+  const metrics = form.watch("metrics").concat(form.watch("guardrails"));
+  if (experiment.activationMetric) {
+    metrics.push(experiment.activationMetric);
+  }
+
+  const metricOverrides = useFieldArray({
+    control: form.control,
+    name: "metricOverrides",
+  });
+
+  const usedMetrics = new Set(form.watch("metricOverrides").map((m) => m.id));
+
+  const unusedMetrics = metrics.filter((m) => !usedMetrics.has(m));
 
   return (
     <>
-      {metricOverrides.map((mo, i) => {
+      {metricOverrides.fields.map((v, i) => {
+        const mo = form.watch(`metricOverrides.${i}`);
         const metricDefinition = metricDefinitions.find(
           (md) => md.id === mo.id
         );
@@ -37,11 +46,7 @@ export default function MetricsOverridesSelector({
                 className="text-danger"
                 onClick={(e) => {
                   e.preventDefault();
-                  const newMetricOverrides = structuredClone(
-                    metricOverrides
-                  ) as MetricOverride[];
-                  newMetricOverrides.splice(i, 1);
-                  onChange(newMetricOverrides);
+                  metricOverrides.remove(i);
                 }}
               >
                 remove
@@ -58,17 +63,11 @@ export default function MetricsOverridesSelector({
                     label="Conversion Delay (hours)"
                     type="number"
                     containerClassName="mb-1"
-                    value={mo.conversionDelayHours}
-                    onChange={(e) => {
-                      const newMetricOverrides = structuredClone(
-                        metricOverrides
-                      ) as MetricOverride[];
-                      newMetricOverrides[i].conversionDelayHours = Math.max(
-                        parseInt(e.target.value) || 0,
-                        0
-                      );
-                      onChange(newMetricOverrides);
-                    }}
+                    step="any"
+                    {...form.register(
+                      `metricOverrides.${i}.conversionDelayHours`,
+                      { valueAsNumber: true }
+                    )}
                   />
                 </div>
                 <div className="col">
@@ -76,17 +75,12 @@ export default function MetricsOverridesSelector({
                     label="Conversion Window (hours)"
                     type="number"
                     containerClassName="mb-1"
-                    value={mo.conversionWindowHours}
-                    onChange={(e) => {
-                      const newMetricOverrides = structuredClone(
-                        metricOverrides
-                      ) as MetricOverride[];
-                      newMetricOverrides[i].conversionWindowHours = Math.max(
-                        parseInt(e.target.value) || 0,
-                        0
-                      );
-                      onChange(newMetricOverrides);
-                    }}
+                    min={0}
+                    step="any"
+                    {...form.register(
+                      `metricOverrides.${i}.conversionWindowHours`,
+                      { valueAsNumber: true }
+                    )}
                   />
                 </div>
               </div>
@@ -122,18 +116,15 @@ export default function MetricsOverridesSelector({
                 const metricDefinition = metricDefinitions.find(
                   (md) => md.id === selectedMetricId
                 );
-                const newMetricOverrides: MetricOverride[] = [
-                  ...structuredClone(metricOverrides),
-                  {
-                    id: selectedMetricId,
-                    conversionDelayHours:
-                      metricDefinition?.conversionDelayHours || 0,
-                    conversionWindowHours:
-                      metricDefinition?.conversionWindowHours || 0,
-                  },
-                ];
+                metricOverrides.append({
+                  id: selectedMetricId,
+                  conversionDelayHours:
+                    metricDefinition?.conversionDelayHours || 0,
+                  conversionWindowHours:
+                    metricDefinition?.conversionWindowHours ||
+                    getDefaultConversionWindowHours(),
+                });
                 setSelectedMetricId("");
-                onChange(newMetricOverrides);
               }}
             >
               Add Metric Override

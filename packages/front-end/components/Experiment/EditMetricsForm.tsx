@@ -6,12 +6,23 @@ import Modal from "../Modal";
 import MetricsSelector from "./MetricsSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 
+export interface EditMetricsFormInterface {
+  metrics: string[];
+  guardrails: string[];
+  activationMetric: string;
+  metricOverrides: {
+    id: string;
+    conversionWindowHours: number;
+    conversionDelayHours: number;
+  }[];
+}
+
 const EditMetricsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const form = useForm({
+  const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       metrics: experiment.metrics || [],
       guardrails: experiment.guardrails || [],
@@ -70,13 +81,7 @@ const EditMetricsForm: FC<{
         <div className="mb-1 font-italic">
           Override metric conversion windows within this experiment.
         </div>
-        <MetricsOverridesSelector
-          experiment={experiment}
-          metricOverrides={form.watch("metricOverrides")}
-          onChange={(metricOverrides) => {
-            form.setValue("metricOverrides", metricOverrides);
-          }}
-        />
+        <MetricsOverridesSelector experiment={experiment} form={form} />
       </div>
     </Modal>
   );
