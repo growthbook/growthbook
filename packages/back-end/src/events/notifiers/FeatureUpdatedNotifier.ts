@@ -4,9 +4,12 @@ import { getAgendaInstance } from "../../services/queueing";
 import { ApiFeatureInterface } from "../../../types/api";
 import { getApiFeatureObjForFeatureIdOrganizationId } from "../../services/features";
 import { FeatureUpdatedNotificationEvent } from "../base-events";
-import { NotificationEventHandler } from "../base-types";
+import {
+  APP_NOTIFICATION_EVENT_EMITTER_NAME,
+  NotificationEventHandler,
+} from "../base-types";
 import { getEventEmitterInstance } from "../../services/event-emitter";
-import { randomUUID } from 'crypto';
+import { randomUUID } from "crypto";
 
 interface Notifier {
   enqueue(featureId: string, organizationId: string): Promise<void>;
@@ -31,6 +34,8 @@ export type FeatureUpdatedNotificationHandler = NotificationEventHandler<
   void
 >;
 
+let jobIsDefined = false;
+
 export class FeatureUpdatedNotifier implements Notifier {
   public static JOB_NAME = "events.feature.updated";
 
@@ -38,6 +43,8 @@ export class FeatureUpdatedNotifier implements Notifier {
 
   constructor(private agenda: Agenda = getAgendaInstance()) {
     this.eventEmitter = getEventEmitterInstance();
+
+    if (jobIsDefined) return;
 
     this.agenda.define<EnqueuedData>(
       FeatureUpdatedNotifier.JOB_NAME,
@@ -53,12 +60,17 @@ export class FeatureUpdatedNotifier implements Notifier {
           event_id: `event-${randomUUID()}`,
           object: "feature",
           event: "feature.updated",
-          data,
+          data: {
+            ...data,
+            organizationId,
+          },
         };
 
-        this.eventEmitter.emit(FeatureUpdatedNotifier.JOB_NAME, payload);
+        this.eventEmitter.emit(APP_NOTIFICATION_EVENT_EMITTER_NAME, payload);
       }
     );
+
+    jobIsDefined = true;
   }
 
   async enqueue(featureId: string, organizationId: string): Promise<void> {
