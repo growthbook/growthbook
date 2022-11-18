@@ -55,6 +55,14 @@ const eventSchema = new mongoose.Schema({
 
 type EventDocument<T> = mongoose.Document & EventInterface<T>;
 
+/**
+ * Convert the Mongo document to an EventInterface, omitting Mongo default fields __v, _id
+ * @param doc
+ * @returns
+ */
+const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
+  _.omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
+
 const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
 
 export const createEvent = async <
@@ -72,5 +80,18 @@ export const createEvent = async <
     data,
   });
 
-  return _.omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<DataType>;
+  return toInterface(doc) as EventInterface<DataType>;
+};
+
+/**
+ * Get all events for an organization
+ * @param organizationId
+ * @returns
+ */
+export const getEventsForOrganization = async (
+  organizationId: string
+): Promise<EventInterface<unknown>[]> => {
+  const docs = await EventModel.find({ organizationId });
+
+  return docs.map(toInterface);
 };
