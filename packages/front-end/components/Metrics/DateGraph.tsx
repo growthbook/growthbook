@@ -484,10 +484,14 @@ const DateGraph: FC<{
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,
-                    textAnchor: "middle",
+                    textAnchor: "start",
+                    dx: -15,
                   })}
                   tickFormat={(d) => {
-                    return date(d as Date);
+                    return (d as Date).toLocaleDateString("en-us", {
+                      month: "short",
+                      day: "numeric",
+                    });
                   }}
                 />
                 <AxisLeft
@@ -497,6 +501,8 @@ const DateGraph: FC<{
                     fill: "var(--text-color-table)",
                     fontSize: 11,
                     textAnchor: "end",
+                    dx: -2,
+                    dy: 2,
                   })}
                   tickFormat={(v) =>
                     type === "binomial"
