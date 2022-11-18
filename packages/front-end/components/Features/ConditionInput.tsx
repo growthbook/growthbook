@@ -149,7 +149,7 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               let value: string | number = e.target.value;
 
-              // If this is an incoming date, we need to convert it back to UTC
+              // If this is an incoming date, we need to convert it back to epoch
               if (e.target.type === "datetime-local" && value) {
                 const updatedValue = new Date(value).valueOf();
                 if (updatedValue < 0) {
