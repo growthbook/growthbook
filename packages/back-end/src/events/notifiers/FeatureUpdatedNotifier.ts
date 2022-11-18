@@ -10,7 +10,6 @@ import {
 } from "../base-types";
 import { getEventEmitterInstance } from "../../services/event-emitter";
 import { randomUUID } from "crypto";
-import { createEvent } from "../../models/EventModel";
 
 interface Notifier {
   enqueue(featureId: string, organizationId: string): Promise<void>;
@@ -66,8 +65,6 @@ export class FeatureUpdatedNotifier implements Notifier {
             organizationId,
           },
         };
-
-        await createEvent(organizationId, payload);
 
         this.eventEmitter.emit(APP_NOTIFICATION_EVENT_EMITTER_NAME, payload);
       }

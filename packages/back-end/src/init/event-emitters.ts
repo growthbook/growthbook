@@ -6,6 +6,7 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "../events/base-types";
+import { eventLoggingHandler } from "../events/handlers/event-logging/eventLoggingHandler";
 
 let initialized = false;
 
@@ -31,6 +32,7 @@ export const initializeEventEmitters = () => {
         APP_NOTIFICATION_EVENT_EMITTER_NAME
       );
 
+      eventLoggingHandler(event);
       // slackEventHandler(event);
       webHooksEventHandler(event);
     }
