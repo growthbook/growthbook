@@ -3,15 +3,19 @@ export const APP_NOTIFICATION_EVENT_EMITTER_NAME = "notification_event";
 /**
  * Supported events for event notifications
  */
-export type NotificationEventName =
-  | "feature.created"
-  | "feature.updated"
-  | "feature.deleted";
+export const notificationEventNames = [
+  "feature.created",
+  "feature.updated",
+  "feature.deleted",
+] as const;
+
+export type NotificationEventName = typeof notificationEventNames[number];
 
 /**
  * Supported resources for event notifications
  */
-export type NotificationEventResource = "feature" | "experiment";
+export const notificationEventResources = ["feature", "experiment"] as const;
+export type NotificationEventResource = typeof notificationEventResources[number];
 
 /**
  * Event Notification payload
