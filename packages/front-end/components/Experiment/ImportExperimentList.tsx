@@ -193,9 +193,21 @@ const ImportExperimentList: FC<{
         )}
       </div>
       {status === "failed" && (
-        <div className="alert alert-danger my-3">
-          Error importing experiments. View Queries for more info
-        </div>
+        <>
+          <div className="alert alert-danger my-3">
+            <p>Error importing experiments.</p>
+            {datasource.id && (
+              <p>
+                Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
+                may be misconfigured.{" "}
+                <Link href={`/datasources/${datasource.id}`}>
+                  Edit the datasource
+                </Link>
+              </p>
+            )}
+            <span>View Queries (below) for more information.</span>
+          </div>
+        </>
       )}
       {pastExpArr.length === 0 && status !== "failed" && (
         <div>
