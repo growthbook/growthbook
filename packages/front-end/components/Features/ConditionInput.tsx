@@ -116,6 +116,8 @@ export default function ConditionInput(props: Props) {
     );
   }
 
+  let localDateTime = "";
+
   return (
     <div className="form-group">
       <label>Targeting Conditions</label>
@@ -124,15 +126,13 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
-            let localDateTime: string | null;
-
-            if (attribute.datatype === "date") {
-              const utcDateTime = new Date(parseInt(value));
+            if (attribute.datatype === "date" && value) {
+              const utcDateTime = new Date(parseInt(value) || value);
 
               // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
               utcDateTime.setHours(
                 utcDateTime.getHours() -
-                  new Date(parseInt(value)).getTimezoneOffset() / 60
+                  new Date(parseInt(value) || value).getTimezoneOffset() / 60
               );
               localDateTime = utcDateTime.toISOString().substring(0, 16);
             }
@@ -150,8 +150,13 @@ export default function ConditionInput(props: Props) {
               let value: string | number = e.target.value;
 
               // If this is an incoming date, we need to convert it back to UTC
-              if (e.target.type === "datetime-local") {
-                value = new Date(value).valueOf();
+              if (e.target.type === "datetime-local" && value) {
+                const updatedValue = new Date(value).valueOf();
+                if (updatedValue < 0) {
+                  localDateTime = value;
+                  return;
+                }
+                value = updatedValue;
               }
 
               const newConds = [...conds];
