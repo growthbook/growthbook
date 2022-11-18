@@ -354,6 +354,7 @@ export default function ConditionInput(props: Props) {
                       <Field
                         type="datetime-local"
                         value={localDateTime}
+                        onKeyDown={(e) => e.preventDefault()}
                         onChange={onChange}
                         name="value"
                         className={styles.matchingInput}
