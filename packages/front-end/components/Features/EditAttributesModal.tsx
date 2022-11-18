@@ -82,9 +82,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
             {attributeSchema.fields.map((v, i) => (
               <tr
                 className={
-                  form.watch(`attributeSchema.${i}.archived`)
-                    ? "disabled"
-                    : ""
+                  form.watch(`attributeSchema.${i}.archived`) ? "disabled" : ""
                 }
                 key={i}
               >
@@ -124,7 +122,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <Toggle
                     id={"toggle" + i}
                     label="Identifier"
-                    style={{marginTop: 5}}
+                    style={{ marginTop: 5 }}
                     value={!!form.watch(`attributeSchema.${i}.hashAttribute`)}
                     setValue={(value) => {
                       form.setValue(
@@ -137,7 +135,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                 <td>
                   <button
                     className="btn btn-link text-danger close"
-                    style={{marginTop: 5}}
+                    style={{ marginTop: 5 }}
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();

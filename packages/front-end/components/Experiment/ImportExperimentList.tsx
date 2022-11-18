@@ -200,7 +200,7 @@ const ImportExperimentList: FC<{
               <p>
                 Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
                 may be misconfigured.{" "}
-                <Link href={`/datasources/${datasource.id}`}>
+                <Link href={`/datasources/${datasource.id}?openAll=1`}>
                   Edit the datasource
                 </Link>
               </p>
