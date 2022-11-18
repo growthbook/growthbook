@@ -130,6 +130,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <select
                     {...form.register(`attributeSchema.${i}.datatype`)}
                     className="form-control"
+                    disabled={v.property === "current_datetime"}
                   >
                     <option value="boolean">Boolean</option>
                     <option value="number">Number</option>
@@ -137,7 +138,9 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                     <option value="enum">Enum</option>
                     <option value="number[]">Array of Numbers</option>
                     <option value="string[]">Array of Strings</option>
-                    <option value="date">Date</option>
+                    <option hidden value="date">
+                      Date
+                    </option>
                   </select>
                   {form.watch(`attributeSchema.${i}.datatype`) === "enum" && (
                     <div>

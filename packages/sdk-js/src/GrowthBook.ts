@@ -103,7 +103,6 @@ export class GrowthBook {
 
   public setAttributes(attributes: Attributes) {
     if (!attributes.current_datetime) {
-      // attributes.current_datetime = new Date().toUTCString();
       attributes.current_datetime = new Date().valueOf();
     }
     this.context.attributes = attributes;
@@ -315,8 +314,6 @@ export class GrowthBook {
       );
     }
 
-    console.log(this.context);
-
     // Unknown feature id
     if (!this.context.features || !this.context.features[id]) {
       process.env.NODE_ENV !== "production" &&
@@ -330,7 +327,6 @@ export class GrowthBook {
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // console.log("rule", rule);
         // If it's a conditional rule, skip if the condition doesn't pass
         if (rule.condition && !this.conditionPasses(rule.condition)) {
           process.env.NODE_ENV !== "production" &&
