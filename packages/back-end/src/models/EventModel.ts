@@ -9,6 +9,7 @@ import {
   notificationEventResources,
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
+import { errorStringFromZodResult } from "../util/validation";
 
 const eventSchema = new mongoose.Schema({
   id: {
@@ -39,10 +40,8 @@ const eventSchema = new mongoose.Schema({
         const result = zodSchema.safeParse(value);
 
         if (!result.success) {
-          const errors = result.error.issues.map((i) => {
-            return "[" + i.path.join(".") + "] " + i.message;
-          });
-          console.error("Invalid Event data ", errors.join(", "));
+          const errorString = errorStringFromZodResult(result);
+          console.error("Invalid Event data ", errorString);
         }
 
         return result.success;
@@ -65,6 +64,14 @@ const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
 
 const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
 
+/**
+ * Create an event under an organization.
+ *
+ * @param organizationId
+ * @param data
+ * @throws Error when validation fails
+ * @returns
+ */
 export const createEvent = async <
   EventName extends NotificationEventName,
   ResourceType extends NotificationEventResource,
