@@ -11,6 +11,7 @@ import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Code from "../../../SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 import usePermissions from "../../../../hooks/usePermissions";
+import { useRouter } from "next/router";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -19,9 +20,19 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   onSave,
   onCancel,
 }) => {
+  const router = useRouter();
+  let intitialOpenIndexes: boolean[] = [];
+  if (router.query.openAll === "1") {
+    intitialOpenIndexes = Array.from(
+      Array(dataSource.settings?.queries.exposure || 0)
+    ).map(() => true);
+  }
+
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
+    intitialOpenIndexes
+  );
 
   const permissions = usePermissions();
   const canEdit = permissions.editDatasourceSettings;
