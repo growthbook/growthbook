@@ -24,8 +24,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
     intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries.exposure || 0)
-    ).map(() => true);
+      Array(dataSource.settings?.queries?.exposure?.length || 0)
+    ).fill(true);
   }
 
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
