@@ -5,21 +5,12 @@ sidebar_label: Flutter
 slug: flutter
 ---
 
-# Flutter
-
-This SDK supports the following versions:
-
-- **Android version 21 & above**
-- **iOS version 12 & Above**
-- **Apple TvOS version 13 & Above**
-- **Apple WatchOS version 7 & Above**
-
 ## Installation
 
 Add this to your `pubspec.yaml` file
 
 ```
-growthbook_sdk_flutter: ^1.0.0
+growthbook_sdk_flutter: <latest_version>
 ```
 
 ## Quick Usage
@@ -28,16 +19,14 @@ To create a GrowthBook SDK instance, use `GBSDKBuilderApp`. Then, you can evalua
 
 ```dart
 // User attributes for targeting and assigning users to experiment variations
-val attrs = HashMap<String, Any>()
-attrs.put("id", "123")
-attrs.put("env", "dev")
-attrs.put("betaUser", true)
+final attrs = <String, dynamic>{};
+attr.putIfAbsent("id", () => 123);
+attr.putIfAbsent("env", () => "dev");
+attr.putIfAbsent("betaUser", () => true);
 
-final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
+final gb = GBSDKBuilderApp(
   apiKey: "<API_KEY>",
-  attributes: {
-    attrs
-  },
+  attributes: attr,
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
   hostURL: '<GrowthBook_URL>',
 ).initialize();
@@ -74,11 +63,11 @@ if (feature.off) { }
 
 // Print the actual value of the feature
 // (depending on the feature, might be a string, number, boolean, etc.)
-Println(feature.value)
+print(feature.value)
 
 // Print the experiment id used to assign the feature value
 if (feature.source == "experiment") {
-  Println(feature.experiment.key)
+  print(feature.experiment.key)
 }
 ```
 
@@ -87,14 +76,12 @@ if (feature.source == "experiment") {
 Instead of just using features defined in the GrowthBook API, you can also just run an experiment directly. This is done with the `run` method which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
 
 ```dart
-var exp = GBExperiment()
+final exp = GBExperiment()
 exp.key = "my-experiment"
-exp.variations = List.of("control", "variation")
-
-var result = gb.run(exp)
-
+exp.variations = <String>["control", "variation"]
+final result = gb.run(exp)
 // Either "control" or "variation"
-Println(result.value)
+print(result.value)
 ```
 
 The `GBExperiment` class has two required properties - `key` and `variations`. There are also a number of optional properties:
