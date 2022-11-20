@@ -28,7 +28,7 @@ final gb = await GBSDKBuilderApp(
   apiKey: "<API_KEY>",
   attributes: attr,
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
-  hostURL: '<GrowthBook_URL>',
+  hostURL: '<GrowthBook_URL>',  // The hostURL should be end with `/` ex. `https://cdn.growthbook.io/`. 
 ).initialize();
 
 if (gb.feature("my-feature").on) {
