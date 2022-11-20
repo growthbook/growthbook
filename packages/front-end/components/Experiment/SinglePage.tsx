@@ -63,7 +63,8 @@ function drawMetricRow(
   const newMetric = structuredClone(metric) as MetricInterface;
   const override = applyMetricOverrides(newMetric, experiment);
   return (
-    <div className="row align-items-center" key={m}>
+    <div className="row align-items-top" key={m}>
+      <div className="col-auto pr-0">-</div>
       <div className="col">
         <Link href={`/metric/${m}`}>
           <a className="font-weight-bold">{newMetric?.name}</a>
@@ -72,9 +73,7 @@ function drawMetricRow(
       <div className="col">
         {newMetric && (
           <div className="small">
-            {newMetric.conversionDelayHours
-              ? newMetric.conversionDelayHours + " to "
-              : ""}
+            {newMetric.conversionDelayHours || 0} to{" "}
             {(newMetric.conversionDelayHours || 0) +
               (newMetric.conversionWindowHours ||
                 getDefaultConversionWindowHours())}{" "}
@@ -551,18 +550,8 @@ export default function SinglePage({
                 <div className="col">
                   Conversion Window{" "}
                   <Tooltip
-                    body={
-                      <>
-                        <p>
-                          Only measure conversions within a specified number of
-                          hours after the user is put into an experiment.
-                        </p>
-                        <p className="mb-0">
-                          The conversion window is defined at the metric, but
-                          the window may be overridden per this experiment.
-                        </p>
-                      </>
-                    }
+                    body={`After a user sees the experiment, only include
+                          metric conversions within the specified time window.`}
                   >
                     <FaQuestionCircle />
                   </Tooltip>
