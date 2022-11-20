@@ -24,7 +24,7 @@ attr.putIfAbsent("id", () => 123);
 attr.putIfAbsent("env", () => "dev");
 attr.putIfAbsent("betaUser", () => true);
 
-final gb = GBSDKBuilderApp(
+final gb = await GBSDKBuilderApp(
   apiKey: "<API_KEY>",
   attributes: attr,
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
