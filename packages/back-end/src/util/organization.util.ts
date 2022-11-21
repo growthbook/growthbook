@@ -92,6 +92,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageNamespaces",
   "manageSavedGroups",
+  "viewEvents",
 ] as const;
 
 export const ALL_PERMISSIONS = [
