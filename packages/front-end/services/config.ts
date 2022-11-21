@@ -27,22 +27,33 @@ export function useConfigJson({
       dimensions?: Record<string, Partial<DimensionInterface>>;
     } = {};
 
+    const orgSettingsFields: (keyof OrganizationSettings)[] = [
+      "environments",
+      "attributeSchema",
+      "namespaces",
+      "metricAnalysisDays",
+      "northStar",
+      "updateSchedule",
+      "multipleExposureMinPercent",
+      "videoInstructionsViewed",
+      "sdkInstructionsViewed",
+      "defaultRole",
+      "metricDefaults",
+    ];
+
+    const orgSettings = {
+      pastExperimentsMinLength: settings.pastExperimentsMinLength ?? 6,
+      visualEditorEnabled: !!settings.visualEditorEnabled,
+    };
+
+    orgSettingsFields.forEach((field) => {
+      if (settings[field]) {
+        orgSettings[field] = settings[field];
+      }
+    });
+
     config.organization = {
-      settings: {
-        pastExperimentsMinLength: settings.pastExperimentsMinLength ?? 6,
-        visualEditorEnabled: !!settings.visualEditorEnabled,
-        environments: settings.environments,
-        attributeSchema: settings.attributeSchema,
-        namespaces: settings.namespaces,
-        metricAnalysisDays: settings.metricAnalysisDays,
-        northStar: settings.northStar,
-        updateSchedule: settings.updateSchedule,
-        multipleExposureMinPercent: settings.multipleExposureMinPercent,
-        videoInstructionsViewed: settings.videoInstructionsViewed,
-        sdkInstructionsViewed: settings.sdkInstructionsViewed,
-        defaultRole: settings.defaultRole,
-        metricDefaults: settings.metricDefaults,
-      },
+      settings: orgSettings,
     };
 
     const datasourceIds: string[] = [];
