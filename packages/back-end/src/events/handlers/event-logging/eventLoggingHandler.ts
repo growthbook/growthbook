@@ -19,8 +19,17 @@ export const eventLoggingHandler = async (
     Record<string, unknown> & WithOrganizationId
   >;
 
-  await createEvent(
-    resourceWithOrganization.data.organizationId,
-    resourceWithOrganization
-  );
+  try {
+    await createEvent(
+      resourceWithOrganization.data.organizationId,
+      resourceWithOrganization
+    );
+  } catch (e) {
+    console.error(
+      "eventLoggingHandler -> Failed to log event. Error: ",
+      e,
+      "Payload: ",
+      payload
+    );
+  }
 };
