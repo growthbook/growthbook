@@ -550,7 +550,7 @@ const MetricPage: FC = () => {
                         <div className="mb-4">
                           <div className="row mb-3">
                             <div className="col-auto">
-                              <h5>
+                              <h5 className="mb-1 mt-1">
                                 {metric.type === "binomial"
                                   ? "Conversions"
                                   : "Metric Value"}{" "}
