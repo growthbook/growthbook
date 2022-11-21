@@ -26,6 +26,7 @@ export default function ConditionInput(props: Props) {
     () => jsonToConds(props.defaultValue, attributes) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
+  const [displayedDateTime, setDisplayedDateTime] = useState("");
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(() =>
     jsonToConds(props.defaultValue, attributes)
@@ -116,7 +117,19 @@ export default function ConditionInput(props: Props) {
     );
   }
 
-  let localDateTime = "";
+  const getLocalDateTime = (rawDateTime: string) => {
+    if (!rawDateTime) {
+      return "";
+    }
+    const utcDateTime = new Date(parseInt(rawDateTime) || rawDateTime);
+
+    // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
+    utcDateTime.setHours(
+      utcDateTime.getHours() -
+        new Date(parseInt(rawDateTime) || rawDateTime).getTimezoneOffset() / 60
+    );
+    return utcDateTime.toISOString().substring(0, 16);
+  };
 
   return (
     <div className="form-group">
@@ -125,17 +138,6 @@ export default function ConditionInput(props: Props) {
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
-
-            if (attribute.datatype === "date" && value) {
-              const utcDateTime = new Date(parseInt(value) || value);
-
-              // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
-              utcDateTime.setHours(
-                utcDateTime.getHours() -
-                  new Date(parseInt(value) || value).getTimezoneOffset() / 60
-              );
-              localDateTime = utcDateTime.toISOString().substring(0, 16);
-            }
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
@@ -149,13 +151,10 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               let value: string | number = e.target.value;
 
-              // If this is an incoming date, we need to convert it back to epoch
+              // If this is an incoming date, we need to update displayedDateTime and then convert to epoch before updating conds
               if (e.target.type === "datetime-local" && value) {
+                setDisplayedDateTime(value);
                 const updatedValue = new Date(value).valueOf();
-                if (updatedValue < 0) {
-                  localDateTime = value;
-                  return;
-                }
                 value = updatedValue;
               }
 
@@ -353,8 +352,7 @@ export default function ConditionInput(props: Props) {
                     <div>
                       <Field
                         type="datetime-local"
-                        value={localDateTime}
-                        onKeyDown={(e) => e.preventDefault()}
+                        value={displayedDateTime || getLocalDateTime(value)}
                         onChange={onChange}
                         name="value"
                         className={styles.matchingInput}
@@ -365,7 +363,7 @@ export default function ConditionInput(props: Props) {
                         style={{ fontSize: "12px" }}
                       >
                         Time displayed in{" "}
-                        {new Date(localDateTime)
+                        {new Date(displayedDateTime || getLocalDateTime(value))
                           .toLocaleDateString(undefined, {
                             day: "2-digit",
                             timeZoneName: "short",
