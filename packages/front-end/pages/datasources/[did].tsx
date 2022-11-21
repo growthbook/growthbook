@@ -58,17 +58,21 @@ const DataSourcePage: FC = () => {
         method: "PUT",
         body: JSON.stringify(updates),
       });
-      apiCall<{ id: string }>("/experiments/import", {
-        method: "POST",
-        body: JSON.stringify({
-          datasource: dataSource.id,
-          force: true,
-        }),
-      });
-
+      const queriesUpdated =
+        JSON.stringify(d.settings?.queries) !==
+        JSON.stringify(dataSource.settings?.queries);
+      if (queriesUpdated) {
+        apiCall<{ id: string }>("/experiments/import", {
+          method: "POST",
+          body: JSON.stringify({
+            datasource: dataSource.id,
+            force: true,
+          }),
+        });
+      }
       await mutateDefinitions({});
     },
-    [mutateDefinitions, apiCall]
+    [mutateDefinitions, apiCall, d]
   );
 
   if (error) {
