@@ -83,6 +83,7 @@ export function useConfigJson({
         "userIdType",
         "userIdTypes",
         "tags",
+        "denominator",
       ];
 
       if (m.sql) {
