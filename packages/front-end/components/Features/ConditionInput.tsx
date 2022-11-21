@@ -358,18 +358,20 @@ export default function ConditionInput(props: Props) {
                         className={styles.matchingInput}
                         containerClassName="col-sm-12 col-md mb-2"
                       />
-                      <span
-                        className="pl-2 font-italic font-weight-light"
-                        style={{ fontSize: "12px" }}
-                      >
-                        Time displayed in{" "}
-                        {new Date(displayedDateTime || getLocalDateTime(value))
-                          .toLocaleDateString(undefined, {
-                            day: "2-digit",
-                            timeZoneName: "short",
-                          })
-                          .substring(4)}
-                      </span>
+                      {getLocalDateTime(value) && (
+                        <span
+                          className="pl-2 font-italic font-weight-light"
+                          style={{ fontSize: "12px" }}
+                        >
+                          Time displayed in{" "}
+                          {new Date(getLocalDateTime(value))
+                            .toLocaleDateString(undefined, {
+                              day: "2-digit",
+                              timeZoneName: "short",
+                            })
+                            .substring(4)}
+                        </span>
+                      )}
                     </div>
                   ) : (
                     ""
