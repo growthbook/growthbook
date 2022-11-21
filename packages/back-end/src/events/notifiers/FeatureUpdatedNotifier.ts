@@ -9,7 +9,6 @@ import {
   NotificationEventHandler,
 } from "../base-types";
 import { getEventEmitterInstance } from "../../services/event-emitter";
-import { randomUUID } from "crypto";
 
 interface Notifier {
   enqueue(featureId: string, organizationId: string): Promise<void>;
@@ -34,20 +33,28 @@ export type FeatureUpdatedNotificationHandler = NotificationEventHandler<
   void
 >;
 
-let jobIsDefined = false;
-
 export class FeatureUpdatedNotifier implements Notifier {
-  public static JOB_NAME = "events.feature.updated";
+  private static JOB_NAME = "events.feature.updated";
+
+  // Agenda ID = JOB_NAME + eventId
+  private readonly agendaId: string;
 
   private eventEmitter: EventEmitter;
 
-  constructor(private agenda: Agenda = getAgendaInstance()) {
+  constructor(
+    private eventId: string,
+    private agenda: Agenda = getAgendaInstance()
+  ) {
+    if (!eventId.startsWith("event-")) {
+      throw new Error("eventId must be a UUID starting with event-");
+    }
+
+    this.agendaId = `${FeatureUpdatedNotifier.JOB_NAME}-${eventId}`;
+
     this.eventEmitter = getEventEmitterInstance();
 
-    if (jobIsDefined) return;
-
     this.agenda.define<EnqueuedData>(
-      FeatureUpdatedNotifier.JOB_NAME,
+      this.agendaId,
       async (job: Job<EnqueuedData>) => {
         const { featureId, organizationId } = job.attrs.data;
 
@@ -57,7 +64,7 @@ export class FeatureUpdatedNotifier implements Notifier {
         );
 
         const payload: FeatureUpdatedNotificationEvent = {
-          event_id: `event-${randomUUID()}`,
+          event_id: eventId,
           object: "feature",
           event: "feature.updated",
           data: {
@@ -69,12 +76,10 @@ export class FeatureUpdatedNotifier implements Notifier {
         this.eventEmitter.emit(APP_NOTIFICATION_EVENT_EMITTER_NAME, payload);
       }
     );
-
-    jobIsDefined = true;
   }
 
   async enqueue(featureId: string, organizationId: string): Promise<void> {
-    this.agenda.now<EnqueuedData>(FeatureUpdatedNotifier.JOB_NAME, {
+    this.agenda.now<EnqueuedData>(this.agendaId, {
       featureId,
       organizationId,
     });
