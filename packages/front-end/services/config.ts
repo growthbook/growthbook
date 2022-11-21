@@ -31,6 +31,17 @@ export function useConfigJson({
       settings: {
         pastExperimentsMinLength: settings.pastExperimentsMinLength ?? 6,
         visualEditorEnabled: !!settings.visualEditorEnabled,
+        environments: settings.environments,
+        attributeSchema: settings.attributeSchema,
+        namespaces: settings.namespaces,
+        metricAnalysisDays: settings.metricAnalysisDays,
+        northStar: settings.northStar,
+        updateSchedule: settings.updateSchedule,
+        multipleExposureMinPercent: settings.multipleExposureMinPercent,
+        videoInstructionsViewed: settings.videoInstructionsViewed,
+        sdkInstructionsViewed: settings.sdkInstructionsViewed,
+        defaultRole: settings.defaultRole,
+        metricDefaults: settings.metricDefaults,
       },
     };
 
@@ -49,12 +60,31 @@ export function useConfigJson({
       if (d.type === "google_analytics") return;
 
       if (d.type === "mixpanel") {
+        if (d.settings?.schemaFormat) {
+          config.datasources[d.id].settings.schemaFormat =
+            d.settings?.schemaFormat;
+        }
+      } else {
         if (d.settings?.events?.experimentIdProperty) {
           config.datasources[d.id].settings.events = d.settings.events;
         }
-      } else {
-        if (d.settings?.queries?.experimentsQuery) {
+        if (
+          d.settings?.queries?.experimentsQuery ||
+          d.settings?.queries?.exposure ||
+          d.settings?.queries?.identityJoins
+        ) {
           config.datasources[d.id].settings.queries = d.settings.queries;
+        }
+        if (d.settings?.userIdTypes) {
+          config.datasources[d.id].settings.userIdTypes =
+            d.settings?.userIdTypes;
+        }
+        if (d.settings?.notebookRunQuery) {
+          config.datasources[d.id].settings.notebookRunQuery =
+            d.settings?.notebookRunQuery;
+        }
+        if (d.settings?.events?.experimentIdProperty) {
+          config.datasources[d.id].settings.events = d.settings.events;
         }
       }
     });
@@ -84,6 +114,8 @@ export function useConfigJson({
         "userIdTypes",
         "tags",
         "denominator",
+        "type",
+        "conditions",
       ];
 
       if (m.sql) {
