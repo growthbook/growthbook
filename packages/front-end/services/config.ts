@@ -11,6 +11,18 @@ type Props = {
   settings: OrganizationSettings;
 };
 
+type OrgSettingsFields = Omit<
+  OrganizationSettings,
+  | "confidenceLevel"
+  | "customized"
+  | "logoPath"
+  | "primaryColor"
+  | "secondaryColor"
+  | "datasources"
+  | "techsources"
+  | "implementationTypes"
+>;
+
 export function useConfigJson({
   metrics,
   dimensions,
@@ -20,7 +32,7 @@ export function useConfigJson({
   return useMemo(() => {
     const config: {
       organization?: {
-        settings?: OrganizationSettings;
+        settings?: OrgSettingsFields;
       };
       datasources?: Record<string, Partial<DataSourceInterfaceWithParams>>;
       metrics?: Record<string, Partial<MetricInterface>>;
@@ -39,12 +51,11 @@ export function useConfigJson({
       "sdkInstructionsViewed",
       "defaultRole",
       "metricDefaults",
+      "pastExperimentsMinLength",
+      "visualEditorEnabled",
     ];
 
-    const orgSettings = {
-      pastExperimentsMinLength: settings.pastExperimentsMinLength ?? 6,
-      visualEditorEnabled: !!settings.visualEditorEnabled,
-    };
+    const orgSettings: OrgSettingsFields = {};
 
     orgSettingsFields.forEach((field) => {
       if (settings[field]) {
@@ -71,9 +82,8 @@ export function useConfigJson({
       if (d.type === "google_analytics") return;
 
       if (d.type === "mixpanel") {
-        if (d.settings?.schemaFormat) {
-          config.datasources[d.id].settings.schemaFormat =
-            d.settings?.schemaFormat;
+        if (d.settings?.events?.experimentIdProperty) {
+          config.datasources[d.id].settings.events = d.settings.events;
         }
       } else {
         if (d.settings?.events?.experimentIdProperty) {
@@ -94,8 +104,9 @@ export function useConfigJson({
           config.datasources[d.id].settings.notebookRunQuery =
             d.settings?.notebookRunQuery;
         }
-        if (d.settings?.events?.experimentIdProperty) {
-          config.datasources[d.id].settings.events = d.settings.events;
+        if (d.settings?.schemaFormat) {
+          config.datasources[d.id].settings.schemaFormat =
+            d.settings?.schemaFormat;
         }
       }
     });
@@ -125,21 +136,16 @@ export function useConfigJson({
         "userIdTypes",
         "tags",
         "denominator",
-        "type",
         "conditions",
+        "sql",
+        "queryFormat",
+        "anonymousIdColumn",
+        "timestampColumn",
+        "userIdColumn",
+        "userIdColumns",
+        "table",
+        "column",
       ];
-
-      if (m.sql) {
-        fields.push("sql");
-      } else {
-        fields.push("anonymousIdColumn");
-        fields.push("timestampColumn");
-        fields.push("userIdColumn");
-        fields.push("userIdColumns");
-        fields.push("table");
-        fields.push("column");
-        fields.push("conditions");
-      }
 
       fields.forEach((f) => {
         const v = m[f];
