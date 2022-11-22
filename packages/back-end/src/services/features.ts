@@ -21,7 +21,6 @@ import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotifier } from "../events/notifiers/FeatureUpdatedNotifier";
 import { findOrganizationById } from "../models/OrganizationModel";
-import { randomUUID } from "crypto";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
@@ -266,9 +265,7 @@ export async function featureUpdated(
     true
   );
 
-  const featureUpdatedEventHandler = new FeatureUpdatedNotifier(
-    `event-${randomUUID()}`
-  );
+  const featureUpdatedEventHandler = new FeatureUpdatedNotifier();
   featureUpdatedEventHandler.enqueue(feature.id, feature.organization);
 }
 

@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import Agenda, { Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../services/queueing";
 import { ApiFeatureInterface } from "../../../types/api";
@@ -41,13 +42,8 @@ export class FeatureUpdatedNotifier implements Notifier {
 
   private eventEmitter: EventEmitter;
 
-  constructor(
-    private eventId: string,
-    private agenda: Agenda = getAgendaInstance()
-  ) {
-    if (!eventId.startsWith("event-")) {
-      throw new Error("eventId must be a UUID starting with event-");
-    }
+  constructor(private agenda: Agenda = getAgendaInstance()) {
+    const eventId = `event-${randomUUID()}`;
 
     this.agendaId = `${FeatureUpdatedNotifier.JOB_NAME}-${eventId}`;
 
