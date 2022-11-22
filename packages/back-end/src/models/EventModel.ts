@@ -93,14 +93,16 @@ export const createEvent = async <
 /**
  * Get all events for an organization
  * @param organizationId
+ * @param limit
  * @returns
  */
 export const getLatestEventsForOrganization = async (
-  organizationId: string
+  organizationId: string,
+  limit: number = 50
 ): Promise<EventInterface<unknown>[]> => {
   const docs = await EventModel.find({ organizationId })
     .sort([["dateCreated", -1]])
-    .limit(50);
+    .limit(limit);
 
   return docs.map(toInterface);
 };
