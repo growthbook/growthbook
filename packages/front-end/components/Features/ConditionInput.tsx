@@ -11,6 +11,7 @@ import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import CodeTextArea from "../Forms/CodeTextArea";
+import { DocLink } from "../DocLink";
 
 interface Props {
   defaultValue: string;
@@ -21,6 +22,16 @@ export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
   const attributes = useAttributeMap();
+
+  // Manually adding the current_datetime attribute
+  attributes.set("current_datetime", {
+    archived: false,
+    array: false,
+    attribute: "current_datetime",
+    datatype: "date",
+    enum: [],
+    identifier: false,
+  });
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -33,6 +44,18 @@ export default function ConditionInput(props: Props) {
   );
 
   const attributeSchema = useAttributeSchema();
+
+  const index = attributeSchema.findIndex(
+    (attribute) => attribute.property === "current_datetime"
+  );
+
+  // Manually add current_datetime if it's not in the attributeSchema
+  if (index === -1) {
+    attributeSchema.push({
+      property: "current_datetime",
+      datatype: "date",
+    });
+  }
 
   useEffect(() => {
     if (advanced) return;
@@ -391,6 +414,15 @@ export default function ConditionInput(props: Props) {
                     </button>
                   </div>
                 </div>
+                {field === "current_datetime" && (
+                  <div className="alert alert-warning mt-2 mb-2">
+                    Feature rules based on date/time are only available with
+                    certain SDKs.{" "}
+                    <DocLink docSection={"targeting_attributes"}>
+                      View Docs
+                    </DocLink>
+                  </div>
+                )}
               </li>
             );
           })}

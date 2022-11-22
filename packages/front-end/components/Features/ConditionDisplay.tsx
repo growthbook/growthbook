@@ -5,8 +5,8 @@ import InlineCode from "../SyntaxHighlighting/InlineCode";
 import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
 
-function operatorToText(operator: string, datatype: string): string {
-  if (datatype === "date") {
+function operatorToText(operator: string, field: string): string {
+  if (field === "current_datetime") {
     switch (operator) {
       case "$lt":
         return `is before`;
@@ -66,13 +66,13 @@ function needsValue(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  datatype: string,
+  field: string,
   savedGroups?: SavedGroupInterface[]
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
 
-  if (datatype === "date") {
+  if (field === "current_datetime") {
     return `${new Date(parseInt(value)).toLocaleDateString()} at ${new Date(
       parseInt(value)
     ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
@@ -116,15 +116,14 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
   return (
     <div className="row">
       {conds.map(({ field, operator, value }, i) => {
-        const { datatype } = attributes.get(field);
         return (
           <div key={i} className="col-auto d-flex flex-wrap">
             {i > 0 && <span className="mr-1">AND</span>}
             <span className="mr-1 border px-2 bg-light rounded">{field}</span>
-            <span className="mr-1">{operatorToText(operator, datatype)}</span>
+            <span className="mr-1">{operatorToText(operator, field)}</span>
             {needsValue(operator) ? (
               <span className="mr-1 border px-2 bg-light rounded">
-                {getValue(operator, value, datatype, savedGroups)}
+                {getValue(operator, value, field, savedGroups)}
               </span>
             ) : (
               ""

@@ -10,7 +10,6 @@ import { FaQuestionCircle, FaTrash } from "react-icons/fa";
 import track from "../../services/track";
 import { useAttributeSchema } from "../../services/features";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { DocLink } from "../DocLink";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
   const { refreshOrganization } = useUser();
@@ -65,37 +64,6 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         </p>
       )}
       <div className="form-inline">
-        <div className="pb-2 d-flex align-items-center">
-          <Toggle
-            value={attributeSchema.fields.some(
-              (attribute) => attribute.property === "current_datetime"
-            )}
-            setValue={() => {
-              if (
-                !attributeSchema.fields.some(
-                  (attribute) => attribute.property === "current_datetime"
-                )
-              ) {
-                attributeSchema.append({
-                  property: "current_datetime",
-                  datatype: "date",
-                });
-              } else {
-                attributeSchema.remove(
-                  attributeSchema.fields.findIndex(
-                    (attribute) => attribute.property === "current_datetime"
-                  )
-                );
-              }
-            }}
-            id="full-stats"
-            label="Show Full Stats"
-          />
-          Enable date/time based feature rules
-          <DocLink className="pl-1" docSection={"targeting_attributes"}>
-            View Docs
-          </DocLink>
-        </div>
         <table className="table table-sm">
           <thead>
             <tr>
@@ -130,7 +98,6 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <select
                     {...form.register(`attributeSchema.${i}.datatype`)}
                     className="form-control"
-                    disabled={v.property === "current_datetime"}
                   >
                     <option value="boolean">Boolean</option>
                     <option value="number">Number</option>
@@ -138,9 +105,6 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                     <option value="enum">Enum</option>
                     <option value="number[]">Array of Numbers</option>
                     <option value="string[]">Array of Strings</option>
-                    <option hidden value="date">
-                      Date
-                    </option>
                   </select>
                   {form.watch(`attributeSchema.${i}.datatype`) === "enum" && (
                     <div>
@@ -155,20 +119,18 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   )}
                 </td>
                 <td>
-                  {v.datatype !== "date" && (
-                    <Toggle
-                      id={"toggle" + i}
-                      label="Identifier"
-                      style={{ marginTop: 5 }}
-                      value={!!form.watch(`attributeSchema.${i}.hashAttribute`)}
-                      setValue={(value) => {
-                        form.setValue(
-                          `attributeSchema.${i}.hashAttribute`,
-                          value
-                        );
-                      }}
-                    />
-                  )}
+                  <Toggle
+                    id={"toggle" + i}
+                    label="Identifier"
+                    style={{ marginTop: 5 }}
+                    value={!!form.watch(`attributeSchema.${i}.hashAttribute`)}
+                    setValue={(value) => {
+                      form.setValue(
+                        `attributeSchema.${i}.hashAttribute`,
+                        value
+                      );
+                    }}
+                  />
                 </td>
                 <td>
                   <button
