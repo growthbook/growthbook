@@ -11,18 +11,6 @@ type Props = {
   settings: OrganizationSettings;
 };
 
-type OrgSettingsFields = Omit<
-  OrganizationSettings,
-  | "confidenceLevel"
-  | "customized"
-  | "logoPath"
-  | "primaryColor"
-  | "secondaryColor"
-  | "datasources"
-  | "techsources"
-  | "implementationTypes"
->;
-
 export function useConfigJson({
   metrics,
   dimensions,
@@ -32,83 +20,28 @@ export function useConfigJson({
   return useMemo(() => {
     const config: {
       organization?: {
-        settings?: OrgSettingsFields;
+        settings?: OrganizationSettings;
       };
       datasources?: Record<string, Partial<DataSourceInterfaceWithParams>>;
       metrics?: Record<string, Partial<MetricInterface>>;
       dimensions?: Record<string, Partial<DimensionInterface>>;
     } = {};
 
-    const orgSettingsFields: (keyof OrganizationSettings)[] = [
-      "environments",
-      "attributeSchema",
-      "namespaces",
-      "metricAnalysisDays",
-      "northStar",
-      "updateSchedule",
-      "multipleExposureMinPercent",
-      "videoInstructionsViewed",
-      "sdkInstructionsViewed",
-      "defaultRole",
-      "metricDefaults",
-      "pastExperimentsMinLength",
-      "visualEditorEnabled",
-    ];
-
-    const orgSettings: OrgSettingsFields = {};
-
-    orgSettingsFields.forEach((field) => {
-      if (settings[field]) {
-        orgSettings[field] = settings[field];
-      }
-    });
-
     config.organization = {
-      settings: orgSettings,
+      settings,
     };
 
     const datasourceIds: string[] = [];
-
     if (datasources.length) config.datasources = {};
+
     datasources.forEach((d) => {
       datasourceIds.push(d.id);
       config.datasources[d.id] = {
         type: d.type,
         name: d.name,
         params: d.params,
-        settings: {},
+        settings: d.settings,
       } as Partial<DataSourceInterfaceWithParams>;
-
-      if (d.type === "google_analytics") return;
-
-      if (d.type === "mixpanel") {
-        if (d.settings?.events?.experimentIdProperty) {
-          config.datasources[d.id].settings.events = d.settings.events;
-        }
-      } else {
-        if (d.settings?.events?.experimentIdProperty) {
-          config.datasources[d.id].settings.events = d.settings.events;
-        }
-        if (
-          d.settings?.queries?.experimentsQuery ||
-          d.settings?.queries?.exposure ||
-          d.settings?.queries?.identityJoins
-        ) {
-          config.datasources[d.id].settings.queries = d.settings.queries;
-        }
-        if (d.settings?.userIdTypes) {
-          config.datasources[d.id].settings.userIdTypes =
-            d.settings?.userIdTypes;
-        }
-        if (d.settings?.notebookRunQuery) {
-          config.datasources[d.id].settings.notebookRunQuery =
-            d.settings?.notebookRunQuery;
-        }
-        if (d.settings?.schemaFormat) {
-          config.datasources[d.id].settings.schemaFormat =
-            d.settings?.schemaFormat;
-        }
-      }
     });
 
     if (metrics.length) config.metrics = {};
