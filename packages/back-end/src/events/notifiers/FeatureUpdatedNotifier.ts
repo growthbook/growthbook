@@ -40,14 +40,13 @@ export class FeatureUpdatedNotifier implements Notifier {
   // Agenda ID = JOB_NAME + eventId
   private readonly agendaId: string;
 
-  private eventEmitter: EventEmitter;
-
-  constructor(private agenda: Agenda = getAgendaInstance()) {
+  constructor(
+    private agenda: Agenda = getAgendaInstance(),
+    private eventEmitter: EventEmitter = getEventEmitterInstance()
+  ) {
     const eventId = `event-${randomUUID()}`;
 
     this.agendaId = `${FeatureUpdatedNotifier.JOB_NAME}-${eventId}`;
-
-    this.eventEmitter = getEventEmitterInstance();
 
     this.agenda.define<EnqueuedData>(
       this.agendaId,
