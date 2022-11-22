@@ -28,35 +28,20 @@ export function useConfigJson({
     } = {};
 
     config.organization = {
-      settings: {
-        pastExperimentsMinLength: settings.pastExperimentsMinLength ?? 6,
-        visualEditorEnabled: !!settings.visualEditorEnabled,
-      },
+      settings,
     };
 
     const datasourceIds: string[] = [];
-
     if (datasources.length) config.datasources = {};
+
     datasources.forEach((d) => {
       datasourceIds.push(d.id);
       config.datasources[d.id] = {
         type: d.type,
         name: d.name,
         params: d.params,
-        settings: {},
+        settings: d.settings,
       } as Partial<DataSourceInterfaceWithParams>;
-
-      if (d.type === "google_analytics") return;
-
-      if (d.type === "mixpanel") {
-        if (d.settings?.events?.experimentIdProperty) {
-          config.datasources[d.id].settings.events = d.settings.events;
-        }
-      } else {
-        if (d.settings?.queries?.experimentsQuery) {
-          config.datasources[d.id].settings.queries = d.settings.queries;
-        }
-      }
     });
 
     if (metrics.length) config.metrics = {};
@@ -83,19 +68,17 @@ export function useConfigJson({
         "userIdType",
         "userIdTypes",
         "tags",
+        "denominator",
+        "conditions",
+        "sql",
+        "queryFormat",
+        "anonymousIdColumn",
+        "timestampColumn",
+        "userIdColumn",
+        "userIdColumns",
+        "table",
+        "column",
       ];
-
-      if (m.sql) {
-        fields.push("sql");
-      } else {
-        fields.push("anonymousIdColumn");
-        fields.push("timestampColumn");
-        fields.push("userIdColumn");
-        fields.push("userIdColumns");
-        fields.push("table");
-        fields.push("column");
-        fields.push("conditions");
-      }
 
       fields.forEach((f) => {
         const v = m[f];
