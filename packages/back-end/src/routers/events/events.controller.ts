@@ -19,7 +19,7 @@ export const getEvents = async (
 
   const { org } = getOrgFromReq(req);
 
-  const events = await Event.getEventsForOrganization(org.id);
+  const events = await Event.getLatestEventsForOrganization(org.id);
 
   return res.json({ events });
 };

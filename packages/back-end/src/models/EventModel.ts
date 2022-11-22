@@ -95,10 +95,12 @@ export const createEvent = async <
  * @param organizationId
  * @returns
  */
-export const getEventsForOrganization = async (
+export const getLatestEventsForOrganization = async (
   organizationId: string
 ): Promise<EventInterface<unknown>[]> => {
-  const docs = await EventModel.find({ organizationId });
+  const docs = await EventModel.find({ organizationId })
+    .sort([["dateCreated", -1]])
+    .limit(50);
 
   return docs.map(toInterface);
 };
