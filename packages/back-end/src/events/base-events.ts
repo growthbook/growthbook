@@ -10,17 +10,20 @@ export type WithOrganizationId = { organizationId: string };
 export type FeatureCreatedNotificationEvent = NotificationEventPayload<
   "feature.created",
   "feature",
-  ApiFeatureInterface & WithOrganizationId
+  ApiFeatureInterface
 >;
 
 export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
   "feature.updated",
   "feature",
-  ApiFeatureInterface & WithOrganizationId
+  {
+    current: ApiFeatureInterface;
+    previous: ApiFeatureInterface;
+  }
 >;
 
 export type FeatureDeletedNotificationEvent = NotificationEventPayload<
   "feature.deleted",
   "feature",
-  { featureId: string } & WithOrganizationId
+  { featureId: string }
 >;

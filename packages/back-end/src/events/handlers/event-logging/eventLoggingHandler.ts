@@ -3,7 +3,6 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "../../base-types";
-import { WithOrganizationId } from "../../base-events";
 import { createEvent } from "../../../models/EventModel";
 
 /**
@@ -16,12 +15,12 @@ export const eventLoggingHandler = async (
   const resourceWithOrganization = (payload as unknown) as NotificationEventPayload<
     NotificationEventName,
     NotificationEventResource,
-    Record<string, unknown> & WithOrganizationId
+    Record<string, unknown>
   >;
 
   try {
     await createEvent(
-      resourceWithOrganization.data.organizationId,
+      resourceWithOrganization.organization_id,
       resourceWithOrganization
     );
   } catch (e) {

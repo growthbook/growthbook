@@ -30,6 +30,7 @@ const eventSchema = new mongoose.Schema({
         // NotificationEventPayload<EventName, ResourceType, DataType>
         const zodSchema = z
           .object({
+            organization_id: z.string().optional(),
             event_id: z.string().startsWith("event-"),
             event: z.enum(notificationEventNames),
             object: z.enum(notificationEventResources),

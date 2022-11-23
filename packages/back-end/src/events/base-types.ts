@@ -26,6 +26,7 @@ export type NotificationEventPayload<
   DataType
 > = {
   event_id: string;
+  organization_id: string;
   event: EventName;
   object: ResourceType;
   data: DataType;

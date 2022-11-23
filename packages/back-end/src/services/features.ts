@@ -1,8 +1,8 @@
 import {
-  FeatureDefinitionRule,
-  FeatureDefinition,
-  ApiFeatureInterface,
   ApiFeatureEnvironmentInterface,
+  ApiFeatureInterface,
+  FeatureDefinition,
+  FeatureDefinitionRule,
 } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -19,7 +19,6 @@ import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
-import { FeatureUpdatedNotifier } from "../events/notifiers/FeatureUpdatedNotifier";
 import { findOrganizationById } from "../models/OrganizationModel";
 
 export type GroupMap = Map<string, string[] | number[]>;
@@ -264,9 +263,6 @@ export async function featureUpdated(
     [previousProject || "", feature.project || ""],
     true
   );
-
-  const featureUpdatedEventHandler = new FeatureUpdatedNotifier();
-  featureUpdatedEventHandler.enqueue(feature.id, feature.organization);
 }
 
 // eslint-disable-next-line
