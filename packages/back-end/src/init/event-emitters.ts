@@ -19,7 +19,6 @@ export const initializeEventEmitters = () => {
       eventId
     );
 
-    // eventLoggingHandler(event);
     // slackEventHandler(event);
     webHooksEventHandler(eventId);
   });
