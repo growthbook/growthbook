@@ -11,7 +11,7 @@ import {
   FeatureValueType,
 } from "../../types/feature";
 import { queueWebhook } from "../jobs/webhooks";
-import { getAllFeatures, getFeature } from "../models/FeatureModel";
+import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import { randomUUID, webcrypto as crypto } from "node:crypto";
@@ -19,7 +19,6 @@ import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
-import { findOrganizationById } from "../models/OrganizationModel";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { createEvent } from "../models/EventModel";
 import { getEventEmitterInstance } from "./event-emitter";
@@ -330,47 +329,6 @@ export async function encrypt(
     new TextEncoder().encode(plainText)
   );
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
-}
-
-/**
- * Given the featureId and organizationId, will perform lookups and transformations.
- * @param featureId
- * @param organizationId
- * @return ApiFeatureInterface
- * @throws Error when featureId or organizationId missing, or resources cannot be found for each
- */
-export async function getApiFeatureObjForFeatureIdOrganizationId(
-  featureId: string,
-  organizationId: string
-): Promise<ApiFeatureInterface> {
-  if (!featureId) {
-    throw new Error(
-      `getApiFeatureObjForFeatureIdOrganizationId: Required: featureId`
-    );
-  }
-
-  if (!organizationId) {
-    throw new Error(
-      `getApiFeatureObjForFeatureIdOrganizationId: Required: organizationId`
-    );
-  }
-
-  const organization = await findOrganizationById(organizationId);
-  if (!organization) {
-    throw new Error(
-      `getApiFeatureObjForFeatureIdOrganizationId: Cannot find organization for ID ${organizationId}`
-    );
-  }
-
-  const groupMap = await getSavedGroupMap(organization);
-  const feature = await getFeature(organizationId, featureId);
-  if (!feature) {
-    throw new Error(
-      `getApiFeatureObjForFeatureIdOrganizationId: Cannot find feature for ID ${featureId}`
-    );
-  }
-
-  return getApiFeatureObj(feature, organization, groupMap);
 }
 
 export function getApiFeatureObj(
