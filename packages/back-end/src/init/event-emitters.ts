@@ -1,11 +1,6 @@
 import { getEventEmitterInstance } from "../services/event-emitter";
-import {
-  APP_NOTIFICATION_EVENT_EMITTER_NAME,
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "../events/base-types";
-import { eventLoggingHandler } from "../events/handlers/event-logging/eventLoggingHandler";
+import { EmittedEvents } from "../events/base-types";
+import { webHooksEventHandler } from "../events/handlers/webhooks/webHooksEventHandler";
 
 let initialized = false;
 
@@ -17,25 +12,17 @@ export const initializeEventEmitters = () => {
 
   const eventEmitter = getEventEmitterInstance();
 
-  eventEmitter.on(
-    APP_NOTIFICATION_EVENT_EMITTER_NAME,
-    (
-      event: NotificationEventPayload<
-        NotificationEventName,
-        NotificationEventResource,
-        unknown
-      >
-    ) => {
-      console.log(
-        "EventEmitter -> emitted:",
-        APP_NOTIFICATION_EVENT_EMITTER_NAME
-      );
+  eventEmitter.on(EmittedEvents.EVENT_CREATED, (eventId: string) => {
+    console.log(
+      "EventEmitter -> emitted:",
+      EmittedEvents.EVENT_CREATED,
+      eventId
+    );
 
-      eventLoggingHandler(event);
-      // slackEventHandler(event);
-      // webHooksEventHandler(event);
-    }
-  );
+    // eventLoggingHandler(event);
+    // slackEventHandler(event);
+    webHooksEventHandler(eventId);
+  });
 
   // Ensures we do not register listeners more than once
   initialized = true;

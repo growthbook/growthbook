@@ -33,6 +33,7 @@ import {
   getAffectedEnvs,
   getEnabledEnvironments,
   getFeatureDefinitions,
+  logFeatureUpdatedEvent,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
@@ -560,6 +561,8 @@ export async function putFeature(
     },
     details: auditDetailsUpdate(feature, newFeature),
   });
+
+  await logFeatureUpdatedEvent(org, feature, newFeature);
 
   if (requiresWebhook) {
     featureUpdated(

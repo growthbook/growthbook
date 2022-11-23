@@ -7,20 +7,10 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import {
-  featureUpdated,
-  generateRuleId,
-  getApiFeatureObj,
-  getSavedGroupMap,
-} from "../services/features";
+import { featureUpdated, generateRuleId } from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
-import { findOrganizationById } from "./OrganizationModel";
-import { FeatureUpdatedNotificationEvent } from "../events/base-events";
-import { randomUUID } from "node:crypto";
-import { getEventEmitterInstance } from "../services/event-emitter";
-import { APP_NOTIFICATION_EVENT_EMITTER_NAME } from "../events/base-types";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -102,56 +92,16 @@ export async function deleteFeature(organization: string, id: string) {
 }
 
 export async function updateFeature(
-  organizationId: string,
+  organization: string,
   id: string,
   updates: Partial<FeatureInterface>
 ) {
-  const organization = await findOrganizationById(organizationId);
-  if (!organization) {
-    throw new Error(
-      `updateFeature: Cannot find organization for ID ${organizationId}`
-    );
-  }
-
-  const feature = await FeatureModel.findOne({
-    organization: organizationId,
-    id,
-  });
-  if (!feature) {
-    throw new Error(`getFeature: Cannot find feature for ID ${id}`);
-  }
-
-  const groupMap = await getSavedGroupMap(organization);
-  const previousState = getApiFeatureObj(feature, organization, groupMap);
-
-  await feature.updateOne(updates);
-  const updatedFeature = await FeatureModel.findOne({
-    organization: organizationId,
-    id,
-  });
-  if (!updatedFeature) {
-    throw new Error(`getFeature: Cannot find updated feature for ID ${id}`);
-  }
-
-  const currentState = getApiFeatureObj(updatedFeature, organization, groupMap);
-
-  const eventId = `event-${randomUUID()}`;
-  const payload: FeatureUpdatedNotificationEvent = {
-    event_id: eventId,
-    organization_id: organizationId,
-    object: "feature",
-    event: "feature.updated",
-    data: {
-      current: {
-        ...currentState,
-      },
-      previous: {
-        ...previousState,
-      },
-    },
-  };
-  const eventEmitter = getEventEmitterInstance();
-  eventEmitter.emit(APP_NOTIFICATION_EVENT_EMITTER_NAME, payload);
+  await FeatureModel.updateOne(
+    { organization, id },
+    {
+      $set: updates,
+    }
+  );
 }
 
 export async function archiveFeature(

@@ -1,4 +1,9 @@
-export const APP_NOTIFICATION_EVENT_EMITTER_NAME = "notification_event";
+export enum EmittedEvents {
+  /**
+   * This event should be emitted when a new record is added to the "events" collection
+   */
+  EVENT_CREATED = "EVENT_CREATED",
+}
 
 /**
  * Supported events for event notifications
@@ -26,15 +31,7 @@ export type NotificationEventPayload<
   DataType
 > = {
   event_id: string;
-  organization_id: string;
   event: EventName;
   object: ResourceType;
   data: DataType;
 };
-
-export interface NotificationEventHandler<
-  NotificationEventPayload,
-  ReturnType
-> {
-  (payload: NotificationEventPayload): Promise<ReturnType>;
-}

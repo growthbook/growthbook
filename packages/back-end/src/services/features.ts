@@ -14,12 +14,16 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures, getFeature } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { webcrypto as crypto } from "node:crypto";
+import { randomUUID, webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
 import { findOrganizationById } from "../models/OrganizationModel";
+import { FeatureUpdatedNotificationEvent } from "../events/base-events";
+import { createEvent } from "../models/EventModel";
+import { getEventEmitterInstance } from "./event-emitter";
+import { EmittedEvents } from "../events/base-types";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
@@ -434,4 +438,41 @@ export function getApiFeatureObj(
   };
 
   return featureRecord;
+}
+
+/**
+ * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
+ * will log an update event in the events collection
+ * @param organization
+ * @param previousState
+ * @param currentState
+ */
+export async function logFeatureUpdatedEvent(
+  organization: OrganizationInterface,
+  previousState: FeatureInterface,
+  currentState: FeatureInterface
+): Promise<string> {
+  // TODO: Add caching here since this rarely changes
+  const groupMap = await getSavedGroupMap(organization);
+
+  const previous = getApiFeatureObj(previousState, organization, groupMap);
+  const current = getApiFeatureObj(currentState, organization, groupMap);
+
+  const eventId = `event-${randomUUID()}`;
+  const payload: FeatureUpdatedNotificationEvent = {
+    event_id: eventId,
+    object: "feature",
+    event: "feature.updated",
+    data: {
+      current,
+      previous,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+
+  const eventEmitter = getEventEmitterInstance();
+  eventEmitter.emit(EmittedEvents.EVENT_CREATED, emittedEvent.id);
+
+  return eventId;
 }
