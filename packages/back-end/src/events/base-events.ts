@@ -19,5 +19,7 @@ export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
 export type FeatureDeletedNotificationEvent = NotificationEventPayload<
   "feature.deleted",
   "feature",
-  { featureId: string }
+  {
+    previous: ApiFeatureInterface;
+  }
 >;
