@@ -1,10 +1,11 @@
-import { AuthRequest } from "../types/AuthRequest";
 import { Request, Response } from "express";
+import _ from "lodash";
 import {
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
 } from "../../types/feature";
+import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
@@ -412,6 +413,11 @@ export async function postFeatureToggle(
 
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
+
+  // Clone the current feature so we can log its current and previous states
+  const previousFeatureState = _.cloneDeep(feature);
+  const newFeatureState: FeatureInterface = _.cloneDeep(previousFeatureState);
+
   await toggleFeatureEnvironment(feature, environment, state);
 
   await req.audit({
@@ -426,6 +432,16 @@ export async function postFeatureToggle(
       { environment }
     ),
   });
+
+  // Update the new state to reflect the toggled setting for the environment
+  if (newFeatureState.environmentSettings?.[environment]) {
+    newFeatureState.environmentSettings[environment] = {
+      ...newFeatureState.environmentSettings[environment],
+      enabled: !currentState,
+    };
+  }
+
+  await logFeatureUpdatedEvent(org, previousFeatureState, newFeatureState);
 
   res.status(200).json({
     status: 200,
