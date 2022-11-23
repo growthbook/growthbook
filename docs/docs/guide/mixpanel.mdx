@@ -59,7 +59,7 @@ Mixpanel. You can find this in the the project settings overview from mixpanel
 
 After you successfully connect to mixpanel from GrowthBook you'll be asked to enter the experiment event information.
 The values you add here can be any you choose, although if you have already implemented experiment event tracking, you
-should use the values you chose there. We suggest you use `Experiment Viewed`, `Experiment Id` and `Variation Id` as
+should use the values you chose there. We suggest you use `$experiment started`, `Experiment name` and `Variation name` as
 in the example below.
 
 <img
@@ -91,9 +91,9 @@ import mixpanel from "mixpanel-browser";
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
   trackingCallback: (experiment, result) => {
-    mixpanel.track("Experiment Viewed", {
-      "Experiment Id": experiment.key,
-      "Variant Id": result.variationId,
+    mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.key,
+      "Variant name": result.variationId,
       $source: "growthbook",
     });
   },
