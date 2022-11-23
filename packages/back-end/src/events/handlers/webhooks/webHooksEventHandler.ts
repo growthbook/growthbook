@@ -3,7 +3,6 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "../../base-types";
-import { WithOrganizationId } from "../../base-events";
 
 /**
  * Common handler that looks up the web hooks and makes a post request with the event.
@@ -15,7 +14,7 @@ export const webHooksEventHandler = async (
   const resourceWithOrganization = (payload as unknown) as NotificationEventPayload<
     NotificationEventName,
     NotificationEventResource,
-    Record<string, unknown> & WithOrganizationId
+    Record<string, unknown>
   >;
 
   console.log("webHooksEventHandler -> ", resourceWithOrganization);
