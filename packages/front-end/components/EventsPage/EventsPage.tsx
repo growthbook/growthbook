@@ -38,19 +38,31 @@ export const EventsPage: FC<EventsPageProps> = ({
 
       {isLoading && <LoadingSpinner />}
 
-      <table className="mt-3 table gbtable appbox--align-top table-hover appbox">
-        <thead>
-          <tr>
-            <th style={{ width: 200 }}>Date</th>
-            <th>Event Data</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((event) => (
-            <EventsTableRow key={event.id} event={event} />
-          ))}
-        </tbody>
-      </table>
+      {events.length === 0 ? (
+        // Empty state
+        <div className="row">
+          <div className="col-xs-12 col-md-6 offset-md-3">
+            <div className="card text-center p-3">
+              When events are created, they will show up here.
+            </div>
+          </div>
+        </div>
+      ) : (
+        // With data
+        <table className="mt-3 table gbtable appbox--align-top table-hover appbox">
+          <thead>
+            <tr>
+              <th style={{ width: 200 }}>Date</th>
+              <th>Event Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((event) => (
+              <EventsTableRow key={event.id} event={event} />
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };
