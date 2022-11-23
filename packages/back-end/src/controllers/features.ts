@@ -214,6 +214,9 @@ export async function postFeaturePublish(
 
   req.checkPermissions("manageFeatures", feature.project);
 
+  // Clone the current feature so we can log its current and previous states
+  const previousFeatureState = _.cloneDeep(feature);
+
   // If changing the default value, it affects all enabled environments
   if ("defaultValue" in draft) {
     req.checkPermissions(
@@ -254,6 +257,7 @@ export async function postFeaturePublish(
       comment,
     }),
   });
+  await logFeatureUpdatedEvent(org, previousFeatureState, newFeature);
 
   res.status(200).json({
     status: 200,
