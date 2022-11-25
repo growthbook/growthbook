@@ -77,11 +77,16 @@ type CreateEventWebHookOptions = {
   events: NotificationEventName[];
 };
 
+/**
+ * Create an event web hook for an organization for the given events
+ * @param options CreateEventWebHookOptions
+ * @returns
+ */
 export const createEventWebHook = async ({
   url,
   organizationId,
   events,
-}: CreateEventWebHookOptions) => {
+}: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk-" + md5(randomUUID()).substr(0, 32);
 
@@ -97,4 +102,14 @@ export const createEventWebHook = async ({
   });
 
   return toInterface(doc);
+};
+
+/**
+ * Given an EventWebHook.id will delete the corresponding document
+ * @param eventWebHookId
+ */
+export const deleteEventWebHookById = async (eventWebHookId: string) => {
+  await EventWebHookModel.deleteOne({
+    id: eventWebHookId,
+  });
 };
