@@ -181,3 +181,18 @@ export const updateEventWebHookStatus = async (
     }
   );
 };
+
+/**
+ * Retrieve all the event web hooks for an organization.
+ * @param organizationId
+ * @returns
+ */
+export const getAllEventWebHooks = async (
+  organizationId: string
+): Promise<EventWebHookInterface[]> => {
+  const docs = await EventWebHookModel.find({ organizationId }).sort([
+    ["dateCreated", -1],
+  ]);
+
+  return docs.map(toInterface);
+};
