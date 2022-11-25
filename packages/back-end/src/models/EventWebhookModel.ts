@@ -23,6 +23,7 @@ const eventWebHookSchema = new mongoose.Schema({
   },
   dateCreated: Date,
   dateUpdated: Date,
+  lastRunAt: Date,
   organizationId: {
     type: String,
     required: true,
@@ -53,9 +54,14 @@ const eventWebHookSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  error: {
+  lastError: {
     type: String,
     required: false,
+  },
+  lastState: {
+    type: String,
+    enum: ["none", "success", "error"],
+    required: true,
   },
 });
 
@@ -104,7 +110,8 @@ export const createEventWebHook = async ({
     dateUpdated: now,
     name,
     events,
-    error: null,
+    lastError: null,
+    lastState: "none",
     signingKey,
     url,
   });
@@ -143,6 +150,33 @@ export const updateEventWebHook = async (
       $set: {
         ...updates,
         dateUpdated: new Date(),
+      },
+    }
+  );
+};
+
+type EventWebHookStatusUpdate =
+  | {
+      state: "success";
+    }
+  | {
+      state: "error";
+      error: string;
+    };
+
+export const updateEventWebHookStatus = async (
+  eventWebHookId: string,
+  status: EventWebHookStatusUpdate
+) => {
+  const lastError = status.state === "error" ? status.error : null;
+
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId },
+    {
+      $set: {
+        lastRunAt: new Date(),
+        lastState: status.state,
+        lastError,
       },
     }
   );
