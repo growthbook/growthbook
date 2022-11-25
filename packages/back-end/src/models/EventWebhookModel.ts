@@ -92,7 +92,7 @@ type CreateEventWebHookOptions = {
 /**
  * Create an event web hook for an organization for the given events
  * @param options CreateEventWebHookOptions
- * @returns
+ * @returns Promise<EventWebHookInterface>
  */
 export const createEventWebHook = async ({
   name,
