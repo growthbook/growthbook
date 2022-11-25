@@ -16,6 +16,11 @@ const eventWebHookSchema = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  name: {
+    type: String,
+    unique: true,
+    required: true,
+  },
   dateCreated: Date,
   dateUpdated: Date,
   organizationId: {
@@ -72,6 +77,7 @@ const EventWebHookModel = mongoose.model<EventWebHookDocument>(
 );
 
 type CreateEventWebHookOptions = {
+  name: string;
   url: string;
   organizationId: string;
   events: NotificationEventName[];
@@ -83,6 +89,7 @@ type CreateEventWebHookOptions = {
  * @returns
  */
 export const createEventWebHook = async ({
+  name,
   url,
   organizationId,
   events,
@@ -95,6 +102,7 @@ export const createEventWebHook = async ({
     organizationId,
     dateCreated: now,
     dateUpdated: now,
+    name,
     events,
     error: null,
     signingKey,
@@ -112,4 +120,30 @@ export const deleteEventWebHookById = async (eventWebHookId: string) => {
   await EventWebHookModel.deleteOne({
     id: eventWebHookId,
   });
+};
+
+type UpdateEventWebHookOptions = {
+  name?: string;
+  url?: string;
+  events?: NotificationEventName[];
+};
+
+/**
+ * Given an EventWebHook.id allows updating some of the properties on the document
+ * @param eventWebHookId
+ * @param updates UpdateEventWebHookOptions
+ */
+export const updateEventWebHook = async (
+  eventWebHookId: string,
+  updates: UpdateEventWebHookOptions
+): Promise<void> => {
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId },
+    {
+      $set: {
+        ...updates,
+        dateUpdated: new Date(),
+      },
+    }
+  );
 };
