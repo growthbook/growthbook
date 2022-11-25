@@ -27,7 +27,7 @@ const eventWebHookSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(notificationEventNames));
+        const zodSchema = z.array(z.enum(notificationEventNames)).min(1);
 
         const result = zodSchema.safeParse(value);
 
