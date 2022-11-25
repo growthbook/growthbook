@@ -85,3 +85,20 @@ export const createEventWebHookLog = async ({
 
   return toInterface(doc);
 };
+
+/**
+ * Get the latest web hook runs for a web hook
+ * @param eventWebHookId
+ * @param limit
+ * @returns
+ */
+export const getLatestRunsForWebHook = async (
+  eventWebHookId: string,
+  limit: number = 10
+): Promise<EventWebHookLogInterface[]> => {
+  const docs = await EventWebHookLogModel.find({ eventWebHookId })
+    .sort([["dateCreated", -1]])
+    .limit(limit);
+
+  return docs.map(toInterface);
+};
