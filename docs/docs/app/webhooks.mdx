@@ -5,6 +5,8 @@ sidebar_label: Webhooks
 slug: webhooks
 ---
 
+import ExternalLink from '@site/src/components/ExternalLink'
+
 # Webhooks
 
 Webhooks are one way to keep cached feature definitions up-to-date on your servers.
@@ -109,4 +111,8 @@ If your endpoint returns any HTTP status besides `200`, the webhook will be cons
 
 Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
 
-You can view the status of your webhooks in the GrowthBook app under **Settings -> Webhooks**.
+You can view the status of your webhooks in the GrowthBook app under **Settings &rarr; Webhooks**.
+
+## Examples
+
+- [Web hooks implementation example <ExternalLink />](https://github.com/growthbook/examples/tree/main/webhooks-impl)
