@@ -196,3 +196,20 @@ export const getAllEventWebHooks = async (
 
   return docs.map(toInterface);
 };
+
+/**
+ * Retrieve all event web hooks for an organization for a given event
+ * @param organizationId
+ * @param eventName
+ */
+export const getAllEventWebHooksForEvent = async (
+  organizationId: string,
+  eventName: NotificationEventName
+): Promise<EventWebHookInterface[]> => {
+  const docs = await EventWebHookModel.find({
+    organizationId,
+    events: eventName,
+  });
+
+  return docs.map(toInterface);
+};
