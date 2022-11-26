@@ -94,6 +94,31 @@ export const createEvent = async <
 };
 
 /**
+ * Get an event by ID for an organization
+ * @param eventId
+ */
+export const getEvent = async (
+  eventId: string
+): Promise<EventInterface<
+  NotificationEventPayload<
+    NotificationEventName,
+    NotificationEventResource,
+    unknown
+  >
+> | null> => {
+  const doc = await EventModel.findOne({ id: eventId });
+  return !doc
+    ? null
+    : (toInterface(doc) as EventInterface<
+        NotificationEventPayload<
+          NotificationEventName,
+          NotificationEventResource,
+          unknown
+        >
+      >);
+};
+
+/**
  * Get all events for an organization
  * @param organizationId
  * @param limit
