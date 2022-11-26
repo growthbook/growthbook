@@ -13,6 +13,10 @@ const eventWebHookLogSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  organizationId: {
+    type: String,
+    required: true,
+  },
   dateCreated: Date,
   responseCode: {
     type: Number,
@@ -46,6 +50,7 @@ const EventWebHookLogModel = mongoose.model<EventWebHookLogDocument>(
 );
 
 type CreateEventWebHookLogOptions = {
+  organizationId: string;
   eventWebHookId: string;
   payload: Record<string, unknown>;
   result:
@@ -67,6 +72,7 @@ type CreateEventWebHookLogOptions = {
  */
 export const createEventWebHookLog = async ({
   eventWebHookId,
+  organizationId,
   payload,
   result: resultState,
 }: CreateEventWebHookLogOptions): Promise<EventWebHookLogInterface> => {
@@ -77,6 +83,7 @@ export const createEventWebHookLog = async ({
     id: `ewhl-${randomUUID()}`,
     dateCreated: now,
     eventWebHookId,
+    organizationId,
     result: resultState.state,
     responseCode: resultState.responseCode,
     error,
@@ -88,15 +95,20 @@ export const createEventWebHookLog = async ({
 
 /**
  * Get the latest web hook runs for a web hook
+ * @param organizationId
  * @param eventWebHookId
  * @param limit
  * @returns
  */
 export const getLatestRunsForWebHook = async (
+  organizationId: string,
   eventWebHookId: string,
   limit: number = 10
 ): Promise<EventWebHookLogInterface[]> => {
-  const docs = await EventWebHookLogModel.find({ eventWebHookId })
+  const docs = await EventWebHookLogModel.find({
+    eventWebHookId,
+    organizationId,
+  })
     .sort([["dateCreated", -1]])
     .limit(limit);
 
