@@ -8,10 +8,10 @@ let initPromise: Promise<void>;
 export async function init() {
   if (!initPromise) {
     initPromise = (async () => {
-      initializeEventEmitters();
       await mongoInit();
       await queueInit();
       await licenseInit();
+      initializeEventEmitters();
     })();
   }
   try {

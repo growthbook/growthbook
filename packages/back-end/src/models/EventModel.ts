@@ -10,6 +10,7 @@ import {
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
+import { logger } from "../util/logger";
 
 const eventSchema = new mongoose.Schema({
   id: {
@@ -42,7 +43,7 @@ const eventSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          console.error("Invalid Event data ", errorString);
+          logger.error("Invalid Event data ", errorString);
         }
 
         return result.success;
