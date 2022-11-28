@@ -67,6 +67,12 @@ async function getVerifiedLicenseData(key: string) {
     throw new Error(`Your License Key trial expired on ${decodedLicense.exp}.`);
   }
 
+  // if (decodedLicense.iat > new Date("2022-12-1").toISOString()) {
+  //   if (!decodedLicense.org) {
+  //     throw new Error("Invalid License Key - Missing organization id");
+  //   }
+  // }
+
   // We used to only offer license keys for Enterprise plans (not pro)
   if (!decodedLicense.plan) {
     decodedLicense.plan = "enterprise";
