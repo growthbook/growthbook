@@ -10,9 +10,11 @@ import { getDefaultConversionWindowHours } from "../../services/env";
 export default function MetricsOverridesSelector({
   experiment,
   form,
+  disabled,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<EditMetricsFormInterface>;
+  disabled: boolean;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
@@ -34,61 +36,62 @@ export default function MetricsOverridesSelector({
 
   return (
     <>
-      {metricOverrides.fields.map((v, i) => {
-        const mo = form.watch(`metricOverrides.${i}`);
-        const metricDefinition = metricDefinitions.find(
-          (md) => md.id === mo.id
-        );
-        return (
-          <div className="appbox px-3 pt-3 bg-light" key={i}>
-            <div style={{ float: "right" }}>
-              <a
-                href="#"
-                className="text-danger"
-                onClick={(e) => {
-                  e.preventDefault();
-                  metricOverrides.remove(i);
-                }}
-              >
-                remove
-              </a>
-            </div>
+      {!disabled &&
+        metricOverrides.fields.map((v, i) => {
+          const mo = form.watch(`metricOverrides.${i}`);
+          const metricDefinition = metricDefinitions.find(
+            (md) => md.id === mo.id
+          );
+          return (
+            <div className="appbox px-3 pt-3 bg-light" key={i}>
+              <div style={{ float: "right" }}>
+                <a
+                  href="#"
+                  className="text-danger"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    metricOverrides.remove(i);
+                  }}
+                >
+                  remove
+                </a>
+              </div>
 
-            <div>
-              <label>
-                <strong>{metricDefinition.name}</strong>
-              </label>
-              <div className="row mb-2">
-                <div className="col">
-                  <Field
-                    label="Conversion Delay (hours)"
-                    type="number"
-                    containerClassName="mb-1"
-                    step="any"
-                    {...form.register(
-                      `metricOverrides.${i}.conversionDelayHours`,
-                      { valueAsNumber: true }
-                    )}
-                  />
-                </div>
-                <div className="col">
-                  <Field
-                    label="Conversion Window (hours)"
-                    type="number"
-                    containerClassName="mb-1"
-                    min={0}
-                    step="any"
-                    {...form.register(
-                      `metricOverrides.${i}.conversionWindowHours`,
-                      { valueAsNumber: true }
-                    )}
-                  />
+              <div>
+                <label>
+                  <strong>{metricDefinition.name}</strong>
+                </label>
+                <div className="row mb-2">
+                  <div className="col">
+                    <Field
+                      label="Conversion Delay (hours)"
+                      type="number"
+                      containerClassName="mb-1"
+                      step="any"
+                      {...form.register(
+                        `metricOverrides.${i}.conversionDelayHours`,
+                        { valueAsNumber: true }
+                      )}
+                    />
+                  </div>
+                  <div className="col">
+                    <Field
+                      label="Conversion Window (hours)"
+                      type="number"
+                      containerClassName="mb-1"
+                      min={0}
+                      step="any"
+                      {...form.register(
+                        `metricOverrides.${i}.conversionWindowHours`,
+                        { valueAsNumber: true }
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
       {unusedMetrics.length > 0 && (
         <div className="row">
           <div className="col">
@@ -106,12 +109,13 @@ export default function MetricsOverridesSelector({
                   value: metric.id,
                 };
               })}
+              disabled={disabled}
             />
           </div>
           <div className="col-auto">
             <button
               className="btn btn-outline-primary"
-              disabled={!selectedMetricId}
+              disabled={disabled || !selectedMetricId}
               onClick={(e) => {
                 e.preventDefault();
                 const metricDefinition = metricDefinitions.find(

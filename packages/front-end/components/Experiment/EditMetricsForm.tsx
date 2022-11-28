@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -7,6 +7,9 @@ import MetricsSelector from "./MetricsSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
+import { useUser } from "../../services/UserContext";
+import UpgradeMessage from "../UpgradeMessage";
+import UpgradeModal from "../Settings/UpgradeModal";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -24,6 +27,10 @@ const EditMetricsForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const { hasCommercialFeature } = useUser();
+  const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
+
   const { metrics: metricDefinitions, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
   const filteredMetrics = metricDefinitions.filter(
@@ -40,75 +47,95 @@ const EditMetricsForm: FC<{
   const { apiCall } = useAuth();
 
   return (
-    <Modal
-      autoFocusSelector=""
-      header="Edit Metrics"
-      size="lg"
-      open={true}
-      close={cancel}
-      submit={form.handleSubmit(async (value) => {
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
-        mutate();
-      })}
-      cta="Save"
-    >
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you are trying to improve with this experiment.
-        </div>
-        <MetricsSelector
-          selected={form.watch("metrics")}
-          onChange={(metrics) => form.setValue("metrics", metrics)}
-          datasource={experiment.datasource}
-          autoFocus={true}
+    <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason="Override metric conversion window"
+          source="override-metrics"
         />
-      </div>
-
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you want to monitor, but are NOT specifically trying to
-          improve.
+      )}
+      <Modal
+        autoFocusSelector=""
+        header="Edit Metrics"
+        size="lg"
+        open={true}
+        close={cancel}
+        submit={form.handleSubmit(async (value) => {
+          await apiCall(`/experiment/${experiment.id}`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+          mutate();
+        })}
+        cta="Save"
+      >
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Goal Metrics</label>
+          <div className="mb-1 font-italic">
+            Metrics you are trying to improve with this experiment.
+          </div>
+          <MetricsSelector
+            selected={form.watch("metrics")}
+            onChange={(metrics) => form.setValue("metrics", metrics)}
+            datasource={experiment.datasource}
+            autoFocus={true}
+          />
         </div>
-        <MetricsSelector
-          selected={form.watch("guardrails")}
-          onChange={(metrics) => form.setValue("guardrails", metrics)}
-          datasource={experiment.datasource}
-        />
-      </div>
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Activation Metric</label>
-        <div className="mb-1 font-italic">
-          Users must convert on this metric before being included.
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+          <div className="mb-1 font-italic">
+            Metrics you want to monitor, but are NOT specifically trying to
+            improve.
+          </div>
+          <MetricsSelector
+            selected={form.watch("guardrails")}
+            onChange={(metrics) => form.setValue("guardrails", metrics)}
+            datasource={experiment.datasource}
+          />
         </div>
-        <SelectField
-          options={filteredMetrics.map((m) => {
-            return {
-              label: m.name,
-              value: m.id,
-            };
-          })}
-          initialOption="None"
-          value={form.watch("activationMetric")}
-          onChange={(metric) => form.setValue("activationMetric", metric)}
-        />
-      </div>
 
-      <div className="form-group mb-4">
-        <label className="font-weight-bold mb-1">
-          Metric Overrides (optional)
-        </label>
-        <div className="mb-1 font-italic">
-          Override metric conversion windows within this experiment.
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Activation Metric</label>
+          <div className="mb-1 font-italic">
+            Users must convert on this metric before being included.
+          </div>
+          <SelectField
+            options={filteredMetrics.map((m) => {
+              return {
+                label: m.name,
+                value: m.id,
+              };
+            })}
+            initialOption="None"
+            value={form.watch("activationMetric")}
+            onChange={(metric) => form.setValue("activationMetric", metric)}
+          />
         </div>
-        <MetricsOverridesSelector experiment={experiment} form={form} />
-      </div>
-    </Modal>
+
+        <div className="form-group mb-4">
+          <label className="font-weight-bold mb-1">
+            Metric Overrides (optional)
+          </label>
+          {!hasOverrideMetricsFeature && (
+            <UpgradeMessage
+              showUpgradeModal={() => setUpgradeModal(true)}
+              commercialFeature="override-metrics"
+              upgradeMessage="override metrics"
+            />
+          )}
+          <div className="mb-1 font-italic">
+            Override metric conversion windows within this experiment.
+          </div>
+          <MetricsOverridesSelector
+            experiment={experiment}
+            form={form}
+            disabled={!hasOverrideMetricsFeature}
+          />
+        </div>
+      </Modal>
+    </>
   );
 };
 
