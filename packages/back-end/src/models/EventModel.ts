@@ -83,7 +83,9 @@ export const createEvent = async <
 >(
   organizationId: string,
   data: NotificationEventPayload<EventName, ResourceType, DataType>
-): Promise<EventInterface<DataType>> => {
+): Promise<
+  EventInterface<NotificationEventPayload<EventName, ResourceType, DataType>>
+> => {
   const doc = await EventModel.create({
     id: data.event_id,
     dateCreated: new Date(),
@@ -91,7 +93,9 @@ export const createEvent = async <
     data,
   });
 
-  return toInterface(doc) as EventInterface<DataType>;
+  return toInterface(doc) as EventInterface<
+    NotificationEventPayload<EventName, ResourceType, DataType>
+  >;
 };
 
 /**
