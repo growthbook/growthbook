@@ -2,6 +2,7 @@ import { useUser } from "../services/UserContext";
 import { isCloud } from "../services/env";
 import useStripeSubscription from "../hooks/useStripeSubscription";
 import { CommercialFeature } from "back-end/types/organization";
+import Link from "next/link";
 
 export default function UpgradeMessage({
   showUpgradeModal,
@@ -44,9 +45,9 @@ export default function UpgradeMessage({
   // Self-hosted
   return (
     <div className="alert alert-info">
-      Purchase a commercial license key to {upgradeMessage}. Contact{" "}
-      <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for more
-      info.
+      <p>Purchase a commercial license key to {upgradeMessage}.{" "}
+        Contact <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for more info.</p>
+      <p className="mb-0">Or try a commercial license for free by clicking <Link href={`/settings/try-pro/`}>here</Link></p>
     </div>
   );
 }

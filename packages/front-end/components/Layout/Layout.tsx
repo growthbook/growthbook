@@ -175,9 +175,9 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["manageBilling"],
       },
       {
-        name: "Try Enterprise",
-        href: "/settings/try-enterprise",
-        path: /^settings\/try-enterprise/,
+        name: "Try Pro",
+        href: "/settings/try-pro",
+        path: /^settings\/try-pro/,
         selfHostedOnly: true,
         accountPlans: ["oss"],
       },
