@@ -153,6 +153,7 @@ const TryEnterprisePage: FC = () => {
                 min="3"
                 max="10"
                 step="1"
+                pattern="\d*"
               />
             </div>
           </div>
