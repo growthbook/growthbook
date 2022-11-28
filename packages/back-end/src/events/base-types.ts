@@ -1,10 +1,3 @@
-export enum EmittedEvents {
-  /**
-   * This event should be emitted when a new record is added to the "events" collection
-   */
-  EVENT_CREATED = "EVENT_CREATED",
-}
-
 /**
  * Supported events for event notifications
  */
