@@ -10,6 +10,7 @@ import {
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
+import { logger } from "../util/logger";
 
 const eventSchema = new mongoose.Schema({
   id: {
@@ -42,7 +43,7 @@ const eventSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          console.error("Invalid Event data ", errorString);
+          logger.error("Invalid Event data ", errorString);
         }
 
         return result.success;
@@ -82,7 +83,9 @@ export const createEvent = async <
 >(
   organizationId: string,
   data: NotificationEventPayload<EventName, ResourceType, DataType>
-): Promise<EventInterface<DataType>> => {
+): Promise<
+  EventInterface<NotificationEventPayload<EventName, ResourceType, DataType>>
+> => {
   const doc = await EventModel.create({
     id: data.event_id,
     dateCreated: new Date(),
@@ -90,7 +93,9 @@ export const createEvent = async <
     data,
   });
 
-  return toInterface(doc) as EventInterface<DataType>;
+  return toInterface(doc) as EventInterface<
+    NotificationEventPayload<EventName, ResourceType, DataType>
+  >;
 };
 
 /**

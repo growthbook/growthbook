@@ -21,8 +21,7 @@ import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { createEvent } from "../models/EventModel";
-import { getEventEmitterInstance } from "./event-emitter";
-import { EmittedEvents } from "../events/base-types";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
@@ -428,9 +427,7 @@ export async function logFeatureUpdatedEvent(
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-
-  const eventEmitter = getEventEmitterInstance();
-  eventEmitter.emit(EmittedEvents.EVENT_CREATED, emittedEvent.id);
+  new EventNotifier(emittedEvent.data).perform();
 
   return eventId;
 }
