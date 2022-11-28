@@ -1,18 +1,8 @@
-import {
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "../../base-types";
+import { NotificationEventHandler } from "../../notifiers/EventNotifier";
 
 /**
  * Common handler that looks up the web hooks and makes a post request with the event.
  */
-export const webHooksEventHandler = async (
-  event: NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >
-): Promise<void> => {
+export const webHooksEventHandler: NotificationEventHandler = async (event) => {
   console.log("webHooksEventHandler -> ", event);
 };

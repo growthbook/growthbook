@@ -1,18 +1,8 @@
-import {
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "../../base-types";
+import { NotificationEventHandler } from "../../notifiers/EventNotifier";
 
 /**
  * handle Slack events. Can be handled individually or with a common handler, depending on needs.
  */
-export const slackEventHandler = async (
-  event: NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >
-): Promise<void> => {
+export const slackEventHandler: NotificationEventHandler = async (event) => {
   console.log("slackEventHandler", event);
 };

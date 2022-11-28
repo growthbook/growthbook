@@ -19,6 +19,16 @@ interface EnqueuedData extends JobAttributesData {
   >;
 }
 
+export interface NotificationEventHandler {
+  (
+    payload: NotificationEventPayload<
+      NotificationEventName,
+      NotificationEventResource,
+      unknown
+    >
+  ): Promise<void>;
+}
+
 export class EventNotifier implements Notifier {
   private readonly jobId: string;
   private readonly eventData: NotificationEventPayload<
