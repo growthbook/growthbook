@@ -1,16 +1,15 @@
 import z from "zod";
 import _ from "lodash";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import {
-  NotificationEventName,
   notificationEventNames,
-  NotificationEventPayload,
-  NotificationEventResource,
   notificationEventResources,
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
+import { NotificationEvent } from "../events/base-events";
 
 const eventSchema = new mongoose.Schema({
   id: {
@@ -23,6 +22,16 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  object: {
+    type: String,
+    required: true,
+    enum: notificationEventResources,
+  },
+  event: {
+    type: String,
+    required: true,
+    enum: notificationEventNames,
+  },
   data: {
     type: Object,
     required: true,
@@ -31,7 +40,6 @@ const eventSchema = new mongoose.Schema({
         // NotificationEventPayload<EventName, ResourceType, DataType>
         const zodSchema = z
           .object({
-            event_id: z.string().startsWith("event-"),
             event: z.enum(notificationEventNames),
             object: z.enum(notificationEventResources),
             data: z.any(),
@@ -75,26 +83,21 @@ const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
  * @throws Error when validation fails
  * @returns
  */
-export const createEvent = async <
-  EventName extends NotificationEventName,
-  ResourceType extends NotificationEventResource,
-  DataType
->(
+export const createEvent = async (
   organizationId: string,
-  data: NotificationEventPayload<EventName, ResourceType, DataType>
-): Promise<
-  EventInterface<NotificationEventPayload<EventName, ResourceType, DataType>>
-> => {
+  data: NotificationEvent
+): Promise<EventInterface<NotificationEvent>> => {
+  const eventId = `event-${randomUUID()}`;
   const doc = await EventModel.create({
-    id: data.event_id,
+    id: eventId,
+    event: data.event,
+    object: data.object,
     dateCreated: new Date(),
     organizationId,
-    data,
+    data: data,
   });
 
-  return toInterface(doc) as EventInterface<
-    NotificationEventPayload<EventName, ResourceType, DataType>
-  >;
+  return toInterface(doc) as EventInterface<NotificationEvent>;
 };
 
 /**

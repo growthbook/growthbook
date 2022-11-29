@@ -23,3 +23,11 @@ export type FeatureDeletedNotificationEvent = NotificationEventPayload<
     previous: ApiFeatureInterface;
   }
 >;
+
+/**
+ * All supported event types in the database
+ */
+export type NotificationEvent =
+  | FeatureCreatedNotificationEvent
+  | FeatureUpdatedNotificationEvent
+  | FeatureDeletedNotificationEvent;

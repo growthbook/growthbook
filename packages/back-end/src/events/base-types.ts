@@ -23,7 +23,6 @@ export type NotificationEventPayload<
   ResourceType extends NotificationEventResource | unknown,
   DataType
 > = {
-  event_id: string;
   event: EventName;
   object: ResourceType;
   data: DataType;

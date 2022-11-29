@@ -14,7 +14,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import { randomUUID, webcrypto as crypto } from "node:crypto";
+import { webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getEnvironments, getOrganizationById } from "./organizations";
@@ -415,9 +415,7 @@ export async function logFeatureUpdatedEvent(
   const previous = getApiFeatureObj(previousState, organization, groupMap);
   const current = getApiFeatureObj(currentState, organization, groupMap);
 
-  const eventId = `event-${randomUUID()}`;
   const payload: FeatureUpdatedNotificationEvent = {
-    event_id: eventId,
     object: "feature",
     event: "feature.updated",
     data: {
@@ -427,7 +425,7 @@ export async function logFeatureUpdatedEvent(
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.data).perform();
+  new EventNotifier(emittedEvent).perform();
 
-  return eventId;
+  return emittedEvent.id;
 }

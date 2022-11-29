@@ -1,51 +1,30 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import {
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "../base-types";
 import { getAgendaInstance } from "../../services/queueing";
 import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
+import { EventInterface } from "../../../types/event";
+import { NotificationEvent } from "../base-events";
 
 interface Notifier {
   perform(): void;
 }
 
 interface EnqueuedData extends JobAttributesData {
-  event: NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >;
+  event: EventInterface<NotificationEvent>;
 }
 
 export interface NotificationEventHandler {
-  (
-    payload: NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  ): Promise<void>;
+  (event: EventInterface<NotificationEvent>): Promise<void>;
 }
 
 export class EventNotifier implements Notifier {
   private readonly jobId: string;
-  private readonly eventData: NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >;
+  private readonly eventData: EventInterface<NotificationEvent>;
 
   constructor(
-    event: NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >,
+    event: EventInterface<NotificationEvent>,
     private agenda: Agenda = getAgendaInstance()
   ) {
-    this.jobId = `events.notification.${event.event_id}`;
+    this.jobId = `events.notification.${event.id}`;
     this.eventData = event;
 
     this.agenda.define<EnqueuedData>(this.jobId, EventNotifier.jobHandler);
