@@ -410,8 +410,6 @@ export async function logFeatureUpdatedEvent(
   previous: FeatureInterface,
   current: FeatureInterface
 ): Promise<string> {
-  // TODO: Add caching here since this rarely changes
-
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
