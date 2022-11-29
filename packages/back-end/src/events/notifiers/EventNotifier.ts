@@ -1,66 +1,52 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import {
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "../base-types";
 import { getAgendaInstance } from "../../services/queueing";
-import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
+import { EventInterface } from "../../../types/event";
+import { NotificationEvent } from "../base-events";
+
+let jobDefined = false;
 
 interface Notifier {
   perform(): void;
 }
 
-interface EnqueuedData extends JobAttributesData {
-  event: NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >;
+interface EventNotificationData extends JobAttributesData {
+  event: EventInterface<NotificationEvent>;
 }
 
 export interface NotificationEventHandler {
-  (
-    payload: NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  ): Promise<void>;
+  (event: EventInterface<NotificationEvent>): Promise<void>;
 }
 
 export class EventNotifier implements Notifier {
-  private readonly jobId: string;
-  private readonly eventData: NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >;
+  private readonly eventData: EventInterface<NotificationEvent>;
 
   constructor(
-    event: NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >,
+    event: EventInterface<NotificationEvent>,
     private agenda: Agenda = getAgendaInstance()
   ) {
-    this.jobId = `events.notification.${event.event_id}`;
     this.eventData = event;
 
-    this.agenda.define<EnqueuedData>(this.jobId, EventNotifier.jobHandler);
+    if (jobDefined) return;
+
+    this.agenda.define<EventNotificationData>(
+      "eventCreated",
+      EventNotifier.jobHandler
+    );
+    jobDefined = true;
   }
 
-  private static jobHandler(job: Job<EnqueuedData>): void {
-    const { event } = job.attrs.data;
-
-    webHooksEventHandler(event);
+  private static jobHandler(_job: Job<EventNotificationData>): void {
+    // const { event } = job.attrs.data;
+    // webHooksEventHandler(event);
     // slackEventHandler(event);
   }
 
-  perform() {
-    this.agenda.now<EnqueuedData>(this.jobId, {
+  async perform() {
+    const job = this.agenda.create("eventCreated", {
       event: this.eventData,
     });
+    job.unique({ "data.event.id": this.eventData.id });
+    job.schedule(new Date());
+    await job.save();
   }
 }
