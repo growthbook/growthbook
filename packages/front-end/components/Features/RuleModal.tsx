@@ -17,6 +17,7 @@ import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import ScheduleInputs from "./ScheduleInputs";
 
 export interface Props {
   close: () => void;
@@ -55,8 +56,6 @@ export default function RuleModal({
   const { apiCall } = useAuth();
 
   const type = form.watch("type");
-  const validBefore = form.watch("validBefore");
-  const validAfter = form.watch("validAfter");
 
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -153,50 +152,7 @@ export default function RuleModal({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
-      <div className="pb-2">
-        <label>Scheduling Conditions (optional)</label>
-        <div className="pb-2">
-          <span className="pr-2">Start Date</span>
-          <input
-            type="datetime-local"
-            value={validAfter || ""}
-            onChange={(e) => form.setValue("validAfter", e.target.value)}
-          />
-          {validAfter && (
-            <button
-              className="btn btn-link text-danger"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("validAfter", null);
-              }}
-            >
-              {" "}
-              remove
-            </button>
-          )}
-        </div>
-        <div className="pb-2">
-          <span className="pr-2">End Date</span>
-          <input
-            type="datetime-local"
-            value={validBefore || ""}
-            onChange={(e) => form.setValue("validBefore", e.target.value)}
-          />
-          {validBefore && (
-            <button
-              className="btn btn-link text-danger"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("validBefore", null);
-              }}
-            >
-              remove
-            </button>
-          )}
-        </div>
-      </div>
+      <ScheduleInputs form={form} />
       <ConditionInput
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}

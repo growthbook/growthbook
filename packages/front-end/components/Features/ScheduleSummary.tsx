@@ -42,8 +42,8 @@ export default function ScheduleSummary({
   }
   return (
     <div className="col-auto mb-3">
-      <DisplayDate label="START DATE" dateString={startDate || ""} />
-      <DisplayDate label="END DATE" dateString={endDate || ""} />
+      <DisplayDate label="START DATE" dateString={startDate} />
+      <DisplayDate label="END DATE" dateString={endDate} />
     </div>
   );
 }

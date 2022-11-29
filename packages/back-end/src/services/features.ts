@@ -80,6 +80,7 @@ export function getFeatureDefinition({
       rules
         ?.filter((r) => r.enabled)
         ?.filter((r) => {
+          // If a feature rule has scheduling conditions, only evaluate if scheduling conditions are met.
           const currentDate = new Date().valueOf();
           const validAfter = r.validAfter
             ? new Date(r.validAfter).valueOf()
@@ -435,7 +436,7 @@ export function getApiFeatureObj(
 export function getNextScheduledUpdate(
   envSettings: Record<string, FeatureEnvironment>
 ) {
-  const featureScheduleDates: string[] = [];
+  const dates: string[] = [];
 
   if (envSettings) {
     for (const env in envSettings) {
@@ -443,24 +444,22 @@ export function getNextScheduledUpdate(
 
       rules.forEach((rule: FeatureRule) => {
         if ("validAfter" in rule) {
-          featureScheduleDates.push(rule.validAfter || "");
+          dates.push(rule.validAfter || "");
         }
         if ("validBefore" in rule) {
-          featureScheduleDates.push(rule.validBefore || "");
+          dates.push(rule.validBefore || "");
         }
       });
     }
   }
 
-  const featureScheduleDatesInTheFuture = featureScheduleDates.filter(
-    (date) => new Date(date) > new Date()
-  );
+  const sortedFutureDates = dates
+    .filter((date) => new Date(date) > new Date())
+    .sort();
 
-  if (featureScheduleDatesInTheFuture.length === 0) {
+  if (sortedFutureDates.length === 0) {
     return null;
   }
 
-  const sortedFeatureScheduleDatesInTheFuture = featureScheduleDatesInTheFuture.sort();
-
-  return sortedFeatureScheduleDatesInTheFuture[0];
+  return sortedFutureDates[0];
 }
