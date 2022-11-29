@@ -1,6 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../services/queueing";
-import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
 import { EventInterface } from "../../../types/event";
 import { NotificationEvent } from "../base-events";
 
@@ -30,10 +29,9 @@ export class EventNotifier implements Notifier {
     this.agenda.define<EnqueuedData>(this.jobId, EventNotifier.jobHandler);
   }
 
-  private static jobHandler(job: Job<EnqueuedData>): void {
-    const { event } = job.attrs.data;
-
-    webHooksEventHandler(event);
+  private static jobHandler(_job: Job<EnqueuedData>): void {
+    // const { event } = job.attrs.data;
+    // webHooksEventHandler(event);
     // slackEventHandler(event);
   }
 
