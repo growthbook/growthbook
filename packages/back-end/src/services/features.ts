@@ -1,4 +1,3 @@
-import _ from "lodash";
 import {
   ApiFeatureEnvironmentInterface,
   ApiFeatureInterface,
@@ -414,8 +413,8 @@ export async function logFeatureUpdatedEvent(
     object: "feature",
     event: "feature.updated",
     data: {
-      current: _.omit(current, ["__v", "_id"]) as FeatureInterface,
-      previous: _.omit(previous, ["__v", "_id"]) as FeatureInterface,
+      current,
+      previous,
     },
   };
 
