@@ -30,6 +30,7 @@ export interface FeatureInterface {
   archived?: boolean;
   description?: string;
   organization: string;
+  nextScheduledUpdate?: string | null;
   owner: string;
   project?: string;
   dateCreated: Date;
@@ -52,6 +53,8 @@ export interface BaseRule {
   condition?: string;
   id: string;
   enabled?: boolean;
+  validBefore: string;
+  validAfter: string;
 }
 
 export interface ForceRule extends BaseRule {

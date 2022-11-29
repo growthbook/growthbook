@@ -8,6 +8,7 @@ import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeatureRule,
   FeatureValueType,
 } from "../../types/feature";
 import { queueWebhook } from "../jobs/webhooks";
@@ -78,6 +79,39 @@ export function getFeatureDefinition({
     rules:
       rules
         ?.filter((r) => r.enabled)
+        ?.filter((r) => {
+          const currentDate = new Date().valueOf();
+          const validAfter = new Date(r.validAfter).valueOf(); // This is "Start Date" in the UI
+          const validBefore = new Date(r.validBefore).valueOf(); // This is "End Date" in the UI
+
+          if (!validAfter && !validBefore) {
+            return true;
+          }
+
+          if (validAfter && !validBefore) {
+            return currentDate > validAfter;
+          }
+
+          if (validBefore && !validAfter) {
+            return currentDate < validBefore;
+          }
+          // E.G. This feature should only be evaluated if the currentDate falls OUTSIDE of a date range.
+          if (validBefore && validAfter && validBefore < validAfter) {
+            // If that's the case, only 1 of the expressions must be true before we evaluate the feature.
+            if (currentDate < validBefore || currentDate > validAfter) {
+              return true;
+            }
+          }
+          // E.G. This feature should only be evaluated if the currentDate falls INSIDE of a date range.
+          if (validBefore && validAfter && validBefore > validAfter) {
+            // If that's the case, BOTH of the expressions must be true before we evaluate the feature.
+            if (currentDate < validBefore && currentDate > validAfter) {
+              return true;
+            }
+          }
+
+          return false;
+        })
         ?.map((r) => {
           const rule: FeatureDefinitionRule = {};
           if (r.condition && r.condition !== "{}") {
@@ -392,4 +426,37 @@ export function getApiFeatureObj(
   };
 
   return featureRecord;
+}
+
+export function getNextScheduledUpdate(
+  envSettings: Record<string, FeatureEnvironment>
+) {
+  const featureScheduleDates: string[] = [];
+
+  if (envSettings) {
+    for (const env in envSettings) {
+      const rules = envSettings[env].rules;
+
+      rules.forEach((rule: FeatureRule) => {
+        if ("validAfter" in rule) {
+          featureScheduleDates.push(rule.validAfter);
+        }
+        if ("validBefore" in rule) {
+          featureScheduleDates.push(rule.validBefore);
+        }
+      });
+    }
+  }
+
+  const featureScheduleDatesInTheFuture = featureScheduleDates.filter(
+    (date) => new Date(date) > new Date()
+  );
+
+  if (featureScheduleDatesInTheFuture.length === 0) {
+    return null;
+  }
+
+  const sortedFeatureScheduleDatesInTheFuture = featureScheduleDatesInTheFuture.sort();
+
+  return sortedFeatureScheduleDatesInTheFuture[0];
 }

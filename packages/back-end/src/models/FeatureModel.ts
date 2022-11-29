@@ -7,7 +7,11 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import { featureUpdated, generateRuleId } from "../services/features";
+import {
+  featureUpdated,
+  generateRuleId,
+  getNextScheduledUpdate,
+} from "../services/features";
 import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
@@ -17,6 +21,7 @@ const featureSchema = new mongoose.Schema({
   archived: Boolean,
   description: String,
   organization: String,
+  nextScheduledUpdate: Date,
   owner: String,
   project: String,
   dateCreated: Date,
@@ -47,6 +52,8 @@ const featureSchema = new mongoose.Schema({
         },
       ],
       namespace: {},
+      validBefore: String,
+      validAfter: String,
     },
   ],
   environmentSettings: {},
@@ -348,6 +355,7 @@ export async function publishDraft(
         rules: feature?.draft?.rules?.[key] || [],
       };
     });
+    changes.nextScheduledUpdate = getNextScheduledUpdate(envSettings);
   }
 
   changes.dateUpdated = new Date();
