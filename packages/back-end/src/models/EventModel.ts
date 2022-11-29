@@ -106,23 +106,9 @@ export const createEvent = async (
  */
 export const getEvent = async (
   eventId: string
-): Promise<EventInterface<
-  NotificationEventPayload<
-    NotificationEventName,
-    NotificationEventResource,
-    unknown
-  >
-> | null> => {
+): Promise<EventInterface<NotificationEvent> | null> => {
   const doc = await EventModel.findOne({ id: eventId });
-  return !doc
-    ? null
-    : (toInterface(doc) as EventInterface<
-        NotificationEventPayload<
-          NotificationEventName,
-          NotificationEventResource,
-          unknown
-        >
-      >);
+  return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
 };
 
 /**
