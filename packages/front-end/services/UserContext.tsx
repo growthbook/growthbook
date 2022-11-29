@@ -74,6 +74,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageWebhooks: false,
   organizationSettings: false,
   superDelete: false,
+  viewEvents: false,
 };
 
 export interface UserContextValue {

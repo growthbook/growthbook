@@ -1,8 +1,8 @@
 import {
-  FeatureDefinitionRule,
-  FeatureDefinition,
-  ApiFeatureInterface,
   ApiFeatureEnvironmentInterface,
+  ApiFeatureInterface,
+  FeatureDefinition,
+  FeatureDefinitionRule,
 } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -19,6 +19,9 @@ import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
+import { FeatureUpdatedNotificationEvent } from "../events/base-events";
+import { createEvent } from "../models/EventModel";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
@@ -392,4 +395,31 @@ export function getApiFeatureObj(
   };
 
   return featureRecord;
+}
+
+/**
+ * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
+ * will log an update event in the events collection
+ * @param organization
+ * @param previous
+ * @param current
+ */
+export async function logFeatureUpdatedEvent(
+  organization: OrganizationInterface,
+  previous: FeatureInterface,
+  current: FeatureInterface
+): Promise<string> {
+  const payload: FeatureUpdatedNotificationEvent = {
+    object: "feature",
+    event: "feature.updated",
+    data: {
+      current,
+      previous,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
 }
