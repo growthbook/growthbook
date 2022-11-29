@@ -1,3 +1,4 @@
+import _ from "lodash";
 import {
   ApiFeatureEnvironmentInterface,
   ApiFeatureInterface,
@@ -401,26 +402,20 @@ export function getApiFeatureObj(
  * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
  * will log an update event in the events collection
  * @param organization
- * @param previousState
- * @param currentState
+ * @param previous
+ * @param current
  */
 export async function logFeatureUpdatedEvent(
   organization: OrganizationInterface,
-  previousState: FeatureInterface,
-  currentState: FeatureInterface
+  previous: FeatureInterface,
+  current: FeatureInterface
 ): Promise<string> {
-  // TODO: Add caching here since this rarely changes
-  const groupMap = await getSavedGroupMap(organization);
-
-  const previous = getApiFeatureObj(previousState, organization, groupMap);
-  const current = getApiFeatureObj(currentState, organization, groupMap);
-
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current,
-      previous,
+      current: _.omit(current, ["__v", "_id"]) as FeatureInterface,
+      previous: _.omit(previous, ["__v", "_id"]) as FeatureInterface,
     },
   };
 
