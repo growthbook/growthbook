@@ -1966,12 +1966,31 @@ td.disabled {
   color: var(--text-color-premium);
 }
 .alert-premium {
-  background-color: var(--alert-premium-background);
-  border-color: var(--alert-premium-border-color);
+  &.cta {
+    cursor: pointer;
+    transition: 150ms all;
+  }
+
+  background: radial-gradient(
+    120% 150% at bottom right,
+    var(--alert-premium-background-gradient-1),
+    var(--alert-premium-background-gradient-2)
+  );
+  border-color: var(--border-color-100);
   color: var(--text-color-premium);
 
   .alert-link {
     color: var(--text-color-main);
+  }
+}
+html.theme--light {
+  .alert-premium.cta:hover {
+    filter: brightness(98%) saturate(130%);
+  }
+}
+html.theme--dark {
+  .alert-premium.cta:hover {
+    filter: brightness(115%);
   }
 }
 

@@ -16,7 +16,6 @@ const ApiKeysModal: FC<{
   secret?: boolean;
 }> = ({ close, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -84,17 +83,6 @@ const ApiKeysModal: FC<{
         {...form.register("description")}
       />
       {!secret && (
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowAdvanced(!showAdvanced);
-          }}
-        >
-          {showAdvanced ? "Hide" : "Show"} advanced settings
-        </a>
-      )}
-      {!secret && showAdvanced && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           form={form}

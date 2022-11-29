@@ -23,36 +23,47 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
   const hasFeature = hasCommercialFeature("encrypt-features-endpoint");
 
   return (
-    <div className="bg-light px-3 pt-3 appbox mt-2">
+    <div className="mt-4">
       <div className="form-group">
         <label htmlFor="encryptSDK">
           <p className="mb-0">
-            <Tooltip shouldDisplay={!hasFeature} body={
-              <>
-                <GBPremiumBadge />
-                This is a premium feature
-              </>
-            } tipPosition="top" innerClassName="premium">
+            <Tooltip
+              shouldDisplay={!hasFeature}
+              body={
+                <>
+                  <GBPremiumBadge />
+                  This is a premium feature
+                </>
+              }
+              tipPosition="top"
+              innerClassName="premium"
+            >
               <GBPremiumBadge shouldDisplay={!hasFeature} />
               Encrypt this endpoint&apos;s response?
             </Tooltip>
           </p>
         </label>
-        <div>
-          <Toggle
-            id={"encryptSDK"}
-            value={!!form.watch("encryptSDK")}
-            setValue={(value) => {
-              form.setValue("encryptSDK", value);
-            }}
-            disabled={!hasFeature}
-          />
+        <div className="row mb-4">
+          <div className="col-md-3 mt-1">
+            <Toggle
+              id={"encryptSDK"}
+              value={!!form.watch("encryptSDK")}
+              setValue={(value) => {
+                form.setValue("encryptSDK", value);
+              }}
+              disabled={!hasFeature}
+            />
+          </div>
+          <div
+            className="col-md-9 text-gray text-right"
+            style={{ fontSize: 11 }}
+          >
+            Only supported when using our Javascript or React SDKs.
+            <br />
+            Requires changes to your implementation.{" "}
+            <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
+          </div>
         </div>
-      </div>
-      <div className="mb-3">
-        Only supported when using our Javascript or React SDKs. Requires changes
-        to your implementation.{" "}
-        <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
       </div>
       {!hasFeature && (
         <UpgradeMessage
