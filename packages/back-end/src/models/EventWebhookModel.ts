@@ -9,6 +9,7 @@ import {
 import { errorStringFromZodResult } from "../util/validation";
 import { EventWebHookInterface } from "../../types/event-webhook";
 import { randomUUID } from "crypto";
+import { logger } from "../util/logger";
 
 const eventWebHookSchema = new mongoose.Schema({
   id: {
@@ -74,8 +75,8 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookDocument =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookDocument;
+const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
+  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
 
 const EventWebHookModel = mongoose.model<EventWebHookDocument>(
   "EventWebHook",
@@ -117,6 +118,22 @@ export const createEventWebHook = async ({
   });
 
   return toInterface(doc);
+};
+
+/**
+ * Retrieve an EventWebHook by ID
+ * @param eventWebHookId
+ */
+export const getEventWebHookById = async (
+  eventWebHookId: string
+): Promise<EventWebHookInterface | null> => {
+  try {
+    const doc = await EventWebHookModel.findOne({ id: eventWebHookId });
+    return !doc ? null : toInterface(doc);
+  } catch (e) {
+    logger.error("getEventWebHookById", e);
+    return null;
+  }
 };
 
 /**
