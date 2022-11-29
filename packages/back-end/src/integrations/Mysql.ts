@@ -6,6 +6,8 @@ import { ConnectionOptions } from "mysql2";
 import { FormatDialect } from "../util/sql";
 
 export default class Mysql extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: MysqlConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MysqlConnectionParams>(
