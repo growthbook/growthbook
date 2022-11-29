@@ -425,7 +425,7 @@ export async function logFeatureUpdatedEvent(
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent).perform();
+  new EventNotifier(emittedEvent.id).perform();
 
   return emittedEvent.id;
 }
