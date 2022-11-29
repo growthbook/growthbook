@@ -465,5 +465,5 @@ export function getNextScheduledUpdate(
     return null;
   }
 
-  return sortedFutureDates[0];
+  return new Date(sortedFutureDates[0]);
 }

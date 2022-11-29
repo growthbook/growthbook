@@ -30,7 +30,7 @@ export interface FeatureInterface {
   archived?: boolean;
   description?: string;
   organization: string;
-  nextScheduledUpdate?: string | null;
+  nextScheduledUpdate?: Date | null;
   owner: string;
   project?: string;
   dateCreated: Date;
