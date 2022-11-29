@@ -3,11 +3,13 @@ import { getAgendaInstance } from "../../services/queueing";
 import { EventInterface } from "../../../types/event";
 import { NotificationEvent } from "../base-events";
 
+let jobDefined = false;
+
 interface Notifier {
   perform(): void;
 }
 
-interface EnqueuedData extends JobAttributesData {
+interface EventNotificationData extends JobAttributesData {
   event: EventInterface<NotificationEvent>;
 }
 
@@ -24,10 +26,16 @@ export class EventNotifier implements Notifier {
   ) {
     this.eventData = event;
 
-    this.agenda.define<EnqueuedData>("eventCreated", EventNotifier.jobHandler);
+    if (jobDefined) return;
+
+    this.agenda.define<EventNotificationData>(
+      "eventCreated",
+      EventNotifier.jobHandler
+    );
+    jobDefined = true;
   }
 
-  private static jobHandler(_job: Job<EnqueuedData>): void {
+  private static jobHandler(_job: Job<EventNotificationData>): void {
     // const { event } = job.attrs.data;
     // webHooksEventHandler(event);
     // slackEventHandler(event);
