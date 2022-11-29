@@ -35,7 +35,7 @@ export default function MetricsOverridesSelector({
   const unusedMetrics = [...metrics].filter((m) => !usedMetrics.has(m));
 
   return (
-    <>
+    <div className="mb-3">
       {!disabled &&
         metricOverrides.fields.map((v, i) => {
           const mo = form.watch(`metricOverrides.${i}`);
@@ -43,7 +43,7 @@ export default function MetricsOverridesSelector({
             (md) => md.id === mo.id
           );
           return (
-            <div className="appbox px-3 pt-3 bg-light" key={i}>
+            <div className="appbox px-3 bg-light" key={i}>
               <div style={{ float: "right" }}>
                 <a
                   href="#"
@@ -137,6 +137,6 @@ export default function MetricsOverridesSelector({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

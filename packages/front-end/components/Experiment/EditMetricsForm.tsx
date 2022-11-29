@@ -51,7 +51,7 @@ const EditMetricsForm: FC<{
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="Override metric conversion window"
+          reason="Override metric conversion windows."
           source="override-metrics"
         />
       )}
@@ -118,13 +118,6 @@ const EditMetricsForm: FC<{
           <label className="font-weight-bold mb-1">
             Metric Overrides (optional)
           </label>
-          {!hasOverrideMetricsFeature && (
-            <UpgradeMessage
-              showUpgradeModal={() => setUpgradeModal(true)}
-              commercialFeature="override-metrics"
-              upgradeMessage="override metrics"
-            />
-          )}
           <div className="mb-1 font-italic">
             Override metric conversion windows within this experiment.
           </div>
@@ -133,6 +126,13 @@ const EditMetricsForm: FC<{
             form={form}
             disabled={!hasOverrideMetricsFeature}
           />
+          {!hasOverrideMetricsFeature && (
+            <UpgradeMessage
+              showUpgradeModal={() => setUpgradeModal(true)}
+              commercialFeature="override-metrics"
+              upgradeMessage="override metrics"
+            />
+          )}
         </div>
       </Modal>
     </>
