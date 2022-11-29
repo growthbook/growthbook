@@ -163,13 +163,17 @@ export default function RuleModal({
             onChange={(e) => form.setValue("validAfter", e.target.value)}
           />
           {validAfter && (
-            <span
-              role="button"
-              className="pl-2"
-              onClick={() => form.setValue("validAfter", null)}
+            <button
+              className="btn btn-link text-danger"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("validAfter", null);
+              }}
             >
-              Clear Date
-            </span>
+              {" "}
+              remove
+            </button>
           )}
         </div>
         <div className="pb-2">
@@ -180,13 +184,16 @@ export default function RuleModal({
             onChange={(e) => form.setValue("validBefore", e.target.value)}
           />
           {validBefore && (
-            <span
-              role="button"
-              className="pl-2"
-              onClick={() => form.setValue("validBefore", null)}
+            <button
+              className="btn btn-link text-danger"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("validBefore", null);
+              }}
             >
-              Clear Date
-            </span>
+              remove
+            </button>
           )}
         </div>
       </div>

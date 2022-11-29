@@ -15,6 +15,7 @@ import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
+import ScheduleSummary from "./ScheduleSummary";
 
 interface SortableProps {
   i: number;
@@ -232,6 +233,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </div>
               </div>
             )}
+            <ScheduleSummary
+              startDate={rule.validAfter || ""}
+              endDate={rule.validBefore || ""}
+            />
             {rule.type === "force" && (
               <ForceSummary value={rule.value} type={type} />
             )}

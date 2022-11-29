@@ -53,8 +53,8 @@ export interface BaseRule {
   condition?: string;
   id: string;
   enabled?: boolean;
-  validBefore: string;
-  validAfter: string;
+  validBefore?: string;
+  validAfter?: string;
 }
 
 export interface ForceRule extends BaseRule {
