@@ -5,6 +5,8 @@ import mssql from "mssql";
 import { FormatDialect } from "../util/sql";
 
 export default class Mssql extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: MssqlConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
