@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import { redirectWithTimeout, useAuth } from "../../services/auth";
-import track from "../../services/track";
-import Modal from "../Modal";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Button";
-import LoadingOverlay from "../LoadingOverlay";
+import useStripeSubscription from "../../../hooks/useStripeSubscription";
+import { redirectWithTimeout, useAuth } from "../../../services/auth";
+import track from "../../../services/track";
+import Modal from "../../Modal";
+import Tooltip from "../../Tooltip/Tooltip";
+import Button from "../../Button";
+import LoadingOverlay from "../../LoadingOverlay";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
@@ -19,6 +19,7 @@ export interface Props {
 }
 
 export default function UpgradeModal({ close, source, reason }: Props) {
+  // const { accountPlan } = useUser();
   const { quote, loading } = useStripeSubscription();
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       subtotal: quote?.subtotal,
       total: quote?.total,
     });
-  }, []);
+  });
 
   const { apiCall } = useAuth();
   const [error, setError] = useState(null);
