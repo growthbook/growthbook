@@ -1,18 +1,18 @@
 import { NotificationEventPayload } from "./base-types";
-import { ApiFeatureInterface } from "../../types/api";
+import { FeatureInterface } from "../../types/feature";
 
 export type FeatureCreatedNotificationEvent = NotificationEventPayload<
   "feature.created",
   "feature",
-  ApiFeatureInterface
+  FeatureInterface
 >;
 
 export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
   "feature.updated",
   "feature",
   {
-    current: ApiFeatureInterface;
-    previous: ApiFeatureInterface;
+    current: FeatureInterface;
+    previous: FeatureInterface;
   }
 >;
 
@@ -20,7 +20,7 @@ export type FeatureDeletedNotificationEvent = NotificationEventPayload<
   "feature.deleted",
   "feature",
   {
-    previous: ApiFeatureInterface;
+    previous: FeatureInterface;
   }
 >;
 
