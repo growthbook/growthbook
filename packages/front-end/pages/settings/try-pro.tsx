@@ -19,7 +19,7 @@ const TryEnterprisePage: FC = () => {
     defaultValues: {
       name,
       email,
-      seats: organization?.members?.length || 10,
+      seats: Math.max(organization?.members?.length || 10, 10),
       companyName: organization?.name,
       organizationId: organization?.id,
       plan: "pro",
