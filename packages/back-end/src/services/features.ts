@@ -436,6 +436,10 @@ export function getApiFeatureObj(
 export function getNextScheduledUpdate(
   envSettings: Record<string, FeatureEnvironment>
 ) {
+  if (!envSettings) {
+    return null;
+  }
+
   const dates: string[] = [];
 
   if (envSettings) {
