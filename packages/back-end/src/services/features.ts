@@ -81,8 +81,12 @@ export function getFeatureDefinition({
         ?.filter((r) => r.enabled)
         ?.filter((r) => {
           const currentDate = new Date().valueOf();
-          const validAfter = new Date(r.validAfter).valueOf(); // This is "Start Date" in the UI
-          const validBefore = new Date(r.validBefore).valueOf(); // This is "End Date" in the UI
+          const validAfter = r.validAfter
+            ? new Date(r.validAfter).valueOf()
+            : ""; // This is "Start Date" in the UI
+          const validBefore = r.validBefore
+            ? new Date(r.validBefore).valueOf()
+            : ""; // This is "End Date" in the UI
 
           if (!validAfter && !validBefore) {
             return true;
@@ -439,10 +443,10 @@ export function getNextScheduledUpdate(
 
       rules.forEach((rule: FeatureRule) => {
         if ("validAfter" in rule) {
-          featureScheduleDates.push(rule.validAfter);
+          featureScheduleDates.push(rule.validAfter || "");
         }
         if ("validBefore" in rule) {
-          featureScheduleDates.push(rule.validBefore);
+          featureScheduleDates.push(rule.validBefore || "");
         }
       });
     }
