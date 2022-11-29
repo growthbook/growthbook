@@ -1963,4 +1963,20 @@ td.disabled {
   font-style: italic;
 }
 
+.boxlink {
+  display: inline-block;
+  &:hover {
+    text-decoration: none;
+  }
+  &.cta {
+    & > div {
+      transition: 150ms box-shadow;
+    }
+    &:hover > div {
+      color: var(--text-color-primary);
+      box-shadow: 0 2px 5px rgb(0 0 0 / 5%);
+    }
+  }
+}
+
 @import "./components/react-select.scss";

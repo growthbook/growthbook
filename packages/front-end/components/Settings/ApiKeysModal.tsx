@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { useEnvironments } from "../../services/features";
-import { isCloud } from "../../services/env";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 
@@ -47,60 +46,59 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
-  if (upgradeModal && isCloud()) {
-    return (
-      <UpgradeModal
-        close={() => setUpgradeModal(false)}
-        reason="To enable SDK encryption,"
-        source="encrypt-features-endpoint"
-      />
-    );
-  }
-
   return (
-    <Modal
-      close={close}
-      header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
-      open={true}
-      submit={onSubmit}
-      cta="Create"
-    >
-      {!secret && (
+    <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason="To enable SDK encryption,"
+          source="encrypt-features-endpoint"
+        />
+      )}
+      <Modal
+        close={close}
+        header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
+        open={true}
+        submit={onSubmit}
+        cta="Create"
+      >
+        {!secret && (
+          <Field
+            label="Environment"
+            options={environments.map((e) => {
+              return {
+                value: e.id,
+                display: e.id,
+              };
+            })}
+            {...form.register("environment")}
+          />
+        )}
         <Field
-          label="Environment"
-          options={environments.map((e) => {
-            return {
-              value: e.id,
-              display: e.id,
-            };
-          })}
-          {...form.register("environment")}
+          label="Description"
+          required={secret}
+          placeholder={secret ? "" : form.watch("environment")}
+          {...form.register("description")}
         />
-      )}
-      <Field
-        label="Description"
-        required={secret}
-        placeholder={secret ? "" : form.watch("environment")}
-        {...form.register("description")}
-      />
-      {!secret && (
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowAdvanced(!showAdvanced);
-          }}
-        >
-          {showAdvanced ? "Hide" : "Show"} advanced settings
-        </a>
-      )}
-      {!secret && showAdvanced && (
-        <EncryptionToggle
-          showUpgradeModal={() => setUpgradeModal(true)}
-          form={form}
-        />
-      )}
-    </Modal>
+        {!secret && (
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowAdvanced(!showAdvanced);
+            }}
+          >
+            {showAdvanced ? "Hide" : "Show"} advanced settings
+          </a>
+        )}
+        {!secret && showAdvanced && (
+          <EncryptionToggle
+            showUpgradeModal={() => setUpgradeModal(true)}
+            form={form}
+          />
+        )}
+      </Modal>
+    </>
   );
 };
 

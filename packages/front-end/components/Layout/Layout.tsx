@@ -240,7 +240,7 @@ const Layout = (): React.ReactElement => {
   const { accountPlan } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const showPremiumCTA = ['oss', 'starter'].includes(accountPlan);
+  const showPremiumCTA = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
   const router = useRouter();
@@ -292,7 +292,7 @@ const Layout = (): React.ReactElement => {
 
   return (
     <>
-      { upgradeModal && (
+      {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
           reason=""
@@ -388,12 +388,15 @@ const Layout = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="p-3">
-          { showPremiumCTA && (
+          {showPremiumCTA && (
             <button
               className="btn btn-outline-light btn-block"
               onClick={() => setUpgradeModal(true)}
             >
-              Try Premium <FaStar className="ml-2" />
+              Try Premium{" "}
+              <span style={{ color: "#f3b500" }}>
+                <FaStar className="ml-2" />
+              </span>
             </button>
           )}
           <a
