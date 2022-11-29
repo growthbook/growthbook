@@ -19,7 +19,7 @@ const TryEnterprisePage: FC = () => {
     defaultValues: {
       name,
       email,
-      seats: 5,
+      seats: organization?.members?.length || 10,
       companyName: organization?.name,
       organizationId: organization?.id,
       plan: "pro",
@@ -151,7 +151,7 @@ const TryEnterprisePage: FC = () => {
                 {...form.register("seats", { valueAsNumber: true })}
                 type="number"
                 min="3"
-                max="10"
+                max="999"
                 step="1"
                 pattern="\d*"
               />
