@@ -16,17 +16,15 @@ export interface NotificationEventHandler {
 }
 
 export class EventNotifier implements Notifier {
-  private readonly jobId: string;
   private readonly eventData: EventInterface<NotificationEvent>;
 
   constructor(
     event: EventInterface<NotificationEvent>,
     private agenda: Agenda = getAgendaInstance()
   ) {
-    this.jobId = `events.notification.${event.id}`;
     this.eventData = event;
 
-    this.agenda.define<EnqueuedData>(this.jobId, EventNotifier.jobHandler);
+    this.agenda.define<EnqueuedData>("eventCreated", EventNotifier.jobHandler);
   }
 
   private static jobHandler(_job: Job<EnqueuedData>): void {
@@ -35,9 +33,12 @@ export class EventNotifier implements Notifier {
     // slackEventHandler(event);
   }
 
-  perform() {
-    this.agenda.now<EnqueuedData>(this.jobId, {
+  async perform() {
+    const job = this.agenda.create("eventCreated", {
       event: this.eventData,
     });
+    job.unique({ "data.event.id": this.eventData.id });
+    job.schedule(new Date());
+    await job.save();
   }
 }
