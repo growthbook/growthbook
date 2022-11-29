@@ -19,7 +19,7 @@ export default function UpgradeMessage({
 
   if (isCloud()) {
     return (
-      <div className="alert alert-info">
+      <div className="alert alert-premium">
         Upgrade your plan to {upgradeMessage}.{" "}
         {canSubscribe ? (
           <a
@@ -43,7 +43,7 @@ export default function UpgradeMessage({
 
   // Self-hosted
   return (
-    <div className="alert alert-info">
+    <div className="alert alert-premium">
       Purchase a commercial license key to {upgradeMessage}. Contact{" "}
       <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for more
       info.

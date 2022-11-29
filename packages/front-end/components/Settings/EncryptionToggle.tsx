@@ -4,6 +4,7 @@ import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import UpgradeMessage from "../UpgradeMessage";
+import { GBPremiumBadge } from "../Icons";
 
 type FormKeys = {
   description: string;
@@ -25,19 +26,27 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
     <div className="bg-light px-3 pt-3 appbox mt-2">
       <div className="form-group">
         <label htmlFor="encryptSDK">
-          Encrypt this endpoint&apos;s response?
+          <p className="mb-0">
+            <Tooltip shouldDisplay={!hasFeature} body={
+              <>
+                <GBPremiumBadge />
+                This is a premium feature
+              </>
+            } tipPosition="top" innerClassName="premium">
+              <GBPremiumBadge shouldDisplay={!hasFeature} />
+              Encrypt this endpoint&apos;s response?
+            </Tooltip>
+          </p>
         </label>
         <div>
-          <Tooltip body={!hasFeature && "Upgrade to enable this feature"}>
-            <Toggle
-              id={"encryptSDK"}
-              value={!!form.watch("encryptSDK")}
-              setValue={(value) => {
-                form.setValue("encryptSDK", value);
-              }}
-              disabled={!hasFeature}
-            />
-          </Tooltip>
+          <Toggle
+            id={"encryptSDK"}
+            value={!!form.watch("encryptSDK")}
+            setValue={(value) => {
+              form.setValue("encryptSDK", value);
+            }}
+            disabled={!hasFeature}
+          />
         </div>
       </div>
       <div className="mb-3">

@@ -144,6 +144,7 @@ pre {
   @include badge-variant(#f6f7f9);
   border: 1px solid colors.$gray4;
 }
+
 .multi-select-container {
   z-index: 99999999;
 }
@@ -584,6 +585,11 @@ pre {
     color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
+  }
+
+  .premium {
+    font-weight: bold;
+    color: var(--text-color-premium);
   }
 
   &[data-popper-placement^="top"] > .arrow {
@@ -1954,6 +1960,19 @@ tr.disabled,
 td.disabled {
   background: var(--disabled-background);
   font-style: italic;
+}
+
+.text-premium {
+  color: var(--text-color-premium);
+}
+.alert-premium {
+  background-color: var(--alert-premium-background);
+  border-color: var(--alert-premium-border-color);
+  color: var(--text-color-premium);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
 }
 
 @import "./components/react-select.scss";
