@@ -28,13 +28,13 @@ With the bucket created, we can create a Rudderstack warehouse destination.
 <img
   src="/images/guides/rudderstack-1-addwarehouse.png"
   alt="Add a data warehouse destination for Rudderstack"
-  style={{ width: 500, margin: "0 auto" }}
+  style={{ width: 500, margin: "0 auto 20px" }}
 />
 
 <img
   src="/images/guides/rudderstack-2-adddestination.png"
   alt="Select BigQuery from the list"
-  style={{ width: 500, margin: "0 auto" }}
+  style={{ width: 500, margin: "0 auto 20px" }}
 />
 
 <img
@@ -60,26 +60,36 @@ And it will show up as a connected destination on your Rudderstack Connect dashb
   alt="BigQuery connection in rudderstack"
 />
 
-## 2. Connect GrowthBook to BiqQuery
+## 2. Connect GrowthBook
 
-Now that event data is flowing into BigQuery, we need to make another service account for GrowthBook to connect to BigQuery.
-We have a detailed guide on how to do this here: [Setting up BigQuery as a data source](/guide/bigquery).
+Now that we have data flowing into BigQuery, we need to have GrowthBook connect to it. It
+is best practice to create another service account for GrowthBook to connect to BigQuery. 
+(We have a complete guide on how to do this here: [Setting up BigQuery as a data source](/guide/bigquery))
 
-## 3. Select Rudderstack data schema
-
-After you successfully connect to your BigQuery database, you'll get the following modal:
+Navigate to Analysis -> Data Sources from within GrowthBook and click on 'Add Data Source' 
+Button. From the window that pops up, select Rudderstack:
 
 <img
-  src="/images/guides/rudderstack-11-data-schema.png"
+  src="/images/new-data-sources-modal.png"
   alt="Choose Rudderstack data schema"
   style={{ width: 500, margin: "0 auto" }}
 />
 
-Click on Rudderstack from the list. This will pre-populate the experiment exposure query which is need to determine which user saw which experiment
-variation. Depending on your needs, you may still need to adjust these queries - for instance if you're tracking both
+After choosing RudderStack you'll be presented with a connection window to connect to BigQuery. 
+
+<img
+  src="/images/rudderstack-add-bigquery.png"
+  alt="Connect to your database"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+When successfully connected, you'll be redirected to the data source page. You'll see all the connection 
+options for BigQuery as well as the queries used. By choosing Rudderstack as you added the data source, GrowthBook 
+will pre-populate the experiment exposure query which is need to determine which user saw which experiment variation. 
+Depending on your needs, you may still need to adjust these queries - for instance if you're tracking both
 `anonymous_id` and `user_id`, you'll need to add the `user_id` query.
 
-## 4. Add Metrics
+## 3. Add Metrics
 
 GrowthBook needs to know what metrics you want to use in your experiments, and how to query this data from BigQuery.
 This step depends on your needs as an organization. Keep in mind that metric queries will be generic, returning all
@@ -91,7 +101,7 @@ Metrics are added from the Analysis -> Metrics menu.
 <img
   src="/images/guides/metrics-addmetric.png"
   alt="Choose Rudderstack data schema"
-  style={{ width: 500, margin: "0 auto" }}
+  style={{ width: 500, margin: "0 auto 20px" }}
 />
 
 <img
