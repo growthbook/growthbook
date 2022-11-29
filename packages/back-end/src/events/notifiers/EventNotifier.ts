@@ -1,7 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../services/queueing";
-import { EventInterface } from "../../../types/event";
-import { NotificationEvent } from "../base-events";
 
 let jobDefined = false;
 
@@ -10,21 +8,18 @@ interface Notifier {
 }
 
 interface EventNotificationData extends JobAttributesData {
-  event: EventInterface<NotificationEvent>;
+  eventId: string;
 }
 
 export interface NotificationEventHandler {
-  (event: EventInterface<NotificationEvent>): Promise<void>;
+  (eventId: string): Promise<void>;
 }
 
 export class EventNotifier implements Notifier {
-  private readonly eventData: EventInterface<NotificationEvent>;
+  private readonly eventId: string;
 
-  constructor(
-    event: EventInterface<NotificationEvent>,
-    private agenda: Agenda = getAgendaInstance()
-  ) {
-    this.eventData = event;
+  constructor(eventId: string, private agenda: Agenda = getAgendaInstance()) {
+    this.eventId = eventId;
 
     if (jobDefined) return;
 
@@ -36,16 +31,16 @@ export class EventNotifier implements Notifier {
   }
 
   private static jobHandler(_job: Job<EventNotificationData>): void {
-    // const { event } = job.attrs.data;
-    // webHooksEventHandler(event);
+    // const { eventId } = job.attrs.data;
+    // webHooksEventHandler(eventId);
     // slackEventHandler(event);
   }
 
   async perform() {
-    const job = this.agenda.create("eventCreated", {
-      event: this.eventData,
+    const job = this.agenda.create<EventNotificationData>("eventCreated", {
+      eventId: this.eventId,
     });
-    job.unique({ "data.event.id": this.eventData.id });
+    job.unique({ "data.eventId": this.eventId });
     job.schedule(new Date());
     await job.save();
   }
