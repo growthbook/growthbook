@@ -9,6 +9,8 @@ import { FormatDialect } from "../util/sql";
 type Row = any;
 
 export default class Presto extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: PrestoConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(

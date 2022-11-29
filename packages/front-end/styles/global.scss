@@ -497,6 +497,13 @@ pre {
     }
   }
 }
+
+.appbox--align-top {
+  td {
+    vertical-align: top;
+  }
+}
+
 .flex-1 {
   flex: 1;
 }
