@@ -41,7 +41,7 @@ export default function SelfHostedUpgradeForm({
     <>
       <div className="text-center mb-2">
         <p className="text-center mb-1" style={{ fontSize: "1.3em" }}>
-          {reason} Try a premium GrowthBook plan
+          {reason} Try a premium GrowthBook plan for free
         </p>
         <p className="text-center mt-2 mb-1">
           Try <strong>Pro</strong>, <strong>Pro + SSO</strong>, or{" "}
@@ -51,7 +51,10 @@ export default function SelfHostedUpgradeForm({
         <p>
           Complete the form below and we&apos;ll email you a trial license key.
         </p>
-        <p className="text-center appbox py-2 px-4 w-50 m-auto">
+        <p
+          className="text-center appbox py-2 px-4 m-auto"
+          style={{ maxWidth: "50%" }}
+        >
           Interested in a Cloud-based plan instead? Contact us at{" "}
           <a
             href="mailto:sales@growthbook.io"
@@ -67,7 +70,7 @@ export default function SelfHostedUpgradeForm({
           for a custom quote.
         </p>
       </div>
-      <div className="pr-md-5 pl-md-5">
+      <div className="m-auto" style={{ maxWidth: "65%" }}>
         {error && <div className="alert alert-danger mr-auto">{error}</div>}
 
         {submitState && (
@@ -149,7 +152,7 @@ export default function SelfHostedUpgradeForm({
             type="submit"
             disabled={loading}
           >
-            Send trial license
+            Send free trial license
           </button>
         </form>
 
