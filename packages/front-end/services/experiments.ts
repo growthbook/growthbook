@@ -185,15 +185,29 @@ export function useDomain(
 export function applyMetricOverrides(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
-): boolean {
-  if (!metric) return false;
+): string[] {
+  const overrideFields: string[] = [];
+  if (!metric) return overrideFields;
   const metricOverride = experiment?.metricOverrides?.find(
     (mo) => mo.id === metric.id
   );
   if (metricOverride) {
-    metric.conversionWindowHours = metricOverride.conversionWindowHours;
-    metric.conversionDelayHours = metricOverride.conversionDelayHours;
-    return true;
+    if ("conversionWindowHours" in metricOverride) {
+      metric.conversionWindowHours = metricOverride.conversionWindowHours;
+      overrideFields.push("conversionWindowHours");
+    }
+    if ("conversionDelayHours" in metricOverride) {
+      metric.conversionDelayHours = metricOverride.conversionDelayHours;
+      overrideFields.push("conversionDelayHours");
+    }
+    if ("winRisk" in metricOverride) {
+      metric.winRisk = metricOverride.winRisk;
+      overrideFields.push("winRisk");
+    }
+    if ("loseRisk" in metricOverride) {
+      metric.loseRisk = metricOverride.loseRisk;
+      overrideFields.push("loseRisk");
+    }
   }
-  return false;
+  return overrideFields;
 }

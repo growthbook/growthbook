@@ -174,8 +174,18 @@ export default abstract class SqlIntegration
       (mo) => mo.id === metric.id
     );
     if (metricOverride) {
-      metric.conversionDelayHours = metricOverride.conversionDelayHours;
-      metric.conversionWindowHours = metricOverride.conversionWindowHours;
+      if ("conversionDelayHours" in metricOverride) {
+        metric.conversionDelayHours = metricOverride.conversionDelayHours;
+      }
+      if ("conversionWindowHours" in metricOverride) {
+        metric.conversionWindowHours = metricOverride.conversionWindowHours;
+      }
+      if ("winRisk" in metricOverride) {
+        metric.winRisk = metricOverride.winRisk;
+      }
+      if ("loseRisk" in metricOverride) {
+        metric.loseRisk = metricOverride.loseRisk;
+      }
     }
     return;
   }

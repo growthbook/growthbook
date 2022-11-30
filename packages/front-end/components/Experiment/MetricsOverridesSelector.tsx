@@ -16,6 +16,7 @@ export default function MetricsOverridesSelector({
   form: UseFormReturn<EditMetricsFormInterface>;
   disabled: boolean;
 }) {
+  disabled = false;
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
 
@@ -43,7 +44,7 @@ export default function MetricsOverridesSelector({
             (md) => md.id === mo.id
           );
           return (
-            <div className="appbox px-3 bg-light" key={i}>
+            <div className="appbox px-3 pt-1 bg-light" key={i}>
               <div style={{ float: "right" }}>
                 <a
                   href="#"
@@ -58,13 +59,15 @@ export default function MetricsOverridesSelector({
               </div>
 
               <div>
-                <label>
+                <label className="mb-1">
                   <strong>{metricDefinition.name}</strong>
                 </label>
                 <div className="row mb-2">
                   <div className="col">
                     <Field
                       label="Conversion Delay (hours)"
+                      placeholder="default"
+                      labelClassName="small mb-1"
                       type="number"
                       containerClassName="mb-1"
                       step="any"
@@ -77,6 +80,8 @@ export default function MetricsOverridesSelector({
                   <div className="col">
                     <Field
                       label="Conversion Window (hours)"
+                      placeholder="default"
+                      labelClassName="small mb-1"
                       type="number"
                       containerClassName="mb-1"
                       min={0}
@@ -85,6 +90,34 @@ export default function MetricsOverridesSelector({
                         `metricOverrides.${i}.conversionWindowHours`,
                         { valueAsNumber: true }
                       )}
+                    />
+                  </div>
+                  <div className="col">
+                    <Field
+                      label="Acceptable risk % under..."
+                      placeholder="default"
+                      labelClassName="small mb-1"
+                      type="number"
+                      containerClassName="mb-1"
+                      min={0}
+                      step="any"
+                      {...form.register(`metricOverrides.${i}.winRisk`, {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <div className="col">
+                    <Field
+                      label="Too much risk % over..."
+                      placeholder="default"
+                      labelClassName="small mb-1"
+                      type="number"
+                      containerClassName="mb-1"
+                      min={0}
+                      step="any"
+                      {...form.register(`metricOverrides.${i}.loseRisk`, {
+                        valueAsNumber: true,
+                      })}
                     />
                   </div>
                 </div>

@@ -61,25 +61,43 @@ function drawMetricRow(
   experiment: ExperimentInterfaceStringDates
 ) {
   const newMetric = structuredClone(metric) as MetricInterface;
-  const override = applyMetricOverrides(newMetric, experiment);
+  const overrideFields = applyMetricOverrides(newMetric, experiment);
   return (
     <div className="row align-items-top" key={m}>
-      <div className="col-auto pr-0">-</div>
-      <div className="col">
-        <Link href={`/metric/${m}`}>
-          <a className="font-weight-bold">{newMetric?.name}</a>
-        </Link>
+      <div className="col-sm-5">
+        <div className="row">
+          <div className="col-auto pr-0">-</div>
+          <div className="col">
+            <Link href={`/metric/${m}`}>
+              <a className="font-weight-bold">{newMetric?.name}</a>
+            </Link>
+          </div>
+        </div>
       </div>
-      <div className="col">
+      <div className="col-sm-5">
         {newMetric && (
           <div className="small">
             {newMetric.conversionDelayHours || 0} to{" "}
             {(newMetric.conversionDelayHours || 0) +
               (newMetric.conversionWindowHours ||
                 getDefaultConversionWindowHours())}{" "}
-            hours {override && <span className="font-italic">(override)</span>}
+            hours{" "}
+            {(overrideFields.includes("conversionDelayHours") ||
+              overrideFields.includes("conversionWindowHours")) && (
+              <span className="font-italic text-purple">(override)</span>
+            )}
           </div>
         )}
+      </div>
+      <div className="col-sm-1">
+        <div className="small">
+          {overrideFields.includes("winRisk") ||
+          overrideFields.includes("loseRisk") ? (
+            <span className="font-italic text-purple">override</span>
+          ) : (
+            <span className="text-muted">standard</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -546,8 +564,8 @@ export default function SinglePage({
           >
             <div className="appbox p-3">
               <div className="row mb-1 text-muted">
-                <div className="col">Goals</div>
-                <div className="col">
+                <div className="col-sm-5">Goals</div>
+                <div className="col-sm-5">
                   Conversion Window{" "}
                   <Tooltip
                     body={`After a user sees the experiment, only include
@@ -556,6 +574,7 @@ export default function SinglePage({
                     <FaQuestionCircle />
                   </Tooltip>
                 </div>
+                <div className="col-sm-2">Behavior</div>
               </div>
               <>
                 {experiment.metrics.map((m) => {
@@ -565,8 +584,9 @@ export default function SinglePage({
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col">Guardrails</div>
-                      <div className="col">Conversion Window</div>
+                      <div className="col-sm-5">Guardrails</div>
+                      <div className="col-sm-5">Conversion Window</div>
+                      <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
@@ -577,8 +597,9 @@ export default function SinglePage({
                 {experiment.activationMetric && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col">Activation Metric</div>
-                      <div className="col">Conversion Window</div>
+                      <div className="col-sm-5">Activation Metric</div>
+                      <div className="col-sm-5">Conversion Window</div>
+                      <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,

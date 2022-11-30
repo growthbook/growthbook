@@ -1974,4 +1974,9 @@ td.disabled {
   }
 }
 
+.form-control::placeholder {
+  font-style: italic;
+  opacity: 0.5;
+}
+
 @import "./components/react-select.scss";

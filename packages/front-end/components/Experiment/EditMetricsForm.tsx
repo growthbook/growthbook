@@ -17,8 +17,10 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: {
     id: string;
-    conversionWindowHours: number;
-    conversionDelayHours: number;
+    conversionWindowHours?: number;
+    conversionDelayHours?: number;
+    winRisk?: number;
+    loseRisk?: number;
   }[];
 }
 
@@ -62,9 +64,19 @@ const EditMetricsForm: FC<{
         open={true}
         close={cancel}
         submit={form.handleSubmit(async (value) => {
+          const payload = structuredClone(value) as EditMetricsFormInterface;
+          for (let i = 0; i < payload.metricOverrides.length; i++) {
+            for (const key in payload.metricOverrides[i]) {
+              if (key === "id") continue;
+              const v = payload.metricOverrides[i][key];
+              if (v === undefined || v === null || isNaN(v)) {
+                delete payload.metricOverrides[i][key];
+              }
+            }
+          }
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify(payload),
           });
           mutate();
         })}
@@ -72,7 +84,7 @@ const EditMetricsForm: FC<{
       >
         <div className="form-group">
           <label className="font-weight-bold mb-1">Goal Metrics</label>
-          <div className="mb-1 font-italic">
+          <div className="mb-1 font-italic" style={{ fontSize: 12 }}>
             Metrics you are trying to improve with this experiment.
           </div>
           <MetricsSelector
@@ -85,7 +97,7 @@ const EditMetricsForm: FC<{
 
         <div className="form-group">
           <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-          <div className="mb-1 font-italic">
+          <div className="mb-1 font-italic" style={{ fontSize: 12 }}>
             Metrics you want to monitor, but are NOT specifically trying to
             improve.
           </div>
@@ -98,7 +110,7 @@ const EditMetricsForm: FC<{
 
         <div className="form-group">
           <label className="font-weight-bold mb-1">Activation Metric</label>
-          <div className="mb-1 font-italic">
+          <div className="mb-1 font-italic" style={{ fontSize: 12 }}>
             Users must convert on this metric before being included.
           </div>
           <SelectField
@@ -118,8 +130,13 @@ const EditMetricsForm: FC<{
           <label className="font-weight-bold mb-1">
             Metric Overrides (optional)
           </label>
-          <div className="mb-1 font-italic">
-            Override metric conversion windows within this experiment.
+          <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+            <p className="mb-0">
+              Override metric behaviors within this experiment.
+            </p>
+            <p className="mb-0">
+              Leave any fields empty that you do not want to override.
+            </p>
           </div>
           <MetricsOverridesSelector
             experiment={experiment}
