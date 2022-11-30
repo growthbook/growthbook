@@ -23,14 +23,29 @@ type PostWebHookOptions<DataType> = {
   payload: DataType;
 };
 
-export const postWebHook = async <DataType>({
+/**
+ * Given a signing key and a JSON serializable payload, serializes the payload and returns a web hook signature.
+ * @param signingKey
+ * @param payload
+ */
+export const getEventWebHookSignatureForPayload = <T>({
+  signingKey,
+  payload,
+}: {
+  signingKey: string;
+  payload: T;
+}): string => {
+  const requestPayload = JSON.stringify(payload);
+
+  return createHmac("sha256", signingKey).update(requestPayload).digest("hex");
+};
+
+export const performEventWebHookNotification = async <DataType>({
   payload,
   eventWebHook,
 }: PostWebHookOptions<DataType>): Promise<
   EventWebHookSuccessResult | EventWebHookErrorResult
 > => {
-  console.log("postWebHook");
-
   // TODO: Enqueue everything below in Agenda
 
   const { signingKey, url } = eventWebHook;
