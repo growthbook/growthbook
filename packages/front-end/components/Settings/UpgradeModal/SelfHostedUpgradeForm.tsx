@@ -23,7 +23,8 @@ export default function SelfHostedUpgradeForm({
       accountPlan,
       source,
     });
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const form = useForm({
     defaultValues: {

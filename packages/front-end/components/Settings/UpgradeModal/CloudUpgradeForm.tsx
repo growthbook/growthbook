@@ -22,6 +22,7 @@ export default function CloudUpgradeForm({
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log("whoa");
     track("View Upgrade Modal", {
       accountPlan,
       source,
@@ -32,7 +33,8 @@ export default function CloudUpgradeForm({
       subtotal: quote?.subtotal,
       total: quote?.total,
     });
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startStripeSubscription = async () => {
     setError(null);
