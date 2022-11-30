@@ -27,6 +27,6 @@ export const webHooksEventHandler: NotificationEventHandler = async (
       eventId,
       eventWebHookId: eventWebHook.id,
     });
-    notifier.perform();
+    notifier.enqueue();
   });
 };

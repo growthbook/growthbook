@@ -20,7 +20,7 @@ import { findOrganizationById } from "../../../models/OrganizationModel";
 let jobDefined = false;
 
 interface Notifier {
-  perform(): void;
+  enqueue(): void;
 }
 
 type EventWebHookNotificationHandlerOptions = {
@@ -40,12 +40,33 @@ export class EventWebHookNotifier implements Notifier {
 
     this.agenda.define<EventWebHookJobData>(
       "eventWebHook",
-      EventWebHookNotifier.jobHandler
+      EventWebHookNotifier.handleAgendaJob
     );
     jobDefined = true;
   }
 
-  private static async jobHandler(
+  /**
+   * Enqueue the job to be performed immediately asynchronously in Agenda
+   */
+  async enqueue(): Promise<void> {
+    const job = this.agenda.create<EventWebHookJobData>(
+      "eventWebHook",
+      this.options
+    );
+    job.unique({
+      "data.eventId": this.options.eventId,
+      "data.eventWebHookId": this.options.eventWebHookId,
+    });
+    job.schedule(new Date());
+    await job.save();
+  }
+
+  /**
+   * This is the entry point for when the job executes
+   * @param job
+   * @private
+   */
+  private static async handleAgendaJob(
     job: Job<EventWebHookJobData>
   ): Promise<void> {
     const { eventId, eventWebHookId } = job.attrs.data;
@@ -80,7 +101,7 @@ export class EventWebHookNotifier implements Notifier {
       savedGroupMap,
     });
 
-    const webHookResult = await performEventWebHookNotification({
+    const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,
       eventWebHook,
     });
@@ -95,6 +116,64 @@ export class EventWebHookNotifier implements Notifier {
         return EventWebHookNotifier.handleWebHookError(job, webHookResult);
     }
   }
+
+  /**
+   * This function makes the post request to the given event web hook with the provided payload,
+   * signing it.
+   * @param payload
+   * @param eventWebHook
+   */
+  private static async sendDataToWebHook<DataType>({
+    payload,
+    eventWebHook,
+  }: {
+    payload: DataType;
+    eventWebHook: EventWebHookInterface;
+  }): Promise<EventWebHookResult> {
+    try {
+      const { url, signingKey } = eventWebHook;
+
+      const signature = getEventWebHookSignatureForPayload({
+        signingKey,
+        payload,
+      });
+
+      const res = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-GrowthBook-Signature": signature,
+        },
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        // Server error
+        return {
+          result: "error",
+          statusCode: res.status,
+          error: res.statusText,
+        };
+      }
+
+      // Success
+      return {
+        result: "success",
+        statusCode: res.status,
+      };
+    } catch (e) {
+      // Unknown error
+      console.error("Unknown Error", e);
+
+      return {
+        result: "error",
+        statusCode: null,
+        error: e.message,
+      };
+    }
+  }
+
+  // region Result handling
 
   private static async handleWebHookSuccess(
     job: Job<EventWebHookJobData>,
@@ -124,72 +203,5 @@ export class EventWebHookNotifier implements Notifier {
     });
   }
 
-  perform = async (): Promise<void> => {
-    const job = this.agenda.create<EventWebHookJobData>(
-      "eventWebHook",
-      this.options
-    );
-    job.unique({
-      "data.eventId": this.options.eventId,
-      "data.eventWebHookId": this.options.eventWebHookId,
-    });
-    job.schedule(new Date());
-    await job.save();
-  };
+  // endregion Result handling
 }
-
-/**
- * This function makes the post request to the given event web hook with the provided payload,
- * signing it.
- * @param payload
- * @param eventWebHook
- */
-const performEventWebHookNotification = async <DataType>({
-  payload,
-  eventWebHook,
-}: {
-  payload: DataType;
-  eventWebHook: EventWebHookInterface;
-}): Promise<EventWebHookResult> => {
-  try {
-    const { url, signingKey } = eventWebHook;
-
-    const signature = getEventWebHookSignatureForPayload({
-      signingKey,
-      payload,
-    });
-
-    const res = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-GrowthBook-Signature": signature,
-      },
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      // Server error
-      return {
-        result: "error",
-        statusCode: res.status,
-        error: res.statusText,
-      };
-    }
-
-    // Success
-    return {
-      result: "success",
-      statusCode: res.status,
-    };
-  } catch (e) {
-    // Unknown error
-    console.error("Unknown Error", e);
-
-    return {
-      result: "error",
-      statusCode: null,
-      error: e.message,
-    };
-  }
-};
