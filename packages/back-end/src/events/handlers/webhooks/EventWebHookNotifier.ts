@@ -16,6 +16,7 @@ import {
 import { EventWebHookInterface } from "../../../../types/event-webhook";
 import { getSavedGroupMap } from "../../../services/features";
 import { findOrganizationById } from "../../../models/OrganizationModel";
+import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 
 let jobDefined = false;
 
@@ -110,10 +111,20 @@ export class EventWebHookNotifier implements Notifier {
 
     switch (webHookResult.result) {
       case "success":
-        return EventWebHookNotifier.handleWebHookSuccess(job, webHookResult);
+        return EventWebHookNotifier.handleWebHookSuccess(
+          job,
+          webHookResult,
+          organization.id,
+          payload
+        );
 
       case "error":
-        return EventWebHookNotifier.handleWebHookError(job, webHookResult);
+        return EventWebHookNotifier.handleWebHookError(
+          job,
+          webHookResult,
+          organization.id,
+          payload
+        );
     }
   }
 
@@ -177,29 +188,51 @@ export class EventWebHookNotifier implements Notifier {
 
   private static async handleWebHookSuccess(
     job: Job<EventWebHookJobData>,
-    successResult: EventWebHookSuccessResult
+    successResult: EventWebHookSuccessResult,
+    organizationId: string,
+    payload: Record<string, unknown>
   ): Promise<void> {
-    const { eventId, eventWebHookId } = job.attrs.data;
-    console.log("✅ Success!", successResult, { eventId, eventWebHookId });
+    const { eventWebHookId } = job.attrs.data;
 
     await updateEventWebHookStatus(eventWebHookId, {
       state: "success",
     });
-    // TODO: Log run with error result
+
+    await createEventWebHookLog({
+      eventWebHookId,
+      organizationId,
+      payload,
+      result: {
+        state: "success",
+        responseCode: successResult.statusCode,
+      },
+    });
   }
 
   private static async handleWebHookError(
     job: Job<EventWebHookJobData>,
-    errorResult: EventWebHookErrorResult
+    errorResult: EventWebHookErrorResult,
+    organizationId: string,
+    payload: Record<string, unknown>
   ): Promise<void> {
     const { eventId, eventWebHookId } = job.attrs.data;
     console.log("❗️ Error!", errorResult, { eventId, eventWebHookId });
-    // TODO: Log run with error result
     // TODO: Retry logic
 
     await updateEventWebHookStatus(eventWebHookId, {
       state: "error",
       error: errorResult.error,
+    });
+
+    await createEventWebHookLog({
+      eventWebHookId,
+      organizationId,
+      payload,
+      result: {
+        state: "error",
+        error: errorResult.error,
+        responseCode: errorResult.statusCode,
+      },
     });
   }
 
