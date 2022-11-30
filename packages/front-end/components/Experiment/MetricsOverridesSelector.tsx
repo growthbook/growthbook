@@ -16,7 +16,6 @@ export default function MetricsOverridesSelector({
   form: UseFormReturn<EditMetricsFormInterface>;
   disabled: boolean;
 }) {
-  disabled = false;
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
 
