@@ -51,24 +51,41 @@ export default function SelfHostedUpgradeForm({
         <p>
           Complete the form below and we&apos;ll email you a trial license key.
         </p>
-        <p
+        <div
           className="text-center appbox py-2 px-4 m-auto"
           style={{ maxWidth: "50%" }}
         >
-          Interested in a Cloud-based plan instead? Contact us at{" "}
-          <a
-            href="mailto:sales@growthbook.io"
-            onClick={() => {
-              track("Click Cloud Upgrade Link", {
-                accountPlan,
-                source,
-              });
-            }}
-          >
-            sales@growthbook.io
-          </a>{" "}
-          for a custom quote.
-        </p>
+          <p className="mb-1">Interested in a Cloud-based plan instead?</p>
+          <p className="mb-0">
+            Visit our{" "}
+            <a
+              href="https://www.growthbook.io/pricing"
+              target="_blank"
+              onClick={() => {
+                track("Click Cloud pricing link", {
+                  accountPlan,
+                  source,
+                });
+              }}
+              rel="noreferrer"
+            >
+              Cloud pricing page
+            </a>
+            . Or contact us at{" "}
+            <a
+              href="mailto:sales@growthbook.io"
+              onClick={() => {
+                track("Click Cloud custom quote email", {
+                  accountPlan,
+                  source,
+                });
+              }}
+            >
+              sales@growthbook.io
+            </a>{" "}
+            for a custom quote.
+          </p>
+        </div>
       </div>
       <div className="m-auto" style={{ maxWidth: "65%" }}>
         {error && <div className="alert alert-danger mr-auto">{error}</div>}
@@ -152,7 +169,7 @@ export default function SelfHostedUpgradeForm({
             type="submit"
             disabled={loading}
           >
-            Send free trial license
+            Send me a license key
           </button>
         </form>
 
