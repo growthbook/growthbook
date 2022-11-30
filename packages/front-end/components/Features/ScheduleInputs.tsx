@@ -1,13 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 
+const getLocalDateTime = (rawDateTime: string) => {
+  if (!rawDateTime) {
+    return "";
+  }
+  const utcDateTime = new Date(rawDateTime);
+
+  // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
+  utcDateTime.setHours(
+    utcDateTime.getHours() - new Date(rawDateTime).getTimezoneOffset() / 60
+  );
+  return utcDateTime.toISOString().substring(0, 16);
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function ScheduleInputs({ form }: { form: UseFormReturn<any> }) {
-  const validAfter = form.watch("validAfter");
-  const validBefore = form.watch("validBefore");
+  const validAfter = getLocalDateTime(form.watch("validAfter"));
+  const validBefore = getLocalDateTime(form.watch("validBefore"));
 
   const [showInputs, setShowInputs] = useState(() => {
-    return validAfter && validBefore;
+    return !!validAfter || !!validBefore;
   });
 
   useEffect(() => {
@@ -17,7 +30,7 @@ export default function ScheduleInputs({ form }: { form: UseFormReturn<any> }) {
   }, [validAfter, validBefore, form]);
 
   return (
-    <div className="pb-2">
+    <div>
       <label className="mb-0">Scheduling Conditions (optional)</label>
       {!showInputs ? (
         <div className="m-2">
@@ -33,7 +46,7 @@ export default function ScheduleInputs({ form }: { form: UseFormReturn<any> }) {
           </a>
         </div>
       ) : (
-        <div className="bg-light p-3 border mt-2">
+        <div className="bg-light p-3 border mt-2 mb-2">
           <div className="pb-2">
             <span className="pr-2">Start Date</span>
             <input
@@ -89,7 +102,6 @@ export default function ScheduleInputs({ form }: { form: UseFormReturn<any> }) {
                       timeZoneName: "short",
                     })
                     .substring(4)}
-                  )
                 </span>
                 <button
                   className="btn btn-link text-danger"

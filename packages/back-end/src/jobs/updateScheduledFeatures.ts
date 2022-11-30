@@ -13,7 +13,7 @@ type UpdateSingleFeatureJob = Job<{
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
 
-const UPDATE_SINGLE_FEATURE = "updateSingleExperiment";
+const UPDATE_SINGLE_FEATURE = "updateSingleFeature";
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
@@ -37,14 +37,13 @@ export default async function (agenda: Agenda) {
     updateSingleFeature
   );
 
-  // Update experiment results
-  await startUpdateJob();
+  await fireUpdateWebhook();
 
-  async function startUpdateJob() {
-    const updateResultsJob = agenda.create(QUEUE_FEATURE_UPDATES, {});
-    updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("5 minutes");
-    await updateResultsJob.save();
+  async function fireUpdateWebhook() {
+    const updateFeatureJob = agenda.create(QUEUE_FEATURE_UPDATES, {});
+    updateFeatureJob.unique({});
+    updateFeatureJob.repeatEvery("5 minutes");
+    await updateFeatureJob.save();
   }
 
   async function queueFeatureUpdate(featureId: string) {

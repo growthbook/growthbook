@@ -69,6 +69,16 @@ export default function RuleModal({
       header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
+
+        if (values.validAfter) {
+          //format date to a zero UTC offset
+          values.validAfter = new Date(values.validAfter).toISOString();
+        }
+
+        if (values.validBefore) {
+          //format date to a zero UTC offset
+          values.validBefore = new Date(values.validBefore).toISOString();
+        }
         const rule = values as FeatureRule;
 
         try {
