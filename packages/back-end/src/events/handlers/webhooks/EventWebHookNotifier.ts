@@ -30,7 +30,9 @@ type EventWebHookNotificationHandlerOptions = {
 };
 
 type EventWebHookJobData = JobAttributesData &
-  EventWebHookNotificationHandlerOptions;
+  EventWebHookNotificationHandlerOptions & {
+    retryCount: number;
+  };
 
 export class EventWebHookNotifier implements Notifier {
   constructor(
@@ -50,10 +52,10 @@ export class EventWebHookNotifier implements Notifier {
    * Enqueue the job to be performed immediately asynchronously in Agenda
    */
   async enqueue(): Promise<void> {
-    const job = this.agenda.create<EventWebHookJobData>(
-      "eventWebHook",
-      this.options
-    );
+    const job = this.agenda.create<EventWebHookJobData>("eventWebHook", {
+      ...this.options,
+      retryCount: 0,
+    });
     job.unique({
       "data.eventId": this.options.eventId,
       "data.eventWebHookId": this.options.eventWebHookId,
@@ -106,8 +108,6 @@ export class EventWebHookNotifier implements Notifier {
       payload,
       eventWebHook,
     });
-
-    console.log("❄️ Result", webHookResult);
 
     switch (webHookResult.result) {
       case "success":
@@ -215,9 +215,7 @@ export class EventWebHookNotifier implements Notifier {
     organizationId: string,
     payload: Record<string, unknown>
   ): Promise<void> {
-    const { eventId, eventWebHookId } = job.attrs.data;
-    console.log("❗️ Error!", errorResult, { eventId, eventWebHookId });
-    // TODO: Retry logic
+    const { eventWebHookId } = job.attrs.data;
 
     await updateEventWebHookStatus(eventWebHookId, {
       state: "error",
@@ -234,6 +232,39 @@ export class EventWebHookNotifier implements Notifier {
         responseCode: errorResult.statusCode,
       },
     });
+
+    await EventWebHookNotifier.retryJob(job);
+  }
+
+  /**
+   * Retries the job. Should only be called when a job has failed.
+   * Retries up to 3 times.
+   * Retries are as follows:
+   *  1. 30 seconds later
+   *  2. 5 minutes later
+   *  3. 5 minutes later
+   * @param job
+   * @private
+   */
+  private static async retryJob(job: Job<EventWebHookJobData>) {
+    if (job.attrs.data.retryCount >= 3) {
+      // If it failed 3 times, give up
+      return;
+    }
+
+    job.attrs.data.retryCount++;
+
+    let nextRunAt = Date.now();
+    if (job.attrs.data.retryCount === 0) {
+      // Wait 30s after the first failure
+      nextRunAt += 30000;
+    } else {
+      // Wait 5m after the second failure
+      nextRunAt += 300000;
+    }
+
+    job.attrs.nextRunAt = new Date(nextRunAt);
+    await job.save();
   }
 
   // endregion Result handling
