@@ -9,4 +9,5 @@ export interface EventWebHookInterface {
   organizationId: string;
   url: string;
   signingKey: string;
+  enabled: boolean;
 }

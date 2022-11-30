@@ -19,7 +19,8 @@ export const webHooksEventHandler: NotificationEventHandler = async (
 
   const eventWebHooks = await getAllEventWebHooksForEvent(
     event.organizationId,
-    event.data.event
+    event.data.event,
+    true
   );
 
   eventWebHooks.forEach((eventWebHook) => {

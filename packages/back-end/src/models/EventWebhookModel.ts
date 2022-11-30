@@ -29,6 +29,10 @@ const eventWebHookSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  enabled: {
+    type: Boolean,
+    required: true,
+  },
   events: {
     type: [String],
     required: true,
@@ -87,6 +91,7 @@ type CreateEventWebHookOptions = {
   name: string;
   url: string;
   organizationId: string;
+  enabled: boolean;
   events: NotificationEventName[];
 };
 
@@ -99,6 +104,7 @@ export const createEventWebHook = async ({
   name,
   url,
   organizationId,
+  enabled,
   events,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
@@ -113,6 +119,7 @@ export const createEventWebHook = async ({
     events,
     lastError: null,
     lastState: "none",
+    enabled,
     signingKey,
     url,
   });
@@ -218,14 +225,17 @@ export const getAllEventWebHooks = async (
  * Retrieve all event web hooks for an organization for a given event
  * @param organizationId
  * @param eventName
+ * @param enabled
  */
 export const getAllEventWebHooksForEvent = async (
   organizationId: string,
-  eventName: NotificationEventName
+  eventName: NotificationEventName,
+  enabled: boolean
 ): Promise<EventWebHookInterface[]> => {
   const docs = await EventWebHookModel.find({
     organizationId,
     events: eventName,
+    enabled,
   });
 
   return docs.map(toInterface);
