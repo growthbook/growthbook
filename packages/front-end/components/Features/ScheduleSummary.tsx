@@ -31,9 +31,11 @@ import React from "react";
 // }
 
 export default function ScheduleSummary({
+  hasConditions,
   startDate,
   endDate,
 }: {
+  hasConditions: boolean;
   startDate?: string;
   endDate?: string;
 }) {
@@ -47,7 +49,7 @@ export default function ScheduleSummary({
     // </div>
     <div className="col-auto mb-3">
       <div className="row">
-        <strong className="pr-2">AND</strong>
+        <strong className="pr-2">{hasConditions ? "AND" : "IF"}</strong>
         {startDate && (
           <>
             <span className="mr-1 border px-2 bg-light rounded">
@@ -68,7 +70,7 @@ export default function ScheduleSummary({
             </span>
           </>
         )}
-        <span className="pl-2 pr-2">AND</span>
+        {startDate && endDate && <span className="pl-2 pr-2">AND</span>}
         {endDate && (
           <>
             <span className="mr-1 border px-2 bg-light rounded">

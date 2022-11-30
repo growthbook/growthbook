@@ -19,8 +19,6 @@ export type FeatureRule<T = any> = {
   hashAttribute?: string;
   coverage?: number;
   namespace?: [string, number, number];
-  // validAfter?: string;
-  // validBefore?: string;
 };
 
 export interface FeatureDefinition<T = any> {

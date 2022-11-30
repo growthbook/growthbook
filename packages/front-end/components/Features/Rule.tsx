@@ -61,6 +61,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissions.check("manageFeatures", feature.project) &&
       permissions.check("createFeatureDrafts", feature.project);
 
+    const hasConditions = rule.condition && rule.condition !== "{}";
+
     return (
       <div
         className={`p-3 ${
@@ -223,7 +225,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 }}
               ></div>
             )}
-            {rule.condition && rule.condition !== "{}" && (
+            {hasConditions && (
               <div className="row mb-3 align-items-top">
                 <div className="col-auto">
                   <strong>IF</strong>
@@ -234,6 +236,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </div>
             )}
             <ScheduleSummary
+              hasConditions={hasConditions}
               startDate={rule.validAfter || ""}
               endDate={rule.validBefore || ""}
             />
