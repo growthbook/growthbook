@@ -64,8 +64,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissions.check("manageFeatures", feature.project) &&
       permissions.check("createFeatureDrafts", feature.project);
 
-    const hasConditions = rule.condition && rule.condition !== "{}";
-
     let upcomingScheduleRule: ScheduleRule | null = null;
 
     const currentDate = new Date().valueOf();
@@ -135,6 +133,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           </div>
           {upcomingScheduleRule && rule.enabled && (
             <div className="bg-info text-light border px-2 rounded">
+              {/* // TODO: Can I change the language to be "Current Status: Off or something like that, rather than re-using the enabled/disabled language" */}
               {`Rule will be ${
                 upcomingScheduleRule.enableFeature ? "enabled" : "disabled"
               } on ${new Date(
@@ -300,7 +299,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 }}
               ></div>
             )}
-            {hasConditions && (
+            {rule.condition && rule.condition !== "{}" && (
               <div className="row mb-3 align-items-top">
                 <div className="col-auto">
                   <strong>IF</strong>

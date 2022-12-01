@@ -80,6 +80,7 @@ export function getFeatureDefinition({
       rules
         ?.filter((r) => r.enabled)
         ?.filter((r) => {
+          //Filter our rules that have schedulingRules if the current scheduleRule sets the feature to disabled.
           const currentDate = new Date().valueOf();
 
           if (!r.scheduleRules || !r.scheduleRules.length) {

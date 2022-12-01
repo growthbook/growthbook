@@ -7,7 +7,7 @@ import { GBAddCircle } from "../Icons";
 interface Props {
   defaultValue: ScheduleRule[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onChange: (value: any) => void;
+  onChange: (value: ScheduleRule[]) => void;
 }
 
 const getLocalDateTime = (rawDateTime: string) => {
@@ -39,8 +39,11 @@ export default function ScheduleInputs(props: Props) {
   if (!rules.length) {
     return (
       <div>
-        <label className="mb-0">Scheduling Conditions</label>
+        <label className="mb-0">Schedule</label>
         <div className="m-2">
+          <em className="text-muted mr-3">
+            Enable and disable override rules at specific dates and times.
+          </em>
           <a
             href="#"
             onClick={(e) => {
@@ -53,7 +56,7 @@ export default function ScheduleInputs(props: Props) {
               ]);
             }}
           >
-            Add Schedule Rule
+            Add schedule rule
           </a>
         </div>
       </div>
@@ -62,7 +65,7 @@ export default function ScheduleInputs(props: Props) {
 
   return (
     <>
-      <label className="mb-0">Scheduling Conditions</label>
+      <label className="mb-0">Schedule</label>
       <div className="bg-light p-3 border mt-2 mb-2">
         {rules.map(({ timestamp, enableFeature }, i) => {
           const onChange = (value, property, i) => {
@@ -97,6 +100,21 @@ export default function ScheduleInputs(props: Props) {
                   name="timestamp"
                 />
               </div>
+              {getLocalDateTime(timestamp) && (
+                <span
+                  className="font-italic font-weight-light mb-2"
+                  style={{ fontSize: "12px" }}
+                >
+                  (
+                  {new Date(getLocalDateTime(timestamp))
+                    .toLocaleDateString(undefined, {
+                      day: "2-digit",
+                      timeZoneName: "short",
+                    })
+                    .substring(4)}
+                  )
+                </span>
+              )}
               <div className="col-sm-12 col-md mb-2">
                 <button
                   className="btn btn-link text-danger"

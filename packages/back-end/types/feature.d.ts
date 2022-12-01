@@ -56,8 +56,6 @@ export interface BaseRule {
   condition?: string;
   id: string;
   enabled?: boolean;
-  validBefore?: string;
-  validAfter?: string;
   scheduleRules?: ScheduleRule[];
 }
 

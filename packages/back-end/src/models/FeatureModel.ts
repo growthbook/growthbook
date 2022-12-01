@@ -52,8 +52,6 @@ const featureSchema = new mongoose.Schema({
         },
       ],
       namespace: {},
-      validBefore: String,
-      validAfter: String,
       scheduleRules: [
         {
           timestamp: String,
