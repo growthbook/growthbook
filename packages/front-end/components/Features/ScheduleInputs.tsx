@@ -26,6 +26,8 @@ const getLocalDateTime = (rawDateTime: string) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
+  const [dateErrors, setDateErrors] = useState({});
+  const [ruleErrors, setRuleErrors] = useState({});
 
   useEffect(() => {
     props.onChange(rules);
@@ -88,7 +90,23 @@ export default function ScheduleInputs(props: Props) {
                   name="enableFeature"
                   value={enableFeature.toString()}
                   options={options}
-                  onChange={(value) => onChange(value, "enableFeature", i)}
+                  onFocus={() => setRuleErrors({ [i]: "" })}
+                  onChange={(value) => {
+                    setRuleErrors({
+                      [i]: "",
+                    });
+                    if (
+                      i > 0 &&
+                      value === rules[i - 1].enableFeature.toString()
+                    ) {
+                      setRuleErrors({
+                        [i]: "Status can't be equal to previous rule.",
+                      });
+                      return;
+                    }
+                    onChange(value, "enableFeature", i);
+                  }}
+                  error={ruleErrors[i]}
                 />
               </div>
               <span className="mb-2">on</span>
@@ -96,8 +114,23 @@ export default function ScheduleInputs(props: Props) {
                 <Field
                   type="datetime-local"
                   value={getLocalDateTime(timestamp)}
-                  onChange={(e) => onChange(e.target.value, "timestamp", i)}
+                  onChange={(e) => {
+                    setDateErrors({ [i]: "" });
+                    if (
+                      i > 0 &&
+                      new Date(e.target.value).valueOf() <
+                        new Date(rules[i - 1].timestamp).valueOf()
+                    ) {
+                      setDateErrors({
+                        [i]:
+                          "Date must be greater than the previous rule date.",
+                      });
+                      return;
+                    }
+                    onChange(e.target.value, "timestamp", i);
+                  }}
                   name="timestamp"
+                  error={dateErrors[i] || ""}
                 />
               </div>
               {getLocalDateTime(timestamp) && (
@@ -121,6 +154,12 @@ export default function ScheduleInputs(props: Props) {
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
+                    setRuleErrors({
+                      [i]: "",
+                    });
+                    setDateErrors({
+                      [i]: "",
+                    });
                     const newRules = [...rules];
                     newRules.splice(i, 1);
                     setRules(newRules);
