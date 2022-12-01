@@ -142,6 +142,9 @@ export class EventWebHookNotifier implements Notifier {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
   }): Promise<EventWebHookResult> {
+    const abortController = new AbortController();
+    const requestTimeout = 10000;
+
     try {
       const { url, signingKey } = eventWebHook;
 
@@ -150,6 +153,10 @@ export class EventWebHookNotifier implements Notifier {
         payload,
       });
 
+      setTimeout(function timeOutLongRunningRequest() {
+        abortController.abort();
+      }, requestTimeout);
+
       const res = await fetch(url, {
         headers: {
           "Content-Type": "application/json",
@@ -157,6 +164,7 @@ export class EventWebHookNotifier implements Notifier {
         },
         method: "POST",
         body: JSON.stringify(payload),
+        signal: abortController.signal,
       });
 
       if (!res.ok) {
@@ -182,14 +190,22 @@ export class EventWebHookNotifier implements Notifier {
         responseBody: responseBody,
       };
     } catch (e) {
-      // Unknown error
-      logger.error(e, "Unknown Error");
+      if (e?.name === "AbortError") {
+        return {
+          result: "error",
+          statusCode: null,
+          error: `Request Timeout: Request exceeded ${requestTimeout} ms`,
+        };
+      } else {
+        // Unknown error
+        logger.error(e, "Unknown Error");
 
-      return {
-        result: "error",
-        statusCode: null,
-        error: e.message,
-      };
+        return {
+          result: "error",
+          statusCode: null,
+          error: e.message,
+        };
+      }
     }
   }
 
