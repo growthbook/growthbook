@@ -17,15 +17,20 @@ const eventWebHookSchema = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  organizationId: {
+    type: String,
+    required: true,
+  },
   name: {
     type: String,
     required: true,
   },
-  dateCreated: Date,
-  dateUpdated: Date,
-  lastRunAt: Date,
-  organizationId: {
-    type: String,
+  dateCreated: {
+    type: Date,
+    required: true,
+  },
+  dateUpdated: {
+    type: Date,
     required: true,
   },
   enabled: {
@@ -50,22 +55,26 @@ const eventWebHookSchema = new mongoose.Schema({
       },
     },
   },
-  signingKey: {
-    type: String,
-    required: true,
-  },
   url: {
     type: String,
     required: true,
   },
-  lastError: {
+  signingKey: {
     type: String,
+    required: true,
+  },
+  lastRunAt: {
+    type: Date,
     required: false,
   },
   lastState: {
     type: String,
     enum: ["none", "success", "error"],
     required: true,
+  },
+  lastResponseBody: {
+    type: String,
+    required: false,
   },
 });
 
@@ -107,20 +116,21 @@ export const createEventWebHook = async ({
   events,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
-  const signingKey = "ewhk-" + md5(randomUUID()).substr(0, 32);
+  const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
   const doc = await EventWebHookModel.create({
     id: `ewh-${randomUUID()}`,
     organizationId,
+    name,
     dateCreated: now,
     dateUpdated: now,
-    name,
-    events,
-    lastError: null,
-    lastState: "none",
     enabled,
-    signingKey,
+    events,
     url,
+    signingKey,
+    lastRunAt: null,
+    lastState: "none",
+    lastResponseBody: null,
   });
 
   return toInterface(doc);
@@ -181,6 +191,7 @@ export const updateEventWebHook = async (
 type EventWebHookStatusUpdate =
   | {
       state: "success";
+      responseBody: string | null;
     }
   | {
       state: "error";
@@ -191,15 +202,15 @@ export const updateEventWebHookStatus = async (
   eventWebHookId: string,
   status: EventWebHookStatusUpdate
 ) => {
-  const lastError = status.state === "error" ? status.error : null;
-
+  const lastResponseBody =
+    status.state === "success" ? status.responseBody : status.error;
   await EventWebHookModel.updateOne(
     { id: eventWebHookId },
     {
       $set: {
         lastRunAt: new Date(),
         lastState: status.state,
-        lastError,
+        lastResponseBody,
       },
     }
   );

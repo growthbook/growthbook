@@ -205,6 +205,7 @@ export class EventWebHookNotifier implements Notifier {
 
     await updateEventWebHookStatus(eventWebHookId, {
       state: "success",
+      responseBody: successResult.responseBody,
     });
 
     await createEventWebHookLog({

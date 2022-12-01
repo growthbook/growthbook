@@ -2,12 +2,16 @@ import { NotificationEventName } from "./event";
 
 export interface EventWebHookInterface {
   id: string;
+  organizationId: string;
+  name: string;
   dateCreated: Date;
   dateUpdated: Date;
-  error: string | null;
+  enabled: boolean;
   events: NotificationEventName[];
-  organizationId: string;
   url: string;
   signingKey: string;
-  enabled: boolean;
+  // Last state
+  lastRunAt: Date;
+  lastState: "none" | "success" | "error";
+  lastResponseBody: string | null;
 }
