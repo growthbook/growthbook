@@ -23,16 +23,19 @@ export const accountFeatures: CommercialFeaturesMap = {
   pro: new Set<CommercialFeature>([
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "override-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "override-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "override-metrics",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
