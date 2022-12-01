@@ -50,7 +50,7 @@ const eventSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error("Invalid Event data ", errorString);
+          logger.error(errorString, "Invalid Event data");
         }
 
         return result.success;

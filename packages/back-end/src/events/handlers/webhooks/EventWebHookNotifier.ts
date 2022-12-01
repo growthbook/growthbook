@@ -183,7 +183,7 @@ export class EventWebHookNotifier implements Notifier {
       };
     } catch (e) {
       // Unknown error
-      logger.error("Unknown Error", e);
+      logger.error(e, "Unknown Error");
 
       return {
         result: "error",

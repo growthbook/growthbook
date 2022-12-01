@@ -43,7 +43,7 @@ const eventWebHookSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error("Invalid Event name", errorString);
+          logger.error(errorString, "Invalid Event name");
         }
 
         return result.success;
@@ -137,7 +137,7 @@ export const getEventWebHookById = async (
     const doc = await EventWebHookModel.findOne({ id: eventWebHookId });
     return !doc ? null : toInterface(doc);
   } catch (e) {
-    logger.error("getEventWebHookById", e);
+    logger.error(e, "getEventWebHookById");
     return null;
   }
 };
