@@ -83,6 +83,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       upcomingScheduleRule = sortedScheduleRules[nextRuleIndex];
     }
 
+    let currentScheduleStatus;
+
+    if (!upcomingScheduleRule && rule.scheduleRules.length) {
+      currentScheduleStatus = rule.scheduleRules[rule.scheduleRules.length - 1]
+        .enableFeature
+        ? "enabled"
+        : "disabled";
+    }
+    if (!rule.scheduleRules || !rule.scheduleRules.length) {
+      currentScheduleStatus = "enabled";
+    }
+
+    const ruleDisabled =
+      currentScheduleStatus === "disabled" ||
+      upcomingScheduleRule?.enableFeature;
+
     return (
       <div
         className={`p-3 ${
@@ -102,10 +118,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 textAlign: "center",
                 background: "#7C45EA",
                 fontWeight: "bold",
-                opacity:
-                  !rule.enabled || upcomingScheduleRule?.enableFeature
-                    ? 0.5
-                    : 1,
+                opacity: !rule.enabled || ruleDisabled ? 0.5 : 1,
               }}
             >
               {i + 1}
@@ -114,8 +127,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div
             style={{
               flex: 1,
-              opacity:
-                !rule.enabled || upcomingScheduleRule?.enableFeature ? 0.5 : 1,
+              opacity: !rule.enabled || ruleDisabled ? 0.5 : 1,
             }}
             className="mx-2"
           >
@@ -131,6 +143,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 upcomingScheduleRule.timestamp
               ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
                 upcomingScheduleRule.timestamp
+              )
+                .toLocaleDateString(undefined, {
+                  day: "2-digit",
+                  timeZoneName: "short",
+                })
+                .substring(4)}`}
+            </div>
+          )}
+          {currentScheduleStatus && currentScheduleStatus === "disabled" && (
+            <div className="bg-info text-light border px-2 rounded">
+              {`Rule was disabled by schedule rule on ${new Date(
+                rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+              ).toLocaleDateString()} at ${new Date(
+                rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+              ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
+                rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
               )
                 .toLocaleDateString(undefined, {
                   day: "2-digit",
@@ -254,7 +282,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             style={{ flex: 1, maxWidth: "100%" }}
             className="pt-1 position-relative"
           >
-            {(!rule.enabled || upcomingScheduleRule?.enableFeature) && (
+            {(!rule.enabled || ruleDisabled) && (
               <div
                 style={{
                   position: "absolute",

@@ -1,6 +1,7 @@
 import Agenda, { AgendaConfig } from "agenda";
 import mongoose from "mongoose";
 import addExperimentResultsJob from "../jobs/updateExperimentResults";
+import updateScheduledFeatures from "../jobs/updateScheduledFeatures";
 import addWebhooksJob from "../jobs/webhooks";
 import addCacheInvalidateJob from "../jobs/cacheInvalidate";
 import addMetricUpdateJob from "../jobs/updateMetrics";
@@ -17,6 +18,7 @@ export async function queueInit() {
   agenda = new Agenda(config as AgendaConfig);
 
   addExperimentResultsJob(agenda);
+  updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
   addCacheInvalidateJob(agenda);
