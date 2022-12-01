@@ -44,7 +44,7 @@ const eventWebHookSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          console.error("Invalid Event name ", errorString);
+          logger.error("Invalid Event name", errorString);
         }
 
         return result.success;

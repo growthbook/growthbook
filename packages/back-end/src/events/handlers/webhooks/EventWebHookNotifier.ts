@@ -17,6 +17,7 @@ import { EventWebHookInterface } from "../../../../types/event-webhook";
 import { getSavedGroupMap } from "../../../services/features";
 import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
+import { logger } from "../../../util/logger";
 
 let jobDefined = false;
 
@@ -172,7 +173,7 @@ export class EventWebHookNotifier implements Notifier {
       try {
         responseBody = await res.text();
       } catch (e) {
-        console.warn("Cannot save response", e);
+        logger.warn("Cannot save response", e);
       }
 
       return {
@@ -182,7 +183,7 @@ export class EventWebHookNotifier implements Notifier {
       };
     } catch (e) {
       // Unknown error
-      console.error("Unknown Error", e);
+      logger.error("Unknown Error", e);
 
       return {
         result: "error",
