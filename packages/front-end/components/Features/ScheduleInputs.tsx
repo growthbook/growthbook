@@ -125,7 +125,7 @@ export default function ScheduleInputs(props: Props) {
                 ...rules,
                 {
                   timestamp: new Date().toISOString(),
-                  enableFeature: true,
+                  enableFeature: !rules[rules.length - 1].enableFeature,
                 },
               ]);
             }}
