@@ -151,22 +151,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 .substring(4)}`}
             </div>
           )}
-          {currentScheduleStatus && currentScheduleStatus === "disabled" && (
-            <div className="bg-info text-light border px-2 rounded">
-              {`Rule was disabled by schedule rule on ${new Date(
-                rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-              ).toLocaleDateString()} at ${new Date(
-                rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-              ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-                rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-              )
-                .toLocaleDateString(undefined, {
-                  day: "2-digit",
-                  timeZoneName: "short",
-                })
-                .substring(4)}`}
-            </div>
-          )}
+          {currentScheduleStatus &&
+            currentScheduleStatus === "disabled" &&
+            rule.enabled && (
+              <div className="bg-info text-light border px-2 rounded">
+                {`Rule was disabled by schedule rule on ${new Date(
+                  rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+                ).toLocaleDateString()} at ${new Date(
+                  rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+                ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
+                  rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+                )
+                  .toLocaleDateString(undefined, {
+                    day: "2-digit",
+                    timeZoneName: "short",
+                  })
+                  .substring(4)}`}
+              </div>
+            )}
           {!rule.enabled && (
             <div className="mr-3">
               <div className="bg-secondary text-light border px-2 rounded">
