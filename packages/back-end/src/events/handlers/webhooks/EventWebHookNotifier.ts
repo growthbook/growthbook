@@ -168,9 +168,17 @@ export class EventWebHookNotifier implements Notifier {
       }
 
       // Success
+      let responseBody = "";
+      try {
+        responseBody = await res.text();
+      } catch (e) {
+        console.warn("Cannot save response", e);
+      }
+
       return {
         result: "success",
         statusCode: res.status,
+        responseBody: responseBody,
       };
     } catch (e) {
       // Unknown error
@@ -204,6 +212,7 @@ export class EventWebHookNotifier implements Notifier {
       payload,
       result: {
         state: "success",
+        responseBody: successResult.responseBody,
         responseCode: successResult.statusCode,
       },
     });
@@ -228,7 +237,7 @@ export class EventWebHookNotifier implements Notifier {
       payload,
       result: {
         state: "error",
-        error: errorResult.error,
+        responseBody: errorResult.error,
         responseCode: errorResult.statusCode,
       },
     });

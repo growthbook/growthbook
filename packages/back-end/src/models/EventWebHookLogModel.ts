@@ -22,7 +22,7 @@ const eventWebHookLogSchema = new mongoose.Schema({
     type: Number,
     required: false,
   },
-  error: {
+  responseBody: {
     type: String,
     required: false,
   },
@@ -56,12 +56,13 @@ type CreateEventWebHookLogOptions = {
   result:
     | {
         state: "error";
-        error: string;
+        responseBody: string;
         responseCode: number | null;
       }
     | {
         state: "success";
         responseCode: number;
+        responseBody: string;
       };
 };
 
@@ -77,7 +78,6 @@ export const createEventWebHookLog = async ({
   result: resultState,
 }: CreateEventWebHookLogOptions): Promise<EventWebHookLogInterface> => {
   const now = new Date();
-  const error = resultState.state === "error" ? resultState.error : null;
 
   const doc = await EventWebHookLogModel.create({
     id: `ewhl-${randomUUID()}`,
@@ -86,7 +86,7 @@ export const createEventWebHookLog = async ({
     organizationId,
     result: resultState.state,
     responseCode: resultState.responseCode,
-    error,
+    responseBody: resultState.responseBody,
     payload,
   });
 

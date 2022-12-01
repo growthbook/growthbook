@@ -16,6 +16,7 @@ import { ApiFeatureInterface } from "../../../../types/api";
 
 export type EventWebHookSuccessResult = {
   result: "success";
+  responseBody: string;
   statusCode: number;
 };
 
