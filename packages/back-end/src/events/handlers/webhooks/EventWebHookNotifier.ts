@@ -144,6 +144,12 @@ export class EventWebHookNotifier implements Notifier {
   }): Promise<EventWebHookResult> {
     const abortController = new AbortController();
     const requestTimeout = 10000;
+    const longRunningRequestTimeout = setTimeout(
+      function timeOutLongRunningRequest() {
+        abortController.abort();
+      },
+      requestTimeout
+    );
 
     try {
       const { url, signingKey } = eventWebHook;
@@ -152,10 +158,6 @@ export class EventWebHookNotifier implements Notifier {
         signingKey,
         payload,
       });
-
-      setTimeout(function timeOutLongRunningRequest() {
-        abortController.abort();
-      }, requestTimeout);
 
       const res = await fetch(url, {
         headers: {
@@ -166,6 +168,7 @@ export class EventWebHookNotifier implements Notifier {
         body: JSON.stringify(payload),
         signal: abortController.signal,
       });
+      clearTimeout(longRunningRequestTimeout);
 
       if (!res.ok) {
         // Server error
@@ -190,6 +193,7 @@ export class EventWebHookNotifier implements Notifier {
         responseBody: responseBody,
       };
     } catch (e) {
+      clearTimeout(longRunningRequestTimeout);
       if (e?.name === "AbortError") {
         return {
           result: "error",
