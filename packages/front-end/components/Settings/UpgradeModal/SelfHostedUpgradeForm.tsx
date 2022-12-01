@@ -5,12 +5,17 @@ import fetch from "node-fetch";
 import track from "../../../services/track";
 import Field from "../../Forms/Field";
 
+const LICENSE_KEY_URL =
+  "https://a5dsbxxxkwz3ianmn2hzdeufkm0chcwm.lambda-url.us-east-1.on.aws/";
+
 export default function SelfHostedUpgradeForm({
   source,
   reason,
+  setCloseCta,
 }: {
   source: string;
   reason: string;
+  setCloseCta: (string) => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,11 +46,10 @@ export default function SelfHostedUpgradeForm({
     <>
       <div className="text-center mb-2">
         <p className="text-center mb-1" style={{ fontSize: "1.3em" }}>
-          {reason} Try a premium GrowthBook plan for free
+          {reason} Try an Enterprise GrowthBook plan for free
         </p>
         <p className="text-center mt-2 mb-1">
-          Try <strong>Pro</strong>, <strong>Pro + SSO</strong>, or{" "}
-          <strong>Enterprise</strong> for self-hosted accounts for{" "}
+          Try <strong>Enterprise</strong> for self-hosted accounts for{" "}
           <em>3 months free</em>!
         </p>
         <p>
@@ -88,88 +92,108 @@ export default function SelfHostedUpgradeForm({
         </div>
       </div>
       <div className="m-auto" style={{ maxWidth: "65%" }}>
-        {error && <div className="alert alert-danger mr-auto">{error}</div>}
+        {error && (
+          <div className="alert alert-danger mt-4 mr-auto">{error}</div>
+        )}
 
         {submitState && (
-          <div className="alert alert-info mr-auto">
+          <div className="alert alert-success mt-4 mr-auto">
             <p>
-              Thank you for requesting a Pro trial license. Please check your
-              email for next steps.
+              Thank you for requesting a Enterprise trial license. Please check
+              your email for next steps.
             </p>
-            <p className="mb-0">
+            <p className="mb-0" style={{ fontSize: 12 }}>
               Didn&apos;t receive an email? Check your spam folder for messages
-              from <em>growthbook.io</em>. Or contact us at{" "}
+              from <em>sales@growthbook.io</em>. Or contact us at{" "}
               <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>
             </p>
           </div>
         )}
 
         <form
+          style={{ opacity: submitState ? 0.5 : 1 }}
           onSubmit={form.handleSubmit(async (value) => {
             if (loading) return;
             setError(null);
             setLoading(true);
             try {
-              await fetch(
-                "https://cdn.growthbook.io/trial-license?" +
-                  new URLSearchParams({
-                    name: value.name,
-                    email: value.email,
-                    seats: value.seats + "",
-                    companyName: value.companyName,
-                    organizationId: value.organizationId,
-                    plan: value.plan,
-                  }),
-                { method: "GET" }
-              );
-              setSubmitState(true);
-              setLoading(false);
-              track("Generate trial license", {
-                source,
-                accountPlan,
-                ...value,
+              const encodedParams = new URLSearchParams();
+              for (const key in value) {
+                encodedParams.append(key, value[key]);
+              }
+              const resp = await fetch(LICENSE_KEY_URL, {
+                method: "POST",
+                headers: {
+                  Accept: "application/json",
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: encodedParams,
               });
+              if (resp?.status === 200) {
+                setSubmitState(true);
+                setLoading(false);
+                setCloseCta("close");
+                track("Generate trial license", {
+                  source,
+                  accountPlan,
+                  ...value,
+                });
+              } else {
+                setLoading(false);
+                const txt = await resp.text();
+                switch (txt) {
+                  case "active license exists":
+                    setError(
+                      "You already have an active license key. Please check your email, or contact us at sales@growthbook.io."
+                    );
+                    break;
+                  case "expired license exists":
+                    setError(
+                      "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
+                    );
+                    break;
+                  default:
+                    setError(
+                      <>
+                        <p className="mb-2">
+                          There was a server error. Please try again later, or
+                          contact us at sales@growthbook.io.
+                        </p>
+                        <p className="mb-0">{txt}</p>
+                      </>
+                    );
+                }
+              }
             } catch (e) {
               setLoading(false);
               setError(e.message);
             }
           })}
         >
-          <Field required label="Your name" {...form.register("name")} />
+          <Field
+            required
+            label="Your name"
+            {...form.register("name")}
+            disabled={loading || submitState}
+          />
           <Field
             required
             label="Email Address"
             {...form.register("email")}
             type="email"
-          />
-          <Field
-            required
-            label="Plan type"
-            {...form.register("plan")}
-            options={[
-              { display: "Enterprise", value: "enterprise" },
-              { display: "Pro", value: "pro" },
-              { display: "Pro + SSO", value: "pro_sso" },
-            ]}
-            type="options"
-          />
-          <Field
-            required
-            label="Number of seats"
-            {...form.register("seats", { valueAsNumber: true })}
-            type="number"
-            min="3"
-            max="999"
-            step="1"
-            pattern="\d*"
+            disabled={loading || submitState}
           />
 
           <button
             className="mt-4 btn btn-primary btn-block btn-lg"
             type="submit"
-            disabled={loading}
+            disabled={loading || submitState}
           >
-            Send me a license key
+            {loading
+              ? `Please wait...`
+              : submitState
+              ? `Thank you`
+              : `Send me a license key`}
           </button>
         </form>
 

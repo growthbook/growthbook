@@ -16,6 +16,7 @@ export default function CloudUpgradeForm({
   accountPlan: AccountPlan;
   source: string;
   reason: string;
+  setCloseCta: (string) => void;
 }) {
   const { quote, loading } = useStripeSubscription();
   const { apiCall } = useAuth();
