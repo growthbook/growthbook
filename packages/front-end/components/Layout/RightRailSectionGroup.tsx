@@ -1,4 +1,4 @@
-import React, { Children, FC, ReactNode } from "react";
+import React, { Children, CSSProperties, FC, ReactNode } from "react";
 import SortedTags from "../Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{
@@ -15,6 +15,7 @@ const RightRailSectionGroup: FC<{
   empty?: string;
   badgeStyle?: string;
   className?: string;
+  style?: CSSProperties;
   children?: ReactNode;
 }> = ({
   children,
@@ -23,6 +24,7 @@ const RightRailSectionGroup: FC<{
   empty = "None",
   badgeStyle = "",
   className = "",
+  style,
 }) => {
   let hasChildren = type === "onoff" || !!children;
   if (Array.isArray(children)) {
@@ -31,7 +33,7 @@ const RightRailSectionGroup: FC<{
   }
 
   return (
-    <div className={`mb-2 ${className}`}>
+    <div className={`mb-2 ${className}`} style={style}>
       {title && <span className="mr-2 text-muted">{title}:</span>}
       {hasChildren ? (
         <>
