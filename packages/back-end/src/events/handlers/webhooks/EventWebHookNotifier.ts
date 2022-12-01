@@ -261,8 +261,6 @@ export class EventWebHookNotifier implements Notifier {
       return;
     }
 
-    job.attrs.data.retryCount++;
-
     let nextRunAt = Date.now();
     if (job.attrs.data.retryCount === 0) {
       // Wait 30s after the first failure
@@ -272,6 +270,7 @@ export class EventWebHookNotifier implements Notifier {
       nextRunAt += 300000;
     }
 
+    job.attrs.data.retryCount++;
     job.attrs.nextRunAt = new Date(nextRunAt);
     await job.save();
   }
