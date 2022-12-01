@@ -3,8 +3,8 @@ export interface EventWebHookLogInterface {
   eventWebHookId: string;
   organizationId: string;
   dateCreated: Date;
-  responseCode: string | null;
-  error: string | null;
+  responseCode: number | null;
+  responseBody: string | null;
   result: "error" | "success";
   payload: Record<string, unknown>;
 }

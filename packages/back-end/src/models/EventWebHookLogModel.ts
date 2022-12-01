@@ -17,7 +17,10 @@ const eventWebHookLogSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  dateCreated: Date,
+  dateCreated: {
+    type: Date,
+    required: true,
+  },
   responseCode: {
     type: Number,
     required: false,
