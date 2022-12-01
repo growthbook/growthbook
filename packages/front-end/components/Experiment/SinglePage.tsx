@@ -564,8 +564,8 @@ export default function SinglePage({
           >
             <div className="appbox p-3">
               <div className="row mb-1 text-muted">
-                <div className="col-sm-5">Goals</div>
-                <div className="col-sm-5">
+                <div className="col">Goals</div>
+                <div className="col">
                   Conversion Window{" "}
                   <Tooltip
                     body={`After a user sees the experiment, only include
@@ -584,8 +584,8 @@ export default function SinglePage({
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col-sm-5">Guardrails</div>
-                      <div className="col-sm-5">Conversion Window</div>
+                      <div className="col">Guardrails</div>
+                      <div className="col">Conversion Window</div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
@@ -597,8 +597,8 @@ export default function SinglePage({
                 {experiment.activationMetric && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col-sm-5">Activation Metric</div>
-                      <div className="col-sm-5">Conversion Window</div>
+                      <div className="col">Activation Metric</div>
+                      <div className="col">Conversion Window</div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(

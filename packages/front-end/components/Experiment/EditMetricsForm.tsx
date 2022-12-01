@@ -17,8 +17,8 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: {
     id: string;
-    conversionWindowHours?: number;
-    conversionDelayHours?: number;
+    conversionWindowHours: number;
+    conversionDelayHours: number;
     winRisk?: number;
     loseRisk?: number;
   }[];
@@ -84,7 +84,7 @@ const EditMetricsForm: FC<{
       >
         <div className="form-group">
           <label className="font-weight-bold mb-1">Goal Metrics</label>
-          <div className="mb-1 font-italic" style={{ fontSize: 12 }}>
+          <div className="mb-1 font-italic">
             Metrics you are trying to improve with this experiment.
           </div>
           <MetricsSelector
@@ -97,7 +97,7 @@ const EditMetricsForm: FC<{
 
         <div className="form-group">
           <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-          <div className="mb-1 font-italic" style={{ fontSize: 12 }}>
+          <div className="mb-1 font-italic">
             Metrics you want to monitor, but are NOT specifically trying to
             improve.
           </div>
@@ -110,7 +110,7 @@ const EditMetricsForm: FC<{
 
         <div className="form-group">
           <label className="font-weight-bold mb-1">Activation Metric</label>
-          <div className="mb-1 font-italic" style={{ fontSize: 12 }}>
+          <div className="mb-1 font-italic">
             Users must convert on this metric before being included.
           </div>
           <SelectField
