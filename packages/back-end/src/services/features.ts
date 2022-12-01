@@ -80,42 +80,29 @@ export function getFeatureDefinition({
       rules
         ?.filter((r) => r.enabled)
         ?.filter((r) => {
-          // If a feature rule has scheduling conditions, only evaluate if scheduling conditions are met.
           const currentDate = new Date().valueOf();
-          const validAfter = r.validAfter
-            ? new Date(r.validAfter).valueOf()
-            : ""; // This is "Start Date" in the UI
-          const validBefore = r.validBefore
-            ? new Date(r.validBefore).valueOf()
-            : ""; // This is "End Date" in the UI
 
-          if (!validAfter && !validBefore) {
+          if (!r.scheduleRules || !r.scheduleRules.length) {
             return true;
           }
 
-          if (validAfter && !validBefore) {
-            return currentDate > validAfter;
-          }
+          // Ensure the scheduleRules are sorted by date
+          const sortedScheduleRules = r.scheduleRules.sort(
+            (a, b) =>
+              new Date(a.timestamp).valueOf() - new Date(b.timestamp).valueOf()
+          );
 
-          if (validBefore && !validAfter) {
-            return currentDate < validBefore;
-          }
-          // E.G. This feature should only be evaluated if the currentDate falls OUTSIDE of a date range.
-          if (validBefore && validAfter && validBefore < validAfter) {
-            // If that's the case, only 1 of the expressions must be true before we evaluate the feature.
-            if (currentDate < validBefore || currentDate > validAfter) {
-              return true;
-            }
-          }
-          // E.G. This feature should only be evaluated if the currentDate falls INSIDE of a date range.
-          if (validBefore && validAfter && validBefore > validAfter) {
-            // If that's the case, BOTH of the expressions must be true before we evaluate the feature.
-            if (currentDate < validBefore && currentDate > validAfter) {
-              return true;
-            }
-          }
+          // Loop through the list of rules, and find the last rule that was applied
+          const nextRuleIndex = sortedScheduleRules.findIndex(
+            (rule) => currentDate < new Date(rule.timestamp).valueOf()
+          );
 
-          return false;
+          if (nextRuleIndex === -1) {
+            return sortedScheduleRules[sortedScheduleRules.length - 1]
+              .enableFeature;
+          } else {
+            return !sortedScheduleRules[nextRuleIndex].enableFeature;
+          }
         })
         ?.map((r) => {
           const rule: FeatureDefinitionRule = {};
@@ -447,11 +434,10 @@ export function getNextScheduledUpdate(
       const rules = envSettings[env].rules;
 
       rules.forEach((rule: FeatureRule) => {
-        if ("validAfter" in rule) {
-          dates.push(rule.validAfter || "");
-        }
-        if ("validBefore" in rule) {
-          dates.push(rule.validBefore || "");
+        if (rule.scheduleRules) {
+          rule.scheduleRules.forEach((scheduleRule) => {
+            dates.push(scheduleRule.timestamp);
+          });
         }
       });
     }

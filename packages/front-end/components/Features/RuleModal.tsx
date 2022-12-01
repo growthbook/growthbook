@@ -1,5 +1,9 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  ScheduleRule,
+} from "back-end/types/feature";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
@@ -70,14 +74,14 @@ export default function RuleModal({
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
-        if (values.validAfter) {
-          //format date to a zero UTC offset
-          values.validAfter = new Date(values.validAfter).toISOString();
-        }
-
-        if (values.validBefore) {
-          //format date to a zero UTC offset
-          values.validBefore = new Date(values.validBefore).toISOString();
+        if (values.scheduleRules.length) {
+          // Loop through each scheduleRule and convert the timestamp to an ISOString()
+          values.scheduleRules.forEach(
+            (scheduleRule: ScheduleRule) =>
+              (scheduleRule.timestamp = new Date(
+                scheduleRule.timestamp
+              ).toISOString())
+          );
         }
         const rule = values as FeatureRule;
 
@@ -162,7 +166,6 @@ export default function RuleModal({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
-      <ScheduleInputs form={form} />
       <ConditionInput
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}
@@ -239,6 +242,10 @@ export default function RuleModal({
           )}
         </div>
       )}
+      <ScheduleInputs
+        defaultValue={defaultValues.scheduleRules}
+        onChange={(value) => form.setValue("scheduleRules", value)}
+      />
     </Modal>
   );
 }

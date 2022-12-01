@@ -1,5 +1,14 @@
+import { ScheduleRule } from "back-end/types/feature";
 import React, { useEffect, useState } from "react";
-import { UseFormReturn } from "react-hook-form";
+import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import { GBAddCircle } from "../Icons";
+
+interface Props {
+  defaultValue: ScheduleRule[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onChange: (value: any) => void;
+}
 
 const getLocalDateTime = (rawDateTime: string) => {
   if (!rawDateTime) {
@@ -15,109 +24,119 @@ const getLocalDateTime = (rawDateTime: string) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ScheduleInputs({ form }: { form: UseFormReturn<any> }) {
-  const validAfter = getLocalDateTime(form.watch("validAfter"));
-  const validBefore = getLocalDateTime(form.watch("validBefore"));
-
-  const [showInputs, setShowInputs] = useState(() => {
-    return !!validAfter || !!validBefore;
-  });
+export default function ScheduleInputs(props: Props) {
+  const [rules, setRules] = useState(props.defaultValue);
 
   useEffect(() => {
-    if (!validBefore && !validAfter) {
-      setShowInputs(false);
-    }
-  }, [validAfter, validBefore, form]);
+    props.onChange(rules);
+  }, [props, props.defaultValue, rules]);
 
-  return (
-    <div>
-      <label className="mb-0">Scheduling Conditions (optional)</label>
-      {!showInputs ? (
+  const options = [
+    { label: "enabled", value: "true" },
+    { label: "disabled", value: "false" },
+  ];
+
+  if (!rules.length) {
+    return (
+      <div>
+        <label className="mb-0">Scheduling Conditions</label>
         <div className="m-2">
-          <em className="text-muted mr-3">Applied everyday by default.</em>
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setShowInputs(true);
+              setRules([
+                {
+                  enableFeature: true,
+                  timestamp: new Date().toISOString(),
+                },
+              ]);
             }}
           >
-            Add scheduling conditions
+            Add Schedule Rule
           </a>
         </div>
-      ) : (
-        <div className="bg-light p-3 border mt-2 mb-2">
-          <div className="pb-2">
-            <span className="pr-2">Start Date</span>
-            <input
-              type="datetime-local"
-              value={validAfter || ""}
-              onChange={(e) => form.setValue("validAfter", e.target.value)}
-            />
-            {validAfter && (
-              <>
-                <span
-                  className="pl-2 pr-2 font-italic font-weight-light"
-                  style={{ fontSize: "12px" }}
-                >
-                  Time displayed in{" "}
-                  {new Date(validAfter)
-                    .toLocaleDateString(undefined, {
-                      day: "2-digit",
-                      timeZoneName: "short",
-                    })
-                    .substring(4)}
-                </span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <label className="mb-0">Scheduling Conditions</label>
+      <div className="bg-light p-3 border mt-2 mb-2">
+        {rules.map(({ timestamp, enableFeature }, i) => {
+          const onChange = (value, property, i) => {
+            const newRules = [...rules];
+            if (property === "enableFeature") {
+              newRules[i][property] = value === "true" ? true : false;
+            } else {
+              newRules[i][property] = value;
+            }
+            setRules(newRules);
+          };
+
+          return (
+            <div className="d-flex align-items-center" key={i}>
+              <div className="mb-2">
+                <span className="mb-2">Change rule status to</span>
+              </div>
+              <div className="col-sm-12 col-md mb-2">
+                <SelectField
+                  name="enableFeature"
+                  value={enableFeature.toString()}
+                  options={options}
+                  onChange={(value) => onChange(value, "enableFeature", i)}
+                />
+              </div>
+              <span className="mb-2">on</span>
+              <div className="col-sm-12 col-md mb-2">
+                <Field
+                  type="datetime-local"
+                  value={getLocalDateTime(timestamp)}
+                  onChange={(e) => onChange(e.target.value, "timestamp", i)}
+                  name="timestamp"
+                />
+              </div>
+              <div className="col-sm-12 col-md mb-2">
                 <button
                   className="btn btn-link text-danger"
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    form.setValue("validAfter", null);
+                    const newRules = [...rules];
+                    newRules.splice(i, 1);
+                    setRules(newRules);
                   }}
                 >
                   {" "}
                   remove
                 </button>
-              </>
-            )}
-          </div>
-          <div>
-            <span className="pr-2">End Date</span>
-            <input
-              type="datetime-local"
-              value={validBefore || ""}
-              onChange={(e) => form.setValue("validBefore", e.target.value)}
-            />
-            {validBefore && (
-              <>
-                <span
-                  className="pl-2 pr-2 font-italic font-weight-light"
-                  style={{ fontSize: "12px" }}
-                >
-                  Time displayed in{" "}
-                  {new Date(validBefore)
-                    .toLocaleDateString(undefined, {
-                      day: "2-digit",
-                      timeZoneName: "short",
-                    })
-                    .substring(4)}
-                </span>
-                <button
-                  className="btn btn-link text-danger"
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("validBefore", null);
-                  }}
-                >
-                  remove
-                </button>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          );
+        })}
+        <div>
+          <a
+            className={`mr-3 btn btn-outline-primary mt-3`}
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setRules([
+                ...rules,
+                {
+                  timestamp: new Date().toISOString(),
+                  enableFeature: true,
+                },
+              ]);
+            }}
+          >
+            <span className={`h4 pr-2 m-0 d-inline-block align-top`}>
+              <GBAddCircle />
+            </span>
+            Add another schedule rule
+          </a>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,4 +1,8 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  ScheduleRule,
+} from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
@@ -15,7 +19,6 @@ import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
-import ScheduleSummary from "./ScheduleSummary";
 
 interface SortableProps {
   i: number;
@@ -63,6 +66,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const hasConditions = rule.condition && rule.condition !== "{}";
 
+    let upcomingScheduleRule: ScheduleRule | null = null;
+
+    const currentDate = new Date().valueOf();
+
+    const sortedScheduleRules = rule.scheduleRules.sort(
+      (a, b) =>
+        new Date(a.timestamp).valueOf() - new Date(b.timestamp).valueOf()
+    );
+
+    const nextRuleIndex = sortedScheduleRules.findIndex(
+      (rule) => currentDate < new Date(rule.timestamp).valueOf()
+    );
+
+    if (nextRuleIndex > -1) {
+      upcomingScheduleRule = sortedScheduleRules[nextRuleIndex];
+    }
+
     return (
       <div
         className={`p-3 ${
@@ -82,18 +102,43 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 textAlign: "center",
                 background: "#7C45EA",
                 fontWeight: "bold",
-                opacity: !rule.enabled ? 0.5 : 1,
+                opacity:
+                  !rule.enabled || upcomingScheduleRule?.enableFeature
+                    ? 0.5
+                    : 1,
               }}
             >
               {i + 1}
             </div>
           </div>
           <div
-            style={{ flex: 1, opacity: !rule.enabled ? 0.5 : 1 }}
+            style={{
+              flex: 1,
+              opacity:
+                !rule.enabled || upcomingScheduleRule?.enableFeature ? 0.5 : 1,
+            }}
             className="mx-2"
           >
             {title}
           </div>
+          {upcomingScheduleRule && rule.enabled && (
+            <div className="bg-info text-light border px-2 rounded">
+              {`Rule will be ${
+                upcomingScheduleRule.enableFeature ? "enabled" : "disabled"
+              } on ${new Date(
+                upcomingScheduleRule.timestamp
+              ).toLocaleDateString()} at ${new Date(
+                upcomingScheduleRule.timestamp
+              ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
+                upcomingScheduleRule.timestamp
+              )
+                .toLocaleDateString(undefined, {
+                  day: "2-digit",
+                  timeZoneName: "short",
+                })
+                .substring(4)}`}
+            </div>
+          )}
           {!rule.enabled && (
             <div className="mr-3">
               <div className="bg-secondary text-light border px-2 rounded">
@@ -209,7 +254,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             style={{ flex: 1, maxWidth: "100%" }}
             className="pt-1 position-relative"
           >
-            {!rule.enabled && (
+            {(!rule.enabled || upcomingScheduleRule?.enableFeature) && (
               <div
                 style={{
                   position: "absolute",
@@ -235,11 +280,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </div>
               </div>
             )}
-            <ScheduleSummary
-              hasConditions={hasConditions}
-              startDate={rule.validAfter || ""}
-              endDate={rule.validBefore || ""}
-            />
             {rule.type === "force" && (
               <ForceSummary value={rule.value} type={type} />
             )}

@@ -362,6 +362,7 @@ export function getDefaultRuleValue({
       hashAttribute,
       validAfter: null,
       validBefore: null,
+      scheduleRules: [],
     };
   }
   if (ruleType === "experiment") {
@@ -393,6 +394,7 @@ export function getDefaultRuleValue({
       },
       validAfter: null,
       validBefore: null,
+      scheduleRules: [],
     };
   }
 
@@ -412,6 +414,7 @@ export function getDefaultRuleValue({
     condition,
     validAfter: null,
     validBefore: null,
+    scheduleRules: [],
   };
 }
 

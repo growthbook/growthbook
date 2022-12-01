@@ -42,7 +42,7 @@ export default async function (agenda: Agenda) {
   async function fireUpdateWebhook() {
     const updateFeatureJob = agenda.create(QUEUE_FEATURE_UPDATES, {});
     updateFeatureJob.unique({});
-    updateFeatureJob.repeatEvery("5 minutes");
+    updateFeatureJob.repeatEvery("1 minute");
     await updateFeatureJob.save();
   }
 

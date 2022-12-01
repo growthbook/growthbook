@@ -47,7 +47,10 @@ export interface FeatureInterface {
     publishedBy: UserRef;
   };
 }
-
+type ScheduleRule = {
+  timestamp: string;
+  enableFeature: boolean;
+};
 export interface BaseRule {
   description: string;
   condition?: string;
@@ -55,6 +58,7 @@ export interface BaseRule {
   enabled?: boolean;
   validBefore?: string;
   validAfter?: string;
+  scheduleRules?: ScheduleRule[];
 }
 
 export interface ForceRule extends BaseRule {
