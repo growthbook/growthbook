@@ -34,7 +34,6 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       ) : accountPlan === "oss" ? (
         <SelfHostedUpgradeForm
           source={source}
-          reason={reason}
           setCloseCta={(s) => setCloseCta(s)}
         />
       ) : null}

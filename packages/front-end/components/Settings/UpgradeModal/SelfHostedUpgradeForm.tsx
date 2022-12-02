@@ -9,11 +9,9 @@ const LICENSE_KEY_API_URL = "https://license.growthbook.io/api/trial/";
 
 export default function SelfHostedUpgradeForm({
   source,
-  reason,
   setCloseCta,
 }: {
   source: string;
-  reason: string;
   setCloseCta: (string) => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -44,11 +42,11 @@ export default function SelfHostedUpgradeForm({
   return (
     <>
       <div className="text-center mb-2">
-        <p className="text-center mb-1" style={{ fontSize: "1.3em" }}>
-          {reason} Try an Enterprise GrowthBook plan for free
+        <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
+          Try GrowthBook Enterprise for free
         </p>
         <p className="text-center mt-2 mb-1">
-          Try <strong>Enterprise</strong> for self-hosted accounts for{" "}
+          Try our <strong>Enterprise</strong> plan for self-hosted accounts for{" "}
           <em>3 months free</em>!
         </p>
         <p>
@@ -98,7 +96,7 @@ export default function SelfHostedUpgradeForm({
         {submitState && (
           <div className="alert alert-success mt-4 mr-auto">
             <p>
-              Thank you for requesting a Enterprise trial license. Please check
+              Thank you for requesting an Enterprise trial license. Please check
               your email for next steps.
             </p>
             <p className="mb-0" style={{ fontSize: 12 }}>

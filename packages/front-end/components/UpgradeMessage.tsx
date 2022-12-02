@@ -57,7 +57,7 @@ export default function UpgradeMessage({
         </p>
         {accountPlan === "oss" && (
           <p className="mt-1 mb-0">
-            Self hosted accounts: Try premium for 3 months free!
+            Self hosted accounts: Try Enterprise for 3 months free!
           </p>
         )}
       </div>

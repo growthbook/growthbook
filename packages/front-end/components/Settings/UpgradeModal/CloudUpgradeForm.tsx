@@ -23,7 +23,6 @@ export default function CloudUpgradeForm({
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log("whoa");
     track("View Upgrade Modal", {
       accountPlan,
       source,
@@ -74,7 +73,7 @@ export default function CloudUpgradeForm({
   return (
     <>
       {loading && <LoadingOverlay />}
-      <p className="text-center mb-4" style={{ fontSize: "1.3em" }}>
+      <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
         {reason} Upgrade to a <strong>Pro Plan</strong>
       </p>
       <p className="text-center mb-4">

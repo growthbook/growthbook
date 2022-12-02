@@ -393,7 +393,7 @@ const Layout = (): React.ReactElement => {
               className="btn btn-outline-light btn-block"
               onClick={() => setUpgradeModal(true)}
             >
-              Try Premium{" "}
+              Try Enterprise{" "}
               <span style={{ color: "#f3b500" }}>
                 <FaStar className="ml-2" />
               </span>
