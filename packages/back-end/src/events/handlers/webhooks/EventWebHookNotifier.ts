@@ -142,7 +142,7 @@ export class EventWebHookNotifier implements Notifier {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
   }): Promise<EventWebHookResult> {
-    const requestTimeout = 10000;
+    const requestTimeout = 30000;
     const maxContentSize = 1000;
 
     try {
