@@ -1,8 +1,4 @@
-import {
-  FeatureInterface,
-  FeatureRule,
-  ScheduleRule,
-} from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
@@ -20,6 +16,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
 import RuleStatusPill from "./RuleStatusPill";
+import {
+  getCurrentStatus,
+  getUpcomingScheduleRule,
+} from "../../services/scheduleRules";
 
 interface SortableProps {
   i: number;
@@ -65,31 +65,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissions.check("manageFeatures", feature.project) &&
       permissions.check("createFeatureDrafts", feature.project);
 
-    let upcomingScheduleRule: ScheduleRule | null = null;
-    let currentScheduleStatus;
-
-    const currentDate = new Date().valueOf();
-
-    if (rule.scheduleRules) {
-      const nextRuleIndex = rule.scheduleRules.findIndex(
-        (rule) => currentDate < new Date(rule.timestamp).valueOf()
-      );
-
-      if (nextRuleIndex > -1) {
-        upcomingScheduleRule = rule.scheduleRules[nextRuleIndex];
-      }
-
-      if (!upcomingScheduleRule && rule.scheduleRules.length) {
-        currentScheduleStatus = rule.scheduleRules[
-          rule.scheduleRules.length - 1
-        ].enableFeature
-          ? "enabled"
-          : "disabled";
-      }
-      if (!rule.scheduleRules || !rule.scheduleRules.length) {
-        currentScheduleStatus = "enabled";
-      }
-    }
+    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+    const currentScheduleStatus = getCurrentStatus(rule, upcomingScheduleRule);
 
     const ruleDisabled =
       currentScheduleStatus === "disabled" ||
