@@ -1,2 +1,2 @@
 deploy:
-  compose: .docker-compose.preview.yml
+  compose: .docker-compose-okteto.yml
