@@ -35,7 +35,8 @@ export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
-  | "encrypt-features-endpoint";
+  | "encrypt-features-endpoint"
+  | "override-metrics";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {

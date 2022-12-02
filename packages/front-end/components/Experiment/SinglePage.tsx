@@ -39,6 +39,10 @@ import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
 import Code from "../SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import { getDefaultConversionWindowHours } from "../../services/env";
+import { applyMetricOverrides } from "../../services/experiments";
+import { MetricInterface } from "back-end/types/metric";
+import Tooltip from "../Tooltip/Tooltip";
 
 function getColWidth(v: number) {
   // 2 across
@@ -49,6 +53,36 @@ function getColWidth(v: number) {
 
   // 4 across
   return 3;
+}
+
+function drawMetricRow(
+  m: string,
+  metric: MetricInterface,
+  experiment: ExperimentInterfaceStringDates
+) {
+  const newMetric = structuredClone(metric) as MetricInterface;
+  const override = applyMetricOverrides(newMetric, experiment);
+  return (
+    <div className="row align-items-top" key={m}>
+      <div className="col-auto pr-0">-</div>
+      <div className="col">
+        <Link href={`/metric/${m}`}>
+          <a className="font-weight-bold">{newMetric?.name}</a>
+        </Link>
+      </div>
+      <div className="col">
+        {newMetric && (
+          <div className="small">
+            {newMetric.conversionDelayHours || 0} to{" "}
+            {(newMetric.conversionDelayHours || 0) +
+              (newMetric.conversionWindowHours ||
+                getDefaultConversionWindowHours())}{" "}
+            hours {override && <span className="font-italic">(override)</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export interface Props {
@@ -511,36 +545,49 @@ export default function SinglePage({
             canOpen={editMetrics && !experiment.archived}
           >
             <div className="appbox p-3">
-              <RightRailSectionGroup title="Goals" type="custom">
+              <div className="row mb-1 text-muted">
+                <div className="col">Goals</div>
+                <div className="col">
+                  Conversion Window{" "}
+                  <Tooltip
+                    body={`After a user sees the experiment, only include
+                          metric conversions within the specified time window.`}
+                  >
+                    <FaQuestionCircle />
+                  </Tooltip>
+                </div>
+              </div>
+              <>
                 {experiment.metrics.map((m) => {
-                  return (
-                    <div key={m} className="ml-2">
-                      <span className="mr-1">-</span>
-                      <Link href={`/metric/${m}`}>
-                        <a className="mr-2 font-weight-bold">
-                          {getMetricById(m)?.name}
-                        </a>
-                      </Link>
-                    </div>
-                  );
+                  const metric = getMetricById(m);
+                  return drawMetricRow(m, metric, experiment);
                 })}
-              </RightRailSectionGroup>
-              {experiment.guardrails?.length > 0 && (
-                <RightRailSectionGroup title="Guardrails" type="custom">
-                  {experiment.guardrails.map((m) => {
-                    return (
-                      <div key={m} className="ml-2">
-                        <span className="mr-1">-</span>
-                        <Link href={`/metric/${m}`}>
-                          <a className="mr-2 font-weight-bold">
-                            {getMetricById(m)?.name}
-                          </a>
-                        </Link>
-                      </div>
-                    );
-                  })}
-                </RightRailSectionGroup>
-              )}
+                {experiment.guardrails?.length > 0 && (
+                  <>
+                    <div className="row mb-1 mt-3 text-muted">
+                      <div className="col">Guardrails</div>
+                      <div className="col">Conversion Window</div>
+                    </div>
+                    {experiment.guardrails.map((m) => {
+                      const metric = getMetricById(m);
+                      return drawMetricRow(m, metric, experiment);
+                    })}
+                  </>
+                )}
+                {experiment.activationMetric && (
+                  <>
+                    <div className="row mb-1 mt-3 text-muted">
+                      <div className="col">Activation Metric</div>
+                      <div className="col">Conversion Window</div>
+                    </div>
+                    {drawMetricRow(
+                      experiment.activationMetric,
+                      getMetricById(experiment.activationMetric),
+                      experiment
+                    )}
+                  </>
+                )}
+              </>
             </div>
           </RightRailSection>
           <div className="mb-4"></div>

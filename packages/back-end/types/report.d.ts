@@ -1,4 +1,4 @@
-import { AttributionModel } from "./experiment";
+import { AttributionModel, MetricOverride } from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 
@@ -36,6 +36,7 @@ export interface ExperimentReportArgs {
   variations: ExperimentReportVariation[];
   segment?: string;
   metrics: string[];
+  metricOverrides?: MetricOverride[];
   guardrails?: string[];
   activationMetric?: string;
   queryFilter?: string;

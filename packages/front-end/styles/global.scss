@@ -1962,6 +1962,17 @@ td.disabled {
   background: var(--disabled-background);
   font-style: italic;
 }
+.gb-select-wrapper.disabled {
+  cursor: not-allowed;
+}
+.gb-select--is-disabled {
+  .gb-select__control {
+    background-color: var(--disabled-background) !important;
+  }
+  .gb-select__single-value {
+    color: var(--text-color-muted) !important;
+  }
+}
 
 .boxlink {
   display: inline-block;
