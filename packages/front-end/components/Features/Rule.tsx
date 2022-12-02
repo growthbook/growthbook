@@ -16,10 +16,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
 import RuleStatusPill from "./RuleStatusPill";
-import {
-  getCurrentStatus,
-  getUpcomingScheduleRule,
-} from "../../services/scheduleRules";
+import { getUpcomingScheduleRule } from "../../services/scheduleRules";
 
 interface SortableProps {
   i: number;
@@ -66,11 +63,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissions.check("createFeatureDrafts", feature.project);
 
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);
-    const currentScheduleStatus = getCurrentStatus(rule, upcomingScheduleRule);
+
+    const scheduleCompletedAndDisabled =
+      !upcomingScheduleRule &&
+      rule.scheduleRules[rule.scheduleRules.length - 1].timestamp !== null;
 
     const ruleDisabled =
-      currentScheduleStatus === "disabled" ||
-      upcomingScheduleRule?.enableFeature;
+      scheduleCompletedAndDisabled ||
+      upcomingScheduleRule?.enableFeature ||
+      !rule.enabled;
 
     return (
       <div
@@ -91,7 +92,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 textAlign: "center",
                 background: "#7C45EA",
                 fontWeight: "bold",
-                opacity: !rule.enabled || ruleDisabled ? 0.5 : 1,
+                opacity: ruleDisabled ? 0.5 : 1,
               }}
             >
               {i + 1}
@@ -100,7 +101,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div
             style={{
               flex: 1,
-              opacity: !rule.enabled || ruleDisabled ? 0.5 : 1,
+              opacity: ruleDisabled ? 0.5 : 1,
             }}
             className="mx-2"
           >
@@ -109,7 +110,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <RuleStatusPill
             rule={rule}
             upcomingScheduleRule={upcomingScheduleRule}
-            currentScheduleStatus={currentScheduleStatus}
+            scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
           />
           {rules.length > 1 && canEdit && (
             <div
@@ -219,7 +220,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             style={{ flex: 1, maxWidth: "100%" }}
             className="pt-1 position-relative"
           >
-            {(!rule.enabled || ruleDisabled) && (
+            {ruleDisabled && (
               <div
                 style={{
                   position: "absolute",

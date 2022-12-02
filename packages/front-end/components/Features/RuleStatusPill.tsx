@@ -4,13 +4,13 @@ import React from "react";
 type Props = {
   rule: FeatureRule;
   upcomingScheduleRule: ScheduleRule | null;
-  currentScheduleStatus: "enabled" | "disabled";
+  scheduleCompletedAndDisabled: boolean;
 };
 
 export default function RuleStatusPill({
   rule,
   upcomingScheduleRule,
-  currentScheduleStatus,
+  scheduleCompletedAndDisabled,
 }: Props) {
   if (!rule.enabled) {
     return (
@@ -22,11 +22,7 @@ export default function RuleStatusPill({
     );
   }
 
-  if (
-    currentScheduleStatus &&
-    currentScheduleStatus === "disabled" &&
-    rule.enabled
-  ) {
+  if (scheduleCompletedAndDisabled) {
     return (
       <div className="bg-info text-light border px-2 rounded">
         {`Rule was disabled by schedule rule on ${new Date(
@@ -45,7 +41,7 @@ export default function RuleStatusPill({
     );
   }
 
-  if (upcomingScheduleRule && rule.enabled) {
+  if (upcomingScheduleRule) {
     return (
       <div className="bg-info text-light border px-2 rounded">
         {`Rule will be ${

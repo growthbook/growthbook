@@ -14,33 +14,11 @@ export function getUpcomingScheduleRule(
       new Date(rule.timestamp).valueOf() > currentDate
   );
 
-  if (
-    nextRuleIndex === -1 &&
-    rule.scheduleRules[rule.scheduleRules.length - 1].timestamp === null
-  ) {
-    return null;
-  }
-
+  // If there was a rule with a timestamp greater than currentDate, return that rule
   if (nextRuleIndex > -1) {
     return rule.scheduleRules[nextRuleIndex];
+  } else {
+    // Otherwise, that means there aren't upcoming rules
+    return null;
   }
-}
-
-export function getCurrentStatus(
-  rule: FeatureRule,
-  upcomingScheduleRule: ScheduleRule | null
-): "enabled" | "disabled" {
-  console.log("upcomingScheduleRule", upcomingScheduleRule);
-  if (!rule.scheduleRules || !rule.scheduleRules.length) {
-    return "enabled";
-  }
-
-  if (!upcomingScheduleRule) {
-    if (rule.scheduleRules[rule.scheduleRules.length - 1].timestamp === null) {
-      return "enabled";
-    } else {
-      return "disabled";
-    }
-  }
-  //TODO: What if there IS an upcomingScheduleRule?
 }
