@@ -20,5 +20,5 @@ jobs:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
        JWT_SECRET: ${{ secrets.JWT_SECRET_PREVIEW_ENV }}
       with:
-        name: pr-${{ github.actor }}-${{ github.base_ref }}-bttf
+        name: pr-${{ github.event.number }}-bttf
         timeout: 15m
