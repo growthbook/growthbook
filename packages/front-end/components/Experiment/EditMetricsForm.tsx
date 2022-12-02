@@ -17,8 +17,8 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: {
     id: string;
-    conversionWindowHours: number;
-    conversionDelayHours: number;
+    conversionWindowHours?: number;
+    conversionDelayHours?: number;
     winRisk?: number;
     loseRisk?: number;
   }[];
@@ -38,12 +38,31 @@ const EditMetricsForm: FC<{
   const filteredMetrics = metricDefinitions.filter(
     (m) => m.datasource === datasource?.id
   );
+
+  const defaultMetricOverrides = structuredClone(
+    experiment.metricOverrides || []
+  );
+  for (let i = 0; i < defaultMetricOverrides.length; i++) {
+    for (const key in defaultMetricOverrides[i]) {
+      // fix fields with percentage values
+      if (
+        [
+          "winRisk",
+          "loseRisk",
+          "maxPercentChange",
+          "minPercentChange",
+        ].includes(key)
+      ) {
+        defaultMetricOverrides[i][key] *= 100;
+      }
+    }
+  }
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       metrics: experiment.metrics || [],
       guardrails: experiment.guardrails || [],
       activationMetric: experiment.activationMetric || "",
-      metricOverrides: experiment.metricOverrides || [],
+      metricOverrides: defaultMetricOverrides,
     },
   });
   const { apiCall } = useAuth();
@@ -71,6 +90,18 @@ const EditMetricsForm: FC<{
               const v = payload.metricOverrides[i][key];
               if (v === undefined || v === null || isNaN(v)) {
                 delete payload.metricOverrides[i][key];
+                continue;
+              }
+              // fix fields with percentage values
+              if (
+                [
+                  "winRisk",
+                  "loseRisk",
+                  "maxPercentChange",
+                  "minPercentChange",
+                ].includes(key)
+              ) {
+                payload.metricOverrides[i][key] = v / 100;
               }
             }
           }
