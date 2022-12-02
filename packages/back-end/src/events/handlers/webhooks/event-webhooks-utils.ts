@@ -13,6 +13,8 @@ import {
   NotificationEventResource,
 } from "../../base-types";
 import { ApiFeatureInterface } from "../../../../types/api";
+import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
+import { logger } from "../../../util/logger";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -155,3 +157,72 @@ const getPayloadForFeatureDeleted = ({
 });
 
 // endregion Web hook Payload creation
+
+// region HTTP
+
+export type CancellableFetchCriteria = {
+  maxContentSize: number;
+  maxTimeMs: number;
+};
+
+export type CancellableFetchReturn = {
+  response: Response;
+  // TODO: Make this better. It's not the most elegant but the response is lost after reading chunks so we are returning it separately.
+  stringBody: string;
+};
+
+/**
+ * Performs a request with the optionally provided {@link AbortController}.
+ * Aborts the request if any of the limits in the abortOptions are exceeded.
+ * @param url
+ * @param fetchOptions
+ * @param abortOptions
+ */
+export const cancellableFetch = async (
+  url: RequestInfo,
+  fetchOptions: RequestInit,
+  abortOptions: CancellableFetchCriteria
+): Promise<CancellableFetchReturn> => {
+  const abortController: AbortController = new AbortController();
+
+  const chunks: string[] = [];
+
+  const timeout = setTimeout(() => {
+    abortController.abort();
+  }, abortOptions.maxTimeMs);
+
+  let received = 0; // for monitoring progress
+
+  const readResponseBody = async (res: Response): Promise<string> => {
+    for await (const chunk of res.body) {
+      received += chunk.length;
+      if (received > abortOptions.maxContentSize) {
+        abortController.abort();
+        throw new Error("ResponseSizeExceeded");
+      }
+      chunks.push(chunk.toString());
+    }
+
+    return chunks.join("");
+  };
+
+  try {
+    const response: Response = await fetch(url, {
+      signal: abortController.signal,
+      ...fetchOptions,
+    });
+
+    const stringBody = await readResponseBody(response);
+    return {
+      response,
+      stringBody,
+    };
+  } catch (e) {
+    logger.error(e, "cancellableFetch -> readResponseBody");
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+// endregion HTTP

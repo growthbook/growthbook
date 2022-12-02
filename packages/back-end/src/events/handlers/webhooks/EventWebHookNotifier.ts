@@ -5,8 +5,8 @@ import {
   getEventWebHookById,
   updateEventWebHookStatus,
 } from "../../../models/EventWebhookModel";
-import fetch from "node-fetch";
 import {
+  cancellableFetch,
   EventWebHookErrorResult,
   EventWebHookResult,
   EventWebHookSuccessResult,
@@ -142,14 +142,8 @@ export class EventWebHookNotifier implements Notifier {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
   }): Promise<EventWebHookResult> {
-    const abortController = new AbortController();
     const requestTimeout = 10000;
-    const longRunningRequestTimeout = setTimeout(
-      function timeOutLongRunningRequest() {
-        abortController.abort();
-      },
-      requestTimeout
-    );
+    const maxContentSize = 1000;
 
     try {
       const { url, signingKey } = eventWebHook;
@@ -159,41 +153,39 @@ export class EventWebHookNotifier implements Notifier {
         payload,
       });
 
-      const res = await fetch(url, {
-        headers: {
-          "Content-Type": "application/json",
-          "X-GrowthBook-Signature": signature,
+      const result = await cancellableFetch(
+        url,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-GrowthBook-Signature": signature,
+          },
+          method: "POST",
+          body: JSON.stringify(payload),
         },
-        method: "POST",
-        body: JSON.stringify(payload),
-        signal: abortController.signal,
-      });
-      clearTimeout(longRunningRequestTimeout);
+        {
+          maxTimeMs: requestTimeout,
+          maxContentSize: maxContentSize,
+        }
+      );
 
-      if (!res.ok) {
+      const { stringBody, response } = result;
+
+      if (!response.ok) {
         // Server error
         return {
           result: "error",
-          statusCode: res.status,
-          error: res.statusText,
+          statusCode: response.status,
+          error: response.statusText,
         };
-      }
-
-      // Success
-      let responseBody = "";
-      try {
-        responseBody = await res.text();
-      } catch (e) {
-        logger.warn("Cannot save response", e);
       }
 
       return {
         result: "success",
-        statusCode: res.status,
-        responseBody: responseBody,
+        statusCode: response.status,
+        responseBody: stringBody,
       };
     } catch (e) {
-      clearTimeout(longRunningRequestTimeout);
       if (e?.name === "AbortError") {
         return {
           result: "error",
