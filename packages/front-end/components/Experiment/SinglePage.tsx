@@ -74,7 +74,7 @@ function drawMetricRow(
           </div>
         </div>
       </div>
-      <div className="col-sm-5">
+      <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
             {newMetric.conversionDelayHours || 0} to{" "}
@@ -95,7 +95,7 @@ function drawMetricRow(
           overrideFields.includes("loseRisk") ? (
             <span className="font-italic text-purple">override</span>
           ) : (
-            <span className="text-muted">standard</span>
+            <span className="text-muted">default</span>
           )}
         </div>
       </div>
@@ -564,8 +564,8 @@ export default function SinglePage({
           >
             <div className="appbox p-3">
               <div className="row mb-1 text-muted">
-                <div className="col">Goals</div>
-                <div className="col">
+                <div className="col-5">Goals</div>
+                <div className="col-5">
                   Conversion Window{" "}
                   <Tooltip
                     body={`After a user sees the experiment, only include
@@ -584,8 +584,8 @@ export default function SinglePage({
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col">Guardrails</div>
-                      <div className="col">Conversion Window</div>
+                      <div className="col-5">Guardrails</div>
+                      <div className="col-5">Conversion Window</div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
@@ -597,8 +597,8 @@ export default function SinglePage({
                 {experiment.activationMetric && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col">Activation Metric</div>
-                      <div className="col">Conversion Window</div>
+                      <div className="col-5">Activation Metric</div>
+                      <div className="col-5">Conversion Window</div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(

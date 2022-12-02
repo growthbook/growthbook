@@ -66,9 +66,14 @@ export default function MetricsOverridesSelector({
                     <Field
                       label="Conversion Delay (hours)"
                       placeholder="default"
+                      helpText={
+                        <div className="text-right small">
+                          default: {metricDefinition.conversionDelayHours}
+                        </div>
+                      }
                       labelClassName="small mb-1"
                       type="number"
-                      containerClassName="mb-1"
+                      containerClassName="mb-1 metric-override"
                       step="any"
                       {...form.register(
                         `metricOverrides.${i}.conversionDelayHours`,
@@ -80,9 +85,17 @@ export default function MetricsOverridesSelector({
                     <Field
                       label="Conversion Window (hours)"
                       placeholder="default"
+                      helpText={
+                        <div className="text-right small">
+                          default: {metricDefinition.conversionWindowHours}{" "}
+                          <a className="btn btn-outline-primary btn-sm">
+                            reset
+                          </a>
+                        </div>
+                      }
                       labelClassName="small mb-1"
                       type="number"
-                      containerClassName="mb-1"
+                      containerClassName="mb-1 metric-override"
                       min={0}
                       step="any"
                       {...form.register(
@@ -95,9 +108,14 @@ export default function MetricsOverridesSelector({
                     <Field
                       label="Acceptable risk % under..."
                       placeholder="default"
+                      helpText={
+                        <div className="text-right small">
+                          default: {(metricDefinition.winRisk || 0) * 100}%
+                        </div>
+                      }
                       labelClassName="small mb-1"
                       type="number"
-                      containerClassName="mb-1"
+                      containerClassName="mb-1 metric-override"
                       min={0}
                       step="any"
                       {...form.register(`metricOverrides.${i}.winRisk`, {
@@ -109,9 +127,14 @@ export default function MetricsOverridesSelector({
                     <Field
                       label="Too much risk % over..."
                       placeholder="default"
+                      helpText={
+                        <div className="text-right small">
+                          default: {(metricDefinition.loseRisk || 0) * 100}%
+                        </div>
+                      }
                       labelClassName="small mb-1"
                       type="number"
-                      containerClassName="mb-1"
+                      containerClassName="mb-1 metric-override"
                       min={0}
                       step="any"
                       {...form.register(`metricOverrides.${i}.loseRisk`, {
