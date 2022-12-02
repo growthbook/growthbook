@@ -169,39 +169,31 @@ export class EventWebHookNotifier implements Notifier {
         }
       );
 
-      const { stringBody, response } = result;
+      const { stringBody, responseWithoutBody } = result;
 
-      if (!response.ok) {
+      if (!responseWithoutBody.ok) {
         // Server error
         return {
           result: "error",
-          statusCode: response.status,
-          error: response.statusText,
+          statusCode: responseWithoutBody.status,
+          error: responseWithoutBody.statusText,
         };
       }
 
       return {
         result: "success",
-        statusCode: response.status,
+        statusCode: responseWithoutBody.status,
         responseBody: stringBody,
       };
     } catch (e) {
-      if (e?.name === "AbortError") {
-        return {
-          result: "error",
-          statusCode: null,
-          error: `Request Timeout: Request exceeded ${requestTimeout} ms`,
-        };
-      } else {
-        // Unknown error
-        logger.error(e, "Unknown Error");
+      // Unknown error
+      logger.error(e, "Unknown Error");
 
-        return {
-          result: "error",
-          statusCode: null,
-          error: e.message,
-        };
-      }
+      return {
+        result: "error",
+        statusCode: null,
+        error: e.message,
+      };
     }
   }
 

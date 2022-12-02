@@ -166,8 +166,8 @@ export type CancellableFetchCriteria = {
 };
 
 export type CancellableFetchReturn = {
-  response: Response;
-  // TODO: Make this better. It's not the most elegant but the response is lost after reading chunks so we are returning it separately.
+  // When consuming the stream, we lose the response.
+  responseWithoutBody: Response;
   stringBody: string;
 };
 
@@ -196,29 +196,43 @@ export const cancellableFetch = async (
   const readResponseBody = async (res: Response): Promise<string> => {
     for await (const chunk of res.body) {
       received += chunk.length;
+      chunks.push(chunk.toString());
+
       if (received > abortOptions.maxContentSize) {
         abortController.abort();
-        throw new Error("ResponseSizeExceeded");
+        break;
       }
-      chunks.push(chunk.toString());
     }
 
     return chunks.join("");
   };
 
+  let response: Response | null = null;
+  let stringBody = "";
+
   try {
-    const response: Response = await fetch(url, {
+    response = await fetch(url, {
       signal: abortController.signal,
       ...fetchOptions,
     });
 
-    const stringBody = await readResponseBody(response);
+    stringBody = await readResponseBody(response);
     return {
-      response,
+      responseWithoutBody: response,
       stringBody,
     };
   } catch (e) {
     logger.error(e, "cancellableFetch -> readResponseBody");
+
+    if (e.name === "AbortError" && response) {
+      logger.warn(e, `Response aborted due to content size: ${received}`);
+
+      return {
+        responseWithoutBody: response,
+        stringBody,
+      };
+    }
+
     throw e;
   } finally {
     clearTimeout(timeout);
