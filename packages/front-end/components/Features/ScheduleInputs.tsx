@@ -22,7 +22,6 @@ const getLocalDateTime = (rawDateTime: string) => {
   return utcDateTime.toISOString().substring(0, 16);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
   const [dateErrors, setDateErrors] = useState({});
@@ -81,7 +80,7 @@ export default function ScheduleInputs(props: Props) {
   return (
     <div className="form-group">
       <label>Schedule</label>
-      <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
+      <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
         <span className="text-muted mr-3 mt-3">
           Automatically enable and disable an override rule.
         </span>
