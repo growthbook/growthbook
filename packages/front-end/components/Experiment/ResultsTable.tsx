@@ -73,7 +73,7 @@ export default function ResultsTable({
             <th
               rowSpan={2}
               className="metric"
-              style={{ maxWidth: 142, minWidth: 125 }}
+              style={{ maxWidth: 155, minWidth: 125 }}
             >
               Risk of Choosing&nbsp;
               <Tooltip body="How much you are likely to lose if you choose this variation and it's actually worse">

@@ -343,6 +343,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta={cta}
       closeCta={!inline && "Cancel"}
+      ctaEnabled={!riskError}
       size="lg"
       docSection="metrics"
       step={step}

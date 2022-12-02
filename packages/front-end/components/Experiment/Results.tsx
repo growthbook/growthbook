@@ -177,6 +177,7 @@ const Results: FC<{
           <BreakDownResults
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results || []}
             status={experiment.status}
@@ -203,6 +204,7 @@ const Results: FC<{
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results?.[0]}
             status={experiment.status}

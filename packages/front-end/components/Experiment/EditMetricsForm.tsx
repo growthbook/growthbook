@@ -30,6 +30,7 @@ const EditMetricsForm: FC<{
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(false)
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
@@ -82,6 +83,7 @@ const EditMetricsForm: FC<{
         size="lg"
         open={true}
         close={cancel}
+        ctaEnabled={!hasMetricOverrideRiskError}
         submit={form.handleSubmit(async (value) => {
           const payload = structuredClone(value) as EditMetricsFormInterface;
           for (let i = 0; i < payload.metricOverrides.length; i++) {
@@ -173,6 +175,7 @@ const EditMetricsForm: FC<{
             experiment={experiment}
             form={form}
             disabled={!hasOverrideMetricsFeature}
+            setHasMetricOverrideRiskError={(v:boolean) => setHasMetricOverrideRiskError(v)}
           />
           {!hasOverrideMetricsFeature && (
             <UpgradeMessage

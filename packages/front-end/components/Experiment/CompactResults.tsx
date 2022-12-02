@@ -4,18 +4,20 @@ import { MdSwapCalls } from "react-icons/md";
 import Tooltip from "../Tooltip/Tooltip";
 import DataQualityWarning from "./DataQualityWarning";
 import {
+  applyMetricOverrides,
   ExperimentTableRow,
-  useRiskVariation,
+  useRiskVariation
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
+import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import Link from "next/link";
+import { MetricInterface } from "back-end/types/metric";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -27,6 +29,7 @@ const CompactResults: FC<{
   isLatestPhase: boolean;
   status: ExperimentStatus;
   metrics: string[];
+  metricOverrides: MetricOverride[];
   id: string;
 }> = ({
   results,
@@ -38,6 +41,7 @@ const CompactResults: FC<{
   status,
   isLatestPhase,
   metrics,
+  metricOverrides,
   id,
 }) => {
   const { getMetricById, ready } = useDefinitions();
@@ -47,17 +51,19 @@ const CompactResults: FC<{
     return metrics
       .map((m) => {
         const metric = getMetricById(m);
+        const newMetric = structuredClone(metric) as MetricInterface;
+        applyMetricOverrides(newMetric, metricOverrides);
         return {
-          label: metric?.name,
-          metric,
-          rowClass: metric?.inverse ? "inverse" : "",
+          label: newMetric?.name,
+          metric: newMetric,
+          rowClass: newMetric?.inverse ? "inverse" : "",
           variations: results.variations.map((v) => {
             return v.metrics[m];
           }),
         };
       })
       .filter((row) => row.metric);
-  }, [results, ready]);
+  }, [results, metrics, metricOverrides, ready]);
 
   const users = useMemo(() => {
     const vars = results?.variations;

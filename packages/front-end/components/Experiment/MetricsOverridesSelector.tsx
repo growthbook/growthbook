@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import SelectField from "../Forms/SelectField";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -10,10 +10,12 @@ export default function MetricsOverridesSelector({
   experiment,
   form,
   disabled,
+  setHasMetricOverrideRiskError,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<EditMetricsFormInterface>;
   disabled: boolean;
+  setHasMetricOverrideRiskError: (boolean) => void;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
@@ -33,6 +35,33 @@ export default function MetricsOverridesSelector({
   const usedMetrics = new Set(form.watch("metricOverrides").map((m) => m.id));
   const unusedMetrics = [...metrics].filter((m) => !usedMetrics.has(m));
 
+  useEffect(() => {
+    let hasRiskError = false;
+    !disabled &&
+      metricOverrides.fields.map((v, i) => {
+        const mo = form.watch(`metricOverrides.${i}`);
+        const metricDefinition = metricDefinitions.find(
+          (md) => md.id === mo.id
+        );
+        const loseRisk = isNaN(mo.loseRisk)
+          ? metricDefinition.loseRisk
+          : mo.loseRisk / 100;
+        const winRisk = isNaN(mo.winRisk)
+          ? metricDefinition.winRisk
+          : mo.winRisk / 100;
+        if (loseRisk < winRisk) {
+          hasRiskError = true;
+        }
+      });
+    setHasMetricOverrideRiskError(hasRiskError);
+  }, [
+    disabled,
+    metricDefinitions,
+    metricOverrides,
+    form,
+    setHasMetricOverrideRiskError,
+  ]);
+
   return (
     <div className="mb-3">
       {!disabled &&
@@ -41,9 +70,14 @@ export default function MetricsOverridesSelector({
           const metricDefinition = metricDefinitions.find(
             (md) => md.id === mo.id
           );
+          const loseRisk = isNaN(mo.loseRisk)
+            ? metricDefinition.loseRisk
+            : mo.loseRisk / 100;
+          const winRisk = isNaN(mo.winRisk)
+            ? metricDefinition.winRisk
+            : mo.winRisk / 100;
           const riskError =
-            (isNaN(mo.loseRisk) ? metricDefinition.loseRisk : mo.loseRisk) <
-            (isNaN(mo.winRisk) ? metricDefinition.winRisk : mo.winRisk)
+            loseRisk < winRisk
               ? "The acceptable risk percentage cannot be higher than the too risky percentage"
               : "";
           return (

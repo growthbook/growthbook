@@ -1,8 +1,9 @@
 import { FC, useMemo, useState } from "react";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import {
+  applyMetricOverrides,
   ExperimentTableRow,
-  useRiskVariation,
+  useRiskVariation
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "back-end/types/metric";
@@ -11,7 +12,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
+import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;
@@ -26,6 +27,7 @@ const BreakDownResults: FC<{
   results: ExperimentReportResultDimension[];
   variations: ExperimentReportVariation[];
   metrics: string[];
+  metricOverrides: MetricOverride[];
   guardrails?: string[];
   dimensionId: string;
   isLatestPhase: boolean;
@@ -38,6 +40,7 @@ const BreakDownResults: FC<{
   results,
   variations,
   metrics,
+  metricOverrides,
   guardrails,
   isLatestPhase,
   startDate,
@@ -61,13 +64,15 @@ const BreakDownResults: FC<{
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        const newMetric = structuredClone(metric) as MetricInterface;
+        applyMetricOverrides(newMetric, metricOverrides);
         return {
-          metric,
+          metric: newMetric,
           isGuardrail: !metrics.includes(metricId),
           rows: results.map((d) => {
             return {
               label: d.name,
-              metric,
+              metric: newMetric,
               variations: d.variations.map((variation) => {
                 return variation.metrics[metricId];
               }),
@@ -76,7 +81,7 @@ const BreakDownResults: FC<{
         };
       })
       .filter((table) => table.metric);
-  }, [results, metrics, guardrails, ready]);
+  }, [results, metrics, metricOverrides, guardrails, ready]);
 
   const risk = useRiskVariation(
     variations.length,

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MetricOverride } from "back-end/types/experiment";
 
 export type ExperimentTableRow = {
   label: string;
@@ -184,11 +184,11 @@ export function useDomain(
 
 export function applyMetricOverrides(
   metric: MetricInterface,
-  experiment: ExperimentInterfaceStringDates
+  metricOverrides?: MetricOverride[],
 ): string[] {
   const overrideFields: string[] = [];
-  if (!metric) return overrideFields;
-  const metricOverride = experiment?.metricOverrides?.find(
+  if (!metric || !metricOverrides) return overrideFields;
+  const metricOverride = metricOverrides.find(
     (mo) => mo.id === metric.id
   );
   if (metricOverride) {
