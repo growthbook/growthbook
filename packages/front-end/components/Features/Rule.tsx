@@ -19,6 +19,7 @@ import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
+import RuleStatusPill from "./RuleStatusPill";
 
 interface SortableProps {
   i: number;
@@ -65,32 +66,29 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissions.check("createFeatureDrafts", feature.project);
 
     let upcomingScheduleRule: ScheduleRule | null = null;
+    let currentScheduleStatus;
 
     const currentDate = new Date().valueOf();
 
-    const sortedScheduleRules = rule.scheduleRules.sort(
-      (a, b) =>
-        new Date(a.timestamp).valueOf() - new Date(b.timestamp).valueOf()
-    );
+    if (rule.scheduleRules) {
+      const nextRuleIndex = rule.scheduleRules.findIndex(
+        (rule) => currentDate < new Date(rule.timestamp).valueOf()
+      );
 
-    const nextRuleIndex = sortedScheduleRules.findIndex(
-      (rule) => currentDate < new Date(rule.timestamp).valueOf()
-    );
+      if (nextRuleIndex > -1) {
+        upcomingScheduleRule = rule.scheduleRules[nextRuleIndex];
+      }
 
-    if (nextRuleIndex > -1) {
-      upcomingScheduleRule = sortedScheduleRules[nextRuleIndex];
-    }
-
-    let currentScheduleStatus;
-
-    if (!upcomingScheduleRule && rule.scheduleRules.length) {
-      currentScheduleStatus = rule.scheduleRules[rule.scheduleRules.length - 1]
-        .enableFeature
-        ? "enabled"
-        : "disabled";
-    }
-    if (!rule.scheduleRules || !rule.scheduleRules.length) {
-      currentScheduleStatus = "enabled";
+      if (!upcomingScheduleRule && rule.scheduleRules.length) {
+        currentScheduleStatus = rule.scheduleRules[
+          rule.scheduleRules.length - 1
+        ].enableFeature
+          ? "enabled"
+          : "disabled";
+      }
+      if (!rule.scheduleRules || !rule.scheduleRules.length) {
+        currentScheduleStatus = "enabled";
+      }
     }
 
     const ruleDisabled =
@@ -131,50 +129,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           >
             {title}
           </div>
-          {upcomingScheduleRule && rule.enabled && (
-            <div className="bg-info text-light border px-2 rounded">
-              {/* // TODO: Can I change the language to be "Current Status: Off or something like that, rather than re-using the enabled/disabled language" */}
-              {`Rule will be ${
-                upcomingScheduleRule.enableFeature ? "enabled" : "disabled"
-              } on ${new Date(
-                upcomingScheduleRule.timestamp
-              ).toLocaleDateString()} at ${new Date(
-                upcomingScheduleRule.timestamp
-              ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-                upcomingScheduleRule.timestamp
-              )
-                .toLocaleDateString(undefined, {
-                  day: "2-digit",
-                  timeZoneName: "short",
-                })
-                .substring(4)}`}
-            </div>
-          )}
-          {currentScheduleStatus &&
-            currentScheduleStatus === "disabled" &&
-            rule.enabled && (
-              <div className="bg-info text-light border px-2 rounded">
-                {`Rule was disabled by schedule rule on ${new Date(
-                  rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-                ).toLocaleDateString()} at ${new Date(
-                  rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-                ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-                  rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-                )
-                  .toLocaleDateString(undefined, {
-                    day: "2-digit",
-                    timeZoneName: "short",
-                  })
-                  .substring(4)}`}
-              </div>
-            )}
-          {!rule.enabled && (
-            <div className="mr-3">
-              <div className="bg-secondary text-light border px-2 rounded">
-                DISABLED
-              </div>
-            </div>
-          )}
+          <RuleStatusPill
+            rule={rule}
+            upcomingScheduleRule={upcomingScheduleRule}
+            currentScheduleStatus={currentScheduleStatus}
+          />
           {rules.length > 1 && canEdit && (
             <div
               {...handle}

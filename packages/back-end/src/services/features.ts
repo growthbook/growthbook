@@ -87,22 +87,24 @@ export function getFeatureDefinition({
             return true;
           }
 
-          // Ensure the scheduleRules are sorted by date
-          const sortedScheduleRules = r.scheduleRules.sort(
-            (a, b) =>
-              new Date(a.timestamp).valueOf() - new Date(b.timestamp).valueOf()
+          // Loop through the list of rules, and find the next rule to be applied
+          const nextRuleIndex = r.scheduleRules.findIndex(
+            (rule) =>
+              rule.timestamp !== "null" &&
+              new Date(rule.timestamp).valueOf() > currentDate
           );
 
-          // Loop through the list of rules, and find the last rule that was applied
-          const nextRuleIndex = sortedScheduleRules.findIndex(
-            (rule) => currentDate < new Date(rule.timestamp).valueOf()
-          );
+          if (
+            nextRuleIndex === -1 &&
+            r.scheduleRules[r.scheduleRules.length - 1].timestamp === null
+          ) {
+            return true;
+          }
 
           if (nextRuleIndex === -1) {
-            return sortedScheduleRules[sortedScheduleRules.length - 1]
-              .enableFeature;
+            return r.scheduleRules[r.scheduleRules.length - 1].enableFeature;
           } else {
-            return !sortedScheduleRules[nextRuleIndex].enableFeature;
+            return !r.scheduleRules[nextRuleIndex].enableFeature;
           }
         })
         ?.map((r) => {

@@ -75,13 +75,21 @@ export default function RuleModal({
         const ruleAction = i === rules.length ? "add" : "edit";
 
         if (values.scheduleRules.length) {
+          if (
+            values.scheduleRules[0].timestamp === null &&
+            values.scheduleRules[1].timestamp === null
+          ) {
+            values.scheduleRules = [];
+          }
           // Loop through each scheduleRule and convert the timestamp to an ISOString()
-          values.scheduleRules.forEach(
-            (scheduleRule: ScheduleRule) =>
-              (scheduleRule.timestamp = new Date(
-                scheduleRule.timestamp
-              ).toISOString())
-          );
+          values.scheduleRules.forEach((scheduleRule: ScheduleRule) => {
+            if (scheduleRule.timestamp === null) {
+              return;
+            }
+            scheduleRule.timestamp = new Date(
+              scheduleRule.timestamp
+            ).toISOString();
+          });
         }
         const rule = values as FeatureRule;
 
@@ -170,7 +178,6 @@ export default function RuleModal({
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}
       />
-
       {type === "force" && (
         <FeatureValueField
           label="Value to Force"
