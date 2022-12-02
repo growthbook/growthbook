@@ -5,8 +5,7 @@ import fetch from "node-fetch";
 import track from "../../../services/track";
 import Field from "../../Forms/Field";
 
-const LICENSE_KEY_URL =
-  "https://a5dsbxxxkwz3ianmn2hzdeufkm0chcwm.lambda-url.us-east-1.on.aws/";
+const LICENSE_KEY_API_URL = "https://license.growthbook.io/api/trial/";
 
 export default function SelfHostedUpgradeForm({
   source,
@@ -121,7 +120,7 @@ export default function SelfHostedUpgradeForm({
               for (const key in value) {
                 encodedParams.append(key, value[key]);
               }
-              const resp = await fetch(LICENSE_KEY_URL, {
+              const resp = await fetch(LICENSE_KEY_API_URL, {
                 method: "POST",
                 headers: {
                   Accept: "application/json",
