@@ -1,0 +1,24 @@
+# file: .github/workflows/preview.yaml
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    steps:
+    - name: Context
+      uses: okteto/context@latest
+      with:
+        token: ${{ secrets.OKTETO_TOKEN }}
+
+    - name: Deploy preview environment
+      uses: okteto/deploy-preview@latest
+      env:
+       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       JWT_SECRET: ${{ secrets.JWT_SECRET_PREVIEW_ENV }}
+      with:
+        name: pr-${{ github.actor }}-${{ github.ref_name }}
+        timeout: 15m
