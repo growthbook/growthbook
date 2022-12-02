@@ -7,16 +7,15 @@ import { usingFileConfig } from "../init/config";
 import { ENCRYPTION_KEY, IS_CLOUD } from "../util/secrets";
 import { init } from "../init";
 import { encryptParams } from "../services/datasource";
-import { logger } from "../util/logger";
 
 const [oldEncryptionKey] = process.argv.slice(2);
 if (IS_CLOUD) {
-  logger.error("Cannot migrate encryption keys on Cloud");
+  console.error("Cannot migrate encryption keys on Cloud");
   process.exit(1);
 }
 
 if (oldEncryptionKey === ENCRYPTION_KEY) {
-  logger.error(
+  console.error(
     "============\n== ERROR: == Please specify the previous encryption key, not the current one\n============\n"
   );
   process.exit(1);
@@ -26,7 +25,7 @@ async function run() {
   // Initialize the mongo connection, etc.
   await init();
   if (usingFileConfig()) {
-    logger.error(
+    console.error(
       "============\n== ERROR: == Cannot migrate encryption keys when using config.yml\n============\n"
     );
     process.exit(1);
@@ -44,7 +43,6 @@ async function run() {
       const parsed = JSON.parse(
         AES.decrypt(params, oldEncryptionKey || "dev").toString(enc.Utf8)
       );
-      // eslint-disable-next-line no-console
       console.log(
         `- Decrypted '${ds.name}' (${ds.id}), re-encrypting with new key and saving...`
       );
@@ -64,7 +62,7 @@ run()
     console.log("Done!");
   })
   .catch((e) => {
-    logger.error(e);
+    console.error(e);
   })
   .finally(() => {
     process.exit(0);

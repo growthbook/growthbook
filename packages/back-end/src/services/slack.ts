@@ -13,8 +13,6 @@ export function verifySlackRequestSignature(
   res: ServerResponse,
   buf: Buffer
 ) {
-  // eslint-disable-next-line no-console
-  console.log(req.headers);
   const rawTimestamp = req.headers["x-slack-request-timestamp"];
   if (!rawTimestamp || typeof rawTimestamp !== "string") {
     throw new Error("Missing or Invalid timestamp");
