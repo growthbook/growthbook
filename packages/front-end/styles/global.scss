@@ -498,6 +498,13 @@ pre {
     }
   }
 }
+
+.appbox--align-top {
+  td {
+    vertical-align: top;
+  }
+}
+
 .flex-1 {
   flex: 1;
 }
@@ -1960,6 +1967,17 @@ tr.disabled,
 td.disabled {
   background: var(--disabled-background);
   font-style: italic;
+}
+.gb-select-wrapper.disabled {
+  cursor: not-allowed;
+}
+.gb-select--is-disabled {
+  .gb-select__control {
+    background-color: var(--disabled-background) !important;
+  }
+  .gb-select__single-value {
+    color: var(--text-color-muted) !important;
+  }
 }
 
 .text-premium {

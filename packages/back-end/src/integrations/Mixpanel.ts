@@ -26,10 +26,16 @@ import {
 import { replaceSQLVars } from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   datasource: string;
   params: MixpanelConnectionParams;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   organization: string;
   settings: DataSourceSettings;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   decryptionError: boolean;
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     try {
