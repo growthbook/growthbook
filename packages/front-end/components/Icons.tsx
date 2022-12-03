@@ -1,5 +1,4 @@
 import React from "react";
-import clsx from "clsx";
 
 export function GBHome({ className = "" }): React.ReactElement {
   return (
@@ -432,6 +431,7 @@ interface GBPremiumBadge extends React.ReactElement {
 export function GBPremiumBadge({
   className = "",
   shouldDisplay = true,
+  prependsText = false,
 }): GBPremiumBadge {
   if (!shouldDisplay) return null;
   return (
@@ -441,8 +441,10 @@ export function GBPremiumBadge({
       viewBox="0 0 370.04 370.04"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ marginTop: -2, marginRight: 2 }}
-      className={clsx(className, "text-premium")}
+      style={
+        prependsText ? { marginTop: -2, marginRight: 2 } : { marginTop: -2 }
+      }
+      className={className ?? "text-premium"}
     >
       <path
         d="M341.668,314.412c0,0-41.071-70.588-48.438-83.248c8.382-2.557,17.311-4.815,21.021-11.221

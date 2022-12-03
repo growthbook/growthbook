@@ -19,6 +19,7 @@ export interface Props {
 }
 
 export default function UpgradeModal({ close, source, reason }: Props) {
+  // todo: make sure we can subscribe, otherwise show an alternate flow!
   const { quote, loading } = useStripeSubscription();
 
   useEffect(() => {

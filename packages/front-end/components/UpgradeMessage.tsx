@@ -1,63 +1,45 @@
 import { useUser } from "../services/UserContext";
 import { isCloud } from "../services/env";
-import useStripeSubscription from "../hooks/useStripeSubscription";
 import { CommercialFeature } from "back-end/types/organization";
-import Link from "next/link";
+import { GBPremiumBadge } from "./Icons";
 
 export default function UpgradeMessage({
   showUpgradeModal,
   commercialFeature,
   upgradeMessage,
-  href,
 }: {
   showUpgradeModal: () => void;
   commercialFeature: CommercialFeature;
-  upgradeMessage: string;
-  href?: string;
+  upgradeMessage?: string;
 }) {
-  if (!href) {
-    href = "/settings/try-pro";
+  if (!upgradeMessage) {
+    upgradeMessage = "use this feature";
   }
-  const { canSubscribe } = useStripeSubscription();
   const { hasCommercialFeature } = useUser();
-
   if (hasCommercialFeature(commercialFeature)) return null;
+  if (process.env.HIDE_GROWTHBOOK_UPGRADE_CTAS) return null;
 
-  if (isCloud()) {
-    return (
-      <Link href={href}>
-        <div className="alert alert-premium cta">
-          Upgrade your plan to {upgradeMessage}.{" "}
-          {canSubscribe ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                showUpgradeModal();
-              }}
-            >
-              Learn More
-            </a>
-          ) : (
-            <>
-              Contact{" "}
-              <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for
-              more info.
-            </>
-          )}
-        </div>
-      </Link>
-    );
-  }
+  const headerMessage = isCloud() ? (
+    <>Upgrade your plan to {upgradeMessage}</>
+  ) : (
+    <>Purchase a commercial license to {upgradeMessage}.</>
+  );
 
-  // Self-hosted
   return (
-    <Link href={href}>
+    <a
+      className="cta-link cta mb-3"
+      href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        showUpgradeModal();
+      }}
+    >
       <div className="alert alert-premium cta">
-        Purchase a commercial license key to {upgradeMessage}. Contact{" "}
-        <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> for more
-        info.
+        <h4 className="text-premium">{headerMessage}</h4>
+        <div className="btn btn-md btn-premium" style={{ minWidth: 145 }}>
+          Learn more <GBPremiumBadge />
+        </div>
       </div>
-    </Link>
+    </a>
   );
 }

@@ -10,6 +10,8 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { useUser } from "../../services/UserContext";
 import UpgradeMessage from "../UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
+import { GBPremiumBadge } from "../Icons";
+import Tooltip from "../Tooltip/Tooltip";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -116,7 +118,24 @@ const EditMetricsForm: FC<{
 
         <div className="form-group mb-4">
           <label className="font-weight-bold mb-1">
-            Metric Overrides (optional)
+            <Tooltip
+              shouldDisplay={!hasOverrideMetricsFeature}
+              body={
+                <>
+                  <GBPremiumBadge />
+                  This is a premium feature
+                </>
+              }
+              tipPosition="top"
+              innerClassName="premium"
+            >
+              <GBPremiumBadge
+                className="text-premium"
+                shouldDisplay={!hasOverrideMetricsFeature}
+                prependsText={true}
+              />
+              Metric Overrides (optional)
+            </Tooltip>
           </label>
           <div className="mb-1 font-italic">
             Override metric conversion windows within this experiment.

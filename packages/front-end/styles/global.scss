@@ -107,6 +107,16 @@ pre {
   font-weight: 600;
 }
 
+.btn-premium {
+  @include button-outline-variant(
+    colors.$premium,
+    #fff,
+    colors.$premium,
+    colors.$premium
+  );
+  font-weight: bold;
+}
+
 .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple,
@@ -1995,20 +2005,37 @@ td.disabled {
     var(--alert-premium-background-gradient-2)
   );
   border-color: var(--border-color-100);
-  color: var(--text-color-premium);
 
   .alert-link {
     color: var(--text-color-main);
   }
 }
-html.theme--light {
-  .alert-premium.cta:hover {
-    filter: brightness(98%) saturate(130%);
+
+.cta-link {
+  display: block;
+  margin: auto;
+  width: 100%;
+  text-align: center;
+  &:hover {
+    text-decoration: none;
   }
-}
-html.theme--dark {
-  .alert-premium.cta:hover {
-    filter: brightness(115%);
+  &.cta {
+    & > div {
+      box-shadow: 0 0 5px rgb(0 0 0 / 0%);
+      transition: 150ms all;
+    }
+    &:hover > div {
+      box-shadow: 0 2px 5px -2px rgb(0 0 0 / 10%);
+    }
+    & h4 {
+      position: relative;
+      top: 0;
+      transition: 150ms all;
+    }
+    &:hover h4 {
+      top: -1.5px;
+      transform: scale(1.01);
+    }
   }
 }
 

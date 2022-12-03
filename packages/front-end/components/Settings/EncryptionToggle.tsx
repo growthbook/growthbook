@@ -26,7 +26,7 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
     <div className="mt-4">
       <div className="form-group">
         <label htmlFor="encryptSDK">
-          <p className="mb-0">
+          <div className="mb-0">
             <Tooltip
               shouldDisplay={!hasFeature}
               body={
@@ -38,10 +38,14 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
               tipPosition="top"
               innerClassName="premium"
             >
-              <GBPremiumBadge shouldDisplay={!hasFeature} />
+              <GBPremiumBadge
+                className="text-premium"
+                shouldDisplay={!hasFeature}
+                prependsText={true}
+              />
               Encrypt this endpoint&apos;s response?
             </Tooltip>
-          </p>
+          </div>
         </label>
         <div className="row mb-4">
           <div className="col-md-3 mt-1">
