@@ -8,10 +8,9 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useUser } from "../../services/UserContext";
-import UpgradeMessage from "../UpgradeMessage";
+import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
-import { GBPremiumBadge } from "../Icons";
-import Tooltip from "../Tooltip/Tooltip";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -116,26 +115,11 @@ const EditMetricsForm: FC<{
           />
         </div>
 
-        <div className="form-group mb-4">
+        <div className="form-group mb-2">
           <label className="font-weight-bold mb-1">
-            <Tooltip
-              shouldDisplay={!hasOverrideMetricsFeature}
-              body={
-                <>
-                  <GBPremiumBadge />
-                  This is a premium feature
-                </>
-              }
-              tipPosition="top"
-              innerClassName="premium"
-            >
-              <GBPremiumBadge
-                className="text-premium"
-                shouldDisplay={!hasOverrideMetricsFeature}
-                prependsText={true}
-              />
+            <PremiumTooltip commercialFeature="override-metrics">
               Metric Overrides (optional)
-            </Tooltip>
+            </PremiumTooltip>
           </label>
           <div className="mb-1 font-italic">
             Override metric conversion windows within this experiment.
@@ -145,13 +129,11 @@ const EditMetricsForm: FC<{
             form={form}
             disabled={!hasOverrideMetricsFeature}
           />
-          {!hasOverrideMetricsFeature && (
-            <UpgradeMessage
-              showUpgradeModal={() => setUpgradeModal(true)}
-              commercialFeature="override-metrics"
-              upgradeMessage="override metrics"
-            />
-          )}
+          <UpgradeMessage
+            showUpgradeModal={() => setUpgradeModal(true)}
+            commercialFeature="override-metrics"
+            upgradeMessage="override metrics"
+          />
         </div>
       </Modal>
     </>

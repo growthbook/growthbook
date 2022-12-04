@@ -2,9 +2,8 @@ import { UseFormReturn } from "react-hook-form";
 import { useUser } from "../../services/UserContext";
 import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
-import UpgradeMessage from "../UpgradeMessage";
-import { GBPremiumBadge } from "../Icons";
+import UpgradeMessage from "../Marketing/UpgradeMessage";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 
 type FormKeys = {
   description: string;
@@ -26,26 +25,9 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
     <div className="mt-4">
       <div className="form-group">
         <label htmlFor="encryptSDK">
-          <div className="mb-0">
-            <Tooltip
-              shouldDisplay={!hasFeature}
-              body={
-                <>
-                  <GBPremiumBadge />
-                  This is a premium feature
-                </>
-              }
-              tipPosition="top"
-              innerClassName="premium"
-            >
-              <GBPremiumBadge
-                className="text-premium"
-                shouldDisplay={!hasFeature}
-                prependsText={true}
-              />
-              Encrypt this endpoint&apos;s response?
-            </Tooltip>
-          </div>
+          <PremiumTooltip commercialFeature="encrypt-features-endpoint">
+            Encrypt this endpoint&apos;s response?
+          </PremiumTooltip>
         </label>
         <div className="row mb-4">
           <div className="col-md-3 mt-1">
@@ -69,13 +51,11 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
           </div>
         </div>
       </div>
-      {!hasFeature && (
-        <UpgradeMessage
-          showUpgradeModal={showUpgradeModal}
-          commercialFeature="encrypt-features-endpoint"
-          upgradeMessage="enable encryption"
-        />
-      )}
+      <UpgradeMessage
+        showUpgradeModal={showUpgradeModal}
+        commercialFeature="encrypt-features-endpoint"
+        upgradeMessage="enable encryption"
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
-import { useUser } from "../services/UserContext";
-import { isCloud } from "../services/env";
+import { useUser } from "../../services/UserContext";
+import { isCloud } from "../../services/env";
 import { CommercialFeature } from "back-end/types/organization";
-import { GBPremiumBadge } from "./Icons";
+import { GBPremiumBadge } from "../Icons";
+import styles from "./UpgradeMessage.module.scss";
 
 export default function UpgradeMessage({
   showUpgradeModal,
@@ -27,15 +28,17 @@ export default function UpgradeMessage({
 
   return (
     <a
-      className="cta-link cta mb-3"
-      href="#"
+      className={`${styles.ctaLink} cta mb-2`}
+      href="components/Marketing/UpgradeMessage#"
       onClick={(e) => {
         e.preventDefault();
         showUpgradeModal();
       }}
     >
-      <div className="alert alert-premium cta">
-        <h4 className="text-premium">{headerMessage}</h4>
+      <div className={`${styles.cta} alert alert-premium mb-0`}>
+        <div className={`${styles.headerMessage} text-dark mb-2`}>
+          {headerMessage}
+        </div>
         <div className="btn btn-md btn-premium" style={{ minWidth: 145 }}>
           Learn more <GBPremiumBadge />
         </div>
