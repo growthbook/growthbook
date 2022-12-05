@@ -6,6 +6,7 @@ import MultiSelectField from "../../Forms/MultiSelectField";
 import Toggle from "../../Forms/Toggle";
 import SelectField from "../../Forms/SelectField";
 import { roleSupportsEnvLimit } from "../../../services/auth";
+import PremiumTooltip from "../../Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({
   value,
@@ -19,12 +20,9 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
 }) {
   const { roles, hasCommercialFeature } = useUser();
+  const hasFeature = hasCommercialFeature("advanced-permissions");
 
   const availableEnvs = useEnvironments();
-
-  const canUseAdvancedPermissions = hasCommercialFeature(
-    "advanced-permissions"
-  );
 
   return (
     <div>
@@ -57,29 +55,32 @@ export default function SingleRoleSelector({
         }}
       />
 
-      {(true ||
-        (roleSupportsEnvLimit(value.role) &&
-          availableEnvs.length > 1 &&
-          canUseAdvancedPermissions)) && (
+      {(roleSupportsEnvLimit(value.role) && availableEnvs.length > 1) && (
         <div>
-          <div className="form-group">
-            <Toggle
-              // disabled={!canUseAdvancedPermissions}
-              id={"role-modal"}
-              value={value.limitAccessByEnvironment}
-              setValue={(limitAccessByEnvironment) => {
-                setValue({
-                  ...value,
-                  limitAccessByEnvironment,
-                });
-              }}
-              disabledMessage="Upgrade to limit access by environment"
-            />{" "}
-            Restrict Access to Specific Environments
-          </div>
+            <div className="form-group">
+              <label htmlFor="role-modal">
+                <PremiumTooltip commercialFeature="advanced-permissions">
+                  Restrict Access to Specific Environments
+                </PremiumTooltip>
+              </label>
+              <div>
+                <Toggle
+                  disabled={!hasFeature}
+                  id={"role-modal"}
+                  value={value.limitAccessByEnvironment}
+                  setValue={(limitAccessByEnvironment) => {
+                    setValue({
+                      ...value,
+                      limitAccessByEnvironment,
+                    });
+                  }}
+                />
+              </div>
+            </div>
           {value.limitAccessByEnvironment && (
             <MultiSelectField
               label="Environments"
+              className="mb-4"
               helpText="Select all environments you want the person to have permissions for"
               value={value.environments}
               onChange={(environments) => {

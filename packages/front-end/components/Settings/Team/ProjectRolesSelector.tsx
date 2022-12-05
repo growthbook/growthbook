@@ -5,17 +5,14 @@ import SelectField from "../../Forms/SelectField";
 import { useDefinitions } from "../../../services/DefinitionsContext";
 import cloneDeep from "lodash/cloneDeep";
 import SingleRoleSelector from "./SingleRoleSelector";
-import UpgradeMessage from "../../Marketing/UpgradeMessage";
 import PremiumTooltip from "../../Marketing/PremiumTooltip";
 
 export default function ProjectRolesSelector({
   projectRoles,
   setProjectRoles,
-  showUpgradeModal,
 }: {
   projectRoles: ProjectMemberRole[];
   setProjectRoles: (roles: ProjectMemberRole[]) => void;
-  showUpgradeModal: () => void;
 }) {
   const { projects, getProjectById } = useDefinitions();
   const { hasCommercialFeature, settings } = useUser();
@@ -111,12 +108,6 @@ export default function ProjectRolesSelector({
           </div>
         </div>
       )}
-      <UpgradeMessage
-        className="mt-3"
-        showUpgradeModal={showUpgradeModal}
-        commercialFeature="advanced-permissions"
-        upgradeMessage="enable per-environment and per-project permissions"
-      />
     </>
   );
 }

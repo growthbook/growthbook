@@ -1,6 +1,7 @@
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import SingleRoleSelector from "./SingleRoleSelector";
 import ProjectRolesSelector from "./ProjectRolesSelector";
+import UpgradeMessage from "../../Marketing/UpgradeMessage";
 
 export default function RoleSelector({
   value,
@@ -36,7 +37,12 @@ export default function RoleSelector({
             projectRoles,
           });
         }}
+      />
+      <UpgradeMessage
+        className="mt-3"
         showUpgradeModal={showUpgradeModal}
+        commercialFeature="advanced-permissions"
+        upgradeMessage="enable per-environment and per-project permissions"
       />
     </div>
   );
