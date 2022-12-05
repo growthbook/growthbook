@@ -93,6 +93,7 @@ import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadsRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
+import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 
 const app = express();
 
@@ -470,6 +471,7 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // Events
 app.use("/events", eventsRouter);
+app.use("/event-webhooks", eventWebHooksRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
