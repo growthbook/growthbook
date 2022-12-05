@@ -19,6 +19,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - IS_CLOUD=true
       - SSO_CONFIG=${SSO_CONFIG}
+      - DISABLE_TELEMETRY=debug
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
 volumes:
