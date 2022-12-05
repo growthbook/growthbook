@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FC } from "react";
+import React, { FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import Webhooks from "../../components/Settings/Webhooks";
 import usePermissions from "../../hooks/usePermissions";
@@ -26,7 +26,7 @@ const WebhooksPage: FC = () => {
           </a>
         </Link>
       </div>
-      <h1>Webhooks</h1>
+      <h1>SDK Endpoint Webhooks</h1>
       <Webhooks />
     </div>
   );
