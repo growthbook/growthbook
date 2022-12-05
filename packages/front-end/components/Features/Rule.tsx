@@ -66,8 +66,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const scheduleCompletedAndDisabled =
       !upcomingScheduleRule &&
-      rule.scheduleRules.length &&
-      rule.scheduleRules[rule.scheduleRules.length - 1].timestamp !== null;
+      rule?.scheduleRules?.length &&
+      rule.scheduleRules.at(-1)?.timestamp !== null;
 
     const ruleDisabled =
       scheduleCompletedAndDisabled ||

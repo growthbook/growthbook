@@ -84,26 +84,23 @@ export function getFeatureDefinition({
         ?.filter((r) => r.enabled)
         ?.filter((r) => {
           //Filter our rules that have schedulingRules if the current scheduleRule sets the feature to disabled.
-          if (!r.scheduleRules || !r.scheduleRules.length) {
+          if (!r.scheduleRules?.length) {
             return true;
           }
 
-          const currentDate = new Date().valueOf();
+          const currentDate = new Date();
 
           // Loop through the list of rules, and find the next rule to be applied
           const nextRuleIndex = r.scheduleRules.findIndex(
             (rule) =>
-              rule.timestamp !== null &&
-              new Date(rule.timestamp).valueOf() > currentDate
+              rule.timestamp !== null && new Date(rule.timestamp) > currentDate
           );
 
           if (nextRuleIndex === -1) {
-            if (
-              r.scheduleRules[r.scheduleRules.length - 1].timestamp === null
-            ) {
+            if (r.scheduleRules.at(-1)?.timestamp === null) {
               return true;
             } else {
-              return r.scheduleRules[r.scheduleRules.length - 1].enableFeature;
+              return r.scheduleRules.at(-1)?.enableFeature;
             }
           }
 
@@ -434,18 +431,16 @@ export function getNextScheduledUpdate(
 
   const dates: string[] = [];
 
-  if (envSettings) {
-    for (const env in envSettings) {
-      const rules = envSettings[env].rules;
+  for (const env in envSettings) {
+    const rules = envSettings[env].rules;
 
-      rules.forEach((rule: FeatureRule) => {
-        if (rule.scheduleRules) {
-          rule.scheduleRules.forEach((scheduleRule) => {
-            dates.push(scheduleRule.timestamp);
-          });
-        }
-      });
-    }
+    rules.forEach((rule: FeatureRule) => {
+      if (rule.scheduleRules) {
+        rule.scheduleRules.forEach((scheduleRule) => {
+          dates.push(scheduleRule.timestamp);
+        });
+      }
+    });
   }
 
   const sortedFutureDates = dates

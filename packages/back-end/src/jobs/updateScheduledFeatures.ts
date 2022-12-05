@@ -15,7 +15,29 @@ const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
 
 const UPDATE_SINGLE_FEATURE = "updateSingleFeature";
 
+async function fireUpdateWebhook(agenda: Agenda) {
+  console.log("fireUpdateWebhook fired");
+  const updateFeatureJob = agenda.create(QUEUE_FEATURE_UPDATES, {});
+  updateFeatureJob.unique({});
+  updateFeatureJob.repeatEvery("1 minute");
+  await updateFeatureJob.save();
+}
+
+async function queueFeatureUpdate(agenda: Agenda, featureId: string) {
+  console.log("queueFeatureUpdate fired");
+  const job = agenda.create(UPDATE_SINGLE_FEATURE, {
+    featureId,
+  }) as UpdateSingleFeatureJob;
+
+  job.unique({
+    featureId,
+  });
+  job.schedule(new Date());
+  await job.save();
+}
+
 export default async function (agenda: Agenda) {
+  console.log("cron is firing");
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
     const featureIds = (
       await FeatureModel.find({
@@ -26,8 +48,10 @@ export default async function (agenda: Agenda) {
       })
     ).map((f) => f.id);
 
+    console.log("featureIds", featureIds);
+
     for (let i = 0; i < featureIds.length; i++) {
-      await queueFeatureUpdate(featureIds[i]);
+      await queueFeatureUpdate(agenda, featureIds[i]);
     }
   });
 
@@ -37,26 +61,7 @@ export default async function (agenda: Agenda) {
     updateSingleFeature
   );
 
-  await fireUpdateWebhook();
-
-  async function fireUpdateWebhook() {
-    const updateFeatureJob = agenda.create(QUEUE_FEATURE_UPDATES, {});
-    updateFeatureJob.unique({});
-    updateFeatureJob.repeatEvery("1 minute");
-    await updateFeatureJob.save();
-  }
-
-  async function queueFeatureUpdate(featureId: string) {
-    const job = agenda.create(UPDATE_SINGLE_FEATURE, {
-      featureId,
-    }) as UpdateSingleFeatureJob;
-
-    job.unique({
-      featureId,
-    });
-    job.schedule(new Date());
-    await job.save();
-  }
+  await fireUpdateWebhook(agenda);
 }
 
 async function updateSingleFeature(job: UpdateSingleFeatureJob) {
