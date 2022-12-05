@@ -4,13 +4,13 @@ import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import TopNav from "./TopNav";
-import { GBExperiment, GBSettings } from "../Icons";
+import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaArrowRight, FaStar } from "react-icons/fa";
+import { FaArrowRight } from "react-icons/fa";
 import { inferDocUrl } from "../DocLink";
 import UpgradeModal from "../Settings/UpgradeModal";
 import { useUser } from "../../services/UserContext";
@@ -240,7 +240,7 @@ const Layout = (): React.ReactElement => {
   const { accountPlan } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const showPremiumCTA = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
   const router = useRouter();
@@ -388,15 +388,20 @@ const Layout = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="p-3">
-          {showPremiumCTA && (
+          {showUpgradeButton && (
             <button
-              className="btn btn-outline-light btn-block"
+              className="btn btn-premium btn-block font-weight-normal"
               onClick={() => setUpgradeModal(true)}
             >
-              Try Enterprise{" "}
-              <span style={{ color: "#f3b500" }}>
-                <FaStar className="ml-2" />
-              </span>
+              {accountPlan === "oss" ? (
+                <>
+                  Try Enterprise <GBPremiumBadge />
+                </>
+              ) : (
+                <>
+                  Upgrade to Pro <GBPremiumBadge />
+                </>
+              )}
             </button>
           )}
           <a

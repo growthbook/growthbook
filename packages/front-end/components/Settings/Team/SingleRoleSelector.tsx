@@ -55,28 +55,28 @@ export default function SingleRoleSelector({
         }}
       />
 
-      {(roleSupportsEnvLimit(value.role) && availableEnvs.length > 1) && (
+      {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (
         <div>
-            <div className="form-group">
-              <label htmlFor="role-modal">
-                <PremiumTooltip commercialFeature="advanced-permissions">
-                  Restrict Access to Specific Environments
-                </PremiumTooltip>
-              </label>
-              <div>
-                <Toggle
-                  disabled={!hasFeature}
-                  id={"role-modal"}
-                  value={value.limitAccessByEnvironment}
-                  setValue={(limitAccessByEnvironment) => {
-                    setValue({
-                      ...value,
-                      limitAccessByEnvironment,
-                    });
-                  }}
-                />
-              </div>
+          <div className="form-group">
+            <label htmlFor="role-modal">
+              <PremiumTooltip commercialFeature="advanced-permissions">
+                Restrict Access to Specific Environments
+              </PremiumTooltip>
+            </label>
+            <div>
+              <Toggle
+                disabled={!hasFeature}
+                id={"role-modal"}
+                value={value.limitAccessByEnvironment}
+                setValue={(limitAccessByEnvironment) => {
+                  setValue({
+                    ...value,
+                    limitAccessByEnvironment,
+                  });
+                }}
+              />
             </div>
+          </div>
           {value.limitAccessByEnvironment && (
             <MultiSelectField
               label="Environments"
