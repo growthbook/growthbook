@@ -235,10 +235,10 @@ export default function ConditionInput(props: Props) {
                         newConds[i]["field"] = value;
 
                         const newAttribute = attributes.get(value);
-                        const attrHasChanged =
+                        const hasAttrChanged =
                           newAttribute.datatype !== attribute.datatype ||
                           newAttribute.array !== attribute.array;
-                        if (attrHasChanged) {
+                        if (hasAttrChanged) {
                           newConds[i]["operator"] = getDefaultOperator(
                             newAttribute
                           );
