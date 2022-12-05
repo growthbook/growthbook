@@ -1,29 +1,30 @@
+import useStripeSubscription from "../../../hooks/useStripeSubscription";
+import { redirectWithTimeout, useAuth } from "../../../services/auth";
 import { useEffect, useState } from "react";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import { redirectWithTimeout, useAuth } from "../../services/auth";
-import track from "../../services/track";
-import Modal from "../Modal";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Button";
-import LoadingOverlay from "../LoadingOverlay";
+import track from "../../../services/track";
+import LoadingOverlay from "../../LoadingOverlay";
+import Tooltip from "../../Tooltip/Tooltip";
+import Button from "../../Button";
+import { currencyFormatter } from "./index";
+import { AccountPlan } from "back-end/types/organization";
 
-const currencyFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-});
-
-export interface Props {
-  close: () => void;
+export default function CloudUpgradeForm({
+  accountPlan,
+  source,
+  reason,
+}: {
+  accountPlan: AccountPlan;
   source: string;
   reason: string;
-}
-
-export default function UpgradeModal({ close, source, reason }: Props) {
-  // todo: make sure we can subscribe, otherwise show an alternate flow!
+  setCloseCta: (string) => void;
+}) {
   const { quote, loading } = useStripeSubscription();
+  const { apiCall } = useAuth();
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     track("View Upgrade Modal", {
+      accountPlan,
       source,
       qty: quote?.activeAndInvitedUsers || 0,
       unitPrice: quote?.unitPrice || 0,
@@ -32,10 +33,8 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       subtotal: quote?.subtotal,
       total: quote?.total,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const { apiCall } = useAuth();
-  const [error, setError] = useState(null);
 
   const startStripeSubscription = async () => {
     setError(null);
@@ -54,6 +53,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
       if (resp.session?.url) {
         track("Start Checkout", {
           source,
+          accountPlan,
           qty: quote?.activeAndInvitedUsers || 0,
           unitPrice: quote?.unitPrice || 0,
           discountAmount: quote?.discountAmount || 0,
@@ -71,9 +71,9 @@ export default function UpgradeModal({ close, source, reason }: Props) {
   };
 
   return (
-    <Modal open={true} close={close} closeCta="cancel" size="lg">
+    <>
       {loading && <LoadingOverlay />}
-      <p className="text-center mb-4" style={{ fontSize: "1.3em" }}>
+      <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
         {reason} Upgrade to a <strong>Pro Plan</strong>
       </p>
       <p className="text-center mb-4">
@@ -187,6 +187,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           href="mailto:sales@growthbook.io"
           onClick={() => {
             track("Click Enterprise Upgrade Link", {
+              accountPlan,
               source,
               qty: quote?.activeAndInvitedUsers || 0,
               unitPrice: quote?.unitPrice || 0,
@@ -202,6 +203,6 @@ export default function UpgradeModal({ close, source, reason }: Props) {
         for a custom quote.
       </p>
       {error && <div className="alert alert-danger">{error}</div>}
-    </Modal>
+    </>
   );
 }

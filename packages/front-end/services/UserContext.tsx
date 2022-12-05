@@ -262,6 +262,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.email, data?.userId]);
 
+  // Validate organization id with license
+  useEffect(() => {
+    if (currentOrg?.organization?.id && data?.license?.org) {
+      if (currentOrg.organization.id !== data.license.org) {
+        throw new Error("Organization id does not match license");
+      }
+    }
+  }, [currentOrg?.organization, data?.license]);
+
   const commercialFeatures = useMemo(() => {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
