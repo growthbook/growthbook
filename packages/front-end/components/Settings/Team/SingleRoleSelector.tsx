@@ -57,45 +57,46 @@ export default function SingleRoleSelector({
         }}
       />
 
-      {roleSupportsEnvLimit(value.role) &&
-        availableEnvs.length > 1 &&
-        canUseAdvancedPermissions && (
-          <div>
-            <div className="form-group">
-              <Toggle
-                disabled={!canUseAdvancedPermissions}
-                id={"role-modal"}
-                value={value.limitAccessByEnvironment}
-                setValue={(limitAccessByEnvironment) => {
-                  setValue({
-                    ...value,
-                    limitAccessByEnvironment,
-                  });
-                }}
-                disabledMessage="Upgrade to limit access by environment"
-              />{" "}
-              Restrict Access to Specific Environments
-            </div>
-            {value.limitAccessByEnvironment && (
-              <MultiSelectField
-                label="Environments"
-                helpText="Select all environments you want the person to have permissions for"
-                value={value.environments}
-                onChange={(environments) => {
-                  setValue({
-                    ...value,
-                    environments,
-                  });
-                }}
-                options={availableEnvs.map((env) => ({
-                  label: env.id,
-                  value: env.id,
-                  tooltip: env.description,
-                }))}
-              />
-            )}
+      {(true ||
+        (roleSupportsEnvLimit(value.role) &&
+          availableEnvs.length > 1 &&
+          canUseAdvancedPermissions)) && (
+        <div>
+          <div className="form-group">
+            <Toggle
+              // disabled={!canUseAdvancedPermissions}
+              id={"role-modal"}
+              value={value.limitAccessByEnvironment}
+              setValue={(limitAccessByEnvironment) => {
+                setValue({
+                  ...value,
+                  limitAccessByEnvironment,
+                });
+              }}
+              disabledMessage="Upgrade to limit access by environment"
+            />{" "}
+            Restrict Access to Specific Environments
           </div>
-        )}
+          {value.limitAccessByEnvironment && (
+            <MultiSelectField
+              label="Environments"
+              helpText="Select all environments you want the person to have permissions for"
+              value={value.environments}
+              onChange={(environments) => {
+                setValue({
+                  ...value,
+                  environments,
+                });
+              }}
+              options={availableEnvs.map((env) => ({
+                label: env.id,
+                value: env.id,
+                tooltip: env.description,
+              }))}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

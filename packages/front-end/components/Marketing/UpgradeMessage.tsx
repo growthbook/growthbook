@@ -3,15 +3,18 @@ import { isCloud } from "../../services/env";
 import { CommercialFeature } from "back-end/types/organization";
 import { GBPremiumBadge } from "../Icons";
 import styles from "./UpgradeMessage.module.scss";
+import clsx from "clsx";
 
 export default function UpgradeMessage({
   showUpgradeModal,
   commercialFeature,
   upgradeMessage,
+  className,
 }: {
   showUpgradeModal: () => void;
   commercialFeature: CommercialFeature;
   upgradeMessage?: string;
+  className?: string;
 }) {
   if (!upgradeMessage) {
     upgradeMessage = "use this feature";
@@ -28,8 +31,8 @@ export default function UpgradeMessage({
 
   return (
     <a
-      className={`${styles.ctaLink} cta mb-2`}
-      href="components/Marketing/UpgradeMessage#"
+      className={clsx(`${styles.ctaLink} cta mb-2`, className)}
+      href="#"
       onClick={(e) => {
         e.preventDefault();
         showUpgradeModal();

@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { useEnvironments } from "../../services/features";
-import { isCloud } from "../../services/env";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 
@@ -46,7 +45,7 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
-  if (upgradeModal && isCloud()) {
+  if (upgradeModal) {
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
