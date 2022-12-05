@@ -767,3 +767,12 @@ export function useRealtimeData(
 
   return { usage, usageDomain: [0, max] };
 }
+
+export function getDefaultOperator(attribute: AttributeData) {
+  if (attribute.datatype === "boolean") {
+    return "$true";
+  } else if (attribute.array) {
+    return "$includes";
+  }
+  return "$eq";
+}
