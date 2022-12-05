@@ -1,6 +1,6 @@
 import { EventWebHookList } from "./EventWebHookList";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { getValidDate } from "../../services/dates";
+import { getValidDate } from "../../../services/dates";
 
 export default {
   component: EventWebHookList,

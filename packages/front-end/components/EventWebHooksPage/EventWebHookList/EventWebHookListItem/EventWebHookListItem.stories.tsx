@@ -1,6 +1,6 @@
 import { EventWebHookListItem } from "./EventWebHookListItem";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { getValidDate } from "../../../services/dates";
+import { getValidDate } from "../../../../services/dates";
 
 export default {
   component: EventWebHookListItem,
@@ -26,7 +26,7 @@ export const SuccessfulRun = () => {
   return (
     <div>
       <EventWebHookListItem
-        href="/event-webhooks/ewh-4af2033e-80e7-45af-a06d-01f3fccc8d1e"
+        href="#ewh-4af2033e-80e7-45af-a06d-01f3fccc8d1e"
         eventWebHook={eventWebHook}
       />
     </div>
@@ -52,7 +52,7 @@ export const FailedRun = () => {
   return (
     <div>
       <EventWebHookListItem
-        href="/event-webhooks/ewh-4af2033e-80e7-45af-a06d-01f3fccc8d1e"
+        href="#ewh-4af2033e-80e7-45af-a06d-01f3fccc8d1e"
         eventWebHook={eventWebHook}
       />
     </div>
@@ -78,7 +78,7 @@ export const NoRuns = () => {
   return (
     <div>
       <EventWebHookListItem
-        href="/event-webhooks/ewh-4af2033e-80e7-45af-a06d-01f3fccc8d1e"
+        href="#ewh-4af2033e-80e7-45af-a06d-01f3fccc8d1e"
         eventWebHook={eventWebHook}
       />
     </div>
