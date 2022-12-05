@@ -9,6 +9,7 @@ import {
 import { errorStringFromZodResult } from "../util/validation";
 import { EventWebHookInterface } from "../../types/event-webhook";
 import { randomUUID } from "crypto";
+import { logger } from "../util/logger";
 
 const eventWebHookSchema = new mongoose.Schema({
   id: {
@@ -16,10 +17,24 @@ const eventWebHookSchema = new mongoose.Schema({
     unique: true,
     required: true,
   },
-  dateCreated: Date,
-  dateUpdated: Date,
   organizationId: {
     type: String,
+    required: true,
+  },
+  name: {
+    type: String,
+    required: true,
+  },
+  dateCreated: {
+    type: Date,
+    required: true,
+  },
+  dateUpdated: {
+    type: Date,
+    required: true,
+  },
+  enabled: {
+    type: Boolean,
     required: true,
   },
   events: {
@@ -27,28 +42,37 @@ const eventWebHookSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(notificationEventNames));
+        const zodSchema = z.array(z.enum(notificationEventNames)).min(1);
 
         const result = zodSchema.safeParse(value);
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          console.error("Invalid Event name ", errorString);
+          logger.error(errorString, "Invalid Event name");
         }
 
         return result.success;
       },
     },
   },
-  signingKey: {
-    type: String,
-    required: true,
-  },
   url: {
     type: String,
     required: true,
   },
-  error: {
+  signingKey: {
+    type: String,
+    required: true,
+  },
+  lastRunAt: {
+    type: Date,
+    required: false,
+  },
+  lastState: {
+    type: String,
+    enum: ["none", "success", "error"],
+    required: true,
+  },
+  lastResponseBody: {
     type: String,
     required: false,
   },
@@ -63,8 +87,8 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @param doc
  * @returns
  */
-const toInterface = (doc: EventWebHookDocument): EventWebHookDocument =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookDocument;
+const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
+  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
 
 const EventWebHookModel = mongoose.model<EventWebHookDocument>(
   "EventWebHook",
@@ -72,29 +96,157 @@ const EventWebHookModel = mongoose.model<EventWebHookDocument>(
 );
 
 type CreateEventWebHookOptions = {
+  name: string;
   url: string;
   organizationId: string;
+  enabled: boolean;
   events: NotificationEventName[];
 };
 
+/**
+ * Create an event web hook for an organization for the given events
+ * @param options CreateEventWebHookOptions
+ * @returns Promise<EventWebHookInterface>
+ */
 export const createEventWebHook = async ({
+  name,
   url,
   organizationId,
+  enabled,
   events,
-}: CreateEventWebHookOptions) => {
+}: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
-  const signingKey = "ewhk-" + md5(randomUUID()).substr(0, 32);
+  const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
   const doc = await EventWebHookModel.create({
     id: `ewh-${randomUUID()}`,
     organizationId,
+    name,
     dateCreated: now,
     dateUpdated: now,
+    enabled,
     events,
-    error: null,
-    signingKey,
     url,
+    signingKey,
+    lastRunAt: null,
+    lastState: "none",
+    lastResponseBody: null,
   });
 
   return toInterface(doc);
+};
+
+/**
+ * Retrieve an EventWebHook by ID
+ * @param eventWebHookId
+ */
+export const getEventWebHookById = async (
+  eventWebHookId: string
+): Promise<EventWebHookInterface | null> => {
+  try {
+    const doc = await EventWebHookModel.findOne({ id: eventWebHookId });
+    return !doc ? null : toInterface(doc);
+  } catch (e) {
+    logger.error(e, "getEventWebHookById");
+    return null;
+  }
+};
+
+/**
+ * Given an EventWebHook.id will delete the corresponding document
+ * @param eventWebHookId
+ */
+export const deleteEventWebHookById = async (eventWebHookId: string) => {
+  await EventWebHookModel.deleteOne({
+    id: eventWebHookId,
+  });
+};
+
+type UpdateEventWebHookOptions = {
+  name?: string;
+  url?: string;
+  events?: NotificationEventName[];
+};
+
+/**
+ * Given an EventWebHook.id allows updating some of the properties on the document
+ * @param eventWebHookId
+ * @param updates UpdateEventWebHookOptions
+ */
+export const updateEventWebHook = async (
+  eventWebHookId: string,
+  updates: UpdateEventWebHookOptions
+): Promise<void> => {
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId },
+    {
+      $set: {
+        ...updates,
+        dateUpdated: new Date(),
+      },
+    }
+  );
+};
+
+type EventWebHookStatusUpdate =
+  | {
+      state: "success";
+      responseBody: string | null;
+    }
+  | {
+      state: "error";
+      error: string;
+    };
+
+export const updateEventWebHookStatus = async (
+  eventWebHookId: string,
+  status: EventWebHookStatusUpdate
+) => {
+  const lastResponseBody =
+    status.state === "success" ? status.responseBody : status.error;
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId },
+    {
+      $set: {
+        lastRunAt: new Date(),
+        lastState: status.state,
+        lastResponseBody,
+      },
+    }
+  );
+};
+
+/**
+ * Retrieve all the event web hooks for an organization.
+ * @param organizationId
+ * @returns
+ */
+export const getAllEventWebHooks = async (
+  organizationId: string
+): Promise<EventWebHookInterface[]> => {
+  const docs = await EventWebHookModel.find({ organizationId }).sort([
+    ["dateCreated", -1],
+  ]);
+
+  return docs.map(toInterface);
+};
+
+/**
+ * Retrieve all event web hooks for an organization for a given event
+ * @param organizationId
+ * @param eventName
+ * @param enabled
+ */
+export const getAllEventWebHooksForEvent = async (
+  organizationId: string,
+  eventName: NotificationEventName,
+  enabled: boolean
+): Promise<EventWebHookInterface[]> => {
+  const docs = await EventWebHookModel.find({
+    organizationId,
+    events: eventName,
+    enabled,
+  });
+
+  return docs.map(toInterface);
 };
