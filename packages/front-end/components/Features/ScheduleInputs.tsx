@@ -97,7 +97,7 @@ export default function ScheduleInputs(props: Props) {
               <li key={i} className={styles.listitem}>
                 <div className="row align-items-center">
                   <span className="ml-2 mb-2">
-                    {(i + 1) % 2 === 1 ? "Launch rule" : "Disable Rule"}
+                    {(i + 1) % 2 === 1 ? "Launch rule" : "Disable rule"}
                   </span>
                   <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                     <SelectField
