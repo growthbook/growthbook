@@ -75,12 +75,6 @@ export default function RuleModal({
         const ruleAction = i === rules.length ? "add" : "edit";
 
         if (values.scheduleRules.length) {
-          if (
-            values.scheduleRules[0].timestamp === null &&
-            values.scheduleRules[1].timestamp === null
-          ) {
-            values.scheduleRules = [];
-          }
           // Loop through each scheduleRule and convert the timestamp to an ISOString()
           values.scheduleRules.forEach((scheduleRule: ScheduleRule) => {
             if (scheduleRule.timestamp === null) {
@@ -90,6 +84,15 @@ export default function RuleModal({
               scheduleRule.timestamp
             ).toISOString();
           });
+
+          // We currently only support a start date and end date, and if both are null, set schedule to empty array
+          if (
+            values.scheduleRules[0].timestamp === null &&
+            values.scheduleRules[1].timestamp === null
+          ) {
+            values.scheduleRules = [];
+            return;
+          }
         }
         const rule = values as FeatureRule;
 
