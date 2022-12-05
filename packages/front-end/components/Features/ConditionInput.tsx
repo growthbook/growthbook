@@ -4,6 +4,7 @@ import {
   jsonToConds,
   useAttributeMap,
   useAttributeSchema,
+  getDefaultOperator,
 } from "../../services/features";
 import Field from "../Forms/Field";
 import styles from "./ConditionInput.module.scss";
@@ -55,7 +56,6 @@ export default function ConditionInput(props: Props) {
   ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
-    console.log("simpleAllowed", simpleAllowed);
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -235,13 +235,14 @@ export default function ConditionInput(props: Props) {
                         newConds[i]["field"] = value;
 
                         const newAttribute = attributes.get(value);
-                        if (newAttribute.datatype !== attribute.datatype) {
-                          if (newAttribute.datatype === "boolean") {
-                            newConds[i]["operator"] = "$true";
-                          } else {
-                            newConds[i]["operator"] = "$eq";
-                            newConds[i]["value"] = newConds[i]["value"] || "";
-                          }
+                        const hasAttrChanged =
+                          newAttribute.datatype !== attribute.datatype ||
+                          newAttribute.array !== attribute.array;
+                        if (hasAttrChanged) {
+                          newConds[i]["operator"] = getDefaultOperator(
+                            newAttribute
+                          );
+                          newConds[i]["value"] = newConds[i]["value"] || "";
                         }
                         setConds(newConds);
                       }}
