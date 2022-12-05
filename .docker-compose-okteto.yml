@@ -18,6 +18,7 @@ services:
       - API_HOST=https://growthbook-3100-${OKTETO_NAMESPACE}.cloud.okteto.net
       - JWT_SECRET=${JWT_SECRET}
       - IS_CLOUD=true
+      - SSO_CONFIG=${SSO_CONFIG}
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
 volumes:
