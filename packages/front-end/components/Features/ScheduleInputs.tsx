@@ -1,4 +1,5 @@
 import { ScheduleRule } from "back-end/types/feature";
+import clsx from "clsx";
 import React, { useEffect, useState } from "react";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -95,12 +96,10 @@ export default function ScheduleInputs(props: Props) {
             return (
               <li key={i} className={styles.listitem}>
                 <div className="row align-items-center">
-                  <div className="mb-2 w-auto p-3">
-                    <span className="mb-2">
-                      {(i + 1) % 2 === 1 ? "Launch rule" : "Disable Rule"}
-                    </span>
-                  </div>
-                  <div className="mb-2 pl-2 pr-2">
+                  <span className="ml-2 mb-2">
+                    {(i + 1) % 2 === 1 ? "Launch rule" : "Disable Rule"}
+                  </span>
+                  <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                     <SelectField
                       name="date-operator"
                       value={
@@ -122,12 +121,13 @@ export default function ScheduleInputs(props: Props) {
                   </div>
                   {timestamp !== null && (
                     <>
-                      <div className="w-auto mb-2 p-3">
+                      <div className="w-auto mb-2 p-2">
                         <span className="mb-2">ON</span>
                       </div>
                       <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                         <Field
                           type="datetime-local"
+                          className={clsx(dateErrors[i] && styles.error)}
                           value={getLocalDateTime(timestamp)}
                           onChange={(e) => {
                             setDateErrors({ [i]: "" });
@@ -163,7 +163,7 @@ export default function ScheduleInputs(props: Props) {
                         )}
                       </div>
                       {dateErrors[i] && (
-                        <div className="alert alert-danger">
+                        <div className="ml-2 alert alert-danger mb-0">
                           {dateErrors[i]}
                         </div>
                       )}

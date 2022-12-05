@@ -1,5 +1,8 @@
 @import "../../styles/colors.scss";
 
+.error {
+  border-color: $red;
+}
 .conditionbox {
   border: 1px solid #e8e9ec;
 }
