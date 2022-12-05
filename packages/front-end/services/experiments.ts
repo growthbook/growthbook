@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export type ExperimentTableRow = {
   label: string;
@@ -179,4 +180,20 @@ export function useDomain(
     });
   });
   return [lowerBound || 0, upperBound || 0];
+}
+
+export function applyMetricOverrides(
+  metric: MetricInterface,
+  experiment: ExperimentInterfaceStringDates
+): boolean {
+  if (!metric) return false;
+  const metricOverride = experiment?.metricOverrides?.find(
+    (mo) => mo.id === metric.id
+  );
+  if (metricOverride) {
+    metric.conversionWindowHours = metricOverride.conversionWindowHours;
+    metric.conversionDelayHours = metricOverride.conversionDelayHours;
+    return true;
+  }
+  return false;
 }

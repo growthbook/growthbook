@@ -15,6 +15,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
+import _ from "lodash";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -74,6 +75,13 @@ export const FeatureModel = mongoose.model<FeatureDocument>(
   featureSchema
 );
 
+/**
+ * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
+ * @param doc
+ */
+const toInterface = (doc: FeatureDocument): FeatureInterface =>
+  _.omit(doc.toJSON(), ["__v", "_id"]);
+
 export async function getAllFeatures(
   organization: string,
   project?: string
@@ -84,7 +92,7 @@ export async function getAllFeatures(
   }
 
   return (await FeatureModel.find(q)).map((m) =>
-    upgradeFeatureInterface(m.toJSON())
+    upgradeFeatureInterface(toInterface(m))
   );
 }
 
@@ -93,12 +101,12 @@ export async function getFeature(
   id: string
 ): Promise<FeatureInterface | null> {
   const feature = await FeatureModel.findOne({ organization, id });
-  return feature ? upgradeFeatureInterface(feature.toJSON()) : null;
+  return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
 }
 
 export async function createFeature(data: FeatureInterface) {
   const feature = await FeatureModel.create(data);
-  await saveRevision(feature.toJSON());
+  await saveRevision(toInterface(feature));
 }
 
 export async function deleteFeature(organization: string, id: string) {

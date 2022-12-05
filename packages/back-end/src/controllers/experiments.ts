@@ -462,6 +462,7 @@ export async function postExperiments(
     description: data.description || "",
     hypothesis: data.hypothesis || "",
     metrics: data.metrics || [],
+    metricOverrides: data.metricOverrides || [],
     guardrails: data.guardrails || [],
     activationMetric: data.activationMetric || "",
     segment: data.segment || "",
@@ -624,6 +625,7 @@ export async function postExperiment(
     "removeMultipleExposures",
     "attributionModel",
     "metrics",
+    "metricOverrides",
     "guardrails",
     "variations",
     "status",
@@ -657,7 +659,11 @@ export async function postExperiment(
 
     // Do a deep comparison for arrays, shallow for everything else
     let hasChanges = data[key] !== existing[key];
-    if (key === "metrics" || key === "variations") {
+    if (
+      key === "metrics" ||
+      key === "metricOverrides" ||
+      key === "variations"
+    ) {
       hasChanges = JSON.stringify(data[key]) !== JSON.stringify(existing[key]);
     }
 

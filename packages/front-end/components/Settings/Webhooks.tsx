@@ -66,7 +66,7 @@ const Webhooks: FC = () => {
                       </Tooltip>
                     )}
                   </td>
-                  <td>{webhook.endpoint}</td>
+                  <td className="text-break">{webhook.endpoint}</td>
                   <td>
                     {!webhook.environment ? (
                       <>

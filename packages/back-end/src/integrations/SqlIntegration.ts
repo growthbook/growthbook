@@ -31,12 +31,19 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
+import cloneDeep from "lodash/cloneDeep";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   datasource: string;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   organization: string;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -156,6 +163,21 @@ export default abstract class SqlIntegration
   }
   useAliasInGroupBy(): boolean {
     return true;
+  }
+
+  applyMetricOverrides(
+    metric: MetricInterface,
+    experiment: ExperimentInterface
+  ) {
+    if (!metric) return;
+    const metricOverride = experiment?.metricOverrides?.find(
+      (mo) => mo.id === metric.id
+    );
+    if (metricOverride) {
+      metric.conversionDelayHours = metricOverride.conversionDelayHours;
+      metric.conversionWindowHours = metricOverride.conversionWindowHours;
+    }
+    return;
   }
 
   private getExposureQuery(
@@ -621,13 +643,26 @@ export default abstract class SqlIntegration
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
-      metric,
+      metric: metricDoc,
+      activationMetrics: activationMetricsDocs,
+      denominatorMetrics: denominatorMetricsDocs,
       experiment,
       phase,
-      activationMetrics,
-      denominatorMetrics,
       segment,
     } = params;
+
+    // clone the metrics before we mutate them
+    const metric = cloneDeep<MetricInterface>(metricDoc);
+    const activationMetrics = cloneDeep<MetricInterface[]>(
+      activationMetricsDocs
+    );
+    const denominatorMetrics = cloneDeep<MetricInterface[]>(
+      denominatorMetricsDocs
+    );
+
+    this.applyMetricOverrides(metric, experiment);
+    activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
+    denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
 
     let dimension = params.dimension;
     if (dimension?.type === "activation" && !activationMetrics.length) {

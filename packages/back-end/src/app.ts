@@ -92,6 +92,7 @@ import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadsRouter } from "./routers/upload/upload.router";
+import { eventsRouter } from "./routers/events/events.router";
 
 const app = express();
 
@@ -466,6 +467,9 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+
+// Events
+app.use("/events", eventsRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);

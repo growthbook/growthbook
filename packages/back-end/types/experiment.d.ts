@@ -46,6 +46,12 @@ export type ExperimentStatus = "draft" | "running" | "stopped";
 
 export type AttributionModel = "firstExposure" | "allExposures";
 
+export type MetricOverride = {
+  id: string;
+  conversionWindowHours: number;
+  conversionDelayHours: number;
+};
+
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -70,6 +76,7 @@ export interface ExperimentInterface {
   observations?: string;
   hypothesis?: string;
   metrics: string[];
+  metricOverrides?: MetricOverride[];
   guardrails?: string[];
   activationMetric?: string;
   segment?: string;
