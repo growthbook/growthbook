@@ -23,3 +23,10 @@ export const eventWebHookEventOptions: {
     name: "feature.deleted",
   },
 ];
+
+export type EventWebHookModalMode =
+  | {
+      mode: "edit";
+      data: EventWebHookEditParams;
+    }
+  | { mode: "create" };

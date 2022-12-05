@@ -1,16 +1,13 @@
 import React, { FC } from "react";
 import Modal from "../../Modal";
 import { NotificationEventName } from "back-end/src/events/base-types";
-import { EventWebHookEditParams, eventWebHookEventOptions } from "../utils";
+import {
+  EventWebHookEditParams,
+  eventWebHookEventOptions,
+  EventWebHookModalMode,
+} from "../utils";
 import { useForm } from "react-hook-form";
 import { Typeahead } from "react-bootstrap-typeahead";
-
-type EventWebHookModalMode =
-  | {
-      mode: "edit";
-      data: EventWebHookEditParams;
-    }
-  | { mode: "create" };
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
@@ -42,6 +39,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const modalTitle =
     mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
+
+  if (!isOpen) return null;
 
   return (
     <Modal
