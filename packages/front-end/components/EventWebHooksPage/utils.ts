@@ -1,6 +1,6 @@
 import { NotificationEventName } from "back-end/src/events/base-types";
 
-export type EventWebHookCreateParams = {
+export type EventWebHookEditParams = {
   name: string;
   url: string;
   events: NotificationEventName[];

@@ -1,36 +1,51 @@
 import React, { FC } from "react";
 import Modal from "../../Modal";
 import { NotificationEventName } from "back-end/src/events/base-types";
-import { EventWebHookCreateParams, eventWebHookEventOptions } from "../utils";
+import { EventWebHookEditParams, eventWebHookEventOptions } from "../utils";
 import { useForm } from "react-hook-form";
 import { Typeahead } from "react-bootstrap-typeahead";
 
-type EventWebHookAddModalProps = {
+type EventWebHookModalMode =
+  | {
+      mode: "edit";
+      data: EventWebHookEditParams;
+    }
+  | { mode: "create" };
+
+type EventWebHookAddEditModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: EventWebHookCreateParams) => void;
+  onSubmit: (data: EventWebHookEditParams) => void;
+  mode: EventWebHookModalMode;
 };
 
-export const EventWebHookAddModal: FC<EventWebHookAddModalProps> = ({
+export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  mode,
 }) => {
-  const form = useForm<EventWebHookCreateParams>({
-    defaultValues: {
-      name: "",
-      events: [],
-      url: "",
-    },
+  const form = useForm<EventWebHookEditParams>({
+    defaultValues:
+      mode.mode === "edit"
+        ? mode.data
+        : {
+            name: "",
+            events: [],
+            url: "",
+          },
   });
 
   const handleSubmit = form.handleSubmit(async (values) => {
     onSubmit(values);
   });
 
+  const modalTitle =
+    mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
+
   return (
     <Modal
-      header="Create New Webhook"
+      header={modalTitle}
       cta="Create"
       close={onClose}
       open={isOpen}
