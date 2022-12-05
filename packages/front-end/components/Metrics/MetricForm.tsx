@@ -23,6 +23,8 @@ import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import Tab from "../Tabs/Tab";
+import ControlledTabs from "../Tabs/ControlledTabs";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -335,6 +337,163 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
+  const defaultBuilder = (
+    <>
+      <div className="form-group">
+        {table} Name
+        <input
+          type="text"
+          required
+          className="form-control"
+          {...form.register("table")}
+        />
+      </div>
+      {value.type !== "binomial" && (
+        <div className="form-group ">
+          {supportsSQL ? "Column" : "Event Value"}
+          <input
+            type="text"
+            required={value.type !== "count"}
+            placeholder={supportsSQL ? "" : "1"}
+            className="form-control"
+            {...form.register("column")}
+          />
+          {!supportsSQL && (
+            <small className="form-text text-muted">
+              Javascript expression to extract a value from each event.
+            </small>
+          )}
+        </div>
+      )}
+      {value.type !== "binomial" && !supportsSQL && (
+        <Field
+          label="User Value Aggregation"
+          placeholder="sum(values)"
+          textarea
+          minRows={1}
+          {...form.register("aggregation")}
+          helpText="Javascript expression to aggregate multiple event values for a user."
+        />
+      )}
+      {conditionsSupported && (
+        <div className="mb-3">
+          {conditions.fields.length > 0 && <h6>Conditions</h6>}
+          {conditions.fields.map((cond: Condition, i) => (
+            <div
+              className="form-row border py-2 mb-2 align-items-center"
+              key={i}
+            >
+              {i > 0 && <div className="col-auto">AND</div>}
+              <div className="col-auto">
+                <input
+                  required
+                  className="form-control mb-1"
+                  placeholder={column}
+                  {...form.register(`conditions.${i}.column`)}
+                />
+              </div>
+              <div className="col-auto">
+                <select
+                  className="form-control"
+                  {...form.register(`conditions.${i}.operator`)}
+                >
+                  <option value="=">equals</option>
+                  <option value="!=">does not equal</option>
+                  <option value="~">matches the regex</option>
+                  <option value="!~">does not match the regex</option>
+                  <option value="<">is less than</option>
+                  <option value=">">is greater than</option>
+                  <option value="<=">is less than or equal to</option>
+                  <option value=">=">is greater than or equal to</option>
+                  {supportsJS && <option value="=>">custom javascript</option>}
+                </select>
+              </div>
+              <div className="col-auto">
+                <Field
+                  required
+                  placeholder="Value"
+                  textarea={form.watch(`conditions.${i}.operator`) === "=>"}
+                  minRows={1}
+                  {...form.register(`conditions.${i}.value`)}
+                />
+              </div>
+              <div className="col-auto">
+                <button
+                  className="btn btn-danger"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    conditions.remove(i);
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            className="btn btn-outline-success"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+
+              conditions.append({
+                column: "",
+                operator: "=",
+                value: "",
+              });
+            }}
+          >
+            Add Condition
+          </button>
+        </div>
+      )}
+      {customzeTimestamp && (
+        <div className="form-group ">
+          Timestamp Column
+          <input
+            type="text"
+            placeholder={"received_at"}
+            className="form-control"
+            {...form.register("timestampColumn")}
+          />
+        </div>
+      )}
+      {customizeUserIds && (
+        <MultiSelectField
+          value={value.userIdTypes}
+          onChange={(types) => {
+            form.setValue("userIdTypes", types);
+          }}
+          options={(currentDataSource.settings.userIdTypes || []).map(
+            ({ userIdType }) => ({
+              value: userIdType,
+              label: userIdType,
+            })
+          )}
+          label="Identifier Types Supported"
+        />
+      )}
+      {customizeUserIds &&
+        value.userIdTypes.map((type) => {
+          return (
+            <Field
+              key={type}
+              label={type + " Column"}
+              placeholder={type}
+              value={value.userIdColumns[type] || ""}
+              onChange={(e) => {
+                form.setValue("userIdColumns", {
+                  ...value.userIdColumns,
+                  [type]: e.target.value,
+                });
+              }}
+            />
+          );
+        })}
+    </>
+  );
+
   return (
     <PagedModal
       inline={inline}
@@ -431,318 +590,138 @@ const MetricForm: FC<MetricFormProps> = ({
           );
         }}
       >
-        {supportsSQL && (
-          <div className="form-group bg-light border px-3 py-2">
-            <div className="form-check form-check-inline">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="input-mode"
-                value="sql"
-                id="sql-input-mode"
-                checked={value.queryFormat === "sql"}
-                onChange={(e) =>
-                  form.setValue(
-                    "queryFormat",
-                    e.target.checked ? "sql" : "builder"
-                  )
-                }
-              />
-              <label className="form-check-label" htmlFor="sql-input-mode">
-                SQL
-              </label>
-            </div>
-            <div className="form-check form-check-inline">
-              <input
-                className="form-check-input"
-                type="radio"
-                name="input-mode"
-                value="builder"
-                id="query-builder-input-mode"
-                checked={value.queryFormat === "builder"}
-                onChange={(e) =>
-                  form.setValue(
-                    "queryFormat",
-                    e.target.checked ? "builder" : "sql"
-                  )
-                }
-              />
-              <label
-                className="form-check-label"
-                htmlFor="query-builder-input-mode"
-              >
-                Query Builder
-              </label>
-            </div>
-          </div>
-        )}
-        <div className="row">
-          <div className="col-lg">
-            {supportsSQL && value.queryFormat === "sql" ? (
-              <div>
-                <MultiSelectField
-                  value={value.userIdTypes}
-                  onChange={(types) => {
-                    form.setValue("userIdTypes", types);
-                  }}
-                  options={(currentDataSource.settings.userIdTypes || []).map(
-                    ({ userIdType }) => ({
-                      value: userIdType,
-                      label: userIdType,
-                    })
-                  )}
-                  label="Identifier Types Supported"
-                />
-                <CodeTextArea
-                  label="SQL"
-                  required
-                  language="sql"
-                  value={form.watch("sql")}
-                  setValue={(sql) => form.setValue("sql", sql)}
-                  placeholder={
-                    "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
-                  }
-                />
-                {value.type !== "binomial" && (
-                  <Field
-                    label="User Value Aggregation"
-                    placeholder="SUM(value)"
-                    textarea
-                    minRows={1}
-                    {...form.register("aggregation")}
-                    helpText="When there are multiple metric rows for a user"
-                  />
-                )}
-                <SelectField
-                  label="Denominator"
-                  options={denominatorOptions}
-                  initialOption="All Experiment Users"
-                  value={value.denominator}
-                  onChange={(denominator) => {
-                    form.setValue("denominator", denominator);
-                  }}
-                  helpText="Use this to define ratio or funnel metrics"
-                />
-              </div>
-            ) : datasourceType === "google_analytics" ? (
-              <GoogleAnalyticsMetrics
-                inputProps={form.register("table")}
-                type={value.type}
-              />
-            ) : (
-              <>
-                <div className="form-group">
-                  {table} Name
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    {...form.register("table")}
-                  />
-                </div>
-                {value.type !== "binomial" && (
-                  <div className="form-group ">
-                    {supportsSQL ? "Column" : "Event Value"}
-                    <input
-                      type="text"
-                      required={value.type !== "count"}
-                      placeholder={supportsSQL ? "" : "1"}
-                      className="form-control"
-                      {...form.register("column")}
-                    />
-                    {!supportsSQL && (
-                      <small className="form-text text-muted">
-                        Javascript expression to extract a value from each
-                        event.
-                      </small>
-                    )}
-                  </div>
-                )}
-                {value.type !== "binomial" && !supportsSQL && (
-                  <Field
-                    label="User Value Aggregation"
-                    placeholder="sum(values)"
-                    textarea
-                    minRows={1}
-                    {...form.register("aggregation")}
-                    helpText="Javascript expression to aggregate multiple event values for a user."
-                  />
-                )}
-                {conditionsSupported && (
-                  <div className="mb-3">
-                    {conditions.fields.length > 0 && <h6>Conditions</h6>}
-                    {conditions.fields.map((cond: Condition, i) => (
-                      <div
-                        className="form-row border py-2 mb-2 align-items-center"
-                        key={i}
-                      >
-                        {i > 0 && <div className="col-auto">AND</div>}
-                        <div className="col-auto">
-                          <input
-                            required
-                            className="form-control mb-1"
-                            placeholder={column}
-                            {...form.register(`conditions.${i}.column`)}
-                          />
-                        </div>
-                        <div className="col-auto">
-                          <select
-                            className="form-control"
-                            {...form.register(`conditions.${i}.operator`)}
-                          >
-                            <option value="=">equals</option>
-                            <option value="!=">does not equal</option>
-                            <option value="~">matches the regex</option>
-                            <option value="!~">does not match the regex</option>
-                            <option value="<">is less than</option>
-                            <option value=">">is greater than</option>
-                            <option value="<=">is less than or equal to</option>
-                            <option value=">=">
-                              is greater than or equal to
-                            </option>
-                            {supportsJS && (
-                              <option value="=>">custom javascript</option>
-                            )}
-                          </select>
-                        </div>
-                        <div className="col-auto">
-                          <Field
-                            required
-                            placeholder="Value"
-                            textarea={
-                              form.watch(`conditions.${i}.operator`) === "=>"
-                            }
-                            minRows={1}
-                            {...form.register(`conditions.${i}.value`)}
-                          />
-                        </div>
-                        <div className="col-auto">
-                          <button
-                            className="btn btn-danger"
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              conditions.remove(i);
+        {datasourceType === "google_analytics" ? (
+          <GoogleAnalyticsMetrics
+            inputProps={form.register("table")}
+            type={value.type}
+          />
+        ) : (
+          <>
+            {supportsSQL ? (
+              <div className="form-group">
+                <div className="">
+                  <ControlledTabs
+                    newStyle={false}
+                    active={value.queryFormat}
+                    setActive={(format) => {
+                      if (format === "sql") {
+                        form.setValue("queryFormat", "sql");
+                      } else {
+                        form.setValue("queryFormat", "builder");
+                      }
+                    }}
+                  >
+                    <Tab
+                      display="SQL"
+                      id="sql"
+                      anchor="sql"
+                      lazy={true}
+                      padding={true}
+                    >
+                      <div className="row pt-2">
+                        <div className="col-7">
+                          <MultiSelectField
+                            value={value.userIdTypes}
+                            onChange={(types) => {
+                              form.setValue("userIdTypes", types);
                             }}
-                          >
-                            &times;
-                          </button>
+                            options={(
+                              currentDataSource.settings.userIdTypes || []
+                            ).map(({ userIdType }) => ({
+                              value: userIdType,
+                              label: userIdType,
+                            }))}
+                            label="Identifier Types Supported"
+                          />
+                          <CodeTextArea
+                            label="SQL"
+                            required
+                            language="sql"
+                            value={form.watch("sql")}
+                            setValue={(sql) => form.setValue("sql", sql)}
+                            placeholder={
+                              "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
+                            }
+                          />
+                          {value.type !== "binomial" && (
+                            <Field
+                              label="User Value Aggregation"
+                              placeholder="SUM(value)"
+                              textarea
+                              minRows={1}
+                              {...form.register("aggregation")}
+                              helpText="When there are multiple metric rows for a user"
+                            />
+                          )}
+                          <SelectField
+                            label="Denominator"
+                            options={denominatorOptions}
+                            initialOption="All Experiment Users"
+                            value={value.denominator}
+                            onChange={(denominator) => {
+                              form.setValue("denominator", denominator);
+                            }}
+                            helpText="Use this to define ratio or funnel metrics"
+                          />
+                        </div>
+                        <div className="col-5">
+                          <h4>SQL Query Instructions</h4>
+                          <p className="mt-3">
+                            Your SELECT statement must return the following
+                            column names:
+                          </p>
+                          <ol>
+                            {value.userIdTypes.map((id) => (
+                              <li key={id}>
+                                <strong>{id}</strong>
+                              </li>
+                            ))}
+                            {value.type !== "binomial" && (
+                              <li>
+                                <strong>value</strong> -{" "}
+                                {value.type === "count"
+                                  ? "The numeric value to be counted"
+                                  : "The " + value.type + " amount"}
+                              </li>
+                            )}
+                            <li>
+                              <strong>timestamp</strong> - When the action was
+                              performed
+                            </li>
+                          </ol>
                         </div>
                       </div>
-                    ))}
-                    <button
-                      className="btn btn-outline-success"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-
-                        conditions.append({
-                          column: "",
-                          operator: "=",
-                          value: "",
-                        });
-                      }}
-                    >
-                      Add Condition
-                    </button>
-                  </div>
-                )}
-                {customzeTimestamp && (
-                  <div className="form-group ">
-                    Timestamp Column
-                    <input
-                      type="text"
-                      placeholder={"received_at"}
-                      className="form-control"
-                      {...form.register("timestampColumn")}
-                    />
-                  </div>
-                )}
-                {customizeUserIds && (
-                  <MultiSelectField
-                    value={value.userIdTypes}
-                    onChange={(types) => {
-                      form.setValue("userIdTypes", types);
-                    }}
-                    options={(currentDataSource.settings.userIdTypes || []).map(
-                      ({ userIdType }) => ({
-                        value: userIdType,
-                        label: userIdType,
-                      })
-                    )}
-                    label="Identifier Types Supported"
-                  />
-                )}
-                {customizeUserIds &&
-                  value.userIdTypes.map((type) => {
-                    return (
-                      <Field
-                        key={type}
-                        label={type + " Column"}
-                        placeholder={type}
-                        value={value.userIdColumns[type] || ""}
-                        onChange={(e) => {
-                          form.setValue("userIdColumns", {
-                            ...value.userIdColumns,
-                            [type]: e.target.value,
-                          });
-                        }}
-                      />
-                    );
-                  })}
-              </>
-            )}
-          </div>
-          {supportsSQL && (
-            <div className="col-lg pt-2">
-              {value.queryFormat === "sql" ? (
-                <div>
-                  <h4>SQL Query Instructions</h4>
-                  <p className="mt-3">
-                    Your SELECT statement must return the following column
-                    names:
-                  </p>
-                  <ol>
-                    {value.userIdTypes.map((id) => (
-                      <li key={id}>
-                        <strong>{id}</strong>
-                      </li>
-                    ))}
-                    {value.type !== "binomial" && (
-                      <li>
-                        <strong>value</strong> -{" "}
-                        {value.type === "count"
-                          ? "The numeric value to be counted"
-                          : "The " + value.type + " amount"}
-                      </li>
-                    )}
-                    <li>
-                      <strong>timestamp</strong> - When the action was performed
-                    </li>
-                  </ol>
+                    </Tab>
+                    <Tab display="Builder" id="builder">
+                      <div className="row pt-2">
+                        <div className="col">{defaultBuilder}</div>
+                        <div className="col-lg">
+                          <h4>Query Preview</h4>
+                          SQL:
+                          <Code language="sql" code={getRawSQLPreview(value)} />
+                          {value.type !== "binomial" && (
+                            <div className="mt-2">
+                              User Value Aggregation:
+                              <Code
+                                language="sql"
+                                code={getAggregateSQLPreview(value)}
+                              />
+                              <small className="text-muted">
+                                When there are multiple metric rows for a user
+                              </small>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Tab>
+                  </ControlledTabs>
                 </div>
-              ) : (
-                <>
-                  <h4>Query Preview</h4>
-                  SQL:
-                  <Code language="sql" code={getRawSQLPreview(value)} />
-                  {value.type !== "binomial" && (
-                    <div className="mt-2">
-                      User Value Aggregation:
-                      <Code
-                        language="sql"
-                        code={getAggregateSQLPreview(value)}
-                      />
-                      <small className="text-muted">
-                        When there are multiple metric rows for a user
-                      </small>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            ) : (
+              <>{defaultBuilder}</>
+            )}
+          </>
+        )}
       </Page>
       <Page display="Behavior">
         <div className="form-group ">
