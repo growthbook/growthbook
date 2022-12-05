@@ -50,7 +50,7 @@ const eventSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error("Invalid Event data ", errorString);
+          logger.error(errorString, "Invalid Event data");
         }
 
         return result.success;
@@ -98,6 +98,17 @@ export const createEvent = async (
   });
 
   return toInterface(doc) as EventInterface<NotificationEvent>;
+};
+
+/**
+ * Get an event by ID for an organization
+ * @param eventId
+ */
+export const getEvent = async (
+  eventId: string
+): Promise<EventInterface<NotificationEvent> | null> => {
+  const doc = await EventModel.findOne({ id: eventId });
+  return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
 };
 
 /**
