@@ -18,7 +18,6 @@ jobs:
       uses: okteto/deploy-preview@latest
       env:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-       JWT_SECRET: ${{ secrets.JWT_SECRET_PREVIEW_ENV }}
       with:
         name: pr-${{ github.event.number }}-bttf
         timeout: 15m

@@ -205,9 +205,6 @@ async function getConnectionFromRequest(req: Request) {
   // First, get the connection info
   const ssoConnectionId = SSOConnectionIdCookie.getValue(req);
   let connection: SSOConnectionInterface;
-
-  console.log("DEBUG ssoconfig", SSO_CONFIG);
-
   if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
   } else if (SSO_CONFIG) {
