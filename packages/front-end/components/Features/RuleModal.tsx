@@ -91,7 +91,6 @@ export default function RuleModal({
             values.scheduleRules[1].timestamp === null
           ) {
             values.scheduleRules = [];
-            return;
           }
         }
         const rule = values as FeatureRule;

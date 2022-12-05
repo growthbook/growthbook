@@ -145,7 +145,6 @@ export default function ScheduleInputs(props: Props) {
                             onChange(e.target.value, "timestamp", i);
                           }}
                           name="timestamp"
-                          error={dateErrors[i] || ""}
                         />
                         {getLocalDateTime(timestamp) && (
                           <span
@@ -163,6 +162,11 @@ export default function ScheduleInputs(props: Props) {
                           </span>
                         )}
                       </div>
+                      {dateErrors[i] && (
+                        <div className="alert alert-danger">
+                          {dateErrors[i]}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
