@@ -1,5 +1,6 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../services/queueing";
+import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
 
 let jobDefined = false;
 
@@ -30,9 +31,9 @@ export class EventNotifier implements Notifier {
     jobDefined = true;
   }
 
-  private static jobHandler(_job: Job<EventNotificationData>): void {
-    // const { eventId } = job.attrs.data;
-    // webHooksEventHandler(eventId);
+  private static jobHandler(job: Job<EventNotificationData>): void {
+    const { eventId } = job.attrs.data;
+    webHooksEventHandler(eventId);
     // slackEventHandler(event);
   }
 
