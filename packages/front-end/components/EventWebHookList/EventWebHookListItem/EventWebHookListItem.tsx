@@ -1,7 +1,7 @@
 import React, { FC, useMemo } from "react";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { BsCheck, BsQuestion, BsX } from "react-icons/all";
-import { datetime } from "../../services/dates";
+import { datetime } from "../../../services/dates";
 
 type EventWebHookListItemProps = {
   href: string;
@@ -17,11 +17,11 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   const iconForState = useMemo(() => {
     switch (lastState) {
       case "none":
-        return <BsQuestion className="text-muted" />;
+        return <BsQuestion className="d-block text-muted" />;
       case "success":
-        return <BsCheck className="text-success" />;
+        return <BsCheck className="d-block text-success" />;
       case "error":
-        return <BsX className="text-danger" />;
+        return <BsX className="d-block text-danger" />;
       default:
         return null;
     }
