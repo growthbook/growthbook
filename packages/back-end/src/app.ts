@@ -77,9 +77,6 @@ const featuresController = wrapController(featuresControllerRaw);
 import * as slackControllerRaw from "./controllers/slack";
 const slackController = wrapController(slackControllerRaw);
 
-import * as tagsControllerRaw from "./controllers/tags";
-const tagsController = wrapController(tagsControllerRaw);
-
 import * as savedGroupsControllerRaw from "./controllers/savedGroups";
 const savedGroupsController = wrapController(savedGroupsControllerRaw);
 
@@ -94,6 +91,7 @@ import { organizationsRouter } from "./routers/organizations/organizations.route
 import { uploadsRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
+import { tagRouter } from "./routers/tag/tag.router";
 
 const app = express();
 
@@ -306,8 +304,7 @@ if (IS_CLOUD) {
 }
 
 // tags
-app.post("/tag", tagsController.postTag);
-app.delete("/tag/:id", tagsController.deleteTag);
+app.use("/tag", tagRouter);
 
 // groups
 app.post("/saved-groups", savedGroupsController.postSavedGroup);
