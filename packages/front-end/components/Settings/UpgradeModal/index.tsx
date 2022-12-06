@@ -16,7 +16,7 @@ export interface Props {
 }
 
 export default function UpgradeModal({ close, source, reason }: Props) {
-  const [closeCta, setCloseCta] = useState("cancel");
+  const [closeCta, setCloseCta] = useState("Cancel");
   const { accountPlan } = useUser();
   if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
     close();
@@ -30,11 +30,13 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           source={source}
           reason={reason}
           setCloseCta={(s) => setCloseCta(s)}
+          close={close}
         />
       ) : accountPlan === "oss" ? (
         <SelfHostedUpgradeForm
           source={source}
           setCloseCta={(s) => setCloseCta(s)}
+          close={close}
         />
       ) : null}
     </Modal>

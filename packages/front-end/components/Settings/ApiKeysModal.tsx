@@ -15,7 +15,6 @@ const ApiKeysModal: FC<{
   secret?: boolean;
 }> = ({ close, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -46,59 +45,49 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
+  if (upgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To enable SDK encryption,"
+        source="encrypt-features-endpoint"
+      />
+    );
+  }
+
   return (
-    <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          reason="To enable SDK encryption,"
-          source="encrypt-features-endpoint"
+    <Modal
+      close={close}
+      header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
+      open={true}
+      submit={onSubmit}
+      cta="Create"
+    >
+      {!secret && (
+        <Field
+          label="Environment"
+          options={environments.map((e) => {
+            return {
+              value: e.id,
+              display: e.id,
+            };
+          })}
+          {...form.register("environment")}
         />
       )}
-      <Modal
-        close={close}
-        header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
-        open={true}
-        submit={onSubmit}
-        cta="Create"
-      >
-        {!secret && (
-          <Field
-            label="Environment"
-            options={environments.map((e) => {
-              return {
-                value: e.id,
-                display: e.id,
-              };
-            })}
-            {...form.register("environment")}
-          />
-        )}
-        <Field
-          label="Description"
-          required={secret}
-          placeholder={secret ? "" : form.watch("environment")}
-          {...form.register("description")}
+      <Field
+        label="Description"
+        required={secret}
+        placeholder={secret ? "" : form.watch("environment")}
+        {...form.register("description")}
+      />
+      {!secret && (
+        <EncryptionToggle
+          showUpgradeModal={() => setUpgradeModal(true)}
+          form={form}
         />
-        {!secret && (
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowAdvanced(!showAdvanced);
-            }}
-          >
-            {showAdvanced ? "Hide" : "Show"} advanced settings
-          </a>
-        )}
-        {!secret && showAdvanced && (
-          <EncryptionToggle
-            showUpgradeModal={() => setUpgradeModal(true)}
-            form={form}
-          />
-        )}
-      </Modal>
-    </>
+      )}
+    </Modal>
   );
 };
 

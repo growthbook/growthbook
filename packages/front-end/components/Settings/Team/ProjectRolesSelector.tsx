@@ -5,6 +5,7 @@ import SelectField from "../../Forms/SelectField";
 import { useDefinitions } from "../../../services/DefinitionsContext";
 import cloneDeep from "lodash/cloneDeep";
 import SingleRoleSelector from "./SingleRoleSelector";
+import PremiumTooltip from "../../Marketing/PremiumTooltip";
 
 export default function ProjectRolesSelector({
   projectRoles,
@@ -17,7 +18,7 @@ export default function ProjectRolesSelector({
   const { hasCommercialFeature, settings } = useUser();
   const [newProject, setNewProject] = useState("");
 
-  if (!hasCommercialFeature("advanced-permissions")) return null;
+  const hasFeature = hasCommercialFeature("advanced-permissions");
   if (!projects?.length) return null;
 
   const usedProjectIds = projectRoles.map((r) => r.project) || [];
@@ -25,47 +26,52 @@ export default function ProjectRolesSelector({
 
   return (
     <>
-      <div className="text-muted mb-2">Project Roles (optional)</div>
-      {projectRoles.map((projectRole, i) => (
-        <div className="appbox px-3 pt-3 bg-light" key={i}>
-          <div style={{ float: "right" }}>
-            <a
-              href="#"
-              className="text-danger"
-              onClick={(e) => {
-                e.preventDefault();
+      <label className="mb-2">
+        <PremiumTooltip commercialFeature="advanced-permissions">
+          Project Roles (optional)
+        </PremiumTooltip>
+      </label>
+      {hasFeature &&
+        projectRoles.map((projectRole, i) => (
+          <div className="appbox px-3 pt-3 bg-light" key={i}>
+            <div style={{ float: "right" }}>
+              <a
+                href="#"
+                className="text-danger"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const newProjectRoles = [...projectRoles];
+                  newProjectRoles.splice(i, 1);
+                  setProjectRoles(newProjectRoles);
+                }}
+              >
+                remove
+              </a>
+            </div>
+            <SingleRoleSelector
+              value={{
+                role: projectRole.role,
+                environments: projectRole.environments,
+                limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
+              }}
+              setValue={(newRoleInfo) => {
                 const newProjectRoles = [...projectRoles];
-                newProjectRoles.splice(i, 1);
+                newProjectRoles[i] = {
+                  ...projectRole,
+                  ...newRoleInfo,
+                };
                 setProjectRoles(newProjectRoles);
               }}
-            >
-              remove
-            </a>
+              label={
+                <>
+                  Project:{" "}
+                  <strong>{getProjectById(projectRole.project)?.name}</strong>
+                </>
+              }
+              includeAdminRole={false}
+            />
           </div>
-          <SingleRoleSelector
-            value={{
-              role: projectRole.role,
-              environments: projectRole.environments,
-              limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
-            }}
-            setValue={(newRoleInfo) => {
-              const newProjectRoles = [...projectRoles];
-              newProjectRoles[i] = {
-                ...projectRole,
-                ...newRoleInfo,
-              };
-              setProjectRoles(newProjectRoles);
-            }}
-            label={
-              <>
-                Project:{" "}
-                <strong>{getProjectById(projectRole.project)?.name}</strong>
-              </>
-            }
-            includeAdminRole={false}
-          />
-        </div>
-      ))}
+        ))}
       {unusedProjects.length > 0 && (
         <div className="row">
           <div className="col">
@@ -77,12 +83,13 @@ export default function ProjectRolesSelector({
                 label: p.name,
                 value: p.id,
               }))}
+              disabled={!hasFeature}
             />
           </div>
           <div className="col-auto">
             <button
               className="btn btn-outline-primary"
-              disabled={!newProject}
+              disabled={!newProject || !hasFeature}
               onClick={(e) => {
                 e.preventDefault();
                 if (!newProject) return;

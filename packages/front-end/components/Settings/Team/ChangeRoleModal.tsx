@@ -14,33 +14,34 @@ const ChangeRoleModal: FC<{
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
+  if (upgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To enable advanced permissioning,"
+        source="advanced-permissions"
+      />
+    );
+  }
+
   return (
-    <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          reason="To enable advanced permissioning,"
-          source="advanced-permissions"
-        />
-      )}
-      <Modal
-        close={close}
-        header="Change Role"
-        open={true}
-        submit={async () => {
-          await onConfirm(value);
-        }}
-      >
-        <p>
-          Change role for <strong>{displayInfo}</strong>:
-        </p>
-        <RoleSelector
-          value={value}
-          setValue={setValue}
-          showUpgradeModal={() => setUpgradeModal(true)}
-        />
-      </Modal>
-    </>
+    <Modal
+      close={close}
+      header="Change Role"
+      open={true}
+      submit={async () => {
+        await onConfirm(value);
+      }}
+    >
+      <p>
+        Change role for <strong>{displayInfo}</strong>:
+      </p>
+      <RoleSelector
+        value={value}
+        setValue={setValue}
+        showUpgradeModal={() => setUpgradeModal(true)}
+      />
+    </Modal>
   );
 };
 
