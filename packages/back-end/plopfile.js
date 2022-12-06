@@ -6,7 +6,7 @@ module.exports = function (plop) {
         type: "input",
         name: "resource",
         message:
-          "What is the name of the resource? e.g. event for API GET /events",
+          "What is the name of the resource? Use the singular form, e.g. event for API GET /event",
       },
     ],
     actions: [
@@ -14,14 +14,14 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
-          "./src/routers/{{kebabCase resource}}//{{kebabCase resource}}.router.ts",
+          "./src/routers/{{kebabCase resource}}/{{kebabCase resource}}.router.ts",
         templateFile: "./plop-templates/router.hbs",
       },
       {
         type: "add",
         skipIfExists: true,
         path:
-          "./src/routers/{{kebabCase resource}}//{{kebabCase resource}}.controller.ts",
+          "./src/routers/{{kebabCase resource}}/{{kebabCase resource}}.controller.ts",
         templateFile: "./plop-templates/controller.hbs",
       },
     ],
