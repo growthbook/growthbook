@@ -485,9 +485,11 @@ export default function SinglePage({
           >
             <div className="appbox px-3 pt-3 pb-2">
               <RightRailSectionGroup title="Data Source" type="commaList">
-                <Link href={`/datasources/${datasource.id}`}>
-                  {datasource?.name}
-                </Link>
+                {datasource && (
+                  <Link href={`/datasources/${datasource?.id}`}>
+                    {datasource?.name}
+                  </Link>
+                )}
               </RightRailSectionGroup>
               {exposureQuery && (
                 <RightRailSectionGroup
