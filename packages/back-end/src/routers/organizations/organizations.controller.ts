@@ -44,6 +44,7 @@ import { WebhookModel } from "../../models/WebhookModel";
 import { createWebhook } from "../../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByInviteKey,
   hasOrganization,
   updateOrganization,
 } from "../../models/OrganizationModel";
@@ -567,6 +568,40 @@ export async function deleteNamespace(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function getInviteInfo(
+  req: AuthRequest<unknown, { key: string }>,
+  res: Response
+) {
+  const { key } = req.params;
+
+  try {
+    if (!req.userId) {
+      throw new Error("Must be logged in");
+    }
+    const org = await findOrganizationByInviteKey(key);
+
+    if (!org) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    const invite = org.invites.find((i) => i.key === key);
+    if (!invite) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      organization: org.name,
+      role: invite.role,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 }
 
 export async function postInviteAccept(
