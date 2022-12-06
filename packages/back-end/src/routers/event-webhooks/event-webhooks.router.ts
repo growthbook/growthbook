@@ -25,7 +25,7 @@ router.post(
     body: z
       .object({
         url: z.string().url(),
-        name: z.string().min(2),
+        name: z.string().trim().min(2),
         events: z.array(z.enum(notificationEventNames)).min(1),
       })
       .strict(),

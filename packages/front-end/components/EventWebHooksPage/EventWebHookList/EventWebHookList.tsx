@@ -6,6 +6,7 @@ import { EventWebHookEditParams } from "../utils";
 import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
 import useApi from "../../../hooks/useApi";
 import LoadingSpinner from "../../LoadingSpinner";
+import { useAuth } from "../../../services/auth";
 
 type EventWebHookListProps = {
   isLoading: boolean;
@@ -103,6 +104,7 @@ const EventWebHooksEmptyState: FC<PropsWithChildren> = ({ children }) => (
 );
 
 export const EventWebHookListContainer = () => {
+  const { apiCall } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   const { data, error, isValidating, mutate } = useApi<{
@@ -113,9 +115,16 @@ export const EventWebHookListContainer = () => {
     setIsModalOpen(true);
   }, []);
 
-  const handleAdd = useCallback((data: EventWebHookEditParams) => {
-    console.log("handleAdd", data);
-  }, []);
+  const handleAdd = useCallback(
+    async (data: EventWebHookEditParams) => {
+      await apiCall("/event-webhooks", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      mutate();
+    },
+    [mutate, apiCall]
+  );
 
   return (
     <EventWebHookList

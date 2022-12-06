@@ -54,13 +54,12 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         <label htmlFor="EventWebHookAddModal-name">Webhook Name</label>
 
         <input
-          {...form.register("name")}
           className="form-control"
           type="text"
           autoComplete="off"
           placeholder="My Webhook"
-          name="webhook_name"
           id="EventWebHookAddModal-name"
+          {...form.register("name")}
         />
       </div>
 
@@ -68,13 +67,12 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         <label htmlFor="EventWebHookAddModal-url">Endpoint URL</label>
 
         <input
-          {...form.register("url")}
           className="form-control"
           type="text"
           autoComplete="off"
-          name="webhook_url"
           placeholder="https://example.com/growthbook-webhook"
           id="EventWebHookAddModal-url"
+          {...form.register("url")}
         />
       </div>
 

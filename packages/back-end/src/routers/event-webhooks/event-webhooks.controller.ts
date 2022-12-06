@@ -35,9 +35,11 @@ export const getEventWebHooks = async (
 // region POST /event-webhooks
 
 type PostEventWebHooksRequest = AuthRequest & {
-  url: string;
-  name: string;
-  events: NotificationEventName[];
+  body: {
+    url: string;
+    name: string;
+    events: NotificationEventName[];
+  };
 };
 
 type PostEventWebHooksResponse = {
@@ -51,8 +53,7 @@ export const createEventWebHook = async (
   req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
-
-  const { url, name, events } = req;
+  const { url, name, events } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
     name,
