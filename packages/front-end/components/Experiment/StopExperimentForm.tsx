@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
+import { renderDateTimeInLocalTimeZone } from "../../services/dates";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import track from "../../services/track";
 import Field from "../Forms/Field";
@@ -84,6 +85,7 @@ const StopExperimentForm: FC<{
             label="Stop Time (UTC)"
             type="datetime-local"
             {...form.register("dateEnded")}
+            helpText={renderDateTimeInLocalTimeZone(form.watch("dateEnded"))}
           />
         </>
       )}

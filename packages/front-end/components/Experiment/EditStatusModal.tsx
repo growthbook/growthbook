@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
+import { renderDateTimeInLocalTimeZone } from "../../services/dates";
 import Field from "../Forms/Field";
 
 export interface Props {
@@ -50,6 +51,7 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
             label="Stop Time (UTC)"
             type="datetime-local"
             {...form.register("dateEnded")}
+            helpText={renderDateTimeInLocalTimeZone(form.watch("dateEnded"))}
           />
         </>
       )}

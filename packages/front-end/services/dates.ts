@@ -2,6 +2,7 @@ import format from "date-fns/format";
 import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
 import { addMonths } from "date-fns";
+import { toDate, utcToZonedTime } from "date-fns-tz";
 
 export function date(date: string | Date): string {
   if (!date) return "";
@@ -26,6 +27,14 @@ export function monthYear(date: string | Date): string {
 }
 export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
+}
+export function renderDateTimeInLocalTimeZone(
+  date: string,
+  timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+) {
+  return `${datetime(date)} UTC is ${datetime(
+    utcToZonedTime(toDate(date, { timeZone: "Universal" }), timezone)
+  )} in ${timezone.replace("_", " ")}`;
 }
 
 export function getValidDate(

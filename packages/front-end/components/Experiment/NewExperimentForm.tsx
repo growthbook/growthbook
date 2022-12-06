@@ -1,5 +1,4 @@
 import { FC, useEffect, useState } from "react";
-import { toDate, utcToZonedTime } from "date-fns-tz";
 import { useAuth } from "../../services/auth";
 import { useForm } from "react-hook-form";
 import PagedModal from "../Modal/PagedModal";
@@ -16,7 +15,10 @@ import { useRouter } from "next/router";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
-import { datetime, getValidDate } from "../../services/dates";
+import {
+  getValidDate,
+  renderDateTimeInLocalTimeZone,
+} from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
@@ -66,14 +68,6 @@ function getDefaultVariations(num: number) {
   }
   return variations;
 }
-
-const renderDateTimeInLocalTimeZone = (
-  date: string,
-  timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-): string =>
-  `${datetime(date)} UTC is ${datetime(
-    utcToZonedTime(toDate(date, { timeZone: "Universal" }), timezone)
-  )} in ${timezone.replace("_", " ")}`;
 
 const NewExperimentForm: FC<NewExperimentFormProps> = ({
   initialStep = 0,

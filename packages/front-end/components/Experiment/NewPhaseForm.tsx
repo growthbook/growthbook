@@ -8,6 +8,7 @@ import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import { useWatching } from "../../services/WatchProvider";
 import { getEvenSplit } from "../../services/utils";
+import { renderDateTimeInLocalTimeZone } from "../../services/dates";
 import GroupsInput from "../GroupsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
@@ -98,6 +99,7 @@ const NewPhaseForm: FC<{
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
+          helpText={renderDateTimeInLocalTimeZone(form.watch("dateStarted"))}
         />
       </div>
       <div className="row">

@@ -6,6 +6,7 @@ import {
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
+import { renderDateTimeInLocalTimeZone } from "../../services/dates";
 import VariationsInput from "../Features/VariationsInput";
 
 export interface Props {
@@ -59,11 +60,13 @@ export default function EditPhaseModal({
         label="Start Time (UTC)"
         type="datetime-local"
         {...form.register("dateStarted")}
+        helpText={renderDateTimeInLocalTimeZone(form.watch("dateStarted"))}
       />
       <Field
         label="End Time (UTC)"
         type="datetime-local"
         {...form.register("dateEnded")}
+        // TODO How to include UTC hint
         helpText={
           <>
             Leave blank if still running.{" "}

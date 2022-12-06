@@ -210,6 +210,7 @@ const AnalysisForm: FC<{
               labelClassName="font-weight-bold"
               type="datetime-local"
               {...form.register("dateStarted")}
+              // TODO How to include UTC hint
               helpText="Only include users who entered the experiment on or after this date"
             />
           </div>
@@ -220,6 +221,7 @@ const AnalysisForm: FC<{
                 labelClassName="font-weight-bold"
                 type="datetime-local"
                 {...form.register("dateEnded")}
+                // TODO How to include UTC hint
                 helpText="Only include users who entered the experiment on or before this date"
               />
             </div>

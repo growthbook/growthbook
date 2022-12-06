@@ -164,6 +164,7 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("startDate")}
+            // TODO How to include UTC hint
             helpText="Only include users who entered the experiment on or after this date"
           />
         </div>
@@ -173,6 +174,7 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("endDate")}
+            // TODO How to include UTC hint
             helpText="Only include users who entered the experiment on or before this date"
           />
         </div>
