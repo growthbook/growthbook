@@ -62,9 +62,6 @@ const stripeController = wrapController(stripeControllerRaw);
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
 
-import * as dimensionsControllerRaw from "./controllers/dimensions";
-const dimensionsController = wrapController(dimensionsControllerRaw);
-
 import * as projectsControllerRaw from "./controllers/projects";
 const projectsController = wrapController(projectsControllerRaw);
 
@@ -88,6 +85,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { segmentRouter } from "./routers/segment/segment.router";
+import { dimensionRouter } from "./routers/dimension/dimension.router";
 
 const app = express();
 
@@ -415,11 +413,7 @@ app.get("/reports", reportsController.getReports);
 
 app.use("/segments", segmentRouter);
 
-// Dimensions
-app.get("/dimensions", dimensionsController.getAllDimensions);
-app.post("/dimensions", dimensionsController.postDimensions);
-app.put("/dimensions/:id", dimensionsController.putDimension);
-app.delete("/dimensions/:id", dimensionsController.deleteDimension);
+app.use("/dimensions", dimensionRouter);
 
 // Projects
 app.post("/projects", projectsController.postProjects);
