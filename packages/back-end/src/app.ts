@@ -471,7 +471,7 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // Events
 app.use("/events", eventsRouter);
-app.use("/event-webhooks", eventWebHooksRouter);
+app.use(eventWebHooksRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
