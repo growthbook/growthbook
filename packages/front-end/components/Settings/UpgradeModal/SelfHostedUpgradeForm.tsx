@@ -7,7 +7,7 @@ import Field from "../../Forms/Field";
 import LoadingSpinner from "../../LoadingSpinner";
 import { FaExclamationTriangle, FaRegCheckCircle } from "react-icons/fa";
 
-const LICENSE_KEY_API_URL = "https://license.growthbook.io/api/trial/";
+const LICENSE_KEY_API_URL = "https://license.growthbook.io/api";
 
 export default function SelfHostedUpgradeForm({
   source,
@@ -20,7 +20,10 @@ export default function SelfHostedUpgradeForm({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [submitState, setSubmitState] = useState(false);
+  const [submitState, setSubmitState] = useState<
+    false | "send key success" | "resend success" | "resend failed"
+  >(false);
+  const [useResendForm, setUseResendForm] = useState(false);
 
   const { accountPlan, name, email, organization } = useUser();
 
@@ -93,25 +96,30 @@ export default function SelfHostedUpgradeForm({
         </div>
       </div>
       <div className="m-auto" style={{ maxWidth: "65%" }}>
-        {error && (
-          <div className="alert alert-danger mt-4">{error}</div>
-        )}
+        {error && <div className="alert alert-danger mt-4">{error}</div>}
 
-        {submitState && (
+        {submitState === "send key success" && (
           <>
-          <div className="alert alert-success mt-4">
-            <FaRegCheckCircle /> Thank you for requesting an Enterprise trial license. Please check
-            your email for next steps.
-          </div>
-          <div className="appbox px-4 py-2" style={{ fontSize: 12 }}>
-            <FaExclamationTriangle /> Didn&apos;t receive an email? Check your spam folder for messages
-            from <em>sales@growthbook.io</em>. Or contact us at{" "}
-            <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>
-          </div>
+            <div className="alert alert-success mt-4">
+              <FaRegCheckCircle /> Thank you for requesting an Enterprise trial
+              license. Please check your email for next steps.
+            </div>
+            <div className="appbox px-4 py-2" style={{ fontSize: 12 }}>
+              <FaExclamationTriangle /> Didn&apos;t receive an email? Check your
+              spam folder for messages from <em>sales@growthbook.io</em>. Or
+              contact us at{" "}
+              <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>
+            </div>
           </>
         )}
+        {submitState === "resend success" && (
+          <div className="alert alert-info mt-4">
+            Your trial license has been resent to the email address first used
+            to request it.
+          </div>
+        )}
 
-        { !submitState && (
+        {!useResendForm && !submitState && (
           <form
             style={{ opacity: submitState ? 0.5 : 1 }}
             onSubmit={form.handleSubmit(async (value) => {
@@ -123,7 +131,7 @@ export default function SelfHostedUpgradeForm({
                 for (const key in value) {
                   encodedParams.append(key, value[key]);
                 }
-                const resp = await fetch(LICENSE_KEY_API_URL, {
+                const resp = await fetch(`${LICENSE_KEY_API_URL}/trial`, {
                   method: "POST",
                   headers: {
                     Accept: "application/json",
@@ -132,7 +140,7 @@ export default function SelfHostedUpgradeForm({
                   body: encodedParams,
                 });
                 if (resp?.status === 200) {
-                  setSubmitState(true);
+                  setSubmitState("send key success");
                   setLoading(false);
                   setCloseCta("Close");
                   track("Generate trial license", {
@@ -148,6 +156,7 @@ export default function SelfHostedUpgradeForm({
                       setError(
                         "You already have an active license key. Please check your email, or contact us at sales@growthbook.io."
                       );
+                      setUseResendForm(true);
                       break;
                     case "expired license exists":
                       setError(
@@ -176,30 +185,73 @@ export default function SelfHostedUpgradeForm({
               required
               label="Your name"
               {...form.register("name")}
-              disabled={loading || submitState}
+              disabled={loading || !!submitState}
             />
             <Field
               required
               label="Email Address"
               {...form.register("email")}
               type="email"
-              disabled={loading || submitState}
+              disabled={loading || !!submitState}
             />
 
             <button
               className="mt-4 btn btn-primary btn-block btn-lg"
               type="submit"
-              disabled={loading || submitState}
+              disabled={loading || !!submitState}
             >
-              {loading
-                ? <><LoadingSpinner /> Please wait...</>
-                : submitState
-                ? `Thank you`
-                : `Send me a license key`}
+              {loading ? (
+                <>
+                  <LoadingSpinner /> Please wait...
+                </>
+              ) : (
+                `Send me a license key`
+              )}
             </button>
           </form>
         )}
-        { submitState && (
+        {useResendForm && !submitState && (
+          <button
+            className="mt-4 btn btn-primary btn-block btn-lg"
+            type="button"
+            disabled={loading || !!submitState}
+            onClick={async () => {
+              setSubmitState(false);
+              setLoading(true);
+              try {
+                const resp = await fetch(
+                  `${LICENSE_KEY_API_URL}/resendKey?org=${organization?.id}`,
+                  {
+                    method: "GET",
+                  }
+                );
+                if (resp?.status === 200) {
+                  setSubmitState("resend success");
+                  setError(null);
+                  setLoading(false);
+                } else {
+                  setLoading(false);
+                  const txt = await resp.text();
+                  setError(txt);
+                  setSubmitState("resend failed");
+                }
+              } catch (e) {
+                setLoading(false);
+                setError(e.message);
+                setSubmitState(false);
+              }
+            }}
+          >
+            {loading ? (
+              <>
+                <LoadingSpinner /> Please wait...
+              </>
+            ) : (
+              `Resend my license key`
+            )}
+          </button>
+        )}
+        {submitState && (
           <button
             className="mt-4 btn btn-primary btn-block btn-lg"
             type="submit"
