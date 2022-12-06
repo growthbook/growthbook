@@ -62,9 +62,6 @@ const stripeController = wrapController(stripeControllerRaw);
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
 
-import * as projectsControllerRaw from "./controllers/projects";
-const projectsController = wrapController(projectsControllerRaw);
-
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
 
@@ -86,6 +83,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
+import { projectRouter } from "./routers/project/project.router";
 
 const app = express();
 
@@ -415,10 +413,7 @@ app.use("/segments", segmentRouter);
 
 app.use("/dimensions", dimensionRouter);
 
-// Projects
-app.post("/projects", projectsController.postProjects);
-app.put("/projects/:id", projectsController.putProject);
-app.delete("/projects/:id", projectsController.deleteProject);
+app.use("/projects", projectRouter);
 
 // Features
 app.get("/feature", featuresController.getFeatures);
