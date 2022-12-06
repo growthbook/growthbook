@@ -57,7 +57,6 @@ export const Default = () => {
     <EventWebHookList
       eventWebHooks={eventWebHooks}
       errorMessage={null}
-      isLoading={false}
       isModalOpen={false}
       onModalClose={() => undefined}
       onCreateModalOpen={() => undefined}
@@ -119,7 +118,6 @@ export const WithLongUrl = () => {
     <EventWebHookList
       eventWebHooks={eventWebHooks}
       errorMessage={null}
-      isLoading={false}
       isModalOpen={false}
       onModalClose={() => undefined}
       onCreateModalOpen={() => undefined}
