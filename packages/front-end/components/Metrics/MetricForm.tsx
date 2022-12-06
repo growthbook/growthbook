@@ -1,5 +1,10 @@
 import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
-import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
+import {
+  MetricInterface,
+  Condition,
+  MetricType,
+  Operator,
+} from "back-end/types/metric";
 import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
 import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
@@ -16,7 +21,6 @@ import {
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "../../services/metrics";
-import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
@@ -586,24 +590,43 @@ const MetricForm: FC<MetricFormProps> = ({
                           />
                         </div>
                         <div className="col-auto">
-                          <select
-                            className="form-control"
-                            {...form.register(`conditions.${i}.operator`)}
-                          >
-                            <option value="=">equals</option>
-                            <option value="!=">does not equal</option>
-                            <option value="~">matches the regex</option>
-                            <option value="!~">does not match the regex</option>
-                            <option value="<">is less than</option>
-                            <option value=">">is greater than</option>
-                            <option value="<=">is less than or equal to</option>
-                            <option value=">=">
-                              is greater than or equal to
-                            </option>
-                            {supportsJS && (
-                              <option value="=>">custom javascript</option>
-                            )}
-                          </select>
+                          <SelectField
+                            value={form.watch(`conditions.${i}.operator`)}
+                            onChange={(v) =>
+                              form.setValue(
+                                `conditions.${i}.operator`,
+                                v as Operator
+                              )
+                            }
+                            options={(() => {
+                              const ret = [
+                                { value: "=", label: "equals" },
+                                { value: "!=", label: "does not equal" },
+                                { value: "~", label: "matches the regex" },
+                                {
+                                  value: "!~",
+                                  label: "does not match the regex",
+                                },
+                                { value: "<", label: "is less than" },
+                                { value: ">", label: "is greater than" },
+                                {
+                                  value: "<=",
+                                  label: "is less than or equal to",
+                                },
+                                {
+                                  value: ">=",
+                                  label: "is greater than or equal to",
+                                },
+                              ];
+                              if (supportsJS)
+                                ret.push({
+                                  value: "=>",
+                                  label: "custom javascript",
+                                });
+                              return ret;
+                            })()}
+                            sort={false}
+                          />
                         </div>
                         <div className="col-auto">
                           <Field
@@ -835,12 +858,22 @@ const MetricForm: FC<MetricFormProps> = ({
             {ignoreNullsSupported && value.type !== "binomial" && (
               <div className="form-group">
                 Converted Users Only
-                <BooleanSelect
+                <SelectField
                   required
-                  control={form.control as BooleanSelectControl}
-                  name="ignoreNulls"
-                  falseLabel="No"
-                  trueLabel="Yes"
+                  value={form.watch("ignoreNulls") ? "1" : "0"}
+                  onChange={(v) => {
+                    form.setValue("ignoreNulls", v === "1");
+                  }}
+                  options={[
+                    {
+                      value: "0",
+                      label: "No",
+                    },
+                    {
+                      value: "1",
+                      label: "Yes",
+                    },
+                  ]}
                 />
                 <small className="text-muted">
                   If yes, exclude anyone with a metric value less than or equal
