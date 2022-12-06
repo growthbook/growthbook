@@ -77,9 +77,6 @@ const featuresController = wrapController(featuresControllerRaw);
 import * as slackControllerRaw from "./controllers/slack";
 const slackController = wrapController(slackControllerRaw);
 
-import * as savedGroupsControllerRaw from "./controllers/savedGroups";
-const savedGroupsController = wrapController(savedGroupsControllerRaw);
-
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -92,6 +89,7 @@ import { uploadsRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
+import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 
 const app = express();
 
@@ -303,12 +301,9 @@ if (IS_CLOUD) {
   app.get("/vercel/config", vercelController.getConfig);
 }
 
-// tags
 app.use("/tag", tagRouter);
 
-// groups
-app.post("/saved-groups", savedGroupsController.postSavedGroup);
-app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
+app.use("/saved-groups", savedGroupRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
