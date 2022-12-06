@@ -19,9 +19,10 @@ const getSavedGroupMessage = (featuresUsingSavedGroups: string[]) => {
       return (
         <div>
           <p className="alert alert-danger">
-            <strong>Whoops!</strong> This Saved Group is currently in use. To
-            delete, please update the feature
-            {featuresUsingSavedGroups.length > 2 && "s"} listed below.
+            <strong>Whoops!</strong> Before you can delete this saved group, you
+            will need to update the feature
+            {featuresUsingSavedGroups.length > 1 && "s"} listed below by
+            removing any targeting conditions that rely on this saved group.
           </p>
           <ul
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
@@ -155,7 +156,7 @@ export default function SavedGroupsPage() {
                               Edit
                             </a>
                             <DeleteButton
-                              displayName="SavedGroup"
+                              displayName="Saved Group"
                               className="dropdown-item text-danger"
                               useIcon={false}
                               text="Delete"
