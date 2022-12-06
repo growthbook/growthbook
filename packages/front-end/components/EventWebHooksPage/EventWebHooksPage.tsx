@@ -17,12 +17,6 @@ export const EventWebHooksPage = () => {
 
   return (
     <div>
-      <h1>Event Webhooks</h1>
-      <p>
-        Event Webhooks are event-based, and allow you to monitor specific
-        events.
-      </p>
-
       <div className="mt-4">
         <EventWebHookListContainer />
       </div>

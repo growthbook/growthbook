@@ -1,48 +1,74 @@
 import React, { FC, PropsWithChildren, useCallback, useState } from "react";
+import { FaBolt } from "react-icons/fa";
 import { EventWebHookInterface } from "../../../../back-end/types/event-webhook";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
-import { EventWebHookEditParams, EventWebHookModalMode } from "../utils";
+import { EventWebHookEditParams } from "../utils";
 import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
+import useApi from "../../../hooks/useApi";
+import LoadingSpinner from "../../LoadingSpinner";
 
 type EventWebHookListProps = {
-  onModalOpen: () => void;
+  isLoading: boolean;
+  onCreateModalOpen: () => void;
   onModalClose: () => void;
   isModalOpen: boolean;
-  modalMode: EventWebHookModalMode | null;
   onAdd: (data: EventWebHookEditParams) => void;
-  onEdit: (data: EventWebHookEditParams) => void;
   eventWebHooks: EventWebHookInterface[];
+  errorMessage: string | null;
 };
 
 export const EventWebHookList: FC<EventWebHookListProps> = ({
   eventWebHooks,
   isModalOpen,
-  modalMode,
-  onEdit,
   onAdd,
   onModalClose,
-  onModalOpen,
+  onCreateModalOpen,
+  isLoading,
+  errorMessage,
 }) => {
+  if (isLoading) {
+    return (
+      <div className="d-flex justify-content-center my-5">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <div>
-      {isModalOpen && modalMode ? (
+      {isModalOpen ? (
         <EventWebHookAddEditModal
           isOpen={isModalOpen}
           onClose={onModalClose}
-          onSubmit={modalMode.mode === "edit" ? onEdit : onAdd}
-          mode={modalMode}
+          onSubmit={onAdd}
+          mode={{ mode: "create" }}
         />
       ) : null}
 
+      <div className="mb-4">
+        <h1>Event Webhooks</h1>
+        <p>
+          Event Webhooks are event-based, and allow you to monitor specific
+          events.
+        </p>
+      </div>
+
+      {/* Feedback messages */}
+      {errorMessage && (
+        <div className="alert alert-danger my-3">{errorMessage}</div>
+      )}
+
+      {/* Empty state*/}
       {eventWebHooks.length === 0 ? (
         <EventWebHooksEmptyState>
-          <button className="btn btn-primary" onClick={onModalOpen}>
-            {/*<FaBolt /> */}
+          <button className="btn btn-primary" onClick={onCreateModalOpen}>
+            <FaBolt />
             Create an Event Webhook
           </button>
         </EventWebHooksEmptyState>
       ) : (
         <div>
+          {/* List view */}
           {eventWebHooks.map((eventWebHook) => (
             <div key={eventWebHook.id} className="mb-3">
               <EventWebHookListItem
@@ -51,6 +77,13 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               />
             </div>
           ))}
+
+          <div className="mt-4">
+            <button className="btn btn-primary" onClick={onCreateModalOpen}>
+              <FaBolt />
+              Create an Event Webhook
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -70,28 +103,28 @@ const EventWebHooksEmptyState: FC<PropsWithChildren> = ({ children }) => (
 
 export const EventWebHookListContainer = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [modalMode, setModalMode] = useState<EventWebHookModalMode | null>(
-    null
-  );
+
+  const { data, error, isValidating, mutate } = useApi<{
+    eventWebHooks: EventWebHookInterface[];
+  }>("/event-webhooks");
+
+  const handleCreateModalOpen = useCallback(() => {
+    setIsModalOpen(true);
+  }, []);
 
   const handleAdd = useCallback((data: EventWebHookEditParams) => {
     console.log("handleAdd", data);
-    // setModalMode({ mode: "create" });
-  }, []);
-
-  const handleEdit = useCallback((data: EventWebHookEditParams) => {
-    console.log("handleEdit", data);
   }, []);
 
   return (
     <EventWebHookList
+      isLoading={isValidating}
       isModalOpen={isModalOpen}
       onModalClose={() => setIsModalOpen(false)}
-      onModalOpen={() => setIsModalOpen(true)}
-      modalMode={modalMode}
-      eventWebHooks={[]}
+      onCreateModalOpen={handleCreateModalOpen}
+      eventWebHooks={data?.eventWebHooks || []}
       onAdd={handleAdd}
-      onEdit={handleEdit}
+      errorMessage={error?.message || null}
     />
   );
 };
