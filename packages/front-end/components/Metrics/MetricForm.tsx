@@ -747,16 +747,25 @@ const MetricForm: FC<MetricFormProps> = ({
       <Page display="Behavior">
         <div className="form-group ">
           What is the Goal?
-          <BooleanSelect
-            required
-            control={form.control as BooleanSelectControl}
-            name="inverse"
-            falseLabel={`Increase the ${
-              value.type === "binomial" ? "conversion rate" : value.type
-            }`}
-            trueLabel={`Decrease the ${
-              value.type === "binomial" ? "conversion rate" : value.type
-            }`}
+          <SelectField
+            value={form.watch("inverse") ? "1" : "0"}
+            onChange={(v) => {
+              form.setValue("inverse", v === "1");
+            }}
+            options={[
+              {
+                value: "0",
+                label: `Increase the ${
+                  value.type === "binomial" ? "conversion rate" : value.type
+                }`,
+              },
+              {
+                value: "1",
+                label: `Decrease the ${
+                  value.type === "binomial" ? "conversion rate" : value.type
+                }`,
+              },
+            ]}
           />
         </div>
         {capSupported && ["count", "duration", "revenue"].includes(value.type) && (
