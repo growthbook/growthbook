@@ -143,10 +143,10 @@ const AnalysisForm: FC<{
           form.setValue("datasource", newDatasource);
         }}
         options={datasources.map((d) => ({
-          label: d.name,
           label:
             d.name +
             (d.description ? ` — ${truncateText(d.description, 80)}` : ""),
+          value: d.id,
         }))}
         initialOption="Manual"
         helpText={

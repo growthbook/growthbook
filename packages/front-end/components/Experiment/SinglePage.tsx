@@ -489,7 +489,7 @@ export default function SinglePage({
                 type="commaList"
                 titleClassName="align-top"
               >
-                <div className="d-inline-block">
+                <div className="d-inline-block" style={{ maxWidth: 300 }}>
                   <div>{datasource?.name}</div>
                   <div className="text-gray font-weight-normal small">
                     {truncateText(datasource?.description || "", 80)}
