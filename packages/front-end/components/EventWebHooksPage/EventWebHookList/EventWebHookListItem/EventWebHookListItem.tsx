@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { BsCheck, BsQuestion, BsX } from "react-icons/all";
+import { BsCheck, BsQuestion, BsX } from "react-icons/bs";
 import { datetime } from "../../../../services/dates";
 
 type EventWebHookListItemProps = {
