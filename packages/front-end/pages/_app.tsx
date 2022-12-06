@@ -98,7 +98,7 @@ function App({
                   ) : (
                     <div>
                       <TopNavLite />
-                      <main className="main container mt-5">
+                      <main className="container mt-5">
                         <Component {...pageProps} />
                       </main>
                     </div>
