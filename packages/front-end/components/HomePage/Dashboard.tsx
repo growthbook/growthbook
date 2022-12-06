@@ -11,15 +11,19 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export interface Props {
   experiments: ExperimentInterfaceStringDates[];
+  project: string;
 }
 
-export default function Dashboard({ experiments }: Props) {
+export default function Dashboard({ experiments, project }: Props) {
   const { name } = useUser();
 
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
+  const northstarExperiments = project
+    ? experiments.filter((e) => e.project === project)
+    : experiments;
 
   return (
     <>
@@ -27,7 +31,7 @@ export default function Dashboard({ experiments }: Props) {
         <h1>Hello {name}</h1>
         <div className="row">
           <div className="col-md-12">
-            <NorthStar experiments={experiments} />
+            <NorthStar experiments={northstarExperiments} />
           </div>
         </div>
         <div className="row">
