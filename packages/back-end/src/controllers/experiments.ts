@@ -147,6 +147,21 @@ export async function getExperimentsFrequencyMonth(
   });
 }
 
+export async function lookupExperimentByTrackingKey(
+  req: AuthRequest<{ trackingKey: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { trackingKey } = req.body;
+
+  const experiment = await getExperimentByTrackingKey(org.id, trackingKey);
+
+  return res.status(200).json({
+    status: 200,
+    experimentId: experiment?.id || null,
+  });
+}
+
 export async function getExperiment(
   req: AuthRequest<null, { id: string }>,
   res: Response
