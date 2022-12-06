@@ -39,4 +39,16 @@ router.put(
   savedGroupController.putSavedGroup
 );
 
+router.delete(
+  "/:id",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  savedGroupController.deleteSavedGroup
+);
+
 export { router as savedGroupRouter };
