@@ -28,6 +28,11 @@ const WebhooksPage: FC = () => {
       </div>
       <h1>SDK Endpoint Webhooks</h1>
       <Webhooks />
+
+      {/* TODO: Include this code when we are ready to launch Event-based Web Hooks */}
+      {/*<div className="mt-5">*/}
+      {/*  <EventWebHooksPage />*/}
+      {/*</div>*/}
     </div>
   );
 };
