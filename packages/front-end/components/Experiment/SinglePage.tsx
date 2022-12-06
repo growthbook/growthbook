@@ -34,7 +34,7 @@ import {
 import useApi from "../../hooks/useApi";
 import { useUser } from "../../services/UserContext";
 import ResultsIndicator from "./ResultsIndicator";
-import { phaseSummary } from "../../services/utils";
+import { phaseSummary, truncateText } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
 import Code from "../SyntaxHighlighting/Code";
@@ -484,8 +484,17 @@ export default function SinglePage({
             canOpen={canEdit}
           >
             <div className="appbox px-3 pt-3 pb-2">
-              <RightRailSectionGroup title="Data Source" type="commaList">
-                {datasource?.name}
+              <RightRailSectionGroup
+                title="Data Source"
+                type="commaList"
+                titleClassName="align-top"
+              >
+                <div className="d-inline-block">
+                  <div>{datasource?.name}</div>
+                  <div className="text-gray font-weight-normal small">
+                    {truncateText(datasource?.description || "", 80)}
+                  </div>
+                </div>
               </RightRailSectionGroup>
               {exposureQuery && (
                 <RightRailSectionGroup

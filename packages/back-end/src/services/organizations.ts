@@ -480,6 +480,7 @@ export async function importConfig(
 
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
+              description: ds.description || existing.description,
               type: ds.type || existing.type,
               params,
               settings: {
@@ -504,7 +505,8 @@ export async function importConfig(
               ds.type,
               ds.params,
               ds.settings || {},
-              k
+              k,
+              ds.description
             );
           }
         } catch (e) {

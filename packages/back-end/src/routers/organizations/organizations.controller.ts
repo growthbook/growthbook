@@ -106,6 +106,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       return {
         id: d.id,
         name: d.name,
+        description: d.description,
         type: d.type,
         settings: d.settings,
         params: getNonSensitiveParams(integration),

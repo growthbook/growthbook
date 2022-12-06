@@ -53,3 +53,11 @@ export function isNullUndefinedOrEmpty(x) {
   if (typeof x === "object" && !Object.keys(x).length) return true;
   return false;
 }
+
+export function truncateText(text: string, max: number = 50) {
+  if (text.length > max) {
+    return text.slice(0, max) + "...";
+  } else {
+    return text;
+  }
+}

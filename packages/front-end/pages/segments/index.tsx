@@ -14,6 +14,7 @@ import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
 import Code, { Language } from "../../components/SyntaxHighlighting/Code";
+import { truncateText } from "../../services/utils";
 
 const SegmentPage: FC = () => {
   const {
@@ -255,7 +256,10 @@ const SegmentPage: FC = () => {
                       <td>{s.name}</td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
-                        {datasource?.name}
+                        <div>{datasource?.name}</div>
+                        <div className="text-gray font-weight-normal small">
+                          {truncateText(datasource?.description || "", 80)}
+                        </div>
                       </td>
                       <td className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds
