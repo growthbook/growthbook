@@ -63,7 +63,7 @@ export default function SavedGroupsPage() {
               internal users. These groups, used with feature rules, allow you
               allow you to quickly target lists of users.
             </p>
-            <table className="table appbox gbtable">
+            <table className="table appbox gbtable table-hover">
               <thead>
                 <tr>
                   <th>Name</th>
