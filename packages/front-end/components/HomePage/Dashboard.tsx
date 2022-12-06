@@ -21,7 +21,7 @@ export default function Dashboard({ experiments, project }: Props) {
   experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
-  const northstarExperiments = project
+  const northStarExperiments = project
     ? experiments.filter((e) => e.project === project)
     : experiments;
 
@@ -31,7 +31,7 @@ export default function Dashboard({ experiments, project }: Props) {
         <h1>Hello {name}</h1>
         <div className="row">
           <div className="col-md-12">
-            <NorthStar experiments={northstarExperiments} />
+            <NorthStar experiments={northStarExperiments} />
           </div>
         </div>
         <div className="row">
