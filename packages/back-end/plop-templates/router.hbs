@@ -42,6 +42,11 @@ router.put(
         id: z.string(),
       })
       .strict(),
+    body: z
+      .object({
+        // TODO:
+      })
+      .strict(),
   }),
   {{camelCase resource}}Controller.put{{pascalCase resource}}
 );
