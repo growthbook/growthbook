@@ -5,11 +5,9 @@ import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListIte
 import { EventWebHookEditParams } from "../utils";
 import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
 import useApi from "../../../hooks/useApi";
-import LoadingSpinner from "../../LoadingSpinner";
 import { useAuth } from "../../../services/auth";
 
 type EventWebHookListProps = {
-  isLoading: boolean;
   onCreateModalOpen: () => void;
   onModalClose: () => void;
   isModalOpen: boolean;
@@ -24,17 +22,8 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
   onAdd,
   onModalClose,
   onCreateModalOpen,
-  isLoading,
   errorMessage,
 }) => {
-  if (isLoading) {
-    return (
-      <div className="d-flex justify-content-center my-5">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
   return (
     <div>
       {isModalOpen ? (
@@ -107,7 +96,7 @@ export const EventWebHookListContainer = () => {
   const { apiCall } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  const { data, error, isValidating, mutate } = useApi<{
+  const { data, error, mutate } = useApi<{
     eventWebHooks: EventWebHookInterface[];
   }>("/event-webhooks");
 
@@ -128,7 +117,6 @@ export const EventWebHookListContainer = () => {
 
   return (
     <EventWebHookList
-      isLoading={isValidating}
       isModalOpen={isModalOpen}
       onModalClose={() => setIsModalOpen(false)}
       onCreateModalOpen={handleCreateModalOpen}
