@@ -61,7 +61,7 @@ export default function ResultMoreMenu({
 
   const canEdit = permissions.check("createAnalyses", project);
 
-  const canDownloadJupiterNotebook =
+  const canDownloadJupyterNotebook =
     hasData &&
     !hasUserQuery &&
     supportsNotebooks &&
@@ -123,13 +123,13 @@ export default function ResultMoreMenu({
         </Button>
       )}
       <Tooltip
-        shouldDisplay={!canDownloadJupiterNotebook}
+        shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
       >
         <Button
           color="outline-info"
           className="dropdown-item py-2"
-          disabled={!canDownloadJupiterNotebook}
+          disabled={!canDownloadJupyterNotebook}
           onClick={async () => {
             const res = await apiCall<{ notebook: string }>(notebookUrl, {
               method: "POST",
