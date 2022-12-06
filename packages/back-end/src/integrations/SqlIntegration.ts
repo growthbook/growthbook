@@ -357,7 +357,7 @@ export default abstract class SqlIntegration
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
-            ${aggregate} as value
+            ${this.ifNullFallback(aggregate, "0")} as value
           FROM
             __metric m
             ${
@@ -383,7 +383,7 @@ export default abstract class SqlIntegration
             -- Add in the aggregate metric value for each user
             SELECT
               ${this.dateTrunc("m.timestamp")} as date,
-              ${aggregate} as value
+              ${this.ifNullFallback(aggregate, "0")} as value
             FROM
               __metric m
               ${
@@ -936,7 +936,10 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${this.getAggregateMetricColumn(denominator, "m")} as value
+          ${this.ifNullFallback(
+            this.getAggregateMetricColumn(denominator, "m"),
+            "0"
+          )} as value
         FROM
           __distinctUsers d
           JOIN ${
@@ -964,7 +967,7 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${aggregate} as value
+          ${this.ifNullFallback(aggregate, "0")} as value
         FROM
           __distinctUsers d
           JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
