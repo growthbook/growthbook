@@ -15,11 +15,5 @@ export const EventWebHooksPage = () => {
     );
   }
 
-  return (
-    <div>
-      <div className="mt-4">
-        <EventWebHookListContainer />
-      </div>
-    </div>
-  );
+  return <EventWebHookListContainer />;
 };
