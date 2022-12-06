@@ -13,7 +13,7 @@ import {
 import { auditDetailsCreate, auditDetailsUpdate } from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
 
-// region POST /saved-group
+// region POST /saved-groups
 
 type CreateSavedGroupRequest = AuthRequest<{
   groupName: string;
@@ -28,7 +28,7 @@ type CreateSavedGroupResponse = {
 };
 
 /**
- * POST /saved-group
+ * POST /saved-groups
  * Create a saved-group resource
  * @param req
  * @param res
@@ -67,9 +67,9 @@ export const postSavedGroup = async (
   });
 };
 
-// endregion POST /saved-group
+// endregion POST /saved-groups
 
-// region PUT /saved-group/:id
+// region PUT /saved-groups/:id
 
 type PutSavedGroupRequest = AuthRequest<
   {
@@ -86,7 +86,7 @@ type PutSavedGroupResponse = {
 };
 
 /**
- * PUT /saved-group/:id
+ * PUT /saved-groups/:id
  * Update one saved-group resource
  * @param req
  * @param res
@@ -140,9 +140,9 @@ export const putSavedGroup = async (
   });
 };
 
-// endregion PUT /saved-group/:id
+// endregion PUT /saved-groups/:id
 
-// region DELETE /saved-group/:id
+// region DELETE /saved-groups/:id
 
 type DeleteSavedGroupRequest = AuthRequest<
   Record<string, never>,
@@ -160,7 +160,7 @@ type DeleteSavedGroupResponse =
     };
 
 /**
- * DELETE /saved-group/:id
+ * DELETE /saved-groups/:id
  * Delete one saved-group resource by ID
  * @param req
  * @param res
@@ -199,4 +199,4 @@ export const deleteSavedGroup = async (
   });
 };
 
-// endregion DELETE /saved-group/:id
+// endregion DELETE /saved-groups/:id
