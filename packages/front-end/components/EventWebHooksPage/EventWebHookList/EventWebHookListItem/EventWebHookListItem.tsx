@@ -30,7 +30,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   return (
     <a href={href} style={{ textDecoration: "none" }} className="card p-3">
       <div className="d-flex justify-content-md-between align-items-center">
-        <div>
+        <div className="mr-4">
           <h3 className="text-main">{name}</h3>
           <h4 className="text-muted">{url}</h4>
         </div>
