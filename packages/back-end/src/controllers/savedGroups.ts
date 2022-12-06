@@ -3,6 +3,7 @@ import { Response } from "express";
 import { getOrgFromReq } from "../services/organizations";
 import {
   createSavedGroup,
+  deleteSavedGroupById,
   getSavedGroupById,
   parseSavedGroupString,
   updateSavedGroup,
@@ -108,6 +109,40 @@ export async function putSavedGroup(
   }
 
   return res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteSavedGroup(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageSavedGroups");
+
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    res.status(403).json({
+      status: 404,
+      message: "Saved group not found",
+    });
+    return;
+  }
+
+  if (savedGroup.organization !== org.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this saved group",
+    });
+    return;
+  }
+
+  await deleteSavedGroupById(id, org.id);
+
+  res.status(200).json({
     status: 200,
   });
 }

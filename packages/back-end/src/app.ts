@@ -312,6 +312,7 @@ app.delete("/tag/:id", tagsController.deleteTag);
 // groups
 app.post("/saved-groups", savedGroupsController.postSavedGroup);
 app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
+app.delete("/saved-groups/:id", savedGroupsController.deleteSavedGroup);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

@@ -1,6 +1,5 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
@@ -8,6 +7,43 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { ago } from "../services/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
+import MoreMenu from "../components/Dropdown/MoreMenu";
+import DeleteButton from "../components/DeleteButton/DeleteButton";
+import { useFeaturesList } from "../services/features";
+import Link from "next/link";
+import { useAuth } from "../services/auth";
+
+const getSavedGroupMessage = (featuresUsingSavedGroups: string[]) => {
+  return async () => {
+    if (featuresUsingSavedGroups.length > 0) {
+      return (
+        <div>
+          <p className="alert alert-danger">
+            <strong>Whoops!</strong> This Saved Group is currently in use. To
+            delete, please update the feature
+            {featuresUsingSavedGroups.length > 2 && "s"} listed below.
+          </p>
+          <ul
+            className="border rounded bg-light pt-3 pb-3 overflow-auto"
+            style={{ maxHeight: "200px" }}
+          >
+            {featuresUsingSavedGroups.map((feature) => {
+              return (
+                <li key={feature}>
+                  <div className="d-flex">
+                    <Link href={`/features/${feature}`}>
+                      <a className="btn btn-link pt-1 pb-1">{feature}</a>
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+    }
+  };
+};
 
 export default function SavedGroupsPage() {
   const [
@@ -15,9 +51,10 @@ export default function SavedGroupsPage() {
     setSavedGroupForm,
   ] = useState<null | Partial<SavedGroupInterface>>(null);
   const permissions = usePermissions();
+  const { apiCall } = useAuth();
+  const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
-  const { savedGroups, error } = useDefinitions();
-
+  const { features } = useFeaturesList();
   if (!savedGroups) return <LoadingOverlay />;
 
   return (
@@ -78,6 +115,20 @@ export default function SavedGroupsPage() {
               </thead>
               <tbody>
                 {savedGroups.map((s) => {
+                  const featuresUsingSavedGroups: string[] = [];
+
+                  features.forEach((feature) => {
+                    for (const env in feature.environmentSettings) {
+                      feature.environmentSettings[env].rules.forEach((rule) => {
+                        if (
+                          rule.condition.includes(s.id) &&
+                          !featuresUsingSavedGroups.includes(feature.id)
+                        ) {
+                          featuresUsingSavedGroups.push(feature.id);
+                        }
+                      });
+                    }
+                  });
                   return (
                     <tr key={s.id}>
                       <td>{s.groupName}</td>
@@ -92,17 +143,35 @@ export default function SavedGroupsPage() {
                       <td>{ago(s.dateUpdated)}</td>
                       {permissions.manageSavedGroups && (
                         <td>
-                          <a
-                            href="#"
-                            className="tr-hover text-primary mr-3"
-                            title="Edit this segment"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSavedGroupForm(s);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </a>
+                          <MoreMenu id={"namespace" + s.id + "_actions"}>
+                            <a
+                              href="#"
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSavedGroupForm(s);
+                              }}
+                            >
+                              Edit
+                            </a>
+                            <DeleteButton
+                              displayName="SavedGroup"
+                              className="dropdown-item text-danger"
+                              useIcon={false}
+                              text="Delete"
+                              title="Delete SavedGroup"
+                              onClick={async () => {
+                                await apiCall(`/saved-groups/${s.id}`, {
+                                  method: "DELETE",
+                                });
+                                mutateDefinitions({});
+                              }}
+                              getConfirmationContent={getSavedGroupMessage(
+                                featuresUsingSavedGroups
+                              )}
+                              canDelete={featuresUsingSavedGroups.length === 0}
+                            />
+                          </MoreMenu>
                         </td>
                       )}
                     </tr>
