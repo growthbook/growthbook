@@ -12,7 +12,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 const NorthStar: FC<{
   experiments: ExperimentInterfaceStringDates[];
-}> = ({ experiments }) => {
+  project: string;
+}> = ({ experiments, project }) => {
   const { apiCall } = useAuth();
 
   const { permissions, refreshOrganization } = useUser();
@@ -78,6 +79,7 @@ const NorthStar: FC<{
                 metricId={mid}
                 window={northStar?.window}
                 resolution={northStar?.resolution ?? "week"}
+                project={project}
               />
             </div>
           ))}

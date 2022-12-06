@@ -273,6 +273,7 @@ export async function getMetric(
       phases: true,
       results: true,
       analysis: true,
+      project: true,
     }
   )
     .sort({

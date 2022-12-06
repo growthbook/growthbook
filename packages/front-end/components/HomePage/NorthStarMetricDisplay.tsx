@@ -10,10 +10,12 @@ const NorthStarMetricDisplay = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   window,
   resolution,
+  project,
 }: {
   metricId: string;
   window?: number | string;
   resolution?: string;
+  project: string;
 }): React.ReactElement => {
   const { data, error } = useApi<{
     metric: MetricInterface;
@@ -32,7 +34,9 @@ const NorthStarMetricDisplay = ({
   // Disabled window range for now.
 
   const metric = data.metric;
-  const experiments = data.experiments;
+  const experiments = project
+    ? data.experiments.filter((e) => e.project === project)
+    : data.experiments;
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
     analysis = null;
