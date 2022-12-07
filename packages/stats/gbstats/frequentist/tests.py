@@ -9,7 +9,6 @@ from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest
 
 
-# Could consider refactoring to create base class for bayesian and frequentist
 class TTest(BaseABTest):
     def __init__(
         self,
@@ -21,7 +20,6 @@ class TTest(BaseABTest):
         super().__init__(stat_a, stat_b)
         self.alpha = alpha
         self.test_value = test_value
-        # TODO: validate same type of statistic
 
     @property
     def variance(self) -> float:
@@ -57,8 +55,8 @@ class TTest(BaseABTest):
 
     def compute_result(self) -> FrequentistTestResult:
         return FrequentistTestResult(
-            expected=self.point_estimate,
-            # have to make CI about percent as well for x-axis
+            # have to make CI and midpoint percentages for x-axis
+            expected=self.point_estimate / self.stat_a.value,
             ci=[x / self.stat_a.value for x in self.confidence_interval],
             p_value=self.p_value,
             uplift=Uplift(
