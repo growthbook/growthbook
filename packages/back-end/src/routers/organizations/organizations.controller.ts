@@ -1,5 +1,8 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "../../types/AuthRequest";
 import {
   acceptInvite,
   getInviteUrl,
@@ -19,6 +22,7 @@ import { getAllTags } from "../../models/TagModel";
 import {
   ExpandedMember,
   Invite,
+  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
@@ -572,7 +576,7 @@ export async function deleteNamespace(
 
 export async function getInviteInfo(
   req: AuthRequest<unknown, { key: string }>,
-  res: Response
+  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
 ) {
   const { key } = req.params;
 
