@@ -13,22 +13,24 @@ import { useFeaturesList } from "../services/features";
 import Link from "next/link";
 import { useAuth } from "../services/auth";
 
-const getSavedGroupMessage = (featuresUsingSavedGroups: string[]) => {
+const getSavedGroupMessage = (
+  featuresUsingSavedGroups: Set<string> | undefined
+) => {
   return async () => {
-    if (featuresUsingSavedGroups.length > 0) {
+    if (featuresUsingSavedGroups?.size > 0) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
             will need to update the feature
-            {featuresUsingSavedGroups.length > 1 && "s"} listed below by
-            removing any targeting conditions that rely on this saved group.
+            {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
+            any targeting conditions that rely on this saved group.
           </p>
           <ul
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
-            {featuresUsingSavedGroups.map((feature) => {
+            {[...featuresUsingSavedGroups].map((feature) => {
               return (
                 <li key={feature}>
                   <div className="d-flex">
@@ -57,27 +59,25 @@ export default function SavedGroupsPage() {
 
   const { features } = useFeaturesList();
 
-  const getFeaturesUsingSavedGroups = useMemo(
-    () => (savedGroupId) => {
-      const featuresUsingSavedGroups: string[] = [];
-
-      features.forEach((feature) => {
-        for (const env in feature.environmentSettings) {
-          feature.environmentSettings[env].rules.forEach((rule) => {
-            if (
-              rule.condition.includes(savedGroupId) &&
-              !featuresUsingSavedGroups.includes(feature.id)
-            ) {
-              featuresUsingSavedGroups.push(feature.id);
+  // Get a list of feature ids for every saved group
+  const savedGroupFeatureIds = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    features.forEach((feature) => {
+      for (const env in feature.environmentSettings) {
+        feature.environmentSettings[env].rules.forEach((rule) => {
+          savedGroups.forEach((group) => {
+            if (rule.condition.includes(group.id)) {
+              map[group.id] = map[group.id] || new Set();
+              map[group.id].add(feature.id);
             }
           });
-        }
-      });
+        });
+      }
+      console.log("map", map);
+    });
+    return map;
+  }, [savedGroups, features]);
 
-      return featuresUsingSavedGroups;
-    },
-    [features]
-  );
   if (!savedGroups) return <LoadingOverlay />;
 
   return (
@@ -138,9 +138,6 @@ export default function SavedGroupsPage() {
               </thead>
               <tbody>
                 {savedGroups.map((s) => {
-                  const featuresUsingSavedGroup = getFeaturesUsingSavedGroups(
-                    s.id
-                  );
                   return (
                     <tr key={s.id}>
                       <td>{s.groupName}</td>
@@ -179,9 +176,12 @@ export default function SavedGroupsPage() {
                                 mutateDefinitions({});
                               }}
                               getConfirmationContent={getSavedGroupMessage(
-                                featuresUsingSavedGroup
+                                savedGroupFeatureIds[s.id]
                               )}
-                              canDelete={featuresUsingSavedGroup.length === 0}
+                              canDelete={
+                                savedGroupFeatureIds[s.id]?.size &&
+                                savedGroupFeatureIds[s.id]?.size === 0
+                              }
                             />
                           </MoreMenu>
                         </td>
