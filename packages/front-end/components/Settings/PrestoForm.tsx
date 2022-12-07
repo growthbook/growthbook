@@ -2,27 +2,31 @@ import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
+import SelectField from "../Forms/SelectField";
 
 const PrestoForm: FC<{
   params: Partial<PrestoConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+}> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
   return (
     <div className="row">
       <div className="form-group col-md-12">
         <label>Engine</label>
-        <select
-          className="form-control"
+        <SelectField
           name="engine"
           required
           value={params.engine || ""}
-          onChange={onParamChange}
-        >
-          <option value="presto">presto</option>
-          <option value="trino">trino</option>
-        </select>
+          onChange={(v) => {
+            onManualParamChange("engine", v);
+          }}
+          options={[
+            { value: "presto", label: "presto" },
+            { value: "trino", label: "trino" },
+          ]}
+        />
       </div>
       <div className="col-md-12">
         <HostWarning

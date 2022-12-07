@@ -5,6 +5,7 @@ import { getApiHost, isCloud } from "../../services/env";
 import Code from "../SyntaxHighlighting/Code";
 import { DocLink } from "../DocLink";
 import ApiKeysModal from "./ApiKeysModal";
+import SelectField from "../Forms/SelectField";
 
 export default function VisualEditorInstructions({
   apiKeys,
@@ -63,19 +64,14 @@ export default function VisualEditorInstructions({
         <div className="input-group">
           <div className="input-group-prepend">
             <div className="input-group-text">API Key</div>
-            <select
-              className="form-control"
+            <SelectField
               value={key}
-              onChange={(e) => setKey(e.target.value)}
-            >
-              {apiKeys.map((k) => {
-                return (
-                  <option key={k.key} value={k.key}>
-                    {k.description || k.key}
-                  </option>
-                );
-              })}
-            </select>
+              onChange={(v) => setKey(v)}
+              options={apiKeys.map((k) => ({
+                value: k.key,
+                label: k.description || k.key,
+              }))}
+            />
           </div>
         </div>
       )}
