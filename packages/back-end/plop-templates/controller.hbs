@@ -1,0 +1,159 @@
+import type { Response } from "express";
+import { AuthRequest } from "../../types/AuthRequest";
+import { ApiErrorResponse } from "../../../types/api";
+import { getOrgFromReq } from "../../services/organizations";
+
+// region GET /{{kebabCase resource}}
+
+type Get{{pascalCase resource}}sRequest = AuthRequest<
+  Record<string, never>,
+  Record<string, never>,
+  Record<string, never>
+>;
+
+type Get{{pascalCase resource}}sResponse = {
+  {{camelCase resource}}s: unknown[];
+};
+
+/**
+ * GET /{{kebabCase resource}}
+ * Get all {{kebabCase resource}} resources
+ * @param req
+ * @param res
+ */
+export const get{{pascalCase resource}}s = async (
+  req: Get{{pascalCase resource}}sRequest,
+  res: Response<Get{{pascalCase resource}}sResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("some permission");
+
+  const { org } = getOrgFromReq(req);
+
+  throw new Error('TODO')
+};
+
+// endregion GET /{{kebabCase resource}}
+
+// region GET /{{kebabCase resource}}/:id
+
+type Get{{pascalCase resource}}Request = AuthRequest<
+  Record<string, never>,
+  { id: string },
+  Record<string, never>
+>;
+
+type Get{{pascalCase resource}}Response = {
+  {{camelCase resource}}: unknown;
+};
+
+/**
+ * GET /{{kebabCase resource}}/:id
+ * Get one {{kebabCase resource}} resource by ID
+ * @param req
+ * @param res
+ */
+export const get{{pascalCase resource}} = async (
+  req: Get{{pascalCase resource}}Request,
+  res: Response<Get{{pascalCase resource}}Response | ApiErrorResponse>
+) => {
+  req.checkPermissions("some permission");
+
+  const { org } = getOrgFromReq(req);
+
+  throw new Error('TODO')
+};
+
+// endregion GET /{{kebabCase resource}}/:id
+
+// region POST /{{kebabCase resource}}
+
+type Create{{pascalCase resource}}Request = AuthRequest<
+  Record<string, never>,
+  Record<string, never>,
+  Record<string, never>
+>;
+
+type Create{{pascalCase resource}}Response = {
+  {{camelCase resource}}: unknown;
+};
+
+/**
+ * POST /{{kebabCase resource}}
+ * Create a {{kebabCase resource}} resource
+ * @param req
+ * @param res
+ */
+export const post{{pascalCase resource}} = async (
+  req: Create{{pascalCase resource}}Request,
+  res: Response<Create{{pascalCase resource}}Response | ApiErrorResponse>
+) => {
+  req.checkPermissions("some permission");
+
+  const { org } = getOrgFromReq(req);
+
+  throw new Error('TODO')
+};
+
+// endregion POST /{{kebabCase resource}}
+
+
+// region PUT /{{kebabCase resource}}/:id
+
+type Put{{pascalCase resource}}Request = AuthRequest<
+  Record<string, never>,
+  { id: string },
+  Record<string, never>
+>;
+
+type Put{{pascalCase resource}}Response = {
+  {{camelCase resource}}: unknown;
+};
+
+/**
+ * PUT /{{kebabCase resource}}/:id
+ * Update one {{kebabCase resource}} resource
+ * @param req
+ * @param res
+ */
+export const put{{pascalCase resource}} = async (
+  req: Put{{pascalCase resource}}Request,
+  res: Response<Put{{pascalCase resource}}Response | ApiErrorResponse>
+) => {
+  req.checkPermissions("some permission");
+
+  const { org } = getOrgFromReq(req);
+
+  throw new Error('TODO')
+};
+
+// endregion PUT /{{kebabCase resource}}/:id
+
+
+// region DELETE /{{kebabCase resource}}/:id
+
+type Delete{{pascalCase resource}}Request = AuthRequest<
+  Record<string, never>,
+  { id: string },
+  Record<string, never>
+>;
+
+type Delete{{pascalCase resource}}Response = Record<string, never>;
+
+/**
+ * DELETE /{{kebabCase resource}}/:id
+ * Delete one {{kebabCase resource}} resource by ID
+ * @param req
+ * @param res
+ */
+export const delete{{pascalCase resource}} = async (
+  req: Delete{{pascalCase resource}}Request,
+  res: Response<Delete{{pascalCase resource}}Response | ApiErrorResponse>
+) => {
+  req.checkPermissions("some permission");
+
+  const { org } = getOrgFromReq(req);
+
+  throw new Error('TODO')
+};
+
+// endregion DELETE /{{kebabCase resource}}/:id
