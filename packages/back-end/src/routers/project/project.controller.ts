@@ -37,30 +37,28 @@ export const postProject = async (
 ) => {
   req.checkPermissions("manageProjects");
 
-  const { name, datasources, metrics } = req.body;
+  const datasources: string[] = req.body.datasources || [];
+  const metrics: string[] = req.body.metrics || [];
+  const { name } = req.body;
   const { org } = getOrgFromReq(req);
 
-  if (datasources?.length) {
-    for (let i = 0; i < datasources.length; i++) {
-      const datasource = await getDataSourceById(datasources[i], org.id);
-      if (!datasource) {
-        res.status(403).json({
-          message: "Invalid datasource: " + datasources[i],
-        });
-        return;
-      }
+  for (let i = 0; i < datasources.length; i++) {
+    const datasource = await getDataSourceById(datasources[i], org.id);
+    if (!datasource) {
+      res.status(403).json({
+        message: "Invalid datasource: " + datasources[i],
+      });
+      return;
     }
   }
 
-  if (metrics?.length) {
-    for (let i = 0; i < metrics.length; i++) {
-      const metric = await getMetricById(metrics[i], org.id);
-      if (!metric) {
-        res.status(403).json({
-          message: "Invalid metric: " + metrics[i],
-        });
-        return;
-      }
+  for (let i = 0; i < metrics.length; i++) {
+    const metric = await getMetricById(metrics[i], org.id);
+    if (!metric) {
+      res.status(403).json({
+        message: "Invalid metric: " + metrics[i],
+      });
+      return;
     }
   }
 
@@ -117,29 +115,27 @@ export const putProject = async (
     return;
   }
 
-  const { name, datasources, metrics } = req.body;
+  const datasources: string[] = req.body.datasources || [];
+  const metrics: string[] = req.body.metrics || [];
+  const { name } = req.body;
 
-  if (datasources?.length) {
-    for (let i = 0; i < datasources.length; i++) {
-      const datasource = await getDataSourceById(datasources[i], org.id);
-      if (!datasource) {
-        res.status(403).json({
-          message: "Invalid datasource: " + datasources[i],
-        });
-        return;
-      }
+  for (let i = 0; i < datasources.length; i++) {
+    const datasource = await getDataSourceById(datasources[i], org.id);
+    if (!datasource) {
+      res.status(403).json({
+        message: "Invalid datasource: " + datasources[i],
+      });
+      return;
     }
   }
 
-  if (metrics?.length) {
-    for (let i = 0; i < metrics.length; i++) {
-      const metric = await getMetricById(metrics[i], org.id);
-      if (!metric) {
-        res.status(403).json({
-          message: "Invalid metric: " + metrics[i],
-        });
-        return;
-      }
+  for (let i = 0; i < metrics.length; i++) {
+    const metric = await getMetricById(metrics[i], org.id);
+    if (!metric) {
+      res.status(403).json({
+        message: "Invalid metric: " + metrics[i],
+      });
+      return;
     }
   }
 
