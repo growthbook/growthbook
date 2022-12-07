@@ -102,14 +102,15 @@
     "@types/uniqid": "^5.2.0",
     "chokidar": "^3.5.3",
     "jest": "^27.1.1",
+    "plop": "^3.1.1",
     "typescript": "4.7.4"
   },
   "optionalDependencies": {
-    "pino-pretty": "^9.1.1",
-    "objects-to-csv": "^1.3.6",
-    "ts-node": "^10.9.1",
     "concurrently": "^7.4.0",
-    "nodemon": "^2.0.20"
+    "nodemon": "^2.0.20",
+    "objects-to-csv": "^1.3.6",
+    "pino-pretty": "^9.1.1",
+    "ts-node": "^10.9.1"
   },
   "license": "MIT"
 }

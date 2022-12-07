@@ -11,7 +11,7 @@ def correctStddev(n, x, sx, m, y, sy):
         return 0
 
     return math.sqrt(
-        ((n - 1) * (sx ** 2) + (m - 1) * (sy ** 2)) / (n + m - 1)
+        ((n - 1) * (sx**2) + (m - 1) * (sy**2)) / (n + m - 1)
         + (n * m * ((x - y) ** 2)) / ((n + m) * (n + m - 1))
     )
 
