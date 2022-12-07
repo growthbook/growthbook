@@ -18,8 +18,8 @@ class TestTwoSidedTTest(TestCase):
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=0.70732,
-                ci=[0.11068, 1.30396],
+                expected=0.29,
+                ci=[0.04538, 0.53462],
                 uplift=Uplift("normal", 0.70732, 0.30435),
                 p_value=0.02016,
             )
