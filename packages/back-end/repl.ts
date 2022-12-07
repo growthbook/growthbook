@@ -1,6 +1,8 @@
 import repl from "node:repl";
 import * as Organization from "./src/models/OrganizationModel";
 import * as Event from "./src/models/EventModel";
+import * as EventWebHook from "./src/models/EventWebhookModel";
+import * as EventWebHookLog from "./src/models/EventWebHookLogModel";
 import mongoInit from "./src/init/mongo";
 
 (async () => {
@@ -13,4 +15,6 @@ import mongoInit from "./src/init/mongo";
   // Add globals you want available to the context
   replServer.context.Organization = Organization;
   replServer.context.Event = Event;
+  replServer.context.EventWebHook = EventWebHook;
+  replServer.context.EventWebHookLog = EventWebHookLog;
 })();

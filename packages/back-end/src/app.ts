@@ -62,26 +62,11 @@ const stripeController = wrapController(stripeControllerRaw);
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
 
-import * as segmentsControllerRaw from "./controllers/segments";
-const segmentsController = wrapController(segmentsControllerRaw);
-
-import * as dimensionsControllerRaw from "./controllers/dimensions";
-const dimensionsController = wrapController(dimensionsControllerRaw);
-
-import * as projectsControllerRaw from "./controllers/projects";
-const projectsController = wrapController(projectsControllerRaw);
-
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
 
 import * as slackControllerRaw from "./controllers/slack";
 const slackController = wrapController(slackControllerRaw);
-
-import * as tagsControllerRaw from "./controllers/tags";
-const tagsController = wrapController(tagsControllerRaw);
-
-import * as savedGroupsControllerRaw from "./controllers/savedGroups";
-const savedGroupsController = wrapController(savedGroupsControllerRaw);
 
 // End Controllers
 
@@ -93,6 +78,12 @@ import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadsRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
+import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
+import { tagRouter } from "./routers/tag/tag.router";
+import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { segmentRouter } from "./routers/segment/segment.router";
+import { dimensionRouter } from "./routers/dimension/dimension.router";
+import { projectRouter } from "./routers/project/project.router";
 
 const app = express();
 
@@ -304,13 +295,9 @@ if (IS_CLOUD) {
   app.get("/vercel/config", vercelController.getConfig);
 }
 
-// tags
-app.post("/tag", tagsController.postTag);
-app.delete("/tag/:id", tagsController.deleteTag);
+app.use("/tag", tagRouter);
 
-// groups
-app.post("/saved-groups", savedGroupsController.postSavedGroup);
-app.put("/saved-groups/:id", savedGroupsController.putSavedGroup);
+app.use("/saved-groups", savedGroupRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -422,23 +409,11 @@ app.post("/report/:id/cancel", reportsController.cancelReport);
 app.post("/report/:id/notebook", reportsController.postNotebook);
 app.get("/reports", reportsController.getReports);
 
-// Segments
-app.get("/segments", segmentsController.getAllSegments);
-app.post("/segments", segmentsController.postSegments);
-app.put("/segments/:id", segmentsController.putSegment);
-app.delete("/segments/:id", segmentsController.deleteSegment);
-app.get("/segments/:id/usage", segmentsController.getSegmentUsage);
+app.use("/segments", segmentRouter);
 
-// Dimensions
-app.get("/dimensions", dimensionsController.getAllDimensions);
-app.post("/dimensions", dimensionsController.postDimensions);
-app.put("/dimensions/:id", dimensionsController.putDimension);
-app.delete("/dimensions/:id", dimensionsController.deleteDimension);
+app.use("/dimensions", dimensionRouter);
 
-// Projects
-app.post("/projects", projectsController.postProjects);
-app.put("/projects/:id", projectsController.putProject);
-app.delete("/projects/:id", projectsController.deleteProject);
+app.use("/projects", projectRouter);
 
 // Features
 app.get("/feature", featuresController.getFeatures);
@@ -470,6 +445,7 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // Events
 app.use("/events", eventsRouter);
+app.use("/event-webhooks", eventWebHooksRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);

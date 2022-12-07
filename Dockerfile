@@ -50,7 +50,10 @@ RUN pip3 install \
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
-COPY buildinfo ./buildinfo
+
+# wildcard used to act as 'copy if exists'
+COPY buildinfo* ./buildinfo
+
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
 RUN pip3 install /usr/local/src/gbstats/*.whl
 # The front-end app (NextJS)

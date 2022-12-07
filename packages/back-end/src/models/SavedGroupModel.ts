@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { SavedGroupInterface } from "../../types/saved-group";
 import uniqid from "uniqid";
+import { usingFileConfig } from "../init/config";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -95,4 +96,15 @@ export async function updateSavedGroup(
   );
 
   return changes;
+}
+
+export async function deleteSavedGroupById(id: string, organization: string) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot delete. Saved Groups managed by config.yml");
+  }
+
+  await SavedGroupModel.deleteOne({
+    id,
+    organization,
+  });
 }
