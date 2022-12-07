@@ -20,12 +20,23 @@ const DimensionForm: FC<{
     getDatasourceById,
     datasources,
     mutateDefinitions,
+    project,
+    getProjectById,
   } = useDefinitions();
+  const projectDefinition = getProjectById(project);
+  let filteredDatasources = datasources;
+  if (projectDefinition?.datasources?.length) {
+    const projectDatasources = projectDefinition.datasources;
+    filteredDatasources = datasources.filter((ds) =>
+      projectDatasources.includes(ds.id)
+    );
+  }
   const form = useForm({
     defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
-      datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      datasource:
+        (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
     },
@@ -42,7 +53,7 @@ const DimensionForm: FC<{
     <Modal
       close={close}
       open={true}
-      header={current ? "Edit Dimension" : "New Dimension"}
+      header={current.id ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
           validateSQL(value.sql, [value.userIdType, "value"]);
@@ -71,7 +82,7 @@ const DimensionForm: FC<{
         value={form.watch("datasource")}
         onChange={(v) => form.setValue("datasource", v)}
         placeholder="Choose one..."
-        options={datasources.map((d) => ({
+        options={filteredDatasources.map((d) => ({
           value: d.id,
           label: d.name,
         }))}

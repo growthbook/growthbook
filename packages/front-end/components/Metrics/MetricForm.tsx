@@ -131,10 +131,24 @@ const MetricForm: FC<MetricFormProps> = ({
   onSuccess,
   secondaryCTA,
 }) => {
-  const { datasources, getDatasourceById, metrics } = useDefinitions();
+  const {
+    datasources,
+    getDatasourceById,
+    metrics,
+    project,
+    getProjectById,
+  } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
+  const projectDefinition = getProjectById(project);
+  let filteredDatasources = datasources;
+  if (projectDefinition?.datasources?.length) {
+    const projectDatasources = projectDefinition.datasources;
+    filteredDatasources = datasources.filter((ds) =>
+      projectDatasources.includes(ds.id)
+    );
+  }
 
   const {
     getMinSampleSizeForMetric,
@@ -179,8 +193,9 @@ const MetricForm: FC<MetricFormProps> = ({
   const form = useForm({
     defaultValues: {
       datasource:
-        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
-        "",
+        ("datasource" in current
+          ? current.datasource
+          : filteredDatasources[0]?.id) || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -403,7 +418,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label="Data Source"
           value={value.datasource || ""}
           onChange={(v) => form.setValue("datasource", v)}
-          options={(datasources || []).map((d) => ({
+          options={(filteredDatasources || []).map((d) => ({
             value: d.id,
             label: d.name,
           }))}

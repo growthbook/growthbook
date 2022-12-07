@@ -3,18 +3,25 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
 import Tooltip from "../Tooltip/Tooltip";
 import MultiSelectField from "../Forms/MultiSelectField";
+import { ProjectInterface } from "back-end/types/project";
 
 const MetricsSelector: FC<{
   datasource?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
-}> = ({ datasource, selected, onChange, autoFocus }) => {
+  project?: ProjectInterface;
+}> = ({ datasource, selected, onChange, autoFocus, project }) => {
   const { metrics } = useDefinitions();
 
-  const validMetrics = metrics.filter(
+  let validMetrics = metrics.filter(
     (m) => !datasource || m.datasource === datasource
   );
+  if (project) {
+    if (project?.metrics?.length) {
+      validMetrics = validMetrics.filter((m) => project.metrics.includes(m.id));
+    }
+  }
 
   const tagCounts: Record<string, number> = {};
   validMetrics.forEach((m) => {

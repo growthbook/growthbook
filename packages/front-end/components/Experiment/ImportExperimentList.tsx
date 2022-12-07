@@ -34,15 +34,32 @@ const ImportExperimentList: FC<{
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
-  const { getDatasourceById, ready, datasources } = useDefinitions();
+  const {
+    getDatasourceById,
+    ready,
+    datasources,
+    project,
+    getProjectById,
+  } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
-
+  const projectDefinition = getProjectById(project);
   const datasource = getDatasourceById(data?.experiments?.datasource);
+  let filteredDatasources = datasources;
+  let filteredDatasource = datasource;
+  if (projectDefinition?.datasources?.length) {
+    const projectDatasources = projectDefinition.datasources;
+    filteredDatasources = datasources.filter((ds) =>
+      projectDatasources.includes(ds.id)
+    );
+    filteredDatasource = projectDatasources.includes(filteredDatasource?.id)
+      ? filteredDatasource
+      : null;
+  }
 
   const status = getQueryStatus(
     data?.experiments?.queries || [],
@@ -52,10 +69,11 @@ const ImportExperimentList: FC<{
     data?.experiments?.experiments,
     (item) => ({
       exposureQueryName: item.exposureQueryId
-        ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
+        ? getExposureQuery(filteredDatasource?.settings, item.exposureQueryId)
+            ?.name
         : "experiments",
     }),
-    [datasource]
+    [filteredDatasource]
   );
   const { pastExperimentsMinLength } = useOrgSettings();
 
@@ -123,7 +141,7 @@ const ImportExperimentList: FC<{
     return <LoadingOverlay />;
   }
 
-  const supportedDatasources = datasources.filter(
+  const supportedDatasources = filteredDatasources.filter(
     (d) => d.properties.pastExperiments
   );
 
@@ -149,7 +167,7 @@ const ImportExperimentList: FC<{
               onChange={changeDatasource}
             />
           ) : (
-            <strong>{datasource?.name}</strong>
+            <strong>{filteredDatasource?.name}</strong>
           )}
         </div>
         <div className="col-auto ml-auto">
@@ -196,7 +214,7 @@ const ImportExperimentList: FC<{
         <>
           <div className="alert alert-danger my-3">
             <p>Error importing experiments.</p>
-            {datasource.id && (
+            {filteredDatasource.id && (
               <p>
                 Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
                 may be misconfigured.{" "}

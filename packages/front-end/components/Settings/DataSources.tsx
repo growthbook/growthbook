@@ -17,7 +17,22 @@ const DataSources: FC = () => {
 
   const router = useRouter();
 
-  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
+  const {
+    datasources,
+    error,
+    mutateDefinitions,
+    ready,
+    project,
+    getProjectById,
+  } = useDefinitions();
+  const projectDefinition = getProjectById(project);
+  let filteredDatasources = datasources.filter((d) => d.properties?.segments);
+  if (projectDefinition?.datasources?.length) {
+    const projectDatasources = projectDefinition.datasources;
+    filteredDatasources = datasources.filter((ds) =>
+      projectDatasources.includes(ds.id)
+    );
+  }
 
   const permissions = usePermissions();
 
@@ -30,7 +45,7 @@ const DataSources: FC = () => {
 
   return (
     <div>
-      {datasources.length > 0 ? (
+      {filteredDatasources.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -40,7 +55,7 @@ const DataSources: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {datasources.map((d, i) => (
+            {filteredDatasources.map((d, i) => (
               <tr
                 className="nav-item"
                 key={i}

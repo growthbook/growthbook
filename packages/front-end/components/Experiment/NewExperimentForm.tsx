@@ -90,8 +90,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     getDatasourceById,
     refreshTags,
     project,
+    getProjectById,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
+  const projectDefinition = getProjectById(project);
+  let filteredDatasources = datasources;
+  if (projectDefinition?.datasources?.length) {
+    const projectDatasources = projectDefinition.datasources;
+    filteredDatasources = datasources.filter((ds) =>
+      projectDatasources.includes(ds.id)
+    );
+  }
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -104,7 +113,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
-      datasource: initialValue?.datasource || datasources?.[0]?.id || "",
+      datasource:
+        initialValue?.datasource || filteredDatasources?.[0]?.id || "",
       exposureQueryId:
         getExposureQuery(
           getDatasourceById(initialValue?.datasource)?.settings,
@@ -298,7 +308,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             value={form.watch("datasource")}
             onChange={(v) => form.setValue("datasource", v)}
             initialOption="Manual"
-            options={datasources.map((d) => ({
+            options={filteredDatasources.map((d) => ({
               value: d.id,
               label: d.name,
             }))}
@@ -400,6 +410,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={datasource?.id}
+              project={projectDefinition}
             />
           </div>
           <div className="form-group">
@@ -412,6 +423,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={datasource?.id}
+              project={projectDefinition}
             />
           </div>
           {!isImport && implementation === "visual" && (

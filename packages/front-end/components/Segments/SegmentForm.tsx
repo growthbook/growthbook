@@ -20,17 +20,27 @@ const SegmentForm: FC<{
     datasources,
     getDatasourceById,
     mutateDefinitions,
+    project,
+    getProjectById,
   } = useDefinitions();
+  const projectDefinition = getProjectById(project);
+  let filteredDatasources = datasources.filter((d) => d.properties?.segments);
+  if (projectDefinition?.datasources?.length) {
+    const projectDatasources = projectDefinition.datasources;
+    filteredDatasources = datasources.filter((ds) =>
+      projectDatasources.includes(ds.id)
+    );
+  }
   const form = useForm({
     defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
-      datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      datasource:
+        (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
     },
   });
-  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
   const userIdType = form.watch("userIdType");
 
@@ -42,7 +52,7 @@ const SegmentForm: FC<{
     <Modal
       close={close}
       open={true}
-      header={current ? "Edit Segment" : "New Segment"}
+      header={current.id ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
           validateSQL(value.sql, [value.userIdType, "date"]);
