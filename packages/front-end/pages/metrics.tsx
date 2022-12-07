@@ -22,7 +22,6 @@ import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
 import { useUser } from "../services/UserContext";
 import Field from "../components/Forms/Field";
-import { truncateText } from "../services/utils";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -288,8 +287,11 @@ const MetricsPage = (): React.ReactElement => {
               <td className="d-none d-lg-table-cell">
                 {metric.datasourceName}
                 {metric.datasourceDescription && (
-                  <div className="text-gray font-weight-normal small">
-                    {truncateText(metric.datasourceDescription, 80)}
+                  <div
+                    className="text-gray font-weight-normal small text-ellipsis"
+                    style={{ maxWidth: 350 }}
+                  >
+                    {metric.datasourceDescription}
                   </div>
                 )}
               </td>

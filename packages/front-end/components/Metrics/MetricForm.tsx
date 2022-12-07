@@ -23,7 +23,6 @@ import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { truncateText } from "../../services/utils";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -406,10 +405,9 @@ const MetricForm: FC<MetricFormProps> = ({
           onChange={(v) => form.setValue("datasource", v)}
           options={(datasources || []).map((d) => ({
             value: d.id,
-            label:
-              d.name +
-              (d.description ? ` — ${truncateText(d.description, 80)}` : ""),
+            label: `d.name${d.description ? ` — ${d.description}` : ""}`,
           }))}
+          className="portal-overflow-ellipsis"
           name="datasource"
           initialOption="Manual"
           disabled={edit}

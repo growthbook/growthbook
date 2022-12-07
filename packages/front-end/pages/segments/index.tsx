@@ -14,7 +14,6 @@ import { useAuth } from "../../services/auth";
 import { GBAddCircle } from "../../components/Icons";
 import usePermissions from "../../hooks/usePermissions";
 import Code, { Language } from "../../components/SyntaxHighlighting/Code";
-import { truncateText } from "../../services/utils";
 
 const SegmentPage: FC = () => {
   const {
@@ -256,10 +255,21 @@ const SegmentPage: FC = () => {
                       <td>{s.name}</td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
-                        <div>{datasource?.name}</div>
-                        <div className="text-gray font-weight-normal small">
-                          {truncateText(datasource?.description || "", 80)}
-                        </div>
+                        {datasource && (
+                          <>
+                            <div>
+                              <Link href={`/datasources/${datasource?.id}`}>
+                                {datasource?.name}
+                              </Link>
+                            </div>
+                            <div
+                              className="text-gray font-weight-normal small text-ellipsis"
+                              style={{ maxWidth: 350 }}
+                            >
+                              {datasource?.description}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds

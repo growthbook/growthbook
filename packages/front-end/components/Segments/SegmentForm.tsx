@@ -9,7 +9,6 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../../components/Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
-import { truncateText } from "../../services/utils";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -71,10 +70,9 @@ const SegmentForm: FC<{
         placeholder="Choose one..."
         options={filteredDatasources.map((d) => ({
           value: d.id,
-          label:
-            d.name +
-            (d.description ? ` — ${truncateText(d.description, 80)}` : ""),
+          label: `d.name${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {datasource.properties.userIds && (
         <SelectField

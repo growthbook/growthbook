@@ -34,7 +34,7 @@ import {
 import useApi from "../../hooks/useApi";
 import { useUser } from "../../services/UserContext";
 import ResultsIndicator from "./ResultsIndicator";
-import { phaseSummary, truncateText } from "../../services/utils";
+import { phaseSummary } from "../../services/utils";
 import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
 import Code from "../SyntaxHighlighting/Code";
@@ -496,8 +496,8 @@ export default function SinglePage({
                         {datasource?.name}
                       </Link>
                     </div>
-                    <div className="text-gray font-weight-normal small">
-                      {truncateText(datasource?.description || "", 80)}
+                    <div className="text-gray font-weight-normal small text-ellipsis">
+                      {datasource?.description}
                     </div>
                   </div>
                 )}

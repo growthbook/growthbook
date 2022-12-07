@@ -49,7 +49,6 @@ import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { truncateText } from "../../services/utils";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -679,9 +678,13 @@ const MetricPage: FC = () => {
                   titleClassName="align-top"
                 >
                   <div className="d-inline-block" style={{ maxWidth: 280 }}>
-                    <div>{datasource.name}</div>
-                    <div className="text-gray font-weight-normal small">
-                      {truncateText(datasource?.description || "", 80)}
+                    <div>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource.name}
+                      </Link>
+                    </div>
+                    <div className="text-gray font-weight-normal small text-ellipsis">
+                      {datasource?.description}
                     </div>
                   </div>
                 </RightRailSectionGroup>

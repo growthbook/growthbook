@@ -9,7 +9,6 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
-import { truncateText } from "../../services/utils";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -74,10 +73,9 @@ const DimensionForm: FC<{
         placeholder="Choose one..."
         options={datasources.map((d) => ({
           value: d.id,
-          label:
-            d.name +
-            (d.description ? ` — ${truncateText(d.description, 80)}` : ""),
+          label: `d.name${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {dsProps.userIds && (
         <SelectField

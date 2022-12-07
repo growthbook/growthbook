@@ -25,7 +25,6 @@ import useOrgSettings from "../../hooks/useOrgSettings";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { isCloud } from "../../services/env";
-import { truncateText } from "../../services/utils";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -145,12 +144,9 @@ const ImportExperimentList: FC<{
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => ({
                 value: d.id,
-                label:
-                  d.name +
-                  (d.description
-                    ? ` — ${truncateText(d.description, 80)}`
-                    : ""),
+                label: `d.name${d.description ? ` — ${d.description}` : ""}`,
               }))}
+              className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
           ) : (
@@ -158,8 +154,8 @@ const ImportExperimentList: FC<{
               <div>
                 <strong>{datasource?.name}</strong>
               </div>
-              <div className="text-gray font-weight-normal small">
-                {truncateText(datasource?.description || "", 80)}
+              <div className="text-gray font-weight-normal small text-ellipsis">
+                {datasource?.description}
               </div>
             </>
           )}
