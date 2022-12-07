@@ -1,5 +1,5 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
@@ -56,6 +56,28 @@ export default function SavedGroupsPage() {
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const { features } = useFeaturesList();
+
+  const getFeaturesUsingSavedGroups = useMemo(
+    () => (savedGroupId) => {
+      const featuresUsingSavedGroups: string[] = [];
+
+      features.forEach((feature) => {
+        for (const env in feature.environmentSettings) {
+          feature.environmentSettings[env].rules.forEach((rule) => {
+            if (
+              rule.condition.includes(savedGroupId) &&
+              !featuresUsingSavedGroups.includes(feature.id)
+            ) {
+              featuresUsingSavedGroups.push(feature.id);
+            }
+          });
+        }
+      });
+
+      return featuresUsingSavedGroups;
+    },
+    [features]
+  );
   if (!savedGroups) return <LoadingOverlay />;
 
   return (
@@ -116,20 +138,9 @@ export default function SavedGroupsPage() {
               </thead>
               <tbody>
                 {savedGroups.map((s) => {
-                  const featuresUsingSavedGroups: string[] = [];
-
-                  features.forEach((feature) => {
-                    for (const env in feature.environmentSettings) {
-                      feature.environmentSettings[env].rules.forEach((rule) => {
-                        if (
-                          rule.condition.includes(s.id) &&
-                          !featuresUsingSavedGroups.includes(feature.id)
-                        ) {
-                          featuresUsingSavedGroups.push(feature.id);
-                        }
-                      });
-                    }
-                  });
+                  const featuresUsingSavedGroup = getFeaturesUsingSavedGroups(
+                    s.id
+                  );
                   return (
                     <tr key={s.id}>
                       <td>{s.groupName}</td>
@@ -168,9 +179,9 @@ export default function SavedGroupsPage() {
                                 mutateDefinitions({});
                               }}
                               getConfirmationContent={getSavedGroupMessage(
-                                featuresUsingSavedGroups
+                                featuresUsingSavedGroup
                               )}
-                              canDelete={featuresUsingSavedGroups.length === 0}
+                              canDelete={featuresUsingSavedGroup.length === 0}
                             />
                           </MoreMenu>
                         </td>
