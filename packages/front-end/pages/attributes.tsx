@@ -99,7 +99,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <table className="table gbtable">
+          <table className="table gbtable appbox">
             <thead>
               <tr>
                 <th>Attribute</th>
