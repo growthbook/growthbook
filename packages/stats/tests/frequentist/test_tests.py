@@ -37,3 +37,7 @@ class TestTwoSidedTTest(TestCase):
             result_dict[k] = v
 
         self.assertDictEqual(result_dict, expected_rounded_dict)
+
+
+if __name__ == "__main__":
+    unittest_main()
