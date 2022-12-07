@@ -5,38 +5,20 @@ from typing import List
 import numpy as np
 from scipy.stats import t
 
-
-@dataclass
-class Statistic:
-    value: float
-    standard_deviation: float
-    n: int
-
-    @property
-    def variance(self) -> float:
-        return pow(self.standard_deviation, 2)
+from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
+from gbstats.shared.tests import BaseABTest
 
 
-@dataclass
-class Proportion(Statistic):
-    pass
-
-
-@dataclass
-class Mean(Statistic):
-    pass
-
-
-class TTest:
+# Could consider refactoring to create base class for bayesian and frequentist
+class TTest(BaseABTest):
     def __init__(
         self,
-        control_statistic: Statistic,
-        treatment_statistic: Statistic,
+        stat_a: Statistic,
+        stat_b: Statistic,
         test_value: float = 0,
         alpha: float = 0.05,
     ):
-        self.control_statistic = control_statistic
-        self.treatment_statistic = treatment_statistic
+        super().__init__(stat_a, stat_b)
         self.alpha = alpha
         self.test_value = test_value
         # TODO: validate same type of statistic
@@ -44,13 +26,12 @@ class TTest:
     @property
     def variance(self) -> float:
         return (
-            self.treatment_statistic.variance / self.treatment_statistic.n
-            + self.control_statistic.variance / self.control_statistic.n
+            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
         )
 
     @property
     def point_estimate(self) -> float:
-        return self.treatment_statistic.value - self.control_statistic.value
+        return self.stat_b.value - self.stat_a.value
 
     @property
     def critical_value(self) -> float:
@@ -60,10 +41,8 @@ class TTest:
     def dof(self) -> int:
         # welch-satterthwaite approx (probably overkill)
         return pow(self.variance, 2) / (
-            pow(self.treatment_statistic.variance / self.treatment_statistic.n, 2)
-            / (self.treatment_statistic.n - 1)
-            + pow(self.control_statistic.variance / self.control_statistic.n, 2)
-            / (self.control_statistic.n - 1)
+            pow(self.stat_b.variance / self.stat_b.n, 2) / (self.stat_b.n - 1)
+            + pow(self.stat_a.variance / self.stat_a.n, 2) / (self.stat_a.n - 1)
         )
 
     @property
@@ -75,6 +54,19 @@ class TTest:
     @abstractmethod
     def confidence_interval(self) -> List[float]:
         pass
+
+    def compute_result(self) -> FrequentistTestResult:
+        return FrequentistTestResult(
+            expected=self.point_estimate,
+            # have to make CI about percent as well for x-axis
+            ci=[x / self.stat_a.value for x in self.confidence_interval],
+            p_value=self.p_value,
+            uplift=Uplift(
+                dist="normal",
+                mean=self.point_estimate / self.stat_a.value,
+                stddev=np.sqrt(self.variance) / self.stat_a.value,
+            ),
+        )
 
 
 class TwoSidedTTest(TTest):
