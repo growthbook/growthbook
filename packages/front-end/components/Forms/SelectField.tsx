@@ -89,6 +89,8 @@ const SelectField: FC<
   disabled,
   autoFocus,
   required,
+  style,
+  className,
   formatOptionLabel,
   ...otherProps
 }) => {
@@ -107,9 +109,11 @@ const SelectField: FC<
       render={(id, ref) => {
         return (
           <div
+            style={style}
             className={clsx(
               "gb-select-wrapper position-relative",
-              disabled ? "disabled" : ""
+              disabled ? "disabled" : "",
+              className
             )}
           >
             <ReactSelect

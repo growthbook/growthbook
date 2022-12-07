@@ -11,6 +11,7 @@ import MetricValueColumn from "./MetricValueColumn";
 import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
 import { ExperimentStatus } from "back-end/types/experiment";
+import SelectField from "../Forms/SelectField";
 
 export type ResultsTableProps = {
   id: string;
@@ -80,20 +81,18 @@ export default function ResultsTable({
                 <FaQuestionCircle />
               </Tooltip>
               <div className="mt-1">
-                <select
-                  className="form-control form-control-sm"
+                <SelectField
+                  className="small"
                   style={{ maxWidth: 150 }}
-                  value={riskVariation}
-                  onChange={(e) => {
-                    setRiskVariation(parseInt(e.target.value));
+                  value={riskVariation + ""}
+                  onChange={(v) => {
+                    setRiskVariation(parseInt(v));
                   }}
-                >
-                  {variations.map((v, i) => (
-                    <option key={v.name} value={i}>
-                      {i}: {v.name}
-                    </option>
-                  ))}
-                </select>
+                  options={variations.map((v, i) => ({
+                    value: i + "",
+                    label: `${i}: ${v.name}`,
+                  }))}
+                />
               </div>
             </th>
           )}
