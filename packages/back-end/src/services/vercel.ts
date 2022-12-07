@@ -1,13 +1,17 @@
 import fetch from "node-fetch";
 import {
   CreateEnvParams,
-  GbVercelEnvMap,
   VercelEnvVar,
   VercelProject,
   VercelTarget,
 } from "../../types/vercel";
 import { createApiKey } from "../models/ApiKeyModel";
 import { logger } from "../util/logger";
+import {
+  APP_ORIGIN,
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "../util/secrets";
 
 interface VercelApiCallProps {
   token: string;
@@ -36,27 +40,14 @@ async function vercelApiCall<T = unknown>({
     },
   });
 
-  const json: T | { error: string } = await res.json();
+  const json:
+    | T
+    | { error: { message: string; code: string } } = await res.json();
   if ("error" in json) {
     logger.error(json.error);
-    throw new Error(json.error);
+    throw new Error(json.error.message);
   }
   return json;
-}
-
-type ReducedMapping = { gb: string; vercel: VercelTarget[] };
-
-//Takes env map entries that have the same GB environment and makes them into a single entry by joining the Vercel environments
-export function reduceGbVercelEnvMap(gbVercelEnvMap: GbVercelEnvMap) {
-  const newEnvMap: Record<string, ReducedMapping> = {};
-
-  gbVercelEnvMap.forEach(({ gb, vercel }) => {
-    if (!gb) return;
-    newEnvMap[gb] = newEnvMap[gb] || { gb, vercel: [] };
-    newEnvMap[gb].vercel.push(vercel);
-  });
-
-  return Object.values(newEnvMap);
 }
 
 export async function createOrgGbKeys(
@@ -71,16 +62,46 @@ export async function createOrgGbKeys(
       environment: envMapEntry.gb,
       encryptSDK: false,
       description:
-        "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API.",
+        "This key is used by Vercel that allows you to connect your GrowthBook SDK to the GrowthBook API.",
     });
     orgGbKeys.push({
       key: "GROWTHBOOK_KEY",
       value: createdKeyVal.key,
       gbEnv: envMapEntry.gb,
       vercelEnvArr: envMapEntry.vercel,
+      gbApiId: createdKeyVal.id,
     });
   }
   return orgGbKeys;
+}
+
+export async function getVercelToken(code: string): Promise<string> {
+  const url = "https://api.vercel.com/v2/oauth/access_token";
+  const options = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      code: code,
+      client_id: VERCEL_CLIENT_ID,
+      client_secret: VERCEL_CLIENT_SECRET,
+      redirect_uri: `${APP_ORIGIN}/integrations/vercel`,
+    }),
+  };
+
+  const tokenRes = await fetch(url, options);
+  const json = await tokenRes.json();
+  if (json.error) {
+    if (json.error?.message) {
+      throw new Error(json.error.message);
+    }
+    throw new Error(json.error);
+  }
+
+  const token = json.access_token;
+
+  return token;
 }
 
 export async function getGbRelatedVercelProjects(

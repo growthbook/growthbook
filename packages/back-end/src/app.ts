@@ -297,10 +297,8 @@ app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {
-  app.get("/vercel/has-token", vercelController.getHasToken);
-  app.post("/vercel/token", vercelController.postToken);
-  app.post("/vercel/env-vars", vercelController.postEnvVars);
-  app.get("/vercel/config", vercelController.getConfig);
+  app.get("/vercel/existing", vercelController.getVercelIntegrations);
+  app.post("/vercel/add-integration", vercelController.postAddIntegration);
 }
 
 // tags

@@ -23,6 +23,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  VercelConnection,
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
@@ -809,14 +810,20 @@ export async function putOrganization(
       orig.settings = org.settings;
     }
     if (connections?.vercel) {
-      const { token, configurationId, teamId } = connections.vercel;
-      if (token && configurationId) {
-        updates.connections = {
-          ...updates.connections,
-          vercel: { token, configurationId, teamId },
-        };
-        orig.connections = org.connections;
-      }
+      // de-dup the list of integrations and add any new ones:
+      const vercelIntegrations = org.connections?.vercel || [];
+      const existingMap = new Map<string, VercelConnection>();
+      vercelIntegrations.forEach((i) => existingMap.set(i.configurationId, i));
+      connections.vercel.forEach((i) => {
+        if (i.configurationId && !existingMap.has(i.configurationId)) {
+          vercelIntegrations.push(i);
+        }
+      });
+      updates.connections = {
+        ...updates.connections,
+        vercel: vercelIntegrations,
+      };
+      orig.connections = org.connections;
     }
 
     await updateOrganization(org.id, updates);

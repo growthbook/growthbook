@@ -5,6 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
+import { GbVercelEnvMap } from "./vercel";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -153,7 +154,7 @@ export interface SubscriptionQuote {
 
 export interface OrganizationConnections {
   slack?: SlackConnection;
-  vercel?: VercelConnection;
+  vercel?: VercelConnection[];
 }
 
 export interface SlackConnection {
@@ -165,6 +166,8 @@ export interface VercelConnection {
   token: string;
   configurationId: string;
   teamId: string | null;
+  environments?: GbVercelEnvMap;
+  apiKeys?: string[];
 }
 
 export interface OrganizationInterface {

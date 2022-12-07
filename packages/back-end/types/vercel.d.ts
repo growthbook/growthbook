@@ -1,5 +1,5 @@
 export type GbVercelEnvMap = Array<{
-  vercel: VercelTarget;
+  vercel: VercelTarget[];
   gb: string | null;
 }>;
 
