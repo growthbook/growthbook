@@ -1111,6 +1111,10 @@ export async function addOrphanedUser(
 ) {
   req.checkPermissions("organizationSettings");
 
+  if (IS_CLOUD) {
+    throw new Error("This action is not permitted on GrowthBook Cloud");
+  }
+
   const { org } = getOrgFromReq(req);
 
   const { id } = req.params;
