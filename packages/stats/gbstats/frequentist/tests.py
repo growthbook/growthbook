@@ -9,7 +9,6 @@ from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest
 
 
-# Could consider refactoring to create base class for bayesian and frequentist
 class TTest(BaseABTest):
     def __init__(
         self,
