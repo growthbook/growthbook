@@ -41,12 +41,10 @@ const EditMetricsForm: FC<{
   let filteredMetrics = metricDefinitions.filter(
     (m) => m.datasource === datasource?.id
   );
-  if (project) {
-    if (project?.metrics?.length) {
-      filteredMetrics = filteredMetrics.filter((m) =>
-        project.metrics.includes(m.id)
-      );
-    }
+  if (project?.metrics?.length) {
+    filteredMetrics = filteredMetrics.filter((m) =>
+      project.metrics.includes(m.id)
+    );
   }
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {

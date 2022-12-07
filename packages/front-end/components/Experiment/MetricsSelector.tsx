@@ -17,10 +17,8 @@ const MetricsSelector: FC<{
   let validMetrics = metrics.filter(
     (m) => !datasource || m.datasource === datasource
   );
-  if (project) {
-    if (project?.metrics?.length) {
-      validMetrics = validMetrics.filter((m) => project.metrics.includes(m.id));
-    }
+  if (project?.metrics?.length) {
+    validMetrics = validMetrics.filter((m) => project.metrics.includes(m.id));
   }
 
   const tagCounts: Record<string, number> = {};
