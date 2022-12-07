@@ -7,7 +7,8 @@ on:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    # if: ${{ github.repository == 'growthbook/growthbook' }}
+    if: ${{ false }}  # disable for now
     steps:
     - name: Context
       uses: okteto/context@latest

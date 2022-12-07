@@ -41,6 +41,9 @@ export default function ConnectionSettings({
   const onParamChange: ChangeEventHandler<HTMLInputElement> = (e) => {
     setParams({ [e.target.name]: e.target.value });
   };
+  const onManualParamChange = (name, value) => {
+    setParams({ [name]: value });
+  }
 
   if (datasource.type === "athena") {
     return (
@@ -56,6 +59,7 @@ export default function ConnectionSettings({
       <PrestoForm
         existing={existing}
         onParamChange={onParamChange}
+        onManualParamChange={onManualParamChange}
         setParams={setParams}
         params={datasource.params}
       />
@@ -136,6 +140,7 @@ export default function ConnectionSettings({
       <MixpanelForm
         existing={existing}
         onParamChange={onParamChange}
+        onManualParamChange={onManualParamChange}
         params={datasource.params}
       />
     );
