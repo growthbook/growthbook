@@ -2,7 +2,7 @@ module.exports = function (plop) {
   // region Back-end
 
   plop.setGenerator("router", {
-    description: "Generates a router and controller",
+    description: "[back-end] Generates a router and controller",
     prompts: [
       {
         type: "input",
@@ -34,7 +34,7 @@ module.exports = function (plop) {
   // region Front-end
 
   plop.setGenerator("component", {
-    description: "Generates a component and a Storybook story",
+    description: "[front-end] Generates a component and a Storybook story",
     prompts: [
       {
         type: "input",
