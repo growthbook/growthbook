@@ -1,0 +1,66 @@
+import express from "express";
+import z from "zod";
+import * as raw{{pascalCase resource}}Controller from "./{{kebabCase resource}}.controller";
+import { wrapController } from "../wrapController";
+import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+
+const router = express.Router();
+
+const {{camelCase resource}}Controller = wrapController(raw{{pascalCase resource}}Controller);
+
+router.get("/", {{camelCase resource}}Controller.get{{pascalCase resource}}s);
+
+router.get(
+  "/:id", 
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  {{camelCase resource}}Controller.get{{pascalCase resource}}
+);
+
+router.post(
+  "/", 
+  validateRequestMiddleware({
+    body: z
+      .object({
+        // TODO:
+      })
+      .strict(),
+  }),
+  {{camelCase resource}}Controller.post{{pascalCase resource}}
+);
+
+router.put(
+  "/:id", 
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        // TODO:
+      })
+      .strict(),
+  }),
+  {{camelCase resource}}Controller.put{{pascalCase resource}}
+);
+
+router.delete(
+  "/:id", 
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  {{camelCase resource}}Controller.delete{{pascalCase resource}}
+);
+
+export { router as {{camelCase resource}}Router };

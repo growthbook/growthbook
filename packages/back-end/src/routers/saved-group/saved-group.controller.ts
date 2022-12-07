@@ -1,29 +1,42 @@
-import { AuthRequest } from "../types/AuthRequest";
-import { Response } from "express";
-import { getOrgFromReq } from "../services/organizations";
+import type { Response } from "express";
+import { AuthRequest } from "../../types/AuthRequest";
+import { ApiErrorResponse } from "../../../types/api";
+import { getOrgFromReq } from "../../services/organizations";
+import { SavedGroupInterface } from "../../../types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
   parseSavedGroupString,
   updateSavedGroup,
-} from "../models/SavedGroupModel";
-import { auditDetailsCreate, auditDetailsUpdate } from "../services/audit";
-import { savedGroupUpdated } from "../services/savedGroups";
+} from "../../models/SavedGroupModel";
+import { auditDetailsCreate, auditDetailsUpdate } from "../../services/audit";
+import { savedGroupUpdated } from "../../services/savedGroups";
 
-// IMPORTANT: SavedGroups and Groups are very similar, but serve two different purposes. At the time of development 9/22 we are
-// quietly deprecating Groups. Initially groups were used with experiments to only include people in a group in an experiement.
-// SavedGroups are used with features flag rules where rules can say if "x is/is not in SavedGroup" do/don't show a feature
+// region POST /saved-groups
 
-export async function postSavedGroup(
-  req: AuthRequest<{
-    groupName: string;
-    owner: string;
-    attributeKey: string;
-    groupList: string;
-  }>,
-  res: Response
-) {
+type CreateSavedGroupRequest = AuthRequest<{
+  groupName: string;
+  owner: string;
+  attributeKey: string;
+  groupList: string;
+}>;
+
+type CreateSavedGroupResponse = {
+  status: 200;
+  savedGroup: SavedGroupInterface;
+};
+
+/**
+ * POST /saved-groups
+ * Create a saved-group resource
+ * @param req
+ * @param res
+ */
+export const postSavedGroup = async (
+  req: CreateSavedGroupRequest,
+  res: Response<CreateSavedGroupResponse>
+) => {
   const { org } = getOrgFromReq(req);
   const { groupName, owner, attributeKey, groupList } = req.body;
 
@@ -52,22 +65,36 @@ export async function postSavedGroup(
     status: 200,
     savedGroup,
   });
-}
+};
 
-export async function putSavedGroup(
-  req: AuthRequest<
-    {
-      groupName: string;
-      owner: string;
-      attributeKey: string;
-      groupList: string;
-    },
-    {
-      id: string;
-    }
-  >,
-  res: Response
-) {
+// endregion POST /saved-groups
+
+// region PUT /saved-groups/:id
+
+type PutSavedGroupRequest = AuthRequest<
+  {
+    groupName: string;
+    owner: string;
+    attributeKey: string;
+    groupList: string;
+  },
+  { id: string }
+>;
+
+type PutSavedGroupResponse = {
+  status: 200;
+};
+
+/**
+ * PUT /saved-groups/:id
+ * Update one saved-group resource
+ * @param req
+ * @param res
+ */
+export const putSavedGroup = async (
+  req: PutSavedGroupRequest,
+  res: Response<PutSavedGroupResponse | ApiErrorResponse>
+) => {
   const { org } = getOrgFromReq(req);
   const { groupName, owner, groupList } = req.body;
   const { id } = req.params;
@@ -111,12 +138,37 @@ export async function putSavedGroup(
   return res.status(200).json({
     status: 200,
   });
-}
+};
 
-export async function deleteSavedGroup(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
+// endregion PUT /saved-groups/:id
+
+// region DELETE /saved-groups/:id
+
+type DeleteSavedGroupRequest = AuthRequest<
+  Record<string, never>,
+  { id: string },
+  Record<string, never>
+>;
+
+type DeleteSavedGroupResponse =
+  | {
+      status: 200;
+    }
+  | {
+      status: number;
+      message: string;
+    };
+
+/**
+ * DELETE /saved-groups/:id
+ * Delete one saved-group resource by ID
+ * @param req
+ * @param res
+ */
+export const deleteSavedGroup = async (
+  req: DeleteSavedGroupRequest,
+  res: Response<DeleteSavedGroupResponse>
+) => {
   req.checkPermissions("manageSavedGroups");
 
   const { id } = req.params;
@@ -145,4 +197,6 @@ export async function deleteSavedGroup(
   res.status(200).json({
     status: 200,
   });
-}
+};
+
+// endregion DELETE /saved-groups/:id
