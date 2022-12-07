@@ -52,7 +52,7 @@ class TestBeta(TestCase):
         pars = 12, 745
         result = Beta.moments(*pars, log=True)
         mean = beta.expect(np.log, pars)
-        var = beta.expect(lambda x: np.log(x) ** 2, pars) - mean ** 2
+        var = beta.expect(lambda x: np.log(x) ** 2, pars) - mean**2
         expected = mean, var
         for res, out in zip(result, expected):
             self.assertEqual(round_(res), round_(out))
@@ -72,7 +72,7 @@ class TestBeta(TestCase):
         for a, b in test_cases:
             x, w = Beta.gq(24, a, b)
             for p in range(8):
-                self.assertEqual(roundsum(x ** p * w), roundsum(beta.moment(p, a, b)))
+                self.assertEqual(roundsum(x**p * w), roundsum(beta.moment(p, a, b)))
             self.assertEqual(
                 roundsum(np.log(x) * w), roundsum(digamma(a) - digamma(a + b))
             )
@@ -134,7 +134,7 @@ class TestNorm(TestCase):
             x, w = Norm.gq(24, loc, scale)
             for p in range(8):
                 self.assertEqual(
-                    roundsum(x ** p * w), roundsum(norm.moment(p, loc, scale))
+                    roundsum(x**p * w), roundsum(norm.moment(p, loc, scale))
                 )
 
         self.assertRaises(RuntimeError, Norm.gq, 24, 0, 0)
