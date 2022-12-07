@@ -210,6 +210,7 @@ def analyze_metric_df(
             # Run the A/B test analysis of baseline vs variation
             if engine == StatsEngine.BAYESIAN:
                 if type == "binomial":
+                    # TODO consider refactor so binomial test just takes proportions
                     test: BaseABTest = BinomialBayesianABTest(
                         stat_a, stat_b, inverse=inverse
                     )

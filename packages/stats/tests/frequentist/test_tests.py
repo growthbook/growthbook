@@ -36,4 +36,4 @@ class TestTwoSidedTTest(TestCase):
                 v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
             result_dict[k] = v
 
-        self.assertEqual(result_dict, expected_rounded_dict)
+        self.assertDictEqual(result_dict, expected_rounded_dict)
