@@ -489,12 +489,18 @@ export default function SinglePage({
                 type="commaList"
                 titleClassName="align-top"
               >
-                <div className="d-inline-block" style={{ maxWidth: 300 }}>
-                  <div>{datasource?.name}</div>
-                  <div className="text-gray font-weight-normal small">
-                    {truncateText(datasource?.description || "", 80)}
+                {datasource && (
+                  <div className="d-inline-block" style={{ maxWidth: 300 }}>
+                    <div>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource?.name}
+                      </Link>
+                    </div>
+                    <div className="text-gray font-weight-normal small">
+                      {truncateText(datasource?.description || "", 80)}
+                    </div>
                   </div>
-                </div>
+                )}
               </RightRailSectionGroup>
               {exposureQuery && (
                 <RightRailSectionGroup
