@@ -9,8 +9,8 @@ import {
   findProjectById,
   updateProject,
 } from "../../models/ProjectModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { getMetricById } from "../../models/MetricModel";
+import { getDataSourcesByIds } from "../../models/DataSourceModel";
+import { getMetricsByIds } from "../../models/MetricModel";
 
 // region POST /projects
 
@@ -42,8 +42,9 @@ export const postProject = async (
   const { name } = req.body;
   const { org } = getOrgFromReq(req);
 
+  const datasourceDocs = await getDataSourcesByIds(datasources, org.id);
   for (let i = 0; i < datasources.length; i++) {
-    const datasource = await getDataSourceById(datasources[i], org.id);
+    const datasource = datasourceDocs.find((dsd) => dsd.id === datasources[i]);
     if (!datasource) {
       res.status(403).json({
         message: "Invalid datasource: " + datasources[i],
@@ -52,8 +53,9 @@ export const postProject = async (
     }
   }
 
+  const metricDocs = await getMetricsByIds(metrics, org.id);
   for (let i = 0; i < metrics.length; i++) {
-    const metric = await getMetricById(metrics[i], org.id);
+    const metric = metricDocs.find((md) => md.id === metrics[i]);
     if (!metric) {
       res.status(403).json({
         message: "Invalid metric: " + metrics[i],
@@ -119,8 +121,9 @@ export const putProject = async (
   const metrics: string[] = req.body.metrics || [];
   const { name } = req.body;
 
+  const datasourceDocs = await getDataSourcesByIds(datasources, org.id);
   for (let i = 0; i < datasources.length; i++) {
-    const datasource = await getDataSourceById(datasources[i], org.id);
+    const datasource = datasourceDocs.find((dsd) => dsd.id === datasources[i]);
     if (!datasource) {
       res.status(403).json({
         message: "Invalid datasource: " + datasources[i],
@@ -129,8 +132,9 @@ export const putProject = async (
     }
   }
 
+  const metricDocs = await getMetricsByIds(metrics, org.id);
   for (let i = 0; i < metrics.length; i++) {
-    const metric = await getMetricById(metrics[i], org.id);
+    const metric = metricDocs.find((md) => md.id === metrics[i]);
     if (!metric) {
       res.status(403).json({
         message: "Invalid metric: " + metrics[i],

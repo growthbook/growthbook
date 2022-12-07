@@ -182,6 +182,21 @@ export async function getMetricById(
   return res ? toInterface(res) : null;
 }
 
+export async function getMetricsByIds(ids: string[], organization: string) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    return getConfigMetrics(organization).filter(
+      (m) => ids.includes(m.datasource) || []
+    );
+  }
+
+  const docs = await MetricModel.find({
+    id: { $in: ids },
+    organization,
+  });
+  return docs.map(toInterface);
+}
+
 export async function getMetricsUsingSegment(
   segment: string,
   organization: string
