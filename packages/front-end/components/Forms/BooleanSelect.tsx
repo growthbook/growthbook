@@ -4,6 +4,9 @@ import { Controller, Control } from "react-hook-form";
 // eslint-disable-next-line
 export type BooleanSelectControl = Control<any>;
 
+/**
+ * @deprecated
+ */
 export default function BooleanSelect(
   props: {
     name: string;
