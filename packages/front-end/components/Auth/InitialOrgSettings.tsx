@@ -68,7 +68,7 @@ export default function InitialOrgSettings(): ReactElement {
       method: "PUT",
       body: JSON.stringify({
         types: value.types,
-        dataSouce: datas,
+        dataSource: datas,
         techStack: techs,
       }),
     });

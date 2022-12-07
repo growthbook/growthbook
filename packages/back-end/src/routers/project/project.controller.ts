@@ -9,10 +9,16 @@ import {
   findProjectById,
   updateProject,
 } from "../../models/ProjectModel";
+import { getDataSourceById } from "../../models/DataSourceModel";
+import { getMetricById } from "../../models/MetricModel";
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string }>;
+type CreateProjectRequest = AuthRequest<{
+  name: string;
+  datasources?: string[];
+  metrics?: string[];
+}>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -31,11 +37,37 @@ export const postProject = async (
 ) => {
   req.checkPermissions("manageProjects");
 
-  const { name } = req.body;
+  const { name, datasources, metrics } = req.body;
   const { org } = getOrgFromReq(req);
+
+  if (datasources?.length) {
+    for (let i = 0; i < datasources.length; i++) {
+      const datasource = await getDataSourceById(datasources[i], org.id);
+      if (!datasource) {
+        res.status(403).json({
+          message: "Invalid datasource: " + datasources[i],
+        });
+        return;
+      }
+    }
+  }
+
+  if (metrics?.length) {
+    for (let i = 0; i < metrics.length; i++) {
+      const metric = await getMetricById(metrics[i], org.id);
+      if (!metric) {
+        res.status(403).json({
+          message: "Invalid metric: " + metrics[i],
+        });
+        return;
+      }
+    }
+  }
 
   const doc = await createProject(org.id, {
     name,
+    datasources,
+    metrics,
   });
 
   res.status(200).json({
@@ -50,7 +82,11 @@ export const postProject = async (
 
 type PutProjectRequest = AuthRequest<
   Record<string, never>,
-  { id: string },
+  {
+    id: string;
+    datasources?: string[];
+    metrics?: string[];
+  },
   Record<string, never>
 >;
 
@@ -66,7 +102,7 @@ type PutProjectResponse = {
  */
 export const putProject = async (
   req: PutProjectRequest,
-  res: Response<PutProjectResponse>
+  res: Response<PutProjectResponse | ApiErrorResponse>
 ) => {
   req.checkPermissions("manageProjects");
 
@@ -75,13 +111,42 @@ export const putProject = async (
   const project = await findProjectById(id, org.id);
 
   if (!project) {
-    throw new Error("Could not find project");
+    res.status(403).json({
+      message: "Could not find project",
+    });
+    return;
   }
 
-  const { name } = req.body;
+  const { name, datasources, metrics } = req.body;
+
+  if (datasources?.length) {
+    for (let i = 0; i < datasources.length; i++) {
+      const datasource = await getDataSourceById(datasources[i], org.id);
+      if (!datasource) {
+        res.status(403).json({
+          message: "Invalid datasource: " + datasources[i],
+        });
+        return;
+      }
+    }
+  }
+
+  if (metrics?.length) {
+    for (let i = 0; i < metrics.length; i++) {
+      const metric = await getMetricById(metrics[i], org.id);
+      if (!metric) {
+        res.status(403).json({
+          message: "Invalid metric: " + metrics[i],
+        });
+        return;
+      }
+    }
+  }
 
   await updateProject(id, project.organization, {
     name,
+    datasources,
+    metrics,
     dateUpdated: new Date(),
   });
 

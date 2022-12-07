@@ -14,6 +14,8 @@ router.post(
     body: z
       .object({
         name: z.string(),
+        datasources: z.optional(z.array(z.string())),
+        metrics: z.optional(z.array(z.string())),
       })
       .strict(),
   }),
@@ -31,6 +33,8 @@ router.put(
     body: z
       .object({
         name: z.string(),
+        datasources: z.optional(z.array(z.string())),
+        metrics: z.optional(z.array(z.string())),
       })
       .strict(),
   }),

@@ -11,7 +11,12 @@ import usePermissions from "../hooks/usePermissions";
 const ProjectsPage: FC = () => {
   const permissions = usePermissions();
 
-  const { projects, mutateDefinitions } = useDefinitions();
+  const {
+    projects,
+    mutateDefinitions,
+    datasources,
+    metrics,
+  } = useDefinitions();
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
@@ -46,20 +51,42 @@ const ProjectsPage: FC = () => {
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Project Id</th>
               <th>Project Name</th>
+              <th>Project Id</th>
               <th>Date Created</th>
               <th>Date Updated</th>
+              <th>Data Sources</th>
+              <th>Metrics</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {projects.map((p) => (
               <tr key={p.id}>
-                <td>{p.id}</td>
                 <td>{p.name}</td>
+                <td>{p.id}</td>
                 <td>{date(p.dateCreated)}</td>
                 <td>{date(p.dateUpdated)}</td>
+                <td className="col-2">
+                  {p.datasources.map((ds) => (
+                    <span
+                      key={`datasource_tag_${ds}`}
+                      className="tag mr-2 badge badge-primary"
+                    >
+                      {datasources.find((d) => d.id === ds)?.name}
+                    </span>
+                  ))}
+                </td>
+                <td className="col-2">
+                  {p.metrics.map((m) => (
+                    <span
+                      key={`metric_tag_${m}`}
+                      className="tag mr-2 badge badge-primary"
+                    >
+                      {metrics.find((mm) => mm.id === m)?.name}
+                    </span>
+                  ))}
+                </td>
                 <td>
                   <button
                     className="btn btn-outline-primary"
