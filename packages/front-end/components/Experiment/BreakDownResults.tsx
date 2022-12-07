@@ -3,7 +3,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  useRiskVariation
+  useRiskVariation,
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "back-end/types/metric";
@@ -64,8 +64,7 @@ const BreakDownResults: FC<{
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
-        const newMetric = structuredClone(metric) as MetricInterface;
-        applyMetricOverrides(newMetric, metricOverrides);
+        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         return {
           metric: newMetric,
           isGuardrail: !metrics.includes(metricId),

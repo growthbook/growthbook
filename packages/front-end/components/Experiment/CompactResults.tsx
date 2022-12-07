@@ -6,7 +6,7 @@ import DataQualityWarning from "./DataQualityWarning";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  useRiskVariation
+  useRiskVariation,
 } from "../../services/experiments";
 import ResultsTable from "./ResultsTable";
 import {
@@ -17,7 +17,6 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import Link from "next/link";
-import { MetricInterface } from "back-end/types/metric";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -49,16 +48,15 @@ const CompactResults: FC<{
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     return metrics
-      .map((m) => {
-        const metric = getMetricById(m);
-        const newMetric = structuredClone(metric) as MetricInterface;
-        applyMetricOverrides(newMetric, metricOverrides);
+      .map((metricId) => {
+        const metric = getMetricById(metricId);
+        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         return {
           label: newMetric?.name,
           metric: newMetric,
           rowClass: newMetric?.inverse ? "inverse" : "",
           variations: results.variations.map((v) => {
-            return v.metrics[m];
+            return v.metrics[metricId];
           }),
         };
       })

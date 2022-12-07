@@ -184,30 +184,37 @@ export function useDomain(
 
 export function applyMetricOverrides(
   metric: MetricInterface,
-  metricOverrides?: MetricOverride[],
-): string[] {
+  metricOverrides?: MetricOverride[]
+): {
+  newMetric: MetricInterface;
+  overrideFields: string[];
+} {
+  if (!metric || !metricOverrides) {
+    return {
+      newMetric: metric,
+      overrideFields: [],
+    };
+  }
+  const newMetric = structuredClone(metric) as MetricInterface;
   const overrideFields: string[] = [];
-  if (!metric || !metricOverrides) return overrideFields;
-  const metricOverride = metricOverrides.find(
-    (mo) => mo.id === metric.id
-  );
+  const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
     if ("conversionWindowHours" in metricOverride) {
-      metric.conversionWindowHours = metricOverride.conversionWindowHours;
+      newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
       overrideFields.push("conversionWindowHours");
     }
     if ("conversionDelayHours" in metricOverride) {
-      metric.conversionDelayHours = metricOverride.conversionDelayHours;
+      newMetric.conversionDelayHours = metricOverride.conversionDelayHours;
       overrideFields.push("conversionDelayHours");
     }
     if ("winRisk" in metricOverride) {
-      metric.winRisk = metricOverride.winRisk;
+      newMetric.winRisk = metricOverride.winRisk;
       overrideFields.push("winRisk");
     }
     if ("loseRisk" in metricOverride) {
-      metric.loseRisk = metricOverride.loseRisk;
+      newMetric.loseRisk = metricOverride.loseRisk;
       overrideFields.push("loseRisk");
     }
   }
-  return overrideFields;
+  return { newMetric, overrideFields };
 }

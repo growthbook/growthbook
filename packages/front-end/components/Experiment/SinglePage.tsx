@@ -60,8 +60,10 @@ function drawMetricRow(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
 ) {
-  const newMetric = structuredClone(metric) as MetricInterface;
-  const overrideFields = applyMetricOverrides(newMetric, experiment.metricOverrides);
+  const { newMetric, overrideFields } = applyMetricOverrides(
+    metric,
+    experiment.metricOverrides
+  );
   return (
     <div className="row align-items-top" key={m}>
       <div className="col-sm-5">
