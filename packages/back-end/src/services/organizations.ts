@@ -17,6 +17,7 @@ import {
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
+  ProjectMemberRole,
 } from "../../types/organization";
 import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
@@ -221,12 +222,14 @@ export async function addMemberToOrg({
   role,
   environments,
   limitAccessByEnvironment,
+  projectRoles,
 }: {
   organization: OrganizationInterface;
   userId: string;
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  projectRoles?: ProjectMemberRole[];
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -240,6 +243,7 @@ export async function addMemberToOrg({
       role,
       limitAccessByEnvironment,
       environments,
+      projectRoles,
       dateCreated: new Date(),
     },
   ];
