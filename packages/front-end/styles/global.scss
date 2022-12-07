@@ -144,6 +144,11 @@ pre {
   @include badge-variant(#f6f7f9);
   border: 1px solid colors.$gray4;
 }
+.badge-purple {
+  background-color: var(--form-multivalue-background-color);
+  color: var(--form-multivalue-text-color);
+}
+
 .multi-select-container {
   z-index: 99999999;
 }
