@@ -80,7 +80,7 @@ module.exports = function (plop) {
       {
         type: "add",
         skipIfExists: true,
-        path: "./packages/front-end/components/{{route}}.tsx",
+        path: "./packages/front-end/pages/{{route}}.tsx",
         templateFile: "./plop-templates/front-end/next-page.hbs",
       },
     ],
