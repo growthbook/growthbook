@@ -269,6 +269,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
         name: d.name,
         type: d.type,
         settings: d.settings,
+        projects: d.projects ?? [],
         params: getNonSensitiveParams(integration),
       };
     }),
@@ -308,13 +309,14 @@ export async function postDataSources(
     type: DataSourceType;
     params: DataSourceParams;
     settings: DataSourceSettings;
+    projects?: string[];
   }>,
   res: Response
 ) {
   req.checkPermissions("createDatasources");
 
   const { org } = getOrgFromReq(req);
-  const { name, type, params } = req.body;
+  const { name, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
   try {
@@ -331,7 +333,9 @@ export async function postDataSources(
       name,
       type,
       params,
-      settings
+      settings,
+      undefined,
+      projects,
     );
 
     res.status(200).json({
@@ -353,6 +357,7 @@ export async function putDataSource(
       type: DataSourceType;
       params: DataSourceParams;
       settings: DataSourceSettings;
+      projects?: string[];
     },
     { id: string }
   >,
@@ -360,7 +365,7 @@ export async function putDataSource(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { name, type, params, settings } = req.body;
+  const { name, type, params, projects, settings } = req.body;
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -395,9 +400,11 @@ export async function putDataSource(
     if (name) {
       updates.name = name;
     }
-
     if (settings) {
       updates.settings = settings;
+    }
+    if (projects) {
+      updates.projects = projects;
     }
 
     if (

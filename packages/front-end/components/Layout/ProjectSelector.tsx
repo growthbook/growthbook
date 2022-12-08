@@ -4,34 +4,73 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
+import { CSSProperties } from "react";
 
-function ProjectName({
+export function ProjectName({
   display,
   avatarName,
   className,
+  style,
   bold = false,
+  outline = false,
   caret = false,
+  labelPosition = "right",
 }: {
   display: string;
   avatarName: string;
   className?: string;
+  style?: CSSProperties;
   bold?: boolean;
+  outline?: boolean;
   caret?: boolean;
+  labelPosition?: "right" | "bottom";
 }) {
+  let outerStyle: CSSProperties;
+  outerStyle = {
+    padding: labelPosition === "right" ? 10 : 4,
+  };
+  if (style) {
+    outerStyle = {
+      ...outerStyle,
+      ...style,
+    };
+  }
+
+  let labelStyle = {};
+  if (labelPosition === "right") {
+    labelStyle = {
+      flex: 1,
+      lineHeight: 1.2,
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+    };
+  } else if (labelPosition === "bottom") {
+    labelStyle = {
+      width: 70,
+      minWidth: 70,
+      fontSize: 11,
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      textOverflow: "ellipsis",
+      textAlign: "center",
+    };
+  }
   return (
     <div
-      className={clsx(className, "d-flex align-items-center")}
-      style={{ padding: "10px" }}
+      className={clsx(
+        className,
+        labelPosition === "right" ? "d-flex align-items-center" : "",
+        labelPosition === "bottom" ? "d-inline-block" : ""
+      )}
+      style={outerStyle}
     >
-      <LetterAvatar name={avatarName} defaultInitials="ALL" />
-      <div
-        style={{
-          flex: 1,
-          lineHeight: 1.2,
-          whiteSpace: "normal",
-          wordBreak: "break-word",
-        }}
-      >
+      <LetterAvatar
+        name={avatarName}
+        defaultInitials="ALL"
+        labelPosition={labelPosition}
+        outline={outline}
+      />
+      <div style={labelStyle}>
         {bold ? <strong>{display}</strong> : display}
       </div>
       {caret && <FaCaretDown />}

@@ -75,6 +75,7 @@ const MultiSelectField: FC<
     onChange: (value: string[]) => void;
     sort?: boolean;
     customStyles?: StylesConfig;
+    customClassName?: string;
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
   }
@@ -88,6 +89,7 @@ const MultiSelectField: FC<
   disabled,
   autoFocus,
   customStyles,
+  customClassName,
   creatable,
   closeMenuOnSelect = false,
   ...otherProps
@@ -113,6 +115,7 @@ const MultiSelectField: FC<
   return (
     <Field
       {...fieldProps}
+      className={customClassName}
       render={(id, ref) => {
         return (
           <Component
@@ -143,6 +146,7 @@ const MultiSelectField: FC<
             value={selected}
             placeholder={initialOption ?? placeholder}
             {...{ ...ReactSelectProps, ...mergeStyles }}
+
           />
         );
       }}

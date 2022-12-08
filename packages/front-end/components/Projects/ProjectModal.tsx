@@ -41,22 +41,22 @@ export default function ProjectModal({
     >
       <Field label="Name" maxLength={30} required {...form.register("name")} />
 
-      { datasources.length && (
+      {datasources.length && (
         <MultiSelectField
           label="Data Sources (optional)"
           value={form.watch("datasources")}
           onChange={(v) => form.setValue("datasources", v)}
-          options={datasources.map(ds => ({label: ds.name, value: ds.id}))}
+          options={datasources.map((ds) => ({ label: ds.name, value: ds.id }))}
           helpText="Limit this project to specific data sources"
         />
       )}
 
-      { metrics.length && (
+      {metrics.length && (
         <MultiSelectField
           label="Metrics (optional)"
           value={form.watch("metrics")}
           onChange={(v) => form.setValue("metrics", v)}
-          options={metrics.map(m => ({label: m.name, value: m.id}))}
+          options={metrics.map((m) => ({ label: m.name, value: m.id }))}
           helpText="Limit this project to specific metrics"
         />
       )}

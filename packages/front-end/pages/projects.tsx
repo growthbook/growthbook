@@ -18,6 +18,8 @@ const ProjectsPage: FC = () => {
     metrics,
   } = useDefinitions();
 
+  console.log(datasources);
+
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null

@@ -28,9 +28,13 @@ function getTextColor(bg: string): string {
 export default function LetterAvatar({
   name,
   defaultInitials = "",
+  labelPosition,
+  outline = false,
 }: {
   name: string;
   defaultInitials?: string;
+  labelPosition: "right" | "bottom";
+  outline: boolean;
 }) {
   const initials = name
     ? name
@@ -49,24 +53,34 @@ export default function LetterAvatar({
 
   const text = getTextColor(bg);
 
-  return (
-    <div
-      style={{
-        display: "inline-block",
-        marginRight: 8,
-        width: 40,
-        minWidth: 40,
-        height: 40,
-        lineHeight: "40px",
-        fontSize: name ? 18 : 15,
-        fontWeight: "bold",
-        textAlign: "center",
-        backgroundColor: bg,
-        color: text,
-        borderRadius: 8,
-      }}
-    >
-      {initials}
-    </div>
-  );
+  let style: CSSProperties;
+  style = {
+    display: "inline-block",
+    marginRight: 8,
+    width: 40,
+    minWidth: 40,
+    height: 40,
+    lineHeight: "40px",
+    fontSize: name ? 18 : 15,
+    fontWeight: "bold",
+    textAlign: "center",
+    backgroundColor: bg,
+    color: text,
+    borderRadius: 8,
+  };
+  if (labelPosition === "bottom") {
+    style = {
+      ...style,
+      marginRight: 15,
+      marginLeft: 15,
+    };
+  }
+  if (outline) {
+    style = {
+      ...style,
+      boxShadow: "0 0 0 2px rgb(0 0 0 / 25%) inset",
+    };
+  }
+
+  return <div style={style}>{initials}</div>;
 }

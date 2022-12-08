@@ -15,6 +15,8 @@ import { getInitialSettings } from "../../services/datasources";
 import { DocLink, DocSection } from "../DocLink";
 import ConnectionSettings from "./ConnectionSettings";
 import { dataSourceConnections } from "../../services/eventSchema";
+import MultiSelectField from "../Forms/MultiSelectField";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const typeOptions = dataSourceConnections;
 
@@ -39,6 +41,7 @@ const DataSourceForm: FC<{
   cta = "Save",
   secondaryCTA,
 }) => {
+  const { projects } = useDefinitions();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -128,6 +131,13 @@ const DataSourceForm: FC<{
     });
     setDirty(true);
   };
+  const onManualChange = (name, value) => {
+    setDatasource({
+      ...datasource,
+      [name]: value,
+    });
+    setDirty(true);
+  };
 
   return (
     <Modal
@@ -211,6 +221,18 @@ const DataSourceForm: FC<{
           value={datasource.name}
         />
       </div>
+      {projects?.length && (
+        <div className="form-group">
+          <label>Projects (optional)</label>
+          <MultiSelectField
+            value={datasource.projects || []}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => onManualChange("projects", v)}
+            customClassName="label-overflow-ellipsis"
+            helpText="Limit this data source to specific projects"
+          />
+        </div>
+      )}
       <ConnectionSettings
         datasource={datasource}
         existing={existing}

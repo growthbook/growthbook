@@ -23,16 +23,9 @@ const DataSources: FC = () => {
     mutateDefinitions,
     ready,
     project,
-    getProjectById,
+    projects,
   } = useDefinitions();
-  const projectDefinition = getProjectById(project);
-  let filteredDatasources = datasources.filter((d) => d.properties?.segments);
-  if (projectDefinition?.datasources?.length) {
-    const projectDatasources = projectDefinition.datasources;
-    filteredDatasources = datasources.filter((ds) =>
-      projectDatasources.includes(ds.id)
-    );
-  }
+  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
   const permissions = usePermissions();
 
@@ -51,6 +44,7 @@ const DataSources: FC = () => {
             <tr>
               <th>Display Name</th>
               <th>Type</th>
+              <td>Projects</td>
               {!hasFileConfig() && <th>Date Added</th>}
             </tr>
           </thead>
@@ -81,6 +75,19 @@ const DataSources: FC = () => {
                   )}
                 </td>
                 <td>{d.type}</td>
+                <td className="col-3">
+                  {d.projects.map((p) => (
+                    <span
+                      key={`project_tag_${p}`}
+                      className={`tag mr-2 text-ellipsis badge ${
+                        project === p ? "badge-primary" : "badge-gray"
+                      }`}
+                      style={{ maxWidth: 120 }}
+                    >
+                      {projects.find((pd) => pd.id === p)?.name}
+                    </span>
+                  ))}
+                </td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
               </tr>
             ))}

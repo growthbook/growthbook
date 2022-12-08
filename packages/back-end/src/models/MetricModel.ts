@@ -50,6 +50,10 @@ const metricSchema = new mongoose.Schema({
   timestampColumn: String,
   queryFormat: String,
   tags: [String],
+  projects: {
+    type: [String],
+    index: true,
+  },
   conditions: [
     {
       _id: false,

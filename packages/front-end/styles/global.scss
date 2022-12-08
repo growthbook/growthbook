@@ -34,6 +34,12 @@ body {
   color: var(--text-color-muted) !important;
 }
 
+.text-ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 #block-menu-container {
   z-index: 990;
 }
@@ -1978,11 +1984,19 @@ td.disabled {
     padding: 2px;
   }
   .gb-select__indicator {
-    padding: 1;
+    padding: 1px;
     svg {
       width: 15px;
       height: 15px;
     }
+  }
+}
+.form-group.label-overflow-ellipsis {
+  .gb-multi-select__multi-value__label {
+    max-width: 200px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 
