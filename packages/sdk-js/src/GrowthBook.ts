@@ -539,7 +539,7 @@ export class GrowthBook {
     // 9. Get bucket ranges and choose variation
     const ranges = getBucketRanges(
       numVariations,
-      experiment.coverage || 1,
+      experiment.coverage ?? 1,
       experiment.weights
     );
     const n = hash(hashValue + key);

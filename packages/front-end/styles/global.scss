@@ -1973,5 +1973,17 @@ td.disabled {
     color: var(--text-color-muted) !important;
   }
 }
+.gb-select-wrapper.small {
+  .gb-select__value-container {
+    padding: 2px;
+  }
+  .gb-select__indicator {
+    padding: 1;
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+}
 
 @import "./components/react-select.scss";

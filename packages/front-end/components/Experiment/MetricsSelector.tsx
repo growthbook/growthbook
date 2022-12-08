@@ -3,6 +3,7 @@ import { useDefinitions } from "../../services/DefinitionsContext";
 import { FaQuestionCircle } from "react-icons/fa";
 import Tooltip from "../Tooltip/Tooltip";
 import MultiSelectField from "../Forms/MultiSelectField";
+import SelectField from "../Forms/SelectField";
 
 const MetricsSelector: FC<{
   datasource?: string;
@@ -48,13 +49,13 @@ const MetricsSelector: FC<{
               <FaQuestionCircle />
             </Tooltip>
           </span>
-          <select
+          <SelectField
             placeholder="..."
             value="..."
-            className="form-control ml-3"
-            onChange={(e) => {
+            className="ml-3"
+            onChange={(v) => {
               const newValue = new Set(selected);
-              const tag = e.target.value;
+              const tag = v;
               validMetrics.forEach((m) => {
                 if (m.tags && m.tags.includes(tag)) {
                   newValue.add(m.id);
@@ -62,14 +63,17 @@ const MetricsSelector: FC<{
               });
               onChange(Array.from(newValue));
             }}
-          >
-            <option value="...">...</option>
-            {Object.keys(tagCounts).map((k) => (
-              <option value={k} key={k}>
-                {k} ({tagCounts[k]})
-              </option>
-            ))}
-          </select>
+            options={[
+              {
+                value: "...",
+                label: "...",
+              },
+              ...Object.keys(tagCounts).map((k) => ({
+                value: k,
+                label: `${k} (${tagCounts[k]})`,
+              })),
+            ]}
+          />
         </div>
       )}
     </>
