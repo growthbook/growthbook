@@ -78,7 +78,9 @@ export const ButtonFeedback = () => {
         style={{ position: "relative" }}
       >
         <button className="btn" onClick={() => performCopy("token_abc123")}>
-          {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
+          <span className="text-main">
+            {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
+          </span>
         </button>
 
         <span>token_abc123</span>
