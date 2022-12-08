@@ -228,7 +228,7 @@ export default function ConditionInput(props: Props) {
                         value: s.property,
                       }))}
                       name="field"
-                      className={`${styles.firstselect}`}
+                      className={styles.firstselect}
                       onChange={(value) => {
                         const newConds = [...conds];
                         newConds[i] = { ...newConds[i] };
