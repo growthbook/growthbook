@@ -104,7 +104,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
 export const EventWebHookDetailContainer = () => {
   const router = useRouter();
-
   const { eventwebhookid: eventWebHookId } = router.query;
 
   const { data, error } = useApi<{ eventWebHook: EventWebHookInterface }>(
