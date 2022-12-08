@@ -83,7 +83,10 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const eventWebHook = await getEventWebHookById(eventWebHookId);
+    const eventWebHook = await getEventWebHookById(
+      eventWebHookId,
+      event.organizationId
+    );
     if (!eventWebHook) {
       // We should never get here.
       throw new Error(
