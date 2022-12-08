@@ -228,7 +228,7 @@ export default function ConditionInput(props: Props) {
                         value: s.property,
                       }))}
                       name="field"
-                      className={`${styles.firstselect} form-control`}
+                      className={`${styles.firstselect}`}
                       onChange={(value) => {
                         const newConds = [...conds];
                         newConds[i] = { ...newConds[i] };
@@ -256,7 +256,6 @@ export default function ConditionInput(props: Props) {
                       onChange={(v) => {
                         onSelectFieldChange(v, "operator");
                       }}
-                      className="form-control"
                     />
                   </div>
                   {[
