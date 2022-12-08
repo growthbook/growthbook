@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+
 import { EventWebHookDetail } from "./EventWebHookDetail";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { NotificationEventName } from "back-end/src/events/base-types";
 import { getValidDate } from "../../../services/dates";
 
 export default {
@@ -62,4 +65,34 @@ export const FailedRun = () => {
 
 export const WithoutRuns = () => {
   return <EventWebHookDetail eventWebHook={eventWebHookNoState} />;
+};
+
+export const LotsOfEvents = () => {
+  // These are fake event names, for now, until we create them.
+  const eventsList: NotificationEventName[] = [
+    "feature.created",
+    "feature.updated",
+    "feature.deleted",
+    // @ts-ignore
+    "experiment.created",
+    // @ts-ignore
+    "experiment.updated",
+    // @ts-ignore
+    "experiment.deleted",
+    // @ts-ignore
+    "another_resource.created",
+    // @ts-ignore
+    "another_resource.updated",
+    // @ts-ignore
+    "another_resource.deleted",
+  ];
+
+  return (
+    <EventWebHookDetail
+      eventWebHook={{
+        ...eventWebHookSuccessState,
+        events: eventsList,
+      }}
+    />
+  );
 };
