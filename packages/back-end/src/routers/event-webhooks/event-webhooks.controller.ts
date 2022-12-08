@@ -8,6 +8,7 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
 import { NotificationEventName } from "../../events/base-types";
+import { getEventWebHookById } from "../../models/EventWebhookModel";
 
 // region GET /event-webhooks
 
@@ -19,7 +20,7 @@ type GetEventWebHooks = {
 
 export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
-  res: Response<GetEventWebHooks | ApiErrorResponse>
+  res: Response<GetEventWebHooks>
 ) => {
   req.checkPermissions("manageWebhooks");
 
@@ -31,6 +32,35 @@ export const getEventWebHooks = async (
 };
 
 // endregion GET /event-webhooks
+
+// region GET /event-webhooks/:id
+
+type GetEventWebHookByIdRequest = AuthRequest<null, { eventWebHookId: string }>;
+
+type GetEventWebHookByIdResponse = {
+  eventWebHook: EventWebHookInterface;
+};
+
+export const getEventWebHook = async (
+  req: GetEventWebHookByIdRequest,
+  res: Response<GetEventWebHookByIdResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+  const { eventWebHookId } = req.params;
+
+  const eventWebHook = await getEventWebHookById(eventWebHookId, org.id);
+  if (!eventWebHook) {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return res.json({
+    eventWebHook,
+  });
+};
+
+// endregion GET /event-webhooks/:id
 
 // region POST /event-webhooks
 
