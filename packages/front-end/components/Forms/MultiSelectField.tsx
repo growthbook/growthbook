@@ -146,7 +146,6 @@ const MultiSelectField: FC<
             value={selected}
             placeholder={initialOption ?? placeholder}
             {...{ ...ReactSelectProps, ...mergeStyles }}
-
           />
         );
       }}

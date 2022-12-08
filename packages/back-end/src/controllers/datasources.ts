@@ -335,7 +335,7 @@ export async function postDataSources(
       params,
       settings,
       undefined,
-      projects,
+      projects
     );
 
     res.status(200).json({

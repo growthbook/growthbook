@@ -110,7 +110,7 @@ export async function createDataSource(
   params: DataSourceParams,
   settings: DataSourceSettings,
   id?: string,
-  projects?: string[],
+  projects?: string[]
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");

@@ -9,16 +9,10 @@ import {
   findProjectById,
   updateProject,
 } from "../../models/ProjectModel";
-import { getDataSourcesByIds } from "../../models/DataSourceModel";
-import { getMetricsByIds } from "../../models/MetricModel";
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{
-  name: string;
-  datasources?: string[];
-  metrics?: string[];
-}>;
+type CreateProjectRequest = AuthRequest<{ name: string }>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -37,37 +31,11 @@ export const postProject = async (
 ) => {
   req.checkPermissions("manageProjects");
 
-  const datasources: string[] = req.body.datasources || [];
-  const metrics: string[] = req.body.metrics || [];
   const { name } = req.body;
   const { org } = getOrgFromReq(req);
 
-  const datasourceDocs = await getDataSourcesByIds(datasources, org.id);
-  for (let i = 0; i < datasources.length; i++) {
-    const datasource = datasourceDocs.find((dsd) => dsd.id === datasources[i]);
-    if (!datasource) {
-      res.status(403).json({
-        message: "Invalid datasource: " + datasources[i],
-      });
-      return;
-    }
-  }
-
-  const metricDocs = await getMetricsByIds(metrics, org.id);
-  for (let i = 0; i < metrics.length; i++) {
-    const metric = metricDocs.find((md) => md.id === metrics[i]);
-    if (!metric) {
-      res.status(403).json({
-        message: "Invalid metric: " + metrics[i],
-      });
-      return;
-    }
-  }
-
   const doc = await createProject(org.id, {
     name,
-    datasources,
-    metrics,
   });
 
   res.status(200).json({
@@ -117,36 +85,10 @@ export const putProject = async (
     return;
   }
 
-  const datasources: string[] = req.body.datasources || [];
-  const metrics: string[] = req.body.metrics || [];
   const { name } = req.body;
-
-  const datasourceDocs = await getDataSourcesByIds(datasources, org.id);
-  for (let i = 0; i < datasources.length; i++) {
-    const datasource = datasourceDocs.find((dsd) => dsd.id === datasources[i]);
-    if (!datasource) {
-      res.status(403).json({
-        message: "Invalid datasource: " + datasources[i],
-      });
-      return;
-    }
-  }
-
-  const metricDocs = await getMetricsByIds(metrics, org.id);
-  for (let i = 0; i < metrics.length; i++) {
-    const metric = metricDocs.find((md) => md.id === metrics[i]);
-    if (!metric) {
-      res.status(403).json({
-        message: "Invalid metric: " + metrics[i],
-      });
-      return;
-    }
-  }
 
   await updateProject(id, project.organization, {
     name,
-    datasources,
-    metrics,
     dateUpdated: new Date(),
   });
 

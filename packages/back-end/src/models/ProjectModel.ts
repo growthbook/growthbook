@@ -14,8 +14,6 @@ const projectSchema = new mongoose.Schema({
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
-  datasources: [String],
-  metrics: [String],
 });
 
 type ProjectDocument = mongoose.Document & ProjectInterface;

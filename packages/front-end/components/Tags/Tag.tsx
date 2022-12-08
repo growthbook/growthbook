@@ -11,7 +11,14 @@ interface Props {
   skipColor?: boolean;
 }
 
-export default function Tag({ tag, color, description, badgeClassName = "badge-primary", className, skipColor = false }: Props) {
+export default function Tag({
+  tag,
+  color,
+  description,
+  badgeClassName = "badge-primary",
+  className,
+  skipColor = false,
+}: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 

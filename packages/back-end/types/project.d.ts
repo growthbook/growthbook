@@ -4,6 +4,4 @@ export interface ProjectInterface {
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
-  datasources?: string[];
-  metrics?: string[];
 }
