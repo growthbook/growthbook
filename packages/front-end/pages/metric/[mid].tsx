@@ -49,6 +49,9 @@ import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import ProjectTags from "../../components/Tags/ProjectTags";
+import EditProjectsForm from "../../components/Projects/EditProjectsForm";
+import { GBEdit } from "../../components/Icons";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -66,6 +69,7 @@ const MetricPage: FC = () => {
 
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
+  const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
   const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
@@ -264,6 +268,21 @@ const MetricPage: FC = () => {
           }}
         />
       )}
+      {editProjects && (
+        <EditProjectsForm
+          cancel={() => setEditProjects(false)}
+          mutate={mutate}
+          projects={metric.projects}
+          save={async (projects) => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                projects,
+              }),
+            });
+          }}
+        />
+      )}
       {editOwnerModal && (
         <EditOwnerModal
           cancel={() => setEditOwnerModal(false)}
@@ -357,6 +376,30 @@ const MetricPage: FC = () => {
             </MoreMenu>
           </div>
         )}
+      </div>
+      <div className="row mb-3 align-items-center">
+        <div className="col">
+          Projects:{" "}
+          {metric?.projects?.length ? (
+            <ProjectTags
+              projectIds={metric.projects}
+              className="badge-ellipsis align-middle"
+            />
+          ) : (
+            <ProjectTags className="badge-ellipsis align-middle" />
+          )}
+          {canEdit && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditProjects(true);
+              }}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="row">
@@ -691,6 +734,24 @@ const MetricPage: FC = () => {
             >
               <RightRailSectionGroup type="tags">
                 {metric.tags}
+              </RightRailSectionGroup>
+            </RightRailSection>
+
+            <hr />
+            <RightRailSection
+              title="Projects"
+              open={() => setEditProjects(true)}
+              canOpen={canEdit}
+            >
+              <RightRailSectionGroup>
+                {metric?.projects?.length ? (
+                  <ProjectTags
+                    projectIds={metric.projects}
+                    className="badge-ellipsis align-middle"
+                  />
+                ) : (
+                  <ProjectTags className="badge-ellipsis align-middle" />
+                )}
               </RightRailSectionGroup>
             </RightRailSection>
 

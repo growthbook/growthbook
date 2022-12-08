@@ -22,6 +22,7 @@ import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
 import { useUser } from "../services/UserContext";
 import Field from "../components/Forms/Field";
+import ProjectTags from "../components/Tags/ProjectTags";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -230,6 +231,7 @@ const MetricsPage = (): React.ReactElement => {
             <SortableTH field="name">Name</SortableTH>
             <SortableTH field="type">Type</SortableTH>
             <th>Tags</th>
+            <th>Projects</th>
             <th>Owner</th>
             <SortableTH
               field="datasourceName"
@@ -275,6 +277,14 @@ const MetricsPage = (): React.ReactElement => {
 
               <td className="nowrap">
                 <SortedTags tags={Object.values(metric.tags)} />
+              </td>
+              <td className="col-2">
+                {metric?.projects && (
+                  <ProjectTags
+                    projectIds={metric.projects}
+                    className="badge-ellipsis align-middle"
+                  />
+                )}
               </td>
               <td>{metric.owner}</td>
               <td className="d-none d-lg-table-cell">

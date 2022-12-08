@@ -18,14 +18,7 @@ const DataSources: FC = () => {
 
   const router = useRouter();
 
-  const {
-    datasources,
-    error,
-    mutateDefinitions,
-    ready,
-    project,
-    projects,
-  } = useDefinitions();
+  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
   const permissions = usePermissions();
@@ -77,7 +70,7 @@ const DataSources: FC = () => {
                 </td>
                 <td>{d.type}</td>
                 <td className="col-3">
-                  <ProjectTags projectIds={d.projects} />
+                  {d?.projects && <ProjectTags projectIds={d.projects} />}
                 </td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
               </tr>

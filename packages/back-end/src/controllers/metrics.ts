@@ -421,6 +421,7 @@ export async function putMetric(
     "queryFormat",
     "status",
     "tags",
+    "projects",
     "winRisk",
     "loseRisk",
     "maxPercentChange",

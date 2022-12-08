@@ -17,8 +17,6 @@ import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/Edi
 import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import { ProjectName } from "../../components/Layout/ProjectSelector";
-import Tooltip from "../../components/Tooltip/Tooltip";
 import ProjectTags from "../../components/Tags/ProjectTags";
 
 function quotePropertyName(name: string) {
@@ -124,8 +122,11 @@ const DataSourcePage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          { d.projects.length ? (
-            <ProjectTags projectIds={d.projects} className="badge-ellipsis align-middle" />
+          {d?.projects?.length ? (
+            <ProjectTags
+              projectIds={d.projects}
+              className="badge-ellipsis align-middle"
+            />
           ) : (
             <ProjectTags className="badge-ellipsis align-middle" />
           )}
