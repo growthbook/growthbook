@@ -62,7 +62,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                   className="btn p-0"
                   onClick={() => performCopy(signingKey)}
                 >
-                  <span style={{ fontSize: "1.1rem" }}>
+                  <span className="text-main" style={{ fontSize: "1.1rem" }}>
                     {copySuccess ? (
                       <HiOutlineClipboardCheck />
                     ) : (
