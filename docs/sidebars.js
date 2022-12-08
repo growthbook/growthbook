@@ -97,7 +97,6 @@ const sidebars = {
         id: "lib/index",
       },
       items: [
-	    { type: "doc", id: "lib/csharp", label: "C#" },
         { type: "doc", id: "lib/js", label: "Javascript" },
         { type: "doc", id: "lib/react", label: "React" },
         { type: "doc", id: "lib/vue", label: "Vue.js" },
@@ -105,6 +104,7 @@ const sidebars = {
         { type: "doc", id: "lib/ruby", label: "Ruby" },
         { type: "doc", id: "lib/python", label: "Python" },
         { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
+        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
         { type: "doc", id: "lib/go", label: "Go" },
         { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
         { type: "doc", id: "lib/flutter", label: "Flutter" },
