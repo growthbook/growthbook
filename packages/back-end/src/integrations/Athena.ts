@@ -5,6 +5,8 @@ import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
 
 export default class Athena extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: AthenaConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(

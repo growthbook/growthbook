@@ -23,16 +23,19 @@ export const accountFeatures: CommercialFeaturesMap = {
   pro: new Set<CommercialFeature>([
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "override-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "override-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "override-metrics",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
@@ -92,6 +95,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageNamespaces",
   "manageSavedGroups",
+  "viewEvents",
 ] as const;
 
 export const ALL_PERMISSIONS = [
@@ -110,8 +114,7 @@ export function getPermissionsByRole(
   return Array.from(permissions);
 }
 
-// eslint-disable-next-line
-export function getRoles(organization: OrganizationInterface): Role[] {
+export function getRoles(_organization: OrganizationInterface): Role[] {
   // TODO: support custom roles?
   return [
     {

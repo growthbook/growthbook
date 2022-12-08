@@ -1,6 +1,7 @@
 import express from "express";
 import * as organizationsControllerRaw from "./organizations.controller";
 import { wrapController } from "../wrapController";
+import { IS_CLOUD } from "../../util/secrets";
 
 const router = express.Router();
 
@@ -49,5 +50,19 @@ router.get("/webhooks", organizationsController.getWebhooks);
 router.post("/webhooks", organizationsController.postWebhook);
 router.put("/webhook/:id", organizationsController.putWebhook);
 router.delete("/webhook/:id", organizationsController.deleteWebhook);
+
+// Orphaned users (users not part of an organization)
+// Only available when self-hosting
+if (!IS_CLOUD) {
+  router.get("/orphaned-users", organizationsController.getOrphanedUsers);
+  router.post(
+    "/orphaned-users/:id/delete",
+    organizationsController.deleteOrphanedUser
+  );
+  router.post(
+    "/orphaned-users/:id/add",
+    organizationsController.addOrphanedUser
+  );
+}
 
 export { router as organizationsRouter };

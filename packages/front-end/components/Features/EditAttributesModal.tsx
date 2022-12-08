@@ -1,5 +1,8 @@
 import { useFieldArray, useForm } from "react-hook-form";
-import { SDKAttributeSchema } from "back-end/types/organization";
+import {
+  SDKAttributeSchema,
+  SDKAttributeType,
+} from "back-end/types/organization";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import { useUser } from "../../services/UserContext";
@@ -10,6 +13,7 @@ import { FaQuestionCircle, FaTrash } from "react-icons/fa";
 import track from "../../services/track";
 import { useAttributeSchema } from "../../services/features";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import SelectField from "../Forms/SelectField";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
   const { refreshOrganization } = useUser();
@@ -95,22 +99,30 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   />
                 </td>
                 <td>
-                  <select
-                    {...form.register(`attributeSchema.${i}.datatype`)}
-                    className="form-control"
-                  >
-                    <option value="boolean">Boolean</option>
-                    <option value="number">Number</option>
-                    <option value="string">String</option>
-                    <option value="enum">Enum</option>
-                    <option value="number[]">Array of Numbers</option>
-                    <option value="string[]">Array of Strings</option>
-                  </select>
+                  <SelectField
+                    value={form.watch(`attributeSchema.${i}.datatype`)}
+                    onChange={(v) =>
+                      form.setValue(
+                        `attributeSchema.${i}.datatype`,
+                        v as SDKAttributeType
+                      )
+                    }
+                    style={{ width: 200 }}
+                    options={[
+                      { value: "boolean", label: "Boolean" },
+                      { value: "number", label: "Number" },
+                      { value: "string", label: "String" },
+                      { value: "enum", label: "Enum" },
+                      { value: "number[]", label: "Array of Numbers" },
+                      { value: "string[]", label: "Array of Strings" },
+                    ]}
+                  />
                   {form.watch(`attributeSchema.${i}.datatype`) === "enum" && (
                     <div>
                       <Field
                         textarea
                         minRows={1}
+                        style={{ width: 200 }}
                         required
                         {...form.register(`attributeSchema.${i}.enum`)}
                         placeholder="Comma-separated list of all possible values"

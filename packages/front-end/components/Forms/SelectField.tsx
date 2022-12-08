@@ -2,6 +2,7 @@ import { FC, useMemo, useRef, ReactNode } from "react";
 import Field, { FieldProps } from "./Field";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
+import clsx from "clsx";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -88,6 +89,8 @@ const SelectField: FC<
   disabled,
   autoFocus,
   required,
+  style,
+  className,
   formatOptionLabel,
   ...otherProps
 }) => {
@@ -105,7 +108,14 @@ const SelectField: FC<
       ref={selectRef}
       render={(id, ref) => {
         return (
-          <div className="position-relative">
+          <div
+            style={style}
+            className={clsx(
+              "gb-select-wrapper position-relative",
+              disabled ? "disabled" : "",
+              className
+            )}
+          >
             <ReactSelect
               {...ReactSelectProps}
               id={id}

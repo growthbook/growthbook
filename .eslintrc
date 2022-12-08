@@ -68,7 +68,15 @@
         "ignoreParameters": true
       }
     ],
-    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "no-console": [
+      "warn"
+    ],
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
     "react-hooks/rules-of-hooks": "error",
@@ -136,6 +144,18 @@
       "rules": {
         "react-hooks/exhaustive-deps": "off"
       }
+    },
+    {
+      "rules": {
+        "no-console": "off"
+      },
+      "files": [
+        "./packages/sdk-js/**/*",
+        "./packages/front-end/**/*",
+        "./packages/back-end/test/**/*",
+        "./packages/back-end/src/scripts/**/*",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ]
     }
   ]
 }

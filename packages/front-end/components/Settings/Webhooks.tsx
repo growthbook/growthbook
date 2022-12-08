@@ -35,9 +35,10 @@ const Webhooks: FC = () => {
           current={open}
         />
       )}
+
       <p>
-        Webhooks push the latest feature definitions to your server whenever
-        they are modified within the GrowthBook app.{" "}
+        SDK Endpoint Webhooks push the latest feature definitions to your server
+        whenever they are modified within the GrowthBook app.{" "}
         <DocLink docSection="webhooks">View Documentation</DocLink>
       </p>
 
@@ -66,7 +67,7 @@ const Webhooks: FC = () => {
                       </Tooltip>
                     )}
                   </td>
-                  <td>{webhook.endpoint}</td>
+                  <td className="text-break">{webhook.endpoint}</td>
                   <td>
                     {!webhook.environment ? (
                       <>
@@ -153,7 +154,7 @@ const Webhooks: FC = () => {
           setOpen({});
         }}
       >
-        <FaBolt /> Create Webhook
+        <FaBolt /> Create an SDK Endpoint Webhook
       </button>
     </div>
   );

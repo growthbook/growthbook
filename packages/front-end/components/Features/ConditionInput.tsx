@@ -4,6 +4,7 @@ import {
   jsonToConds,
   useAttributeMap,
   useAttributeSchema,
+  getDefaultOperator,
 } from "../../services/features";
 import Field from "../Forms/Field";
 import styles from "./ConditionInput.module.scss";
@@ -55,7 +56,6 @@ export default function ConditionInput(props: Props) {
   ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
-    console.log("simpleAllowed", simpleAllowed);
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -235,13 +235,14 @@ export default function ConditionInput(props: Props) {
                         newConds[i]["field"] = value;
 
                         const newAttribute = attributes.get(value);
-                        if (newAttribute.datatype !== attribute.datatype) {
-                          if (newAttribute.datatype === "boolean") {
-                            newConds[i]["operator"] = "$true";
-                          } else {
-                            newConds[i]["operator"] = "$eq";
-                            newConds[i]["value"] = newConds[i]["value"] || "";
-                          }
+                        const hasAttrChanged =
+                          newAttribute.datatype !== attribute.datatype ||
+                          newAttribute.array !== attribute.array;
+                        if (hasAttrChanged) {
+                          newConds[i]["operator"] = getDefaultOperator(
+                            newAttribute
+                          );
+                          newConds[i]["value"] = newConds[i]["value"] || "";
                         }
                         setConds(newConds);
                       }}
@@ -278,6 +279,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       initialOption="Choose group..."
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <Field
@@ -289,6 +291,7 @@ export default function ConditionInput(props: Props) {
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                       helpText="separate values by comma"
+                      required
                     />
                   ) : attribute.enum.length ? (
                     <SelectField
@@ -303,6 +306,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : attribute.datatype === "number" ? (
                     <Field
@@ -313,6 +317,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : attribute.datatype === "string" ? (
                     <Field
@@ -321,6 +326,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : (
                     ""
