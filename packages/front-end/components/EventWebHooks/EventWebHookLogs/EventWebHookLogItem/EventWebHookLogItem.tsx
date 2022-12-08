@@ -1,8 +1,9 @@
 import React, { FC } from "react";
 import { datetime } from "../../../../services/dates";
-import { NotificationEvent } from "back-end/dist/events/base-events";
+import { NotificationEvent } from "back-end/src/events/base-events";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import classNames from "classnames";
+import { useIconForState } from "../../utils";
 
 type EventWebHookLogItemProps = {
   log: EventWebHookLogInterface;
@@ -17,6 +18,8 @@ export const EventWebHookLogItem: FC<EventWebHookLogItemProps> = ({
 }) => {
   const payload = log.payload as NotificationEvent;
 
+  const iconForState = useIconForState(log.result);
+
   return (
     <tr
       className={classNames("cursor-pointer", {
@@ -24,11 +27,15 @@ export const EventWebHookLogItem: FC<EventWebHookLogItemProps> = ({
       })}
       onClick={() => onClick(log.id)}
     >
-      <td>{log.result}</td>
-      <td>
-        <code>{payload.event}</code>
+      <td className="text-center">
+        <span className="d-inline-block" style={{ fontSize: "1.5rem" }}>
+          {iconForState}
+        </span>
       </td>
-      <td>{datetime(log.dateCreated)}</td>
+      <td className="text-left">
+        <code className="text-main">{payload.event}</code>
+      </td>
+      <td className="text-left">{datetime(log.dateCreated)}</td>
     </tr>
   );
 };

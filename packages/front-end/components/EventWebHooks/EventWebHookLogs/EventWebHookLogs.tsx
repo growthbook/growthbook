@@ -1,12 +1,13 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
-import useApi from "../../../hooks/useApi";
 import { useRouter } from "next/router";
+import useApi from "../../../hooks/useApi";
 import { EventWebHookLogItem } from "./EventWebHookLogItem/EventWebHookLogItem";
+import { EventWebHookLogActiveItem } from "./EventWebHookLogActiveItem/EventWebHookLogActiveItem";
 
 type EventWebHookLogsProps = {
   onLogItemClicked: (logId: string) => void;
-  activeLog: EventWebHookLogInterface;
+  activeLog: EventWebHookLogInterface | null;
   logs: EventWebHookLogInterface[];
 };
 
@@ -19,14 +20,16 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
     <div>
       <h2>Run Logs</h2>
 
+      {/* TODO: Empty state */}
+
       <div className="row">
         <div className="col-xs-12 col-md-6">
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
-                <th>Status</th>
-                <th>Event</th>
-                <th>Timestamp</th>
+                <th className="text-center">Result</th>
+                <th className="text-left">Event</th>
+                <th className="text-left">Timestamp</th>
               </tr>
             </thead>
             <tbody>
@@ -41,8 +44,13 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
             </tbody>
           </table>
         </div>
+
         <div className="col-xs-12 col-md-6">
-          <pre>{JSON.stringify(activeLog, null, 2)}</pre>
+          {activeLog ? (
+            <EventWebHookLogActiveItem log={activeLog} />
+          ) : (
+            <p>Highlight a log to view the details</p>
+          )}
         </div>
       </div>
     </div>
