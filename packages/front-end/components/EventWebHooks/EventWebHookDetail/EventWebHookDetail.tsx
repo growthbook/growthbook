@@ -2,11 +2,13 @@ import { EventWebHookInterface } from "back-end/types/event-webhook";
 import React, { FC } from "react";
 import { TbWebhook } from "react-icons/tb";
 import classNames from "classnames";
+import { useRouter } from "next/router";
 import { useIconForState } from "../utils";
 import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
 import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import useApi from "../../../hooks/useApi";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;
@@ -101,5 +103,25 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 };
 
 export const EventWebHookDetailContainer = () => {
-  return null;
+  const router = useRouter();
+
+  const { eventwebhookid: eventWebHookId } = router.query;
+
+  const { data, error } = useApi<{ eventWebHook: EventWebHookInterface }>(
+    `/event-webhooks/${eventWebHookId}`
+  );
+
+  if (error) {
+    return (
+      <div className="alert alert-danger">
+        Unable to fetch event web hook {eventWebHookId}
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return <EventWebHookDetail eventWebHook={data.eventWebHook} />;
 };

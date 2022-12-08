@@ -26,7 +26,6 @@ export const useCopyToClipboard = ({
       typeof navigator !== "undefined" &&
       typeof navigator?.clipboard?.writeText === "function"
     ) {
-      console.log("supported!");
       setSupported(true);
     }
   }, []);
