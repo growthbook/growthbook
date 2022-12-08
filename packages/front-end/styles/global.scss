@@ -150,6 +150,15 @@ pre {
   @include badge-variant(#f6f7f9);
   border: 1px solid colors.$gray4;
 }
+.badge-ellipsis {
+  max-width: 250px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  &.short {
+    max-width: 120px;
+  }
+}
 .multi-select-container {
   z-index: 99999999;
 }

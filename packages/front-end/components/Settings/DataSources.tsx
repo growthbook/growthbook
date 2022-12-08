@@ -11,6 +11,7 @@ import { DocLink } from "../DocLink";
 import NewDataSourceForm from "./NewDataSourceForm";
 import Tooltip from "../Tooltip/Tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
+import ProjectTags from "../Tags/ProjectTags";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -76,17 +77,7 @@ const DataSources: FC = () => {
                 </td>
                 <td>{d.type}</td>
                 <td className="col-3">
-                  {d.projects.map((p) => (
-                    <span
-                      key={`project_tag_${p}`}
-                      className={`tag mr-2 text-ellipsis badge ${
-                        project === p ? "badge-primary" : "badge-gray"
-                      }`}
-                      style={{ maxWidth: 120 }}
-                    >
-                      {projects.find((pd) => pd.id === p)?.name}
-                    </span>
-                  ))}
+                  <ProjectTags projectIds={d.projects} />
                 </td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
               </tr>

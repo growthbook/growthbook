@@ -19,6 +19,7 @@ import { DataSourceViewEditExperimentProperties } from "../../components/Setting
 import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import { ProjectName } from "../../components/Layout/ProjectSelector";
 import Tooltip from "../../components/Tooltip/Tooltip";
+import ProjectTags from "../../components/Tags/ProjectTags";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -41,12 +42,9 @@ const DataSourcePage: FC = () => {
     mutateDefinitions,
     ready,
     error,
-    project,
-    projects,
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
-  const datasourceProjects = (d?.projects || []).map((pid) => projects.find(p => p.id === pid));
 
   const { apiCall } = useAuth();
 
@@ -114,7 +112,7 @@ const DataSourcePage: FC = () => {
           </DocLink>
         </div>
       )}
-      <div className="row mb-1 align-items-center">
+      <div className="row mb-2 align-items-center">
         <div className="col-auto">
           <h1 className="mb-0">{d.name}</h1>
         </div>
@@ -123,35 +121,13 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-success">connected</span>
         </div>
       </div>
-      <div className="row mb-2 align-items-center">
-        <div className="col-auto pr-1">
-          Projects:
-        </div>
-        <div className="col pl-0">
-          { datasourceProjects.length ?
-            datasourceProjects.map((p) => (
-              <Tooltip body={p.name} tipMinWidth="80" key={`ds_project_${p.id}`}>
-                <ProjectName
-                  className="text-dark"
-                  avatarName={p.name}
-                  display={p.name}
-                  bold={p.id === project}
-                  outline={p.id === project}
-                  labelPosition="bottom"
-                  style={{cursor: "pointer"}}
-                />
-              </Tooltip>
-            ))
-          : (
-            <ProjectName
-              className="text-dark"
-              avatarName={""}
-              display={"All Projects"}
-              bold={!project}
-              outline={!project}
-              labelPosition="bottom"
-              style={{cursor: "pointer"}}
-            />
+      <div className="row mb-3 align-items-center">
+        <div className="col">
+          Projects:{" "}
+          { d.projects.length ? (
+            <ProjectTags projectIds={d.projects} className="badge-ellipsis align-middle" />
+          ) : (
+            <ProjectTags className="badge-ellipsis align-middle" />
           )}
         </div>
       </div>

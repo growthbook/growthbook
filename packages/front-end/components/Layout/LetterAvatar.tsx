@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { CSSProperties } from "react";
 
 const colors = [
   "#ffed6f",
