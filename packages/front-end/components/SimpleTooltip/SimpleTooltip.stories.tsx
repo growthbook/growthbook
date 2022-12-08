@@ -1,7 +1,7 @@
-import { SimpleTooltip } from "./SimpleTooltip";
 import React from "react";
-import { select, text } from "@storybook/addon-knobs";
-import { FaCopy } from "react-icons/all";
+import { number, select, text } from "@storybook/addon-knobs";
+import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { SimpleTooltip } from "./SimpleTooltip";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 
 export default {
@@ -48,8 +48,13 @@ export const LotsOfText = () => {
 };
 
 export const ButtonFeedback = () => {
+  const timeout = number("Copy timeout", -1, {
+    range: true,
+    max: 2000,
+    min: -1,
+  });
   const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: -1,
+    timeout,
   });
 
   return (
@@ -59,7 +64,7 @@ export const ButtonFeedback = () => {
         style={{ position: "relative" }}
       >
         <button className="btn" onClick={() => performCopy("token_abc123")}>
-          <FaCopy />
+          {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
         </button>
 
         <span>token_abc123</span>
