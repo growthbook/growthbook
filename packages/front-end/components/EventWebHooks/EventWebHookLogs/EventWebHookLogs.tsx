@@ -20,39 +20,43 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
     <div>
       <h2>Run Logs</h2>
 
-      {/* TODO: Empty state */}
-
-      <div className="row">
-        <div className="col-xs-12 col-md-6">
-          <table className="table appbox gbtable table-hover">
-            <thead>
-              <tr>
-                <th className="text-center">Result</th>
-                <th className="text-left">Event</th>
-                <th className="text-left">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <EventWebHookLogItem
-                  key={log.id}
-                  log={log}
-                  onClick={onLogItemClicked}
-                  activeLogId={activeLog?.id || null}
-                />
-              ))}
-            </tbody>
-          </table>
+      {logs.length === 0 ? (
+        <div>
+          <p>Run Logs will show up here</p>
         </div>
+      ) : (
+        <div className="row">
+          <div className="col-xs-12 col-md-6">
+            <table className="table appbox gbtable table-hover">
+              <thead>
+                <tr>
+                  <th className="text-center">Result</th>
+                  <th className="text-left">Event</th>
+                  <th className="text-left">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <EventWebHookLogItem
+                    key={log.id}
+                    log={log}
+                    onClick={onLogItemClicked}
+                    activeLogId={activeLog?.id || null}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        <div className="col-xs-12 col-md-6">
-          {activeLog ? (
-            <EventWebHookLogActiveItem log={activeLog} />
-          ) : (
-            <p>Highlight a log to view the details</p>
-          )}
+          <div className="col-xs-12 col-md-6">
+            {activeLog ? (
+              <EventWebHookLogActiveItem log={activeLog} />
+            ) : (
+              <p>Highlight a log to view the details</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
