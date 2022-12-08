@@ -119,7 +119,8 @@ export const getEventWebHookLogs = async (
 
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
     org.id,
-    req.params.eventWebHookId
+    req.params.eventWebHookId,
+    50
   );
 
   return res.json({ eventWebHookLogs });
