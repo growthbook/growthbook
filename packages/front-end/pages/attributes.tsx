@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Tooltip from "../components/Tooltip/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
 import { GBEdit } from "../components/Icons";
@@ -15,12 +15,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   let attributeSchema = useAttributeSchema(true);
-  const orderedAttributes = [
-    ...attributeSchema.filter((o) => !o.archived),
-    ...attributeSchema.filter((o) => o.archived),
-  ];
+
+  const orderedAttributes = useMemo(
+    () => [
+      ...attributeSchema.filter((o) => !o.archived),
+      ...attributeSchema.filter((o) => o.archived),
+    ],
+    [attributeSchema]
+  );
+
   const [attributesForView, setAttributesForView] = useState(orderedAttributes);
   const { refreshOrganization } = useUser();
+
+  useEffect(() => {
+    setAttributesForView(orderedAttributes);
+  }, [orderedAttributes]);
 
   const drawRow = (v: SDKAttribute, i: number) => (
     <tr className={v.archived ? "disabled" : ""} key={i}>
