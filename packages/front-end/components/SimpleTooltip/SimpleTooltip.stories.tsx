@@ -1,5 +1,5 @@
 import React from "react";
-import { number, select, text } from "@storybook/addon-knobs";
+import { radios, select, text } from "@storybook/addon-knobs";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { SimpleTooltip } from "./SimpleTooltip";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
@@ -10,6 +10,13 @@ export default {
 };
 
 export const LotsOfText = () => {
+  const position = select(
+    "Position",
+    ["top", "bottom", "left", "right"],
+    "bottom"
+  );
+  const tooltipText = text("Paragraph tooltip text", "Copied!");
+
   return (
     <div style={{ position: "relative", margin: 100 }}>
       <p>
@@ -34,27 +41,34 @@ export const LotsOfText = () => {
         line.
       </p>
 
-      <SimpleTooltip
-        position={select(
-          "Position",
-          ["top", "bottom", "left", "right"],
-          "bottom"
-        )}
-      >
-        {text("Tooltip text (1)", "Copied!")}
-      </SimpleTooltip>
+      <SimpleTooltip position={position}>{tooltipText}</SimpleTooltip>
     </div>
   );
 };
 
 export const ButtonFeedback = () => {
-  const timeout = number("Copy timeout", -1, {
-    range: true,
-    max: 2000,
-    min: -1,
-  });
+  const hasDelay = radios(
+    "With delay",
+    {
+      Yes: "yes",
+      No: "no",
+    },
+    "no"
+  );
+  const position = select(
+    "Position",
+    ["top", "bottom", "left", "right"],
+    "bottom"
+  );
+
+  const tooltipText = text(
+    "Feedback tooltip text",
+    "The token has been copied to your clipboard"
+  );
+
   const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout,
+    // storybook knobs are buggy with numbers
+    timeout: hasDelay == "no" ? -1 : 2000,
   });
 
   return (
@@ -70,18 +84,7 @@ export const ButtonFeedback = () => {
         <span>token_abc123</span>
 
         {copySuccess && (
-          <SimpleTooltip
-            position={select(
-              "Position",
-              ["top", "bottom", "left", "right"],
-              "bottom"
-            )}
-          >
-            {text(
-              "Tooltip text (2)",
-              "The token has been copied to your clipboard"
-            )}
-          </SimpleTooltip>
+          <SimpleTooltip position={position}>{tooltipText}</SimpleTooltip>
         )}
       </div>
     </div>
