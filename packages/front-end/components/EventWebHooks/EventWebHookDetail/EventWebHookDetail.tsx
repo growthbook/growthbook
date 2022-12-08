@@ -1,8 +1,10 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import React, { FC } from "react";
 import { TbWebhook } from "react-icons/tb";
+import { FaAngleLeft } from "react-icons/fa";
 import classNames from "classnames";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { useIconForState } from "../utils";
 import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
@@ -27,6 +29,14 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   return (
     <div>
+      <div className="mb-3">
+        <Link href="/settings/webhooks">
+          <a>
+            <FaAngleLeft /> All Webhooks
+          </a>
+        </Link>
+      </div>
+
       <h1>{name}</h1>
       <h3 className="text-muted font-weight-bold">{url}</h3>
 
