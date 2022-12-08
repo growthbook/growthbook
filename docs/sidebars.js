@@ -97,6 +97,7 @@ const sidebars = {
         id: "lib/index",
       },
       items: [
+	    { type: "doc", id: "lib/csharp", label: "C#" },
         { type: "doc", id: "lib/js", label: "Javascript" },
         { type: "doc", id: "lib/react", label: "React" },
         { type: "doc", id: "lib/vue", label: "Vue.js" },
