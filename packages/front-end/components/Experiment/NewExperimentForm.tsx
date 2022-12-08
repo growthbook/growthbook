@@ -90,17 +90,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     getDatasourceById,
     refreshTags,
     project,
-    getProjectById,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-  const projectDefinition = getProjectById(project);
-  let filteredDatasources = datasources;
-  if (projectDefinition?.datasources?.length) {
-    const projectDatasources = projectDefinition.datasources;
-    filteredDatasources = datasources.filter((ds) =>
-      projectDatasources.includes(ds.id)
-    );
-  }
+  const filteredDatasources = (
+    project ?
+      datasources.filter(ds => !ds?.projects?.length || ds?.projects?.includes(project)) :
+      datasources
+  )
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -410,7 +406,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={datasource?.id}
-              project={projectDefinition}
             />
           </div>
           <div className="form-group">
@@ -423,7 +418,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={datasource?.id}
-              project={projectDefinition}
             />
           </div>
           {!isImport && implementation === "visual" && (

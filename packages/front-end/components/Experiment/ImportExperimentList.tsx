@@ -34,32 +34,21 @@ const ImportExperimentList: FC<{
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
-  const {
-    getDatasourceById,
-    ready,
-    datasources,
-    project,
-    getProjectById,
-  } = useDefinitions();
+  const { getDatasourceById, ready, datasources, project } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
-  const projectDefinition = getProjectById(project);
   const datasource = getDatasourceById(data?.experiments?.datasource);
-  let filteredDatasources = datasources;
-  let filteredDatasource = datasource;
-  if (projectDefinition?.datasources?.length) {
-    const projectDatasources = projectDefinition.datasources;
-    filteredDatasources = datasources.filter((ds) =>
-      projectDatasources.includes(ds.id)
-    );
-    filteredDatasource = projectDatasources.includes(filteredDatasource?.id)
-      ? filteredDatasource
-      : null;
-  }
+  const filteredDatasources = project
+    ? datasources.filter(
+        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
+      )
+    : datasources;
+  const filteredDatasource =
+    !project || datasource?.projects?.includes(project) ? datasource : null;
 
   const status = getQueryStatus(
     data?.experiments?.queries || [],

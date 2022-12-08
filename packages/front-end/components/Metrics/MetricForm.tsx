@@ -140,19 +140,15 @@ const MetricForm: FC<MetricFormProps> = ({
     getDatasourceById,
     metrics,
     project,
-    getProjectById,
   } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
-  const projectDefinition = getProjectById(project);
-  let filteredDatasources = datasources;
-  if (projectDefinition?.datasources?.length) {
-    const projectDatasources = projectDefinition.datasources;
-    filteredDatasources = datasources.filter((ds) =>
-      projectDatasources.includes(ds.id)
-    );
-  }
+  const filteredDatasources = (
+    project ?
+      datasources.filter(ds => !ds?.projects?.length || ds?.projects?.includes(project)) :
+      datasources
+  );
 
   const {
     getMinSampleSizeForMetric,

@@ -50,11 +50,7 @@ export const postProject = async (
 
 type PutProjectRequest = AuthRequest<
   Record<string, never>,
-  {
-    id: string;
-    datasources?: string[];
-    metrics?: string[];
-  },
+  { id: string },
   Record<string, never>
 >;
 
