@@ -27,6 +27,7 @@ router.delete(
   "/organization/namespaces/:name",
   organizationsController.deleteNamespace
 );
+router.get("/invite/:key", organizationsController.getInviteInfo);
 router.post("/invite/accept", organizationsController.postInviteAccept);
 router.post("/invite", organizationsController.postInvite);
 router.post("/invite/resend", organizationsController.postInviteResend);
