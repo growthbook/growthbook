@@ -25,12 +25,11 @@ const DataSources: FC = () => {
     mutateDefinitions,
     ready,
   } = useDefinitions();
-  const filteredDatasources = (project
+  const filteredDatasources = project
     ? datasources.filter(
         (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
       )
-    : datasources
-  ).filter((d) => d.properties?.segments);
+    : datasources;
 
   const permissions = usePermissions();
 

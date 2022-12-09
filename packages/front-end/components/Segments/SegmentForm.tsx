@@ -22,11 +22,12 @@ const SegmentForm: FC<{
     mutateDefinitions,
     project,
   } = useDefinitions();
-  const filteredDatasources = (
-    project ?
-      datasources.filter(ds => !ds?.projects?.length || ds?.projects?.includes(project)) :
-      datasources
-  )
+  const filteredDatasources = (project
+    ? datasources.filter(
+        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
+      )
+    : datasources
+  ).filter((d) => d.properties?.segments);
   const form = useForm({
     defaultValues: {
       name: current.name || "",
