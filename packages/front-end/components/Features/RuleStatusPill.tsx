@@ -24,40 +24,44 @@ export default function RuleStatusPill({
 
   if (scheduleCompletedAndDisabled) {
     return (
-      <div className="bg-info text-light border px-2 rounded">
-        {`Rule was disabled by schedule rule on ${new Date(
-          rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-        ).toLocaleDateString()} at ${new Date(
-          rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-        ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-          rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-        )
-          .toLocaleDateString(undefined, {
-            day: "2-digit",
-            timeZoneName: "short",
-          })
-          .substring(4)}`}
+      <div className="mr-3">
+        <div className="bg-info text-light border px-2 rounded">
+          {`Rule was disabled by schedule rule on ${new Date(
+            rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+          ).toLocaleDateString()} at ${new Date(
+            rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+          ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
+            rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+          )
+            .toLocaleDateString(undefined, {
+              day: "2-digit",
+              timeZoneName: "short",
+            })
+            .substring(4)}`}
+        </div>
       </div>
     );
   }
 
   if (upcomingScheduleRule) {
     return (
-      <div className="bg-info text-light border px-2 rounded">
-        {`Rule will be ${
-          upcomingScheduleRule.enableFeature ? "enabled" : "disabled"
-        } on ${new Date(
-          upcomingScheduleRule.timestamp
-        ).toLocaleDateString()} at ${new Date(
-          upcomingScheduleRule.timestamp
-        ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-          upcomingScheduleRule.timestamp
-        )
-          .toLocaleDateString(undefined, {
-            day: "2-digit",
-            timeZoneName: "short",
-          })
-          .substring(4)}`}
+      <div className="mr-3">
+        <div className="bg-info text-light border px-2 rounded">
+          {`Rule will be ${
+            upcomingScheduleRule.enableFeature ? "enabled" : "disabled"
+          } on ${new Date(
+            upcomingScheduleRule.timestamp
+          ).toLocaleDateString()} at ${new Date(
+            upcomingScheduleRule.timestamp
+          ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
+            upcomingScheduleRule.timestamp
+          )
+            .toLocaleDateString(undefined, {
+              day: "2-digit",
+              timeZoneName: "short",
+            })
+            .substring(4)}`}
+        </div>
       </div>
     );
   }
