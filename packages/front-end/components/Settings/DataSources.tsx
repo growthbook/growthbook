@@ -31,8 +31,6 @@ const DataSources: FC = () => {
       )
     : datasources;
 
-  console.log({ datasources });
-
   const permissions = usePermissions();
 
   if (error) {

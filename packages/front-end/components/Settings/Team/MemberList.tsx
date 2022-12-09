@@ -32,6 +32,7 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
+  console.log({ users });
 
   return (
     <div className="my-4">
