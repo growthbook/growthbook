@@ -1,0 +1,143 @@
+pipeline {
+    agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::470447642752:role/Jenkins_slave_role
+          labels:
+            app: zoomcar-ab
+        spec:
+          serviceAccountName: jenkins-slave
+          containers:
+          - name: master
+            image: 992022947233.dkr.ecr.ap-south-1.amazonaws.com/jenkins-dnd-base:v2 #mukul30/agent-image:v1
+            command: ['sleep' , '5000']
+            volumeMounts:
+            - mountPath: /var/run/docker.sock
+              name: slave-volume
+          volumes:
+          - name: slave-volume
+            hostPath:
+              path: /var/run/docker.sock
+        '''
+    }
+  }
+    environment {   
+        SERVICE_NAME="zoomcar-ab"
+        CLUSTER_NAME="non-prd-eks1"
+        NAMESPACE="dev"
+        EKS_CLUSTER_CURRENT_CONTEXT_NAME="arn:aws:eks:ap-south-1:992022947233:cluster/${CLUSTER_NAME}"
+        ECR_URL="992022947233.dkr.ecr.ap-south-1.amazonaws.com"       
+        HELM_NAME="${SERVICE_NAME}"
+        CHARTFOLDER="non-production/${CLUSTER_NAME}/${NAMESPACE}/${SERVICE_NAME}"
+        ECR_REPO_URL="${ECR_URL}/zoomcartest/${SERVICE_NAME}"
+        APP_BRANCH="main"
+        HELM_BRANCH="non-production"
+    }
+    stages {
+        stage("Docker Build"){
+            steps{
+                container('master') {
+                    withCredentials([gitUsernamePassword(credentialsId: '1d4d1a6d-b60f-45b0-bdb8-06020c0373e6', gitToolName: 'Default')]) {
+                    sh '''
+                        set -x
+                        echo "Fetching latest commitID"
+                        git config --global --add safe.directory '*'
+                        commitId=$(git log -n1 --format="%h")
+                        date=$(date -u +"_%Y%m%d_%H%M%S")
+                        imageId=$commitId$date
+                        touch ~/imageId.txt && echo $imageId > ~/imageId.txt
+                        echo $imageId
+                        Branch=$(echo $BRANCH_NAME)
+                        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URL}
+                        echo "Building Dockerfile image"
+                        IMAGE_NAME=$ECR_REPO_URL:$imageId
+                        docker build --network host -t $IMAGE_NAME -f Dockerfile .
+                    '''
+                    }
+                }
+            }
+        }
+        stage("Docker Push"){
+            steps{
+                container('master') {
+                  sh '''
+                      set -x
+                      imageId=`cat ~/imageId.txt`
+                      echo "$IMAGE_NAME"
+                      echo "$ECR_REPO_URL"
+                      aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URL}
+                      docker push $ECR_REPO_URL:$imageId
+                    '''
+                }
+              }
+        } 
+        stage("Helm repo checkout"){
+            steps{
+              container('master') {
+                checkout([$class: 'GitSCM', branches: [[name: 'origin/master']], extensions: [], userRemoteConfigs: [[credentialsId: '1d4d1a6d-b60f-45b0-bdb8-06020c0373e6', url: 'https://github.com/ZoomCar/kubernetes.git']]])
+              }
+            }   
+        }
+        stage("Helm Deploy"){
+          steps{
+            container('master') {
+              sh '''
+                set -x
+                imageId=`cat ~/imageId.txt`
+                cd $WORKSPACE
+                git config --global --add safe.directory '*' && git checkout $HELM_BRANCH
+                imageId=`cat ~/imageId.txt`
+                echo $imageId
+                echo "Updating current-context to cluster name."
+                aws eks update-kubeconfig --name $CLUSTER_NAME --region ap-south-1
+                kubectl config use-context $EKS_CLUSTER_CURRENT_CONTEXT_NAME
+                echo "Helm chart upgrade"
+                helm upgrade $HELM_NAME $CHARTFOLDER --set image.repository=$ECR_REPO_URL --set image.tag=$imageId --install -n $NAMESPACE
+              
+              '''
+            }
+          }   
+        }
+        
+        stage("Check status"){
+            steps{
+              container('master') {
+                sh '''
+                  set -x
+                  POD=`kubectl get pods -n $NAMESPACE --sort-by=status.startTime | grep $HELM_NAME | tail -1 | awk \'{ print $1}\'`
+                  STATUS=`kubectl get pods -n $NAMESPACE --sort-by=status.startTime | grep $HELM_NAME | tail -1 | awk \'{ print $3}\'`
+                  RESTARTS=`kubectl get pods -n $NAMESPACE --sort-by=status.startTime | grep $HELM_NAME | tail -1 | awk \'{ print $4}\'`
+                  echo $POD
+                  echo $RESTARTS
+                  sleep 60
+                  if [[ "$STATUS" != "Running" || "$RESTARTS" != 0 ]]
+                  then
+                          REVISION=`helm history $HELM_NAME | grep -i DEPLOYED | awk \'{ print $1 }\'`
+                          LAST_REVISION=`expr $REVISION - 1`
+                  
+                          if [ "$LAST_REVISION" -gt 0 ]
+                          then
+                              echo "++++++++++++++ Rollback Triggered +++++++++++++++++++++"
+                              echo "Pod status is ${STATUS}"
+                              helm rollback ${HELM_NAME} $LAST_REVISION
+                              exit 1
+                          else
+                              echo "Please check ${POD} pods log, Currently pods status is ${STATUS}"
+                              kubectl logs $POD -n $NAMESPACE
+                              exit 1
+                          fi
+                  else
+                      echo "pod is up and ${STATUS}"
+                      kubectl logs $POD -n $NAMESPACE
+                  fi
+                '''
+              }
+            }   
+        }
+    }
+    
+}
