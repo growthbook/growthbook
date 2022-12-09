@@ -12,6 +12,7 @@ import "diff2html/bundles/css/diff2html.min.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import Layout from "../components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
+import TopNavLite from "../components/Layout/TopNavLite";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -95,7 +96,12 @@ function App({
                       </main>
                     </DefinitionsProvider>
                   ) : (
-                    <Component {...pageProps} />
+                    <div>
+                      <TopNavLite />
+                      <main className="container mt-5">
+                        <Component {...pageProps} />
+                      </main>
+                    </div>
                   )}
                 </ProtectedPage>
               </GrowthBookProvider>
