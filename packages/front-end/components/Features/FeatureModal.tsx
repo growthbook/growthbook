@@ -32,6 +32,7 @@ import useOrgSettings from "../../hooks/useOrgSettings";
 import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
 import usePermissions from "../../hooks/usePermissions";
+import SelectField from "../Forms/SelectField";
 
 export type Props = {
   close?: () => void;
@@ -356,13 +357,18 @@ export default function FeatureModal({
         />
       ) : rule?.type === "rollout" ? (
         <>
-          <Field
+          <SelectField
             label="Sample users based on attribute"
-            {...form.register("rule.hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("rule.hashAttribute")}
+            onChange={(v) => {
+              form.setValue("rule.hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the feature key to determine if user is part of the rollout"
+            }
           />
           <RolloutPercentInput
             value={form.watch("rule.coverage")}
@@ -434,13 +440,18 @@ export default function FeatureModal({
             placeholder={form.watch("id")}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results."
           />
-          <Field
+          <SelectField
             label="Sample users based on attribute"
-            {...form.register("rule.hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the Tracking Key to pick a value"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("rule.hashAttribute")}
+            onChange={(v) => {
+              form.setValue("rule.hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to pick a value"
+            }
           />
           <ConditionInput
             defaultValue={rule?.condition}
