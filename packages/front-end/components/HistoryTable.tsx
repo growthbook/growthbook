@@ -150,7 +150,7 @@ export function HistoryTableRow({
 }
 
 const HistoryTable: FC<{
-  type: "experiment" | "metric" | "feature";
+  type: "experiment" | "metric" | "feature" | "savedGroup";
   id: string;
 }> = ({ id, type }) => {
   const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(

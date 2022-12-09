@@ -8,6 +8,8 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { ago } from "../services/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
+import Modal from "../components/Modal";
+import HistoryTable from "../components/HistoryTable";
 
 export default function SavedGroupsPage() {
   const [
@@ -16,6 +18,7 @@ export default function SavedGroupsPage() {
   ] = useState<null | Partial<SavedGroupInterface>>(null);
   const permissions = usePermissions();
 
+  const [auditModal, setAuditModal] = useState(false);
   const { savedGroups, error } = useDefinitions();
 
   if (!savedGroups) return <LoadingOverlay />;
@@ -33,6 +36,22 @@ export default function SavedGroupsPage() {
           <h1>Saved Groups</h1>
         </div>
         <div style={{ flex: 1 }}></div>
+        {savedGroups.length > 0 && (
+          <div
+            className="col-auto ml-2"
+            style={{ fontSize: "0.8em", lineHeight: "35px" }}
+          >
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setAuditModal(true);
+              }}
+            >
+              View Audit Log
+            </a>
+          </div>
+        )}
         {permissions.manageSavedGroups && (
           <div className="col-auto">
             <Button
@@ -58,10 +77,8 @@ export default function SavedGroupsPage() {
         <div className="row mb-4">
           <div className="col-12">
             <p>
-              Saved Groups are defined comma separated lists of users based on a
-              unique identifier - for example, you might create a list of
-              internal users. These groups, used with feature rules, allow you
-              allow you to quickly target lists of users.
+              Saved Groups are defined set of attribute values which can be used
+              with feature rules for targeting features at particular users.
             </p>
             <table className="table appbox gbtable table-hover">
               <thead>
@@ -114,12 +131,30 @@ export default function SavedGroupsPage() {
         </div>
       )}
       {savedGroups.length === 0 && (
-        <div className="alert alert-info">
-          You don&apos;t have any saved groups defined yet.{" "}
-          {permissions.manageSavedGroups && (
-            <span>Click the button above to create your first one.</span>
-          )}
-        </div>
+        <>
+          <p className="mb-3">
+            Saved Groups are defined set of attribute values which can be used
+            with feature rules for targeting features at particular users. For
+            example, you might create a list of internal users.
+          </p>
+          <div className="alert alert-info mb-2">
+            You don&apos;t have any saved groups defined yet.{" "}
+            {permissions.manageSavedGroups && (
+              <span>Click the button above to create your first one.</span>
+            )}
+          </div>
+        </>
+      )}
+      {auditModal && (
+        <Modal
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="max"
+          closeCta="Close"
+        >
+          <HistoryTable type="savedGroup" id={"all"} />
+        </Modal>
       )}
     </div>
   );

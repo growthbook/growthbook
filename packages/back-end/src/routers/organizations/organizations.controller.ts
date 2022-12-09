@@ -27,6 +27,8 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
+  findAllByEntityType,
+  findAllByEntityTypeParent,
   findByEntity,
   findByEntityParent,
   getWatchedAudits,
@@ -174,10 +176,19 @@ export async function getHistory(
   const { org } = getOrgFromReq(req);
   const { type, id } = req.params;
 
-  const events = await Promise.all([
-    findByEntity(org.id, type, id),
-    findByEntityParent(org.id, type, id),
-  ]);
+  let events = [];
+  if (type === "savedGroup") {
+    // saved groups are a special case because using an ID here doesn't make sense.
+    events = await Promise.all([
+      findAllByEntityType(org.id, type),
+      findAllByEntityTypeParent(org.id, type),
+    ]);
+  } else {
+    events = await Promise.all([
+      findByEntity(org.id, type, id),
+      findByEntityParent(org.id, type, id),
+    ]);
+  }
 
   const merged = [...events[0], ...events[1]];
 
