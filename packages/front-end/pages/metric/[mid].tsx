@@ -380,7 +380,7 @@ const MetricPage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          {metric?.projects?.length ? (
+          {metric?.projects?.length > 0 ? (
             <ProjectTags
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
@@ -744,7 +744,7 @@ const MetricPage: FC = () => {
               canOpen={canEdit}
             >
               <RightRailSectionGroup>
-                {metric?.projects?.length ? (
+                {metric?.projects?.length > 0 ? (
                   <ProjectTags
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"

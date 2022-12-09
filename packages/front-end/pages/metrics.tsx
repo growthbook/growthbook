@@ -30,12 +30,18 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const { getDatasourceById, mutateDefinitions } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, project } = useDefinitions();
   const router = useRouter();
 
   const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
     `/metrics`
   );
+  const filteredMetrics = project
+    ? data?.metrics?.filter(
+        (m) => !m?.projects?.length || m?.projects?.includes(project)
+      )
+    : data?.metrics;
+  console.log();
 
   const { getUserDisplay } = useUser();
 
@@ -46,14 +52,14 @@ const MetricsPage = (): React.ReactElement => {
   const [showArchived, setShowArchived] = useState(false);
 
   const metrics = useAddComputedFields(
-    data?.metrics,
+    filteredMetrics,
     (m) => ({
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
         : "Manual",
       ownerName: getUserDisplay(m.owner),
     }),
-    [getDatasourceById]
+    [getDatasourceById, filteredMetrics]
   );
 
   // Searching
@@ -279,11 +285,13 @@ const MetricsPage = (): React.ReactElement => {
                 <SortedTags tags={Object.values(metric.tags)} />
               </td>
               <td className="col-2">
-                {metric?.projects && (
+                {metric?.projects?.length > 0 ? (
                   <ProjectTags
                     projectIds={metric.projects}
-                    className="badge-ellipsis align-middle"
+                    className="badge-ellipsis short align-middle"
                   />
+                ) : (
+                  <ProjectTags className="badge-ellipsis short align-middle" />
                 )}
               </td>
               <td>{metric.owner}</td>

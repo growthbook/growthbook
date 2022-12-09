@@ -122,7 +122,7 @@ const DataSourcePage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          {d?.projects?.length ? (
+          {d?.projects?.length > 0 ? (
             <ProjectTags
               projectIds={d.projects}
               className="badge-ellipsis align-middle"

@@ -18,8 +18,19 @@ const DataSources: FC = () => {
 
   const router = useRouter();
 
-  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
-  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
+  const {
+    datasources,
+    project,
+    error,
+    mutateDefinitions,
+    ready,
+  } = useDefinitions();
+  const filteredDatasources = (project
+    ? datasources.filter(
+        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
+      )
+    : datasources
+  ).filter((d) => d.properties?.segments);
 
   const permissions = usePermissions();
 
@@ -70,7 +81,14 @@ const DataSources: FC = () => {
                 </td>
                 <td>{d.type}</td>
                 <td className="col-3">
-                  {d?.projects && <ProjectTags projectIds={d.projects} />}
+                  {d?.projects?.length > 0 ? (
+                    <ProjectTags
+                      projectIds={d.projects}
+                      className="badge-ellipsis short align-middle"
+                    />
+                  ) : (
+                    <ProjectTags className="badge-ellipsis short align-middle" />
+                  )}
                 </td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
               </tr>

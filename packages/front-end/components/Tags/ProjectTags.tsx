@@ -38,17 +38,20 @@ export default function ProjectTags({
 
   return (
     <>
-      {filteredProjects.map((p) => (
-        <Tag
-          tag={p.name}
-          key={p.name}
-          badgeClassName={
-            project === p.id ? "badge-primary bg-purple" : "badge-gray"
-          }
-          className={className}
-          skipColor={true}
-        />
-      ))}
+      {filteredProjects.map((p) => {
+        if (!p?.name) return;
+        return (
+          <Tag
+            tag={p.name}
+            key={p.name}
+            badgeClassName={
+              project === p.id ? "badge-primary bg-purple" : "badge-gray"
+            }
+            className={className}
+            skipColor={true}
+          />
+        );
+      })}
     </>
   );
 }
