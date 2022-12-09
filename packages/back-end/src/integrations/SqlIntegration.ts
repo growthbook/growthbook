@@ -678,6 +678,22 @@ export default abstract class SqlIntegration
     if (dimension?.type === "activation" && !activationMetrics.length) {
       dimension = null;
     }
+    // Replace any placeholders in the user defined dimension SQL
+    if (dimension?.type === "user") {
+      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+        startDate: phase.dateStarted,
+        endDate: phase.dateEnded,
+        experimentId: experiment.trackingKey,
+      });
+    }
+    // Replace any placeholders in the segment SQL
+    if (segment?.sql) {
+      segment.sql = replaceSQLVars(segment.sql, {
+        startDate: phase.dateStarted,
+        endDate: phase.dateEnded,
+        experimentId: experiment.trackingKey,
+      });
+    }
 
     const exposureQuery = this.getExposureQuery(
       experiment.exposureQueryId || "",
