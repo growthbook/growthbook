@@ -73,7 +73,6 @@ export default function SavedGroupsPage() {
           });
         });
       }
-      console.log("map", map);
     });
     return map;
   }, [savedGroups, features]);
