@@ -32,7 +32,7 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
-  console.log({ users });
+  console.log(users);
 
   return (
     <div className="my-4">
@@ -70,7 +70,8 @@ const MemberList: FC<{
             <th>Name</th>
             <th>Email</th>
             <th>Date Joined</th>
-            <th>Role</th>
+            <th>${project ? "Project Role" : "Primary Role"}</th>
+            {!project && <th>Project Roles</th>}
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}
@@ -89,6 +90,11 @@ const MemberList: FC<{
                 <td>{member.email}</td>
                 <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                 <td>{roleInfo.role}</td>
+                {!project && (
+                  <td className="col-2">
+                    {JSON.stringify(member.projectRoles)}
+                  </td>
+                )}
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);
                   return (
