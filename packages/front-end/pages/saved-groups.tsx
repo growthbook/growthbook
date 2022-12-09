@@ -70,14 +70,16 @@ export default function SavedGroupsPage() {
     const map: Record<string, Set<string>> = {};
     features.forEach((feature) => {
       for (const env in feature.environmentSettings) {
-        feature.environmentSettings[env].rules.forEach((rule) => {
-          savedGroups.forEach((group) => {
-            if (rule.condition.includes(group.id)) {
-              map[group.id] = map[group.id] || new Set();
-              map[group.id].add(feature.id);
-            }
+        if (feature.environmentSettings[env]?.rules) {
+          feature.environmentSettings[env].rules.forEach((rule) => {
+            savedGroups.forEach((group) => {
+              if (rule.condition.includes(group.id)) {
+                map[group.id] = map[group.id] || new Set();
+                map[group.id].add(feature.id);
+              }
+            });
           });
-        });
+        }
       }
     });
     return map;
