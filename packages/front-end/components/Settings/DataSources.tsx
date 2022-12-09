@@ -3,7 +3,7 @@ import LoadingOverlay from "../LoadingOverlay";
 import { useRouter } from "next/router";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
-import { datetime } from "../../services/dates";
+import { ago } from "../../services/dates";
 import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 import usePermissions from "../../hooks/usePermissions";
@@ -31,6 +31,8 @@ const DataSources: FC = () => {
       )
     : datasources;
 
+  console.log({ datasources });
+
   const permissions = usePermissions();
 
   if (error) {
@@ -49,7 +51,7 @@ const DataSources: FC = () => {
               <th>Display Name</th>
               <th>Type</th>
               <td>Projects</td>
-              {!hasFileConfig() && <th>Date Added</th>}
+              {!hasFileConfig() && <th>Last Updated</th>}
             </tr>
           </thead>
           <tbody>
@@ -89,7 +91,7 @@ const DataSources: FC = () => {
                     <ProjectTags className="badge-ellipsis short align-middle" />
                   )}
                 </td>
-                {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
+                {!hasFileConfig() && <td>{ago(d.dateUpdated)}</td>}
               </tr>
             ))}
           </tbody>
