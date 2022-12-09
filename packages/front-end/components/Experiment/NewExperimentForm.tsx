@@ -300,7 +300,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             initialOption="Manual"
             options={datasources.map((d) => ({
               value: d.id,
-              label: `d.name${d.description ? ` — ${d.description}` : ""}`,
+              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
             className="portal-overflow-ellipsis"
           />

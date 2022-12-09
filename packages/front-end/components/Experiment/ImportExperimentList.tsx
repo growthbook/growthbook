@@ -144,7 +144,7 @@ const ImportExperimentList: FC<{
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => ({
                 value: d.id,
-                label: `d.name${d.description ? ` — ${d.description}` : ""}`,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
               }))}
               className="portal-overflow-ellipsis"
               onChange={changeDatasource}

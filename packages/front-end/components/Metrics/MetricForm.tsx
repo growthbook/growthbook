@@ -409,7 +409,7 @@ const MetricForm: FC<MetricFormProps> = ({
           onChange={(v) => form.setValue("datasource", v)}
           options={(datasources || []).map((d) => ({
             value: d.id,
-            label: `d.name${d.description ? ` — ${d.description}` : ""}`,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
           className="portal-overflow-ellipsis"
           name="datasource"
