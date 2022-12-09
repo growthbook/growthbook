@@ -10,6 +10,9 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
 import Modal from "../components/Modal";
 import HistoryTable from "../components/HistoryTable";
+import { useSearch } from "../services/search";
+import Field from "../components/Forms/Field";
+import Tooltip from "../components/Tooltip/Tooltip";
 
 export default function SavedGroupsPage() {
   const [
@@ -20,6 +23,14 @@ export default function SavedGroupsPage() {
 
   const [auditModal, setAuditModal] = useState(false);
   const { savedGroups, error } = useDefinitions();
+
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+    items: savedGroups,
+    localStorageKey: "savedGroups",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: ["groupName^3", "attributeKey^2", "owner", "values"],
+  });
 
   if (!savedGroups) return <LoadingOverlay />;
 
@@ -34,6 +45,14 @@ export default function SavedGroupsPage() {
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>Saved Groups</h1>
+          {savedGroups.length > 0 && (
+            <Tooltip
+              className="pt-1 ml-2"
+              body="Saved Groups are defined set of attribute values which can be
+            used with feature rules for targeting features at particular
+            users."
+            />
+          )}
         </div>
         <div style={{ flex: 1 }}></div>
         {savedGroups.length > 0 && (
@@ -74,61 +93,78 @@ export default function SavedGroupsPage() {
         </div>
       )}
       {savedGroups.length > 0 && (
-        <div className="row mb-4">
-          <div className="col-12">
-            <p>
-              Saved Groups are defined set of attribute values which can be used
-              with feature rules for targeting features at particular users.
-            </p>
-            <table className="table appbox gbtable table-hover">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th>Attribute</th>
-                  <th className="d-none d-lg-table-cell">
-                    Comma Separated List
-                  </th>
-                  <th>Date Updated</th>
-                  {permissions.manageSavedGroups && <th></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {savedGroups.map((s) => {
-                  return (
-                    <tr key={s.id}>
-                      <td>{s.groupName}</td>
-                      <td>{s.owner}</td>
-                      <td>{s.attributeKey}</td>
-                      <td
-                        className="d-none d-md-table-cell text-truncate"
-                        style={{ maxWidth: "100px" }}
-                      >
-                        {s.values.join(", ")}
-                      </td>
-                      <td>{ago(s.dateUpdated)}</td>
-                      {permissions.manageSavedGroups && (
-                        <td>
-                          <a
-                            href="#"
-                            className="tr-hover text-primary mr-3"
-                            title="Edit this segment"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSavedGroupForm(s);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </a>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <>
+          <div className="row mb-2 align-items-center">
+            <div className="col-auto">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </div>
           </div>
-        </div>
+          <div className="row mb-4">
+            <div className="col-12">
+              <table className="table appbox gbtable table-hover">
+                <thead>
+                  <tr>
+                    <SortableTH field={"groupName"}>Name</SortableTH>
+                    <SortableTH field={"owner"}>Owner</SortableTH>
+                    <SortableTH field={"attributeKey"}>Attribute</SortableTH>
+                    <th className="d-none d-lg-table-cell">
+                      Comma Separated List
+                    </th>
+                    <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
+                    {permissions.manageSavedGroups && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((s) => {
+                    return (
+                      <tr key={s.id}>
+                        <td>{s.groupName}</td>
+                        <td>{s.owner}</td>
+                        <td>{s.attributeKey}</td>
+                        <td
+                          className="d-none d-md-table-cell text-truncate"
+                          style={{ maxWidth: "100px" }}
+                        >
+                          {s.values.join(", ")}
+                        </td>
+                        <td>{ago(s.dateUpdated)}</td>
+                        {permissions.manageSavedGroups && (
+                          <td>
+                            <a
+                              href="#"
+                              className="tr-hover text-primary mr-3"
+                              title="Edit this segment"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSavedGroupForm(s);
+                              }}
+                            >
+                              <FaPencilAlt />
+                            </a>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                  {!items.length && isFiltered && (
+                    <tr>
+                      <td
+                        colSpan={permissions.manageSavedGroups ? 6 : 5}
+                        align={"center"}
+                      >
+                        No matching saved groups
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
       {savedGroups.length === 0 && (
         <>
@@ -153,7 +189,7 @@ export default function SavedGroupsPage() {
           size="max"
           closeCta="Close"
         >
-          <HistoryTable type="savedGroup" id={"all"} />
+          <HistoryTable type="savedGroup" />
         </Modal>
       )}
     </div>

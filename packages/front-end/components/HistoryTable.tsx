@@ -9,6 +9,7 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "./Button";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
+import { useDefinitions } from "../services/DefinitionsContext";
 
 function EventDetails({
   eventType,
@@ -83,6 +84,7 @@ function EventDetails({
 
 export function HistoryTableRow({
   event,
+  showNameOrId = false,
   open,
   setOpen,
   isActivity = false,
@@ -90,6 +92,7 @@ export function HistoryTableRow({
   url = "",
 }: {
   event: AuditInterface;
+  showNameOrId?: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
   isActivity?: boolean;
@@ -102,6 +105,10 @@ export function HistoryTableRow({
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
     ("apiKey" in user && "API Key");
+  let colSpanNum = 4;
+  if (isActivity) colSpanNum = 6;
+  if (showNameOrId) colSpanNum++;
+
   return (
     <>
       <tr
@@ -129,6 +136,11 @@ export function HistoryTableRow({
           </>
         )}
         <td>{userDisplay}</td>
+        {showNameOrId && (
+          <td>
+            <EventName event={event} />
+          </td>
+        )}
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
@@ -136,7 +148,7 @@ export function HistoryTableRow({
       </tr>
       {open && event.details && (
         <tr>
-          <td colSpan={isActivity ? 6 : 4} className="bg-light p-3">
+          <td colSpan={colSpanNum} className="bg-light p-3">
             <EventDetails
               eventType={event.event}
               details={event.details}
@@ -151,11 +163,10 @@ export function HistoryTableRow({
 
 const HistoryTable: FC<{
   type: "experiment" | "metric" | "feature" | "savedGroup";
-  id: string;
+  id?: string;
 }> = ({ id, type }) => {
-  const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(
-    `/history/${type}/${id}`
-  );
+  const apiPath = id ? `/history/${type}/${id}` : `/history/${type}`;
+  const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(apiPath);
 
   const [open, setOpen] = useState("");
 
@@ -188,6 +199,7 @@ const HistoryTable: FC<{
           <tr>
             <th>Date</th>
             <th>User</th>
+            {!id && <th>Name</th>}
             <th>Event</th>
             <th></th>
           </tr>
@@ -197,6 +209,7 @@ const HistoryTable: FC<{
             <HistoryTableRow
               event={event}
               key={event.id}
+              showNameOrId={!id}
               open={open === event.id}
               setOpen={(open) => {
                 setOpen(open ? event.id : "");
@@ -208,5 +221,34 @@ const HistoryTable: FC<{
     </>
   );
 };
+
+function EventName({
+  itemName,
+  event,
+}: {
+  itemName?: string;
+  event: AuditInterface;
+}) {
+  const { savedGroups } = useDefinitions();
+  const groupMap = useMemo(() => {
+    const tempMap = new Map<string, string>();
+    savedGroups.forEach((group) => {
+      tempMap.set(group.id, group.groupName);
+    });
+    return tempMap;
+  }, [savedGroups]);
+
+  if (itemName) return <>{itemName}</>;
+  if (event.entity.object === "savedGroup") {
+    if (event.entity?.name) {
+      return <>{event.entity.name}</>;
+    }
+    if (groupMap.has(event.entity.id)) {
+      return <>{groupMap.get(event.entity.id)}</>;
+    }
+  }
+
+  return <>{event.entity.id}</>;
+}
 
 export default HistoryTable;

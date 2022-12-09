@@ -169,6 +169,39 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
   }
 }
 
+export async function getAllHistory(
+  req: AuthRequest<null, { type: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { type } = req.params;
+
+  const events = await Promise.all([
+    findAllByEntityType(org.id, type),
+    findAllByEntityTypeParent(org.id, type),
+  ]);
+
+  const merged = [...events[0], ...events[1]];
+
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+
+  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to view history",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    events: merged,
+  });
+}
+
 export async function getHistory(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
@@ -176,19 +209,10 @@ export async function getHistory(
   const { org } = getOrgFromReq(req);
   const { type, id } = req.params;
 
-  let events = [];
-  if (type === "savedGroup") {
-    // saved groups are a special case because using an ID here doesn't make sense.
-    events = await Promise.all([
-      findAllByEntityType(org.id, type),
-      findAllByEntityTypeParent(org.id, type),
-    ]);
-  } else {
-    events = await Promise.all([
-      findByEntity(org.id, type, id),
-      findByEntityParent(org.id, type, id),
-    ]);
-  }
+  const events = await Promise.all([
+    findByEntity(org.id, type, id),
+    findByEntityParent(org.id, type, id),
+  ]);
 
   const merged = [...events[0], ...events[1]];
 
