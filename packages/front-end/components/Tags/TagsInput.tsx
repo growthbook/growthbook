@@ -1,10 +1,10 @@
 import { FC } from "react";
+import { StylesConfig } from "react-select";
+import { TagInterface } from "back-end/types/tag";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import MultiSelectField from "../Forms/MultiSelectField";
-import { StylesConfig } from "react-select";
-import { isLight } from "./Tag";
-import { TagInterface } from "back-end/types/tag";
 import usePermissions from "../../hooks/usePermissions";
+import { isLight } from "./Tag";
 
 export interface ColorOption {
   readonly value: string;

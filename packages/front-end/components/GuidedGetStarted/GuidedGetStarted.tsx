@@ -1,24 +1,24 @@
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
 import React, { ReactNode, useState } from "react";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import CodeSnippetModal from "../Features/CodeSnippetModal";
-import FeatureModal from "../Features/FeatureModal";
-import GetStartedSteps from "./GetStartedSteps";
-import MetricForm from "../Metrics/MetricForm";
 import ReactPlayer from "react-player";
 import Link from "next/link";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useUser } from "../../services/UserContext";
-import { useAuth } from "../../services/auth";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import styles from "./GuidedGetStarted.module.scss";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { useAuth } from "../../services/auth";
+import { useUser } from "../../services/UserContext";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import MetricForm from "../Metrics/MetricForm";
+import FeatureModal from "../Features/FeatureModal";
+import CodeSnippetModal from "../Features/CodeSnippetModal";
+import useOrgSettings from "../../hooks/useOrgSettings";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { hasFileConfig } from "../../services/env";
 import track from "../../services/track";
 import { DocLink, DocSection } from "../DocLink";
+import styles from "./GuidedGetStarted.module.scss";
+import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
 
 export type Task = {

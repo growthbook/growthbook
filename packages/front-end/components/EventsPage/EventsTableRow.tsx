@@ -6,8 +6,8 @@ import {
 } from "back-end/types/event";
 import React, { FC, useState } from "react";
 import { datetime } from "../../services/dates";
-import { getEventText } from "./utils";
 import Code from "../SyntaxHighlighting/Code";
+import { getEventText } from "./utils";
 
 type EventsTableRowProps = {
   event: EventInterface<

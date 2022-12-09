@@ -1,17 +1,17 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
+import { Environment } from "back-end/types/organization";
+import { ApiKeyInterface } from "back-end/types/apikey";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
 import EnvironmentModal from "../components/Settings/EnvironmentModal";
 import { useAuth } from "../services/auth";
-import { Environment } from "back-end/types/organization";
 import { GBAddCircle } from "../components/Icons";
 import { useEnvironments } from "../services/features";
 import { useUser } from "../services/UserContext";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import Button from "../components/Button";
 import useApi from "../hooks/useApi";
-import { ApiKeyInterface } from "back-end/types/apikey";
 import SDKEndpoints from "../components/Features/SDKEndpoints";
 import usePermissions from "../hooks/usePermissions";
 

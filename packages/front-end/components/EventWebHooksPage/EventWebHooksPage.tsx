@@ -1,6 +1,6 @@
 import React from "react";
-import { EventWebHookListContainer } from "./EventWebHookList/EventWebHookList";
 import usePermissions from "../../hooks/usePermissions";
+import { EventWebHookListContainer } from "./EventWebHookList/EventWebHookList";
 
 export const EventWebHooksPage = () => {
   const permissions = usePermissions();

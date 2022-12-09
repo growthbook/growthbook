@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import { useForm } from "react-hook-form";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { useEnvironments } from "../../services/features";

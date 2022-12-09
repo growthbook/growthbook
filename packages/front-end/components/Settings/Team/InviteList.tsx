@@ -1,13 +1,13 @@
 import React, { FC, useState, ReactElement } from "react";
+import { Invite, MemberRoleInfo } from "back-end/types/organization";
+import { FaCheck, FaTimes } from "react-icons/fa";
 import ConfirmModal from "../../ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
 import LoadingOverlay from "../../LoadingOverlay";
-import { Invite, MemberRoleInfo } from "back-end/types/organization";
 import { datetime } from "../../../services/dates";
 import MoreMenu from "../../Dropdown/MoreMenu";
-import ChangeRoleModal from "./ChangeRoleModal";
 import { useEnvironments } from "../../../services/features";
-import { FaCheck, FaTimes } from "react-icons/fa";
+import ChangeRoleModal from "./ChangeRoleModal";
 
 type ChangeRoleInfo = {
   roleInfo: MemberRoleInfo;

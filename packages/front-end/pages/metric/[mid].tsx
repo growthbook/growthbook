@@ -1,13 +1,18 @@
 import { useRouter } from "next/router";
+import React, { FC, useState, useEffect, Fragment } from "react";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import Link from "next/link";
+import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
+import { MetricInterface } from "back-end/types/metric";
+import { useForm } from "react-hook-form";
+import { BsGear } from "react-icons/bs";
+import clsx from "clsx";
+import { IdeaInterface } from "back-end/types/idea";
 import useApi from "../../hooks/useApi";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
-import React, { FC, useState, useEffect, Fragment } from "react";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import Link from "next/link";
-import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
 import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
 import {
@@ -30,18 +35,13 @@ import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
 import InlineForm from "../../components/Forms/InlineForm";
 import EditableH1 from "../../components/Forms/EditableH1";
-import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Code from "../../components/SyntaxHighlighting/Code";
 import {
   getDefaultConversionWindowHours,
   hasFileConfig,
 } from "../../services/env";
-import { useForm } from "react-hook-form";
-import { BsGear } from "react-icons/bs";
 import PickSegmentModal from "../../components/Segments/PickSegmentModal";
-import clsx from "clsx";
-import { IdeaInterface } from "back-end/types/idea";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import Button from "../../components/Button";
 import usePermissions from "../../hooks/usePermissions";

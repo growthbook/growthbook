@@ -1,11 +1,11 @@
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useFeature } from "@growthbook/growthbook-react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
-import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../hooks/usePermissions";
 import GuidedGetStarted from "../components/GuidedGetStarted/GuidedGetStarted";
 

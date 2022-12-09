@@ -1,11 +1,14 @@
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { useFeature } from "@growthbook/growthbook-react";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
+import LoadingOverlay from "../../components/LoadingOverlay";
+import { ago, datetime } from "../../services/dates";
 import { GBAddCircle } from "../../components/Icons";
 import FeatureModal from "../../components/Features/FeatureModal";
 import ValueDisplay from "../../components/Features/ValueDisplay";
-import { useRouter } from "next/router";
 import track from "../../services/track";
 import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "../../hooks/useOrgSettings";
@@ -16,7 +19,6 @@ import {
 } from "../../services/search";
 import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
-import { useFeature } from "@growthbook/growthbook-react";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -31,12 +33,10 @@ import TagsFilter, {
   useTagsFilter,
 } from "../../components/Tags/TagsFilter";
 import SortedTags from "../../components/Tags/SortedTags";
-import { FaExclamationTriangle } from "react-icons/fa";
 import Toggle from "../../components/Forms/Toggle";
 import usePermissions from "../../hooks/usePermissions";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { FeatureInterface } from "back-end/types/feature";
 import Field from "../../components/Forms/Field";
 
 const NUM_PER_PAGE = 20;

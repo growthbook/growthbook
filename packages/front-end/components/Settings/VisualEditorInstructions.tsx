@@ -4,8 +4,8 @@ import { FaKey, FaPencilAlt } from "react-icons/fa";
 import { getApiHost, isCloud } from "../../services/env";
 import Code from "../SyntaxHighlighting/Code";
 import { DocLink } from "../DocLink";
-import ApiKeysModal from "./ApiKeysModal";
 import SelectField from "../Forms/SelectField";
+import ApiKeysModal from "./ApiKeysModal";
 
 export default function VisualEditorInstructions({
   apiKeys,

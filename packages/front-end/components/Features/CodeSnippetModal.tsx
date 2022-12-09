@@ -1,10 +1,10 @@
 import stringify from "json-stringify-pretty-compact";
+import { useState, useEffect, ReactElement } from "react";
+import { SDKAttributeSchema } from "back-end/types/organization";
 import { getTrackingCallback, TrackingType } from "../../services/codegen";
 import { getApiHost, isCloud } from "../../services/env";
-import { useState, useEffect, ReactElement } from "react";
 import { useUser } from "../../services/UserContext";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { SDKAttributeSchema } from "back-end/types/organization";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import Code, { Language } from "../SyntaxHighlighting/Code";
@@ -13,8 +13,8 @@ import Tab from "../Tabs/Tab";
 import { useAttributeSchema } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
-import SDKEndpointSelector from "./SDKEndpointSelector";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import SDKEndpointSelector from "./SDKEndpointSelector";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)

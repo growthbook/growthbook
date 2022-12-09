@@ -1,20 +1,20 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { useAuth } from "../../services/auth";
-import Button from "../Button";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
-import ConditionDisplay from "./ConditionDisplay";
-import ForceSummary from "./ForceSummary";
-import RolloutSummary from "./RolloutSummary";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
-import ExperimentSummary from "./ExperimentSummary";
-import track from "../../services/track";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "../../services/auth";
+import Button from "../Button";
+import DeleteButton from "../DeleteButton/DeleteButton";
+import MoreMenu from "../Dropdown/MoreMenu";
+import track from "../../services/track";
 import { getRules, useEnvironments } from "../../services/features";
 import usePermissions from "../../hooks/usePermissions";
+import ConditionDisplay from "./ConditionDisplay";
+import ForceSummary from "./ForceSummary";
+import RolloutSummary from "./RolloutSummary";
+import ExperimentSummary from "./ExperimentSummary";
 
 interface SortableProps {
   i: number;

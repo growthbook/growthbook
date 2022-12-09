@@ -4,8 +4,8 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import FixVariationIds from "./FixVariationIds";
 import usePermissions from "../../hooks/usePermissions";
+import FixVariationIds from "./FixVariationIds";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {

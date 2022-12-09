@@ -1,11 +1,11 @@
 import { FC, useMemo, useState } from "react";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip/Tooltip";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import Tooltip from "../Tooltip/Tooltip";
 import { formatTrafficSplit } from "../../services/utils";
 import { SRM_THRESHOLD } from "./SRMWarning";
 

@@ -1,8 +1,8 @@
 import React, { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;

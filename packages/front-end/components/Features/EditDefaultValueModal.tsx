@@ -2,11 +2,11 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import FeatureValueField from "./FeatureValueField";
 import {
   getFeatureDefaultValue,
   validateFeatureValue,
 } from "../../services/features";
+import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
   feature: FeatureInterface;

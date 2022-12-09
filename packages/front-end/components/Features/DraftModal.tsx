@@ -1,16 +1,16 @@
 import { FeatureInterface } from "back-end/types/feature";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import { useState, useMemo } from "react";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import {
   getAffectedEnvs,
   getEnabledEnvironments,
   useEnvironments,
 } from "../../services/features";
 import Modal from "../Modal";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Button from "../Button";
 import { useAuth } from "../../services/auth";
-import { useState, useMemo } from "react";
 import Field from "../Forms/Field";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {

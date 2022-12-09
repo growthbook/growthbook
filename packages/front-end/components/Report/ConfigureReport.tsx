@@ -1,5 +1,6 @@
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
+import { FaQuestionCircle } from "react-icons/fa";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import MetricsSelector from "../Experiment/MetricsSelector";
@@ -10,7 +11,6 @@ import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { getExposureQuery } from "../../services/datasources";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import { FaQuestionCircle } from "react-icons/fa";
 
 export default function ConfigureReport({
   report,

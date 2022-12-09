@@ -2,8 +2,8 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "../../hooks/useConfidenceLevels";
 import { hasEnoughData } from "../../services/experiments";
-import AlignedGraph from "./AlignedGraph";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import AlignedGraph from "./AlignedGraph";
 
 export default function PercentGraphColumn({
   metric,

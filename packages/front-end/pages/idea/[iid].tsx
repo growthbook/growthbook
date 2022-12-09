@@ -1,16 +1,20 @@
 import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import { useState, ReactElement, useEffect } from "react";
-import { useAuth } from "../../services/auth";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import {
   FaAngleLeft,
   FaArchive,
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
+import Link from "next/link";
+import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useForm } from "react-hook-form";
+import useApi from "../../hooks/useApi";
+import LoadingOverlay from "../../components/LoadingOverlay";
+import { useAuth } from "../../services/auth";
+import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import DiscussionThread from "../../components/DiscussionThread";
 import useSwitchOrg from "../../services/useSwitchOrg";
 import ImpactModal from "../../components/Ideas/ImpactModal";
@@ -18,18 +22,14 @@ import { date } from "../../services/dates";
 import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
 import ViewQueryButton from "../../components/Metrics/ViewQueryButton";
 import ImpactProjections from "../../components/Ideas/ImpactProjections";
-import Link from "next/link";
 import RightRailSection from "../../components/Layout/RightRailSection";
 import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
 import EditableH1 from "../../components/Forms/EditableH1";
 import InlineForm from "../../components/Forms/InlineForm";
 import TagsInput from "../../components/Tags/TagsInput";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
-import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import StatusIndicator from "../../components/Experiment/StatusIndicator";
-import { useForm } from "react-hook-form";
 import SelectField from "../../components/Forms/SelectField";
 import { useUser } from "../../services/UserContext";
 import SortedTags from "../../components/Tags/SortedTags";

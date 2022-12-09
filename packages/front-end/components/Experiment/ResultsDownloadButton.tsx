@@ -4,9 +4,9 @@ import {
 } from "back-end/types/report";
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
+import { Parser } from "json2csv";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentTableRow, getRisk } from "../../services/experiments";
-import { Parser } from "json2csv";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {

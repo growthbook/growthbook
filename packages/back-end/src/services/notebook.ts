@@ -1,17 +1,17 @@
+import { promisify } from "util";
+import { PythonShell } from "python-shell";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { getMetricsByDatasource } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { MetricInterface } from "../../types/metric";
-import { getQueryData } from "./queries";
-import { promisify } from "util";
-import { PythonShell } from "python-shell";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
-import { reportArgsFromSnapshot } from "./reports";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { reportArgsFromSnapshot } from "./reports";
+import { getQueryData } from "./queries";
 
 export async function generateReportNotebook(
   reportId: string,

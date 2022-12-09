@@ -1,15 +1,15 @@
 import React, { FC, Fragment, useState } from "react";
+import { WebhookInterface } from "back-end/types/webhook";
+import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
-import { WebhookInterface } from "back-end/types/webhook";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import { useAuth } from "../../services/auth";
-import WebhooksModal from "./WebhooksModal";
 import { ago } from "../../services/dates";
-import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
+import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(

@@ -7,11 +7,11 @@ import {
   getDefaultOperator,
 } from "../../services/features";
 import Field from "../Forms/Field";
-import styles from "./ConditionInput.module.scss";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import CodeTextArea from "../Forms/CodeTextArea";
+import styles from "./ConditionInput.module.scss";
 
 interface Props {
   defaultValue: string;

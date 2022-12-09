@@ -1,9 +1,9 @@
 import { FC, useState } from "react";
-import LoadingOverlay from "./LoadingOverlay";
 import { DiscussionParentType } from "back-end/types/discussion";
-import { useAuth } from "../services/auth";
-import MarkdownInput from "./Markdown/MarkdownInput";
 import { useForm } from "react-hook-form";
+import { useAuth } from "../services/auth";
+import LoadingOverlay from "./LoadingOverlay";
+import MarkdownInput from "./Markdown/MarkdownInput";
 
 const CommentForm: FC<{
   cta: string;

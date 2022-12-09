@@ -8,8 +8,8 @@ import { useForm } from "react-hook-form";
 import Modal from "../../../Modal";
 import MultiSelectField from "../../../Forms/MultiSelectField";
 import CodeTextArea from "../../../Forms/CodeTextArea";
-import { isDuplicateIdentityJoin } from "./utils";
 import { validateSQL } from "../../../../services/datasources";
+import { isDuplicateIdentityJoin } from "./utils";
 
 type AddEditIdentityJoinModalProps = {
   identityJoin: IdentityJoinQuery | null;

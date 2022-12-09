@@ -5,16 +5,16 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
 import { getInitialSettings } from "../../services/datasources";
 import { DocLink, DocSection } from "../DocLink";
-import ConnectionSettings from "./ConnectionSettings";
 import { dataSourceConnections } from "../../services/eventSchema";
+import ConnectionSettings from "./ConnectionSettings";
 
 const typeOptions = dataSourceConnections;
 

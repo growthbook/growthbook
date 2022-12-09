@@ -1,5 +1,4 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
-import Modal from "../../../Modal";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -7,15 +6,16 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
+import { FaPlay } from "react-icons/fa";
+import { TestQueryRow } from "back-end/src/types/Integration";
+import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import CodeTextArea from "../../../Forms/CodeTextArea";
 import Tooltip from "../../../Tooltip/Tooltip";
 import StringArrayField from "../../../Forms/StringArrayField";
 import { validateSQL } from "../../../../services/datasources";
 import { useAuth } from "../../../../services/auth";
-import { FaPlay } from "react-icons/fa";
 import DisplayTestQueryResults from "../../DisplayTestQueryResults";
-import { TestQueryRow } from "back-end/src/types/Integration";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;

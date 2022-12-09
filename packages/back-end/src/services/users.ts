@@ -1,7 +1,7 @@
-import { UserDocument, UserModel } from "../models/UserModel";
-import uniqid from "uniqid";
 import crypto from "crypto";
 import { promisify } from "util";
+import uniqid from "uniqid";
+import { UserDocument, UserModel } from "../models/UserModel";
 import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;

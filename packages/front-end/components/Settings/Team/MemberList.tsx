@@ -1,17 +1,17 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import InviteModal from "./InviteModal";
+import { ExpandedMember } from "back-end/types/organization";
 import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
 import { useUser } from "../../../services/UserContext";
 import DeleteButton from "../../DeleteButton/DeleteButton";
 import { GBAddCircle } from "../../Icons";
-import { ExpandedMember } from "back-end/types/organization";
 import MoreMenu from "../../Dropdown/MoreMenu";
 import { usingSSO } from "../../../services/env";
-import AdminSetPasswordModal from "./AdminSetPasswordModal";
-import ChangeRoleModal from "./ChangeRoleModal";
 import { useEnvironments } from "../../../services/features";
 import { datetime } from "../../../services/dates";
+import AdminSetPasswordModal from "./AdminSetPasswordModal";
+import ChangeRoleModal from "./ChangeRoleModal";
+import InviteModal from "./InviteModal";
 
 const MemberList: FC<{
   mutate: () => void;

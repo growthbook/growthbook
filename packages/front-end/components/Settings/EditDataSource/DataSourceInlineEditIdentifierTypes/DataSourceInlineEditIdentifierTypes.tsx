@@ -1,16 +1,16 @@
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import React, { FC, useCallback, useMemo, useState } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "back-end/types/datasource";
-import { EditIdentifierType } from "./EditIdentifierType";
-import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
+import MoreMenu from "../../../Dropdown/MoreMenu";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
 import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
+import { EditIdentifierType } from "./EditIdentifierType";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 

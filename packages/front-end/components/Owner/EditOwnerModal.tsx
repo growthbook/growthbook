@@ -1,6 +1,6 @@
 import { FC } from "react";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 import useMembers from "../../hooks/useMembers";
 

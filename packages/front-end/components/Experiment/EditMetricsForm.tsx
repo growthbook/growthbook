@@ -1,15 +1,15 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import MetricsSelector from "./MetricsSelector";
-import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useUser } from "../../services/UserContext";
 import UpgradeMessage from "../UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
+import MetricsOverridesSelector from "./MetricsOverridesSelector";
+import MetricsSelector from "./MetricsSelector";
 
 export interface EditMetricsFormInterface {
   metrics: string[];

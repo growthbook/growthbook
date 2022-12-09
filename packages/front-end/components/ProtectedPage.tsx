@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
 import { useAuth, safeLogout } from "../services/auth";
-import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
+import { UserContextProvider, useUser } from "../services/UserContext";
+import LoadingOverlay from "./LoadingOverlay";
 import CreateOrganization from "./Auth/CreateOrganization";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
-import { UserContextProvider, useUser } from "../services/UserContext";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({

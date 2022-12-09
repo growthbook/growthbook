@@ -4,8 +4,8 @@ import MoreMenu from "../../Dropdown/MoreMenu";
 import useApi from "../../../hooks/useApi";
 import LoadingOverlay from "../../LoadingOverlay";
 import { useAuth } from "../../../services/auth";
-import AddOrphanedUserModal from "./AddOrphanedUserModal";
 import { isCloud } from "../../../services/env";
+import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
   mutateUsers: () => void;

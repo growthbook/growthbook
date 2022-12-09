@@ -2,9 +2,7 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import FeatureValueField from "./FeatureValueField";
 import { useAuth } from "../../services/auth";
-import ConditionInput from "./ConditionInput";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
@@ -13,11 +11,13 @@ import {
   validateFeatureRule,
 } from "../../services/features";
 import track from "../../services/track";
+import useOrgSettings from "../../hooks/useOrgSettings";
+import SelectField from "../Forms/SelectField";
+import FeatureValueField from "./FeatureValueField";
+import ConditionInput from "./ConditionInput";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import SelectField from "../Forms/SelectField";
 
 export interface Props {
   close: () => void;

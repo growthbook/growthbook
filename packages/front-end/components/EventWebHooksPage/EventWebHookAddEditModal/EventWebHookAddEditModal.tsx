@@ -1,13 +1,13 @@
 import React, { FC } from "react";
-import Modal from "../../Modal";
 import { NotificationEventName } from "back-end/src/events/base-types";
+import { useForm } from "react-hook-form";
+import { Typeahead } from "react-bootstrap-typeahead";
 import {
   EventWebHookEditParams,
   eventWebHookEventOptions,
   EventWebHookModalMode,
 } from "../utils";
-import { useForm } from "react-hook-form";
-import { Typeahead } from "react-bootstrap-typeahead";
+import Modal from "../../Modal";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;

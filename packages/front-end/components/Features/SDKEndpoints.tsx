@@ -1,10 +1,9 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
+import { useAuth } from "../../services/auth";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import ApiKeysModal from "../Settings/ApiKeysModal";
-import { getSDKEndpoint } from "./CodeSnippetModal";
 import usePermissions from "../../hooks/usePermissions";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
@@ -13,6 +12,7 @@ import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "../Settings/ClickToReveal";
 import ClickToCopy from "../Settings/ClickToCopy";
+import { getSDKEndpoint } from "./CodeSnippetModal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];

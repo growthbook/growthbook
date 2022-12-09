@@ -1,5 +1,4 @@
 import { FC, useState, useEffect } from "react";
-import Modal from "../Modal";
 import {
   ExperimentSnapshotInterface,
   SnapshotVariation,
@@ -7,6 +6,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
+import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import {

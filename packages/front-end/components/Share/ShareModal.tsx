@@ -1,20 +1,10 @@
 import React, { useEffect, useState } from "react";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import { useSearch } from "../../services/search";
-import { useUser } from "../../services/UserContext";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import Tabs from "../Tabs/Tabs";
-import Tab from "../Tabs/Tab";
-import Preview from "./Preview";
-import { ago, datetime, getValidDate, date } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
   PresentationSlide,
 } from "back-end/types/presentation";
-import ResultsIndicator from "../Experiment/ResultsIndicator";
 import {
   resetServerContext,
   DragDropContext,
@@ -25,6 +15,15 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
+import ResultsIndicator from "../Experiment/ResultsIndicator";
+import { ago, datetime, getValidDate, date } from "../../services/dates";
+import Tab from "../Tabs/Tab";
+import Tabs from "../Tabs/Tabs";
+import { useAuth } from "../../services/auth";
+import { useUser } from "../../services/UserContext";
+import { useSearch } from "../../services/search";
+import Page from "../Modal/Page";
+import PagedModal from "../Modal/PagedModal";
 import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
 import useApi from "../../hooks/useApi";
@@ -32,6 +31,7 @@ import track from "../../services/track";
 import SortedTags from "../Tags/SortedTags";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import Preview from "./Preview";
 
 export const presentationThemes = {
   lblue: {

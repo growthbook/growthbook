@@ -1,10 +1,10 @@
 import Link from "next/link";
 import React from "react";
-import { ago, datetime } from "../../services/dates";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
 } from "back-end/types/experiment";
+import { ago, datetime } from "../../services/dates";
 import { phaseSummary } from "../../services/utils";
 
 export default function ExperimentList({

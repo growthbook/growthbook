@@ -1,11 +1,6 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../../hooks/useApi";
 import React, { useState, ReactElement } from "react";
-import { useAuth } from "../../services/auth";
-import Tabs from "../../components/Tabs/Tabs";
-import Tab from "../../components/Tabs/Tab";
-import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import {
   FaStop,
   FaPlay,
@@ -14,6 +9,13 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import Link from "next/link";
+import { IdeaInterface } from "back-end/types/idea";
+import { useFeature } from "@growthbook/growthbook-react";
+import useApi from "../../hooks/useApi";
+import { useAuth } from "../../services/auth";
+import Tabs from "../../components/Tabs/Tabs";
+import Tab from "../../components/Tabs/Tab";
+import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { ago, datetime } from "../../services/dates";
 import { formatTrafficSplit, phaseSummary } from "../../services/utils";
 import Results from "../../components/Experiment/Results";
@@ -30,16 +32,14 @@ import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup
 import ConfirmButton from "../../components/Modal/ConfirmButton";
 import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { IdeaInterface } from "back-end/types/idea";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
 import Button from "../../components/Button";
-import { useFeature } from "@growthbook/growthbook-react";
 import usePermissions from "../../hooks/usePermissions";
 import { getExposureQuery } from "../../services/datasources";
 import { useUser } from "../../services/UserContext";
-import VariationBox from "./VariationBox";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
+import VariationBox from "./VariationBox";
 import ExperimentReportsList from "./ExperimentReportsList";
 
 export interface Props {

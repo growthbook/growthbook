@@ -1,9 +1,9 @@
 import React from "react";
 import Head from "next/head";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "../hooks/useApi";
 import ExperimentsGetStarted from "../components/HomePage/ExperimentsGetStarted";
 

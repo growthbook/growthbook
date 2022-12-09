@@ -3,15 +3,15 @@ import React, { ReactElement } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentStatus } from "back-end/types/experiment";
 import { ExperimentTableRow, useDomain } from "../../services/experiments";
 import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
-import { ExperimentStatus } from "back-end/types/experiment";
-import SelectField from "../Forms/SelectField";
 
 export type ResultsTableProps = {
   id: string;

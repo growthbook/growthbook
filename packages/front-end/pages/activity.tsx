@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
+import { AuditInterface } from "back-end/types/audit";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { AuditInterface } from "back-end/types/audit";
 import { HistoryTableRow } from "../components/HistoryTable";
 
 const Activity: FC = () => {

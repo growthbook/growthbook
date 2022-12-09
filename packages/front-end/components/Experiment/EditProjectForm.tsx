@@ -1,8 +1,8 @@
 import { FC } from "react";
+import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import { useDefinitions } from "../../services/DefinitionsContext";
-import { useForm } from "react-hook-form";
 import SelectField from "../Forms/SelectField";
 
 const EditProjectForm: FC<{

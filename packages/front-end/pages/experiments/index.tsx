@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useRouter } from "next/router";
 import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../../components/LoadingOverlay";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { phaseSummary } from "../../services/utils";
 import { datetime, ago } from "../../services/dates";
 import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
-import { useRouter } from "next/router";
 import { useAddComputedFields, useSearch } from "../../services/search";
 import WatchButton from "../../components/WatchButton";
 import { useDefinitions } from "../../services/DefinitionsContext";

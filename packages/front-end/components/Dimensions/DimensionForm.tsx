@@ -1,8 +1,8 @@
 import { FC } from "react";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
+import Modal from "../Modal";
+import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";

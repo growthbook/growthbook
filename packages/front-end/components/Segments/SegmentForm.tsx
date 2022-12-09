@@ -1,7 +1,7 @@
 import { FC } from "react";
-import Modal from "../Modal";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
+import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";

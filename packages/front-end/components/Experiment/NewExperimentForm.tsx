@@ -1,17 +1,16 @@
 import { FC, useEffect, useState } from "react";
-import { useAuth } from "../../services/auth";
 import { useForm } from "react-hook-form";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import TagsInput from "../Tags/TagsInput";
 import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import MetricsSelector from "./MetricsSelector";
+import { useRouter } from "next/router";
 import { useWatching } from "../../services/WatchProvider";
 import MarkdownInput from "../Markdown/MarkdownInput";
-import { useRouter } from "next/router";
+import TagsInput from "../Tags/TagsInput";
+import Page from "../Modal/Page";
+import PagedModal from "../Modal/PagedModal";
+import { useAuth } from "../../services/auth";
 import track from "../../services/track";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
@@ -19,8 +18,9 @@ import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
-import VariationDataInput from "./VariationDataInput";
 import useOrgSettings from "../../hooks/useOrgSettings";
+import MetricsSelector from "./MetricsSelector";
+import VariationDataInput from "./VariationDataInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
