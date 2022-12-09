@@ -284,7 +284,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
               // ignore
             }
             // Don't need to confirm, just redirect immediately
-            window.location.href = resp.redirectURI;
+            await redirectWithTimeout(resp.redirectURI);
           }
           setSessionError(true);
           throw new Error(
