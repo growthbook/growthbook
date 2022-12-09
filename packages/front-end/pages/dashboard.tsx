@@ -43,10 +43,7 @@ export default function Analysis(): React.ReactElement {
 
       <div className="container pagecontents position-relative">
         {hasExperiments ? (
-          <Dashboard
-            experiments={experiments?.experiments || []}
-            project={project}
-          />
+          <Dashboard experiments={experiments?.experiments || []} />
         ) : (
           <div className="getstarted">
             <h1>Experiment Analysis</h1>

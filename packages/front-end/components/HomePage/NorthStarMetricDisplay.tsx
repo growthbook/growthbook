@@ -4,19 +4,19 @@ import LoadingOverlay from "../../components/LoadingOverlay";
 import DateGraph from "../Metrics/DateGraph";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const NorthStarMetricDisplay = ({
   metricId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   window,
   resolution,
-  project,
 }: {
   metricId: string;
   window?: number | string;
   resolution?: string;
-  project: string;
 }): React.ReactElement => {
+  const { project } = useDefinitions();
   const { data, error } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
