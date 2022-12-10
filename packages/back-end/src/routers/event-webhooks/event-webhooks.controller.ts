@@ -7,6 +7,9 @@ import * as EventWebHookLog from "../../models/EventWebHookLogModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
+import { NotificationEventName } from "../../events/base-types";
+
+// region GET /event-webhooks
 
 type GetEventWebHooksRequest = AuthRequest;
 
@@ -26,6 +29,46 @@ export const getEventWebHooks = async (
 
   return res.json({ eventWebHooks });
 };
+
+// endregion GET /event-webhooks
+
+// region POST /event-webhooks
+
+type PostEventWebHooksRequest = AuthRequest & {
+  body: {
+    url: string;
+    name: string;
+    events: NotificationEventName[];
+  };
+};
+
+type PostEventWebHooksResponse = {
+  eventWebHook: EventWebHookInterface;
+};
+
+export const createEventWebHook = async (
+  req: PostEventWebHooksRequest,
+  res: Response<PostEventWebHooksResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+  const { url, name, events } = req.body;
+
+  const created = await EventWebHook.createEventWebHook({
+    name,
+    url,
+    events,
+    organizationId: org.id,
+    enabled: true,
+  });
+
+  return res.json({ eventWebHook: created });
+};
+
+// endregion POST /event-webhooks
+
+// region GET /event-webhooks/logs/:eventWebHookId
 
 type GetEventWebHookLogsRequest = AuthRequest<
   undefined,
@@ -51,3 +94,5 @@ export const getEventWebHookLogs = async (
 
   return res.json({ eventWebHookLogs });
 };
+
+// endregion GET /event-webhooks/logs/:eventWebHookId

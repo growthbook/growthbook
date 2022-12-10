@@ -228,7 +228,7 @@ export default function ConditionInput(props: Props) {
                         value: s.property,
                       }))}
                       name="field"
-                      className={`${styles.firstselect} form-control`}
+                      className={styles.firstselect}
                       onChange={(value) => {
                         const newConds = [...conds];
                         newConds[i] = { ...newConds[i] };
@@ -256,7 +256,6 @@ export default function ConditionInput(props: Props) {
                       onChange={(v) => {
                         onSelectFieldChange(v, "operator");
                       }}
-                      className="form-control"
                     />
                   </div>
                   {[
@@ -279,6 +278,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       initialOption="Choose group..."
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <Field
@@ -290,6 +290,7 @@ export default function ConditionInput(props: Props) {
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                       helpText="separate values by comma"
+                      required
                     />
                   ) : attribute.enum.length ? (
                     <SelectField
@@ -304,6 +305,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : attribute.datatype === "number" ? (
                     <Field
@@ -314,6 +316,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : attribute.datatype === "string" ? (
                     <Field
@@ -322,6 +325,7 @@ export default function ConditionInput(props: Props) {
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : (
                     ""

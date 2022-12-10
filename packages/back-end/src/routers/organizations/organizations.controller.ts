@@ -1,7 +1,11 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "../../types/AuthRequest";
 import {
   acceptInvite,
+  addMemberToOrg,
   getInviteUrl,
   getOrgFromReq,
   importConfig,
@@ -19,6 +23,7 @@ import { getAllTags } from "../../models/TagModel";
 import {
   ExpandedMember,
   Invite,
+  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
@@ -44,6 +49,9 @@ import { WebhookModel } from "../../models/WebhookModel";
 import { createWebhook } from "../../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByInviteKey,
+  findAllOrganizations,
+  findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
 } from "../../models/OrganizationModel";
@@ -68,6 +76,7 @@ import {
   getAccountPlan,
   getRoles,
 } from "../../util/organization.util";
+import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -567,6 +576,40 @@ export async function deleteNamespace(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function getInviteInfo(
+  req: AuthRequest<unknown, { key: string }>,
+  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+) {
+  const { key } = req.params;
+
+  try {
+    if (!req.userId) {
+      throw new Error("Must be logged in");
+    }
+    const org = await findOrganizationByInviteKey(key);
+
+    if (!org) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    const invite = org.invites.find((i) => i.key === key);
+    if (!invite) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      organization: org.name,
+      role: invite.role,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 }
 
 export async function postInviteAccept(
@@ -1070,6 +1113,125 @@ export async function postImportConfig(
   });
 }
 
+export async function getOrphanedUsers(req: AuthRequest, res: Response) {
+  req.checkPermissions("organizationSettings");
+
+  if (IS_CLOUD) {
+    throw new Error("Unable to get orphaned users on GrowthBook Cloud");
+  }
+
+  const allUsers = await getAllUsers();
+  const allOrgs = await findAllOrganizations();
+
+  const membersInOrgs = new Set<string>();
+  allOrgs.forEach((org) => {
+    org.members.forEach((m) => {
+      membersInOrgs.add(m.id);
+    });
+  });
+
+  const orphanedUsers = allUsers
+    .filter((u) => !membersInOrgs.has(u.id))
+    .map(({ id, name, email }) => ({
+      id,
+      name,
+      email,
+    }));
+
+  return res.status(200).json({
+    status: 200,
+    orphanedUsers,
+  });
+}
+
+export async function addOrphanedUser(
+  req: AuthRequest<MemberRoleWithProjects, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  if (IS_CLOUD) {
+    throw new Error("This action is not permitted on GrowthBook Cloud");
+  }
+
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const {
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+  } = req.body;
+
+  // Make sure user exists
+  const user = await findUserById(id);
+  if (!user) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot find user with that id",
+    });
+  }
+
+  // Make sure user is actually orphaned
+  const orgs = await findOrganizationsByMemberId(id);
+  if (orgs.length) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot add users who are already part of an organization",
+    });
+  }
+
+  await addMemberToOrg({
+    organization: org,
+    userId: id,
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+  });
+
+  return res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteOrphanedUser(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("organizationSettings");
+
+  if (IS_CLOUD) {
+    throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
+  }
+
+  const { id } = req.params;
+
+  // Make sure user exists
+  const user = await findUserById(id);
+  if (!user) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot find user with that id",
+    });
+  }
+
+  // Make sure user is orphaned
+  const orgs = await findOrganizationsByMemberId(id);
+  if (orgs.length) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot delete users who are part of an organization",
+    });
+  }
+
+  await deleteUser(id);
+  return res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function putAdminResetUserPassword(
   req: AuthRequest<
     {
@@ -1087,6 +1249,7 @@ export async function putAdminResetUserPassword(
   const { updatedPassword } = req.body;
   const userToUpdateId = req.params.id;
 
+  // Only enable for self-hosted deployments that are not using SSO
   if (usingOpenId()) {
     throw new Error("This functionality is not available when using SSO");
   }
@@ -1097,10 +1260,14 @@ export async function putAdminResetUserPassword(
   );
 
   // Only update the password if the member we're updating is in the same org as the requester
+  // Exception: allow updating the password if the user is not part of any organization
   if (!isUserToUpdateInSameOrg) {
-    throw new Error(
-      "Cannot change password of users outside your organization."
-    );
+    const orgs = await findOrganizationsByMemberId(userToUpdateId);
+    if (orgs.length > 0) {
+      throw new Error(
+        "Cannot change password of users outside your organization."
+      );
+    }
   }
 
   await updatePassword(userToUpdateId, updatedPassword);

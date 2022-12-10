@@ -104,6 +104,7 @@ const sidebars = {
         { type: "doc", id: "lib/ruby", label: "Ruby" },
         { type: "doc", id: "lib/python", label: "Python" },
         { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
+        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
         { type: "doc", id: "lib/go", label: "Go" },
         { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
         { type: "doc", id: "lib/flutter", label: "Flutter" },

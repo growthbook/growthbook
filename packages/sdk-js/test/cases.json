@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.2.2",
+  "specVersion": "0.2.3",
   "evalCondition": [
     [
       "$not - pass",
@@ -2726,6 +2726,22 @@
         "key": "my-test",
         "variations": [0, 1],
         "namespace": ["namespace", 0, 0.1]
+      },
+      0,
+      false,
+      false
+    ],
+    [
+      "Experiment coverage - Works when 0",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "no-coverage",
+        "variations": [0, 1],
+        "coverage": 0
       },
       0,
       false,

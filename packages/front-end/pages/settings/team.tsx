@@ -10,6 +10,7 @@ import { useUser } from "../../services/UserContext";
 import usePermissions from "../../hooks/usePermissions";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../../components/Forms/SelectField";
+import OrphanedUsersList from "../../components/Settings/Team/OrphanedUsersList";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();
@@ -104,6 +105,11 @@ const TeamPage: FC = () => {
       ) : (
         ""
       )}
+
+      <OrphanedUsersList
+        mutateUsers={refreshOrganization}
+        numUsersInAccount={organization.members?.length || 0}
+      />
     </div>
   );
 };
