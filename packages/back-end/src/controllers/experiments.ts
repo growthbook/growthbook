@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthRequest } from "../types/AuthRequest";
+import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getExperimentsByOrganization,
   getExperimentById,
@@ -144,6 +144,28 @@ export async function getExperimentsFrequencyMonth(
   res.status(200).json({
     status: 200,
     data: { all: allData, ...dataByStatus },
+  });
+}
+
+export async function lookupExperimentByTrackingKey(
+  req: AuthRequest<unknown, unknown, { trackingKey: string }>,
+  res: ResponseWithStatusAndError<{ experimentId: string | null }>
+) {
+  const { org } = getOrgFromReq(req);
+  const { trackingKey } = req.query;
+
+  if (!trackingKey) {
+    return res.status(400).json({
+      status: 400,
+      message: "Tracking key cannot be empty",
+    });
+  }
+
+  const experiment = await getExperimentByTrackingKey(org.id, trackingKey + "");
+
+  return res.status(200).json({
+    status: 200,
+    experimentId: experiment?.id || null,
   });
 }
 

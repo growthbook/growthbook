@@ -17,6 +17,7 @@ const DeleteButton: FC<{
   deleteMessage?: string;
   additionalMessage?: string;
   getConfirmationContent?: () => Promise<string | React.ReactElement>;
+  canDelete?: boolean;
 }> = ({
   onClick,
   className,
@@ -31,6 +32,7 @@ const DeleteButton: FC<{
   deleteMessage = "Are you sure? This action cannot be undone.",
   additionalMessage = "",
   getConfirmationContent,
+  canDelete = true,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [dynamicContent, setDynamicContent] = useState<
@@ -54,6 +56,7 @@ const DeleteButton: FC<{
           cta="Delete"
           submitColor="danger"
           submit={onClick}
+          ctaEnabled={canDelete}
         >
           {dynamicContent ? dynamicContent : <p>{deleteMessage}</p>}
           {additionalMessage && <p>{additionalMessage}</p>}
