@@ -5,8 +5,12 @@ import track from "../../../services/track";
 import LoadingOverlay from "../../LoadingOverlay";
 import Tooltip from "../../Tooltip/Tooltip";
 import Button from "../../Button";
-import { currencyFormatter } from "./index";
 import { AccountPlan } from "back-end/types/organization";
+
+const currencyFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+});
 
 export default function CloudUpgradeForm({
   accountPlan,

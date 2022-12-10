@@ -13,11 +13,13 @@ export default function SingleRoleSelector({
   setValue,
   label,
   includeAdminRole = false,
+  disabled = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
   includeAdminRole?: boolean;
+  disabled?: boolean;
 }) {
   const { roles, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -53,6 +55,7 @@ export default function SingleRoleSelector({
             </div>
           );
         }}
+        disabled={disabled}
       />
 
       {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (

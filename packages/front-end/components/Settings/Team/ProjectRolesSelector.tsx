@@ -31,9 +31,8 @@ export default function ProjectRolesSelector({
           Project Roles (optional)
         </PremiumTooltip>
       </label>
-      {hasFeature &&
-        projectRoles.map((projectRole, i) => (
-          <div className="appbox px-3 pt-3 bg-light" key={i}>
+      { projectRoles.map((projectRole, i) => (
+          <div className="appbox px-3 pt-2 bg-light" key={i}>
             <div style={{ float: "right" }}>
               <a
                 href="#"
@@ -68,10 +67,12 @@ export default function ProjectRolesSelector({
                   <strong>{getProjectById(projectRole.project)?.name}</strong>
                 </>
               }
+              disabled={!hasFeature}
               includeAdminRole={false}
             />
           </div>
-        ))}
+        ))
+      }
       {unusedProjects.length > 0 && (
         <div className="row">
           <div className="col">

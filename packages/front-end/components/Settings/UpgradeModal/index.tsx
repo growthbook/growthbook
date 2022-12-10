@@ -2,12 +2,8 @@ import Modal from "../../Modal";
 import { useUser } from "../../../services/UserContext";
 import CloudUpgradeForm from "./CloudUpgradeForm";
 import SelfHostedUpgradeForm from "./SelfHostedUpgradeForm";
-import { useState } from "react";
-
-export const currencyFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-});
+import { useEffect, useState } from "react";
+import { isCloud } from "../../../services/env";
 
 export interface Props {
   close: () => void;
@@ -18,13 +14,20 @@ export interface Props {
 export default function UpgradeModal({ close, source, reason }: Props) {
   const [closeCta, setCloseCta] = useState("Cancel");
   const { accountPlan } = useUser();
+
+  useEffect(() => {
+    if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
+      close();
+    }
+  }, [accountPlan, close]);
+
   if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
-    close();
+    return null;
   }
 
   return (
     <Modal open={true} close={close} closeCta={closeCta} size="lg">
-      {accountPlan === "starter" ? (
+      {isCloud() ? (
         <CloudUpgradeForm
           accountPlan={accountPlan}
           source={source}
@@ -32,13 +35,13 @@ export default function UpgradeModal({ close, source, reason }: Props) {
           setCloseCta={(s) => setCloseCta(s)}
           close={close}
         />
-      ) : accountPlan === "oss" ? (
+      ) : (
         <SelfHostedUpgradeForm
           source={source}
           setCloseCta={(s) => setCloseCta(s)}
           close={close}
         />
-      ) : null}
+      )}
     </Modal>
   );
 }

@@ -46,6 +46,7 @@ const MemberList: FC<{
             environments: roleModalUser.environments || [],
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
+            projectRoles: roleModalUser.projectRoles,
           }}
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
