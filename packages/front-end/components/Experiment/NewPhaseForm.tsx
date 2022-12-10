@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import { useWatching } from "../../services/WatchProvider";
-import { getEvenSplit } from "../../services/utils";
+import { getEqualWeights } from "../../services/utils";
 import GroupsInput from "../GroupsInput";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
@@ -32,7 +32,7 @@ const NewPhaseForm: FC<{
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
-        getEvenSplit(experiment.variations.length),
+        getEqualWeights(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       groups: prevPhase.groups || [],
