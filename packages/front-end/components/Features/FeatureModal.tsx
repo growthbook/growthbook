@@ -32,6 +32,7 @@ import useOrgSettings from "../../hooks/useOrgSettings";
 import { useWatching } from "../../services/WatchProvider";
 import { ReactElement } from "react";
 import usePermissions from "../../hooks/usePermissions";
+import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
 
 export type Props = {
   close?: () => void;
@@ -68,7 +69,7 @@ export default function FeatureModal({
   cta = "Create",
   secondaryCTA,
 }: Props) {
-  const { project, refreshTags } = useDefinitions();
+  const { project, refreshTags, projects } = useDefinitions();
   const environments = useEnvironments();
   const permissions = usePermissions();
 
@@ -97,7 +98,22 @@ export default function FeatureModal({
       rule: null,
     },
   });
+
+  const availableProjects: (SingleValue | GroupedValue)[] = projects
+    .slice()
+    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .filter(
+      (p) =>
+        permissions.check("manageFeatures", p.id) &&
+        permissions.check("createFeatureDrafts", p.id)
+    )
+    .map((p) => ({ value: p.id, label: p.name }));
+
   const { apiCall } = useAuth();
+
+  const allowAllProjects =
+    permissions.check("manageFeatures", "") &&
+    permissions.check("createFeatureDrafts", "");
 
   const attributeSchema = useAttributeSchema();
 
@@ -197,6 +213,17 @@ export default function FeatureModal({
           </>
         }
       />
+
+      <div className="form-group">
+        <label>Project</label>
+        <SelectField
+          value={form.watch("project")}
+          onChange={(p) => form.setValue("project", p)}
+          name="project"
+          initialOption={allowAllProjects ? "All Projects" : undefined}
+          options={availableProjects}
+        />
+      </div>
 
       <div className="form-group">
         <label>Tags</label>

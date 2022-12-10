@@ -128,7 +128,7 @@ const MemberList: FC<{
                         )}
                         <DeleteButton
                           link={true}
-                          text="Delete User"
+                          text="Remove User"
                           useIcon={false}
                           className="dropdown-item"
                           displayName={member.email}
