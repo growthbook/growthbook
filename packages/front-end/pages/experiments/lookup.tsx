@@ -3,12 +3,12 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import NewExperimentForm from "../../../components/Experiment/NewExperimentForm";
-import LoadingOverlay from "../../../components/LoadingOverlay";
-import { useAuth } from "../../../services/auth";
-import { useDefinitions } from "../../../services/DefinitionsContext";
+import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
+import LoadingOverlay from "../../components/LoadingOverlay";
+import { useAuth } from "../../services/auth";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
-export default function ExperimentByTrackingKeyPage() {
+export default function ExperimentLookupPage() {
   const router = useRouter();
   const { trackingKey, data } = router.query;
   const [error, setError] = useState("");
@@ -39,12 +39,14 @@ export default function ExperimentByTrackingKeyPage() {
 
   const { apiCall } = useAuth();
   useEffect(() => {
-    apiCall<{ experimentId: string | null }>(`/experiments/tracking-key`, {
-      method: "POST",
-      body: JSON.stringify({
-        trackingKey,
-      }),
-    })
+    apiCall<{ experimentId: string | null }>(
+      `/experiments/tracking-key?trackingKey=${encodeURIComponent(
+        trackingKey + ""
+      )}`,
+      {
+        method: "GET",
+      }
+    )
       .then((res) => {
         if (res.experimentId) {
           router.push(`/experiment/${res.experimentId}`);

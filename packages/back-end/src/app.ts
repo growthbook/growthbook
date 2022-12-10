@@ -333,7 +333,7 @@ app.get(
 );
 app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
-app.post(
+app.get(
   "/experiments/tracking-key",
   experimentsController.lookupExperimentByTrackingKey
 );
