@@ -48,9 +48,6 @@ export default class Mssql extends SqlIntegration {
   stddev(col: string) {
     return `STDEV(${col})`;
   }
-  avg(col: string) {
-    return `AVG(CAST(${col} as FLOAT))`;
-  }
   variance(col: string) {
     return `VAR(${col})`;
   }

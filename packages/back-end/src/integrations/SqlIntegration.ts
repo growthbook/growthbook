@@ -138,7 +138,7 @@ export default abstract class SqlIntegration
     return `STDDEV(${col})`;
   }
   avg(col: string) {
-    return `AVG(${col})`;
+    return `AVG(${this.ensureFloat(col)})`;
   }
   variance(col: string) {
     return `VAR_SAMP(${col})`;
@@ -357,7 +357,7 @@ export default abstract class SqlIntegration
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
-            ${this.ifNullFallback(aggregate, "0")} as value
+            ${aggregate} as value
           FROM
             __metric m
             ${
@@ -371,8 +371,8 @@ export default abstract class SqlIntegration
         , __overall as (
           SELECT
             COUNT(*) as count,
-            ${this.avg("value")} as mean,
-            ${this.stddev("value")} as stddev
+            ${this.avg("coalesce(value,0)")} as mean,
+            ${this.stddev("coalesce(value,0)")} as stddev
           from
             __userMetric
         )
@@ -383,7 +383,7 @@ export default abstract class SqlIntegration
             -- Add in the aggregate metric value for each user
             SELECT
               ${this.dateTrunc("m.timestamp")} as date,
-              ${this.ifNullFallback(aggregate, "0")} as value
+              ${aggregate} as value
             FROM
               __metric m
               ${
@@ -399,8 +399,8 @@ export default abstract class SqlIntegration
             SELECT
               date,
               COUNT(*) as count,
-              ${this.avg("value")} as mean,
-              ${this.stddev("value")} as stddev
+              ${this.avg("coalesce(value,0)")} as mean,
+              ${this.stddev("coalesce(value,0)")} as stddev
             FROM
               __userMetricDates d
             GROUP BY
@@ -563,11 +563,6 @@ export default abstract class SqlIntegration
           .join("\n AND ")}`;
   }
 
-  private ifNullFallback(nullable: string | null, fallback: string) {
-    if (!nullable) return fallback;
-    return `COALESCE(${nullable}, ${fallback})`;
-  }
-
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
     if (!dimension) {
       return this.castToString("'All'");
@@ -578,11 +573,11 @@ export default abstract class SqlIntegration
         "'Activated'"
       );
     } else if (dimension.type === "user") {
-      return this.ifNullFallback(this.castToString("d.value"), "''");
+      return `coalesce(${this.castToString("d.value")},'')`;
     } else if (dimension.type === "date") {
       return this.formatDate(this.dateTrunc("e.timestamp"));
     } else if (dimension.type === "experiment") {
-      return this.ifNullFallback(this.castToString("e.dimension"), "''");
+      return `coalesce(${this.castToString("e.dimension")},'')`;
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
@@ -952,10 +947,7 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${this.ifNullFallback(
-            this.getAggregateMetricColumn(denominator, "m"),
-            "0"
-          )} as value
+          ${this.getAggregateMetricColumn(denominator, "m")} as value
         FROM
           __distinctUsers d
           JOIN ${
@@ -983,7 +975,7 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${this.ifNullFallback(aggregate, "0")} as value
+          ${aggregate} as value
         FROM
           __distinctUsers d
           JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
@@ -1017,16 +1009,19 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
           ${this.ensureFloat("COUNT(*)")} as count,
-          ${this.avg("m.value")} as m_mean,
-          ${this.variance("m.value")} as m_var,
+          ${this.avg("coalesce(m.value,0)")} as m_mean,
+          ${this.variance("coalesce(m.value,0)")} as m_var,
           ${this.ensureFloat("sum(m.value)")} as m_sum
           ${
             isRatio
               ? `,
-            ${this.avg("d.value")} as d_mean,
-            ${this.variance("d.value")} as d_var,
+            ${this.avg("coalesce(d.value,0)")} as d_mean,
+            ${this.variance("coalesce(d.value,0)")} as d_var,
             ${this.ensureFloat("sum(d.value)")} as d_sum,
-            ${this.covariance("d.value", "m.value")} as covar
+            ${this.covariance(
+              "coalesce(d.value,0)",
+              "coalesce(m.value,0)"
+            )} as covar
           `
               : ""
           }
