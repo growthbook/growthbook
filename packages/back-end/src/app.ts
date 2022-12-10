@@ -84,6 +84,7 @@ import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { projectRouter } from "./routers/project/project.router";
+import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 
 const app = express();
 
@@ -258,6 +259,9 @@ app.use(
     next();
   }
 );
+
+// Validate self hosted license key if present
+app.use(verifyLicenseMiddleware);
 
 // Logged-in auth requests
 if (!useSSO) {
