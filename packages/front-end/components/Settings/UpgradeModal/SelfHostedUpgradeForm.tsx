@@ -6,6 +6,8 @@ import track from "../../../services/track";
 import Field from "../../Forms/Field";
 import LoadingSpinner from "../../LoadingSpinner";
 import { FaExclamationTriangle, FaRegCheckCircle } from "react-icons/fa";
+import { getNumberOfUniqueMembersAndInvites } from "../../../services/organizations";
+import { getGrowthBookBuild } from "../../../services/env";
 
 const LICENSE_KEY_API_URL = "https://license.growthbook.io/api";
 
@@ -27,23 +29,82 @@ export default function SelfHostedUpgradeForm({
 
   const { accountPlan, name, email, organization } = useUser();
 
+  const customerContext = {
+    organizationCreated: organization.dateCreated,
+    currentSeats: getNumberOfUniqueMembersAndInvites(organization),
+    currentPlan: accountPlan,
+    currentBuild: getGrowthBookBuild(),
+    ctaSource: source,
+  };
+
   useEffect(() => {
-    track("View Upgrade Modal", {
-      accountPlan,
-      source,
-    });
+    track("Self Hosted: View Upgrade Modal", customerContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const form = useForm({
     defaultValues: {
-      name,
-      email,
-      seats: Math.max(organization?.members?.length || 10, 10),
       companyName: organization?.name,
       organizationId: organization?.id,
-      plan: "pro",
+      name,
+      email,
+      context: customerContext,
     },
+  });
+
+  const submitMainForm = form.handleSubmit(async (value) => {
+    if (loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const encodedParams = new URLSearchParams();
+      for (const key in value) {
+        encodedParams.append(key, value[key]);
+      }
+      const resp = await fetch(`${LICENSE_KEY_API_URL}/trial`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: encodedParams,
+      });
+      if (resp?.status === 200) {
+        setSubmitState("send key success");
+        setLoading(false);
+        setCloseCta("Close");
+        track("Generate trial license", value);
+      } else {
+        setLoading(false);
+        const txt = await resp.text();
+        switch (txt) {
+          case "active license exists":
+            setError(
+              "You already have an active license key. Please check your email, or contact us at sales@growthbook.io."
+            );
+            setUseResendForm(true);
+            break;
+          case "expired license exists":
+            setError(
+              "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
+            );
+            break;
+          default:
+            setError(
+              <>
+                <p className="mb-2">
+                  There was a server error. Please try again later, or contact
+                  us at sales@growthbook.io.
+                </p>
+                <p className="mb-0">{txt}</p>
+              </>
+            );
+        }
+      }
+    } catch (e) {
+      setLoading(false);
+      setError(e.message);
+    }
   });
 
   return (
@@ -70,10 +131,7 @@ export default function SelfHostedUpgradeForm({
               href="https://www.growthbook.io/pricing"
               target="_blank"
               onClick={() => {
-                track("Click Cloud pricing link", {
-                  accountPlan,
-                  source,
-                });
+                track("Self hosted: Click Cloud pricing link", customerContext);
               }}
               rel="noreferrer"
             >
@@ -83,10 +141,10 @@ export default function SelfHostedUpgradeForm({
             <a
               href="mailto:sales@growthbook.io"
               onClick={() => {
-                track("Click Cloud custom quote email", {
-                  accountPlan,
-                  source,
-                });
+                track(
+                  "Self hosted: Click Cloud custom quote email",
+                  customerContext
+                );
               }}
             >
               sales@growthbook.io
@@ -95,6 +153,7 @@ export default function SelfHostedUpgradeForm({
           </p>
         </div>
       </div>
+
       <div className="m-auto" style={{ maxWidth: "65%" }}>
         {error && <div className="alert alert-danger mt-4">{error}</div>}
 
@@ -121,65 +180,10 @@ export default function SelfHostedUpgradeForm({
 
         {!useResendForm && !submitState && (
           <form
-            style={{ opacity: submitState ? 0.5 : 1 }}
-            onSubmit={form.handleSubmit(async (value) => {
-              if (loading) return;
-              setError(null);
-              setLoading(true);
-              try {
-                const encodedParams = new URLSearchParams();
-                for (const key in value) {
-                  encodedParams.append(key, value[key]);
-                }
-                const resp = await fetch(`${LICENSE_KEY_API_URL}/trial`, {
-                  method: "POST",
-                  headers: {
-                    Accept: "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded",
-                  },
-                  body: encodedParams,
-                });
-                if (resp?.status === 200) {
-                  setSubmitState("send key success");
-                  setLoading(false);
-                  setCloseCta("Close");
-                  track("Generate trial license", {
-                    source,
-                    accountPlan,
-                    ...value,
-                  });
-                } else {
-                  setLoading(false);
-                  const txt = await resp.text();
-                  switch (txt) {
-                    case "active license exists":
-                      setError(
-                        "You already have an active license key. Please check your email, or contact us at sales@growthbook.io."
-                      );
-                      setUseResendForm(true);
-                      break;
-                    case "expired license exists":
-                      setError(
-                        "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
-                      );
-                      break;
-                    default:
-                      setError(
-                        <>
-                          <p className="mb-2">
-                            There was a server error. Please try again later, or
-                            contact us at sales@growthbook.io.
-                          </p>
-                          <p className="mb-0">{txt}</p>
-                        </>
-                      );
-                  }
-                }
-              } catch (e) {
-                setLoading(false);
-                setError(e.message);
-              }
-            })}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await submitMainForm();
+            }}
           >
             <Field
               required
@@ -210,6 +214,7 @@ export default function SelfHostedUpgradeForm({
             </button>
           </form>
         )}
+
         {useResendForm && !submitState && (
           <button
             className="mt-4 btn btn-primary btn-block btn-lg"
