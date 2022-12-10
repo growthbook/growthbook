@@ -17,10 +17,10 @@ export default function verifyLicenseMiddleware(
   }
 
   // Validate organization id with license
-  if (req.headers["x-organization-id"] && license?.org) {
-    if (req.headers["x-organization-id"] !== license.org) {
+  if (req.headers["x-organization"] && license?.org) {
+    if (req.headers["x-organization"] !== license.org) {
       const e = new Error("Organization id does not match license");
-      next(e);
+      return next(e);
     }
   }
 
