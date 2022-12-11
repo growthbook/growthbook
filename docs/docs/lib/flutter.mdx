@@ -20,13 +20,13 @@ To create a GrowthBook SDK instance, use `GBSDKBuilderApp`. Then, you can evalua
 ```dart
 // User attributes for targeting and assigning users to experiment variations
 final attrs = <String, dynamic>{};
-attr.putIfAbsent("id", () => 123);
-attr.putIfAbsent("env", () => "dev");
-attr.putIfAbsent("betaUser", () => true);
+attrs.putIfAbsent("id", () => 123);
+attrs.putIfAbsent("env", () => "dev");
+attrs.putIfAbsent("betaUser", () => true);
 
 final gb = await GBSDKBuilderApp(
   apiKey: "<API_KEY>",
-  attributes: attr,
+  attributes: attrs,
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
   hostURL: '<GrowthBook_URL>',  // The hostURL should be end with `/` ex. `https://cdn.growthbook.io/`. 
 ).initialize();
