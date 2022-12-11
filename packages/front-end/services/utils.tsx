@@ -43,20 +43,22 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
   const multiplier = Math.pow(10, precision);
 
   // Naive even weighting with rounding
+  // For n=3, this will result in `0.3333`
   const w = Math.round(multiplier / n) / multiplier;
 
   // Determine how far off we are from a sum of 1
+  // For n=3, this will be 0.9999-1 = -0.0001
   const diff = w * n - 1;
 
   // How many of the weights do we need to add a correction to?
-  const nDiffs = Math.round(Math.abs(diff) * multiplier);
-
-  const correction = (diff < 0 ? 1 : -1) / multiplier;
+  // For n=3, we only have to adjust 1 of the weights to make it sum to 1
+  const numCorrections = Math.round(Math.abs(diff) * multiplier);
+  const delta = (diff < 0 ? 1 : -1) / multiplier;
 
   return (
     Array(n)
       .fill(0)
-      .map((v, i) => +(w + (i < nDiffs ? correction : 0)).toFixed(precision))
+      .map((v, i) => +(w + (i < numCorrections ? delta : 0)).toFixed(precision))
       // Put the larger weights first
       .sort((a, b) => b - a)
   );
@@ -69,7 +71,7 @@ export function distributeWeights(
   // Always just use equal weights if we're not customizing them
   if (!customSplit) return getEqualWeights(weights.length);
 
-  // Get current sum and distribute the different equally so it adds to 1
+  // Get current sum and distribute the difference equally so it adds to 1
   const sum = weights.reduce((sum, w) => sum + w, 0);
   const diff = (sum - 1) / weights.length;
   const newWeights = weights.map((w) => floatRound(w - diff));

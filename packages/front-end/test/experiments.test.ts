@@ -7,7 +7,7 @@ import {
 } from "../services/utils";
 
 describe("variation weighting functions", () => {
-  it("getEqualWeights works with default precision", () => {
+  it("getEqualWeights with default precision", () => {
     expect(getEqualWeights(1)).toEqual([1]);
     expect(getEqualWeights(2)).toEqual([0.5, 0.5]);
     expect(getEqualWeights(3)).toEqual([0.3334, 0.3333, 0.3333]);
@@ -32,7 +32,7 @@ describe("variation weighting functions", () => {
     ]);
   });
 
-  it("getEqualWeights works with lower precision", () => {
+  it("getEqualWeights with lower precision", () => {
     expect(getEqualWeights(1, 3)).toEqual([1]);
     expect(getEqualWeights(2, 3)).toEqual([0.5, 0.5]);
     expect(getEqualWeights(3, 3)).toEqual([0.334, 0.333, 0.333]);
@@ -57,7 +57,7 @@ describe("variation weighting functions", () => {
     ]);
   });
 
-  it("getEqualWeights works with higher precision", () => {
+  it("getEqualWeights with higher precision", () => {
     expect(getEqualWeights(1, 5)).toEqual([1]);
     expect(getEqualWeights(2, 5)).toEqual([0.5, 0.5]);
     expect(getEqualWeights(3, 5)).toEqual([0.33334, 0.33333, 0.33333]);
