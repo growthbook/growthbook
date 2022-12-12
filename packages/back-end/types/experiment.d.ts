@@ -48,8 +48,10 @@ export type AttributionModel = "firstExposure" | "allExposures";
 
 export type MetricOverride = {
   id: string;
-  conversionWindowHours: number;
-  conversionDelayHours: number;
+  conversionWindowHours?: number;
+  conversionDelayHours?: number;
+  winRisk?: number;
+  loseRisk?: number;
 };
 
 export interface ExperimentInterface {

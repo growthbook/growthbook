@@ -2004,4 +2004,11 @@ td.disabled {
   }
 }
 
+.form-group.metric-override {
+  .form-control::placeholder {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}
+
 @import "./components/react-select.scss";

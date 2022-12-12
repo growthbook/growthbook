@@ -16,6 +16,7 @@ type Props = {
   submitColor?: string;
   cta?: string;
   closeCta?: string;
+  ctaEnabled?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
