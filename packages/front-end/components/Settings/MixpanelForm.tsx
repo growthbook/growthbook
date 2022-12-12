@@ -63,11 +63,11 @@ const MixpanelForm: FC<{
             name="server"
             value={params.server || "standard"}
             onChange={(v) => {
-              onManualParamChange("server", v)
+              onManualParamChange("server", v);
             }}
             options={[
               { value: "standard", label: "Standard (mixpanel.com/api)" },
-              { value: "eu", label: "EU Residency (eu.mixpanel.com/api)" }
+              { value: "eu", label: "EU Residency (eu.mixpanel.com/api)" },
             ]}
           />
         </div>
