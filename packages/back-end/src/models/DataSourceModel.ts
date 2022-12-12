@@ -18,6 +18,7 @@ import { upgradeDatasourceObject } from "../util/migrations";
 const dataSourceSchema = new mongoose.Schema({
   id: String,
   name: String,
+  description: String,
   organization: {
     type: String,
     index: true,
@@ -110,6 +111,7 @@ export async function createDataSource(
   params: DataSourceParams,
   settings: DataSourceSettings,
   id?: string,
+  description: string = "",
   projects?: string[]
 ) {
   if (usingFileConfig()) {
@@ -139,6 +141,7 @@ export async function createDataSource(
   const datasource: DataSourceInterface = {
     id,
     name,
+    description,
     organization,
     type,
     settings,

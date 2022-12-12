@@ -119,6 +119,11 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-success">connected</span>
         </div>
       </div>
+      <div className="row mt-1 mb-3 align-items-center">
+        <div className="col-auto">
+          <div className="text-gray">{d.description}</div>
+        </div>
+      </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}

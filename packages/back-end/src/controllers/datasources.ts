@@ -267,6 +267,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
       return {
         id: d.id,
         name: d.name,
+        description: d.description,
         type: d.type,
         settings: d.settings,
         projects: d.projects ?? [],
@@ -297,15 +298,18 @@ export async function getDataSource(
   res.status(200).json({
     id: datasource.id,
     name: datasource.name,
+    description: datasource.description,
     type: datasource.type,
     params: getNonSensitiveParams(integration),
     settings: datasource.settings,
+    projects: datasource.projects,
   });
 }
 
 export async function postDataSources(
   req: AuthRequest<{
     name: string;
+    description?: string;
     type: DataSourceType;
     params: DataSourceParams;
     settings: DataSourceSettings;
@@ -316,7 +320,7 @@ export async function postDataSources(
   req.checkPermissions("createDatasources");
 
   const { org } = getOrgFromReq(req);
-  const { name, type, params, projects } = req.body;
+  const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
   try {
@@ -335,6 +339,7 @@ export async function postDataSources(
       params,
       settings,
       undefined,
+      description,
       projects
     );
 
@@ -354,6 +359,7 @@ export async function putDataSource(
   req: AuthRequest<
     {
       name: string;
+      description?: string;
       type: DataSourceType;
       params: DataSourceParams;
       settings: DataSourceSettings;
@@ -365,7 +371,7 @@ export async function putDataSource(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { name, type, params, projects, settings } = req.body;
+  const { name, description, type, params, settings, projects } = req.body;
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -399,6 +405,9 @@ export async function putDataSource(
 
     if (name) {
       updates.name = name;
+    }
+    if (description) {
+      updates.description = description;
     }
     if (settings) {
       updates.settings = settings;

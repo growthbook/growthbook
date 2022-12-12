@@ -46,9 +46,10 @@ const DataSources: FC = () => {
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Display Name</th>
-              <th>Type</th>
-              <td>Projects</td>
+              <th className="col-3">Display Name</th>
+              <th className="col-auto">Description</th>
+              <th className="col-2">Type</th>
+              <td className="col-2">Projects</td>
               {!hasFileConfig() && <th>Last Updated</th>}
             </tr>
           </thead>
@@ -78,8 +79,11 @@ const DataSources: FC = () => {
                     </Tooltip>
                   )}
                 </td>
+                <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                  {d.description}
+                </td>
                 <td>{d.type}</td>
-                <td className="col-3">
+                <td>
                   {d?.projects?.length > 0 ? (
                     <ProjectTags
                       projectIds={d.projects}

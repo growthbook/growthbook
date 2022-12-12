@@ -135,20 +135,15 @@ const MetricForm: FC<MetricFormProps> = ({
   onSuccess,
   secondaryCTA,
 }) => {
-  const {
-    datasources,
-    getDatasourceById,
-    metrics,
-    project,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, metrics, project } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
-  const filteredDatasources = (
-    project ?
-      datasources.filter(ds => !ds?.projects?.length || ds?.projects?.includes(project)) :
-      datasources
-  );
+  const filteredDatasources = project
+    ? datasources.filter(
+        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
+      )
+    : datasources;
 
   const {
     getMinSampleSizeForMetric,
@@ -358,6 +353,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta={cta}
       closeCta={!inline && "Cancel"}
+      ctaEnabled={!riskError}
       size="lg"
       docSection="metrics"
       step={step}
@@ -420,8 +416,9 @@ const MetricForm: FC<MetricFormProps> = ({
           onChange={(v) => form.setValue("datasource", v)}
           options={(filteredDatasources || []).map((d) => ({
             value: d.id,
-            label: d.name,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
+          className="portal-overflow-ellipsis"
           name="datasource"
           initialOption="Manual"
           disabled={edit}

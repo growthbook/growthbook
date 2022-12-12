@@ -2000,6 +2000,24 @@ td.disabled {
     }
   }
 }
+.gb-select-wrapper.portal-overflow-ellipsis {
+  .gb-select__menu-portal {
+    .gb-select__menu {
+      max-width: 100%;
+      .gb-select__option {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
+.form-group.metric-override {
+  .form-control::placeholder {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}
 .form-group.label-overflow-ellipsis {
   .gb-multi-select__multi-value__label {
     max-width: 200px;

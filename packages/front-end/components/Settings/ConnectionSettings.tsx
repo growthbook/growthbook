@@ -43,7 +43,7 @@ export default function ConnectionSettings({
   };
   const onManualParamChange = (name, value) => {
     setParams({ [name]: value });
-  }
+  };
 
   if (datasource.type === "athena") {
     return (

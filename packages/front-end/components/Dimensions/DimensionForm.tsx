@@ -22,11 +22,11 @@ const DimensionForm: FC<{
     mutateDefinitions,
     project,
   } = useDefinitions();
-  const filteredDatasources = (
-    project ?
-    datasources.filter(ds => !ds?.projects?.length || ds?.projects?.includes(project)) :
-    datasources
-  )
+  const filteredDatasources = project
+    ? datasources.filter(
+        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
+      )
+    : datasources;
 
   const form = useForm({
     defaultValues: {
@@ -81,8 +81,9 @@ const DimensionForm: FC<{
         placeholder="Choose one..."
         options={filteredDatasources.map((d) => ({
           value: d.id,
-          label: d.name,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {dsProps.userIds && (
         <SelectField

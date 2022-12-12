@@ -255,7 +255,21 @@ const SegmentPage: FC = () => {
                       <td>{s.name}</td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
-                        {datasource?.name}
+                        {datasource && (
+                          <>
+                            <div>
+                              <Link href={`/datasources/${datasource?.id}`}>
+                                {datasource?.name}
+                              </Link>
+                            </div>
+                            <div
+                              className="text-gray font-weight-normal small text-ellipsis"
+                              style={{ maxWidth: 350 }}
+                            >
+                              {datasource?.description}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds

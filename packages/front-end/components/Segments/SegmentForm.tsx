@@ -77,8 +77,9 @@ const SegmentForm: FC<{
         placeholder="Choose one..."
         options={filteredDatasources.map((d) => ({
           value: d.id,
-          label: d.name,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {datasource.properties.userIds && (
         <SelectField

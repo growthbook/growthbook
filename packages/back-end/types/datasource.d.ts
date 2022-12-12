@@ -169,6 +169,7 @@ export type DataSourceSettings = {
 interface DataSourceBase {
   id: string;
   name: string;
+  description: string;
   organization: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
