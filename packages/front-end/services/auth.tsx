@@ -272,6 +272,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
               throw new Error(responseData.message || "There was an error");
             }
             return responseData;
+          } else if ("redirectURI" in resp) {
+            try {
+              const redirectAddress =
+                window.location.pathname + (window.location.search || "");
+              window.sessionStorage.setItem(
+                "postAuthRedirectPath",
+                redirectAddress
+              );
+            } catch (e) {
+              // ignore
+            }
+            // Don't need to confirm, just redirect immediately
+            await redirectWithTimeout(resp.redirectURI);
           }
           setSessionError(true);
           throw new Error(
