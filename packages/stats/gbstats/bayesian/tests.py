@@ -55,7 +55,10 @@ class BayesianABTest(BaseABTest):
         ).tolist()
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
-        return norm.sf(0, mean_diff, std_diff)
+        if self.inverse:
+            return 1 - norm.sf(0, mean_diff, std_diff)
+        else:
+            return norm.sf(0, mean_diff, std_diff)
 
     def relative_risk(self, risk, m_b):
         # Flip risk and chance to win for inverse metrics

@@ -237,6 +237,58 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.079755378)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
+    def test_get_metric_df_inverse(self):
+        rows = pd.DataFrame(
+            [
+                {
+                    "dimension": "one",
+                    "variation": "one",
+                    "count": 120,
+                    "mean": 2.5,
+                    "stddev": 1,
+                    "users": 120,
+                },
+                {
+                    "dimension": "one",
+                    "variation": "zero",
+                    "count": 100,
+                    "mean": 2.7,
+                    "stddev": 1.1,
+                    "users": 100,
+                },
+                {
+                    "dimension": "two",
+                    "variation": "one",
+                    "count": 220,
+                    "mean": 3.5,
+                    "stddev": 2,
+                    "users": 220,
+                },
+                {
+                    "dimension": "two",
+                    "variation": "zero",
+                    "count": 200,
+                    "mean": 3.7,
+                    "stddev": 2.1,
+                    "users": 200,
+                },
+            ]
+        )
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+        )
+        result = analyze_metric_df(df, [0.5, 0.5], "revenue", inverse=True)
+
+        self.assertEqual(len(result.index), 2)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
+        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0.0821006)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
+        self.assertEqual(round_(result.at[0, "v1_risk"]), 0.0021006)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.079755378)
+        self.assertEqual(result.at[0, "v1_p_value"], None)
+
     # Legacy usage needed mean/stddev to be corrected
     def test_analyze_metric_df_legacy(self):
         rows = pd.DataFrame(
