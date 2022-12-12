@@ -164,7 +164,7 @@ def analyze_metric_df(
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
-            df["baseline_risk"] = 0
+            df["baseline_risk"] = None
         else:
             df[f"v{i}_cr"] = 0
             df[f"v{i}_expected"] = 0
@@ -232,6 +232,7 @@ def analyze_metric_df(
                 test: BaseABTest = TwoSidedTTest(stat_a, stat_b)
                 res: TestResult = test.compute_result()
                 s[f"v{i}_p_value"] = res.p_value
+                baseline_risk = None
 
             s.at[f"v{i}_ci"] = res.ci
             s.at[f"v{i}_uplift"] = res.uplift.__dict__

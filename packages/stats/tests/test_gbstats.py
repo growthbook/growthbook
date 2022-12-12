@@ -15,6 +15,7 @@ from gbstats.gbstats import (
     analyze_metric_df,
     get_metric_df,
 )
+from gbstats.shared.constants import StatsEngine
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -176,7 +177,7 @@ class TestReduceDimensionality(TestCase):
         self.assertEqual(reduced.at[1, "baseline_total"], 1010)
 
 
-class TestAnalyzeMetricDf(TestCase):
+class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
         rows = pd.DataFrame(
@@ -228,6 +229,7 @@ class TestAnalyzeMetricDf(TestCase):
         self.assertEqual(round_(result.at[0, "v1_risk"]), 0.0821006)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.079755378)
+        self.assertEqual(result.at[0, "v1_p_value"], None)
 
 
     # Legacy usage needed mean/stddev to be corrected
@@ -279,6 +281,62 @@ class TestAnalyzeMetricDf(TestCase):
         self.assertEqual(round_(result.at[0, "v1_risk"]), 0.00418878)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.222222222)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.925127213)
+        self.assertEqual(result.at[0, "v1_p_value"], None)
+
+
+class TestAnalyzeMetricDfFrequentist(TestCase):
+    def test_get_metric_df_frequentist(self):
+        rows = pd.DataFrame(
+            [
+                {
+                    "dimension": "one",
+                    "variation": "one",
+                    "count": 120,
+                    "mean": 2.5,
+                    "stddev": 1,
+                    "users": 120,
+                },
+                {
+                    "dimension": "one",
+                    "variation": "zero",
+                    "count": 100,
+                    "mean": 2.7,
+                    "stddev": 1.1,
+                    "users": 100,
+                },
+                {
+                    "dimension": "two",
+                    "variation": "one",
+                    "count": 220,
+                    "mean": 3.5,
+                    "stddev": 2,
+                    "users": 220,
+                },
+                {
+                    "dimension": "two",
+                    "variation": "zero",
+                    "count": 200,
+                    "mean": 3.7,
+                    "stddev": 2.1,
+                    "users": 200,
+                },
+            ]
+        )
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+        )
+        result = analyze_metric_df(df, [0.5, 0.5], "revenue", False, StatsEngine.FREQUENTIST)
+
+        self.assertEqual(len(result.index), 2)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.163302082)
+
 
 class TestAdjustedStats(TestCase):
     def test_adjusted_stats(self):
