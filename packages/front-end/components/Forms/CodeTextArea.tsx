@@ -43,7 +43,7 @@ export default function CodeTextArea({
   value,
   setValue,
   placeholder,
-  minLines = 3,
+  minLines = 4,
   maxLines = 50,
   ...otherProps
 }: Props) {
