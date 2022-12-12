@@ -8,9 +8,9 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useUser } from "../../services/UserContext";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -18,8 +18,10 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: {
     id: string;
-    conversionWindowHours: number;
-    conversionDelayHours: number;
+    conversionWindowHours?: number;
+    conversionDelayHours?: number;
+    winRisk?: number;
+    loseRisk?: number;
   }[];
 }
 
@@ -29,6 +31,9 @@ const EditMetricsForm: FC<{
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
+    false
+  );
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
@@ -37,12 +42,31 @@ const EditMetricsForm: FC<{
   const filteredMetrics = metricDefinitions.filter(
     (m) => m.datasource === datasource?.id
   );
+
+  const defaultMetricOverrides = structuredClone(
+    experiment.metricOverrides || []
+  );
+  for (let i = 0; i < defaultMetricOverrides.length; i++) {
+    for (const key in defaultMetricOverrides[i]) {
+      // fix fields with percentage values
+      if (
+        [
+          "winRisk",
+          "loseRisk",
+          "maxPercentChange",
+          "minPercentChange",
+        ].includes(key)
+      ) {
+        defaultMetricOverrides[i][key] *= 100;
+      }
+    }
+  }
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       metrics: experiment.metrics || [],
       guardrails: experiment.guardrails || [],
       activationMetric: experiment.activationMetric || "",
-      metricOverrides: experiment.metricOverrides || [],
+      metricOverrides: defaultMetricOverrides,
     },
   });
   const { apiCall } = useAuth();
@@ -64,10 +88,33 @@ const EditMetricsForm: FC<{
       size="lg"
       open={true}
       close={cancel}
+      ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
+        const payload = structuredClone(value) as EditMetricsFormInterface;
+        for (let i = 0; i < payload.metricOverrides.length; i++) {
+          for (const key in payload.metricOverrides[i]) {
+            if (key === "id") continue;
+            const v = payload.metricOverrides[i][key];
+            if (v === undefined || v === null || isNaN(v)) {
+              delete payload.metricOverrides[i][key];
+              continue;
+            }
+            // fix fields with percentage values
+            if (
+              [
+                "winRisk",
+                "loseRisk",
+                "maxPercentChange",
+                "minPercentChange",
+              ].includes(key)
+            ) {
+              payload.metricOverrides[i][key] = v / 100;
+            }
+          }
+        }
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify(payload),
         });
         mutate();
       })}
@@ -118,24 +165,32 @@ const EditMetricsForm: FC<{
       </div>
 
       <div className="form-group mb-2">
-        <label className="font-weight-bold mb-1">
-          <PremiumTooltip commercialFeature="override-metrics">
-            Metric Overrides (optional)
-          </PremiumTooltip>
-        </label>
-        <div className="mb-1 font-italic">
-          Override metric conversion windows within this experiment.
+        <PremiumTooltip commercialFeature="override-metrics">
+          Metric Overrides (optional)
+        </PremiumTooltip>
+        <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+          <p className="mb-0">
+            Override metric behaviors within this experiment.
+          </p>
+          <p className="mb-0">
+            Leave any fields empty that you do not want to override.
+          </p>
         </div>
         <MetricsOverridesSelector
           experiment={experiment}
           form={form}
           disabled={!hasOverrideMetricsFeature}
+          setHasMetricOverrideRiskError={(v: boolean) =>
+            setHasMetricOverrideRiskError(v)
+          }
         />
-        <UpgradeMessage
-          showUpgradeModal={() => setUpgradeModal(true)}
-          commercialFeature="override-metrics"
-          upgradeMessage="override metrics"
-        />
+        {!hasOverrideMetricsFeature && (
+          <UpgradeMessage
+            showUpgradeModal={() => setUpgradeModal(true)}
+            commercialFeature="override-metrics"
+            upgradeMessage="override metrics"
+          />
+        )}
       </div>
     </Modal>
   );

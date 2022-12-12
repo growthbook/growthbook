@@ -337,6 +337,10 @@ app.get(
 );
 app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
+app.get(
+  "/experiments/tracking-key",
+  experimentsController.lookupExperimentByTrackingKey
+);
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
