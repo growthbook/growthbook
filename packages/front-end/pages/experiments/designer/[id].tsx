@@ -401,7 +401,7 @@ const EditorPage: FC = () => {
           close={() => setScreenshotModalOpen(false)}
           submit={async () => {
             updateValue({
-              screenshot: ""
+              screenshot: "",
             });
           }}
           cta="Delete"
@@ -424,7 +424,7 @@ const EditorPage: FC = () => {
             onClick={(e) => {
               e.preventDefault();
               updateValue({
-                screenshot: stream.screenshot
+                screenshot: stream.screenshot,
               });
               setMode("interactive");
             }}
@@ -439,7 +439,7 @@ const EditorPage: FC = () => {
                 ...stream,
                 screenshot: null,
                 point1: null,
-                point2: null
+                point2: null,
               });
             }}
           >
@@ -465,7 +465,7 @@ const EditorPage: FC = () => {
               point1: xy,
               point2: xy,
               offsetX,
-              offsetY
+              offsetY,
             });
           }}
           onMouseMove={(e) => {
@@ -473,7 +473,7 @@ const EditorPage: FC = () => {
 
             setStream({
               ...stream,
-              point2: xy
+              point2: xy,
             });
           }}
           onMouseUp={async () => {
@@ -487,7 +487,7 @@ const EditorPage: FC = () => {
                 setStream({
                   ...stream,
                   point1: undefined,
-                  point2: undefined
+                  point2: undefined,
                 });
               } else {
                 const video = document.createElement("video");
@@ -522,7 +522,7 @@ const EditorPage: FC = () => {
                   const image = canvas.toDataURL();
                   setStream({
                     ...stream,
-                    screenshot: image
+                    screenshot: image,
                   });
                   video.remove();
                 };
@@ -538,7 +538,7 @@ const EditorPage: FC = () => {
                 top: Math.min(stream.point1[1], stream.point2[1]),
                 left: Math.min(stream.point1[0], stream.point2[0]),
                 width: Math.abs(stream.point1[0] - stream.point2[0]),
-                height: Math.abs(stream.point1[1] - stream.point2[1])
+                height: Math.abs(stream.point1[1] - stream.point2[1]),
               }}
             />
           )}
@@ -574,7 +574,7 @@ const EditorPage: FC = () => {
               onChange={(e) => {
                 setVariationData({
                   ...variationData,
-                  url: e.target.value
+                  url: e.target.value,
                 });
               }}
             />
@@ -587,7 +587,7 @@ const EditorPage: FC = () => {
             height: "100%",
             width: iframeContainerWidth,
             margin: "0 auto",
-            overflow: "hidden"
+            overflow: "hidden",
           }}
         >
           {url && (
@@ -599,7 +599,7 @@ const EditorPage: FC = () => {
                 width: iframeWidth,
                 margin: "0 auto",
                 transform: `scale(${zoom})`,
-                transformOrigin: transformOrigin
+                transformOrigin: transformOrigin,
               }}
               ref={iframe}
               onLoad={() => {
@@ -616,7 +616,7 @@ const EditorPage: FC = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(0,0,0,.6)"
+              background: "rgba(0,0,0,.6)",
             }}
           ></div>
         )}
@@ -672,15 +672,16 @@ const EditorPage: FC = () => {
           </div>
           <div className="col-auto">
             <SelectField
-              value={variation+""}
+              value={variation + ""}
               onChange={(v) => {
                 setVariation(parseInt(v) || 0);
               }}
               options={variations.map((v, i) => ({
-                value: i+"",
+                value: i + "",
                 label: v.name,
               }))}
-            />`
+            />
+            `
           </div>
           <div className="col text-left d-flex">
             <div className="mr-2 d-none d-lg-block">{data.experiment.name}</div>
@@ -780,7 +781,7 @@ const EditorPage: FC = () => {
                   variationsClone[i] = {
                     ...variationsClone[i],
                     dom: val.dom,
-                    css: val.css
+                    css: val.css,
                   };
                 });
 
@@ -796,7 +797,7 @@ const EditorPage: FC = () => {
                     variationsClone[i].screenshots || [];
                   variationsClone[i].screenshots.push({
                     path: fileURL,
-                    description: ""
+                    description: "",
                   });
                 });
                 await Promise.all(promises);
@@ -805,8 +806,8 @@ const EditorPage: FC = () => {
                   method: "POST",
                   body: JSON.stringify({
                     variations: variationsClone,
-                    previewURL: url
-                  })
+                    previewURL: url,
+                  }),
                 });
 
                 setDirty(false);
@@ -824,7 +825,7 @@ const EditorPage: FC = () => {
             <div className="btn-group">
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: mode === "interactive"
+                  active: mode === "interactive",
                 })}
                 title="Interactive"
                 onClick={(e) => {
@@ -836,7 +837,7 @@ const EditorPage: FC = () => {
               </button>
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: mode === "inspector"
+                  active: mode === "inspector",
                 })}
                 title="Element Selector"
                 onClick={(e) => {
@@ -845,7 +846,7 @@ const EditorPage: FC = () => {
                     selected: false,
                     selector: "",
                     breadcrumb: [],
-                    display: ""
+                    display: "",
                   });
                   setMode("inspector");
                 }}
@@ -854,7 +855,7 @@ const EditorPage: FC = () => {
               </button>
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: mode === "css"
+                  active: mode === "css",
                 })}
                 title="CSS"
                 onClick={(e) => {
@@ -866,7 +867,7 @@ const EditorPage: FC = () => {
               </button>
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: mode === "code"
+                  active: mode === "code",
                 })}
                 title="DOM Mutations"
                 onClick={(e) => {
@@ -876,7 +877,7 @@ const EditorPage: FC = () => {
                     field: "",
                     name: "addClass",
                     value: "",
-                    attribute: ""
+                    attribute: "",
                   });
                 }}
               >
@@ -886,7 +887,7 @@ const EditorPage: FC = () => {
                 className={clsx(
                   "btn btn-outline-secondary btn-sm d-none d-lg-inline-block",
                   {
-                    active: mode === "screenshot"
+                    active: mode === "screenshot",
                   }
                 )}
                 title="Screenshot"
@@ -898,7 +899,7 @@ const EditorPage: FC = () => {
                     const captureStream = await navigator.mediaDevices.getDisplayMedia(
                       {
                         video: {},
-                        audio: false
+                        audio: false,
                       }
                     );
                     const settings = captureStream
@@ -908,7 +909,7 @@ const EditorPage: FC = () => {
                     setStream({
                       ...stream,
                       stream: captureStream,
-                      ...settings
+                      ...settings,
                     });
                     setMode("screenshot");
                   } catch (e) {
@@ -941,7 +942,7 @@ const EditorPage: FC = () => {
                               sendCommand({
                                 command: "selectElement",
                                 selector: currentEl.selector,
-                                ancestor: currentEl.breadcrumb.length - i
+                                ancestor: currentEl.breadcrumb.length - i,
                               });
                             }}
                             onMouseEnter={() => {
@@ -954,14 +955,14 @@ const EditorPage: FC = () => {
                               sendCommand({
                                 command: "hoverElement",
                                 selector: currentEl.selector,
-                                ancestor: currentEl.breadcrumb.length - i
+                                ancestor: currentEl.breadcrumb.length - i,
                               });
                             }}
                             onMouseLeave={() => {
                               sendCommand({
                                 command: "hoverElement",
                                 selector: "",
-                                ancestor: 0
+                                ancestor: 0,
                               });
                             }}
                           >
@@ -1000,7 +1001,7 @@ const EditorPage: FC = () => {
           <div className="col-auto">
             <SelectField
               className="small"
-              value={zoom+""}
+              value={zoom + ""}
               onChange={(v) => setZoom(parseFloat(v) || 1)}
               options={[
                 { value: "1", label: "100%" },
@@ -1013,7 +1014,7 @@ const EditorPage: FC = () => {
             <div className="btn-group">
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: device === "mobile"
+                  active: device === "mobile",
                 })}
                 onClick={(e) => {
                   e.preventDefault();
@@ -1024,7 +1025,7 @@ const EditorPage: FC = () => {
               </button>
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: device === "tablet"
+                  active: device === "tablet",
                 })}
                 onClick={(e) => {
                   e.preventDefault();
@@ -1035,7 +1036,7 @@ const EditorPage: FC = () => {
               </button>
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: device === "desktop"
+                  active: device === "desktop",
                 })}
                 onClick={(e) => {
                   e.preventDefault();
@@ -1046,7 +1047,7 @@ const EditorPage: FC = () => {
               </button>
               <button
                 className={clsx("btn btn-outline-secondary btn-sm", {
-                  active: device === "window"
+                  active: device === "window",
                 })}
                 onClick={(e) => {
                   e.preventDefault();
@@ -1132,7 +1133,7 @@ const EditorPage: FC = () => {
                           editing: true,
                           field: "html",
                           name: "set",
-                          value: currentEl.innerHTML
+                          value: currentEl.innerHTML,
                         });
                       }}
                     >
@@ -1147,7 +1148,7 @@ const EditorPage: FC = () => {
                           editing: true,
                           field: "html",
                           name: "append",
-                          value: ""
+                          value: "",
                         });
                       }}
                     >
@@ -1181,14 +1182,14 @@ const EditorPage: FC = () => {
                           selector: currentEl.selector,
                           action: value.name === "append" ? "append" : "set",
                           attribute: "html",
-                          value: value.value
+                          value: value.value,
                         });
                         setCurrentEl({
                           ...currentEl,
                           innerHTML:
                             value.name === "append"
                               ? currentEl.innerHTML + value.value
-                              : value.value
+                              : value.value,
                         });
                         form.setValue("editing", false);
                       }}
@@ -1221,7 +1222,7 @@ const EditorPage: FC = () => {
                           field: "class",
                           value: "",
                           attribute: "",
-                          name: ""
+                          name: "",
                         });
                       }}
                     >
@@ -1246,11 +1247,11 @@ const EditorPage: FC = () => {
                             selector: currentEl.selector,
                             action: "append",
                             attribute: "class",
-                            value: value.value
+                            value: value.value,
                           });
                           setCurrentEl({
                             ...currentEl,
-                            classes: [...currentEl.classes, value.value]
+                            classes: [...currentEl.classes, value.value],
                           });
                         }
                         form.setValue("editing", false);
@@ -1287,13 +1288,13 @@ const EditorPage: FC = () => {
                                 selector: currentEl.selector,
                                 action: "remove",
                                 attribute: "class",
-                                value: c
+                                value: c,
                               });
                               const clone = [...currentEl.classes];
                               clone.splice(j, 1);
                               setCurrentEl({
                                 ...currentEl,
-                                classes: clone
+                                classes: clone,
                               });
                             }}
                           >
@@ -1321,7 +1322,7 @@ const EditorPage: FC = () => {
                           editing: true,
                           field: "attribute",
                           name: "",
-                          value: ""
+                          value: "",
                         });
                       }}
                     >
@@ -1352,7 +1353,7 @@ const EditorPage: FC = () => {
                           selector: currentEl.selector,
                           action: "set",
                           attribute: value.name,
-                          value: value.value
+                          value: value.value,
                         });
                         setCurrentEl({
                           ...currentEl,
@@ -1362,9 +1363,9 @@ const EditorPage: FC = () => {
                             ),
                             {
                               name: value.name,
-                              value: value.value
-                            }
-                          ]
+                              value: value.value,
+                            },
+                          ],
                         });
                         form.setValue("editing", false);
                       }}
@@ -1401,7 +1402,7 @@ const EditorPage: FC = () => {
                                   editing: true,
                                   field: "attribute",
                                   name: attr.name,
-                                  value: attr.value
+                                  value: attr.value,
                                 });
                               }}
                             >
@@ -1416,13 +1417,13 @@ const EditorPage: FC = () => {
                                   selector: currentEl.selector,
                                   action: "set",
                                   attribute: value.name,
-                                  value: ""
+                                  value: "",
                                 });
                                 const clone = [...currentEl.attributes];
                                 clone.splice(j, 1);
                                 setCurrentEl({
                                   ...currentEl,
-                                  attributes: clone
+                                  attributes: clone,
                                 });
                               }}
                             >
@@ -1451,7 +1452,7 @@ const EditorPage: FC = () => {
                 value={varData.css}
                 onChange={(e) => {
                   updateValue({
-                    css: e.target.value
+                    css: e.target.value,
                   });
                 }}
               />
@@ -1470,7 +1471,7 @@ const EditorPage: FC = () => {
                     sendCommand({
                       command: "selectElement",
                       selector: value.field,
-                      ancestor: 0
+                      ancestor: 0,
                     });
                   }}
                 />
@@ -1481,9 +1482,9 @@ const EditorPage: FC = () => {
                   value={form.watch("name")}
                   onChange={(v) => form.setValue("name", v)}
                   options={[
-                    {label: "set", value: "set"},
-                    {label: "append", value: "append"},
-                    {label: "remove", value: "remove"},
+                    { label: "set", value: "set" },
+                    { label: "append", value: "append" },
+                    { label: "remove", value: "remove" },
                   ]}
                 />
               </div>
@@ -1521,13 +1522,13 @@ const EditorPage: FC = () => {
                       | "append"
                       | "remove",
                     attribute: value.attribute,
-                    value: value.value
+                    value: value.value,
                   });
                   form.reset({
                     field: "",
                     name: "addClass",
                     value: "",
-                    attribute: ""
+                    attribute: "",
                   });
                 }}
               >

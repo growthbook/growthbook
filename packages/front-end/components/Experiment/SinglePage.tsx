@@ -504,11 +504,22 @@ export default function SinglePage({
             canOpen={canEdit}
           >
             <div className="appbox px-3 pt-3 pb-2">
-              <RightRailSectionGroup title="Data Source" type="commaList">
+              <RightRailSectionGroup
+                title="Data Source"
+                type="commaList"
+                titleClassName="align-top"
+              >
                 {datasource && (
-                  <Link href={`/datasources/${datasource?.id}`}>
-                    {datasource?.name}
-                  </Link>
+                  <div className="d-inline-block" style={{ maxWidth: 300 }}>
+                    <div>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource?.name}
+                      </Link>
+                    </div>
+                    <div className="text-gray font-weight-normal small text-ellipsis">
+                      {datasource?.description}
+                    </div>
+                  </div>
                 )}
               </RightRailSectionGroup>
               {exposureQuery && (
