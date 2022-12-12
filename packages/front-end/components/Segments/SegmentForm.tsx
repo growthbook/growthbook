@@ -10,15 +10,8 @@ import CodeTextArea from "../../components/Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
 import { FaPlay } from "react-icons/fa";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import { TestQueryResults } from "back-end/src/types/Integration";
 import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-
-type TestQueryResults = {
-  duration?: string;
-  error?: string;
-  results?: TestQueryRow[];
-  sql?: string;
-};
 
 const SegmentForm: FC<{
   close: () => void;
@@ -48,8 +41,6 @@ const SegmentForm: FC<{
 
   const userIdType = form.watch("userIdType");
   const userEnteredQuery = form.watch("sql");
-
-  console.log("userIdType", userIdType);
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const dsProps = datasource?.properties;

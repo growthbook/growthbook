@@ -9,16 +9,9 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
-import { TestQueryRow } from "back-end/src/types/Integration";
 import { FaPlay } from "react-icons/fa";
 import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-
-type TestQueryResults = {
-  duration?: string;
-  error?: string;
-  results?: TestQueryRow[];
-  sql?: string;
-};
+import { TestQueryResults } from "back-end/src/types/Integration";
 
 const DimensionForm: FC<{
   close: () => void;

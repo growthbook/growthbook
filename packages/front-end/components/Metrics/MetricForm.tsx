@@ -27,16 +27,9 @@ import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import { TestQueryResults } from "back-end/src/types/Integration";
 import { FaPlay } from "react-icons/fa";
 import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-
-type TestQueryResults = {
-  duration?: string;
-  error?: string;
-  results?: TestQueryRow[];
-  sql?: string;
-};
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

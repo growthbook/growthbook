@@ -144,6 +144,13 @@ export interface TestQueryResult {
   duration: number;
 }
 
+export interface TestQueryResults {
+  duration?: string;
+  error?: string;
+  results?: TestQueryRow[];
+  sql?: string;
+}
+
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;

@@ -15,7 +15,7 @@ import { validateSQL } from "../../../../services/datasources";
 import { useAuth } from "../../../../services/auth";
 import { FaPlay } from "react-icons/fa";
 import DisplayTestQueryResults from "../../DisplayTestQueryResults";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import { TestQueryResults } from "back-end/src/types/Integration";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -23,13 +23,6 @@ type EditExperimentAssignmentQueryProps = {
   mode: "add" | "edit";
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
-};
-
-type TestQueryResults = {
-  duration?: string;
-  error?: string;
-  results?: TestQueryRow[];
-  sql?: string;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
