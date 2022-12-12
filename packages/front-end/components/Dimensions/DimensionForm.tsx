@@ -54,8 +54,8 @@ const DimensionForm: FC<{
   const sql = dsProps?.queryLanguage === "sql";
 
   const requiredColumns = useMemo(() => {
-    return new Set(["user_id", "value"]);
-  }, []);
+    return new Set([userIdType, "value"]);
+  }, [userIdType]);
 
   const handleTestQuery = async () => {
     setTestQueryResults(null);

@@ -49,13 +49,15 @@ const SegmentForm: FC<{
   const userIdType = form.watch("userIdType");
   const userEnteredQuery = form.watch("sql");
 
+  console.log("userIdType", userIdType);
+
   const datasource = getDatasourceById(form.watch("datasource"));
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
   const requiredColumns = useMemo(() => {
-    return new Set(["user_id", "date"]);
-  }, []);
+    return new Set([userIdType, "date"]);
+  }, [userIdType]);
 
   const handleTestQuery = async () => {
     setTestQueryResults(null);
