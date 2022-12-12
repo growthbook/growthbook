@@ -12,6 +12,7 @@
     "start": "wsrun -p '*-end' -m start",
     "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
+    "plop": "plop",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
     "ci": "yarn lint && yarn run type-check && yarn run test"
   },
@@ -34,6 +35,7 @@
     "eslint-plugin-react": "^7.30.1",
     "husky": "^7.0.0",
     "lint-staged": "^10.2.7",
+    "plop": "^3.1.1",
     "prettier": "^2.2.1",
     "typescript": "4.7.4"
   },
