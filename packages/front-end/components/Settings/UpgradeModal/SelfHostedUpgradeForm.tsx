@@ -59,7 +59,12 @@ export default function SelfHostedUpgradeForm({
     try {
       const encodedParams = new URLSearchParams();
       for (const key in value) {
-        encodedParams.append(key, value[key]);
+        const v = value[key];
+        if (v && typeof v === "object") {
+          encodedParams.append(key, JSON.stringify(value[key]));
+        } else {
+          encodedParams.append(key, value[key]);
+        }
       }
       const resp = await fetch(`${LICENSE_KEY_API_URL}/trial`, {
         method: "POST",
@@ -80,7 +85,7 @@ export default function SelfHostedUpgradeForm({
         switch (txt) {
           case "active license exists":
             setError(
-              "You already have an active license key. Please check your email, or contact us at sales@growthbook.io."
+              "You already have an active license key. Please check your email, or click below to resend the key to your email address. Contact us at sales@growthbook.io."
             );
             setUseResendForm(true);
             break;
