@@ -85,7 +85,7 @@ export default function SelfHostedUpgradeForm({
         switch (txt) {
           case "active license exists":
             setError(
-              "You already have an active license key. Please check your email, or click below to resend the key to your email address. Contact us at sales@growthbook.io."
+              "You already have an active license key. Please check your email, or click below to resend the key to your email address. Contact us at sales@growthbook.io for more information."
             );
             setUseResendForm(true);
             break;
