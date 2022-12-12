@@ -68,11 +68,11 @@ class TTest(BaseABTest):
         for the main gbstats runner
 
         Returns:
-            FrequentistTestResult
+            FrequentistTestResult - note the values are all scaled to be percent uplift
         """
         return FrequentistTestResult(
-            expected=self.point_estimate,
-            ci=self.confidence_interval,
+            expected=self.point_estimate / self.stat_a.value,
+            ci=[x / self.stat_a.value for x in self.confidence_interval],
             p_value=self.p_value,
             uplift=Uplift(
                 dist="normal",
