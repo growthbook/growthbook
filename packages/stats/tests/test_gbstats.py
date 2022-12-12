@@ -26,19 +26,18 @@ class TestHelpers(TestCase):
         p = check_srm([1000, 1200], [0.5, 0.5])
         self.assertEqual(round_(p), 0.000020079)
 
-
     def test_correct_stddev(self):
         s = correctStddev(100, 10, 5, 150, 15, 3)
         self.assertEqual(round_(s), 4.620540833)
         s = correctStddev(0, 0, 0, 1, 15, 0)
         self.assertEqual(s, 0)
 
-
     def test_correct_mean(self):
         m = correctMean(100, 10, 150, 15)
         self.assertEqual(m, 13)
         m = correctMean(0, 0, 1, 15)
         self.assertEqual(m, 15)
+
 
 class TestDetectVariations(TestCase):
     def test_unknown_variations(self):
@@ -63,9 +62,12 @@ class TestDetectVariations(TestCase):
             ]
         )
         self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "one": 1}), set())
-        self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "hello": 1}), {"one"})
-        self.assertEqual(detect_unknown_variations(rows, {"hello": 0, "world": 1}), {"one", "zero"})
-
+        self.assertEqual(
+            detect_unknown_variations(rows, {"zero": 0, "hello": 1}), {"one"}
+        )
+        self.assertEqual(
+            detect_unknown_variations(rows, {"hello": 0, "world": 1}), {"one", "zero"}
+        )
 
     def test_multiple_exposures(self):
         rows = pd.DataFrame(
@@ -97,9 +99,11 @@ class TestDetectVariations(TestCase):
             ]
         )
         self.assertEqual(detect_unknown_variations(rows, {"one": 0, "two": 1}), set())
-        self.assertEqual(detect_unknown_variations(rows, {"one": 0, "two": 1}, {"some_other"}), {
-            "__multiple__"
-        })
+        self.assertEqual(
+            detect_unknown_variations(rows, {"one": 0, "two": 1}, {"some_other"}),
+            {"__multiple__"},
+        )
+
 
 class TestReduceDimensionality(TestCase):
     def test_reduce_dimensionality(self):
@@ -155,7 +159,9 @@ class TestReduceDimensionality(TestCase):
                 },
             ]
         )
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"], True, "revenue")
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"], True, "revenue"
+        )
         reduced = reduce_dimensionality(df, 3)
         print(reduced)
         self.assertEqual(len(reduced.index), 3)
@@ -231,7 +237,6 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.079755378)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
-
     # Legacy usage needed mean/stddev to be corrected
     def test_analyze_metric_df_legacy(self):
         rows = pd.DataFrame(
@@ -270,7 +275,9 @@ class TestAnalyzeMetricDfBayesian(TestCase):
                 },
             ]
         )
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue")
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue"
+        )
         result = analyze_metric_df(df, [0.5, 0.5], "revenue", False)
 
         self.assertEqual(len(result.index), 2)
@@ -325,7 +332,9 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         df = get_metric_df(
             rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
         )
-        result = analyze_metric_df(df, [0.5, 0.5], "revenue", False, StatsEngine.FREQUENTIST)
+        result = analyze_metric_df(
+            df, [0.5, 0.5], "revenue", False, StatsEngine.FREQUENTIST
+        )
 
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -347,7 +356,6 @@ class TestAdjustedStats(TestCase):
         self.assertEqual(round_(adjusted["stddev"]), 3.278852762)
         self.assertEqual(adjusted["total"], 5000)
 
-
     def test_adjusted_stats_binomial(self):
         adjusted = get_adjusted_stats(1, 0, 1000, 2000, False, "binomial")
         print(adjusted)
@@ -355,7 +363,6 @@ class TestAdjustedStats(TestCase):
         self.assertEqual(adjusted["mean"], 0.5)
         self.assertEqual(round_(adjusted["stddev"]), math.sqrt(0.25))
         self.assertEqual(adjusted["total"], 1000)
-
 
     def test_adjusted_stats_ignore_nulls(self):
         adjusted = get_adjusted_stats(5, 3, 1000, 2000, True, "revenue")
