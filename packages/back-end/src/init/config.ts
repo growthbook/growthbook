@@ -148,6 +148,7 @@ export function getConfigDatasources(
     return upgradeDatasourceObject({
       id,
       name: d.name,
+      description: d.description,
       organization,
       params: encryptParams(d.params),
       settings: d.settings,

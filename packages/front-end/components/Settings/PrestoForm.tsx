@@ -20,11 +20,11 @@ const PrestoForm: FC<{
           required
           value={params.engine || ""}
           onChange={(v) => {
-            onManualParamChange("engine", v)
+            onManualParamChange("engine", v);
           }}
           options={[
             { value: "presto", label: "presto" },
-            { value: "trino", label: "trino" }
+            { value: "trino", label: "trino" },
           ]}
         />
       </div>
