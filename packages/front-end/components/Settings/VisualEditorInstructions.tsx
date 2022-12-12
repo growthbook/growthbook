@@ -69,7 +69,7 @@ export default function VisualEditorInstructions({
               onChange={(v) => setKey(v)}
               options={apiKeys.map((k) => ({
                 value: k.key,
-                label: k.description || k.key
+                label: k.description || k.key,
               }))}
             />
           </div>

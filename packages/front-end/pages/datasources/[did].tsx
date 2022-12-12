@@ -109,13 +109,18 @@ const DataSourcePage: FC = () => {
           </DocLink>
         </div>
       )}
-      <div className="row mb-3 align-items-center">
+      <div className="row align-items-center">
         <div className="col-auto">
           <h1 className="mb-0">{d.name}</h1>
         </div>
         <div className="col-auto">
           <span className="badge badge-secondary">{d.type}</span>{" "}
           <span className="badge badge-success">connected</span>
+        </div>
+      </div>
+      <div className="row mt-1 mb-3 align-items-center">
+        <div className="col-auto">
+          <div className="text-gray">{d.description}</div>
         </div>
       </div>
 
