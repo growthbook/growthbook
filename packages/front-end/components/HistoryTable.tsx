@@ -209,8 +209,8 @@ const HistoryTable: FC<{
         <thead>
           <tr>
             <th>Date</th>
-            {showName && <th>Name</th>}
             {showType && <th>Type</th>}
+            {showName && <th>Name</th>}
             <th>User</th>
             <th>Event</th>
             <th></th>

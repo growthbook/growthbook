@@ -109,7 +109,7 @@ export default function SavedGroupsPage() {
           {savedGroups.length > 0 && (
             <Tooltip
               className="pt-1 ml-2"
-              body="Saved Groups are defined set of attribute values which can be
+              body="Saved Groups are defined sets of attribute values which can be
             used with feature rules for targeting features at particular
             users."
             />
@@ -251,7 +251,7 @@ export default function SavedGroupsPage() {
       {savedGroups.length === 0 && (
         <>
           <p className="mb-3">
-            Saved Groups are defined set of attribute values which can be used
+            Saved Groups are defined sets of attribute values which can be used
             with feature rules for targeting features at particular users. For
             example, you might create a list of internal users.
           </p>
