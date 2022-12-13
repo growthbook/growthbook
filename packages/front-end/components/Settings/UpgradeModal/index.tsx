@@ -19,7 +19,8 @@ export default function UpgradeModal({ close, source, reason }: Props) {
     if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
       close();
     }
-  }, [accountPlan, close]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountPlan]);
 
   if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
     return null;

@@ -29,6 +29,12 @@ export default function SelfHostedUpgradeForm({
 
   const { accountPlan, name, email, organization } = useUser();
 
+  const seats = getNumberOfUniqueMembersAndInvites(organization);
+  const trackContext = {
+    accountPlan,
+    source,
+    seats,
+  };
   const customerContext = {
     organizationCreated: organization.dateCreated,
     currentSeats: getNumberOfUniqueMembersAndInvites(organization),
@@ -38,7 +44,7 @@ export default function SelfHostedUpgradeForm({
   };
 
   useEffect(() => {
-    track("Self Hosted: View Upgrade Modal", customerContext);
+    track("View Upgrade Modal", trackContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -78,7 +84,7 @@ export default function SelfHostedUpgradeForm({
         setSubmitState("send key success");
         setLoading(false);
         setCloseCta("Close");
-        track("Generate trial license", value);
+        track("Generate trial license", trackContext);
       } else {
         setLoading(false);
         const txt = await resp.text();
@@ -136,7 +142,7 @@ export default function SelfHostedUpgradeForm({
               href="https://www.growthbook.io/pricing"
               target="_blank"
               onClick={() => {
-                track("Self hosted: Click Cloud pricing link", customerContext);
+                track("Click Cloud Pricing Link", trackContext);
               }}
               rel="noreferrer"
             >
@@ -146,10 +152,7 @@ export default function SelfHostedUpgradeForm({
             <a
               href="mailto:sales@growthbook.io"
               onClick={() => {
-                track(
-                  "Self hosted: Click Cloud custom quote email",
-                  customerContext
-                );
+                track("Click Cloud Custom Quote Email", trackContext);
               }}
             >
               sales@growthbook.io

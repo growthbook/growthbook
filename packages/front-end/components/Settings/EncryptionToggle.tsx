@@ -44,7 +44,7 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
             className="col-md-9 text-gray text-right pt-2"
             style={{ fontSize: 11 }}
           >
-            May require changes to your implementation.{" "}
+            Requires changes to your implementation.{" "}
             <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
           </div>
         </div>

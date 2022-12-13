@@ -19,8 +19,10 @@ export default function verifyLicenseMiddleware(
   // Validate organization id with license
   if (req.headers["x-organization"] && license?.org) {
     if (req.headers["x-organization"] !== license.org) {
-      const e = new Error("Organization id does not match license");
-      return next(e);
+      return res.status(402).json({
+        code: 402,
+        message: "Organization id does not match license",
+      });
     }
   }
 

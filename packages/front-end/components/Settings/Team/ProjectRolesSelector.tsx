@@ -31,48 +31,47 @@ export default function ProjectRolesSelector({
           Project Roles (optional)
         </PremiumTooltip>
       </label>
-      { projectRoles.map((projectRole, i) => (
-          <div className="appbox px-3 pt-2 bg-light" key={i}>
-            <div style={{ float: "right" }}>
-              <a
-                href="#"
-                className="text-danger"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const newProjectRoles = [...projectRoles];
-                  newProjectRoles.splice(i, 1);
-                  setProjectRoles(newProjectRoles);
-                }}
-              >
-                remove
-              </a>
-            </div>
-            <SingleRoleSelector
-              value={{
-                role: projectRole.role,
-                environments: projectRole.environments,
-                limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
-              }}
-              setValue={(newRoleInfo) => {
+      {projectRoles.map((projectRole, i) => (
+        <div className="appbox px-3 pt-2 bg-light" key={i}>
+          <div style={{ float: "right" }}>
+            <a
+              href="#"
+              className="text-danger"
+              onClick={(e) => {
+                e.preventDefault();
                 const newProjectRoles = [...projectRoles];
-                newProjectRoles[i] = {
-                  ...projectRole,
-                  ...newRoleInfo,
-                };
+                newProjectRoles.splice(i, 1);
                 setProjectRoles(newProjectRoles);
               }}
-              label={
-                <>
-                  Project:{" "}
-                  <strong>{getProjectById(projectRole.project)?.name}</strong>
-                </>
-              }
-              disabled={!hasFeature}
-              includeAdminRole={false}
-            />
+            >
+              remove
+            </a>
           </div>
-        ))
-      }
+          <SingleRoleSelector
+            value={{
+              role: projectRole.role,
+              environments: projectRole.environments,
+              limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
+            }}
+            setValue={(newRoleInfo) => {
+              const newProjectRoles = [...projectRoles];
+              newProjectRoles[i] = {
+                ...projectRole,
+                ...newRoleInfo,
+              };
+              setProjectRoles(newProjectRoles);
+            }}
+            label={
+              <>
+                Project:{" "}
+                <strong>{getProjectById(projectRole.project)?.name}</strong>
+              </>
+            }
+            disabled={!hasFeature}
+            includeAdminRole={false}
+          />
+        </div>
+      ))}
       {unusedProjects.length > 0 && (
         <div className="row">
           <div className="col">
