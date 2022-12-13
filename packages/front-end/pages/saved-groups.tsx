@@ -271,7 +271,7 @@ export default function SavedGroupsPage() {
           size="max"
           closeCta="Close"
         >
-          <HistoryTable type="savedGroup" />
+          <HistoryTable type="savedGroup" showName={true} showType={false} />
         </Modal>
       )}
     </div>

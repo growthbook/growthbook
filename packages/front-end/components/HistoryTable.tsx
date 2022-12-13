@@ -84,30 +84,31 @@ function EventDetails({
 
 export function HistoryTableRow({
   event,
-  showNameOrId = false,
   open,
   setOpen,
-  isActivity = false,
+  showName = false,
+  showType = false,
   itemName = "",
   url = "",
 }: {
   event: AuditInterface;
-  showNameOrId?: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
-  isActivity?: boolean;
+  showName?: boolean;
+  showType?: boolean;
   itemName?: string;
   url?: string;
 }) {
-  itemName = itemName || event.entity.id;
   const user = event.user;
   const userDisplay =
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
     ("apiKey" in user && "API Key");
   let colSpanNum = 4;
-  if (isActivity) colSpanNum = 6;
-  if (showNameOrId) colSpanNum++;
+  if (showName) colSpanNum++;
+  if (showType) colSpanNum++;
+
+  const displayName = itemName || event.entity.name || event.entity.id;
 
   return (
     <>
@@ -125,22 +126,11 @@ export function HistoryTableRow({
         }}
       >
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
-        {isActivity && (
-          <>
-            <td>{event.entity.object}</td>
-            <td>
-              <Link href={url}>
-                <a>{itemName}</a>
-              </Link>
-            </td>
-          </>
+        {showType && <td>{event.entity.object}</td>}
+        {showName && (
+          <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
         <td>{userDisplay}</td>
-        {showNameOrId && (
-          <td>
-            <EventName event={event} />
-          </td>
-        )}
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
@@ -163,12 +153,33 @@ export function HistoryTableRow({
 
 const HistoryTable: FC<{
   type: "experiment" | "metric" | "feature" | "savedGroup";
+  showName?: boolean;
+  showType?: boolean;
   id?: string;
-}> = ({ id, type }) => {
+}> = ({ id, type, showName = false, showType = false }) => {
   const apiPath = id ? `/history/${type}/${id}` : `/history/${type}`;
   const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(apiPath);
 
   const [open, setOpen] = useState("");
+  const { getSavedGroupById } = useDefinitions();
+
+  const events: AuditInterface[] = useMemo(() => {
+    if (!data?.events) return [];
+    if (!showName) return data?.events;
+
+    return data?.events.map((event) => {
+      if (event.entity.object === "savedGroup") {
+        const savedGroup = getSavedGroupById(event.entity.id);
+        if (savedGroup && !event.entity?.name) {
+          event.entity.name = savedGroup.groupName;
+        }
+      }
+      if (!event.entity?.name) {
+        event.entity.name = event.entity.id;
+      }
+      return event;
+    });
+  }, [data?.events, showName, getSavedGroupById]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -198,18 +209,20 @@ const HistoryTable: FC<{
         <thead>
           <tr>
             <th>Date</th>
+            {showName && <th>Name</th>}
+            {showType && <th>Type</th>}
             <th>User</th>
-            {!id && <th>Name</th>}
             <th>Event</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {data.events.map((event) => (
+          {events.map((event) => (
             <HistoryTableRow
               event={event}
               key={event.id}
-              showNameOrId={!id}
+              showName={showName}
+              showType={showType}
               open={open === event.id}
               setOpen={(open) => {
                 setOpen(open ? event.id : "");
@@ -221,34 +234,5 @@ const HistoryTable: FC<{
     </>
   );
 };
-
-function EventName({
-  itemName,
-  event,
-}: {
-  itemName?: string;
-  event: AuditInterface;
-}) {
-  const { savedGroups } = useDefinitions();
-  const groupMap = useMemo(() => {
-    const tempMap = new Map<string, string>();
-    savedGroups.forEach((group) => {
-      tempMap.set(group.id, group.groupName);
-    });
-    return tempMap;
-  }, [savedGroups]);
-
-  if (itemName) return <>{itemName}</>;
-  if (event.entity.object === "savedGroup") {
-    if (event.entity?.name) {
-      return <>{event.entity.name}</>;
-    }
-    if (groupMap.has(event.entity.id)) {
-      return <>{groupMap.get(event.entity.id)}</>;
-    }
-  }
-
-  return <>{event.entity.id}</>;
-}
 
 export default HistoryTable;

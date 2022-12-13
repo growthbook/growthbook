@@ -120,7 +120,13 @@ export async function getWatchedAudits(userId: string, organization: string) {
       $in: doc.features,
     },
     event: {
-      $in: ["feature.publish", "feature.update", "feature.toggle"],
+      $in: [
+        "feature.publish",
+        "feature.update",
+        "feature.toggle",
+        "feature.create",
+        "feature.delete",
+      ],
     },
     dateCreated: {
       $gte: startTime,
