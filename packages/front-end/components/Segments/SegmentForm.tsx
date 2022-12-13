@@ -33,7 +33,6 @@ const SegmentForm: FC<{
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
 
   const userIdType = form.watch("userIdType");
-  const userEnteredQuery = form.watch("sql");
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const dsProps = datasource?.properties;
@@ -94,7 +93,7 @@ const SegmentForm: FC<{
       )}
       {sql ? (
         <SQLInputField
-          userEnteredQuery={userEnteredQuery}
+          userEnteredQuery={form.watch("sql")}
           datasourceId={datasource.id}
           form={form}
           requiredColumns={requiredColumns}

@@ -1,4 +1,3 @@
-import { TestQueryResults } from "back-end/src/types/Integration";
 import { UserIdType } from "back-end/types/datasource";
 import React, { ReactElement, useEffect, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
@@ -9,6 +8,14 @@ import Code from "../components/SyntaxHighlighting/Code";
 import Tooltip from "../components/Tooltip/Tooltip";
 import { useAuth } from "./auth";
 import { validateSQL } from "./datasources";
+import { TestQueryRow } from "../../back-end/src/types/Integration";
+
+type TestQueryResults = {
+  duration?: string;
+  error?: string;
+  results?: TestQueryRow[];
+  sql?: string;
+};
 
 type Props = {
   userEnteredQuery: string;
@@ -154,62 +161,58 @@ export default function SQLInputField({
   };
 
   return (
-    <div className="row">
-      <div className="col-12">
-        <label className="font-weight-bold mb-1">SQL Query</label>
-        <div>
-          <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-            <button
-              className="btn btn-sm btn-primary m-1"
-              onClick={(e) => {
-                e.preventDefault();
-                handleTestQuery();
-              }}
-            >
-              <span className="pr-2">
-                <FaPlay />
-              </span>
-              Test Query
-            </button>
-            {queryType === "experiment-assignment" ? (
-              <div className="d-flex m-1">
-                <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
-                  Use Name Columns
-                </label>
-                <input
-                  type="checkbox"
-                  id="exposure-query-toggle"
-                  className="form-check-input "
-                  {...form.register("hasNameCol")}
-                />
-                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-              </div>
-            ) : null}
+    <div className="col-12">
+      <label className="font-weight-bold mb-1">SQL Query</label>
+      <div className="d-flex justify-content-between align-items-center p-1 border rounded">
+        <button
+          className="btn btn-sm btn-primary m-1"
+          onClick={(e) => {
+            e.preventDefault();
+            handleTestQuery();
+          }}
+        >
+          <span className="pr-2">
+            <FaPlay />
+          </span>
+          Test Query
+        </button>
+        {queryType === "experiment-assignment" ? (
+          <div className="d-flex m-1">
+            <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
+              Use Name Columns
+            </label>
+            <input
+              type="checkbox"
+              id="exposure-query-toggle"
+              className="form-check-input "
+              {...form.register("hasNameCol")}
+            />
+            <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
           </div>
-          {showPreview ? (
-            <Code language="sql" code={userEnteredQuery} />
-          ) : (
-            <CodeTextArea
-              required
-              language="sql"
-              value={userEnteredQuery}
-              setValue={(sql) => form.setValue("sql", sql)}
-              placeholder={placeholder}
-              helpText={helpText}
-            />
-          )}
-          {testQueryResults && (
-            <DisplayTestQueryResults
-              duration={parseInt(testQueryResults.duration || "0")}
-              requiredColumns={[...requiredColumns]}
-              result={testQueryResults.results?.[0]}
-              error={testQueryResults.error}
-              sql={testQueryResults.sql}
-              suggestions={suggestions}
-            />
-          )}
-        </div>
+        ) : null}
       </div>
+      {showPreview ? (
+        <Code language="sql" code={userEnteredQuery} />
+      ) : (
+        <CodeTextArea
+          required
+          language="sql"
+          value={userEnteredQuery}
+          setValue={(sql) => form.setValue("sql", sql)}
+          placeholder={placeholder}
+          helpText={helpText}
+        />
+      )}
+      {testQueryResults && (
+        <DisplayTestQueryResults
+          duration={parseInt(testQueryResults.duration || "0")}
+          requiredColumns={[...requiredColumns]}
+          result={testQueryResults.results?.[0]}
+          error={testQueryResults.error}
+          sql={testQueryResults.sql}
+          suggestions={suggestions}
+        />
+      )}
     </div>
   );
 }

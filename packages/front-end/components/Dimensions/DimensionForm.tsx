@@ -33,7 +33,6 @@ const DimensionForm: FC<{
 
   const datasource = form.watch("datasource");
   const userIdType = form.watch("userIdType");
-  const userEnteredQuery = form.watch("sql");
 
   const dsObj = getDatasourceById(datasource);
   const dsProps = dsObj?.properties;
@@ -97,7 +96,7 @@ const DimensionForm: FC<{
       )}
       {sql ? (
         <SQLInputField
-          userEnteredQuery={userEnteredQuery}
+          userEnteredQuery={form.watch("sql")}
           datasourceId={dsObj.id}
           form={form}
           requiredColumns={requiredColumns}

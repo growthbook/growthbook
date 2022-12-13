@@ -110,7 +110,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     >
       <div className="my-2 ml-3 mr-3">
         <div className="row">
-          <div className="col-md-12 col-lg-12">
+          <div className="col-12">
             <Field label="Display Name" required {...form.register("name")} />
             <Field
               label="Description (optional)"

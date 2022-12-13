@@ -343,8 +343,6 @@ const MetricForm: FC<MetricFormProps> = ({
     return new Set(["timestamp", ...value.userIdTypes]);
   }, []);
 
-  console.log("datasource", value.datasource);
-
   return (
     <PagedModal
       inline={inline}

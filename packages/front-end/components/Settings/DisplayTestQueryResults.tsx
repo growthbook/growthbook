@@ -45,8 +45,8 @@ export default function DisplayTestQueryResults({
   }
 
   return (
-    <div>
-      <div className="border border-top-0 p-2 bg-light">
+    <>
+      <div className="border mt-3 p-2 bg-light">
         <div className="row">
           <div className="col-auto">
             <strong>Sample Row</strong>
@@ -104,6 +104,6 @@ export default function DisplayTestQueryResults({
           {suggestion}
         </div>
       ))}
-    </div>
+    </>
   );
 }
