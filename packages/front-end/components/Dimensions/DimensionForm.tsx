@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import Modal from "../Modal";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
@@ -6,21 +6,14 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
-import { FaPlay } from "react-icons/fa";
-import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-import { TestQueryResults } from "back-end/src/types/Integration";
+import SQLInputField from "../../services/SQLInputField";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
   const {
@@ -49,25 +42,6 @@ const DimensionForm: FC<{
   const requiredColumns = useMemo(() => {
     return new Set([userIdType, "value"]);
   }, [userIdType]);
-
-  const handleTestQuery = async () => {
-    setTestQueryResults(null);
-    try {
-      validateSQL(userEnteredQuery, [...requiredColumns]);
-
-      const res: TestQueryResults = await apiCall("/query/test", {
-        method: "POST",
-        body: JSON.stringify({
-          query: userEnteredQuery,
-          datasourceId: dsObj.id,
-        }),
-      });
-
-      setTestQueryResults(res);
-    } catch (e) {
-      setTestQueryResults({ error: e.message });
-    }
-  };
 
   return (
     <Modal
@@ -122,49 +96,20 @@ const DimensionForm: FC<{
         />
       )}
       {sql ? (
-        <div className="row">
-          <div className="col-lg-12">
-            <label className="font-weight-bold mb-1">SQL Query</label>
-            <div>
-              <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-                <button
-                  className="btn btn-sm btn-primary m-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleTestQuery();
-                  }}
-                >
-                  <span className="pr-2">
-                    <FaPlay />
-                  </span>
-                  Test Query
-                </button>
-              </div>
-              <CodeTextArea
-                required
-                language="sql"
-                value={userEnteredQuery}
-                setValue={(sql) => form.setValue("sql", sql)}
-                placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
-                helpText={
-                  <>
-                    Select two columns named <code>{userIdType}</code> and{" "}
-                    <code>value</code>
-                  </>
-                }
-              />
-              {testQueryResults && (
-                <DisplayTestQueryResults
-                  duration={parseInt(testQueryResults.duration || "0")}
-                  requiredColumns={[...requiredColumns]}
-                  result={testQueryResults.results?.[0]}
-                  error={testQueryResults.error}
-                  sql={testQueryResults.sql}
-                />
-              )}
-            </div>
-          </div>
-        </div>
+        <SQLInputField
+          userEnteredQuery={userEnteredQuery}
+          datasourceId={dsObj.id}
+          form={form}
+          requiredColumns={requiredColumns}
+          placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
+          helpText={
+            <>
+              Select two columns named <code>{userIdType}</code> and{" "}
+              <code>value</code>
+            </>
+          }
+          queryType="dimension"
+        />
       ) : (
         <Field
           label="Event Condition"

@@ -25,11 +25,8 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { TestQueryResults } from "back-end/src/types/Integration";
-import { FaPlay } from "react-icons/fa";
-import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
+import SQLInputField from "../../services/SQLInputField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -138,10 +135,6 @@ const MetricForm: FC<MetricFormProps> = ({
   onSuccess,
   secondaryCTA,
 }) => {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
   const { datasources, getDatasourceById, metrics } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -350,24 +343,7 @@ const MetricForm: FC<MetricFormProps> = ({
     return new Set(["timestamp", ...value.userIdTypes]);
   }, []);
 
-  const handleTestQuery = async (query?: string) => {
-    setTestQueryResults(null);
-    try {
-      validateSQL(query || value.sql, [...requiredColumns]);
-
-      const res: TestQueryResults = await apiCall("/query/test", {
-        method: "POST",
-        body: JSON.stringify({
-          query: query || value.sql,
-          datasourceId: value.datasource,
-        }),
-      });
-
-      setTestQueryResults(res);
-    } catch (e) {
-      setTestQueryResults({ error: e.message });
-    }
-  };
+  console.log("datasource", value.datasource);
 
   return (
     <PagedModal
@@ -527,45 +503,16 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   label="Identifier Types Supported"
                 />
-                <div className="row">
-                  <div className="col-lg-12">
-                    <label className="font-weight-bold mb-1">SQL Query</label>
-                    <div>
-                      <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-                        <button
-                          className="btn btn-sm btn-primary m-1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleTestQuery();
-                          }}
-                        >
-                          <span className="pr-2">
-                            <FaPlay />
-                          </span>
-                          Test Query
-                        </button>
-                      </div>
-                      <CodeTextArea
-                        required
-                        language="sql"
-                        value={value.sql}
-                        setValue={(sql) => form.setValue("sql", sql)}
-                        placeholder={
-                          "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
-                        }
-                      />
-                      {testQueryResults && (
-                        <DisplayTestQueryResults
-                          duration={parseInt(testQueryResults.duration || "0")}
-                          requiredColumns={[...requiredColumns]}
-                          result={testQueryResults.results?.[0]}
-                          error={testQueryResults.error}
-                          sql={testQueryResults.sql}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <SQLInputField
+                  userEnteredQuery={value.sql}
+                  datasourceId={value.datasource}
+                  form={form}
+                  requiredColumns={requiredColumns}
+                  placeholder={
+                    "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
+                  }
+                  queryType="metric"
+                />
                 {value.type !== "binomial" && (
                   <Field
                     label="User Value Aggregation"
@@ -805,31 +752,14 @@ const MetricForm: FC<MetricFormProps> = ({
                 </div>
               ) : (
                 <>
-                  <div className="d-flex align-items-center justify-content-between">
-                    <h4 className="mb-0">Query Preview</h4>
-                    <button
-                      className="btn btn-sm btn-primary m-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleTestQuery(getRawSQLPreview(value));
-                      }}
-                    >
-                      <span className="pr-2">
-                        <FaPlay />
-                      </span>
-                      Test Query
-                    </button>
-                  </div>
-                  <Code language="sql" code={getRawSQLPreview(value)} />
-                  {testQueryResults && (
-                    <DisplayTestQueryResults
-                      duration={parseInt(testQueryResults.duration || "0")}
-                      requiredColumns={[...requiredColumns]}
-                      result={testQueryResults.results?.[0]}
-                      error={testQueryResults.error}
-                      sql={testQueryResults.sql}
-                    />
-                  )}
+                  <SQLInputField
+                    userEnteredQuery={getRawSQLPreview(value)}
+                    datasourceId={value.datasource}
+                    form={form}
+                    requiredColumns={requiredColumns}
+                    showPreview
+                    queryType="metric"
+                  />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
