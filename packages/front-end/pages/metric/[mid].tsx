@@ -109,8 +109,8 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEdit =
-    permissions.check("createMetrics", project) && !hasFileConfig();
+  const canEditMetric = permissions.check("createMetrics", project) && !hasFileConfig();
+  const canEditProjects = permissions.check("createMetrics", "") && !hasFileConfig();
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -339,7 +339,7 @@ const MetricPage: FC = () => {
       <div className="row align-items-center mb-2">
         <h1 className="col-auto">{metric.name}</h1>
         <div style={{ flex: 1 }} />
-        {canEdit && (
+        {canEditMetric && (
           <div className="col-auto">
             <MoreMenu id="metric-actions">
               <DeleteButton
@@ -390,7 +390,7 @@ const MetricPage: FC = () => {
           ) : (
             <ProjectTags className="badge-ellipsis align-middle" />
           )}
-          {canEdit && (
+          {canEditProjects && (
             <a
               href="#"
               onClick={(e) => {
@@ -413,7 +413,7 @@ const MetricPage: FC = () => {
                   <InlineForm
                     editing={editing}
                     setEdit={setEditing}
-                    canEdit={canEdit}
+                    canEdit={canEditMetric}
                     onSave={form.handleSubmit(async (value) => {
                       await apiCall(`/metric/${metric.id}`, {
                         method: "PUT",
@@ -437,12 +437,12 @@ const MetricPage: FC = () => {
                               onChange={(e) =>
                                 form.setValue("name", e.target.value)
                               }
-                              editing={canEdit && editing}
+                              editing={canEditMetric && editing}
                               save={save}
                               cancel={cancel}
                             />
                           </div>
-                          {canEdit && !editing && (
+                          {canEditMetric && !editing && (
                             <div className="col-auto">
                               <button
                                 className="btn btn-outline-primary"
@@ -471,8 +471,8 @@ const MetricPage: FC = () => {
                       mutateDefinitions({});
                     }}
                     value={metric.description}
-                    canCreate={canEdit}
-                    canEdit={canEdit}
+                    canCreate={canEditMetric}
+                    canEdit={canEditMetric}
                     label="Description"
                   />
                   <hr />
@@ -533,7 +533,7 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">No segment applied</span>
                               )}
-                              {canEdit && permissions.runQueries && (
+                              {canEditMetric && permissions.runQueries && (
                                 <a
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -700,7 +700,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Owner"
               open={() => setEditOwnerModal(true)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="custom">
                 {metric.owner}
@@ -711,7 +711,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Basic Info"
               open={() => setEditModalOpen(0)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup title="Type" type="commaList">
                 {metric.type}
@@ -745,7 +745,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Tags"
               open={() => setEditTags(true)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="tags">
                 {metric.tags}
@@ -756,7 +756,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEdit}
+              canOpen={canEditProjects}
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length > 0 ? (
@@ -776,7 +776,7 @@ const MetricPage: FC = () => {
                 <RightRailSection
                   title="Query Settings"
                   open={() => setEditModalOpen(1)}
-                  canOpen={canEdit}
+                  canOpen={canEditMetric}
                 >
                   {supportsSQL &&
                   metric.queryFormat !== "builder" &&
@@ -892,7 +892,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Behavior"
               open={() => setEditModalOpen(2)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="commaList" empty="">
                 {[

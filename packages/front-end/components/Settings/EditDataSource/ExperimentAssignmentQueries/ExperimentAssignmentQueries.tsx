@@ -20,6 +20,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   dataSource,
   onSave,
   onCancel,
+  canEdit = true,
 }) => {
   const { project } = useDefinitions();
   const router = useRouter();
@@ -37,7 +38,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   );
 
   const permissions = usePermissions();
-  const canEdit = permissions.check("editDatasourceSettings", project);
+  canEdit = canEdit && permissions.check("editDatasourceSettings", project);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {

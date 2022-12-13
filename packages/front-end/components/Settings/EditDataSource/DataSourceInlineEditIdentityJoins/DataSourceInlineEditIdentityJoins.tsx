@@ -20,13 +20,14 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   dataSource,
   onSave,
   onCancel,
+  canEdit = true,
 }) => {
   const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.check("editDatasourceSettings", project);
+  canEdit = canEdit && permissions.check("editDatasourceSettings", project);
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
 

@@ -19,13 +19,14 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   dataSource,
   onSave,
   onCancel,
+  canEdit= true,
 }) => {
   const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.check("editDatasourceSettings", project);
+  canEdit = canEdit && permissions.check("editDatasourceSettings", project);
 
   const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
     dataSource.settings?.userIdTypes,

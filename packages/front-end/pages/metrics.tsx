@@ -45,7 +45,6 @@ const MetricsPage = (): React.ReactElement => {
   const { getUserDisplay } = useUser();
 
   const permissions = usePermissions();
-  console.log({ permissions }, permissions.check("createMetrics", project));
 
   const tagsFilter = useTagsFilter("metrics");
 

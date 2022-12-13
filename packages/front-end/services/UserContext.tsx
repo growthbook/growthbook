@@ -206,7 +206,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
     permissionsObj[p] = true;
   });
-  console.log("here", permissionsObj);
 
   // Update current user data for telemetry data
   useEffect(() => {

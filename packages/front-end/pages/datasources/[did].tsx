@@ -31,7 +31,6 @@ const DataSourcePage: FC = () => {
 
   const permissions = usePermissions();
 
-  const canEdit = !hasFileConfig();
 
   const router = useRouter();
 
@@ -46,6 +45,8 @@ const DataSourcePage: FC = () => {
   const d = getDatasourceById(did);
 
   const { apiCall } = useAuth();
+
+  const canEdit = permissions.check("createDatasources", project) && !hasFileConfig();
 
   /**
    * Update the data source provided.
@@ -142,7 +143,7 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="mb-3">
-            {canEdit && permissions.check("createDatasources", project) && (
+            {canEdit && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
                   <button
@@ -165,7 +166,7 @@ const DataSourcePage: FC = () => {
                 </div>
 
                 <div>
-                  {canEdit && permissions.check("createDatasources", project) && (
+                  {canEdit && (
                     <DeleteButton
                       displayName={d.name}
                       className="font-weight-bold"
@@ -195,6 +196,7 @@ const DataSourcePage: FC = () => {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
+                  canEdit={canEdit}
                 />
               </div>
 
@@ -253,6 +255,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
+                  canEdit={canEdit}
                 />
 
                 <div className="mt-4">
@@ -260,6 +263,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
+                    canEdit={canEdit}
                   />
                 </div>
               </div>
@@ -269,6 +273,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
+                  canEdit={canEdit}
                 />
               </div>
 
@@ -277,6 +282,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
+                  canEdit={canEdit}
                 />
               </div>
             </>

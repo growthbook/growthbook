@@ -33,7 +33,6 @@ export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
   req.checkPermissions("createAnalyses", "");
 
   const { org } = getOrgFromReq(req);
@@ -290,8 +289,6 @@ export async function postMetrics(
   req: AuthRequest<Partial<MetricInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
-
   const { org, userName } = getOrgFromReq(req);
 
   const {
@@ -393,8 +390,6 @@ export async function putMetric(
   req: AuthRequest<Partial<MetricInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const metric = await getMetricById(id, org.id);

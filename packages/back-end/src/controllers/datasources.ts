@@ -39,7 +39,7 @@ import {
 import uniqid from "uniqid";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
-  req.checkPermissions("createMetrics");
+  req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
   const { org, userId } = getOrgFromReq(req);
@@ -199,7 +199,7 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createDatasources");
+  req.checkPermissions("createDatasources", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -317,7 +317,7 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  req.checkPermissions("createDatasources");
+  req.checkPermissions("createDatasources", "");
 
   const { org } = getOrgFromReq(req);
   const { name, description, type, params, projects } = req.body;
@@ -375,9 +375,9 @@ export async function putDataSource(
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
-    req.checkPermissions("createDatasources");
+    req.checkPermissions("createDatasources", "");
   } else {
-    req.checkPermissions("editDatasourceSettings");
+    req.checkPermissions("editDatasourceSettings", "");
   }
 
   const datasource = await getDataSourceById(id, org.id);
@@ -453,7 +453,7 @@ export async function putDataSource(
 }
 
 export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
-  req.checkPermissions("createDatasources");
+  req.checkPermissions("createDatasources", "");
 
   const oauth2Client = getOauth2Client();
 
@@ -515,7 +515,7 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  req.checkPermissions("editDatasourceSettings");
+  req.checkPermissions("editDatasourceSettings", "");
 
   const { org } = getOrgFromReq(req);
 

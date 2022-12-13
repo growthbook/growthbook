@@ -7,6 +7,8 @@ import {
   DataSourceInterfaceWithParams,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import usePermissions from "../../../../hooks/usePermissions";
+import { useDefinitions } from "../../../../services/DefinitionsContext";
 
 type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -14,8 +16,13 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
   onSave,
   onCancel,
   dataSource,
+  canEdit=true,
 }) => {
+  const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
+
+  const permissions = usePermissions();
+  canEdit = canEdit && permissions.check("editDatasourceSettings", project);
 
   const handleEdit = useCallback(() => {
     setUiMode("edit");
@@ -45,14 +52,16 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h3 className="mb-0">Query Settings</h3>
 
-        <div className="">
-          <button
-            className="btn btn-outline-primary font-weight-bold text-nowrap"
-            onClick={handleEdit}
-          >
-            <FaPencilAlt className="mr-1" /> Edit
-          </button>
-        </div>
+        { canEdit && (
+          <div className="">
+            <button
+              className="btn btn-outline-primary font-weight-bold text-nowrap"
+              onClick={handleEdit}
+            >
+              <FaPencilAlt className="mr-1" /> Edit
+            </button>
+          </div>
+        )}
       </div>
 
       <table className="table appbox gbtable mb-5">

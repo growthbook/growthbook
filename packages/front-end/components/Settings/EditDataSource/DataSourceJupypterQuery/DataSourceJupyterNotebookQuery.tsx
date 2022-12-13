@@ -11,11 +11,12 @@ type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
   onSave,
   dataSource,
+  canEdit = true,
 }) => {
   const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
   const permissions = usePermissions();
-  const canEdit = permissions.check("editDatasourceSettings", project);
+  canEdit = canEdit && permissions.check("editDatasourceSettings", project);
 
   const handleCancel = useCallback(() => {
     setUiMode("view");

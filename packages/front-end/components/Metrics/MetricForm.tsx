@@ -307,13 +307,17 @@ const MetricForm: FC<MetricFormProps> = ({
       ...otherValues
     } = value;
 
-    const sendValue: Partial<MetricInterface> = {
+    let sendValue: Partial<MetricInterface> = {
       ...otherValues,
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
     };
+
+    if (!edit && project) {
+      sendValue['projects'] = [project];
+    }
 
     if (value.loseRisk < value.winRisk) return;
 
