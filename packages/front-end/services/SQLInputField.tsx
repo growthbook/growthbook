@@ -198,7 +198,12 @@ export default function SQLInputField({
           required
           language="sql"
           value={userEnteredQuery}
-          setValue={(sql) => form.setValue("sql", sql)}
+          setValue={(sql) =>
+            form.setValue(
+              queryType === "experiment-assignment" ? "query" : "sql",
+              sql
+            )
+          }
           placeholder={placeholder}
           helpText={helpText}
         />
