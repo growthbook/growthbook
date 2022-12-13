@@ -31,6 +31,8 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
+  findAllByEntityType,
+  findAllByEntityTypeParent,
   findByEntity,
   findByEntityParent,
   getWatchedAudits,
@@ -174,6 +176,39 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
       message: e.message,
     });
   }
+}
+
+export async function getAllHistory(
+  req: AuthRequest<null, { type: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { type } = req.params;
+
+  const events = await Promise.all([
+    findAllByEntityType(org.id, type),
+    findAllByEntityTypeParent(org.id, type),
+  ]);
+
+  const merged = [...events[0], ...events[1]];
+
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+
+  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to view history",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    events: merged,
+  });
 }
 
 export async function getHistory(
