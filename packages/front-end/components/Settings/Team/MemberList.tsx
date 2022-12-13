@@ -12,6 +12,8 @@ import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
 import { useEnvironments } from "../../../services/features";
 import { datetime } from "../../../services/dates";
+import { useDefinitions } from "../../../services/DefinitionsContext";
+import ProjectTags from "../../Tags/ProjectTags";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -24,7 +26,7 @@ const MemberList: FC<{
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     null
   );
-
+  const { projects } = useDefinitions();
   const environments = useEnvironments();
 
   const onInvite = () => {
@@ -47,6 +49,7 @@ const MemberList: FC<{
             environments: roleModalUser.environments || [],
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
+            projectRoles: roleModalUser.projectRoles,
           }}
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
@@ -70,7 +73,7 @@ const MemberList: FC<{
             <th>Name</th>
             <th>Email</th>
             <th>Date Joined</th>
-            <th>${project ? "Project Role" : "Primary Role"}</th>
+            <th>{project ? "Project Role" : "Global Role"}</th>
             {!project && <th>Project Roles</th>}
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
@@ -91,8 +94,20 @@ const MemberList: FC<{
                 <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                 <td>{roleInfo.role}</td>
                 {!project && (
-                  <td className="col-2">
-                    {JSON.stringify(member.projectRoles)}
+                  <td className="col-3">
+                    {member.projectRoles.map(pr => {
+                      const p = projects.find(p => p.id === pr.project)
+                      if (p?.name) {
+                        return (
+                          <div>
+                            <ProjectTags
+                              projectIds={[p.id]}
+                              className="badge-ellipsis align-middle font-weight-normal"
+                            />— {pr.role}
+                          </div>)
+                      }
+                      return null
+                    })}
                   </td>
                 )}
                 {environments.map((env) => {

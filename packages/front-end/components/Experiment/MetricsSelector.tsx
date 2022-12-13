@@ -13,12 +13,12 @@ const MetricsSelector: FC<{
 }> = ({ datasource, selected, onChange, autoFocus }) => {
   const { metrics, project } = useDefinitions();
 
-  const validMetrics = (
-    project ?
-      metrics.filter(m => !m?.projects?.length || m?.projects?.includes(project)) :
-      metrics
-  )
-    .filter(m => m.datasource === datasource);
+  const validMetrics = (project
+    ? metrics.filter(
+        (m) => !m?.projects?.length || m?.projects?.includes(project)
+      )
+    : metrics
+  ).filter((m) => m.datasource === datasource);
 
   const tagCounts: Record<string, number> = {};
   validMetrics.forEach((m) => {

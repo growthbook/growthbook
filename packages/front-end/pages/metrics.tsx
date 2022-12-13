@@ -25,6 +25,7 @@ import Field from "../components/Forms/Field";
 import ProjectTags from "../components/Tags/ProjectTags";
 
 const MetricsPage = (): React.ReactElement => {
+  // const { user } = useUser()
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
     edit: boolean;
@@ -41,7 +42,10 @@ const MetricsPage = (): React.ReactElement => {
         (m) => !m?.projects?.length || m?.projects?.includes(project)
       )
     : data?.metrics;
-  console.log();
+  // if (user.projectRoles?.length > 0) {
+  //
+  // }
+  // console.log(user.projectRoles);
 
   const { getUserDisplay } = useUser();
 

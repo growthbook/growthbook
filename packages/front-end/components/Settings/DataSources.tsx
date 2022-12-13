@@ -46,11 +46,11 @@ const DataSources: FC = () => {
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th className="col-3">Display Name</th>
+              <th className="col-2">Display Name</th>
               <th className="col-auto">Description</th>
               <th className="col-2">Type</th>
               <td className="col-2">Projects</td>
-              {!hasFileConfig() && <th>Last Updated</th>}
+              {!hasFileConfig() && <th className="col-2">Last Updated</th>}
             </tr>
           </thead>
           <tbody>
