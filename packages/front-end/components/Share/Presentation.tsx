@@ -221,6 +221,7 @@ const Presentation = ({
               id={experiment.id}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               metrics={experiment.metrics}
+              metricOverrides={experiment.metricOverrides}
               reportDate={snapshot.dateCreated}
               results={snapshot.results?.[0]}
               status={experiment.status}

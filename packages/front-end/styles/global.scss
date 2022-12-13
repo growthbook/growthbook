@@ -34,6 +34,12 @@ body {
   color: var(--text-color-muted) !important;
 }
 
+.text-ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 #block-menu-container {
   z-index: 990;
 }
@@ -1978,11 +1984,30 @@ td.disabled {
     padding: 2px;
   }
   .gb-select__indicator {
-    padding: 1;
+    padding: 1px;
     svg {
       width: 15px;
       height: 15px;
     }
+  }
+}
+.gb-select-wrapper.portal-overflow-ellipsis {
+  .gb-select__menu-portal {
+    .gb-select__menu {
+      max-width: 100%;
+      .gb-select__option {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
+
+.form-group.metric-override {
+  .form-control::placeholder {
+    font-style: italic;
+    opacity: 0.75;
   }
 }
 

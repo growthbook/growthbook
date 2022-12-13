@@ -35,8 +35,9 @@ export type NewExperimentFormProps = {
   source: string;
   idea?: string;
   msg?: string;
-  onClose: () => void;
+  onClose?: () => void;
   onCreate?: (id: string) => void;
+  inline?: boolean;
 };
 
 function getEvenSplit(n: number) {
@@ -78,6 +79,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   source,
   idea,
   msg,
+  inline,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -238,6 +240,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       size="lg"
       step={step}
       setStep={setStep}
+      inline={inline}
     >
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
@@ -300,8 +303,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             initialOption="Manual"
             options={datasources.map((d) => ({
               value: d.id,
-              label: d.name,
+              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
+            className="portal-overflow-ellipsis"
           />
         )}
         {datasource?.properties?.exposureQueries && (
