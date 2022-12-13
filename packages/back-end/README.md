@@ -136,6 +136,12 @@ We have a sample data generator script you can use to seed a Postgres database w
 3. Connect to your local Postgres instance using `psql`
 4. Run the SQL commands in `packages/back-end/test/data-generator/create.sql` to create the tables and upload the generated data
 
+Example running psql with create.sql
+
+```bash
+> psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/create.sql
+```
+
 Next, you'll need to set up the Postgres connection within GrowthBook.
 
 1. Under Analysis->Data Sources, add a new data source
