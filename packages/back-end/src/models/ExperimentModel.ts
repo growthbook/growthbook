@@ -30,6 +30,8 @@ const experimentSchema = new mongoose.Schema({
       id: String,
       conversionWindowHours: Number,
       conversionDelayHours: Number,
+      winRisk: Number,
+      loseRisk: Number,
     },
   ],
   guardrails: [String],

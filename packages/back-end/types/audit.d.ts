@@ -49,6 +49,7 @@ export type EventType =
   | "organization.update"
   | "organization.delete"
   | "savedGroup.created"
+  | "savedGroup.deleted"
   | "savedGroup.updated";
 
 export interface AuditUserLoggedIn {
@@ -69,6 +70,7 @@ export interface AuditInterface {
   entity: {
     object: EntityType;
     id: string;
+    name?: string;
   };
   parent?: {
     object: EntityType;

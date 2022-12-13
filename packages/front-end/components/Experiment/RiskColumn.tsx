@@ -26,8 +26,8 @@ export default function RiskColumn({
     metricDefaults
   );
 
-  const winRiskThreshold = row.metric.winRisk || defaultWinRiskThreshold;
-  const loseRiskThreshold = row.metric.loseRisk || defaultLoseRiskThreshold;
+  const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
+  const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;
 
   if (!row.variations[0]?.value || !showRisk) {
     return <td className="empty-td"></td>;
