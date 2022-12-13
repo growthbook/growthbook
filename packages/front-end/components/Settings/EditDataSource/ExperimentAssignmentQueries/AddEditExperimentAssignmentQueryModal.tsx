@@ -131,39 +131,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 form.setValue("dimensions", dimensions);
               }}
             />
-            <label>Required Columns</label>
-            <ul>
-              <li>
-                <code>{form.watch("userIdType")}</code>
-              </li>
-              <li>
-                <code>timestamp</code>
-              </li>
-              <li>
-                <code>experiment_id</code>
-              </li>
-              <li>
-                <code>variation_id</code>
-              </li>
-              {userEnteredHasNameCol && (
-                <>
-                  <li>
-                    <code>experiment_name</code>
-                  </li>
-                  <li>
-                    <code>variation_name</code>
-                  </li>
-                </>
-              )}
-              {userEnteredDimensions &&
-                userEnteredDimensions.map((dimension) => {
-                  return (
-                    <li key={dimension}>
-                      <code>{dimension}</code>
-                    </li>
-                  );
-                })}
-            </ul>
             <SQLInputField
               userEnteredQuery={userEnteredQuery}
               datasourceId={dataSource.id}
@@ -171,12 +138,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               requiredColumns={requiredColumns}
               identityTypes={identityTypes}
               queryType="experiment-assignment"
-              helpText={
-                <div>
-                  Any additional columns you select can be listed as dimensions
-                  to drill down into experiment results.
-                </div>
-              }
             />
           </div>
         </div>

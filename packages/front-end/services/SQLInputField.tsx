@@ -161,63 +161,114 @@ export default function SQLInputField({
   };
 
   return (
-    <div className="col-12">
+    <>
       <label className="font-weight-bold mb-1">SQL Query</label>
-      <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-        <button
-          className="btn btn-sm btn-primary m-1"
-          onClick={(e) => {
-            e.preventDefault();
-            handleTestQuery();
-          }}
-        >
-          <span className="pr-2">
-            <FaPlay />
-          </span>
-          Test Query
-        </button>
-        {queryType === "experiment-assignment" ? (
-          <div className="d-flex m-1">
-            <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
-              Use Name Columns
-            </label>
-            <input
-              type="checkbox"
-              id="exposure-query-toggle"
-              className="form-check-input "
-              {...form.register("hasNameCol")}
-            />
-            <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-          </div>
-        ) : null}
-      </div>
-      {showPreview ? (
-        <Code language="sql" code={userEnteredQuery} />
-      ) : (
-        <CodeTextArea
-          required
-          language="sql"
-          value={userEnteredQuery}
-          setValue={(sql) =>
-            form.setValue(
-              queryType === "experiment-assignment" ? "query" : "sql",
-              sql
-            )
+      <div className="row flex-column-reverse flex-md-row">
+        <div
+          className={
+            queryType === "experiment-assignment" ? "col-md-8" : "col-12"
           }
-          placeholder={placeholder}
-          helpText={helpText}
-        />
-      )}
-      {testQueryResults && (
-        <DisplayTestQueryResults
-          duration={parseInt(testQueryResults.duration || "0")}
-          requiredColumns={[...requiredColumns]}
-          result={testQueryResults.results?.[0]}
-          error={testQueryResults.error}
-          sql={testQueryResults.sql}
-          suggestions={suggestions}
-        />
-      )}
-    </div>
+        >
+          <div className="d-flex justify-content-between align-items-center p-1 border rounded">
+            <button
+              className="btn btn-sm btn-primary m-1"
+              onClick={(e) => {
+                e.preventDefault();
+                handleTestQuery();
+              }}
+            >
+              <span className="pr-2">
+                <FaPlay />
+              </span>
+              Test Query
+            </button>
+            {queryType === "experiment-assignment" ? (
+              <div className="d-flex m-1">
+                <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
+                  Use Name Columns
+                </label>
+                <input
+                  type="checkbox"
+                  id="exposure-query-toggle"
+                  className="form-check-input "
+                  {...form.register("hasNameCol")}
+                />
+                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+              </div>
+            ) : null}
+          </div>
+          {showPreview ? (
+            <Code language="sql" code={userEnteredQuery} />
+          ) : (
+            <CodeTextArea
+              required
+              language="sql"
+              value={userEnteredQuery}
+              setValue={(sql) =>
+                form.setValue(
+                  queryType === "experiment-assignment" ? "query" : "sql",
+                  sql
+                )
+              }
+              placeholder={placeholder}
+              helpText={helpText}
+            />
+          )}
+          {testQueryResults && (
+            <DisplayTestQueryResults
+              duration={parseInt(testQueryResults.duration || "0")}
+              requiredColumns={[...requiredColumns]}
+              result={testQueryResults.results?.[0]}
+              error={testQueryResults.error}
+              sql={testQueryResults.sql}
+              suggestions={suggestions}
+            />
+          )}
+        </div>
+        {queryType === "experiment-assignment" && (
+          <div className="col-sm-12 col-md-4">
+            <div>
+              Any additional columns you select can be listed as dimensions to
+              drill down into experiment results.
+            </div>
+            <div className="pt-3">
+              <strong>Required columns</strong>
+            </div>
+            <ul>
+              <li>
+                <code>{form.watch("userIdType")}</code>
+              </li>
+              <li>
+                <code>timestamp</code>
+              </li>
+              <li>
+                <code>experiment_id</code>
+              </li>
+              <li>
+                <code>variation_id</code>
+              </li>
+              {userEnteredHasNameCol && (
+                <>
+                  <li>
+                    <code>experiment_name</code>
+                  </li>
+                  <li>
+                    <code>variation_name</code>
+                  </li>
+                </>
+              )}
+              {userEnteredDimensions &&
+                userEnteredDimensions.map((dimension) => {
+                  return (
+                    <li key={dimension}>
+                      <code>{dimension}</code>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
