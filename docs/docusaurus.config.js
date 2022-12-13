@@ -134,7 +134,7 @@ const config = {
         theme: require("prism-react-renderer/themes/github"),
         darkTheme: require("prism-react-renderer/themes/dracula"),
         additionalLanguages: [
-		  "csharp",
+          "csharp",
           "ruby",
           "php",
           "java",

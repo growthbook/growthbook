@@ -27,41 +27,41 @@ Down below you'll find two basic examples on how the package works.
 
 1. Declare features
 
-    ```csharp
+   ```csharp
 
-    var staticFeatures = new Dictionary<string, Feature>
-    {
-        {"firstFeature", new Feature{ DefaultValue = true}},
-        {"secondFeature", new Feature{ DefaultValue = false}}
-    };
-    ```
+   var staticFeatures = new Dictionary<string, Feature>
+   {
+       {"firstFeature", new Feature{ DefaultValue = true}},
+       {"secondFeature", new Feature{ DefaultValue = false}}
+   };
+   ```
 
 2. Create a context and add the features
 
-    ```csharp
-    var context = new Context
-    {
-        Enabled = true,
-        Url = "",
-        Features = staticFeatures
-    };
-    ```
+   ```csharp
+   var context = new Context
+   {
+       Enabled = true,
+       Url = "",
+       Features = staticFeatures
+   };
+   ```
 
 3. Create the `GrowthBook` object with the context
 
-    ```csharp
-    using GrowthBook;
-    //...
+   ```csharp
+   using GrowthBook;
+   //...
 
-    var GrowthBook = new GrowthBook.GrowthBook(context);
-    ```
+   var GrowthBook = new GrowthBook.GrowthBook(context);
+   ```
 
 4. Check whether a feature is enabled
 
-    ```csharp
-    GrowthBook.IsOn("firstFeature") // true
-    GrowthBook.IsOn("secondFeature") // false
-    ```
+   ```csharp
+   GrowthBook.IsOn("firstFeature") // true
+   GrowthBook.IsOn("secondFeature") // false
+   ```
 
 ### Loading feature definitions from an API
 
@@ -72,39 +72,39 @@ To load your features from the GrowthBook API use the following example:
 
 1. Create a result model for the API response
 
-    ```csharp
-    public class FeaturesResult
-    {
-        public HttpStatusCode Status { get; set; }
-        public IDictionary<string, Feature>? Features { get; set; }
-        public DateTimeOffset? DateUpdated { get; set; }
-    }
-    ```
+   ```csharp
+   public class FeaturesResult
+   {
+       public HttpStatusCode Status { get; set; }
+       public IDictionary<string, Feature>? Features { get; set; }
+       public DateTimeOffset? DateUpdated { get; set; }
+   }
+   ```
 
 2. call the endpoint and deserialize result
 
-    ```csharp
-    var url = "YOUR_GROWTHBOOK_URL/api/features/YOUR_API_KEY";
-    var response = await client.GetAsync(url);
+   ```csharp
+   var url = "YOUR_GROWTHBOOK_URL/api/features/YOUR_API_KEY";
+   var response = await client.GetAsync(url);
 
-    if (response.IsSuccessStatusCode)
-    {
-        var content = await response.Content.ReadAsStringAsync();
-        var featuresResult = JsonConvert.DeserializeObject<FeaturesResult>(content);
-    }
-    ```
+   if (response.IsSuccessStatusCode)
+   {
+       var content = await response.Content.ReadAsStringAsync();
+       var featuresResult = JsonConvert.DeserializeObject<FeaturesResult>(content);
+   }
+   ```
 
 3. Construct a context and initialize GrowthBook
 
-    ```csharp
-    var GrowthBook = new GrowthBook.GrowthBook(
-        new Context {
-            Enabled = true,
-            Url = "",
-            Features = featuresResult.Features,
-        }
-    );
-    ```
+   ```csharp
+   var GrowthBook = new GrowthBook.GrowthBook(
+       new Context {
+           Enabled = true,
+           Url = "",
+           Features = featuresResult.Features,
+       }
+   );
+   ```
 
 #### Generic getters
 

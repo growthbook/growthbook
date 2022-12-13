@@ -9,6 +9,7 @@ const organizationsController = wrapController(organizationsControllerRaw);
 
 router.get("/organization/definitions", organizationsController.getDefinitions);
 router.get("/activity", organizationsController.getActivityFeed);
+router.get("/history/:type", organizationsController.getAllHistory);
 router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
