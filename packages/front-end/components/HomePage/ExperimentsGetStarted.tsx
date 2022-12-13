@@ -218,8 +218,8 @@ const ExperimentsGetStarted = ({
                       // Otherwise, you need full create access
                       !hasFileConfig() &&
                       !(hasDataSource
-                        ? permissions.editDatasourceSettings
-                        : permissions.createDatasources)
+                        ? permissions.check("editDatasourceSettings", project)
+                        : permissions.check("createDatasources", project))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"
@@ -246,7 +246,7 @@ const ExperimentsGetStarted = ({
                     finishedCTA="View metrics"
                     permissionsError={
                       !hasFileConfig() &&
-                      !permissions.createMetrics &&
+                      !permissions.check("createMetrics", project) &&
                       !hasMetrics
                     }
                     imageLeft={false}

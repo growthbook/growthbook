@@ -12,6 +12,7 @@ import Code from "../../../SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 import usePermissions from "../../../../hooks/usePermissions";
 import { useRouter } from "next/router";
+import { useDefinitions } from "../../../../services/DefinitionsContext";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -20,6 +21,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   onSave,
   onCancel,
 }) => {
+  const { project } = useDefinitions();
   const router = useRouter();
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
@@ -35,7 +37,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   );
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  const canEdit = permissions.check("editDatasourceSettings", project);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {

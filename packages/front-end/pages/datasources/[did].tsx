@@ -40,6 +40,7 @@ const DataSourcePage: FC = () => {
     mutateDefinitions,
     ready,
     error,
+    project,
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
@@ -141,7 +142,7 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="mb-3">
-            {canEdit && permissions.createDatasources && (
+            {canEdit && permissions.check("createDatasources", project) && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
                   <button
@@ -164,7 +165,7 @@ const DataSourcePage: FC = () => {
                 </div>
 
                 <div>
-                  {canEdit && permissions.createDatasources && (
+                  {canEdit && permissions.check("createDatasources", project) && (
                     <DeleteButton
                       displayName={d.name}
                       className="font-weight-bold"

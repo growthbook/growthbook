@@ -56,12 +56,9 @@ interface PermissionFunctions {
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   runQueries: false,
-  createDatasources: false,
   createDimensions: false,
-  createMetrics: false,
   createPresentations: false,
   createSegments: false,
-  editDatasourceSettings: false,
   manageApiKeys: false,
   manageBilling: false,
   manageNamespaces: false,
@@ -209,6 +206,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
     permissionsObj[p] = true;
   });
+  console.log("here", permissionsObj);
 
   // Update current user data for telemetry data
   useEffect(() => {

@@ -127,7 +127,7 @@ const DataSources: FC = () => {
         </div>
       )}
 
-      {!hasFileConfig() && permissions.createDatasources && (
+      {!hasFileConfig() && permissions.check("createDatasources", project) && (
         <button
           className="btn btn-primary"
           onClick={(e) => {

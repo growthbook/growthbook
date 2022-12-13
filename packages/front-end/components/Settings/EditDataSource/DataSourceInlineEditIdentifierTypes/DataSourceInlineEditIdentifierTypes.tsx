@@ -11,6 +11,7 @@ import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
+import { useDefinitions } from "../../../../services/DefinitionsContext";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -19,11 +20,12 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   onSave,
   onCancel,
 }) => {
+  const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  const canEdit = permissions.check("editDatasourceSettings", project);
 
   const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
     dataSource.settings?.userIdTypes,

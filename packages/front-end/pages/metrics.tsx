@@ -25,7 +25,6 @@ import Field from "../components/Forms/Field";
 import ProjectTags from "../components/Tags/ProjectTags";
 
 const MetricsPage = (): React.ReactElement => {
-  // const { user } = useUser()
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
     edit: boolean;
@@ -42,14 +41,11 @@ const MetricsPage = (): React.ReactElement => {
         (m) => !m?.projects?.length || m?.projects?.includes(project)
       )
     : data?.metrics;
-  // if (user.projectRoles?.length > 0) {
-  //
-  // }
-  // console.log(user.projectRoles);
 
   const { getUserDisplay } = useUser();
 
   const permissions = usePermissions();
+  console.log({ permissions }, permissions.check("createMetrics", project));
 
   const tagsFilter = useTagsFilter("metrics");
 
@@ -153,7 +149,7 @@ const MetricsPage = (): React.ReactElement => {
             <DocLink docSection="config_yml">View Documentation</DocLink>
           </div>
         )}
-        {permissions.createMetrics && !hasFileConfig() && (
+        {permissions.check("createMetrics", project) && !hasFileConfig() && (
           <button
             className="btn btn-lg btn-success"
             onClick={(e) => {
@@ -200,7 +196,7 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissions.createMetrics && !hasFileConfig() && (
+        {permissions.check("createMetrics", project) && !hasFileConfig() && (
           <div className="col-auto">
             <button
               className="btn btn-primary float-right"
@@ -265,7 +261,8 @@ const MetricsPage = (): React.ReactElement => {
               </SortableTH>
             )}
             {showArchived && <th>status</th>}
-            {permissions.createMetrics && !hasFileConfig() && <th></th>}
+            {permissions.check("createMetrics", project) &&
+              !hasFileConfig() && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -330,7 +327,7 @@ const MetricsPage = (): React.ReactElement => {
                   {metric.status === "archived" ? "archived" : "active"}
                 </td>
               )}
-              {permissions.createMetrics && !hasFileConfig() && (
+              {permissions.check("createMetrics", project) && !hasFileConfig() && (
                 <td>
                   <button
                     className="tr-hover btn btn-secondary btn-sm float-right"

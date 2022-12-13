@@ -64,6 +64,7 @@ const MetricPage: FC = () => {
     getSegmentById,
     getMetricById,
     segments,
+    project,
   } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
 
@@ -108,7 +109,8 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEdit = permissions.createMetrics && !hasFileConfig();
+  const canEdit =
+    permissions.check("createMetrics", project) && !hasFileConfig();
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;

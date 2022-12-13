@@ -12,6 +12,7 @@ import {
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
+import { useDefinitions } from "../../../../services/DefinitionsContext";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -20,11 +21,12 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   onSave,
   onCancel,
 }) => {
+  const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  const canEdit = permissions.check("editDatasourceSettings", project);
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
 
