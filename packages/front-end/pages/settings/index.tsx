@@ -102,9 +102,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       setCronString("");
     }
     setCronString(
-      cronstrue.toString(cron, {
+      `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
-      })
+        verbose: true,
+      })} (UTC time)`
     );
   }
 
