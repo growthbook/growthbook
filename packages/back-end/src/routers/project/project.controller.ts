@@ -75,7 +75,7 @@ export const putProject = async (
   const project = await findProjectById(id, org.id);
 
   if (!project) {
-    res.status(403).json({
+    res.status(404).json({
       message: "Could not find project",
     });
     return;
