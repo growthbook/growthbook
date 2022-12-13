@@ -63,22 +63,12 @@ export default function SelfHostedUpgradeForm({
     setError(null);
     setLoading(true);
     try {
-      const encodedParams = new URLSearchParams();
-      for (const key in value) {
-        const v = value[key];
-        if (v && typeof v === "object") {
-          encodedParams.append(key, JSON.stringify(value[key]));
-        } else {
-          encodedParams.append(key, value[key]);
-        }
-      }
       const resp = await fetch(`${LICENSE_KEY_API_URL}/trial`, {
         method: "POST",
         headers: {
           Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: encodedParams,
+        body: JSON.stringify(value),
       });
       if (resp?.status === 200) {
         setSubmitState("send key success");
