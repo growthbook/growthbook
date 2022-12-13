@@ -115,7 +115,7 @@ const MultiSelectField: FC<
   return (
     <Field
       {...fieldProps}
-      className={customClassName}
+      customClassName={customClassName}
       render={(id, ref) => {
         return (
           <Component

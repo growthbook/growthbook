@@ -202,13 +202,14 @@ const Field = forwardRef(
       );
     }
 
+    const customClassName = otherProps?.["customClassName"] || "";
     return (
       <div
         className={clsx(
           "form-group",
           containerClassName,
           { "mb-0": !label },
-          render ? className : ""
+          render ? customClassName : ""
         )}
       >
         {label && (
