@@ -75,6 +75,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createIdeas",
   "createMetrics",
   "createDatasources",
+  "editDatasourceSettings",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
@@ -82,7 +83,6 @@ export const GLOBAL_PERMISSIONS = [
   "createPresentations",
   "createDimensions",
   "createSegments",
-  "editDatasourceSettings",
   "organizationSettings",
   "superDelete",
   "manageTeam",
