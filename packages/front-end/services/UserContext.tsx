@@ -41,7 +41,7 @@ type OrgSettingsResponse = {
   commercialFeatures: CommercialFeature[];
 };
 
-interface PermissionFunctions {
+export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,

@@ -199,14 +199,19 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createDatasources", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
     throw new Error("Cannot find datasource");
+  }
+  if (datasource?.projects?.length) {
+    for (const project of datasource.projects) {
+      req.checkPermissions("createDatasources", project);
+    }
+  } else {
+    req.checkPermissions("createDatasources", "");
   }
 
   // Make sure there are no metrics
@@ -317,11 +322,17 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  req.checkPermissions("createDatasources", "");
-
   const { org } = getOrgFromReq(req);
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
+
+  if (projects?.length) {
+    for (const project of projects) {
+      req.checkPermissions("createDatasources", project);
+    }
+  } else {
+    req.checkPermissions("createDatasources", "");
+  }
 
   try {
     // Set default event properties and queries
@@ -374,10 +385,13 @@ export async function putDataSource(
   const { name, description, type, params, settings, projects } = req.body;
 
   // Require higher permissions to change connection settings vs updating query settings
-  if (params) {
-    req.checkPermissions("createDatasources", "");
+  const permissionLevel = params ? "createDatasources" : "editDatasourceSettings";
+  if (projects?.length) {
+    for (const project of projects) {
+      req.checkPermissions(permissionLevel, project);
+    }
   } else {
-    req.checkPermissions("editDatasourceSettings", "");
+    req.checkPermissions(permissionLevel, "");
   }
 
   const datasource = await getDataSourceById(id, org.id);
@@ -427,6 +441,12 @@ export async function putDataSource(
       );
       (params as GoogleAnalyticsParams).refreshToken =
         tokens.refresh_token || "";
+    }
+
+    if (updates?.projects?.length) {
+      for (const project of updates.projects) {
+        req.checkPermissions(permissionLevel, project);
+      }
     }
 
     // If the connection params changed, re-validate the connection
@@ -515,8 +535,6 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  req.checkPermissions("editDatasourceSettings", "");
-
   const { org } = getOrgFromReq(req);
 
   const { query, datasourceId } = req.body;
@@ -527,6 +545,13 @@ export async function testLimitedQuery(
       status: 404,
       message: "Cannot find data source",
     });
+  }
+  if (datasource?.projects?.length) {
+    for (const project of datasource.projects) {
+      req.checkPermissions("editDatasourceSettings", project);
+    }
+  } else {
+    req.checkPermissions("editDatasourceSettings", "");
   }
 
   const { results, sql, duration, error } = await testQuery(datasource, query);

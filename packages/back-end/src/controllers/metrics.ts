@@ -39,6 +39,13 @@ export async function deleteMetric(
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id);
+  if (metric?.projects?.length) {
+    for (const project of metric.projects) {
+      req.checkPermissions("createMetrics", project);
+    }
+  } else {
+    req.checkPermissions("createMetrics", "");
+  }
 
   if (!metric) {
     res.status(403).json({
@@ -324,6 +331,14 @@ export async function postMetrics(
     anonymousIdColumn,
   } = req.body;
 
+  if (projects?.length) {
+    for (const project of projects) {
+      req.checkPermissions("createMetrics", project);
+    }
+  } else {
+    req.checkPermissions("createMetrics", "");
+  }
+
   if (datasource) {
     const datasourceObj = await getDataSourceById(datasource, org.id);
     if (!datasourceObj) {
@@ -396,6 +411,13 @@ export async function putMetric(
   if (!metric) {
     throw new Error("Could not find metric");
   }
+  if (metric?.projects?.length) {
+    for (const project of metric.projects) {
+      req.checkPermissions("createMetrics", project);
+    }
+  } else {
+    req.checkPermissions("createMetrics", "");
+  }
 
   const updates: Partial<MetricInterface> = {};
 
@@ -439,6 +461,12 @@ export async function putMetric(
       (updates as any)[k] = req.body[k];
     }
   });
+
+  if (updates?.projects?.length) {
+    for (const project of updates.projects) {
+      req.checkPermissions("createMetrics", project);
+    }
+  }
 
   await updateMetric(metric.id, updates, org.id);
 

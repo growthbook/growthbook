@@ -18,6 +18,7 @@ import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataS
 import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import ProjectTags from "../../components/Tags/ProjectTags";
+import { checkDatasourceProjectPermissions } from "../../services/datasources";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -27,11 +28,8 @@ function quotePropertyName(name: string) {
 }
 
 const DataSourcePage: FC = () => {
-  const [editConn, setEditConn] = useState(false);
-
   const permissions = usePermissions();
-
-
+  const [editConn, setEditConn] = useState(false);
   const router = useRouter();
 
   const {
@@ -39,14 +37,13 @@ const DataSourcePage: FC = () => {
     mutateDefinitions,
     ready,
     error,
-    project,
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
 
   const { apiCall } = useAuth();
 
-  const canEdit = permissions.check("createDatasources", project) && !hasFileConfig();
+  const canEdit = checkDatasourceProjectPermissions(d, permissions, "createDatasources") && !hasFileConfig();
 
   /**
    * Update the data source provided.

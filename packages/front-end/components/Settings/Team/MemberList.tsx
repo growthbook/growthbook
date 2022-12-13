@@ -34,7 +34,6 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
-  console.log(users);
 
   return (
     <div className="my-4">
@@ -99,7 +98,7 @@ const MemberList: FC<{
                       const p = projects.find(p => p.id === pr.project)
                       if (p?.name) {
                         return (
-                          <div>
+                          <div key={`project-tags-${p.id}`}>
                             <ProjectTags
                               projectIds={[p.id]}
                               className="badge-ellipsis align-middle font-weight-normal"

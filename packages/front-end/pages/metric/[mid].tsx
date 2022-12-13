@@ -13,7 +13,7 @@ import { useAuth } from "../../services/auth";
 import {
   formatConversionRate,
   defaultWinRiskThreshold,
-  defaultLoseRiskThreshold,
+  defaultLoseRiskThreshold, checkMetricProjectPermissions
 } from "../../services/metrics";
 import MetricForm from "../../components/Metrics/MetricForm";
 import Tabs from "../../components/Tabs/Tabs";
@@ -64,10 +64,8 @@ const MetricPage: FC = () => {
     getSegmentById,
     getMetricById,
     segments,
-    project,
   } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
-
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
   const [editProjects, setEditProjects] = useState(false);
@@ -109,7 +107,7 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEditMetric = permissions.check("createMetrics", project) && !hasFileConfig();
+  const canEditMetric = checkMetricProjectPermissions(metric, permissions) && !hasFileConfig();
   const canEditProjects = permissions.check("createMetrics", "") && !hasFileConfig();
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)

@@ -25,11 +25,9 @@ import track from "../../services/track";
 import EditPhasesModal from "../../components/Experiment/EditPhasesModal";
 
 const ExperimentPage = (): ReactElement => {
+  const permissions = usePermissions();
   const router = useRouter();
   const { eid } = router.query;
-
-  const permissions = usePermissions();
-
   const [useSinglePage, setUseSinglePage] = useLocalStorage(
     "new-exp-page-layout",
     true
@@ -70,13 +68,17 @@ const ExperimentPage = (): ReactElement => {
     permissions.check("createAnalyses", experiment.project) &&
     !experiment.archived;
 
+  const canEditProject =
+    permissions.check("createAnalyses", "") &&
+    !experiment.archived;
+
   const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
   const editResult = canEdit ? () => setStopModalOpen(true) : null;
   const editVariations = canEdit ? () => setVariationsModalOpen(true) : null;
   const editInfo = canEdit ? () => setEditModalOpen(true) : null;
   const duplicate = canEdit ? () => setDuplicateModalOpen(true) : null;
   const editTags = canEdit ? () => setTagsModalOpen(true) : null;
-  const editProject = canEdit ? () => setProjectModalOpen(true) : null;
+  const editProject = canEditProject ? () => setProjectModalOpen(true) : null;
   const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
   const editPhases = canEdit ? () => setEditPhasesOpen(true) : null;
 
