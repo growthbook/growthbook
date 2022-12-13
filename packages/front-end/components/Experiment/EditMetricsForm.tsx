@@ -30,7 +30,9 @@ const EditMetricsForm: FC<{
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(false)
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
+    false
+  );
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
@@ -175,7 +177,9 @@ const EditMetricsForm: FC<{
             experiment={experiment}
             form={form}
             disabled={!hasOverrideMetricsFeature}
-            setHasMetricOverrideRiskError={(v:boolean) => setHasMetricOverrideRiskError(v)}
+            setHasMetricOverrideRiskError={(v: boolean) =>
+              setHasMetricOverrideRiskError(v)
+            }
           />
           {!hasOverrideMetricsFeature && (
             <UpgradeMessage

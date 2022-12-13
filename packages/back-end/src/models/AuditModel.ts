@@ -23,6 +23,7 @@ const auditSchema = new mongoose.Schema({
     _id: false,
     object: String,
     id: String,
+    name: String,
   },
   parent: {
     _id: false,

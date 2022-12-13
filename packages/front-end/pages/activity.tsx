@@ -49,7 +49,8 @@ const Activity: FC = () => {
                 setOpen={(open) => {
                   setOpen(open ? event.id : "");
                 }}
-                isActivity={true}
+                showName={true}
+                showType={true}
                 itemName={
                   nameMap.has(event.entity.id) && nameMap.get(event.entity.id)
                 }
