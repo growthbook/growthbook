@@ -33,6 +33,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
+  getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
 };
 
@@ -64,6 +65,7 @@ const defaultValue: DefinitionContextValue = {
   getDimensionById: () => null,
   getSegmentById: () => null,
   getProjectById: () => null,
+  getSavedGroupById: () => null,
   getTagById: () => null,
 };
 
@@ -119,6 +121,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
+  const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
 
   let value: DefinitionContextValue;
@@ -147,6 +150,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getDimensionById,
       getSegmentById,
       getProjectById,
+      getSavedGroupById,
       getTagById,
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));

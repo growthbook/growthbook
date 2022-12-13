@@ -42,7 +42,7 @@ const SegmentForm: FC<{
     <Modal
       close={close}
       open={true}
-      header={current ? "Edit Segment" : "New Segment"}
+      header={current.id ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
           validateSQL(value.sql, [value.userIdType, "date"]);
@@ -70,8 +70,9 @@ const SegmentForm: FC<{
         placeholder="Choose one..."
         options={filteredDatasources.map((d) => ({
           value: d.id,
-          label: d.name,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {datasource.properties.userIds && (
         <SelectField

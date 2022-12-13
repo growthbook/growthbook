@@ -121,7 +121,9 @@ const DataSourceForm: FC<{
     }
   };
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+    e
+  ) => {
     setDatasource({
       ...datasource,
       [e.target.name]: e.target.value,
@@ -209,6 +211,15 @@ const DataSourceForm: FC<{
           required
           onChange={onChange}
           value={datasource.name}
+        />
+      </div>
+      <div className="form-group">
+        <label>Description (optional)</label>
+        <textarea
+          className="form-control"
+          name="description"
+          onChange={onChange}
+          value={datasource.description}
         />
       </div>
       <ConnectionSettings
