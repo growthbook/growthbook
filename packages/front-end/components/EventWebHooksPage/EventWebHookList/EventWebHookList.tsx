@@ -1,6 +1,6 @@
 import React, { FC, PropsWithChildren, useCallback, useState } from "react";
 import { FaBolt } from "react-icons/fa";
-import { EventWebHookInterface } from "../../../../back-end/types/event-webhook";
+import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { EventWebHookEditParams } from "../utils";
 import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
 import useApi from "../../../hooks/useApi";
