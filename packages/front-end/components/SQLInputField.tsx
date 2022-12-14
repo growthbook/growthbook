@@ -6,9 +6,9 @@ import CodeTextArea from "../components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "../components/Settings/DisplayTestQueryResults";
 import Code from "../components/SyntaxHighlighting/Code";
 import Tooltip from "../components/Tooltip/Tooltip";
-import { useAuth } from "./auth";
-import { validateSQL } from "./datasources";
 import { TestQueryRow } from "../../back-end/src/types/Integration";
+import { useAuth } from "../services/auth";
+import { validateSQL } from "../services/datasources";
 
 type TestQueryResults = {
   duration?: string;

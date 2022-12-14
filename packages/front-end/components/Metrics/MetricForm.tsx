@@ -26,7 +26,7 @@ import SelectField from "../Forms/SelectField";
 import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
 import MultiSelectField from "../Forms/MultiSelectField";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import SQLInputField from "../../services/SQLInputField";
+import SQLInputField from "../SQLInputField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

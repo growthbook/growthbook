@@ -8,7 +8,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
-import SQLInputField from "../../services/SQLInputField";
+import SQLInputField from "../SQLInputField";
 
 const SegmentForm: FC<{
   close: () => void;
