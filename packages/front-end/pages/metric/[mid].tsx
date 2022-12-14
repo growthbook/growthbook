@@ -672,8 +672,21 @@ const MetricPage: FC = () => {
                 {metric.type}
               </RightRailSectionGroup>
               {datasource && (
-                <RightRailSectionGroup title="Data Source" type="commaList">
-                  {datasource.name}
+                <RightRailSectionGroup
+                  title="Data Source"
+                  type="commaList"
+                  titleClassName="align-top"
+                >
+                  <div className="d-inline-block" style={{ maxWidth: 280 }}>
+                    <div>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource.name}
+                      </Link>
+                    </div>
+                    <div className="text-gray font-weight-normal small text-ellipsis">
+                      {datasource?.description}
+                    </div>
+                  </div>
                 </RightRailSectionGroup>
               )}
               {datasource?.type === "google_analytics" && (

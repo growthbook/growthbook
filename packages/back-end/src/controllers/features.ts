@@ -138,6 +138,12 @@ export async function postFeatures(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
+  const existing = await getFeature(org.id, id);
+  if (existing) {
+    throw new Error(
+      "This feature key already exists. Feature keys must be unique."
+    );
+  }
 
   const feature: FeatureInterface = {
     defaultValue: "",

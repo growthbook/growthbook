@@ -1,5 +1,8 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "../../types/AuthRequest";
 import {
   acceptInvite,
   addMemberToOrg,
@@ -20,6 +23,7 @@ import { getAllTags } from "../../models/TagModel";
 import {
   ExpandedMember,
   Invite,
+  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
@@ -27,6 +31,8 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
+  findAllByEntityType,
+  findAllByEntityTypeParent,
   findByEntity,
   findByEntityParent,
   getWatchedAudits,
@@ -45,6 +51,7 @@ import { WebhookModel } from "../../models/WebhookModel";
 import { createWebhook } from "../../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByInviteKey,
   findAllOrganizations,
   findOrganizationsByMemberId,
   hasOrganization,
@@ -110,6 +117,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       return {
         id: d.id,
         name: d.name,
+        description: d.description,
         type: d.type,
         settings: d.settings,
         params: getNonSensitiveParams(integration),
@@ -165,6 +173,39 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
       message: e.message,
     });
   }
+}
+
+export async function getAllHistory(
+  req: AuthRequest<null, { type: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { type } = req.params;
+
+  const events = await Promise.all([
+    findAllByEntityType(org.id, type),
+    findAllByEntityTypeParent(org.id, type),
+  ]);
+
+  const merged = [...events[0], ...events[1]];
+
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+
+  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to view history",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    events: merged,
+  });
 }
 
 export async function getHistory(
@@ -571,6 +612,40 @@ export async function deleteNamespace(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function getInviteInfo(
+  req: AuthRequest<unknown, { key: string }>,
+  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+) {
+  const { key } = req.params;
+
+  try {
+    if (!req.userId) {
+      throw new Error("Must be logged in");
+    }
+    const org = await findOrganizationByInviteKey(key);
+
+    if (!org) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    const invite = org.invites.find((i) => i.key === key);
+    if (!invite) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      organization: org.name,
+      role: invite.role,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 }
 
 export async function postInviteAccept(

@@ -22,6 +22,7 @@ import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import ScheduleInputs from "./ScheduleInputs";
+import SelectField from "../Forms/SelectField";
 
 export interface Props {
   close: () => void;
@@ -204,13 +205,18 @@ export default function RuleModal({
               form.setValue("coverage", coverage);
             }}
           />
-          <Field
-            label="Sample users based on attribute"
-            {...form.register("hashAttribute")}
+          <SelectField
+            label="Assign value based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
           />
         </div>
       )}
@@ -222,13 +228,18 @@ export default function RuleModal({
             placeholder={feature.id}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results"
           />
-          <Field
+          <SelectField
             label="Assign value based on attribute"
-            {...form.register("hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the Tracking Key to pick a value"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
           />
           <VariationsInput
             defaultValue={getFeatureDefaultValue(feature)}

@@ -144,12 +144,20 @@ const ImportExperimentList: FC<{
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => ({
                 value: d.id,
-                label: d.name,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
               }))}
+              className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
           ) : (
-            <strong>{datasource?.name}</strong>
+            <>
+              <div>
+                <strong>{datasource?.name}</strong>
+              </div>
+              <div className="text-gray font-weight-normal small text-ellipsis">
+                {datasource?.description}
+              </div>
+            </>
           )}
         </div>
         <div className="col-auto ml-auto">

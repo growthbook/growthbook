@@ -347,6 +347,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta={cta}
       closeCta={!inline && "Cancel"}
+      ctaEnabled={!riskError}
       size="lg"
       docSection="metrics"
       step={step}
@@ -409,8 +410,9 @@ const MetricForm: FC<MetricFormProps> = ({
           onChange={(v) => form.setValue("datasource", v)}
           options={(datasources || []).map((d) => ({
             value: d.id,
-            label: d.name,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
+          className="portal-overflow-ellipsis"
           name="datasource"
           initialOption="Manual"
           disabled={edit}

@@ -321,6 +321,7 @@ export default function ReportPage() {
               <BreakDownResults
                 isLatestPhase={true}
                 metrics={report.args.metrics}
+                metricOverrides={report.args.metricOverrides}
                 reportDate={report.dateCreated}
                 results={report.results?.dimensions || []}
                 status={"stopped"}
@@ -365,6 +366,7 @@ export default function ReportPage() {
                 id={report.id}
                 isLatestPhase={true}
                 metrics={report.args.metrics}
+                metricOverrides={report.args.metricOverrides}
                 reportDate={report.dateCreated}
                 results={report.results?.dimensions?.[0]}
                 status={"stopped"}
