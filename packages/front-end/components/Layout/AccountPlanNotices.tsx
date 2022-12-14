@@ -1,11 +1,11 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import usePermissions from "../../hooks/usePermissions";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import { daysLeft } from "../../services/dates";
-import { isCloud } from "../../services/env";
-import { useUser } from "../../services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import { daysLeft } from "@/services/dates";
+import { isCloud } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import UpgradeModal from "../Settings/UpgradeModal";
 import Tooltip from "../Tooltip/Tooltip";
 

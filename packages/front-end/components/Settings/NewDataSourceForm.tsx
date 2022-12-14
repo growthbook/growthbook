@@ -5,18 +5,18 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import track from "../../services/track";
-import SelectField from "../Forms/SelectField";
-import { getInitialSettings } from "../../services/datasources";
+import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
   eventSchema,
-} from "../../services/eventSchema";
+} from "@/services/eventSchema";
+import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
-import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import EventSourceList from "./EventSourceList";

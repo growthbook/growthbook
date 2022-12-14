@@ -2,8 +2,8 @@ import Link from "next/link";
 import { FaDesktop } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import { HiCursorClick } from "react-icons/hi";
-import usePermissions from "../../hooks/usePermissions";
-import track from "../../services/track";
+import usePermissions from "@/hooks/usePermissions";
+import track from "@/services/track";
 import { DocLink } from "../DocLink";
 
 export default function DocumentationLinksSidebar({

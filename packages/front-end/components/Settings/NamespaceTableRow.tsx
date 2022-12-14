@@ -1,11 +1,11 @@
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
-import { findGaps } from "../../services/features";
+import { findGaps } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
-import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   i: number;

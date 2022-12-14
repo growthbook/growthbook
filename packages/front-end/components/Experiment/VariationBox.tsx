@@ -1,5 +1,5 @@
 import { Variation } from "back-end/types/experiment";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import VisualCode from "./VisualCode";

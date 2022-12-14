@@ -5,7 +5,7 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
-import useApi from "../../hooks/useApi";
+import useApi from "@/hooks/useApi";
 import LoadingSpinner from "../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
@@ -29,15 +29,12 @@ export const EventsPage: FC<EventsPageProps> = ({
   return (
     <div className="container p-4">
       <h1>Events</h1>
-
       {hasError && (
         <div className="alert alert-danger">
           There was an error loading the events.
         </div>
       )}
-
       {isLoading && <LoadingSpinner />}
-
       {events.length === 0 ? (
         // Empty state
         <div className="row">

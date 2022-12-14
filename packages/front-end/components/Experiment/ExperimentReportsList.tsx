@@ -1,17 +1,17 @@
 import { ReportInterface } from "back-end/types/report";
 import Link from "next/link";
 import React from "react";
-import { ago, datetime } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../../hooks/useApi";
-import { useAuth } from "../../services/auth";
 import { useRouter } from "next/router";
+import { ago, datetime } from "@/services/dates";
+import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import { useUser } from "@/services/UserContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import usePermissions from "../../hooks/usePermissions";
-import { useUser } from "../../services/UserContext";
-import { useSnapshot } from "./SnapshotProvider";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
+import { useSnapshot } from "./SnapshotProvider";
 
 export default function ExperimentReportsList({
   experiment,

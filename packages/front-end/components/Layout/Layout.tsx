@@ -1,17 +1,17 @@
 import Link from "next/link";
-import styles from "./Layout.module.scss";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import TopNav from "./TopNav";
+import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import { FaArrowRight } from "react-icons/fa";
+import { getGrowthBookBuild } from "@/services/env";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBExperiment, GBSettings } from "../Icons";
+import { inferDocUrl } from "../DocLink";
+import TopNav from "./TopNav";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import ProjectSelector from "./ProjectSelector";
-import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
-import { getGrowthBookBuild } from "../../services/env";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaArrowRight } from "react-icons/fa";
-import { inferDocUrl } from "../DocLink";
+import styles from "./Layout.module.scss";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -403,7 +403,6 @@ const Layout = (): React.ReactElement => {
           </div>
         )}
       </div>
-
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}

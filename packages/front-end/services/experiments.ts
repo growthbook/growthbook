@@ -3,8 +3,8 @@ import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
-import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 import { MetricOverride } from "back-end/types/experiment";
+import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
   label: string;

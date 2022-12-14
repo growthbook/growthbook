@@ -1,48 +1,48 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import MoreMenu from "../Dropdown/MoreMenu";
-import WatchButton from "../WatchButton";
-import StatusIndicator from "./StatusIndicator";
-import SortedTags from "../Tags/SortedTags";
-import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
 import { useState } from "react";
-import Results from "./Results";
-import DiscussionThread from "../DiscussionThread";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import VariationBox from "./VariationBox";
-import DeleteButton from "../DeleteButton/DeleteButton";
 import { useRouter } from "next/router";
-import { GBAddCircle, GBEdit } from "../Icons";
-import RightRailSection from "../Layout/RightRailSection";
-import AnalysisForm from "./AnalysisForm";
-import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Link from "next/link";
-import ExperimentReportsList from "./ExperimentReportsList";
-import { useSnapshot } from "./SnapshotProvider";
-import EditExperimentNameForm from "./EditExperimentNameForm";
-import Modal from "../Modal";
-import HistoryTable from "../HistoryTable";
-import EditStatusModal from "./EditStatusModal";
 import {
   FaArrowDown,
   FaExternalLinkAlt,
   FaLink,
   FaQuestionCircle,
 } from "react-icons/fa";
-import useApi from "../../hooks/useApi";
-import { useUser } from "../../services/UserContext";
-import ResultsIndicator from "./ResultsIndicator";
-import { phaseSummary } from "../../services/utils";
-import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
-import Code from "../SyntaxHighlighting/Code";
-import { AttributionModelTooltip } from "./AttributionModelTooltip";
-import { getDefaultConversionWindowHours } from "../../services/env";
-import { applyMetricOverrides } from "../../services/experiments";
 import { MetricInterface } from "back-end/types/metric";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
+import { useUser } from "@/services/UserContext";
+import { phaseSummary } from "@/services/utils";
+import { date } from "@/services/dates";
+import { getDefaultConversionWindowHours } from "@/services/env";
+import { applyMetricOverrides } from "@/services/experiments";
+import MoreMenu from "../Dropdown/MoreMenu";
+import WatchButton from "../WatchButton";
+import SortedTags from "../Tags/SortedTags";
+import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
+import DiscussionThread from "../DiscussionThread";
+import HeaderWithEdit from "../Layout/HeaderWithEdit";
+import DeleteButton from "../DeleteButton/DeleteButton";
+import { GBAddCircle, GBEdit } from "../Icons";
+import RightRailSection from "../Layout/RightRailSection";
+import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
+import Modal from "../Modal";
+import HistoryTable from "../HistoryTable";
+import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import ResultsIndicator from "./ResultsIndicator";
+import EditStatusModal from "./EditStatusModal";
+import EditExperimentNameForm from "./EditExperimentNameForm";
+import { useSnapshot } from "./SnapshotProvider";
+import ExperimentReportsList from "./ExperimentReportsList";
+import AnalysisForm from "./AnalysisForm";
+import VariationBox from "./VariationBox";
+import Results from "./Results";
+import StatusIndicator from "./StatusIndicator";
 
 function getColWidth(v: number) {
   // 2 across

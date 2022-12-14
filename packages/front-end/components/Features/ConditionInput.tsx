@@ -5,13 +5,13 @@ import {
   useAttributeMap,
   useAttributeSchema,
   getDefaultOperator,
-} from "../../services/features";
+} from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
-import styles from "./ConditionInput.module.scss";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import CodeTextArea from "../Forms/CodeTextArea";
+import styles from "./ConditionInput.module.scss";
 
 interface Props {
   defaultValue: string;

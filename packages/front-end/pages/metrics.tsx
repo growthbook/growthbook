@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from "react";
-import LoadingOverlay from "../components/LoadingOverlay";
-import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { datetime, ago } from "../services/dates";
+import MetricForm from "../components/Metrics/MetricForm";
+import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
 import { useAddComputedFields, useSearch } from "../services/search";

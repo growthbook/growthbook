@@ -4,10 +4,10 @@ import {
 } from "back-end/types/report";
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { ExperimentTableRow, getRisk } from "../../services/experiments";
 import { Parser } from "json2csv";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ExperimentTableRow, getRisk } from "@/services/experiments";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {
   date?: string;

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { ProjectMemberRole } from "back-end/types/organization";
-import { useUser } from "../../../services/UserContext";
-import SelectField from "../../Forms/SelectField";
-import { useDefinitions } from "../../../services/DefinitionsContext";
 import cloneDeep from "lodash/cloneDeep";
+import { useUser } from "@/services/UserContext";
+import SelectField from "@/components/Forms/SelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({

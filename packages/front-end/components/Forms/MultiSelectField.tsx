@@ -1,5 +1,4 @@
 import { FC, MouseEventHandler } from "react";
-import Field, { FieldProps } from "./Field";
 import ReactSelect, {
   components,
   MultiValueGenericProps,
@@ -15,14 +14,15 @@ import {
   SortEndHandler,
   SortableHandle,
 } from "react-sortable-hoc";
+import { arrayMove } from "@dnd-kit/sortable";
+import CreatableSelect from "react-select/creatable";
 import {
   SingleValue,
   GroupedValue,
   useSelectOptions,
   ReactSelectProps,
 } from "./SelectField";
-import { arrayMove } from "@dnd-kit/sortable";
-import CreatableSelect from "react-select/creatable";
+import Field, { FieldProps } from "./Field";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
