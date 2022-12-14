@@ -63,9 +63,6 @@ export async function analyzeExperimentMetric(
   variations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
-  // console.dir(rows, {depth: null})
-  // console.dir(variationIdMap, {depth: null})
-  // console.dir(variations.map((v) => v.weight), {depth: null})
 
   const result = await promisify(PythonShell.runString)(
     `

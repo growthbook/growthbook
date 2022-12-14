@@ -4,18 +4,6 @@ from typing import List
 
 import numpy as np
 
-# For now this dataclass is a bit unwieldy to hold inputs from sql
-# @dataclass
-# class Statistic:
-#     value: float
-#     stddev: float
-#     count: int
-#     n: int
-
-#     @property
-#     def variance(self) -> float:
-#         return pow(self.stddev, 2)
-
 
 @dataclass
 class Statistic(ABC):
@@ -87,52 +75,6 @@ class RatioStatistic(Statistic):
             * self.d_statistic.variance
             / pow(self.d_statistic.mean, 4)
         )
-
-
-@dataclass
-class RAStatistic:
-    a_pre_exposure_statistic: Statistic
-    a_post_exposure_statistic: Statistic
-    b_pre_exposure_statistic: Statistic
-    a_post_exposure_statistic: Statistic
-    a_pre_post_sum_of_products: float
-    b_pre_post_sum_of_products: float
-
-    def compute_theta(self):
-        pooled_pre_statistic = Statistic(
-            sum=self.a_pre_exposure_statistic.sum + self.b_pre_exposure_statistic.sum,
-            sum_of_squares=self.a_pre_exposure_statistic.sum_of_squares
-            + self.b_pre_exposure_statistic.sum_of_squares,
-            n=self.a_pre_exposure_statistic.n + self.b_pre_exposure_statistic.n,
-        )
-
-        pooled_pre_post_sum_of_products = (
-            self.a_pre_post_sum_of_products + self.b_pre_post_sum_of_products
-        )
-        pooled_n = self.a_post_exposure_statistic.n + self.a_post_exposure_statistic.n
-        pooled_pre_post_covariance = (
-            1
-            / (pooled_n - 1)
-            * (
-                pooled_pre_post_sum_of_products
-                - (
-                    (
-                        self.a_post_exposure_statistic.sum
-                        + self.b_post_exposure_statistic.sum
-                    )
-                    * (
-                        self.a_pre_exposure_statistic.sum
-                        + self.b_pre_exposure_statistic.sum
-                    )
-                )
-            )
-        )
-
-        theta = pooled_pre_post_covariance / pooled_pre_statistic.variance
-        return theta
-
-    def __post_init__(self):
-        self.theta = self.compute_theta()
 
 
 # Data classes for the results of tests
