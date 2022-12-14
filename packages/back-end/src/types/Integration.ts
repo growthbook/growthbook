@@ -124,9 +124,14 @@ export type ExperimentMetricQueryResponse = {
   dimension: string;
   variation: string;
   users: number;
-  count: number;
-  mean: number;
-  stddev: number;
+  statistic_type: string;
+  numerator_type: string;
+  denominator_sum: number;
+  numerator_sum: number;
+  numerator_sum_squares: number;
+  denominator_type?: string;
+  denominator_sum_squares?: number;
+  num_denom_sum_product?: number;
 }[];
 export interface SourceIntegrationConstructor {
   new (

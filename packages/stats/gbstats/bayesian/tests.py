@@ -74,11 +74,9 @@ class BayesianABTest(BaseABTest):
 
 class BinomialBayesianABTest(BayesianABTest):
     def compute_result(self) -> BayesianTestResult:
-        count_a = self.stat_a.value * self.stat_a.n
-        count_b = self.stat_b.value * self.stat_b.n
 
-        alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [count_a, self.stat_a.n])
-        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [count_b, self.stat_b.n])
+        alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_a.n])
+        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_b.n])
 
         mean_a, var_a = Beta.moments(alpha_a, beta_a, log=True)
         mean_b, var_b = Beta.moments(alpha_b, beta_b, log=True)
@@ -89,7 +87,7 @@ class BinomialBayesianABTest(BayesianABTest):
         expected = np.exp(mean_diff) - 1
         risk = Beta.risk(alpha_a, beta_a, alpha_b, beta_b).tolist()
 
-        relative_risk = self.relative_risk(risk, self.stat_b.value)
+        relative_risk = self.relative_risk(risk, self.stat_b.mean)
         ci = self.credible_interval(mean_diff, std_diff, self.ccr)
         ctw = self.chance_to_win(mean_diff, std_diff)
 
@@ -112,7 +110,7 @@ class GaussianBayesianABTest(BayesianABTest):
         mu_a, sd_a = Norm.posterior(
             NORM_PRIOR,
             [
-                self.stat_a.value,
+                self.stat_a.mean,
                 self.stat_a.stddev,
                 self.stat_a.n,
             ],
@@ -120,7 +118,7 @@ class GaussianBayesianABTest(BayesianABTest):
         mu_b, sd_b = Norm.posterior(
             NORM_PRIOR,
             [
-                self.stat_b.value,
+                self.stat_b.mean,
                 self.stat_b.stddev,
                 self.stat_b.n,
             ],
@@ -138,7 +136,7 @@ class GaussianBayesianABTest(BayesianABTest):
 
         risk = Norm.risk(mu_a, sd_a, mu_b, sd_b).tolist()
 
-        relative_risk = self.relative_risk(risk, self.stat_b.value)
+        relative_risk = self.relative_risk(risk, self.stat_b.mean)
         ci = self.credible_interval(mean_diff, std_diff, self.ccr)
         ctw = self.chance_to_win(mean_diff, std_diff)
 

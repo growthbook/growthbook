@@ -39,7 +39,7 @@ class TTest(BaseABTest):
 
     @property
     def point_estimate(self) -> float:
-        return self.stat_b.value - self.stat_a.value
+        return self.stat_b.mean - self.stat_a.mean
 
     @property
     def critical_value(self) -> float:
@@ -71,13 +71,13 @@ class TTest(BaseABTest):
             FrequentistTestResult - note the values are all scaled to be percent uplift
         """
         return FrequentistTestResult(
-            expected=self.point_estimate / self.stat_a.value,
-            ci=[x / self.stat_a.value for x in self.confidence_interval],
+            expected=self.point_estimate / self.stat_a.mean,
+            ci=[x / self.stat_a.mean for x in self.confidence_interval],
             p_value=self.p_value,
             uplift=Uplift(
                 dist="normal",
-                mean=self.point_estimate / self.stat_a.value,
-                stddev=np.sqrt(self.variance) / self.stat_a.value,
+                mean=self.point_estimate / self.stat_a.mean,
+                stddev=np.sqrt(self.variance) / self.stat_a.mean,
             ),
         )
 
