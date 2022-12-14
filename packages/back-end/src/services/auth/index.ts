@@ -1,5 +1,5 @@
-import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { NextFunction, Request, Response } from "express";
+import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import {
@@ -19,10 +19,10 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
+import { getPermissionsByRole } from "../../util/organization.util";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
-import { getPermissionsByRole } from "../../util/organization.util";
 
 type JWTInfo = {
   email?: string;

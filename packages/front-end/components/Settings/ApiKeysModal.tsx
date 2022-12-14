@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
-import { useAuth } from "../../services/auth";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import track from "../../services/track";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { useEnvironments } from "@/services/features";
+import { isCloud } from "@/services/env";
 import Field from "../Forms/Field";
-import { useEnvironments } from "../../services/features";
-import { isCloud } from "../../services/env";
+import Modal from "../Modal";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 

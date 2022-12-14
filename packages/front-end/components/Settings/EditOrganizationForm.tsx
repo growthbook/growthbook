@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 

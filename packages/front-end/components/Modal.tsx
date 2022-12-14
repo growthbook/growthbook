@@ -6,8 +6,8 @@ import {
   ReactElement,
   ReactNode,
 } from "react";
-import LoadingOverlay from "./LoadingOverlay";
 import clsx from "clsx";
+import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";

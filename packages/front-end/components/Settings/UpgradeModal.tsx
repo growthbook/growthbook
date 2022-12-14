@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import { redirectWithTimeout, useAuth } from "../../services/auth";
-import track from "../../services/track";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import { redirectWithTimeout, useAuth } from "@/services/auth";
+import track from "@/services/track";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";

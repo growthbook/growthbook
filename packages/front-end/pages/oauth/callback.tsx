@@ -1,9 +1,9 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import Button from "../../components/Button";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { redirectWithTimeout, safeLogout } from "../../services/auth";
-import { getApiHost } from "../../services/env";
+import Button from "@/components/Button";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { redirectWithTimeout, safeLogout } from "@/services/auth";
+import { getApiHost } from "@/services/env";
 
 export default function OAuthCallbackPage() {
   const router = useRouter();

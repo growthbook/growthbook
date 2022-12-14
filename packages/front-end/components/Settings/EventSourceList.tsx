@@ -1,7 +1,7 @@
 import { SchemaFormat } from "back-end/types/datasource";
 import { useState } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
-import { eventSchema, eventSchemas } from "../../services/eventSchema";
+import { eventSchema, eventSchemas } from "@/services/eventSchema";
 import styles from "./EventSourceList.module.scss";
 
 export interface Props {

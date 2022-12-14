@@ -5,28 +5,28 @@ import {
   MetricType,
   Operator,
 } from "back-end/types/metric";
-import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
-import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 import RadioSelector from "../Forms/RadioSelector";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
-import track from "../../services/track";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Code from "../SyntaxHighlighting/Code";
 import TagsInput from "../Tags/TagsInput";
+import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import MultiSelectField from "../Forms/MultiSelectField";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import SQLInputField from "../SQLInputField";
+import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import track from "../../services/track";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "../../services/metrics";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
-import MultiSelectField from "../Forms/MultiSelectField";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import SQLInputField from "../SQLInputField";
+import { useAuth } from "../../services/auth";
+import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

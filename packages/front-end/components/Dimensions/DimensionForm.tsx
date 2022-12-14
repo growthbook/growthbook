@@ -1,14 +1,14 @@
 import { FC, useMemo } from "react";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
 import SQLInputField from "../SQLInputField";
+import { useAuth } from "../../services/auth";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const DimensionForm: FC<{
   close: () => void;

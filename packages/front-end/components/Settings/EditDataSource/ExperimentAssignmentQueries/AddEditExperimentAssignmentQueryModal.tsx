@@ -1,5 +1,4 @@
 import React, { FC, useMemo } from "react";
-import Modal from "../../../Modal";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -7,9 +6,10 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
+import SQLInputField from "../../../SQLInputField";
+import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import StringArrayField from "../../../Forms/StringArrayField";
-import SQLInputField from "../../../SQLInputField";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;

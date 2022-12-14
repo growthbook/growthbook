@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
 import fs from "fs";
+import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 

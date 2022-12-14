@@ -1,18 +1,18 @@
 import { FC, useMemo, useState } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import {
-  applyMetricOverrides,
-  ExperimentTableRow,
-  useRiskVariation,
-} from "../../services/experiments";
-import ResultsTable from "./ResultsTable";
 import { MetricInterface } from "back-end/types/metric";
-import Toggle from "../Forms/Toggle";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  applyMetricOverrides,
+  ExperimentTableRow,
+  useRiskVariation,
+} from "@/services/experiments";
+import Toggle from "../Forms/Toggle";
+import ResultsTable from "./ResultsTable";
 import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;

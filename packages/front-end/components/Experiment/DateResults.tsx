@@ -1,16 +1,16 @@
 import { FC, useMemo, useState } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { MetricInterface } from "back-end/types/metric";
-import ExperimentDateGraph, {
-  ExperimentDateGraphDataPoint,
-} from "./ExperimentDateGraph";
-import { formatConversionRate } from "../../services/metrics";
-import Toggle from "../Forms/Toggle";
-import { getValidDate } from "../../services/dates";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatConversionRate } from "@/services/metrics";
+import { getValidDate } from "@/services/dates";
+import Toggle from "../Forms/Toggle";
+import ExperimentDateGraph, {
+  ExperimentDateGraphDataPoint,
+} from "./ExperimentDateGraph";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

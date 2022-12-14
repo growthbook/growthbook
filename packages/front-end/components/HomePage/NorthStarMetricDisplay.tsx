@@ -1,10 +1,10 @@
 import React from "react";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import DateGraph from "../Metrics/DateGraph";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DateGraph from "../Metrics/DateGraph";
 
 const NorthStarMetricDisplay = ({
   metricId,

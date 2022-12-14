@@ -1,8 +1,8 @@
 import { FC } from "react";
+import { useForm } from "react-hook-form";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
 import TagsInput from "./TagsInput";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useForm } from "react-hook-form";
 
 const EditTagsForm: FC<{
   tags: string[];
