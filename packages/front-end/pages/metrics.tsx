@@ -30,7 +30,7 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const { getDatasourceById, mutateDefinitions, project } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, project, metricsFilteredByProject: filteredMetrics } = useDefinitions();
   const router = useRouter();
 
   const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(

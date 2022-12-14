@@ -11,7 +11,9 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];
+  metricsFilteredByProject: MetricInterface[];
   datasources: DataSourceInterfaceWithParams[];
+  datasourcesFilteredByProject: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
@@ -53,7 +55,9 @@ const defaultValue: DefinitionContextValue = {
   },
   project: "",
   metrics: [],
+  metricsFilteredByProject: [],
   datasources: [],
+  datasourcesFilteredByProject: [],
   dimensions: [],
   segments: [],
   tags: [],
@@ -112,7 +116,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     if (!data || !data.metrics) {
       return [];
     }
-
     return data.metrics.filter((m) => m.status !== "archived");
   }, [data?.metrics]);
 
@@ -130,20 +133,26 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
+    const filteredProject = data.projects && data.projects.map((p) => p.id).includes(project)
+      ? project
+      : ""
     value = {
       ready: true,
       metrics: activeMetrics,
+      metricsFilteredByProject: activeMetrics ? data.metrics.filter(
+        (m) => !m?.projects?.length || m?.projects?.includes(filteredProject)
+      ) : activeMetrics,
       datasources: data.datasources,
+      datasourcesFilteredByProject: filteredProject ? data.datasources.filter(
+          (ds) => !ds?.projects?.length || ds?.projects?.includes(filteredProject)
+        ) : data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
       tags: data.tags,
       groups: data.groups,
       savedGroups: data.savedGroups,
       projects: data.projects,
-      project:
-        data.projects && data.projects.map((p) => p.id).includes(project)
-          ? project
-          : "",
+      project: filteredProject,
       setProject,
       getMetricById,
       getDatasourceById,

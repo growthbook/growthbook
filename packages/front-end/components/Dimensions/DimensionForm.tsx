@@ -18,15 +18,9 @@ const DimensionForm: FC<{
   const { memberUsernameOptions } = useMembers();
   const {
     getDatasourceById,
-    datasources,
+    datasourcesFilteredByProject: filteredDatasources,
     mutateDefinitions,
-    project,
   } = useDefinitions();
-  const filteredDatasources = project
-    ? datasources.filter(
-        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
-      )
-    : datasources;
 
   const form = useForm({
     defaultValues: {
