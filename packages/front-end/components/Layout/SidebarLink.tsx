@@ -1,14 +1,14 @@
 import { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
-import { useUser } from "../../services/UserContext";
 import { useRouter } from "next/router";
 import clsx from "clsx";
-import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
-import { isCloud } from "../../services/env";
 import { AccountPlan, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { isCloud } from "../../services/env";
+import { useUser } from "../../services/UserContext";
+import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
   name: string;
