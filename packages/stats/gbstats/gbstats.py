@@ -223,7 +223,7 @@ def format_results(df):
             prefix = f"v{v}" if v > 0 else "baseline"
             stats = {
                 "users": row[f"{prefix}_users"],
-                "count": row[f"{prefix}_denominator_sum"],
+                "count": row[f"{prefix}_users"],
                 "stddev": row[f"{prefix}_stddev"],
                 "mean": row[f"{prefix}_mean"],
             }
@@ -233,7 +233,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_numerator_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_denominator_sum"],
+                        "count": row[f"{prefix}_users"],
                         "stats": stats,
                     }
                 )
@@ -243,7 +243,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_numerator_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_denominator_sum"],
+                        "count": row[f"{prefix}_users"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],

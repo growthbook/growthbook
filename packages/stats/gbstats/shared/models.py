@@ -60,7 +60,6 @@ class RatioStatistic(Statistic):
     m_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     m_d_sum_of_products: float
-    n: int
 
     @property
     def mean(self):

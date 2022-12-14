@@ -126,10 +126,10 @@ export type ExperimentMetricQueryResponse = {
   users: number;
   statistic_type: string;
   numerator_type: string;
-  denominator_sum: number;
   numerator_sum: number;
   numerator_sum_squares: number;
   denominator_type?: string;
+  denominator_sum?: number;
   denominator_sum_squares?: number;
   num_denom_sum_product?: number;
 }[];

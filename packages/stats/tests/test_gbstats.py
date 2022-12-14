@@ -7,9 +7,6 @@ import pandas as pd
 
 from gbstats.gbstats import (
     check_srm,
-    get_adjusted_stats,
-    correctMean,
-    correctStddev,
     detect_unknown_variations,
     reduce_dimensionality,
     analyze_metric_df,
@@ -20,11 +17,10 @@ from gbstats.shared.constants import StatsEngine
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
-MULTI_DIMENSION_STATISTICS = [
+MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame([
     {
         "dimension": "one",
         "variation": "one",
-        "denominator_sum": 120,
         "numerator_sum": 300,
         "numerator_sum_squares": 869,
         "users": 120,
@@ -32,15 +28,13 @@ MULTI_DIMENSION_STATISTICS = [
     {
         "dimension": "one",
         "variation": "zero",
-        "denominator_sum": 100,
-        "numerator_sum": 540,
-        "numerator_sum_squares": 3035.79,
+        "numerator_sum": 270,
+        "numerator_sum_squares": 848.79,
         "users": 100,
     },
     {
         "dimension": "two",
         "variation": "one",
-        "denominator_sum": 220,
         "numerator_sum": 770,
         "numerator_sum_squares": 3571,
         "users": 220,
@@ -48,53 +42,32 @@ MULTI_DIMENSION_STATISTICS = [
     {
         "dimension": "two",
         "variation": "zero",
-        "denominator_sum": 200,
         "numerator_sum": 740,
         "numerator_sum_squares": 3615.59,
         "users": 200,
     },
-]
+]).assign(statistic_type="sample_mean", numerator_type="mean")
 
-class TestHelpers(TestCase):
-    def test_srm(self):
-        p = check_srm([1000, 1200], [0.5, 0.5])
-        self.assertEqual(round_(p), 0.000020079)
-
-    def test_correct_stddev(self):
-        s = correctStddev(100, 10, 5, 150, 15, 3)
-        self.assertEqual(round_(s), 4.620540833)
-        s = correctStddev(0, 0, 0, 1, 15, 0)
-        self.assertEqual(s, 0)
-
-    def test_correct_mean(self):
-        m = correctMean(100, 10, 150, 15)
-        self.assertEqual(m, 13)
-        m = correctMean(0, 0, 1, 15)
-        self.assertEqual(m, 15)
-
+THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame([
+    {
+        "dimension": "three",
+        "variation": "one",
+        "numerator_sum": 222,
+        "numerator_sum_squares": 555,
+        "users": 3000,
+    },
+    {
+        "dimension": "three",
+        "variation": "zero",
+        "numerator_sum": 333,
+        "numerator_sum_squares": 999,
+        "users": 3001,
+    }
+]).assign(statistic_type="sample_mean", numerator_type="mean")
 
 class TestDetectVariations(TestCase):
     def test_unknown_variations(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "All",
-                    "variation": "one",
-                    "denominator_sum": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 1000,
-                },
-                {
-                    "dimension": "All",
-                    "variation": "zero",
-                    "denominator_sum": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 1100,
-                },
-            ]
-        )
+        rows = MULTI_DIMENSION_STATISTICS_DF
         self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "one": 1}), set())
         self.assertEqual(
             detect_unknown_variations(rows, {"zero": 0, "hello": 1}), {"one"}
@@ -104,125 +77,53 @@ class TestDetectVariations(TestCase):
         )
 
     def test_multiple_exposures(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "All",
-                    "variation": "one",
-                    "denominator_sum": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 1000,
-                },
-                {
-                    "dimension": "All",
-                    "variation": "two",
-                    "denominator_sum": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 1100,
-                },
+        rows = pd.concat([
+            MULTI_DIMENSION_STATISTICS_DF, 
+            pd.DataFrame([
                 {
                     "dimension": "All",
                     "variation": "__multiple__",
-                    "denominator_sum": 50,
-                    "mean": 2.7,
-                    "stddev": 1.1,
+                    "numerator_sum": 99,
+                    "numerator_sum_squares": 9999,
                     "users": 500,
-                },
-            ]
-        )
-        self.assertEqual(detect_unknown_variations(rows, {"one": 0, "two": 1}), set())
+                }
+            ])
+        ])
+        self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "one": 1}), set())
         self.assertEqual(
-            detect_unknown_variations(rows, {"one": 0, "two": 1}, {"some_other"}),
+            detect_unknown_variations(rows, {"zero": 0, "one": 1}, {"some_other"}),
             {"__multiple__"},
         )
 
 
 class TestReduceDimensionality(TestCase):
     def test_reduce_dimensionality(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "one",
-                    "variation": "one",
-                    "denominator_sum": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 1000,
-                },
-                {
-                    "dimension": "one",
-                    "variation": "zero",
-                    "denominator_sum": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 1100,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "one",
-                    "denominator_sum": 220,
-                    "mean": 3.5,
-                    "stddev": 2,
-                    "users": 2000,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "zero",
-                    "denominator_sum": 200,
-                    "mean": 3.7,
-                    "stddev": 2.1,
-                    "users": 2100,
-                },
-                {
-                    "dimension": "three",
-                    "variation": "one",
-                    "denominator_sum": 320,
-                    "mean": 4.5,
-                    "stddev": 3,
-                    "users": 3000,
-                },
-                {
-                    "dimension": "three",
-                    "variation": "zero",
-                    "denominator_sum": 300,
-                    "mean": 4.7,
-                    "stddev": 3.1,
-                    "users": 3100,
-                },
-            ]
-        )
+        rows = pd.concat([MULTI_DIMENSION_STATISTICS_DF, THIRD_DIMENSION_STATISTICS_DF])
         df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], True, "revenue"
+            rows, {"zero": 0, "one": 1}, ["zero", "one"],
         )
+        print(df)
         reduced = reduce_dimensionality(df, 3)
-        print(reduced)
         self.assertEqual(len(reduced.index), 3)
         self.assertEqual(reduced.at[0, "dimension"], "three")
-        self.assertEqual(reduced.at[0, "v1_mean"], 4.5)
-        self.assertEqual(reduced.at[0, "v1_stddev"], 3.0)
-        self.assertEqual(reduced.at[0, "v1_total"], 1440.0)
+        self.assertEqual(reduced.at[0, "v1_numerator_sum"], 222)
 
         reduced = reduce_dimensionality(df, 2)
-        print(reduced)
         self.assertEqual(len(reduced.index), 2)
         self.assertEqual(reduced.at[1, "dimension"], "(other)")
-        self.assertEqual(round_(reduced.at[1, "v1_mean"]), 3.147058824)
-        self.assertEqual(round_(reduced.at[1, "v1_stddev"]), 1.778805952)
         self.assertEqual(reduced.at[1, "total_users"], 640)
+        self.assertEqual(reduced.at[1, "v1_numerator_sum"], 1070)
+        self.assertEqual(reduced.at[1, "v1_numerator_sum_squares"], 4440)
         self.assertEqual(reduced.at[1, "v1_users"], 340)
-        self.assertEqual(reduced.at[1, "v1_total"], 1070)
         self.assertEqual(reduced.at[1, "baseline_users"], 300)
-        self.assertEqual(reduced.at[1, "baseline_total"], 1010)
+        self.assertEqual(reduced.at[1, "baseline_numerator_sum"], 1010)
+        self.assertEqual(reduced.at[1, "baseline_numerator_sum_squares"], 4464.38)
 
 
 class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
-        rows = pd.DataFrame(MULTI_DIMENSION_STATISTICS)
-        rows["statistic_type"] = "sample_mean"
-        rows["numerator_type"] = "mean"
+        rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(
             rows, {"zero": 0, "one": 1}, ["zero", "one"]
         )
@@ -239,9 +140,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_inverse(self):
-        rows = pd.DataFrame(MULTI_DIMENSION_STATISTICS)
-        rows["statistic_type"] = "sample_mean"
-        rows["numerator_type"] = "mean"
+        rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(
             rows, {"zero": 0, "one": 1}, ["zero", "one"]
         )
@@ -257,103 +156,15 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.079755378)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
-    # Legacy usage needed mean/stddev to be corrected
-    def test_analyze_metric_df_legacy(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "one",
-                    "variation": "one",
-                    "denominator_sum": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 1000,
-                },
-                {
-                    "dimension": "one",
-                    "variation": "zero",
-                    "denominator_sum": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 1100,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "one",
-                    "denominator_sum": 220,
-                    "mean": 3.5,
-                    "stddev": 2,
-                    "users": 2000,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "zero",
-                    "denominator_sum": 200,
-                    "mean": 3.7,
-                    "stddev": 2.1,
-                    "users": 2100,
-                },
-            ]
-        )
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue"
-        )
-        result = analyze_metric_df(df, [0.5, 0.5], "revenue", False)
-
-        self.assertEqual(len(result.index), 2)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.245454545)
-        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0.186006962)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.3)
-        self.assertEqual(round_(result.at[0, "v1_risk"]), 0.00418878)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), 0.222222222)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.925127213)
-        self.assertEqual(result.at[0, "v1_p_value"], None)
-
 
 class TestAnalyzeMetricDfFrequentist(TestCase):
     def test_get_metric_df_frequentist(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "one",
-                    "variation": "one",
-                    "denominator_sum": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 120,
-                },
-                {
-                    "dimension": "one",
-                    "variation": "zero",
-                    "denominator_sum": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 100,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "one",
-                    "denominator_sum": 220,
-                    "mean": 3.5,
-                    "stddev": 2,
-                    "users": 220,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "zero",
-                    "denominator_sum": 200,
-                    "mean": 3.7,
-                    "stddev": 2.1,
-                    "users": 200,
-                },
-            ]
-        )
+        rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+            rows, {"zero": 0, "one": 1}, ["zero", "one"],
         )
         result = analyze_metric_df(
-            df, [0.5, 0.5], "revenue", False, StatsEngine.FREQUENTIST
+            df, [0.5, 0.5], False, StatsEngine.FREQUENTIST
         )
 
         self.assertEqual(len(result.index), 2)
@@ -365,31 +176,6 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.163302082)
-
-
-class TestAdjustedStats(TestCase):
-    def test_adjusted_stats(self):
-        adjusted = get_adjusted_stats(5, 3, 1000, 2000, False, "revenue")
-        print(adjusted)
-        self.assertEqual(adjusted["users"], 2000)
-        self.assertEqual(adjusted["mean"], 2.5)
-        self.assertEqual(round_(adjusted["stddev"]), 3.278852762)
-        self.assertEqual(adjusted["total"], 5000)
-
-    def test_adjusted_stats_binomial(self):
-        adjusted = get_adjusted_stats(1, 0, 1000, 2000, False, "binomial")
-        print(adjusted)
-        self.assertEqual(adjusted["users"], 2000)
-        self.assertEqual(adjusted["mean"], 0.5)
-        self.assertEqual(round_(adjusted["stddev"]), math.sqrt(0.25))
-        self.assertEqual(adjusted["total"], 1000)
-
-    def test_adjusted_stats_ignore_nulls(self):
-        adjusted = get_adjusted_stats(5, 3, 1000, 2000, True, "revenue")
-        self.assertEqual(adjusted["users"], 1000)
-        self.assertEqual(adjusted["mean"], 5)
-        self.assertEqual(adjusted["stddev"], 3)
-        self.assertEqual(adjusted["total"], 5000)
 
 
 if __name__ == "__main__":

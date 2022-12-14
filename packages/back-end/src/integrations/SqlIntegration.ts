@@ -451,10 +451,10 @@ export default abstract class SqlIntegration
         users: parseInt(row.users) || 0,
         statistic_type: row.statistic_type ?? "",
         numerator_type: row.numerator_type ?? "",
-        denominator_type: row.denominator_type ?? "",
-        denominator_sum: parseFloat(row.denominator_sum) ?? 0,
         numerator_sum: parseFloat(row.numerator_sum) ?? 0,
         numerator_sum_squares: parseFloat(row.numerator_sum_squares) ?? 0,
+        denominator_type: row.denominator_type ?? "",
+        denominator_sum: parseFloat(row.denominator_sum) ?? 0,
         denominator_sum_squares: parseFloat(row.denominator_sum_squares) ?? 0,
         num_denom_sum_product: parseFloat(row.num_denom_sum_product) ?? 0,
       };
@@ -1054,17 +1054,13 @@ export default abstract class SqlIntegration
         ${this.getVariationUsers(metric)} as users,
         '${isRatio ? `ratio` : `sample_mean`}' as statistic_type,
         '${this.getMetricStatisticType(metric)}' as numerator_type,
-        -- TODO: consider struct for following quantities
-        ${this.getVariationDenominatorTotal(
-          isRatio,
-          metric
-        )} as denominator_sum,
         s.m_sum AS numerator_sum,
         s.m_sum_squares AS numerator_sum_squares
         ${
           isRatio
             ? `,
           "${this.getMetricStatisticType(metric)}" as denominator_type,
+          s.d_sum as denominator_sum,
           s.d_sum_squares AS denominator_sum_squares,
           s.m_d_sum_product AS num_denom_sum_product
           `
@@ -1103,21 +1099,6 @@ export default abstract class SqlIntegration
     } else {
       return `mean`;
     }
-  }
-  private getVariationDenominatorTotal(
-    isRatio: boolean,
-    metric: MetricInterface
-  ) {
-    // Ratio metrics use the sum of the denominator metric
-    if (isRatio) {
-      return `s.d_sum`;
-    }
-    // If we're ignoring nulls, we only want to use the converted user count
-    if (metric.ignoreNulls) {
-      return `s.count`;
-    }
-    // Otherwise, the denominator is the number of users in the experiment
-    return `u.users`;
   }
 
   private getMetricCTE({
