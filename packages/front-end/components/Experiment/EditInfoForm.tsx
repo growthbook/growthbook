@@ -4,12 +4,12 @@ import {
   ExperimentInterfaceStringDates,
   ImplementationType,
 } from "back-end/types/experiment";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
-import useOrgSettings from "../../hooks/useOrgSettings";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;

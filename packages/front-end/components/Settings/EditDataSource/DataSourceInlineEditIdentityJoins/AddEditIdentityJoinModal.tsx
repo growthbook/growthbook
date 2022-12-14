@@ -5,10 +5,10 @@ import {
 } from "back-end/types/datasource";
 
 import { useForm } from "react-hook-form";
-import Modal from "../../../Modal";
-import MultiSelectField from "../../../Forms/MultiSelectField";
-import CodeTextArea from "../../../Forms/CodeTextArea";
-import { validateSQL } from "../../../../services/datasources";
+import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { validateSQL } from "@/services/datasources";
 import { isDuplicateIdentityJoin } from "./utils";
 
 type AddEditIdentityJoinModalProps = {

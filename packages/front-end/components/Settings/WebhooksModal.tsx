@@ -1,13 +1,13 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { WebhookInterface } from "back-end/types/webhook";
-import { useAuth } from "../../services/auth";
-import Modal from "../Modal";
-import track from "../../services/track";
-import { isCloud } from "../../services/env";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { isCloud } from "@/services/env";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import Field from "../Forms/Field";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEnvironments } from "../../services/features";
+import Modal from "../Modal";
 
 const WebhooksModal: FC<{
   close: () => void;

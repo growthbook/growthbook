@@ -3,8 +3,8 @@ import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
 import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
 import clsx from "clsx";
+import { getValidDate } from "@/services/dates";
 import Code from "../SyntaxHighlighting/Code";
-import { getValidDate } from "../../services/dates";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;

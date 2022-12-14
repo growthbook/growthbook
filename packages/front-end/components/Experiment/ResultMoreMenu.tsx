@@ -8,11 +8,11 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import Button from "../Button";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import usePermissions from "../../hooks/usePermissions";
 import Tooltip from "../Tooltip/Tooltip";
 import ResultsDownloadButton from "./ResultsDownloadButton";
 

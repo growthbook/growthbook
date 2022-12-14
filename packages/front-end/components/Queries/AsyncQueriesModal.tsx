@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { QueryInterface } from "back-end/types/query";
+import useApi from "@/hooks/useApi";
 import Modal from "../Modal";
-import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import LoadingSpinner from "../LoadingSpinner";
 import ExpandableQuery from "./ExpandableQuery";

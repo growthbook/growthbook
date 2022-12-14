@@ -1,11 +1,11 @@
 import { UseFormReturn } from "react-hook-form";
-import SelectField from "../Forms/SelectField";
-import useApi from "../../hooks/useApi";
-import { NamespaceApiResponse } from "../../pages/namespaces";
+import useApi from "@/hooks/useApi";
+import { NamespaceApiResponse } from "@/pages/namespaces";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { findGaps } from "@/services/features";
 import Toggle from "../Forms/Toggle";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import Field from "../Forms/Field";
-import { findGaps } from "../../services/features";
+import SelectField from "../Forms/SelectField";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
 export interface Props {

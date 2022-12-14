@@ -2,12 +2,12 @@ import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import MetricsSelector from "../Experiment/MetricsSelector";
-import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
-import { useUser } from "../../services/UserContext";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{

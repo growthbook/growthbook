@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import { FaKey } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
 import MoreMenu from "../Dropdown/MoreMenu";
-import usePermissions from "../../hooks/usePermissions";
 import ApiKeysModal from "./ApiKeysModal";
 import ClickToReveal from "./ClickToReveal";
 

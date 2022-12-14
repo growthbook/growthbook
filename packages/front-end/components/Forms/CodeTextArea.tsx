@@ -1,6 +1,6 @@
 import React from "react";
 import dynamic from "next/dynamic";
-import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(

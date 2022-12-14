@@ -7,13 +7,9 @@ import {
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
 import { ReactElement } from "react";
-import { useAuth } from "../../services/auth";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import track from "../../services/track";
-import Toggle from "../Forms/Toggle";
-import RadioSelector from "../Forms/RadioSelector";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 import {
   getDefaultRuleValue,
   getDefaultValue,
@@ -22,11 +18,15 @@ import {
   validateFeatureRule,
   validateFeatureValue,
   useEnvironments,
-} from "../../services/features";
+} from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useWatching } from "@/services/WatchProvider";
+import usePermissions from "@/hooks/usePermissions";
 import TagsInput from "../Tags/TagsInput";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { useWatching } from "../../services/WatchProvider";
-import usePermissions from "../../hooks/usePermissions";
+import RadioSelector from "../Forms/RadioSelector";
+import Toggle from "../Forms/Toggle";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
 import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
 import NamespaceSelector from "./NamespaceSelector";
 import VariationsInput from "./VariationsInput";

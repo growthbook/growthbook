@@ -1,11 +1,11 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ago, getValidDate } from "@/services/dates";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "../Queries/RunQueriesButton";
-import { ago, getValidDate } from "../../services/dates";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
 import GuardrailResults from "./GuardrailResult";

@@ -3,9 +3,9 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { IdeaInterface } from "back-end/types/idea";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 

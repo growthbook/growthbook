@@ -7,7 +7,7 @@ import {
   tomorrow as dark,
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time

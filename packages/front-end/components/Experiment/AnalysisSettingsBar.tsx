@@ -3,12 +3,12 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import clsx from "clsx";
 import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
-import { ago, datetime } from "../../services/dates";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import { ago, datetime } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import usePermissions from "../../hooks/usePermissions";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";

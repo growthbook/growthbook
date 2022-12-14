@@ -5,12 +5,12 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { useFeature } from "@growthbook/growthbook-react";
-import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
-import { useWatching } from "../../services/WatchProvider";
-import { getEvenSplit } from "../../services/utils";
+import { useAuth } from "@/services/auth";
+import { useWatching } from "@/services/WatchProvider";
+import { getEvenSplit } from "@/services/utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import GroupsInput from "../GroupsInput";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 import VariationsInput from "../Features/VariationsInput";
 

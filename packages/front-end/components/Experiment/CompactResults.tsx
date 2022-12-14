@@ -6,13 +6,13 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import Link from "next/link";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip/Tooltip";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
   useRiskVariation,
-} from "../../services/experiments";
+} from "@/services/experiments";
+import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";

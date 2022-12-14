@@ -2,13 +2,13 @@ import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
-import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const AnalysisForm: FC<{

@@ -4,16 +4,16 @@ import { SegmentInterface } from "back-end/types/segment";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { ago } from "../../services/dates";
-import Button from "../../components/Button";
-import SegmentForm from "../../components/Segments/SegmentForm";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import { GBAddCircle } from "../../components/Icons";
-import usePermissions from "../../hooks/usePermissions";
-import Code, { Language } from "../../components/SyntaxHighlighting/Code";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { ago } from "@/services/dates";
+import Button from "@/components/Button";
+import SegmentForm from "@/components/Segments/SegmentForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { GBAddCircle } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
+import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 
 const SegmentPage: FC = () => {
   const {

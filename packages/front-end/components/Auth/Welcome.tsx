@@ -1,8 +1,8 @@
 import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import track from "../../services/track";
-import { getApiHost } from "../../services/env";
+import track from "@/services/track";
+import { getApiHost } from "@/services/env";
 import Field from "../Forms/Field";
 import WelcomeFrame from "./WelcomeFrame";
 

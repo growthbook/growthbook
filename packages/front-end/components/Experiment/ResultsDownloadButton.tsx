@@ -5,9 +5,9 @@ import {
 import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { ExperimentTableRow, getRisk } from "../../services/experiments";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ExperimentTableRow, getRisk } from "@/services/experiments";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {
   date?: string;

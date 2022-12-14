@@ -6,11 +6,11 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Code from "@/components/SyntaxHighlighting/Code";
+import usePermissions from "@/hooks/usePermissions";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Code from "../../../SyntaxHighlighting/Code";
-import usePermissions from "../../../../hooks/usePermissions";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;

@@ -7,15 +7,15 @@ import {
 } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import track from "../../services/track";
-import SelectField from "../Forms/SelectField";
-import { getInitialSettings } from "../../services/datasources";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
   eventSchema,
-} from "../../services/eventSchema";
+} from "@/services/eventSchema";
+import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";

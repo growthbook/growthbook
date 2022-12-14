@@ -4,9 +4,9 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "../Tooltip/Tooltip";
-import { formatTrafficSplit } from "../../services/utils";
 import { SRM_THRESHOLD } from "./SRMWarning";
 
 const numberFormatter = new Intl.NumberFormat();

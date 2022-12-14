@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../../hooks/useApi";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { ago } from "../../services/dates";
-import usePermissions from "../../hooks/usePermissions";
+import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ago } from "@/services/dates";
+import usePermissions from "@/hooks/usePermissions";
 import NewExperimentForm from "./NewExperimentForm";
 
 export default function NewFeatureExperiments() {

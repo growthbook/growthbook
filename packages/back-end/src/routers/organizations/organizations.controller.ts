@@ -248,8 +248,12 @@ export async function putMemberRole(
   req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -299,8 +303,12 @@ export async function putInviteRole(
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -675,8 +683,13 @@ export async function postInvite(
   req.checkPermissions("manageTeam");
 
   const { org } = getOrgFromReq(req);
-  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
@@ -1180,8 +1193,12 @@ export async function addOrphanedUser(
   const { org } = getOrgFromReq(req);
 
   const { id } = req.params;
-  const { role, environments, limitAccessByEnvironment, projectRoles } =
-    req.body;
+  const {
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+  } = req.body;
 
   // Make sure user exists
   const user = await findUserById(id);

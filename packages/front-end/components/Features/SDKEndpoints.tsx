@@ -1,14 +1,14 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import ApiKeysModal from "../Settings/ApiKeysModal";
-import usePermissions from "../../hooks/usePermissions";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
-import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "../Settings/ClickToReveal";
 import ClickToCopy from "../Settings/ClickToCopy";

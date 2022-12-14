@@ -4,10 +4,10 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { formatConversionRate } from "../../services/metrics";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatConversionRate } from "@/services/metrics";
+import { getValidDate } from "@/services/dates";
 import Toggle from "../Forms/Toggle";
-import { getValidDate } from "../../services/dates";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";

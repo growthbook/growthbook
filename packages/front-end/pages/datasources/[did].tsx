@@ -3,20 +3,20 @@ import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import DataSourceForm from "../../components/Settings/DataSourceForm";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import Code from "../../components/SyntaxHighlighting/Code";
-import { hasFileConfig } from "../../services/env";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink, DocSection } from "../../components/DocLink";
-import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
-import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
-import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
-import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
-import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DataSourceForm from "@/components/Settings/DataSourceForm";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
+import { DocLink, DocSection } from "@/components/DocLink";
+import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
+import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
+import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
+import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {

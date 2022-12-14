@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { date, datetime } from "@/services/dates";
+import { phaseSummary } from "@/services/utils";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
-import { date, datetime } from "../../services/dates";
-import { phaseSummary } from "../../services/utils";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import { GBAddCircle } from "../Icons";
-import { useAuth } from "../../services/auth";
 import EditPhaseModal from "./EditPhaseModal";
 import NewPhaseForm from "./NewPhaseForm";
 

@@ -6,12 +6,12 @@ import {
   getAffectedEnvs,
   getEnabledEnvironments,
   useEnvironments,
-} from "../../services/features";
+} from "@/services/features";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import Modal from "../Modal";
 import Button from "../Button";
-import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
-import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   feature: FeatureInterface;

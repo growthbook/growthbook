@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 

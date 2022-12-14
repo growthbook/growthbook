@@ -1,7 +1,7 @@
 import { ReactElement, useState } from "react";
 import { useForm } from "react-hook-form";
-import track from "../../services/track";
-import { getApiHost } from "../../services/env";
+import track from "@/services/track";
+import { getApiHost } from "@/services/env";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 

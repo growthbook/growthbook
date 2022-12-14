@@ -1,6 +1,6 @@
 import { formatDistance } from "date-fns";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { getValidDate } from "../../services/dates";
+import { getValidDate } from "@/services/dates";
 
 export default function NotEnoughData({
   phaseStart,

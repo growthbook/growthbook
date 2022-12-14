@@ -3,8 +3,8 @@ import clsx from "clsx";
 import { FaArrowRight } from "react-icons/fa";
 import { useState } from "react";
 import { MdKeyboardArrowDown, MdKeyboardArrowUp } from "react-icons/md";
+import { eventSchemas } from "@/services/eventSchema";
 import Field from "../Forms/Field";
-import { eventSchemas } from "../../services/eventSchema";
 
 export default function DataSourceSchemaChooser({
   format,

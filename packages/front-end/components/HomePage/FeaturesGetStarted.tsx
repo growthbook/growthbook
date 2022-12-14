@@ -2,14 +2,14 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaChrome } from "react-icons/fa";
-import track from "../../services/track";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import CodeSnippetModal from "../Features/CodeSnippetModal";
 import EditAttributesModal from "../Features/EditAttributesModal";
 import FeatureModal from "../Features/FeatureModal";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 

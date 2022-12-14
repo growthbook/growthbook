@@ -1,11 +1,11 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useUser } from "../../services/UserContext";
 import UpgradeMessage from "../UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";

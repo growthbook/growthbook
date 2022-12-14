@@ -2,15 +2,15 @@ import Link from "next/link";
 import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import { useRouter } from "next/router";
-import InviteList from "../../components/Settings/Team/InviteList";
-import MemberList from "../../components/Settings/Team/MemberList";
-import { useAuth } from "../../services/auth";
-import SSOSettings from "../../components/Settings/SSOSettings";
-import { useUser } from "../../services/UserContext";
-import usePermissions from "../../hooks/usePermissions";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import SelectField from "../../components/Forms/SelectField";
-import OrphanedUsersList from "../../components/Settings/Team/OrphanedUsersList";
+import InviteList from "@/components/Settings/Team/InviteList";
+import MemberList from "@/components/Settings/Team/MemberList";
+import { useAuth } from "@/services/auth";
+import SSOSettings from "@/components/Settings/SSOSettings";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "@/components/Forms/SelectField";
+import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();

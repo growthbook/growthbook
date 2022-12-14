@@ -1,11 +1,11 @@
 import clsx from "clsx";
-import { ExperimentTableRow, getRisk } from "../../services/experiments";
+import { ExperimentTableRow, getRisk } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
-} from "../../services/metrics";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+} from "@/services/metrics";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

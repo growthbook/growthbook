@@ -4,9 +4,9 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { getGrowthBookBuild } from "@/services/env";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBExperiment, GBSettings } from "../Icons";
-import { getGrowthBookBuild } from "../../services/env";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import { inferDocUrl } from "../DocLink";
 import TopNav from "./TopNav";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
@@ -403,7 +403,6 @@ const Layout = (): React.ReactElement => {
           </div>
         )}
       </div>
-
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}

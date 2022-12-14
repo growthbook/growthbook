@@ -7,9 +7,9 @@ import React, {
 import { useDropzone } from "react-dropzone";
 import { Screenshot } from "back-end/types/experiment";
 import clsx from "clsx";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
-import { uploadFile } from "../../services/files";
 import styles from "./ScreenshotUpload.module.scss";
 
 type props = {

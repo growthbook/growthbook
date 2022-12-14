@@ -1,7 +1,7 @@
 import React, { FC, useState } from "react";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import Modal from "../../Modal";
-import { isCloud } from "../../../services/env";
+import Modal from "@/components/Modal";
+import { isCloud } from "@/services/env";
 import UpgradeModal from "../UpgradeModal";
 import RoleSelector from "./RoleSelector";
 

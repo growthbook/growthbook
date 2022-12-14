@@ -16,9 +16,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useAuth } from "../../services/auth";
-import { getRules } from "../../services/features";
-import usePermissions from "../../hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { getRules } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({

@@ -2,7 +2,7 @@ import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 

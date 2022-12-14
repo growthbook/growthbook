@@ -16,8 +16,8 @@ import {
 } from "@visx/tooltip";
 import setDay from "date-fns/setDay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date, getValidDate } from "../../services/dates";
-import { formatConversionRate } from "../../services/metrics";
+import { date, getValidDate } from "@/services/dates";
+import { formatConversionRate } from "@/services/metrics";
 import styles from "./DateGraph.module.scss";
 
 type TooltipData = { x: number; y: number; d: Datapoint };

@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Namespaces } from "back-end/types/organization";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 

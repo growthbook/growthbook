@@ -5,11 +5,11 @@ import {
   UserIdType,
 } from "back-end/types/datasource";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import MoreMenu from "../../../Dropdown/MoreMenu";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissions from "@/hooks/usePermissions";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
 import { EditIdentifierType } from "./EditIdentifierType";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;

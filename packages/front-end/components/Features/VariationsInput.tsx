@@ -4,7 +4,7 @@ import {
   getDefaultVariationValue,
   getVariationColor,
   getVariationDefaultName,
-} from "../../services/features";
+} from "@/services/features";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";

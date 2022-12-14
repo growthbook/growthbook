@@ -5,12 +5,12 @@ import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
+import Code from "@/components/SyntaxHighlighting/Code";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissions from "@/hooks/usePermissions";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
-import Code from "../../../SyntaxHighlighting/Code";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
 import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
@@ -120,7 +120,6 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
         </div>
       ) : null}
       {/* endregion Heading */}
-
       {/* region Identity Joins list */}
       {identityJoins.length > 0 ? (
         <div className="">
@@ -195,9 +194,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
         // Empty state
         <div className="alert alert-info">No identity joins.</div>
       ) : null}
-
       {/* endregion Identity Joins list */}
-
       {/* region Add/Edit modal */}
       {uiMode === "edit" || uiMode === "add" ? (
         <AddEditIdentityJoinModal

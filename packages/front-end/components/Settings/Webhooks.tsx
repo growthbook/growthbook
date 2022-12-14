@@ -1,12 +1,12 @@
 import React, { FC, Fragment, useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../LoadingOverlay";
+import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
+import { ago } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import { ago } from "../../services/dates";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import LoadingOverlay from "../LoadingOverlay";
 import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
 import WebhooksModal from "./WebhooksModal";

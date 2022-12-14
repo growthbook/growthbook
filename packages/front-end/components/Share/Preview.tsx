@@ -3,9 +3,9 @@ import dynamic from "next/dynamic";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import useSwitchOrg from "../../services/useSwitchOrg";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useSwitchOrg from "@/services/useSwitchOrg";
 import { Props as PresentationProps } from "./Presentation";
 const DynamicPresentation = dynamic<PresentationProps>(
   () => import("../../components/Share/Presentation"),
