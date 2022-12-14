@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
+from typing import List, Union
 
 import numpy as np
 
@@ -57,8 +57,8 @@ class ProportionStatistic(Statistic):
 
 @dataclass
 class RatioStatistic(Statistic):
-    m_statistic: Statistic
-    d_statistic: Statistic
+    m_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    d_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     m_d_sum_of_products: float
     n: int
 

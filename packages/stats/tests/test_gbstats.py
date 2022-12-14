@@ -20,6 +20,40 @@ from gbstats.shared.constants import StatsEngine
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
+MULTI_DIMENSION_STATISTICS = [
+    {
+        "dimension": "one",
+        "variation": "one",
+        "denominator_sum": 120,
+        "numerator_sum": 300,
+        "numerator_sum_squares": 869,
+        "users": 120,
+    },
+    {
+        "dimension": "one",
+        "variation": "zero",
+        "denominator_sum": 100,
+        "numerator_sum": 540,
+        "numerator_sum_squares": 3035.79,
+        "users": 100,
+    },
+    {
+        "dimension": "two",
+        "variation": "one",
+        "denominator_sum": 220,
+        "numerator_sum": 770,
+        "numerator_sum_squares": 3571,
+        "users": 220,
+    },
+    {
+        "dimension": "two",
+        "variation": "zero",
+        "denominator_sum": 200,
+        "numerator_sum": 740,
+        "numerator_sum_squares": 3615.59,
+        "users": 200,
+    },
+]
 
 class TestHelpers(TestCase):
     def test_srm(self):
@@ -46,7 +80,7 @@ class TestDetectVariations(TestCase):
                 {
                     "dimension": "All",
                     "variation": "one",
-                    "count": 120,
+                    "denominator_sum": 120,
                     "mean": 2.5,
                     "stddev": 1,
                     "users": 1000,
@@ -54,7 +88,7 @@ class TestDetectVariations(TestCase):
                 {
                     "dimension": "All",
                     "variation": "zero",
-                    "count": 100,
+                    "denominator_sum": 100,
                     "mean": 2.7,
                     "stddev": 1.1,
                     "users": 1100,
@@ -75,7 +109,7 @@ class TestDetectVariations(TestCase):
                 {
                     "dimension": "All",
                     "variation": "one",
-                    "count": 120,
+                    "denominator_sum": 120,
                     "mean": 2.5,
                     "stddev": 1,
                     "users": 1000,
@@ -83,7 +117,7 @@ class TestDetectVariations(TestCase):
                 {
                     "dimension": "All",
                     "variation": "two",
-                    "count": 100,
+                    "denominator_sum": 100,
                     "mean": 2.7,
                     "stddev": 1.1,
                     "users": 1100,
@@ -91,7 +125,7 @@ class TestDetectVariations(TestCase):
                 {
                     "dimension": "All",
                     "variation": "__multiple__",
-                    "count": 50,
+                    "denominator_sum": 50,
                     "mean": 2.7,
                     "stddev": 1.1,
                     "users": 500,
@@ -112,7 +146,7 @@ class TestReduceDimensionality(TestCase):
                 {
                     "dimension": "one",
                     "variation": "one",
-                    "count": 120,
+                    "denominator_sum": 120,
                     "mean": 2.5,
                     "stddev": 1,
                     "users": 1000,
@@ -120,7 +154,7 @@ class TestReduceDimensionality(TestCase):
                 {
                     "dimension": "one",
                     "variation": "zero",
-                    "count": 100,
+                    "denominator_sum": 100,
                     "mean": 2.7,
                     "stddev": 1.1,
                     "users": 1100,
@@ -128,7 +162,7 @@ class TestReduceDimensionality(TestCase):
                 {
                     "dimension": "two",
                     "variation": "one",
-                    "count": 220,
+                    "denominator_sum": 220,
                     "mean": 3.5,
                     "stddev": 2,
                     "users": 2000,
@@ -136,7 +170,7 @@ class TestReduceDimensionality(TestCase):
                 {
                     "dimension": "two",
                     "variation": "zero",
-                    "count": 200,
+                    "denominator_sum": 200,
                     "mean": 3.7,
                     "stddev": 2.1,
                     "users": 2100,
@@ -144,7 +178,7 @@ class TestReduceDimensionality(TestCase):
                 {
                     "dimension": "three",
                     "variation": "one",
-                    "count": 320,
+                    "denominator_sum": 320,
                     "mean": 4.5,
                     "stddev": 3,
                     "users": 3000,
@@ -152,7 +186,7 @@ class TestReduceDimensionality(TestCase):
                 {
                     "dimension": "three",
                     "variation": "zero",
-                    "count": 300,
+                    "denominator_sum": 300,
                     "mean": 4.7,
                     "stddev": 3.1,
                     "users": 3100,
@@ -186,46 +220,13 @@ class TestReduceDimensionality(TestCase):
 class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "one",
-                    "variation": "one",
-                    "count": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 120,
-                },
-                {
-                    "dimension": "one",
-                    "variation": "zero",
-                    "count": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 100,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "one",
-                    "count": 220,
-                    "mean": 3.5,
-                    "stddev": 2,
-                    "users": 220,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "zero",
-                    "count": 200,
-                    "mean": 3.7,
-                    "stddev": 2.1,
-                    "users": 200,
-                },
-            ]
-        )
+        rows = pd.DataFrame(MULTI_DIMENSION_STATISTICS)
+        rows["statistic_type"] = "sample_mean"
+        rows["numerator_type"] = "mean"
         df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+            rows, {"zero": 0, "one": 1}, ["zero", "one"]
         )
-        result = analyze_metric_df(df, [0.5, 0.5], "revenue", False)
+        result = analyze_metric_df(df, [0.5, 0.5])
 
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -238,46 +239,13 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_inverse(self):
-        rows = pd.DataFrame(
-            [
-                {
-                    "dimension": "one",
-                    "variation": "one",
-                    "count": 120,
-                    "mean": 2.5,
-                    "stddev": 1,
-                    "users": 120,
-                },
-                {
-                    "dimension": "one",
-                    "variation": "zero",
-                    "count": 100,
-                    "mean": 2.7,
-                    "stddev": 1.1,
-                    "users": 100,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "one",
-                    "count": 220,
-                    "mean": 3.5,
-                    "stddev": 2,
-                    "users": 220,
-                },
-                {
-                    "dimension": "two",
-                    "variation": "zero",
-                    "count": 200,
-                    "mean": 3.7,
-                    "stddev": 2.1,
-                    "users": 200,
-                },
-            ]
-        )
+        rows = pd.DataFrame(MULTI_DIMENSION_STATISTICS)
+        rows["statistic_type"] = "sample_mean"
+        rows["numerator_type"] = "mean"
         df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"], False, "revenue", False
+            rows, {"zero": 0, "one": 1}, ["zero", "one"]
         )
-        result = analyze_metric_df(df, [0.5, 0.5], "revenue", inverse=True)
+        result = analyze_metric_df(df, [0.5, 0.5], inverse=True)
 
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -296,7 +264,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
                 {
                     "dimension": "one",
                     "variation": "one",
-                    "count": 120,
+                    "denominator_sum": 120,
                     "mean": 2.5,
                     "stddev": 1,
                     "users": 1000,
@@ -304,7 +272,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
                 {
                     "dimension": "one",
                     "variation": "zero",
-                    "count": 100,
+                    "denominator_sum": 100,
                     "mean": 2.7,
                     "stddev": 1.1,
                     "users": 1100,
@@ -312,7 +280,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
                 {
                     "dimension": "two",
                     "variation": "one",
-                    "count": 220,
+                    "denominator_sum": 220,
                     "mean": 3.5,
                     "stddev": 2,
                     "users": 2000,
@@ -320,7 +288,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
                 {
                     "dimension": "two",
                     "variation": "zero",
-                    "count": 200,
+                    "denominator_sum": 200,
                     "mean": 3.7,
                     "stddev": 2.1,
                     "users": 2100,
@@ -350,7 +318,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
                 {
                     "dimension": "one",
                     "variation": "one",
-                    "count": 120,
+                    "denominator_sum": 120,
                     "mean": 2.5,
                     "stddev": 1,
                     "users": 120,
@@ -358,7 +326,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
                 {
                     "dimension": "one",
                     "variation": "zero",
-                    "count": 100,
+                    "denominator_sum": 100,
                     "mean": 2.7,
                     "stddev": 1.1,
                     "users": 100,
@@ -366,7 +334,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
                 {
                     "dimension": "two",
                     "variation": "one",
-                    "count": 220,
+                    "denominator_sum": 220,
                     "mean": 3.5,
                     "stddev": 2,
                     "users": 220,
@@ -374,7 +342,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
                 {
                     "dimension": "two",
                     "variation": "zero",
-                    "count": 200,
+                    "denominator_sum": 200,
                     "mean": 3.7,
                     "stddev": 2.1,
                     "users": 200,

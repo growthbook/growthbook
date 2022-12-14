@@ -169,7 +169,6 @@ export async function analyzeExperimentResults(
     const data = results.result as ExperimentResults;
 
     unknownVariations = data.unknownVariations;
-
     const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
     data.dimensions.forEach((row) => {
       row.variations.forEach((v) => {
