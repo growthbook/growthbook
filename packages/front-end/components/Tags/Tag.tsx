@@ -1,6 +1,6 @@
 import React, { CSSProperties } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import clsx from "clsx";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 interface Props {
   tag: string;

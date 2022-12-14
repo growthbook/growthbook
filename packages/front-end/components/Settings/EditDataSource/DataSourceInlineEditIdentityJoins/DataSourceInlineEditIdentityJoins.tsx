@@ -1,18 +1,18 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
-import Code from "../../../SyntaxHighlighting/Code";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
-import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
+import MoreMenu from "../../../Dropdown/MoreMenu";
+import DeleteButton from "../../../DeleteButton/DeleteButton";
+import Code from "../../../SyntaxHighlighting/Code";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
 import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
 import { useDefinitions } from "../../../../services/DefinitionsContext";
+import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 

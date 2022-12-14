@@ -1,17 +1,17 @@
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import React, { FC, useCallback, useMemo, useState } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "back-end/types/datasource";
-import { EditIdentifierType } from "./EditIdentifierType";
-import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
+import MoreMenu from "../../../Dropdown/MoreMenu";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
 import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Tooltip from "../../../Tooltip/Tooltip";
 import usePermissions from "../../../../hooks/usePermissions";
 import { useDefinitions } from "../../../../services/DefinitionsContext";
+import { EditIdentifierType } from "./EditIdentifierType";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -19,7 +19,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   dataSource,
   onSave,
   onCancel,
-  canEdit= true,
+  canEdit = true,
 }) => {
   const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");

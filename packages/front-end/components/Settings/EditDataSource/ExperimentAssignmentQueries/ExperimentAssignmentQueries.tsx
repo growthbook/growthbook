@@ -1,18 +1,18 @@
 import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
+import { useRouter } from "next/router";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Code from "../../../SyntaxHighlighting/Code";
-import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 import usePermissions from "../../../../hooks/usePermissions";
-import { useRouter } from "next/router";
 import { useDefinitions } from "../../../../services/DefinitionsContext";
+import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 

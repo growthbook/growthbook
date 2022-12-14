@@ -1,17 +1,17 @@
 import React, { FC, useState } from "react";
-import LoadingOverlay from "../LoadingOverlay";
 import { useRouter } from "next/router";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
+import { FaExclamationTriangle } from "react-icons/fa";
+import LoadingOverlay from "../LoadingOverlay";
+import { useDefinitions } from "../../services/DefinitionsContext";
 import { ago } from "../../services/dates";
 import { hasFileConfig } from "../../services/env";
 import { GBAddCircle } from "../Icons";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
-import NewDataSourceForm from "./NewDataSourceForm";
 import Tooltip from "../Tooltip/Tooltip";
-import { FaExclamationTriangle } from "react-icons/fa";
 import ProjectTags from "../Tags/ProjectTags";
+import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);

@@ -1,14 +1,14 @@
 import React, { FC, useCallback, useState } from "react";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaPencilAlt } from "react-icons/fa";
-import { DataSourceEditExperimentEventPropertiesModal } from "./DataSourceEditExperimentEventPropertiesModal";
 import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
 import usePermissions from "../../../../hooks/usePermissions";
 import { useDefinitions } from "../../../../services/DefinitionsContext";
+import { DataSourceEditExperimentEventPropertiesModal } from "./DataSourceEditExperimentEventPropertiesModal";
 
 type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -16,7 +16,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
   onSave,
   onCancel,
   dataSource,
-  canEdit=true,
+  canEdit = true,
 }) => {
   const { project } = useDefinitions();
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
@@ -52,7 +52,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h3 className="mb-0">Query Settings</h3>
 
-        { canEdit && (
+        {canEdit && (
           <div className="">
             <button
               className="btn btn-outline-primary font-weight-bold text-nowrap"
