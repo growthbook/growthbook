@@ -133,7 +133,6 @@ export default function RestoreConfigYamlButton({
 
       if (origConfig.segments) {
         Object.keys(origConfig.segments).forEach((k) => {
-          console.log("k", k);
           if (!newConfig?.segments?.[k]) {
             delete origConfig.segments[k];
           } else {

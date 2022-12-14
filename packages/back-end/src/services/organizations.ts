@@ -49,6 +49,12 @@ import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { getDefaultRole } from "../util/organization.util";
+import {
+  createSegment,
+  findSegmentById,
+  updateSegment,
+} from "../models/SegmentModel";
+import { SegmentInterface } from "../../types/segment";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -584,6 +590,42 @@ export async function importConfig(
           }
         } catch (e) {
           throw new Error(`Dimension ${k}: ${e.message}`);
+        }
+      })
+    );
+  }
+
+  if (config.segments) {
+    await Promise.all(
+      Object.keys(config.segments).map(async (k) => {
+        const s = config.segments?.[k];
+        if (!s) return;
+        k = k.toLowerCase();
+
+        if (s.datasource) {
+          s.datasource = s.datasource.toLowerCase();
+        }
+
+        try {
+          const existing = await findSegmentById(k, organization.id);
+          if (existing) {
+            const updates: Partial<SegmentInterface> = {
+              ...s,
+            };
+            delete updates.organization;
+
+            await updateSegment(k, organization.id, updates);
+          } else {
+            await createSegment({
+              ...s,
+              id: k,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              organization: organization.id,
+            });
+          }
+        } catch (e) {
+          throw new Error(`Segment ${k}: ${e.message}`);
         }
       })
     );
