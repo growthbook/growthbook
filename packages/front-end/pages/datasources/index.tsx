@@ -1,6 +1,6 @@
 import { FC } from "react";
-import { DocLink } from "../../components/DocLink";
-import DataSources from "../../components/Settings/DataSources";
+import { DocLink } from "@/components/DocLink";
+import DataSources from "@/components/Settings/DataSources";
 
 const DataSourcesPage: FC = () => {
   return (

@@ -1,14 +1,14 @@
 import { FC } from "react";
-import Modal from "../Modal";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Field from "../Forms/Field";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import useMembers from "@/hooks/useMembers";
+import { validateSQL } from "@/services/datasources";
 import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../../components/Forms/CodeTextArea";
-import useMembers from "../../hooks/useMembers";
-import { validateSQL } from "../../services/datasources";
+import Field from "../Forms/Field";
+import Modal from "../Modal";
 
 const SegmentForm: FC<{
   close: () => void;

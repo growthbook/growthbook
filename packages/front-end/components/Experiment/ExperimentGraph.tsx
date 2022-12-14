@@ -1,6 +1,4 @@
 import React from "react";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../LoadingOverlay";
 import { BarRounded } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
@@ -8,12 +6,14 @@ import { ParentSizeModern } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { getValidDate } from "../../services/dates";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
-import styles from "./ExperimentGraph.module.scss";
 import { localPoint } from "@visx/event";
+import { getValidDate } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "../LoadingOverlay";
+import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
   resolution = "month",

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import uniqid from "uniqid";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -11,7 +12,6 @@ import {
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
-import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 

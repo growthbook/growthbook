@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
+import { Environment } from "back-end/types/organization";
+import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import { Environment } from "back-end/types/organization";
 import Toggle from "../Forms/Toggle";
-import { useEnvironments } from "../../services/features";
-import { useUser } from "../../services/UserContext";
 
 export default function EnvironmentModal({
   existing,

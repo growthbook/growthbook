@@ -1,4 +1,5 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -36,7 +37,6 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
-import uniqid from "uniqid";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
   req.checkPermissions("createMetrics", "");
@@ -385,7 +385,9 @@ export async function putDataSource(
   const { name, description, type, params, settings, projects } = req.body;
 
   // Require higher permissions to change connection settings vs updating query settings
-  const permissionLevel = params ? "createDatasources" : "editDatasourceSettings";
+  const permissionLevel = params
+    ? "createDatasources"
+    : "editDatasourceSettings";
   if (projects?.length) {
     for (const project of projects) {
       req.checkPermissions(permissionLevel, project);

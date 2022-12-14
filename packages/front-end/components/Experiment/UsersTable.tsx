@@ -1,12 +1,12 @@
 import { FC, useMemo, useState } from "react";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip/Tooltip";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { formatTrafficSplit } from "../../services/utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatTrafficSplit } from "@/services/utils";
+import Tooltip from "../Tooltip/Tooltip";
 import { SRM_THRESHOLD } from "./SRMWarning";
 
 const numberFormatter = new Intl.NumberFormat();

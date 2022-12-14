@@ -1,9 +1,9 @@
-import { safeLogout } from "../../services/auth";
-import Avatar from "../Avatar/Avatar";
 import Head from "next/head";
-import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
+import { safeLogout } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import Avatar from "../Avatar/Avatar";
 import Button from "../Button";
-import { useUser } from "../../services/UserContext";
+import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 
 export default function TopNavLite() {
   const { email } = useUser();

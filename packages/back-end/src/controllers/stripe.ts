@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
+import { Stripe } from "stripe";
 import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
   IS_CLOUD,
 } from "../util/secrets";
-import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,

@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { cloneDeep } from "lodash";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -62,7 +63,6 @@ import { ConfigFile } from "../../init/config";
 import { WebhookInterface } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
-import { cloneDeep } from "lodash";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
   createApiKey,
@@ -374,6 +374,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     members,
     ownerEmail,
     name,
+    id,
     url,
     subscription,
     freeSeats,
@@ -414,6 +415,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       invites,
       ownerEmail,
       name,
+      id,
       url,
       subscription,
       freeSeats,

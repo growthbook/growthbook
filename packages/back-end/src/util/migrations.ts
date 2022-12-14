@@ -1,4 +1,5 @@
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
+import isEqual from "lodash/isEqual";
+import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -12,10 +13,9 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import isEqual from "lodash/isEqual";
 import { MemberRole, OrganizationInterface } from "../../types/organization";
-import cloneDeep from "lodash/cloneDeep";
 import { getConfigOrganizationSettings } from "../init/config";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;

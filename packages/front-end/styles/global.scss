@@ -113,6 +113,16 @@ pre {
   font-weight: 600;
 }
 
+.btn-premium {
+  @include button-outline-variant(
+    colors.$premium,
+    #fff,
+    colors.$premium,
+    colors.$premium
+  );
+  font-weight: bold;
+}
+
 .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple,
@@ -606,6 +616,11 @@ pre {
     color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
+  }
+
+  .premium {
+    font-weight: bold;
+    color: var(--text-color-premium);
   }
 
   &[data-popper-placement^="top"] > .arrow {
@@ -2024,6 +2039,22 @@ td.disabled {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+}
+
+.text-premium {
+  color: var(--text-color-premium);
+}
+.alert-premium {
+  background: radial-gradient(
+    120% 150% at bottom right,
+    var(--alert-premium-background-gradient-1),
+    var(--alert-premium-background-gradient-2)
+  );
+  border-color: var(--border-color-100);
+
+  .alert-link {
+    color: var(--text-color-main);
   }
 }
 

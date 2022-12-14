@@ -1,3 +1,4 @@
+import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
@@ -9,7 +10,6 @@ import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
 import { encryptParams } from "../src/services/datasource";
 import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
 import { PostgresConnectionParams } from "../types/integrations/postgres";
-import cloneDeep from "lodash/cloneDeep";
 import {
   ExperimentRule,
   FeatureInterface,

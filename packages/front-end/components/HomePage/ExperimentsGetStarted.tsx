@@ -1,22 +1,22 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import MetricForm from "../Metrics/MetricForm";
 import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
-import Button from "../Button";
-import Tooltip from "../Tooltip/Tooltip";
-import { useAuth } from "../../services/auth";
-import track from "../../services/track";
-import { hasFileConfig } from "../../services/env";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { hasFileConfig } from "@/services/env";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
 import ImportExperimentModal from "../Experiment/ImportExperimentModal";
-import GetStartedStep from "./GetStartedStep";
-import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import usePermissions from "../../hooks/usePermissions";
+import Tooltip from "../Tooltip/Tooltip";
+import Button from "../Button";
+import MetricForm from "../Metrics/MetricForm";
 import { DocLink } from "../DocLink";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
+import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
+import GetStartedStep from "./GetStartedStep";
 
 const ExperimentsGetStarted = ({
   experiments,

@@ -1,10 +1,10 @@
 import { Router, Request } from "express";
+import rateLimit from "express-rate-limit";
+import bodyParser from "body-parser";
 import authencateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "../util/handler";
-import rateLimit from "express-rate-limit";
 import { ApiRequestLocals } from "../../types/api";
 import featuresRouter from "./features/features.router";
-import bodyParser from "body-parser";
 
 const router = Router();
 

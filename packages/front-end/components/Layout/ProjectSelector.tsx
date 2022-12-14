@@ -1,10 +1,10 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { CSSProperties } from "react";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
-import { CSSProperties } from "react";
 
 export function ProjectName({
   display,
