@@ -1,5 +1,5 @@
-import { PresentationModel } from "../models/PresentationModel";
 import uniqid from "uniqid";
+import { PresentationModel } from "../models/PresentationModel";
 import {
   PresentationSlide,
   PresentationInterface,

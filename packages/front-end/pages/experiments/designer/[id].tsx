@@ -18,35 +18,32 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { useRouter } from "next/router";
-import useApi from "../../../hooks/useApi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import LoadingOverlay from "../../../components/LoadingOverlay";
-import Button from "../../../components/Button";
-import { useAuth } from "../../../services/auth";
-import LoadingSpinner from "../../../components/LoadingSpinner";
 import { BsArrowClockwise, BsGear } from "react-icons/bs";
-import StatusIndicator from "../../../components/Experiment/StatusIndicator";
 import TextareaAutosize from "react-textarea-autosize";
-import Dropdown from "../../../components/Dropdown/Dropdown";
-import DropdownLink from "../../../components/Dropdown/DropdownLink";
-import Modal from "../../../components/Modal";
-import styles from "./designer.module.scss";
+import Link from "next/link";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Button";
+import { useAuth } from "@/services/auth";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
+import Modal from "@/components/Modal";
 import {
   DomMutation,
   ElementAttribute,
   ElementBreadcrumb,
   IncomingMessage,
   OutgoingMessage,
-} from "../../../types/visualDesigner";
-import {
-  addQueryStringToURL,
-  dataURItoBlob,
-} from "../../../services/visualDesigner";
-import Link from "next/link";
-import VisualEditorScriptMissing from "../../../components/Experiment/VisualEditorScriptMissing";
-import { uploadFile } from "../../../services/files";
-import useSwitchOrg from "../../../services/useSwitchOrg";
-import SelectField from "../../../components/Forms/SelectField";
+} from "@/types/visualDesigner";
+import { addQueryStringToURL, dataURItoBlob } from "@/services/visualDesigner";
+import VisualEditorScriptMissing from "@/components/Experiment/VisualEditorScriptMissing";
+import { uploadFile } from "@/services/files";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import SelectField from "@/components/Forms/SelectField";
+import styles from "./designer.module.scss";
 
 const EditorPage: FC = () => {
   const router = useRouter();

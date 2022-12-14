@@ -1,3 +1,6 @@
+import { webcrypto as crypto } from "node:crypto";
+import uniqid from "uniqid";
+import isEqual from "lodash/isEqual";
 import {
   ApiFeatureEnvironmentInterface,
   ApiFeatureInterface,
@@ -12,16 +15,13 @@ import {
 } from "../../types/feature";
 import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
-import uniqid from "uniqid";
-import isEqual from "lodash/isEqual";
-import { webcrypto as crypto } from "node:crypto";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { createEvent } from "../models/EventModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;

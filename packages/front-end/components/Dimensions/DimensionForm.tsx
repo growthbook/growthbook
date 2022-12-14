@@ -1,14 +1,14 @@
 import { FC } from "react";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useMembers from "@/hooks/useMembers";
+import { validateSQL } from "@/services/datasources";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
-import useMembers from "../../hooks/useMembers";
-import { validateSQL } from "../../services/datasources";
 
 const DimensionForm: FC<{
   close: () => void;

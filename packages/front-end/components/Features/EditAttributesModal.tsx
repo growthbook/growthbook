@@ -3,16 +3,16 @@ import {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
-import { useAuth } from "../../services/auth";
+import { FaQuestionCircle, FaTrash } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
+import { useAttributeSchema } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
-import { useUser } from "../../services/UserContext";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip/Tooltip";
-import { FaQuestionCircle, FaTrash } from "react-icons/fa";
-import track from "../../services/track";
-import { useAttributeSchema } from "../../services/features";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import SelectField from "../Forms/SelectField";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {

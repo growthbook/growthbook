@@ -10,11 +10,11 @@ import clsx from "clsx";
 import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
-import Markdown from "./Markdown";
-import { useAuth } from "../../services/auth";
 import { useDropzone } from "react-dropzone";
+import { useAuth } from "@/services/auth";
+import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
-import { uploadFile } from "../../services/files";
+import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;

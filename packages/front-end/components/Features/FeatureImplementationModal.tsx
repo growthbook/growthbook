@@ -1,11 +1,11 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
+import { useState } from "react";
 import Modal from "../Modal";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 import Code, { Language } from "../SyntaxHighlighting/Code";
-import { useState } from "react";
-import CodeSnippetModal from "./CodeSnippetModal";
 import { DocLink, DocSection } from "../DocLink";
+import CodeSnippetModal from "./CodeSnippetModal";
 
 export interface Props {
   feature: FeatureInterface;

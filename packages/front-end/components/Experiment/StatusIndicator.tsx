@@ -1,7 +1,7 @@
 import { FC } from "react";
-import styles from "./StatusIndicator.module.scss";
 import clsx from "clsx";
 import { ExperimentStatus } from "back-end/types/experiment";
+import styles from "./StatusIndicator.module.scss";
 
 const getColor = (status: ExperimentStatus) => {
   switch (status) {

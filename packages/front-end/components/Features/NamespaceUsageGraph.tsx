@@ -1,8 +1,8 @@
-import useOrgSettings from "../../hooks/useOrgSettings";
-import styles from "./NamespaceUsageGraph.module.scss";
 import clsx from "clsx";
 import { NamespaceUsage } from "back-end/types/organization";
-import { findGaps } from "../../services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { findGaps } from "@/services/features";
+import styles from "./NamespaceUsageGraph.module.scss";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

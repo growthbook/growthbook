@@ -1,20 +1,20 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { ago } from "../../services/dates";
-import Button from "../../components/Button";
 import { DimensionInterface } from "back-end/types/dimension";
-import DimensionForm from "../../components/Dimensions/DimensionForm";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import Link from "next/link";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import { GBAddCircle } from "../../components/Icons";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink } from "../../components/DocLink";
-import Code, { Language } from "../../components/SyntaxHighlighting/Code";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { ago } from "@/services/dates";
+import Button from "@/components/Button";
+import DimensionForm from "@/components/Dimensions/DimensionForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { hasFileConfig } from "@/services/env";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { GBAddCircle } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
+import { DocLink } from "@/components/DocLink";
+import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 
 const DimensionsPage: FC = () => {
   const {

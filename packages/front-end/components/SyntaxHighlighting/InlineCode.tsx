@@ -3,12 +3,12 @@ import {
   tomorrow as dark,
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import PrismFallback from "./PrismFallback";
-import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
 import { Suspense } from "react";
-import { Language } from "./Code";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { Language } from "./Code";
+import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time
 const Prism = dynamic(() => import("./Prism"), {

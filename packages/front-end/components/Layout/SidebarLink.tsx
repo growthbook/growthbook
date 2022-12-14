@@ -7,7 +7,7 @@ import clsx from "clsx";
 import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
 import { isCloud } from "../../services/env";
-import { Permission } from "back-end/types/organization";
+import { AccountPlan, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 
 export type SidebarLinkProps = {
@@ -27,12 +27,13 @@ export type SidebarLinkProps = {
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
   feature?: string;
+  accountPlans?: AccountPlan[];
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const growthbook = useGrowthBook();
 
-  const { permissions, admin } = useUser();
+  const { permissions, admin, accountPlan } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -140,6 +141,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               return null;
             }
             if (l.selfHostedOnly && isCloud()) {
+              return null;
+            }
+            if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
               return null;
             }
 

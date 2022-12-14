@@ -6,11 +6,11 @@ import React, {
 } from "react";
 import { useDropzone } from "react-dropzone";
 import { Screenshot } from "back-end/types/experiment";
-import { useAuth } from "../../services/auth";
-import styles from "./ScreenshotUpload.module.scss";
 import clsx from "clsx";
+import { useAuth } from "@/services/auth";
+import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
-import { uploadFile } from "../../services/files";
+import styles from "./ScreenshotUpload.module.scss";
 
 type props = {
   experiment: string;
