@@ -73,6 +73,7 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 
@@ -121,6 +122,7 @@ result = analyze_metric_df(
   weights=weights,
   type=type,
   inverse=inverse,
+  # engine=StatsEngine.FREQUENTIST
 )
 
 print(json.dumps({
