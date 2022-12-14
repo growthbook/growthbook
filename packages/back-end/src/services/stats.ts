@@ -14,7 +14,9 @@ import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
+import { OrganizationSettings } from "../../types/organization";
 import { QueryMap } from "./queries";
+import { getOrganizationById } from "./organizations";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -49,7 +51,8 @@ export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
-  maxDimensions: number
+  maxDimensions: number,
+  statsEngine: OrganizationSettings["statsEngine"] = "bayesian"
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -122,8 +125,11 @@ result = analyze_metric_df(
   weights=weights,
   type=type,
   inverse=inverse,
-  # engine=StatsEngine.FREQUENTIST
-  # engine=StatsEngine.BAYESIAN
+  engine=${
+    statsEngine === "bayesian"
+      ? "StatsEngine.BAYESIAN"
+      : "StatsEngine.FREQUENTIST"
+  }
 )
 
 print(json.dumps({
@@ -154,6 +160,9 @@ export async function analyzeExperimentResults(
   dimension: string | undefined,
   queryData: QueryMap
 ): Promise<ExperimentReportResults> {
+  const org = await getOrganizationById(organization);
+  const statsEngine: OrganizationSettings["statsEngine"] =
+    org?.settings?.statsEngine ?? "bayesian";
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
   metrics.forEach((m) => {
@@ -222,7 +231,8 @@ export async function analyzeExperimentResults(
           variations,
           metric,
           data.rows,
-          dimension === "pre:date" ? 100 : MAX_DIMENSIONS
+          dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
+          statsEngine
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
