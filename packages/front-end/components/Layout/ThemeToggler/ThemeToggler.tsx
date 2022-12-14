@@ -48,7 +48,7 @@ export const ThemeToggler: FC = () => {
         onClick={() => {
           setThemeDropdownOpen(!themeDropdownOpen);
         }}
-        className="btn mr-1"
+        className="btn p-0 mr-1"
       >
         <span className="nav-link dropdown-toggle text-main">{activeIcon}</span>
       </button>
