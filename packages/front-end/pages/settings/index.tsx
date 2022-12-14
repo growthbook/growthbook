@@ -70,6 +70,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       multipleExposureMinPercent: 0.01,
+      statsEngine: "bayesian",
     },
   });
   const { apiCall } = useAuth();
@@ -91,6 +92,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
+    statsEngine: form.watch("statsEngine"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -351,7 +353,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <h4>Experiment Settings</h4>
             </div>
 
-            <div className="col-sm-9 form-inline">
+            <div className="col-sm-9 form-inline flex-column align-items-start">
               <Field
                 label="Minimum experiment length (in days) when importing past
                 experiments"
@@ -383,7 +385,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 })}
               />
 
-              <div className="mb-3">
+              <div className="mb-3 form-group flex-column align-items-start">
                 <Field
                   label="Experiment Auto-Update Frequency"
                   className="ml-2"
@@ -441,6 +443,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </div>
                 )}
               </div>
+
+              <Field
+                label="Statistics Engine"
+                className="ml-2"
+                options={[
+                  {
+                    display: "Bayesian",
+                    value: "bayesian",
+                  },
+                  {
+                    display: "Frequentist",
+                    value: "frequentist",
+                  },
+                ]}
+                {...form.register("statsEngine")}
+              />
             </div>
           </div>
 

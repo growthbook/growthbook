@@ -123,6 +123,7 @@ result = analyze_metric_df(
   type=type,
   inverse=inverse,
   # engine=StatsEngine.FREQUENTIST
+  # engine=StatsEngine.BAYESIAN
 )
 
 print(json.dumps({
