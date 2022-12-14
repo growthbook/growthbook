@@ -96,12 +96,15 @@ Make sure to swap out the `FEATURES_ENDPOINT` constant above with your own dev A
 Lastly, you'll need to wrap the app in a GrowthBookProvider component which will let us run A/B tests from anywhere in the app.
 
 ```html
-ReactDOM.render(
-<React.StrictMode>
-  <GrowthBookProvider growthbook="{growthbook}">
-    <App />
-  </GrowthBookProvider> </React.StrictMode
->, document.getElementById('root') );
+const root = ReactDOM.createRoot(document.getElementById('root'));
+
+root.render(
+    <React.StrictMode>
+        <GrowthBookProvider growthbook="{growthbook}">
+            <App />
+        </GrowthBookProvider>
+    </React.StrictMode>
+);
 ```
 
 ## 4. Create and use a feature

@@ -1,5 +1,6 @@
 import * as React from "react";
-import * as ReactDOM from "react-dom";
+import { render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import {
   GrowthBook,
   GrowthBookProvider,
@@ -31,74 +32,58 @@ const TestedClassComponent = withRunExperiment(
 describe("GrowthBookProvider", () => {
   it("renders without crashing and doesn't add additional html", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
-    ReactDOM.render(
+    render(
       <GrowthBookProvider growthbook={growthbook}>
         <h1>Hello World</h1>
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>Hello World</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(screen.getByText(/Hello World/i)).toBeInTheDocument();
     growthbook.destroy();
   });
 
   it("runs an experiment with the useExperiment hook", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
-
-    ReactDOM.render(
+    render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>1</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(screen.getByText(/1/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
     growthbook.destroy();
   });
 
   it("works using the withRunExperiment HoC", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
-
-    ReactDOM.render(
+    render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedClassComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>1</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(screen.getByText(/1/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
     growthbook.destroy();
   });
 
   it("returns the control when there is no user", () => {
-    const div = document.createElement("div");
-
     const growthbook = new GrowthBook({});
-
-    ReactDOM.render(
+    render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>0</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(screen.getByText(/0/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
     growthbook.destroy();
   });
 
   it("returns the control when there is no growthbook instance", () => {
-    const div = document.createElement("div");
-
-    ReactDOM.render(
+    render(
       <GrowthBookProvider>
         <TestedComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>0</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(screen.getByText(/0/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
 });
