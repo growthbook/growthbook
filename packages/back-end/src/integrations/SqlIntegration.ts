@@ -1053,19 +1053,22 @@ export default abstract class SqlIntegration
         u.dimension,
         ${this.getVariationUsers(metric)} as users,
         '${isRatio ? `ratio` : `sample_mean`}' as statistic_type,
-        '${this.getMetricStatisticType(isRatio, metric)}' as numerator_type,
+        '${this.getMetricStatisticType(metric)}' as numerator_type,
         -- TODO: consider struct for following quantities
-        ${this.getVariationDenominatorTotal(isRatio, metric)} as denominator_sum,
+        ${this.getVariationDenominatorTotal(
+          isRatio,
+          metric
+        )} as denominator_sum,
         s.m_sum AS numerator_sum,
         s.m_sum_squares AS numerator_sum_squares
         ${
           isRatio
-          ? `,
-          "${this.getMetricStatisticType(isRatio, metric)}" as denominator_type,
+            ? `,
+          "${this.getMetricStatisticType(metric)}" as denominator_type,
           s.d_sum_squares AS denominator_sum_squares,
           s.m_d_sum_product AS num_denom_sum_product
           `
-          : ""
+            : ""
         }
       FROM
         __overallUsers u
@@ -1094,14 +1097,17 @@ export default abstract class SqlIntegration
     }
     return `u.users`;
   }
-  private getMetricStatisticType(isRatio: boolean, metric: MetricInterface) {
-    if (metric.type = "binomial") {
-      return `proportion`
+  private getMetricStatisticType(metric: MetricInterface) {
+    if (metric.type === "binomial") {
+      return `proportion`;
     } else {
-      return `mean`
+      return `mean`;
     }
   }
-  private getVariationDenominatorTotal(isRatio: boolean, metric: MetricInterface) {
+  private getVariationDenominatorTotal(
+    isRatio: boolean,
+    metric: MetricInterface
+  ) {
     // Ratio metrics use the sum of the denominator metric
     if (isRatio) {
       return `s.d_sum`;

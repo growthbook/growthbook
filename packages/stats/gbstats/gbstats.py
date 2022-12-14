@@ -134,9 +134,13 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
+            df["baseline_mean"] = None
+            df["baseline_stddev"] = None
             df["baseline_risk"] = None
         else:
             df[f"v{i}_cr"] = 0
+            df[f"v{i}_mean"] = None
+            df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
             df[f"v{i}_rawrisk"] = None
@@ -149,6 +153,8 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         # Baseline values
         stat_a: Statistic = variant_statistic_from_metric_row(s, "baseline")
         s["baseline_cr"] = stat_a.mean
+        s["baseline_mean"] = stat_a.mean
+        s["baseline_stddev"] = stat_a.stddev
 
         # List of users in each variation (used for SRM check)
         users = [0] * num_variations
@@ -158,12 +164,14 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         baseline_risk = 0
         for i in range(1, num_variations):
             # Variation values
-            stat_b: Statistic = variant_statistic_from_metric_row(s, "baseline")
+            stat_b: Statistic = variant_statistic_from_metric_row(s, f"v{i}")
 
             s[f"v{i}_cr"] = stat_b.mean
             s[f"v{i}_expected"] = (
                 (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
             )
+            s[f"v{i}_mean"] = stat_b.mean
+            s[f"v{i}_stddev"] = stat_b.stddev
 
             users[i] = stat_b.n
 
@@ -216,8 +224,8 @@ def format_results(df):
             stats = {
                 "users": row[f"{prefix}_users"],
                 "count": row[f"{prefix}_denominator_sum"],
-                # "stddev": row[f"{prefix}_stddev"],
-                # "mean": row[f"{prefix}_mean"],
+                "stddev": row[f"{prefix}_stddev"],
+                "mean": row[f"{prefix}_mean"],
             }
             if v == 0:
                 dim["variations"].append(
@@ -271,7 +279,7 @@ def base_statistic_from_metric_row(
     else:
         return SampleMeanStatistic(
             sum=row[f"{prefix}_{component}_sum"],
-            sum_of_squares=row[f"{prefix}_{component}_sums_of_squares"],
+            sum_of_squares=row[f"{prefix}_{component}_sum_squares"],
             n=row[f"{prefix}_users"],
         )
 
