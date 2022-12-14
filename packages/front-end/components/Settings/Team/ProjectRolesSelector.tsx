@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { ProjectMemberRole } from "back-end/types/organization";
-import { useUser } from "../../../services/UserContext";
-import SelectField from "../../Forms/SelectField";
-import { useDefinitions } from "../../../services/DefinitionsContext";
 import cloneDeep from "lodash/cloneDeep";
+import { useUser } from "@/services/UserContext";
+import SelectField from "@/components/Forms/SelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import PremiumTooltip from "../../Marketing/PremiumTooltip";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({
@@ -17,7 +18,7 @@ export default function ProjectRolesSelector({
   const { hasCommercialFeature, settings } = useUser();
   const [newProject, setNewProject] = useState("");
 
-  if (!hasCommercialFeature("advanced-permissions")) return null;
+  const hasFeature = hasCommercialFeature("advanced-permissions");
   if (!projects?.length) return null;
 
   const usedProjectIds = projectRoles.map((r) => r.project) || [];
@@ -25,9 +26,13 @@ export default function ProjectRolesSelector({
 
   return (
     <>
-      <div className="text-muted mb-2">Project Roles (optional)</div>
+      <label className="mb-2">
+        <PremiumTooltip commercialFeature="advanced-permissions">
+          Project Roles (optional)
+        </PremiumTooltip>
+      </label>
       {projectRoles.map((projectRole, i) => (
-        <div className="appbox px-3 pt-3 bg-light" key={i}>
+        <div className="appbox px-3 pt-2 bg-light" key={i}>
           <div style={{ float: "right" }}>
             <a
               href="#"
@@ -62,6 +67,7 @@ export default function ProjectRolesSelector({
                 <strong>{getProjectById(projectRole.project)?.name}</strong>
               </>
             }
+            disabled={!hasFeature}
             includeAdminRole={false}
           />
         </div>
@@ -77,12 +83,13 @@ export default function ProjectRolesSelector({
                 label: p.name,
                 value: p.id,
               }))}
+              disabled={!hasFeature}
             />
           </div>
           <div className="col-auto">
             <button
               className="btn btn-outline-primary"
-              disabled={!newProject}
+              disabled={!newProject || !hasFeature}
               onClick={(e) => {
                 e.preventDefault();
                 if (!newProject) return;

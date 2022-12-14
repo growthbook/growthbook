@@ -1,0 +1,32 @@
+@import "../../styles/colors.scss";
+
+.ctaLink {
+  display: block;
+  margin: auto;
+  width: 100%;
+  text-align: center;
+
+  .cta {
+    cursor: pointer;
+    transition: 150ms all;
+    box-shadow: 0 0 5px rgb(0 0 0 / 0%);
+
+    .headerMessage {
+      position: relative;
+      top: 0;
+      transition: 150ms all;
+    }
+  }
+
+  &:hover {
+    text-decoration: none;
+    .cta {
+      box-shadow: 0 2px 5px -2px rgb(0 0 0 / 10%);
+
+      .headerMessage {
+        top: -1.5px;
+        transform: scale(1.01);
+      }
+    }
+  }
+}

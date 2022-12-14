@@ -1,6 +1,6 @@
+import crypto from "crypto";
 import { Request } from "express";
 import mongoose from "mongoose";
-import crypto from "crypto";
 import { UserInterface } from "../../types/user";
 
 export interface AuthRefreshInterface {

@@ -1,6 +1,6 @@
 import { FC } from "react";
-import { useAuth } from "../../services/auth";
 import { BsArrowRepeat } from "react-icons/bs";
+import { useAuth } from "@/services/auth";
 import Button from "../Button";
 
 const RefreshMetricButton: FC<{

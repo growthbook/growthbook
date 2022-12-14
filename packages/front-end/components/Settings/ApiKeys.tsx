@@ -1,7 +1,7 @@
 import { FC } from "react";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../LoadingOverlay";
 import { ApiKeyInterface } from "back-end/types/apikey";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "../LoadingOverlay";
 import SDKEndpoints from "../Features/SDKEndpoints";
 import SecretApiKeys from "./SecretApiKeys";
 

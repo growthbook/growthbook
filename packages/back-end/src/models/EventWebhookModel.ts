@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import z from "zod";
 import _ from "lodash";
 import md5 from "md5";
@@ -8,7 +9,6 @@ import {
 } from "../events/base-types";
 import { errorStringFromZodResult } from "../util/validation";
 import { EventWebHookInterface } from "../../types/event-webhook";
-import { randomUUID } from "crypto";
 import { logger } from "../util/logger";
 
 const eventWebHookSchema = new mongoose.Schema({

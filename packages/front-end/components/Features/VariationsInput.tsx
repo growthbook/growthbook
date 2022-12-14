@@ -1,17 +1,17 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import React, { useState } from "react";
 import {
   getDefaultVariationValue,
   getVariationColor,
   getVariationDefaultName,
-} from "../../services/features";
+} from "@/services/features";
 import Field from "../Forms/Field";
-import FeatureValueField from "./FeatureValueField";
-import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import { GBAddCircle } from "../Icons";
-import React, { useState } from "react";
-import styles from "./VariationsInput.module.scss";
 import Tooltip from "../Tooltip/Tooltip";
 import MoreMenu from "../Dropdown/MoreMenu";
+import FeatureValueField from "./FeatureValueField";
+import ExperimentSplitVisual from "./ExperimentSplitVisual";
+import styles from "./VariationsInput.module.scss";
 
 export interface Props {
   valueType: FeatureValueType;

@@ -1,3 +1,4 @@
+import { analyticsreporting_v4, google } from "googleapis";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -9,7 +10,6 @@ import {
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
-import { analyticsreporting_v4, google } from "googleapis";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
