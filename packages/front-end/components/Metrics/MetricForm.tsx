@@ -341,7 +341,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const requiredColumns = useMemo(() => {
     return new Set(["timestamp", ...value.userIdTypes]);
-  }, []);
+  }, [value.userIdTypes]);
 
   return (
     <PagedModal
