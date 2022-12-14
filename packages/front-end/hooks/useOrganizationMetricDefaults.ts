@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { MetricDefaults } from "back-end/types/organization";
-import useOrgSettings from "./useOrgSettings";
 import { MetricInterface } from "back-end/types/metric";
+import useOrgSettings from "./useOrgSettings";
 
 const defaultMaxPercentChange = 0.5;
 const defaultMinPercentChange = 0.005;

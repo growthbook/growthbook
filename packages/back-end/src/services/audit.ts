@@ -1,8 +1,8 @@
+import uniqid from "uniqid";
+import { QueryOptions } from "mongoose";
 import { AuditModel } from "../models/AuditModel";
 import { AuditInterface } from "../../types/audit";
-import uniqid from "uniqid";
 import { WatchModel } from "../models/WatchModel";
-import { QueryOptions } from "mongoose";
 
 export function insertAudit(data: Partial<AuditInterface>) {
   return AuditModel.create({

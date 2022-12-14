@@ -25,11 +25,11 @@ import {
   useMemo,
   useState,
 } from "react";
+import * as Sentry from "@sentry/react";
+import useApi from "../hooks/useApi";
 import { useAuth, UserOrganizations } from "./auth";
 import { isCloud, isSentryEnabled } from "./env";
 import track from "./track";
-import * as Sentry from "@sentry/react";
-import useApi from "../hooks/useApi";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;

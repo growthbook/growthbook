@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
-import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import uniqid from "uniqid";
+import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
-import { SegmentModel } from "./SegmentModel";
-import { getDataSourceById } from "./DataSourceModel";
 import { processMetricValueQueryResponse } from "../services/queries";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { SegmentModel } from "./SegmentModel";
+import { getDataSourceById } from "./DataSourceModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,

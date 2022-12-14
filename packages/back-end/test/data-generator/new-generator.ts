@@ -1,7 +1,7 @@
 /// <reference types="../../typings/jstat" />
+import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import { jStat } from "jstat";
-import fs from "fs";
 
 const NUM_USERS = 10000;
 const OUTPUT_DIR = "/tmp/csv";

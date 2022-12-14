@@ -1,14 +1,14 @@
 import { ReactElement, useState } from "react";
-import { useAuth } from "../../services/auth";
-import track from "../../services/track";
-import WelcomeFrame from "./WelcomeFrame";
-import { useUser } from "../../services/UserContext";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
+import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
+import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
+import useApi from "@/hooks/useApi";
 import Field from "../Forms/Field";
-import { isCloud } from "../../services/env";
-import useApi from "../../hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
+import WelcomeFrame from "./WelcomeFrame";
 
 export default function CreateOrganization(): ReactElement {
   const { data } = useApi<{

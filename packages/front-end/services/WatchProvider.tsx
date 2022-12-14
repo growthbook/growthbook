@@ -1,5 +1,5 @@
-import useApi from "../hooks/useApi";
 import { FC, createContext, useContext, ReactNode } from "react";
+import useApi from "../hooks/useApi";
 
 type WatchContextValue = {
   watchedExperiments: string[];

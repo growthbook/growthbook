@@ -1,5 +1,6 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
@@ -15,7 +16,6 @@ import Tooltip from "../components/Tooltip/Tooltip";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
 import { useFeaturesList } from "../services/features";
-import Link from "next/link";
 import { useAuth } from "../services/auth";
 
 const getSavedGroupMessage = (

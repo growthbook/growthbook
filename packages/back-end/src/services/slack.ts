@@ -1,7 +1,7 @@
 import { ServerResponse, IncomingMessage } from "http";
 import crypto from "crypto";
-import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { WebClient } from "@slack/web-api";
+import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { UserModel } from "../models/UserModel";
 import { OrganizationInterface } from "../../types/organization";
 

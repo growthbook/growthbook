@@ -1,8 +1,11 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
-import { usingFileConfig } from "./init/config";
 import cors from "cors";
+import asyncHandler from "express-async-handler";
+import compression from "compression";
+import * as Sentry from "@sentry/node";
+import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
@@ -16,12 +19,9 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import asyncHandler from "express-async-handler";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
-import compression from "compression";
-import * as Sentry from "@sentry/node";
 import apiRouter from "./api/api.router";
 
 if (SENTRY_DSN) {

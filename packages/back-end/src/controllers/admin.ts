@@ -1,10 +1,11 @@
+import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationById,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { Response } from "express";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import {
   createExperiment,
@@ -12,7 +13,6 @@ import {
   createSnapshot,
 } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
-import uniqid from "uniqid";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";

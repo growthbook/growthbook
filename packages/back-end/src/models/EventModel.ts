@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import z from "zod";
 import _ from "lodash";
 import mongoose from "mongoose";
-import { randomUUID } from "node:crypto";
 import {
   notificationEventNames,
   notificationEventResources,

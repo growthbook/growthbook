@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable @typescript-eslint/no-var-requires */
-const ObjectToCsv = require("objects-to-csv");
 const fs = require("fs");
+const ObjectToCsv = require("objects-to-csv");
 
 const args = process.argv.slice(2);
 

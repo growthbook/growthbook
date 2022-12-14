@@ -1,9 +1,9 @@
 import { FC } from "react";
-import SRMWarning from "./SRMWarning";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import SRMWarning from "./SRMWarning";
 
 const DataQualityWarning: FC<{
   results: ExperimentReportResultDimension;

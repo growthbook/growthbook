@@ -1,8 +1,8 @@
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MdDeleteForever } from "react-icons/md";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
-import { MdDeleteForever } from "react-icons/md";
 
 export interface Props {
   form: UseFormReturn<Partial<ExperimentInterfaceStringDates>>;
