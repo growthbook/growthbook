@@ -1,19 +1,19 @@
 import Link from "next/link";
-import styles from "./Layout.module.scss";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import TopNav from "./TopNav";
-import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaArrowRight } from "react-icons/fa";
+import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
 import UpgradeModal from "../Settings/UpgradeModal";
 import { useUser } from "../../services/UserContext";
+import ProjectSelector from "./ProjectSelector";
+import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import TopNav from "./TopNav";
+import styles from "./Layout.module.scss";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
