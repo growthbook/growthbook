@@ -1,5 +1,9 @@
 import Agenda, { Job } from "agenda";
-import { FeatureModel } from "../models/FeatureModel";
+import {
+  getFeature,
+  getScheduledFeaturesToUpdate,
+  updateFeature,
+} from "../models/FeatureModel";
 import {
   featureUpdated,
   getEnabledEnvironments,
@@ -9,6 +13,7 @@ import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
+  organization: string;
 }>;
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
@@ -22,13 +27,18 @@ async function fireUpdateWebhook(agenda: Agenda) {
   await updateFeatureJob.save();
 }
 
-async function queueFeatureUpdate(agenda: Agenda, featureId: string) {
+async function queueFeatureUpdate(
+  agenda: Agenda,
+  feature: { id: string; organization: string }
+) {
   const job = agenda.create(UPDATE_SINGLE_FEATURE, {
-    featureId,
+    featureId: feature.id,
+    organization: feature.organization,
   }) as UpdateSingleFeatureJob;
 
   job.unique({
-    featureId,
+    featureId: feature.id,
+    organization: feature.organization,
   });
   job.schedule(new Date());
   await job.save();
@@ -36,14 +46,9 @@ async function queueFeatureUpdate(agenda: Agenda, featureId: string) {
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
-    const featureIds = (
-      await FeatureModel.find({
-        nextScheduledUpdate: {
-          $exists: true,
-          $lt: new Date(),
-        },
-      })
-    ).map((f) => f.id);
+    const featureIds = (await getScheduledFeaturesToUpdate()).map((f) => {
+      return { id: f.id, organization: f.organization };
+    });
 
     for (let i = 0; i < featureIds.length; i++) {
       await queueFeatureUpdate(agenda, featureIds[i]);
@@ -60,8 +65,8 @@ export default async function (agenda: Agenda) {
 }
 
 async function updateSingleFeature(job: UpdateSingleFeatureJob) {
-  // Get the feature from the DB
   const featureId = job.attrs.data?.featureId;
+  const organization = job.attrs.data?.organization;
   if (!featureId) return;
 
   const log = logger.child({
@@ -69,33 +74,27 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     featureId,
   });
 
-  const feature = await FeatureModel.findOne({
-    id: featureId,
-  });
+  const feature = await getFeature(organization, featureId);
+
   if (!feature) return;
 
   try {
-    // Fire the webhook for this particular feature via the featureUpdated() method
+    // Fire the webhook
     featureUpdated(
       feature,
       getEnabledEnvironments(feature),
       feature.project || ""
     );
 
-    // Then, we'll need to recalculate the feature's new nextScheduledUpdate and set it
+    // Then, we'll need to recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {}
     );
 
     // And finally, we'll need to update the feature with the new nextScheduledUpdate
-    await FeatureModel.updateOne(
-      {
-        id: featureId,
-      },
-      {
-        $set: { nextScheduledUpdate },
-      }
-    );
+    await updateFeature(organization, featureId, {
+      nextScheduledUpdate: nextScheduledUpdate,
+    });
   } catch (e) {
     log.error("Failure - " + e.message);
   }

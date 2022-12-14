@@ -70,10 +70,7 @@ featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
-export const FeatureModel = mongoose.model<FeatureDocument>(
-  "Feature",
-  featureSchema
-);
+const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
 /**
  * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
@@ -124,6 +121,15 @@ export async function updateFeature(
       $set: updates,
     }
   );
+}
+
+export async function getScheduledFeaturesToUpdate() {
+  return await FeatureModel.find({
+    nextScheduledUpdate: {
+      $exists: true,
+      $lt: new Date(),
+    },
+  });
 }
 
 export async function archiveFeature(
