@@ -72,7 +72,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               await refreshOrganization();
             }}
           >
-            {v.archived ? "unarchive" : "archive"}
+            {v.archived ? "Unarchive" : "Archive"}
           </button>
         </MoreMenu>
       </td>

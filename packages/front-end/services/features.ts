@@ -178,9 +178,10 @@ export function useFeaturesList(withProject = true) {
 
   const url = withProject ? `/feature?project=${project || ""}` : "/feature";
 
-  const { data, error, mutate } = useApi<{
-    features: FeatureInterface[];
-  }>(url);
+  const { data, error, mutate } =
+    useApi<{
+      features: FeatureInterface[];
+    }>(url);
 
   return {
     features: data?.features || [],
@@ -716,9 +717,10 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  const { data, mutate } =
+    useApi<{
+      usage: FeatureUsageRecords;
+    }>(`/usage/features`);
 
   // Mock data
   const usage = useMemo(() => {
@@ -775,4 +777,20 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$includes";
   }
   return "$eq";
+}
+
+export function genDuplicatedKey({ id }: FeatureInterface) {
+  try {
+    // Take the '_4' out of 'feature_a_4'
+    const numSuffix = id.match(/_[\d]+$/)?.[0];
+    // Store 'feature_a' from 'feature_a_4'
+    const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
+    // Parse the 4 (number) out of '_4' (string)
+    const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
+
+    return `${keyRoot}_${num}`;
+  } catch (e) {
+    // we failed, let the user name the key
+    return "";
+  }
 }
