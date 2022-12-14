@@ -11,7 +11,7 @@ import {
   createMetric,
   createSnapshot,
 } from "../services/experiments";
-import { SegmentModel } from "../models/SegmentModel";
+import { createSegment } from "../models/SegmentModel";
 import uniqid from "uniqid";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
@@ -182,7 +182,7 @@ export async function addSampleData(
   });
 
   // Example segment
-  await SegmentModel.create({
+  await createSegment({
     datasource: datasource.id,
     name: "Male",
     sql:

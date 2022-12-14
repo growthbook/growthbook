@@ -21,7 +21,7 @@ import {
   createManualSnapshot,
   getSampleExperiment,
 } from "../services/experiments";
-import { SegmentModel } from "../models/SegmentModel";
+import { findSegmentsByDataSource } from "../models/SegmentModel";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
 import {
   createDataSource,
@@ -221,9 +221,10 @@ export async function deleteDataSource(
   }
 
   // Make sure there are no segments
-  const segments = await SegmentModel.find({
-    datasource: datasource.id,
-  });
+  const segments = await findSegmentsByDataSource(
+    datasource.id,
+    datasource.organization
+  );
   if (segments.length > 0) {
     throw new Error(
       "Error: Please delete all segments tied to this datasource first."

@@ -22,6 +22,7 @@ import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
 import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 import { logger } from "../util/logger";
+import { SegmentInterface } from "../../types/segment";
 
 export type ConfigFile = {
   organization?: {
@@ -48,6 +49,12 @@ export type ConfigFile = {
   dimensions?: {
     [key: string]: Omit<
       DimensionInterface,
+      "id" | "organization" | "dateCreated" | "dateUpdated"
+    >;
+  };
+  segments?: {
+    [key: string]: Omit<
+      SegmentInterface,
       "id" | "organization" | "dateCreated" | "dateUpdated"
     >;
   };
@@ -204,4 +211,21 @@ export function getConfigDimensions(
 export function getConfigOrganizationSettings(): OrganizationSettings {
   reloadConfigIfNeeded();
   return config?.organization?.settings || {};
+}
+
+export function getConfigSegments(organization: string): SegmentInterface[] {
+  if (!config || !config.segments) return [];
+  const segments = config.segments;
+
+  return Object.keys(segments).map((id) => {
+    const d = segments[id];
+
+    return {
+      id,
+      ...d,
+      organization,
+      dateCreated: null,
+      dateUpdated: null,
+    };
+  });
 }
