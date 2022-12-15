@@ -1,6 +1,6 @@
-import { MetricInterface, MetricStats } from "../../types/metric";
-import { PythonShell } from "python-shell";
 import { promisify } from "util";
+import { PythonShell } from "python-shell";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import {
   ExperimentMetricQueryResponse,
   ExperimentResults,
@@ -10,11 +10,11 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
-import { QueryMap } from "./queries";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
+import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
 

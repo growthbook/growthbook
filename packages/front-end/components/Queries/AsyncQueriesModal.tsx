@@ -1,10 +1,10 @@
 import { FC } from "react";
-import Modal from "../Modal";
-import useApi from "../../hooks/useApi";
 import { QueryInterface } from "back-end/types/query";
+import useApi from "@/hooks/useApi";
+import Modal from "../Modal";
 import LoadingOverlay from "../LoadingOverlay";
-import ExpandableQuery from "./ExpandableQuery";
 import LoadingSpinner from "../LoadingSpinner";
+import ExpandableQuery from "./ExpandableQuery";
 
 const AsyncQueriesModal: FC<{
   queries: string[];

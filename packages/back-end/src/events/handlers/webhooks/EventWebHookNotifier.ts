@@ -5,6 +5,11 @@ import {
   getEventWebHookById,
   updateEventWebHookStatus,
 } from "../../../models/EventWebhookModel";
+import { EventWebHookInterface } from "../../../../types/event-webhook";
+import { getSavedGroupMap } from "../../../services/features";
+import { findOrganizationById } from "../../../models/OrganizationModel";
+import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
+import { logger } from "../../../util/logger";
 import {
   cancellableFetch,
   EventWebHookErrorResult,
@@ -13,11 +18,6 @@ import {
   getEventWebHookSignatureForPayload,
   getPayloadForNotificationEvent,
 } from "./event-webhooks-utils";
-import { EventWebHookInterface } from "../../../../types/event-webhook";
-import { getSavedGroupMap } from "../../../services/features";
-import { findOrganizationById } from "../../../models/OrganizationModel";
-import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
-import { logger } from "../../../util/logger";
 
 let jobDefined = false;
 

@@ -1,12 +1,12 @@
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
+import { HexColorPicker } from "react-colorful";
+import React from "react";
+import { TagInterface } from "back-end/types/tag";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import { HexColorPicker } from "react-colorful";
 import styles from "./TagsModal.module.scss";
-import React from "react";
 import Tag from "./Tag";
-import { TagInterface } from "back-end/types/tag";
 
 export default function TagsModal({
   existing,

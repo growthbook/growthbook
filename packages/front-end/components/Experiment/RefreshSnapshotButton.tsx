@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
-import { useAuth } from "../../services/auth";
 import { BsArrowRepeat } from "react-icons/bs";
-import Button from "../Button";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import ManualSnapshotForm from "./ManualSnapshotForm";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { useAuth } from "@/services/auth";
+import Button from "../Button";
+import ManualSnapshotForm from "./ManualSnapshotForm";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;

@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
-import * as rawSavedGroupController from "./saved-group.controller";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import * as rawSavedGroupController from "./saved-group.controller";
 
 const router = express.Router();
 

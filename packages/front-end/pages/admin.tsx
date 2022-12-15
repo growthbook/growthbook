@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "../components/LoadingOverlay";
 import { OrganizationInterface } from "back-end/types/organization";
 import clsx from "clsx";
-import { useAuth } from "../services/auth";
 import { FaPlus } from "react-icons/fa";
+import useApi from "../hooks/useApi";
+import LoadingOverlay from "../components/LoadingOverlay";
+import { useAuth } from "../services/auth";
 import CreateOrganization from "../components/CreateOrganization";
 import Button from "../components/Button";
 

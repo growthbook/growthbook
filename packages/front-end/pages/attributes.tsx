@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Tooltip from "../components/Tooltip/Tooltip";
 import { FaQuestionCircle } from "react-icons/fa";
+import { SDKAttribute } from "back-end/types/organization";
+import Tooltip from "../components/Tooltip/Tooltip";
 import { GBEdit } from "../components/Icons";
 import EditAttributesModal from "../components/Features/EditAttributesModal";
 import usePermissions from "../hooks/usePermissions";
-import { SDKAttribute } from "back-end/types/organization";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import { useAuth } from "../services/auth";
 import { useAttributeSchema } from "../services/features";

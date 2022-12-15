@@ -1,15 +1,15 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
+import Head from "next/head";
+import { useEffect, useState } from "react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
-import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
-import { useEffect, useState } from "react";
 import track from "../services/track";
 import { initEnv } from "../services/env";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import Layout from "../components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
 import TopNavLite from "../components/Layout/TopNavLite";

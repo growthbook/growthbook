@@ -3,11 +3,11 @@ import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../services/auth";
 import useMembers from "../hooks/useMembers";
+import { useAttributeSchema } from "../services/features";
+import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "./Modal";
 import Field from "./Forms/Field";
 import SelectField from "./Forms/SelectField";
-import { useAttributeSchema } from "../services/features";
-import { useDefinitions } from "../services/DefinitionsContext";
 
 const SavedGroupForm: FC<{
   close: () => void;

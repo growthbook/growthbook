@@ -1,3 +1,4 @@
+import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -31,7 +32,6 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
-import cloneDeep from "lodash/cloneDeep";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {

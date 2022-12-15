@@ -1,3 +1,6 @@
+import path from "path";
+import nodemailer from "nodemailer";
+import nunjucks from "nunjucks";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -8,11 +11,8 @@ import {
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
 } from "../util/secrets";
-import nodemailer from "nodemailer";
-import nunjucks from "nunjucks";
-import { getEmailFromUserId, getInviteUrl } from "./organizations";
-import path from "path";
 import { OrganizationInterface } from "../../types/organization";
+import { getEmailFromUserId, getInviteUrl } from "./organizations";
 export function isEmailEnabled(): boolean {
   if (!EMAIL_ENABLED) return false;
   if (!EMAIL_HOST) return false;

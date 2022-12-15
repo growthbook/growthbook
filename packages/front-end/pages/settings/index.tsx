@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../../services/auth";
 import { FaPencilAlt } from "react-icons/fa";
-import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
-import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
-import track from "../../services/track";
-import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
-import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud } from "../../services/env";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
-import Field from "../../components/Forms/Field";
-import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
-import TempMessage from "../../components/TempMessage";
-import Button from "../../components/Button";
-import { DocLink } from "../../components/DocLink";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { useUser } from "../../services/UserContext";
-import usePermissions from "../../hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import EditOrganizationForm from "@/components/Settings/EditOrganizationForm";
+import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
+import track from "@/services/track";
+import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
+import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
+import { hasFileConfig, isCloud } from "@/services/env";
+import Field from "@/components/Forms/Field";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import TempMessage from "@/components/TempMessage";
+import Button from "@/components/Button";
+import { DocLink } from "@/components/DocLink";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -102,9 +102,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       setCronString("");
     }
     setCronString(
-      cronstrue.toString(cron, {
+      `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
-      })
+        verbose: true,
+      })} (UTC time)`
     );
   }
 
