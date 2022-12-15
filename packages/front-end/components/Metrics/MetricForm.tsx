@@ -6,17 +6,6 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { getDefaultConversionWindowHours } from "@/services/env";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  formatConversionRate,
-} from "@/services/metrics";
-import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import RadioSelector from "../Forms/RadioSelector";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
@@ -25,7 +14,18 @@ import TagsInput from "../Tags/TagsInput";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import MultiSelectField from "../Forms/MultiSelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import SQLInputField from "../SQLInputField";
+import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import track from "../../services/track";
+import { getDefaultConversionWindowHours } from "../../services/env";
+import {
+  defaultLoseRiskThreshold,
+  defaultWinRiskThreshold,
+  formatConversionRate,
+} from "../../services/metrics";
+import { useAuth } from "../../services/auth";
 import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 
 const weekAgo = new Date();
@@ -339,6 +339,10 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
+  const requiredColumns = useMemo(() => {
+    return new Set(["timestamp", ...value.userIdTypes]);
+  }, [value.userIdTypes]);
+
   return (
     <PagedModal
       inline={inline}
@@ -499,15 +503,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   label="Identifier Types Supported"
                 />
-                <CodeTextArea
-                  label="SQL"
-                  required
-                  language="sql"
-                  value={form.watch("sql")}
-                  setValue={(sql) => form.setValue("sql", sql)}
+                <SQLInputField
+                  userEnteredQuery={value.sql}
+                  datasourceId={value.datasource}
+                  form={form}
+                  requiredColumns={requiredColumns}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
                   }
+                  queryType="metric"
                 />
                 {value.type !== "binomial" && (
                   <Field
@@ -748,9 +752,14 @@ const MetricForm: FC<MetricFormProps> = ({
                 </div>
               ) : (
                 <>
-                  <h4>Query Preview</h4>
-                  SQL:
-                  <Code language="sql" code={getRawSQLPreview(value)} />
+                  <SQLInputField
+                    userEnteredQuery={getRawSQLPreview(value)}
+                    datasourceId={value.datasource}
+                    form={form}
+                    requiredColumns={requiredColumns}
+                    showPreview
+                    queryType="metric"
+                  />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
