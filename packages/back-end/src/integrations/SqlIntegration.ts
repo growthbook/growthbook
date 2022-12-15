@@ -381,8 +381,8 @@ export default abstract class SqlIntegration
         , __overall as (
           SELECT
             COUNT(*) as count,
-            ${this.avg("coalesce(value,0)")} as mean,
-            ${this.stddev("coalesce(value,0)")} as stddev
+            SUM(coalesce(value,0)")} as sum,
+            SUM(POWER(coalesce(value,0), 2)) as sum_squares
           from
             __userMetric
         )
@@ -409,8 +409,8 @@ export default abstract class SqlIntegration
             SELECT
               date,
               COUNT(*) as count,
-              ${this.avg("coalesce(value,0)")} as mean,
-              ${this.stddev("coalesce(value,0)")} as stddev
+              SUM(coalesce(value,0)")} as sum,
+              SUM(POWER(coalesce(value,0), 2)) as sum_squares
             FROM
               __userMetricDates d
             GROUP BY

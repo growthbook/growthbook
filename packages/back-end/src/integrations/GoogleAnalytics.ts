@@ -291,27 +291,30 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           }
 
           const mean = Math.round(value) / users;
+          const sum = value;
           const count = users;
 
           // GA doesn't expose standard deviations, so we have to guess
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
           // For binomial metrics, we can use the Normal approximation for a bernouli random variable
-          const stddev =
+          const variance =
             metric.type === "duration"
-              ? mean
+              ? Math.pow(mean, 2)
               : metric.type === "count"
-              ? Math.sqrt(mean)
+              ? mean
               : metric.type === "binomial"
-              ? Math.sqrt(mean * (1 - mean))
+              ? mean * (1 - mean)
               : 0;
 
+          const sum_squares =
+            variance * (count - 1) + Math.pow(value, 2) / count;
           return {
             metric: metric.id,
-            users,
+            statistic_type: metric.type === "binomial" ? "binomial" : "mean",
             count,
-            mean,
-            stddev,
+            sum,
+            sum_squares,
           };
         }),
       };

@@ -295,12 +295,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
               )
               .join(",")}
           ];
+          const metricTypes = [
+            ${metrics.map((m) => `${JSON.stringify(m.type)}`).join(",")}
+          ];
           for(let i=1; i<row.value.length; i++) {
             ret.metrics.push({
               id: metricIds[i-1],
+              metric_type: metricTypes[i-1],
               count: row.value[i].count,
-              mean: row.value[i].avg,
-              stddev: row.value[i].stddev,
+              sum: row.value[i].sum,
+              sum_squares: row.value[i].sum_squares,
             });
           }
           return ret;
@@ -331,9 +335,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
         users: number;
         metrics: {
           id: string;
+          metric_type: string;
           count: number;
-          mean: number | null;
-          stddev: number | null;
+          sum: number | null;
+          sum_squares: number | null;
         }[];
       }[]
     >(this.params, query);
@@ -347,9 +352,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
           return {
             metric: m.id,
             users,
+            statistic_type: m.metric_type === "binomial" ? "binomial" : "mean",
             count: m.count,
-            mean: m.mean || 0,
-            stddev: m.stddev || 0,
+            sum: m.sum || 0,
+            sum_squares: m.sum_squares || 0,
           };
         }),
       };

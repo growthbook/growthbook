@@ -4,10 +4,10 @@ import {
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricInterface, ExperimentMetricStats } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 
-export type VariationMetricResult = MetricStats & {
+export type VariationMetricResult = ExperimentMetricStats & {
   metric: string;
 };
 
@@ -18,7 +18,7 @@ export type ExperimentResults = {
       variation: number;
       users: number;
       metrics: {
-        [key: string]: MetricStats;
+        [key: string]: ExperimentMetricStats;
       };
     }[];
   }[];

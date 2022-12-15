@@ -176,9 +176,13 @@ export async function analyzeExperimentResults(
           const stats = v.metrics[metric];
           byMetric[metric] = byMetric[metric] || [];
           byMetric[metric].push({
-            ...stats,
             dimension: row.dimension,
             variation: variations[v.variation].id,
+            users: stats.count,
+            statistic_type: "mean", // no ratio in mixpanel or GA
+            numerator_type: stats.statistic_type,
+            numerator_sum: stats.sum,
+            numerator_sum_squares: stats.sum_squares,
           });
         });
       });
