@@ -17,76 +17,83 @@ from gbstats.shared.constants import StatsEngine
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
-MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame([
-    {
-        "dimension": "one",
-        "variation": "one",
-        "numerator_sum": 300,
-        "numerator_sum_squares": 869,
-        "users": 120,
-    },
-    {
-        "dimension": "one",
-        "variation": "zero",
-        "numerator_sum": 270,
-        "numerator_sum_squares": 848.79,
-        "users": 100,
-    },
-    {
-        "dimension": "two",
-        "variation": "one",
-        "numerator_sum": 770,
-        "numerator_sum_squares": 3571,
-        "users": 220,
-    },
-    {
-        "dimension": "two",
-        "variation": "zero",
-        "numerator_sum": 740,
-        "numerator_sum_squares": 3615.59,
-        "users": 200,
-    },
-]).assign(statistic_type="sample_mean", numerator_type="mean")
+MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "one",
+            "variation": "one",
+            "numerator_sum": 300,
+            "numerator_sum_squares": 869,
+            "users": 120,
+        },
+        {
+            "dimension": "one",
+            "variation": "zero",
+            "numerator_sum": 270,
+            "numerator_sum_squares": 848.79,
+            "users": 100,
+        },
+        {
+            "dimension": "two",
+            "variation": "one",
+            "numerator_sum": 770,
+            "numerator_sum_squares": 3571,
+            "users": 220,
+        },
+        {
+            "dimension": "two",
+            "variation": "zero",
+            "numerator_sum": 740,
+            "numerator_sum_squares": 3615.59,
+            "users": 200,
+        },
+    ]
+).assign(statistic_type="sample_mean", numerator_type="mean")
 
-THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame([
-    {
-        "dimension": "three",
-        "variation": "one",
-        "numerator_sum": 222,
-        "numerator_sum_squares": 555,
-        "users": 3000,
-    },
-    {
-        "dimension": "three",
-        "variation": "zero",
-        "numerator_sum": 333,
-        "numerator_sum_squares": 999,
-        "users": 3001,
-    }
-]).assign(statistic_type="sample_mean", numerator_type="mean")
+THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "three",
+            "variation": "one",
+            "numerator_sum": 222,
+            "numerator_sum_squares": 555,
+            "users": 3000,
+        },
+        {
+            "dimension": "three",
+            "variation": "zero",
+            "numerator_sum": 333,
+            "numerator_sum_squares": 999,
+            "users": 3001,
+        },
+    ]
+).assign(statistic_type="sample_mean", numerator_type="mean")
 
-RATIO_STATISTICS_DF = pd.DataFrame([
-    {
-        "dimension": "one",
-        "variation": "one",
-        "users": 120,
-        "numerator_sum": 300,
-        "numerator_sum_squares": 869,
-        "denominator_sum": 500,
-        "denominator_sum_squares": 800,
-        "num_denom_sum_product": -905
-    },
-    {
-        "dimension": "one",
-        "variation": "zero",
-        "numerator_sum": 270,
-        "users": 100,
-        "numerator_sum_squares": 848.79,
-        "denominator_sum": 510,
-        "denominator_sum_squares": 810,
-        "num_denom_sum_product": -900
-    },
-]).assign(statistic_type="ratio", numerator_type="mean", denominatory_type="mean")
+RATIO_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "one",
+            "variation": "one",
+            "users": 120,
+            "numerator_sum": 300,
+            "numerator_sum_squares": 869,
+            "denominator_sum": 500,
+            "denominator_sum_squares": 800,
+            "num_denom_sum_product": -905,
+        },
+        {
+            "dimension": "one",
+            "variation": "zero",
+            "numerator_sum": 270,
+            "users": 100,
+            "numerator_sum_squares": 848.79,
+            "denominator_sum": 510,
+            "denominator_sum_squares": 810,
+            "num_denom_sum_product": -900,
+        },
+    ]
+).assign(statistic_type="ratio", numerator_type="mean", denominatory_type="mean")
+
 
 class TestDetectVariations(TestCase):
     def test_unknown_variations(self):
@@ -100,18 +107,22 @@ class TestDetectVariations(TestCase):
         )
 
     def test_multiple_exposures(self):
-        rows = pd.concat([
-            MULTI_DIMENSION_STATISTICS_DF, 
-            pd.DataFrame([
-                {
-                    "dimension": "All",
-                    "variation": "__multiple__",
-                    "numerator_sum": 99,
-                    "numerator_sum_squares": 9999,
-                    "users": 500,
-                }
-            ])
-        ])
+        rows = pd.concat(
+            [
+                MULTI_DIMENSION_STATISTICS_DF,
+                pd.DataFrame(
+                    [
+                        {
+                            "dimension": "All",
+                            "variation": "__multiple__",
+                            "numerator_sum": 99,
+                            "numerator_sum_squares": 9999,
+                            "users": 500,
+                        }
+                    ]
+                ),
+            ]
+        )
         self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "one": 1}), set())
         self.assertEqual(
             detect_unknown_variations(rows, {"zero": 0, "one": 1}, {"some_other"}),
@@ -123,7 +134,9 @@ class TestReduceDimensionality(TestCase):
     def test_reduce_dimensionality(self):
         rows = pd.concat([MULTI_DIMENSION_STATISTICS_DF, THIRD_DIMENSION_STATISTICS_DF])
         df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"],
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
         )
         print(df)
         reduced = reduce_dimensionality(df, 3)
@@ -147,9 +160,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"]
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, [0.5, 0.5])
 
         self.assertEqual(len(result.index), 2)
@@ -164,12 +175,8 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 
     def test_get_metric_df_bayesian_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"]
-        )
-        result = analyze_metric_df(
-            df=df, weights=[0.5, 0.5], inverse=False
-        )   
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(df=df, weights=[0.5, 0.5], inverse=False)
 
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -183,9 +190,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
 
     def test_get_metric_df_inverse(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"]
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, [0.5, 0.5], inverse=True)
 
         self.assertEqual(len(result.index), 2)
@@ -203,7 +208,9 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
     def test_get_metric_df_frequentist(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"],
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
         )
         result = analyze_metric_df(
             df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
@@ -219,15 +226,12 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.163302082)
 
-    
     def test_get_metric_df_frequentist_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(
-            rows, {"zero": 0, "one": 1}, ["zero", "one"]
-        )
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
-        )   
+        )
 
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "one")

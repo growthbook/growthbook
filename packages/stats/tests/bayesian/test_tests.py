@@ -5,7 +5,12 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTest
-from gbstats.shared.models import BayesianTestResult, Uplift, ProportionStatistic, SampleMeanStatistic
+from gbstats.shared.models import (
+    BayesianTestResult,
+    Uplift,
+    ProportionStatistic,
+    SampleMeanStatistic,
+)
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
