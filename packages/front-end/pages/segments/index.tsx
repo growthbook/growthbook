@@ -4,6 +4,7 @@ import { SegmentInterface } from "back-end/types/segment";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { ago } from "@/services/dates";
 import Button from "@/components/Button";
@@ -14,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
+import { hasFileConfig } from "@/services/env";
 
 const SegmentPage: FC = () => {
   const {
@@ -204,7 +206,7 @@ const SegmentPage: FC = () => {
           <h1>Segments</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {permissions.createSegments && (
+        {!hasFileConfig() && permissions.createSegments && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -233,7 +235,11 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            <table className="table appbox gbtable table-hover">
+            <table
+              className={clsx("table appbox gbtable", {
+                "table-hover": !hasFileConfig(),
+              })}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -241,8 +247,8 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  {permissions.createSegments && <th></th>}
+                  {!hasFileConfig() && <th>Date Updated</th>}
+                  {!hasFileConfig() && permissions.createSegments && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -286,8 +292,8 @@ const SegmentPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      <td>{ago(s.dateUpdated)}</td>
-                      {permissions.createSegments && (
+                      {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
+                      {!hasFileConfig() && permissions.createSegments && (
                         <td>
                           <a
                             href="#"
@@ -327,7 +333,7 @@ const SegmentPage: FC = () => {
           </div>
         </div>
       )}
-      {segments.length === 0 && (
+      {!hasFileConfig() && segments.length === 0 && (
         <div className="alert alert-info">
           You don&apos;t have any segments defined yet.{" "}
           {permissions.createSegments &&
