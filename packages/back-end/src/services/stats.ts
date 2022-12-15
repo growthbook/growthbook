@@ -16,7 +16,6 @@ import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
 import { OrganizationSettings } from "../../types/organization";
 import { QueryMap } from "./queries";
-import { getOrganizationById } from "./organizations";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -158,11 +157,9 @@ export async function analyzeExperimentResults(
   organization: string,
   variations: ExperimentReportVariation[],
   dimension: string | undefined,
-  queryData: QueryMap
+  queryData: QueryMap,
+  statsEngine: OrganizationSettings["statsEngine"] = "bayesian"
 ): Promise<ExperimentReportResults> {
-  const org = await getOrganizationById(organization);
-  const statsEngine: OrganizationSettings["statsEngine"] =
-    org?.settings?.statsEngine ?? "bayesian";
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
   metrics.forEach((m) => {
