@@ -1,8 +1,8 @@
 import React, { FC, useState } from "react";
-import Modal from "../../Modal";
-import RoleSelector from "./RoleSelector";
 import { MemberRoleWithProjects } from "back-end/types/organization";
+import Modal from "../../Modal";
 import UpgradeModal from "../UpgradeModal";
+import RoleSelector from "./RoleSelector";
 
 const ChangeRoleModal: FC<{
   displayInfo: string;

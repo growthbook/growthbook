@@ -1,9 +1,9 @@
+import { CommercialFeature } from "back-end/types/organization";
+import clsx from "clsx";
 import { useUser } from "../../services/UserContext";
 import { isCloud } from "../../services/env";
-import { CommercialFeature } from "back-end/types/organization";
 import { GBPremiumBadge } from "../Icons";
 import styles from "./UpgradeMessage.module.scss";
-import clsx from "clsx";
 
 export default function UpgradeMessage({
   showUpgradeModal,
