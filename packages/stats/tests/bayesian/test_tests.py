@@ -61,8 +61,8 @@ class TestBinom(TestCase):
 class TestNorm(TestCase):
     def test_bayesian_gaussian_ab_test(self):
         result = GaussianBayesianABTest(
-            SampleMeanStatistic(sum=100, sum_of_squares=1002.25, n=10),
-            SampleMeanStatistic(sum=105, sum_of_squares=1111.5, n=10),
+            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
+            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
         ).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
@@ -80,8 +80,8 @@ class TestNorm(TestCase):
 
     def test_missing_data(self):
         result = GaussianBayesianABTest(
-            SampleMeanStatistic(sum=0, sum_of_squares=0, n=0),
-            SampleMeanStatistic(sum=0, sum_of_squares=0, n=0),
+            SampleMeanStatistic(sum=0, sum_squares=0, n=0),
+            SampleMeanStatistic(sum=0, sum_squares=0, n=0),
         ).compute_result()
         self.assertEqual(result.chance_to_win, 0.5)
         self.assertEqual(result.expected, 0)
@@ -96,8 +96,8 @@ class TestNorm(TestCase):
         }
 
         result = GaussianBayesianABTest(
-            SampleMeanStatistic(sum=99.06, sum_of_squares=9987.2276, n=381),
-            SampleMeanStatistic(sum=20281.8, sum_of_squares=3646063.4064, n=381),
+            SampleMeanStatistic(sum=99.06, sum_squares=9987.2276, n=381),
+            SampleMeanStatistic(sum=20281.8, sum_squares=3646063.4064, n=381),
             # Statistic(0.26, 5.12, 381, 381),
             # Statistic(0.84, 12.26, 24145, 24145),
         ).compute_result()

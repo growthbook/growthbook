@@ -27,11 +27,11 @@ class Statistic(ABC):
 @dataclass
 class SampleMeanStatistic(Statistic):
     sum: float
-    sum_of_squares: float
+    sum_squares: float
 
     @property
     def variance(self):
-        return (self.sum_of_squares - pow(self.sum, 2) / self.n) / (self.n - 1)
+        return (self.sum_squares - pow(self.sum, 2) / self.n) / (self.n - 1)
 
     @property
     def mean(self):
@@ -43,7 +43,7 @@ class ProportionStatistic(Statistic):
     sum: float
 
     @property
-    def sum_of_squares(self) -> float:
+    def sum_squares(self) -> float:
         return self.sum
 
     @property
@@ -81,7 +81,8 @@ class RatioStatistic(Statistic):
     @property
     def covariance(self):
         return (
-            self.m_d_sum_of_products - self.m_statistic.mean * self.d_statistic.mean
+            self.m_d_sum_of_products
+            - self.m_statistic.sum * self.d_statistic.sum / self.n
         ) / (self.n - 1)
 
 

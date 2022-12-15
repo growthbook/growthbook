@@ -279,7 +279,7 @@ def base_statistic_from_metric_row(
     else:
         return SampleMeanStatistic(
             sum=row[f"{prefix}_{component}_sum"],
-            sum_of_squares=row[f"{prefix}_{component}_sum_squares"],
+            sum_squares=row[f"{prefix}_{component}_sum_squares"],
             n=row[f"{prefix}_users"],
         )
 

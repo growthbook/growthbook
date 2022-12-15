@@ -1,4 +1,3 @@
-import math
 from functools import partial
 from unittest import TestCase, main as unittest_main
 
@@ -6,7 +5,6 @@ import numpy as np
 import pandas as pd
 
 from gbstats.gbstats import (
-    check_srm,
     detect_unknown_variations,
     reduce_dimensionality,
     analyze_metric_df,
@@ -181,11 +179,11 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
-        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0.12841364)
+        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0.157756864)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(round_(result.at[0, "v1_risk"]), 0.010766582)
+        self.assertEqual(round_(result.at[0, "v1_risk"]), 0.040109805)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.834518384)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.706241155)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_inverse(self):
@@ -241,7 +239,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.334254941)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.587981919)
 
 
 if __name__ == "__main__":
