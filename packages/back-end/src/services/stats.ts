@@ -25,7 +25,7 @@ export interface StatsEngineDimensionResponse {
     cr: number;
     value: number;
     users: number;
-    count: number;
+    denominator: number;
     stats: MetricStats;
     expected?: number;
     chanceToWin?: number;
