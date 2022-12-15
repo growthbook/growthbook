@@ -16,7 +16,8 @@ const segmentSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
 });
-export type SegmentDocument = mongoose.Document & SegmentInterface;
+
+type SegmentDocument = mongoose.Document & SegmentInterface;
 
 const SegmentModel = mongoose.model<SegmentDocument>("Segment", segmentSchema);
 
