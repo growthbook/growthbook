@@ -13,7 +13,7 @@ export interface Props {
 
 export default function UpgradeModal({ close, source, reason }: Props) {
   const [closeCta, setCloseCta] = useState("Cancel");
-  const { accountPlan } = useUser();
+  const { accountPlan, permissions } = useUser();
 
   useEffect(() => {
     if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
@@ -28,7 +28,11 @@ export default function UpgradeModal({ close, source, reason }: Props) {
 
   return (
     <Modal open={true} close={close} closeCta={closeCta} size="lg">
-      {isCloud() ? (
+      {!permissions.check("manageBilling") ? (
+        <div className="text-center mt-4 mb-5">
+          To upgrade, please contact your system administrator.
+        </div>
+      ) : isCloud() ? (
         <CloudUpgradeForm
           accountPlan={accountPlan}
           source={source}
