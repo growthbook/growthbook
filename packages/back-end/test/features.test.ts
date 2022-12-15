@@ -1,4 +1,5 @@
 import { replaceSavedGroupsInCondition } from "../src/util/features";
+import { getCurrentEnabledState } from "../src/util/scheduleRules";
 
 const groupMap = new Map();
 
@@ -157,4 +158,43 @@ it("should NOT replace someone hand writes a condition with $inGroup: false", ()
   expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
     '{"number":{"$inGroup":false}}'
   );
+});
+
+it("should not filter out features that have no scheduled rules calling getFeatureDefinition", () => {
+  const scheduleRules = undefined;
+
+  expect(getCurrentEnabledState(scheduleRules || [], new Date())).toEqual(true);
+});
+
+it("should filter out a feature that has an upcoming rule that enables it", () => {
+  const scheduleRules = [
+    { enableFeature: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { enableFeature: false, timestamp: "2022-12-30T12:00:00.000Z" },
+  ];
+
+  const date = new Date("2022-11-15T12:00:00.000Z");
+
+  expect(getCurrentEnabledState(scheduleRules || [], date)).toEqual(false);
+});
+
+it("should NOT filter out a feature that has an upcoming rule that disables it", () => {
+  const scheduleRules = [
+    { enableFeature: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { enableFeature: false, timestamp: "2022-12-30T12:00:00.000Z" },
+  ];
+
+  const date = new Date("2022-12-15T12:00:00.000Z");
+
+  expect(getCurrentEnabledState(scheduleRules || [], date)).toEqual(true);
+});
+
+it("should filter out a feature that has no upcoming rules", () => {
+  const scheduleRules = [
+    { enableFeature: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { enableFeature: false, timestamp: "2022-12-30T12:00:00.000Z" },
+  ];
+
+  const date = new Date("2023-01-15T12:00:00.000Z");
+
+  expect(getCurrentEnabledState(scheduleRules || [], date)).toEqual(false);
 });
