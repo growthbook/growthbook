@@ -449,6 +449,7 @@ export default abstract class SqlIntegration
         variation: row.variation ?? "",
         dimension: row.dimension || "",
         users: parseInt(row.users) || 0,
+        count: parseInt(row.count) || 0,
         statistic_type: row.statistic_type ?? "",
         numerator_type: row.numerator_type ?? "",
         numerator_sum: parseFloat(row.numerator_sum) ?? 0,
@@ -1030,8 +1031,10 @@ export default abstract class SqlIntegration
             isRatio
               ? `,
             ${this.ensureFloat("SUM(d.value)")} as d_sum,
-            ${this.ensureFloat("SUM(POWER(m.value, 2))")} as d_sum_squares,
-            SUM(coalesce(d.value,0) * coalesce(m.value,0)) AS m_d_sum_product
+            ${this.ensureFloat("SUM(POWER(d.value, 2))")} as d_sum_squares,
+            ${this.ensureFloat(
+              "SUM(coalesce(d.value,0) * coalesce(m.value,0))"
+            )} AS m_d_sum_product
           `
               : ""
           }
@@ -1051,7 +1054,8 @@ export default abstract class SqlIntegration
       SELECT
         u.variation,
         u.dimension,
-        ${this.getVariationUsers(metric)} as users,
+        u.users as users,
+        ${this.getVariationUsers(metric)} as count,
         '${isRatio ? `ratio` : `sample_mean`}' as statistic_type,
         '${this.getMetricStatisticType(metric)}' as numerator_type,
         s.m_sum AS numerator_sum,

@@ -124,6 +124,7 @@ export type ExperimentMetricQueryResponse = {
   dimension: string;
   variation: string;
   users: number;
+  count: number;
   statistic_type: string;
   numerator_type: string;
   numerator_sum: number;

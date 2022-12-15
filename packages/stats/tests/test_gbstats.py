@@ -23,6 +23,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "numerator_sum": 300,
             "numerator_sum_squares": 869,
             "users": 120,
+            "count": 120,
         },
         {
             "dimension": "one",
@@ -30,6 +31,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "numerator_sum": 270,
             "numerator_sum_squares": 848.79,
             "users": 100,
+            "count": 100,
         },
         {
             "dimension": "two",
@@ -37,6 +39,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "numerator_sum": 770,
             "numerator_sum_squares": 3571,
             "users": 220,
+            "count": 220,
         },
         {
             "dimension": "two",
@@ -44,6 +47,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "numerator_sum": 740,
             "numerator_sum_squares": 3615.59,
             "users": 200,
+            "count": 200,
         },
     ]
 ).assign(statistic_type="sample_mean", numerator_type="mean")
@@ -56,6 +60,7 @@ THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "numerator_sum": 222,
             "numerator_sum_squares": 555,
             "users": 3000,
+            "count": 3000,
         },
         {
             "dimension": "three",
@@ -63,6 +68,7 @@ THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "numerator_sum": 333,
             "numerator_sum_squares": 999,
             "users": 3001,
+            "count": 3001,
         },
     ]
 ).assign(statistic_type="sample_mean", numerator_type="mean")
@@ -73,6 +79,7 @@ RATIO_STATISTICS_DF = pd.DataFrame(
             "dimension": "one",
             "variation": "one",
             "users": 120,
+            "count": 120,
             "numerator_sum": 300,
             "numerator_sum_squares": 869,
             "denominator_sum": 500,
@@ -84,6 +91,7 @@ RATIO_STATISTICS_DF = pd.DataFrame(
             "variation": "zero",
             "numerator_sum": 270,
             "users": 100,
+            "count": 100,
             "numerator_sum_squares": 848.79,
             "denominator_sum": 510,
             "denominator_sum_squares": 810,

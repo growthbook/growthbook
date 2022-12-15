@@ -472,6 +472,7 @@ export async function getManualSnapshotData(
             dimension: "All",
             variation: experiment.variations[i].key || i + "",
             users: s.count,
+            count: s.count,
             statistic_type: "mean", // ratio not supported for now
             numerator_type: metric.type === "binomial" ? "binomial" : "mean",
             numerator_sum: s.mean * s.count,

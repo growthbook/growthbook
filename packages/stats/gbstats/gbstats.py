@@ -56,6 +56,7 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_id"] = key
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 dimensions[dim][f"{prefix}_users"] = 0
+                dimensions[dim][f"{prefix}_count"] = 0
                 dimensions[dim][f"{prefix}_numerator_sum"] = 0
                 dimensions[dim][f"{prefix}_numerator_sum_squares"] = 0
                 dimensions[dim][f"{prefix}_denominator_sum"] = 0
@@ -70,6 +71,7 @@ def get_metric_df(
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
             dimensions[dim][f"{prefix}_users"] = row.users
+            dimensions[dim][f"{prefix}_count"] = row.count
             dimensions[dim][f"{prefix}_numerator_sum"] = row.numerator_sum
             dimensions[dim][
                 f"{prefix}_numerator_sum_squares"
@@ -109,6 +111,7 @@ def reduce_dimensionality(df, max=20):
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
                 current[f"{prefix}_users"] += row[f"{prefix}_users"]
+                current[f"{prefix}_count"] += row[f"{prefix}_count"]
                 current[f"{prefix}_numerator_sum"] += row[f"{prefix}_numerator_sum"]
                 current[f"{prefix}_numerator_sum_squares"] += row[
                     f"{prefix}_numerator_sum_squares"
@@ -223,7 +226,7 @@ def format_results(df):
             prefix = f"v{v}" if v > 0 else "baseline"
             stats = {
                 "users": row[f"{prefix}_users"],
-                "count": row[f"{prefix}_users"],
+                "count": row[f"{prefix}_count"],
                 "stddev": row[f"{prefix}_stddev"],
                 "mean": row[f"{prefix}_mean"],
             }
@@ -233,7 +236,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_numerator_sum"],
                         "users": row[f"{prefix}_users"],
-                        "count": row[f"{prefix}_users"],
+                        "count": row[f"{prefix}_count"],
                         "stats": stats,
                     }
                 )
@@ -243,7 +246,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_numerator_sum"],
                         "users": row[f"{prefix}_users"],
-                        "count": row[f"{prefix}_users"],
+                        "count": row[f"{prefix}_count"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],
@@ -274,13 +277,13 @@ def base_statistic_from_metric_row(
 ) -> Statistic:
     if row[f"{component}_type"] == "proportion":
         return ProportionStatistic(
-            sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_users"]
+            sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
         )
     else:
         return SampleMeanStatistic(
             sum=row[f"{prefix}_{component}_sum"],
             sum_squares=row[f"{prefix}_{component}_sum_squares"],
-            n=row[f"{prefix}_users"],
+            n=row[f"{prefix}_count"],
         )
 
 

@@ -25,7 +25,7 @@ export interface StatsEngineDimensionResponse {
     cr: number;
     value: number;
     users: number;
-    denominator?: number;
+    count: number;
     stats: MetricStats;
     expected?: number;
     chanceToWin?: number;
@@ -179,6 +179,7 @@ export async function analyzeExperimentResults(
             dimension: row.dimension,
             variation: variations[v.variation].id,
             users: stats.count,
+            count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
             numerator_type: stats.statistic_type,
             numerator_sum: stats.sum,
