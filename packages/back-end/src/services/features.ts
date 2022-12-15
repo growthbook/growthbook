@@ -22,6 +22,7 @@ import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { createEvent } from "../models/EventModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { getCurrentEnabledState } from "../util/scheduleRules";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
@@ -83,28 +84,7 @@ export function getFeatureDefinition({
       rules
         ?.filter((r) => r.enabled)
         ?.filter((r) => {
-          //Filter our rules that have schedulingRules if the current scheduleRule sets the feature to disabled.
-          if (!r.scheduleRules?.length) {
-            return true;
-          }
-
-          const currentDate = new Date();
-
-          // Loop through the list of rules, and find the next rule to be applied
-          const nextRuleIndex = r.scheduleRules.findIndex(
-            (rule) =>
-              rule.timestamp !== null && new Date(rule.timestamp) > currentDate
-          );
-
-          if (nextRuleIndex === -1) {
-            if (r.scheduleRules.at(-1)?.timestamp === null) {
-              return true;
-            } else {
-              return r.scheduleRules.at(-1)?.enableFeature;
-            }
-          }
-
-          return !r.scheduleRules[nextRuleIndex].enableFeature;
+          return getCurrentEnabledState(r.scheduleRules || [], new Date());
         })
         ?.map((r) => {
           const rule: FeatureDefinitionRule = {};
