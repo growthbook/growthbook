@@ -173,6 +173,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "createAnalyses",
         "createDimensions",
+        "createSegments",
         "createMetrics",
         "runQueries",
         "editDatasourceSettings",
