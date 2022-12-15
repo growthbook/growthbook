@@ -185,7 +185,7 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -209,7 +209,7 @@ export async function putReport(
   res: Response
 ) {
   req.checkPermissions("createAnalyses", "");
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -292,7 +292,7 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
