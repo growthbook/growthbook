@@ -3,25 +3,26 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import MoreMenu from "../../components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import useApi from "../../hooks/useApi";
 import React, { useState } from "react";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import RuleModal from "../../components/Features/RuleModal";
-import ForceSummary from "../../components/Features/ForceSummary";
-import RuleList from "../../components/Features/RuleList";
-import track from "../../services/track";
-import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
-import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
-import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import EditProjectForm from "../../components/Experiment/EditProjectForm";
-import EditTagsForm from "../../components/Tags/EditTagsForm";
-import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import WatchButton from "../../components/WatchButton";
+import { FaExclamationTriangle } from "react-icons/fa";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import RuleModal from "@/components/Features/RuleModal";
+import ForceSummary from "@/components/Features/ForceSummary";
+import RuleList from "@/components/Features/RuleList";
+import track from "@/services/track";
+import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import EditProjectForm from "@/components/Experiment/EditProjectForm";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import WatchButton from "@/components/WatchButton";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -29,19 +30,18 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
-} from "../../services/features";
-import Tab from "../../components/Tabs/Tab";
-import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
-import SortedTags from "../../components/Tags/SortedTags";
-import Modal from "../../components/Modal";
-import HistoryTable from "../../components/HistoryTable";
-import DraftModal from "../../components/Features/DraftModal";
-import ConfirmButton from "../../components/Modal/ConfirmButton";
-import { FaExclamationTriangle } from "react-icons/fa";
-import RevisionDropdown from "../../components/Features/RevisionDropdown";
-import usePermissions from "../../hooks/usePermissions";
-import DiscussionThread from "../../components/DiscussionThread";
-import EditOwnerModal from "../../components/Owner/EditOwnerModal";
+} from "@/services/features";
+import Tab from "@/components/Tabs/Tab";
+import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
+import SortedTags from "@/components/Tags/SortedTags";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
+import DraftModal from "@/components/Features/DraftModal";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import usePermissions from "@/hooks/usePermissions";
+import DiscussionThread from "@/components/DiscussionThread";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 export default function FeaturePage() {
   const router = useRouter();

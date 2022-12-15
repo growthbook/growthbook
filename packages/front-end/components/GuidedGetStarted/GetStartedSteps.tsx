@@ -1,8 +1,8 @@
 import React from "react";
 import { FaCheck } from "react-icons/fa";
+import clsx from "clsx";
 import { Task } from "./GuidedGetStarted";
 import styles from "./GetStartedSteps.module.scss";
-import clsx from "clsx";
 
 type Props = {
   currentStep: number | null;

@@ -5,18 +5,18 @@ import {
   ReportInterface,
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
-import { getSourceIntegrationObject } from "./datasource";
-import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
 import { QueryDocument } from "../models/QueryModel";
 import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { parseDimensionId } from "./experiments";
 import { updateReport } from "../models/ReportModel";
-import { analyzeExperimentResults } from "./stats";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
+import { analyzeExperimentResults } from "./stats";
+import { parseDimensionId } from "./experiments";
+import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
+import { getSourceIntegrationObject } from "./datasource";
 
 export function getReportVariations(
   experiment: ExperimentInterface,

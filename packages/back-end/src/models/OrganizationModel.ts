@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { OrganizationInterface } from "../../types/organization";
 import uniqid from "uniqid";
+import { OrganizationInterface } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 
 const organizationSchema = new mongoose.Schema({

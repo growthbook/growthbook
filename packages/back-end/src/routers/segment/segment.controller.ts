@@ -1,4 +1,6 @@
 import type { Response } from "express";
+import uniqid from "uniqid";
+import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
@@ -10,7 +12,6 @@ import {
   updateSegment,
 } from "../../models/SegmentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
-import uniqid from "uniqid";
 import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
 import {
@@ -23,7 +24,6 @@ import {
   ExperimentModel,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
-import { FilterQuery } from "mongoose";
 import { SegmentInterface } from "../../../types/segment";
 
 // region GET /segments

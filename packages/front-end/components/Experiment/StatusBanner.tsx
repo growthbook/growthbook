@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { FaPencilAlt } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import Markdown from "../Markdown/Markdown";
 import { useSnapshot } from "./SnapshotProvider";

@@ -1,18 +1,13 @@
+import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationById,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { Response } from "express";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import {
-  createExperiment,
-  createMetric,
-  createSnapshot,
-} from "../services/experiments";
 import { createSegment } from "../models/SegmentModel";
-import uniqid from "uniqid";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
@@ -22,6 +17,11 @@ import {
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
+import {
+  createExperiment,
+  createMetric,
+  createSnapshot,
+} from "../services/experiments";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {

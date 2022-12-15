@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";

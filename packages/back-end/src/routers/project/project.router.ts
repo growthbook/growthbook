@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
-import * as rawProjectController from "./project.controller";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import * as rawProjectController from "./project.controller";
 
 const router = express.Router();
 

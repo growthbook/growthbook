@@ -1,4 +1,5 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -36,7 +37,6 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
-import uniqid from "uniqid";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
   req.checkPermissions("createMetrics");

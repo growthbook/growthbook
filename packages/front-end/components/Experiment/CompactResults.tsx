@@ -1,22 +1,22 @@
 import React, { FC, useMemo } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { MdSwapCalls } from "react-icons/md";
-import Tooltip from "../Tooltip/Tooltip";
-import DataQualityWarning from "./DataQualityWarning";
-import {
-  applyMetricOverrides,
-  ExperimentTableRow,
-  useRiskVariation,
-} from "../../services/experiments";
-import ResultsTable from "./ResultsTable";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import MultipleExposureWarning from "./MultipleExposureWarning";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import Link from "next/link";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  applyMetricOverrides,
+  ExperimentTableRow,
+  useRiskVariation,
+} from "@/services/experiments";
+import Tooltip from "../Tooltip/Tooltip";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import DataQualityWarning from "./DataQualityWarning";
+import ResultsTable from "./ResultsTable";
+import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
   editMetrics?: () => void;

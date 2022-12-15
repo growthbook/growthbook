@@ -7,8 +7,8 @@ import {
   isValidElement,
   ReactNode,
 } from "react";
-import Modal from "../Modal";
 import { MdCheck } from "react-icons/md";
+import Modal from "../Modal";
 import { DocSection } from "../DocLink";
 
 type Props = {

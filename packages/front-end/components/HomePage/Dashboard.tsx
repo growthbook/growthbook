@@ -1,13 +1,13 @@
 import React from "react";
 import Link from "next/link";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useUser } from "@/services/UserContext";
 import ActivityList from "../ActivityList";
-import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
-import { useUser } from "../../services/UserContext";
+import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export interface Props {
   experiments: ExperimentInterfaceStringDates[];

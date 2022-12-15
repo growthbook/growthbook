@@ -1,16 +1,16 @@
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { FaQuestionCircle } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
-import { getExposureQuery } from "../../services/datasources";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import { FaQuestionCircle } from "react-icons/fa";
 
 export default function ConfigureReport({
   report,
