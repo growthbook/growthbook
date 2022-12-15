@@ -133,19 +133,26 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
-    const filteredProject = data.projects && data.projects.map((p) => p.id).includes(project)
-      ? project
-      : ""
+    const filteredProject =
+      data.projects && data.projects.map((p) => p.id).includes(project)
+        ? project
+        : "";
     value = {
       ready: true,
       metrics: activeMetrics,
-      metricsFilteredByProject: activeMetrics ? data.metrics.filter(
-        (m) => !m?.projects?.length || m?.projects?.includes(filteredProject)
-      ) : activeMetrics,
+      metricsFilteredByProject: activeMetrics
+        ? data.metrics.filter(
+            (m) =>
+              !m?.projects?.length || m?.projects?.includes(filteredProject)
+          )
+        : activeMetrics,
       datasources: data.datasources,
-      datasourcesFilteredByProject: filteredProject ? data.datasources.filter(
-          (ds) => !ds?.projects?.length || ds?.projects?.includes(filteredProject)
-        ) : data.datasources,
+      datasourcesFilteredByProject: filteredProject
+        ? data.datasources.filter(
+            (ds) =>
+              !ds?.projects?.length || ds?.projects?.includes(filteredProject)
+          )
+        : data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,
       tags: data.tags,
