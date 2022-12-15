@@ -417,7 +417,9 @@ export function getNextScheduledUpdate(
     rules.forEach((rule: FeatureRule) => {
       if (rule.scheduleRules) {
         rule.scheduleRules.forEach((scheduleRule) => {
-          dates.push(scheduleRule.timestamp);
+          if (scheduleRule.timestamp !== null) {
+            dates.push(scheduleRule.timestamp);
+          }
         });
       }
     });

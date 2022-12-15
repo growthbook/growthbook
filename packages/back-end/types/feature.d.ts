@@ -48,7 +48,7 @@ export interface FeatureInterface {
   };
 }
 type ScheduleRule = {
-  timestamp: string;
+  timestamp: string | null;
   enableFeature: boolean;
 };
 export interface BaseRule {
