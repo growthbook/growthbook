@@ -65,6 +65,29 @@ THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame([
     }
 ]).assign(statistic_type="sample_mean", numerator_type="mean")
 
+RATIO_STATISTICS_DF = pd.DataFrame([
+    {
+        "dimension": "one",
+        "variation": "one",
+        "users": 120,
+        "numerator_sum": 300,
+        "numerator_sum_squares": 869,
+        "denominator_sum": 500,
+        "denominator_sum_squares": 800,
+        "num_denom_sum_product": -905
+    },
+    {
+        "dimension": "one",
+        "variation": "zero",
+        "numerator_sum": 270,
+        "users": 100,
+        "numerator_sum_squares": 848.79,
+        "denominator_sum": 510,
+        "denominator_sum_squares": 810,
+        "num_denom_sum_product": -900
+    },
+]).assign(statistic_type="ratio", numerator_type="mean", denominatory_type="mean")
+
 class TestDetectVariations(TestCase):
     def test_unknown_variations(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
@@ -139,6 +162,25 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.079755378)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
+    def test_get_metric_df_bayesian_ratio(self):
+        rows = RATIO_STATISTICS_DF
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"]
+        )
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False
+        )   
+
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
+        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0.12841364)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
+        self.assertEqual(round_(result.at[0, "v1_risk"]), 0.010766582)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.834518384)
+        self.assertEqual(result.at[0, "v1_p_value"], None)
+
     def test_get_metric_df_inverse(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
         df = get_metric_df(
@@ -164,7 +206,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
             rows, {"zero": 0, "one": 1}, ["zero", "one"],
         )
         result = analyze_metric_df(
-            df, [0.5, 0.5], False, StatsEngine.FREQUENTIST
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
         )
 
         self.assertEqual(len(result.index), 2)
@@ -176,6 +218,26 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.163302082)
+
+    
+    def test_get_metric_df_frequentist_ratio(self):
+        rows = RATIO_STATISTICS_DF
+        df = get_metric_df(
+            rows, {"zero": 0, "one": 1}, ["zero", "one"]
+        )
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
+        )   
+
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.334254941)
 
 
 if __name__ == "__main__":
