@@ -58,11 +58,7 @@ const IdeaPage = (): ReactElement => {
 
   const { push } = useRouter();
 
-  const {
-    data,
-    error: dataError,
-    mutate,
-  } = useApi<{
+  const { data, error: dataError, mutate } = useApi<{
     status: number;
     message: string;
     idea: IdeaInterface;
@@ -72,13 +68,12 @@ const IdeaPage = (): ReactElement => {
 
   useSwitchOrg(data?.idea?.organization);
 
-  const form =
-    useForm<{
-      text: string;
-      tags: string[];
-      details: string;
-      project: string;
-    }>();
+  const form = useForm<{
+    text: string;
+    tags: string[];
+    details: string;
+    project: string;
+  }>();
   useEffect(() => {
     if (data?.idea) {
       form.setValue("text", data.idea.text || "");

@@ -54,8 +54,10 @@ const getSavedGroupMessage = (
 };
 
 export default function SavedGroupsPage() {
-  const [savedGroupForm, setSavedGroupForm] =
-    useState<null | Partial<SavedGroupInterface>>(null);
+  const [
+    savedGroupForm,
+    setSavedGroupForm,
+  ] = useState<null | Partial<SavedGroupInterface>>(null);
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();

@@ -178,10 +178,9 @@ export function useFeaturesList(withProject = true) {
 
   const url = withProject ? `/feature?project=${project || ""}` : "/feature";
 
-  const { data, error, mutate } =
-    useApi<{
-      features: FeatureInterface[];
-    }>(url);
+  const { data, error, mutate } = useApi<{
+    features: FeatureInterface[];
+  }>(url);
 
   return {
     features: data?.features || [],
@@ -717,10 +716,9 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } =
-    useApi<{
-      usage: FeatureUsageRecords;
-    }>(`/usage/features`);
+  const { data, mutate } = useApi<{
+    usage: FeatureUsageRecords;
+  }>(`/usage/features`);
 
   // Mock data
   const usage = useMemo(() => {
