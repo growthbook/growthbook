@@ -88,7 +88,7 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.runQueries && (
+      {forceRefresh && permissions.check("runQueries", "") && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {

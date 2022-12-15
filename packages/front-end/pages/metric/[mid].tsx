@@ -485,7 +485,7 @@ const MetricPage: FC = () => {
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.runQueries && (
+                          {permissions.check("runQueries", "") && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -534,17 +534,18 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">No segment applied</span>
                               )}
-                              {canEditMetric && permissions.runQueries && (
-                                <a
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setSegmentOpen(true);
-                                  }}
-                                  href="#"
-                                >
-                                  <BsGear />
-                                </a>
-                              )}
+                              {canEditMetric &&
+                                permissions.check("runQueries", "") && (
+                                  <a
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setSegmentOpen(true);
+                                    }}
+                                    href="#"
+                                  >
+                                    <BsGear />
+                                  </a>
+                                )}
                             </>
                           )}
                         </div>

@@ -713,7 +713,7 @@ const MultiTabPage = ({
                 {experiment.autoSnapshots && experiment.nextSnapshotAttempt ? (
                   <span title={datetime(experiment.nextSnapshotAttempt)}>
                     {ago(experiment.nextSnapshotAttempt)}{" "}
-                    {canEdit && permissions.runQueries && (
+                    {canEdit && permissions.check("runQueries", "") && (
                       <Button
                         color="link text-danger"
                         className="btn-sm"

@@ -120,7 +120,7 @@ const Results: FC<{
                 ago(experiment.phases[phase]?.dateStarted) +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissions.runQueries &&
+              permissions.check("runQueries", "") &&
               `Click the "Update" button above.`}
           </div>
         )}
