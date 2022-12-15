@@ -17,17 +17,13 @@ const SegmentForm: FC<{
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
   const {
-    datasources,
+    datasourcesFilteredByProject,
     getDatasourceById,
     mutateDefinitions,
-    project,
   } = useDefinitions();
-  const filteredDatasources = (project
-    ? datasources.filter(
-        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
-      )
-    : datasources
-  ).filter((d) => d.properties?.segments);
+  const filteredDatasources = datasourcesFilteredByProject.filter(
+    (d) => d.properties?.segments
+  );
   const form = useForm({
     defaultValues: {
       name: current.name || "",

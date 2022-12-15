@@ -1392,7 +1392,7 @@ export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1427,7 +1427,7 @@ export async function postSnapshot(
   >,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -1706,7 +1706,7 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1778,14 +1778,19 @@ export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
-
   const { org } = getOrgFromReq(req);
   const { datasource, force } = req.body;
 
   const datasourceObj = await getDataSourceById(datasource, org.id);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
+  }
+  if (datasourceObj?.projects?.length) {
+    for (const project of datasourceObj.projects) {
+      req.checkPermissions("runQueries", project);
+    }
+  } else {
+    req.checkPermissions("runQueries", "");
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);

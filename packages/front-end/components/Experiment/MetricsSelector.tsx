@@ -11,14 +11,11 @@ const MetricsSelector: FC<{
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
 }> = ({ datasource, selected, onChange, autoFocus }) => {
-  const { metrics, project } = useDefinitions();
+  const { metricsFilteredByProject } = useDefinitions();
 
-  const validMetrics = (project
-    ? metrics.filter(
-        (m) => !m?.projects?.length || m?.projects?.includes(project)
-      )
-    : metrics
-  ).filter((m) => m.datasource === datasource);
+  const validMetrics = metricsFilteredByProject.filter(
+    (m) => m.datasource === datasource
+  );
 
   const tagCounts: Record<string, number> = {};
   validMetrics.forEach((m) => {

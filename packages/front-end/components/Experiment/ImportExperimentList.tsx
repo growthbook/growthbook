@@ -1,5 +1,4 @@
 import Link from "next/link";
-//import Button from "../Button";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -34,7 +33,12 @@ const ImportExperimentList: FC<{
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
-  const { getDatasourceById, ready, datasources, project } = useDefinitions();
+  const {
+    getDatasourceById,
+    ready,
+    datasourcesFilteredByProject: filteredDatasources,
+    project,
+  } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
@@ -42,11 +46,6 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
   const datasource = getDatasourceById(data?.experiments?.datasource);
-  const filteredDatasources = project
-    ? datasources.filter(
-        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
-      )
-    : datasources;
   const filteredDatasource =
     !project || datasource?.projects?.includes(project) ? datasource : null;
 
@@ -176,7 +175,7 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted)}
           </div>
         </div>
-        {permissions.runQueries && (
+        {permissions.check("runQueries", project) && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {

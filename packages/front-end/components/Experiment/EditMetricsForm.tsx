@@ -37,18 +37,11 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const {
-    metrics: metricDefinitions,
-    project,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metricsFilteredByProject, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = (project
-    ? metricDefinitions.filter(
-        (m) => !m?.projects?.length || m?.projects?.includes(project)
-      )
-    : metricDefinitions
-  ).filter((m) => m.datasource === datasource?.id);
+  const filteredMetrics = metricsFilteredByProject.filter(
+    (m) => m.datasource === datasource?.id
+  );
 
   const defaultMetricOverrides = structuredClone(
     experiment.metricOverrides || []

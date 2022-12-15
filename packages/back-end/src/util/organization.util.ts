@@ -76,10 +76,10 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createMetrics",
   "createDatasources",
   "editDatasourceSettings",
+  "runQueries",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
-  "runQueries",
   "createPresentations",
   "createDimensions",
   "createSegments",

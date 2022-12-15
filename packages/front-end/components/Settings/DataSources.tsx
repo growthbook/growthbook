@@ -19,17 +19,12 @@ const DataSources: FC = () => {
   const router = useRouter();
 
   const {
-    datasources,
+    datasourcesFilteredByProject: filteredDatasources,
     project,
     error,
     mutateDefinitions,
     ready,
   } = useDefinitions();
-  const filteredDatasources = project
-    ? datasources.filter(
-        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
-      )
-    : datasources;
 
   const permissions = usePermissions();
 

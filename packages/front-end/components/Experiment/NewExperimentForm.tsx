@@ -88,17 +88,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   );
 
   const {
-    datasources,
+    datasourcesFilteredByProject: filteredDatasources,
     getDatasourceById,
     refreshTags,
     project,
   } = useDefinitions();
   const { refreshWatching } = useWatching();
-  const filteredDatasources = project
-    ? datasources.filter(
-        (ds) => !ds?.projects?.length || ds?.projects?.includes(project)
-      )
-    : datasources;
 
   useEffect(() => {
     track("New Experiment Form", {
