@@ -54,10 +54,8 @@ const getSavedGroupMessage = (
 };
 
 export default function SavedGroupsPage() {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
@@ -195,7 +193,7 @@ export default function SavedGroupsPage() {
                         <td>{ago(s.dateUpdated)}</td>
                         {permissions.manageSavedGroups && (
                           <td>
-                            <MoreMenu id={"namespace" + s.id + "_actions"}>
+                            <MoreMenu>
                               <a
                                 href="#"
                                 className="dropdown-item"

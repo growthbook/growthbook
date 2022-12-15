@@ -49,10 +49,8 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -351,7 +349,7 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td>
-                      <MoreMenu id={`more-menu-feature-${feature.id}`}>
+                      <MoreMenu>
                         <button
                           className="dropdown-item"
                           onClick={() => {

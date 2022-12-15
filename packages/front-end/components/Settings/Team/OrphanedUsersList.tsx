@@ -14,9 +14,10 @@ const OrphanedUsersList: FC<{
   const { apiCall } = useAuth();
   const [addModal, setAddModal] = useState<string>("");
 
-  const { data, mutate, error } = useApi<{
-    orphanedUsers: { email: string; name: string; id: string }[];
-  }>(`/orphaned-users`);
+  const { data, mutate, error } =
+    useApi<{
+      orphanedUsers: { email: string; name: string; id: string }[];
+    }>(`/orphaned-users`);
 
   // Update the list of orphaned users if the number of org members changes
   useEffect(() => {
@@ -68,7 +69,7 @@ const OrphanedUsersList: FC<{
                 <td>{name}</td>
                 <td>{email}</td>
                 <td style={{ width: 30 }}>
-                  <MoreMenu id={`orphaned-user-actions-${id}`}>
+                  <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {

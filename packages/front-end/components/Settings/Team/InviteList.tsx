@@ -20,10 +20,11 @@ const InviteList: FC<{
   mutate: () => void;
   project: string;
 }> = ({ invites, mutate, project }) => {
-  const [deleteInvite, setDeleteInvite] = useState<{
-    key: string;
-    email: string;
-  } | null>(null);
+  const [deleteInvite, setDeleteInvite] =
+    useState<{
+      key: string;
+      email: string;
+    } | null>(null);
   const { apiCall } = useAuth();
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
@@ -173,7 +174,7 @@ const InviteList: FC<{
                   );
                 })}
                 <td>
-                  <MoreMenu id={`invite-actions-${key}`}>
+                  <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {

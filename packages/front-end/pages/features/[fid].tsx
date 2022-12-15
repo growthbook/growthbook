@@ -56,11 +56,12 @@ export default function FeaturePage() {
 
   const [env, setEnv] = useEnvironmentState();
 
-  const [ruleModal, setRuleModal] = useState<{
-    i: number;
-    environment: string;
-    defaultType?: string;
-  } | null>(null);
+  const [ruleModal, setRuleModal] =
+    useState<{
+      i: number;
+      environment: string;
+      defaultType?: string;
+    } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -243,7 +244,7 @@ export default function FeaturePage() {
           />
         </div>
         <div className="col-auto">
-          <MoreMenu id="feature-more-menu">
+          <MoreMenu>
             <a
               className="dropdown-item"
               href="#"

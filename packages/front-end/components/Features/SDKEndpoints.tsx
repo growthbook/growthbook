@@ -142,7 +142,7 @@ const SDKEndpoints: FC<{
                   </td>
                   {canManageKeys && (
                     <td>
-                      <MoreMenu id={key.key + "_actions"}>
+                      <MoreMenu>
                         <DeleteButton
                           onClick={async () => {
                             await apiCall(`/keys`, {
