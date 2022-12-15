@@ -5,7 +5,7 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.frequentist.tests import TwoSidedTTest
-from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
+from gbstats.shared.models import FrequentistTestResult, SampleMeanStatistic, Uplift
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -14,8 +14,8 @@ round_ = partial(np.round, decimals=DECIMALS)
 class TestTwoSidedTTest(TestCase):
     def test_two_sided_ttest(self):
         ctrl_mean = 0.41
-        stat_a = Statistic(value=ctrl_mean, stddev=3.9, count=3407, n=3407)
-        stat_b = Statistic(value=0.7, stddev=6.2, count=3461, n=3461)
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_of_squares=52377.9767, n=3407)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_of_squares=134698.29, n=3461)
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
         expected_rounded_dict = asdict(
             FrequentistTestResult(

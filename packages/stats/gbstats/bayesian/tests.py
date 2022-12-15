@@ -47,6 +47,9 @@ class BayesianABTest(BaseABTest):
             relative_risk=[0, 0],
         )
 
+    def has_empty_input(self):
+        return self.stat_a.n == 0 or self.stat_b.n == 0
+
     def credible_interval(
         self, mean_diff: float, std_diff: float, ccr: float
     ) -> List[float]:
@@ -74,9 +77,12 @@ class BayesianABTest(BaseABTest):
 
 class BinomialBayesianABTest(BayesianABTest):
     def compute_result(self) -> BayesianTestResult:
+        # TODO refactor validation to base test
+        if self.has_empty_input():
+            return self._default_output()
 
         alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_a.n])
-        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_b.n])
+        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [self.stat_b.sum, self.stat_b.n])
 
         mean_a, var_a = Beta.moments(alpha_a, beta_a, log=True)
         mean_b, var_b = Beta.moments(alpha_b, beta_b, log=True)
@@ -104,6 +110,9 @@ class BinomialBayesianABTest(BayesianABTest):
 
 class GaussianBayesianABTest(BayesianABTest):
     def compute_result(self) -> BayesianTestResult:
+        if self.has_empty_input():
+            return self._default_output()
+
         if not _is_std_dev_positive((self.stat_a.stddev, self.stat_b.stddev)):
             return self._default_output()
 
