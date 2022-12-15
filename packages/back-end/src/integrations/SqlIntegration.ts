@@ -140,12 +140,6 @@ export default abstract class SqlIntegration
   avg(col: string) {
     return `AVG(${this.ensureFloat(col)})`;
   }
-  variance(col: string) {
-    return `VAR_SAMP(${col})`;
-  }
-  covariance(y: string, x: string): string {
-    return `COVAR_SAMP(${y}, ${x})`;
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -1054,7 +1048,7 @@ export default abstract class SqlIntegration
       SELECT
         u.variation,
         u.dimension,
-        u.users as users,
+        ${this.getVariationUsers(metric)} as users,
         ${this.getVariationUsers(metric)} as count,
         '${isRatio ? `ratio` : `sample_mean`}' as statistic_type,
         '${this.getMetricStatisticType(metric)}' as numerator_type,

@@ -236,7 +236,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_numerator_sum"],
                         "users": row[f"{prefix}_users"],
-                        "count": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_count"],
                         "stats": stats,
                     }
                 )
@@ -246,7 +246,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_numerator_sum"],
                         "users": row[f"{prefix}_users"],
-                        "count": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_count"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],
