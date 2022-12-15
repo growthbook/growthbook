@@ -55,7 +55,6 @@ export interface PermissionFunctions {
 }
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
-  runQueries: false,
   createDimensions: false,
   createPresentations: false,
   createSegments: false,
