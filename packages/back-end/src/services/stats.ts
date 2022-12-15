@@ -125,9 +125,9 @@ result = analyze_metric_df(
   type=type,
   inverse=inverse,
   engine=${
-    statsEngine === "bayesian"
-      ? "StatsEngine.BAYESIAN"
-      : "StatsEngine.FREQUENTIST"
+    statsEngine === "frequentist"
+      ? "StatsEngine.FREQUENTIST"
+      : "StatsEngine.BAYESIAN"
   }
 )
 
