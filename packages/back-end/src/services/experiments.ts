@@ -469,9 +469,15 @@ export async function getManualSnapshotData(
         if (!metric) return;
         const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
           return {
-            ...s,
             dimension: "All",
             variation: experiment.variations[i].key || i + "",
+            users: s.count,
+            statistic_type: "mean", // ratio not supported for now
+            numerator_type: metric.type === "binomial" ? "binomial" : "mean",
+            numerator_sum: s.mean * s.count,
+            numerator_sum_squares:
+              Math.pow(s.stddev, 2) * (s.count - 1) +
+              (s.mean * s.count) / s.count,
           };
         });
 
