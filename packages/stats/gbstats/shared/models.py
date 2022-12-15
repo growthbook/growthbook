@@ -69,11 +69,20 @@ class RatioStatistic(Statistic):
     def variance(self):
         return (
             self.m_statistic.variance / pow(self.d_statistic.mean, 2)
-            - self.m_statistic.mean / pow(self.d_statistic.mean, 3)
+            - 2
+            * self.covariance
+            * self.m_statistic.mean
+            / pow(self.d_statistic.mean, 3)
             + pow(self.m_statistic.mean, 2)
             * self.d_statistic.variance
             / pow(self.d_statistic.mean, 4)
         )
+
+    @property
+    def covariance(self):
+        return (
+            self.m_d_sum_of_products - self.m_statistic.mean * self.d_statistic.mean
+        ) / (self.n - 1)
 
 
 # Data classes for the results of tests
