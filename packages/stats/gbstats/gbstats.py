@@ -154,7 +154,7 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
     def analyze_row(s):
         s = s.copy()
         # Baseline values
-        stat_a: Statistic = variant_statistic_from_metric_row(s, "baseline")
+        stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
         s["baseline_cr"] = stat_a.mean
         s["baseline_mean"] = stat_a.mean
         s["baseline_stddev"] = stat_a.stddev
@@ -167,7 +167,7 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         baseline_risk = 0
         for i in range(1, num_variations):
             # Variation values
-            stat_b: Statistic = variant_statistic_from_metric_row(s, f"v{i}")
+            stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
 
             s[f"v{i}_cr"] = stat_b.mean
             s[f"v{i}_expected"] = (
@@ -260,7 +260,7 @@ def format_results(df):
     return results
 
 
-def variant_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Statistic:
+def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Statistic:
     if row["statistic_type"] == "ratio":
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(row, prefix, "numerator"),
