@@ -1,10 +1,10 @@
+import fs from "fs";
 import bodyParser from "body-parser";
 import express from "express";
-import fs from "fs";
 import { getUploadsDir } from "../../services/files";
 import { wrapController } from "../wrapController";
-import * as uploadControllerRaw from "./upload.controller";
 import { UPLOAD_METHOD } from "../../util/secrets";
+import * as uploadControllerRaw from "./upload.controller";
 
 const router = express.Router();
 

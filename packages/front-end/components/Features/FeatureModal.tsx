@@ -4,16 +4,12 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "back-end/types/feature";
-import { useAuth } from "../../services/auth";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
 import dJSON from "dirty-json";
-import FeatureValueField from "./FeatureValueField";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import track from "../../services/track";
-import Toggle from "../Forms/Toggle";
-import RadioSelector from "../Forms/RadioSelector";
-import ConditionInput from "./ConditionInput";
+import cloneDeep from "lodash/cloneDeep";
+import { ReactElement } from "react";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 import {
   getDefaultRuleValue,
   getDefaultValue,
@@ -22,17 +18,21 @@ import {
   validateFeatureRule,
   validateFeatureValue,
   useEnvironments,
-} from "../../services/features";
-import RolloutPercentInput from "./RolloutPercentInput";
-import VariationsInput from "./VariationsInput";
-import NamespaceSelector from "./NamespaceSelector";
+} from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useWatching } from "@/services/WatchProvider";
+import usePermissions from "@/hooks/usePermissions";
 import TagsInput from "../Tags/TagsInput";
-import cloneDeep from "lodash/cloneDeep";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { useWatching } from "../../services/WatchProvider";
-import { ReactElement } from "react";
-import usePermissions from "../../hooks/usePermissions";
+import RadioSelector from "../Forms/RadioSelector";
+import Toggle from "../Forms/Toggle";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
 import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
+import NamespaceSelector from "./NamespaceSelector";
+import VariationsInput from "./VariationsInput";
+import RolloutPercentInput from "./RolloutPercentInput";
+import ConditionInput from "./ConditionInput";
+import FeatureValueField from "./FeatureValueField";
 
 export type Props = {
   close?: () => void;

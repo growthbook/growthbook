@@ -1,5 +1,5 @@
 import React from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 interface Props {
   tag: string;

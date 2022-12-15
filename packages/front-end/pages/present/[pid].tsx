@@ -1,12 +1,12 @@
 import React from "react";
 import dynamic from "next/dynamic";
-import useApi from "../../hooks/useApi";
 import { useRouter } from "next/router";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PresentationInterface } from "back-end/types/presentation";
-import useSwitchOrg from "../../services/useSwitchOrg";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
 const DynamicPresentation = dynamic(
   () => import("../../components/Share/Presentation"),
   {

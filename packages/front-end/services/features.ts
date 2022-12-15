@@ -15,13 +15,13 @@ import {
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
-import { useDefinitions } from "./DefinitionsContext";
-import { useLocalStorage } from "../hooks/useLocalStorage";
-import useOrgSettings from "../hooks/useOrgSettings";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
+import { useLocalStorage } from "../hooks/useLocalStorage";
+import useOrgSettings from "../hooks/useOrgSettings";
+import useApi from "../hooks/useApi";
+import { useDefinitions } from "./DefinitionsContext";
 
 export interface Condition {
   field: string;

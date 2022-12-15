@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../services/auth";
 import { getValidDate } from "../services/dates";
 import { isCloud } from "../services/env";
-import usePermissions from "./usePermissions";
 import { useUser } from "../services/UserContext";
+import usePermissions from "./usePermissions";
 
 export default function useStripeSubscription() {
   const selfServePricingEnabled = useFeature("self-serve-billing").on;

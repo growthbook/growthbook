@@ -1,5 +1,7 @@
 import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
+import cloneDeep from "lodash/cloneDeep";
+import _ from "lodash";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -12,10 +14,8 @@ import {
   generateRuleId,
   getNextScheduledUpdate,
 } from "../services/features";
-import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
-import _ from "lodash";
 
 const featureSchema = new mongoose.Schema({
   id: String,

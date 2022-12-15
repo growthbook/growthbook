@@ -4,25 +4,25 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import FeatureValueField from "./FeatureValueField";
-import { useAuth } from "../../services/auth";
-import ConditionInput from "./ConditionInput";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
   validateFeatureRule,
-} from "../../services/features";
-import track from "../../services/track";
+} from "@/services/features";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Field from "../Forms/Field";
+import Modal from "../Modal";
+import { useAuth } from "../../services/auth";
+import SelectField from "../Forms/SelectField";
 import RolloutPercentInput from "./RolloutPercentInput";
+import ConditionInput from "./ConditionInput";
+import FeatureValueField from "./FeatureValueField";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
-import useOrgSettings from "../../hooks/useOrgSettings";
 import ScheduleInputs from "./ScheduleInputs";
-import SelectField from "../Forms/SelectField";
 
 export interface Props {
   close: () => void;

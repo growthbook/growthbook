@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
-import AsyncQueriesModal from "./AsyncQueriesModal";
 import clsx from "clsx";
 import { FaDatabase } from "react-icons/fa";
+import AsyncQueriesModal from "./AsyncQueriesModal";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];

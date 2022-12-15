@@ -1,12 +1,12 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;

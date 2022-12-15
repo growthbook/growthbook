@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
-import * as rawDimensionController from "./dimension.controller";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import * as rawDimensionController from "./dimension.controller";
 
 const router = express.Router();
 

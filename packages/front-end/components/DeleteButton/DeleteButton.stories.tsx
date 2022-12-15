@@ -1,6 +1,6 @@
-import DeleteButton from "./DeleteButton";
 import { action } from "@storybook/addon-actions";
 import { text } from "@storybook/addon-knobs";
+import DeleteButton from "./DeleteButton";
 
 export default {
   title: "Delete Button",

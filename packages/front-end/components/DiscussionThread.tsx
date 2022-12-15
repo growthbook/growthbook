@@ -4,17 +4,17 @@ import {
   DiscussionInterface,
   Comment,
 } from "back-end/types/discussion";
+import { FaPencilAlt } from "react-icons/fa";
 import { date } from "../services/dates";
 import { useAuth } from "../services/auth";
 import useApi from "../hooks/useApi";
+import { useUser } from "../services/UserContext";
+import usePermissions from "../hooks/usePermissions";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar/Avatar";
-import { FaPencilAlt } from "react-icons/fa";
 import DeleteButton from "./DeleteButton/DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
-import { useUser } from "../services/UserContext";
-import usePermissions from "../hooks/usePermissions";
 
 const DiscussionThread: FC<{
   type: DiscussionParentType;

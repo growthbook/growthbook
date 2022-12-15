@@ -1,8 +1,8 @@
 import { ReactElement, useState } from "react";
-import track from "../../services/track";
-import { getApiHost } from "../../services/env";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
+import track from "@/services/track";
+import { getApiHost } from "@/services/env";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 
 export default function Auth({

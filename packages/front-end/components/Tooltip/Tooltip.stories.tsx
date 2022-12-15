@@ -1,6 +1,6 @@
-import Tooltip from "./Tooltip";
 import React from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import Tooltip from "./Tooltip";
 
 export default {
   title: "Tooltip",

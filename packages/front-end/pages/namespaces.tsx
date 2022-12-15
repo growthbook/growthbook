@@ -1,9 +1,9 @@
 import { useState, FC } from "react";
+import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
 import NamespaceModal from "../components/Experiment/NamespaceModal";
-import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
 import { useUser } from "../services/UserContext";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";

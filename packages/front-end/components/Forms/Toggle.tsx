@@ -22,8 +22,15 @@ export default function Toggle({
   style?: CSSProperties;
   disabledMessage?: string;
 }) {
+  const TooltipWrapper = ({ children }) =>
+    disabledMessage ? (
+      <Tooltip body={disabled && disabledMessage}>{children}</Tooltip>
+    ) : (
+      children
+    );
+
   return (
-    <Tooltip body={disabled && disabledMessage}>
+    <TooltipWrapper>
       <div
         className={`toggle-switch ${
           disabled ? "disabled" : ""
@@ -41,6 +48,6 @@ export default function Toggle({
         />
         <label htmlFor={id}>{label || id}</label>
       </div>
-    </Tooltip>
+    </TooltipWrapper>
   );
 }

@@ -1,8 +1,9 @@
-import uniqid from "uniqid";
-import AWS from "aws-sdk";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
+import AWS from "aws-sdk";
+import uniqid from "uniqid";
+import { Storage, GetSignedUrlConfig } from "@google-cloud/storage";
 import {
   JWT_SECRET,
   S3_BUCKET,
@@ -12,7 +13,6 @@ import {
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
 } from "../util/secrets";
-import { Storage, GetSignedUrlConfig } from "@google-cloud/storage";
 
 let s3: AWS.S3;
 function getS3(): AWS.S3 {

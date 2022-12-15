@@ -1,6 +1,6 @@
-import Field, { FieldProps } from "./Field";
 import React, { useState } from "react";
 import CreatableSelect from "react-select/creatable";
+import Field, { FieldProps } from "./Field";
 import { ReactSelectProps } from "./SelectField";
 
 const components = {

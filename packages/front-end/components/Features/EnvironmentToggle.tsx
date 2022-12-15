@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import usePermissions from "@/hooks/usePermissions";
 import Toggle from "../Forms/Toggle";
-import track from "../../services/track";
-import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   feature: FeatureInterface;
