@@ -4,13 +4,15 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { getGrowthBookBuild } from "@/services/env";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBExperiment, GBSettings } from "../Icons";
+import { getGrowthBookBuild } from "../../services/env";
+import useOrgSettings from "../../hooks/useOrgSettings";
+import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
-import TopNav from "./TopNav";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import UpgradeModal from "../Settings/UpgradeModal";
+import { useUser } from "../../services/UserContext";
 import ProjectSelector from "./ProjectSelector";
+import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 
 // move experiments inside of 'analysis' menu
@@ -235,6 +237,10 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
+  const { accountPlan } = useUser();
+
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
   const router = useRouter();
@@ -286,6 +292,13 @@ const Layout = (): React.ReactElement => {
 
   return (
     <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason=""
+          source="layout"
+        />
+      )}
       {settings?.customized && (
         <style dangerouslySetInnerHTML={{ __html: customStyles }}></style>
       )}
@@ -375,6 +388,22 @@ const Layout = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="p-3">
+          {showUpgradeButton && (
+            <button
+              className="btn btn-premium btn-block font-weight-normal"
+              onClick={() => setUpgradeModal(true)}
+            >
+              {accountPlan === "oss" ? (
+                <>
+                  Try Enterprise <GBPremiumBadge />
+                </>
+              ) : (
+                <>
+                  Upgrade to Pro <GBPremiumBadge />
+                </>
+              )}
+            </button>
+          )}
           <a
             href={inferDocUrl()}
             className="btn btn-outline-light btn-block"
@@ -403,6 +432,7 @@ const Layout = (): React.ReactElement => {
           </div>
         )}
       </div>
+
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}

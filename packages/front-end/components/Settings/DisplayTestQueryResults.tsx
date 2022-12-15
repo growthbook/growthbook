@@ -6,7 +6,7 @@ export type Props = {
   result: null | Record<string, unknown>;
   duration: number;
   error?: string;
-  suggestions: ReactElement[];
+  suggestions?: ReactElement[];
   requiredColumns: string[];
   sql: string;
 };
@@ -45,8 +45,8 @@ export default function DisplayTestQueryResults({
   }
 
   return (
-    <div>
-      <div className="border border-top-0 p-2 bg-light">
+    <>
+      <div className="border mt-3 p-2 bg-light">
         <div className="row">
           <div className="col-auto">
             <strong>Sample Row</strong>
@@ -94,16 +94,16 @@ export default function DisplayTestQueryResults({
           ))}
         </div>
       )}
-      {suggestions.length > 0 && (
+      {suggestions?.length > 0 && (
         <div className="mb-2">
           <strong>Suggestions:</strong>
         </div>
       )}
-      {suggestions.map((suggestion, i) => (
+      {suggestions?.map((suggestion, i) => (
         <div className="alert alert-info mb-3" key={i}>
           {suggestion}
         </div>
       ))}
-    </div>
+    </>
   );
 }

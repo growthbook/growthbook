@@ -1,11 +1,10 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
-import { useEnvironments } from "@/services/features";
-import { isCloud } from "@/services/env";
-import Field from "../Forms/Field";
+import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
+import track from "../../services/track";
+import Field from "../Forms/Field";
+import { useEnvironments } from "../../services/features";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 
@@ -16,7 +15,6 @@ const ApiKeysModal: FC<{
   secret?: boolean;
 }> = ({ close, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -47,7 +45,7 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
-  if (upgradeModal && isCloud()) {
+  if (upgradeModal) {
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
@@ -84,17 +82,6 @@ const ApiKeysModal: FC<{
         {...form.register("description")}
       />
       {!secret && (
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowAdvanced(!showAdvanced);
-          }}
-        >
-          {showAdvanced ? "Hide" : "Show"} advanced settings
-        </a>
-      )}
-      {!secret && showAdvanced && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           form={form}
