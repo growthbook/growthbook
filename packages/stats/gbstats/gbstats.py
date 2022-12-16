@@ -283,7 +283,7 @@ def base_statistic_from_metric_row(
     row: pd.DataFrame, prefix: str, component: str
 ) -> Statistic:
     metric_type = row[f"{component}_type"]
-    if metric_type == "proportion":
+    if metric_type == "binomial":
         return ProportionStatistic(
             sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
         )
