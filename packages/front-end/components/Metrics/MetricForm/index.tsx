@@ -6,27 +6,28 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import RadioSelector from "../Forms/RadioSelector";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import Code from "../SyntaxHighlighting/Code";
-import TagsInput from "../Tags/TagsInput";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import MultiSelectField from "../Forms/MultiSelectField";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import SQLInputField from "../SQLInputField";
-import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import track from "../../services/track";
-import { getDefaultConversionWindowHours } from "../../services/env";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
+import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
-} from "../../services/metrics";
-import { useAuth } from "../../services/auth";
-import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
+} from "@/services/metrics";
+import { useAuth } from "@/services/auth";
+import RadioSelector from "@/components/Forms/RadioSelector";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
+import Code from "@/components/SyntaxHighlighting/Code";
+import TagsInput from "@/components/Tags/TagsInput";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SQLInputField from "@/components/SQLInputField";
+import GoogleAnalyticsMetrics from "../GoogleAnalyticsMetrics";
+import RiskThresholds from "./RiskThresholds";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -258,7 +259,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label: m.name,
         };
       });
-  }, [metrics, value.type, value.datasource]);
+  }, [metrics, value.type, value.datasource, current?.id]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
@@ -892,104 +893,12 @@ const MetricForm: FC<MetricFormProps> = ({
                 </small>
               </div>
             )}
-            <div className="form-group">
-              Risk thresholds
-              <div className="riskbar row align-items-center pt-3">
-                <div className="col green-bar pr-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "-20px",
-                      color: "#009a6d",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    acceptable risk under {value.winRisk}%
-                  </span>
-                  <div
-                    style={{
-                      height: "10px",
-                      backgroundColor: "#009a6d",
-                      borderRadius: "5px 0 0 5px",
-                    }}
-                  ></div>
-                </div>
-                <div className="col-2 px-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: "4px",
-                      top: "6px",
-                      color: "#888",
-                    }}
-                  >
-                    %
-                  </span>
-                  <input
-                    className="form-control winrisk text-center"
-                    type="number"
-                    step="any"
-                    min="0"
-                    max="100"
-                    {...form.register("winRisk", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="col yellow-bar px-0">
-                  <div
-                    style={{
-                      height: "10px",
-                      backgroundColor: "#dfd700",
-                    }}
-                  ></div>
-                </div>
-                <div className="col-2 px-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: "4px",
-                      top: "6px",
-                      color: "#888",
-                    }}
-                  >
-                    %
-                  </span>
-                  <input
-                    className="form-control loserisk text-center"
-                    type="number"
-                    step="any"
-                    min="0"
-                    max="100"
-                    {...form.register("loseRisk", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="col red-bar pl-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "-20px",
-                      right: "15px",
-                      color: "#c50f0f",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    too much risk over {value.loseRisk}%
-                  </span>
-                  <div
-                    style={{
-                      height: "10px",
-                      backgroundColor: "#c50f0f",
-                      borderRadius: "0 5px 5px 0",
-                    }}
-                  ></div>
-                </div>
-              </div>
-              {riskError && <div className="text-danger">{riskError}</div>}
-              <small className="text-muted">
-                Set the thresholds for risk for this metric. This is used when
-                determining metric significance, highlighting the risk value as
-                green, yellow, or red.
-              </small>
-            </div>
+            <RiskThresholds
+              winRisk={value.winRisk}
+              loseRisk={value.loseRisk}
+              winRiskRegisterField={form.register("winRisk")}
+              loseRiskRegisterField={form.register("loseRisk")}
+            />
             <div className="form-group">
               Minimum Sample Size
               <input
