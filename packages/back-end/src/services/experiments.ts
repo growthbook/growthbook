@@ -474,7 +474,7 @@ export async function getManualSnapshotData(
             users: s.count,
             count: s.count,
             statistic_type: "mean", // ratio not supported for now
-            numerator_type: metric.type === "binomial" ? "binomial" : "mean",
+            numerator_type: metric.type,
             numerator_sum: s.mean * s.count,
             numerator_sum_squares:
               Math.pow(s.stddev, 2) * (s.count - 1) +

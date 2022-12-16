@@ -4,7 +4,11 @@ import {
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, ExperimentMetricStats } from "../../types/metric";
+import {
+  MetricInterface,
+  ExperimentMetricStats,
+  MetricType,
+} from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 
 export type VariationMetricResult = ExperimentMetricStats & {
@@ -125,11 +129,11 @@ export type ExperimentMetricQueryResponse = {
   variation: string;
   users: number;
   count: number;
-  statistic_type: string;
-  numerator_type: string;
+  statistic_type: "ratio" | "mean";
+  numerator_type: MetricType;
   numerator_sum: number;
   numerator_sum_squares: number;
-  denominator_type?: string;
+  denominator_type?: MetricType;
   denominator_sum?: number;
   denominator_sum_squares?: number;
   num_denom_sum_product?: number;

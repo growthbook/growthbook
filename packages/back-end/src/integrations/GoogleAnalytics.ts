@@ -311,7 +311,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
             variance * (count - 1) + Math.pow(value, 2) / count;
           return {
             metric: metric.id,
-            statistic_type: metric.type === "binomial" ? "binomial" : "mean",
+            metric_type: metric.type,
             count,
             sum,
             sum_squares,

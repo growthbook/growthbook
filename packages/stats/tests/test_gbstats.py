@@ -50,7 +50,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "count": 200,
         },
     ]
-).assign(statistic_type="sample_mean", numerator_type="mean")
+).assign(statistic_type="mean", numerator_type="count")
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
@@ -71,7 +71,7 @@ THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "count": 3001,
         },
     ]
-).assign(statistic_type="sample_mean", numerator_type="mean")
+).assign(statistic_type="mean", numerator_type="count")
 
 RATIO_STATISTICS_DF = pd.DataFrame(
     [
@@ -98,7 +98,7 @@ RATIO_STATISTICS_DF = pd.DataFrame(
             "num_denom_sum_product": -900,
         },
     ]
-).assign(statistic_type="ratio", numerator_type="mean", denominatory_type="mean")
+).assign(statistic_type="ratio", numerator_type="count", denominator_type="count")
 
 
 class TestDetectVariations(TestCase):

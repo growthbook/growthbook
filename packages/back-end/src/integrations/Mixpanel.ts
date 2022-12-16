@@ -5,7 +5,7 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricType } from "../../types/metric";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
@@ -335,7 +335,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         users: number;
         metrics: {
           id: string;
-          metric_type: string;
+          metric_type: MetricType;
           count: number;
           sum: number | null;
           sum_squares: number | null;
@@ -352,7 +352,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           return {
             metric: m.id,
             users,
-            statistic_type: m.metric_type === "binomial" ? "binomial" : "mean",
+            metric_type: m.metric_type,
             count: m.count,
             sum: m.sum || 0,
             sum_squares: m.sum_squares || 0,

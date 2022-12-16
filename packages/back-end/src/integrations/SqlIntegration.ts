@@ -1050,14 +1050,14 @@ export default abstract class SqlIntegration
         u.dimension,
         ${this.getVariationUsers(metric)} as users,
         ${this.getVariationUsers(metric)} as count,
-        '${isRatio ? `ratio` : `sample_mean`}' as statistic_type,
-        '${this.getMetricStatisticType(metric)}' as numerator_type,
+        '${isRatio ? `ratio` : `mean`}' as statistic_type,
+        '${metric.type}' as numerator_type,
         s.m_sum AS numerator_sum,
         s.m_sum_squares AS numerator_sum_squares
         ${
           isRatio
             ? `,
-          "${this.getMetricStatisticType(metric)}" as denominator_type,
+          '${denominator?.type}' as denominator_type,
           s.d_sum as denominator_sum,
           s.d_sum_squares AS denominator_sum_squares,
           s.m_d_sum_product AS num_denom_sum_product
@@ -1090,13 +1090,6 @@ export default abstract class SqlIntegration
       return `coalesce(s.count,0)`;
     }
     return `u.users`;
-  }
-  private getMetricStatisticType(metric: MetricInterface) {
-    if (metric.type === "binomial") {
-      return `proportion`;
-    } else {
-      return `mean`;
-    }
   }
 
   private getMetricCTE({

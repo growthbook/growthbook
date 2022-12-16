@@ -3,10 +3,9 @@ import { Queries } from "./query";
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
-export type StatisticType = "binomial" | "mean";
 
 export interface ExperimentMetricStats {
-  statistic_type: StatisticType;
+  metric_type: MetricType;
   count: number;
   sum: number;
   sum_squares: number;

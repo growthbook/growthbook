@@ -180,7 +180,9 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
 
             # Run the A/B test analysis of baseline vs variation
             if engine == StatsEngine.BAYESIAN:
-                if type == "binomial":
+                if isinstance(stat_a, ProportionStatistic) and isinstance(
+                    stat_b, ProportionStatistic
+                ):
                     test: BaseABTest = BinomialBayesianABTest(
                         stat_a, stat_b, inverse=inverse
                     )
@@ -261,29 +263,39 @@ def format_results(df):
 
 
 def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Statistic:
-    if row["statistic_type"] == "ratio":
+    statistic_type = row["statistic_type"]
+    if statistic_type == "ratio":
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(row, prefix, "numerator"),
             d_statistic=base_statistic_from_metric_row(row, prefix, "denominator"),
             m_d_sum_of_products=row[f"{prefix}_num_denom_sum_product"],
             n=row[f"{prefix}_users"],
         )
-    else:
+    elif statistic_type == "mean":
         return base_statistic_from_metric_row(row, prefix, "numerator")
+    else:
+        raise ValueError(
+            f"Unexpected statistic_type {statistic_type}' found in experiment data."
+        )
 
 
 def base_statistic_from_metric_row(
     row: pd.DataFrame, prefix: str, component: str
 ) -> Statistic:
-    if row[f"{component}_type"] == "proportion":
+    metric_type = row[f"{component}_type"]
+    if metric_type == "proportion":
         return ProportionStatistic(
             sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
         )
-    else:
+    elif metric_type in ["count", "duration", "revenue"]:
         return SampleMeanStatistic(
             sum=row[f"{prefix}_{component}_sum"],
             sum_squares=row[f"{prefix}_{component}_sum_squares"],
             n=row[f"{prefix}_count"],
+        )
+    else:
+        raise ValueError(
+            f"Unexpected metric_type '{metric_type}' type for '{component}_type in experiment data."
         )
 
 

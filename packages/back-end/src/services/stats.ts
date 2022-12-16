@@ -181,7 +181,7 @@ export async function analyzeExperimentResults(
             users: stats.count,
             count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
-            numerator_type: stats.statistic_type,
+            numerator_type: stats.metric_type,
             numerator_sum: stats.sum,
             numerator_sum_squares: stats.sum_squares,
           });
