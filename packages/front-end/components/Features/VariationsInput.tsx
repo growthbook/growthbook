@@ -361,7 +361,7 @@ export default function VariationsInput({
                       )}
                       {setVariations && (
                         <div className="col-auto">
-                          <MoreMenu id={`variation-menu-${i}`}>
+                          <MoreMenu>
                             {i > 0 && (
                               <button
                                 className="dropdown-item"

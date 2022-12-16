@@ -75,7 +75,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                 </td>
                 {canManageKeys && (
                   <td>
-                    <MoreMenu id={key.key + "_actions"}>
+                    <MoreMenu>
                       <DeleteButton
                         onClick={async () => {
                           await apiCall(`/keys`, {
