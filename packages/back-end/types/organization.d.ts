@@ -144,6 +144,7 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  statsEngine?: "bayesian" | "frequentist";
 }
 
 export interface SubscriptionQuote {
