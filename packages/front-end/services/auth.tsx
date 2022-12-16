@@ -12,15 +12,15 @@ import {
   MemberRoleInfo,
   OrganizationInterface,
 } from "back-end/types/organization";
-import Modal from "../components/Modal";
-import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
-import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
-import Welcome from "../components/Auth/Welcome";
 import * as Sentry from "@sentry/react";
+import Modal from "../components/Modal";
+import { DocLink } from "../components/DocLink";
+import Welcome from "../components/Auth/Welcome";
+import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 
 export type UserOrganizations = { id: string; name: string }[];
 

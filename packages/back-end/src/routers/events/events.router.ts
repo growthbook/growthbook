@@ -1,6 +1,6 @@
 import express from "express";
-import * as rawEventsController from "./events.controller";
 import { wrapController } from "../wrapController";
+import * as rawEventsController from "./events.controller";
 
 const router = express.Router();
 

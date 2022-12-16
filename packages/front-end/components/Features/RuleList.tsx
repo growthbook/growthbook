@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import { Rule, SortableRule } from "./Rule";
 import {
   DndContext,
   DragOverlay,
@@ -16,10 +15,11 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getRules } from "../../services/features";
-import usePermissions from "../../hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { getRules } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
+import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
   feature,

@@ -1,24 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../../services/auth";
+import { useFeature } from "@growthbook/growthbook-react";
 import { FaPencilAlt } from "react-icons/fa";
-import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
-import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
-import track from "../../services/track";
-import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
-import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud } from "../../services/env";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
-import Field from "../../components/Forms/Field";
-import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
-import TempMessage from "../../components/TempMessage";
-import Button from "../../components/Button";
-import { DocLink } from "../../components/DocLink";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { useUser } from "../../services/UserContext";
-import usePermissions from "../../hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import EditOrganizationForm from "@/components/Settings/EditOrganizationForm";
+import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
+import track from "@/services/track";
+import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
+import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
+import { hasFileConfig, isCloud } from "@/services/env";
+import Field from "@/components/Forms/Field";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import TempMessage from "@/components/TempMessage";
+import Button from "@/components/Button";
+import { DocLink } from "@/components/DocLink";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -39,6 +40,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const permissions = usePermissions();
 
   const { metricDefaults } = useOrganizationMetricDefaults();
+
+  const setStatsEngineEnabled = useFeature("stats-engine-setting").on;
 
   const form = useForm<OrganizationSettings>({
     defaultValues: {
@@ -70,6 +73,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       multipleExposureMinPercent: 0.01,
+      statsEngine: "bayesian",
     },
   });
   const { apiCall } = useAuth();
@@ -91,6 +95,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
+    statsEngine: form.watch("statsEngine"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -102,9 +107,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       setCronString("");
     }
     setCronString(
-      cronstrue.toString(cron, {
+      `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
-      })
+        verbose: true,
+      })} (UTC time)`
     );
   }
 
@@ -351,7 +357,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <h4>Experiment Settings</h4>
             </div>
 
-            <div className="col-sm-9 form-inline">
+            <div className="col-sm-9 form-inline flex-column align-items-start">
               <Field
                 label="Minimum experiment length (in days) when importing past
                 experiments"
@@ -383,7 +389,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 })}
               />
 
-              <div className="mb-3">
+              <div className="mb-3 form-group flex-column align-items-start">
                 <Field
                   label="Experiment Auto-Update Frequency"
                   className="ml-2"
@@ -441,6 +447,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </div>
                 )}
               </div>
+
+              {setStatsEngineEnabled && (
+                <Field
+                  label="Statistics Engine"
+                  className="ml-2"
+                  options={[
+                    {
+                      display: "Bayesian",
+                      value: "bayesian",
+                    },
+                    {
+                      display: "Frequentist",
+                      value: "frequentist",
+                    },
+                  ]}
+                  {...form.register("statsEngine")}
+                />
+              )}
             </div>
           </div>
 

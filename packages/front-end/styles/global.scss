@@ -34,6 +34,12 @@ body {
   color: var(--text-color-muted) !important;
 }
 
+.text-ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 #block-menu-container {
   z-index: 990;
 }
@@ -105,6 +111,16 @@ pre {
   );
   white-space: nowrap;
   font-weight: 600;
+}
+
+.btn-premium {
+  @include button-outline-variant(
+    colors.$premium,
+    #fff,
+    colors.$premium,
+    colors.$premium
+  );
+  font-weight: bold;
 }
 
 .btn-outline-primary {
@@ -591,6 +607,11 @@ pre {
     color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
+  }
+
+  .premium {
+    font-weight: bold;
+    color: var(--text-color-premium);
   }
 
   &[data-popper-placement^="top"] > .arrow {
@@ -1978,11 +1999,46 @@ td.disabled {
     padding: 2px;
   }
   .gb-select__indicator {
-    padding: 1;
+    padding: 1px;
     svg {
       width: 15px;
       height: 15px;
     }
+  }
+}
+.gb-select-wrapper.portal-overflow-ellipsis {
+  .gb-select__menu-portal {
+    .gb-select__menu {
+      max-width: 100%;
+      .gb-select__option {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
+
+.form-group.metric-override {
+  .form-control::placeholder {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}
+
+.text-premium {
+  color: var(--text-color-premium);
+}
+.alert-premium {
+  background: radial-gradient(
+    120% 150% at bottom right,
+    var(--alert-premium-background-gradient-1),
+    var(--alert-premium-background-gradient-2)
+  );
+  border-color: var(--border-color-100);
+
+  .alert-link {
+    color: var(--text-color-main);
   }
 }
 

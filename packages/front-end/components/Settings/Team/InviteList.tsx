@@ -1,13 +1,13 @@
 import React, { FC, useState, ReactElement } from "react";
-import ConfirmModal from "../../ConfirmModal";
-import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
-import LoadingOverlay from "../../LoadingOverlay";
 import { Invite, MemberRoleInfo } from "back-end/types/organization";
-import { datetime } from "../../../services/dates";
-import MoreMenu from "../../Dropdown/MoreMenu";
-import ChangeRoleModal from "./ChangeRoleModal";
-import { useEnvironments } from "../../../services/features";
 import { FaCheck, FaTimes } from "react-icons/fa";
+import ConfirmModal from "@/components/ConfirmModal";
+import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { datetime } from "@/services/dates";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useEnvironments } from "@/services/features";
+import ChangeRoleModal from "./ChangeRoleModal";
 
 type ChangeRoleInfo = {
   roleInfo: MemberRoleInfo;
@@ -173,7 +173,7 @@ const InviteList: FC<{
                   );
                 })}
                 <td>
-                  <MoreMenu id={`invite-actions-${key}`}>
+                  <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {

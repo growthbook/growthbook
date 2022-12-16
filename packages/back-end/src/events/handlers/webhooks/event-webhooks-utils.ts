@@ -1,4 +1,5 @@
 import { createHmac } from "crypto";
+import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { OrganizationInterface } from "../../../../types/organization";
 import { getApiFeatureObj, GroupMap } from "../../../services/features";
 import {
@@ -13,7 +14,6 @@ import {
   NotificationEventResource,
 } from "../../base-types";
 import { ApiFeatureInterface } from "../../../../types/api";
-import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { logger } from "../../../util/logger";
 
 export type EventWebHookSuccessResult = {

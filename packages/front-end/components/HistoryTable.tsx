@@ -1,14 +1,15 @@
 import { FC, useState, useMemo } from "react";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface, EventType } from "back-end/types/audit";
-import { ago, datetime } from "../services/dates";
-import Code from "./SyntaxHighlighting/Code";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import Button from "./Button";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
+import { useDefinitions } from "../services/DefinitionsContext";
+import { ago, datetime } from "../services/dates";
+import useApi from "../hooks/useApi";
+import Button from "./Button";
+import Code from "./SyntaxHighlighting/Code";
+import LoadingOverlay from "./LoadingOverlay";
 
 function EventDetails({
   eventType,
@@ -85,23 +86,30 @@ export function HistoryTableRow({
   event,
   open,
   setOpen,
-  isActivity = false,
+  showName = false,
+  showType = false,
   itemName = "",
   url = "",
 }: {
   event: AuditInterface;
   open: boolean;
   setOpen: (open: boolean) => void;
-  isActivity?: boolean;
+  showName?: boolean;
+  showType?: boolean;
   itemName?: string;
   url?: string;
 }) {
-  itemName = itemName || event.entity.id;
   const user = event.user;
   const userDisplay =
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
     ("apiKey" in user && "API Key");
+  let colSpanNum = 4;
+  if (showName) colSpanNum++;
+  if (showType) colSpanNum++;
+
+  const displayName = itemName || event.entity.name || event.entity.id;
+
   return (
     <>
       <tr
@@ -118,15 +126,9 @@ export function HistoryTableRow({
         }}
       >
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
-        {isActivity && (
-          <>
-            <td>{event.entity.object}</td>
-            <td>
-              <Link href={url}>
-                <a>{itemName}</a>
-              </Link>
-            </td>
-          </>
+        {showType && <td>{event.entity.object}</td>}
+        {showName && (
+          <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
         <td>{userDisplay}</td>
         <td>{event.event}</td>
@@ -136,7 +138,7 @@ export function HistoryTableRow({
       </tr>
       {open && event.details && (
         <tr>
-          <td colSpan={isActivity ? 6 : 4} className="bg-light p-3">
+          <td colSpan={colSpanNum} className="bg-light p-3">
             <EventDetails
               eventType={event.event}
               details={event.details}
@@ -150,14 +152,34 @@ export function HistoryTableRow({
 }
 
 const HistoryTable: FC<{
-  type: "experiment" | "metric" | "feature";
-  id: string;
-}> = ({ id, type }) => {
-  const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(
-    `/history/${type}/${id}`
-  );
+  type: "experiment" | "metric" | "feature" | "savedGroup";
+  showName?: boolean;
+  showType?: boolean;
+  id?: string;
+}> = ({ id, type, showName = false, showType = false }) => {
+  const apiPath = id ? `/history/${type}/${id}` : `/history/${type}`;
+  const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(apiPath);
 
   const [open, setOpen] = useState("");
+  const { getSavedGroupById } = useDefinitions();
+
+  const events: AuditInterface[] = useMemo(() => {
+    if (!data?.events) return [];
+    if (!showName) return data?.events;
+
+    return data?.events.map((event) => {
+      if (event.entity.object === "savedGroup") {
+        const savedGroup = getSavedGroupById(event.entity.id);
+        if (savedGroup && !event.entity?.name) {
+          event.entity.name = savedGroup.groupName;
+        }
+      }
+      if (!event.entity?.name) {
+        event.entity.name = event.entity.id;
+      }
+      return event;
+    });
+  }, [data?.events, showName, getSavedGroupById]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -187,16 +209,20 @@ const HistoryTable: FC<{
         <thead>
           <tr>
             <th>Date</th>
+            {showType && <th>Type</th>}
+            {showName && <th>Name</th>}
             <th>User</th>
             <th>Event</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {data.events.map((event) => (
+          {events.map((event) => (
             <HistoryTableRow
               event={event}
               key={event.id}
+              showName={showName}
+              showType={showType}
               open={open === event.id}
               setOpen={(open) => {
                 setOpen(open ? event.id : "");

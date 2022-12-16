@@ -2,9 +2,9 @@ import { DataSourceType, SchemaFormat } from "back-end/types/datasource";
 import clsx from "clsx";
 import { FaArrowRight } from "react-icons/fa";
 import { useState } from "react";
-import Field from "../Forms/Field";
 import { MdKeyboardArrowDown, MdKeyboardArrowUp } from "react-icons/md";
-import { eventSchemas } from "../../services/eventSchema";
+import { eventSchemas } from "@/services/eventSchema";
+import Field from "../Forms/Field";
 
 export default function DataSourceSchemaChooser({
   format,

@@ -1,17 +1,17 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import InviteModal from "./InviteModal";
-import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
-import { useUser } from "../../../services/UserContext";
-import DeleteButton from "../../DeleteButton/DeleteButton";
-import { GBAddCircle } from "../../Icons";
 import { ExpandedMember } from "back-end/types/organization";
-import MoreMenu from "../../Dropdown/MoreMenu";
-import { usingSSO } from "../../../services/env";
+import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { GBAddCircle } from "@/components/Icons";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { usingSSO } from "@/services/env";
+import { useEnvironments } from "@/services/features";
+import { datetime } from "@/services/dates";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import ChangeRoleModal from "./ChangeRoleModal";
-import { useEnvironments } from "../../../services/features";
-import { datetime } from "../../../services/dates";
+import InviteModal from "./InviteModal";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -46,6 +46,7 @@ const MemberList: FC<{
             environments: roleModalUser.environments || [],
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
+            projectRoles: roleModalUser.projectRoles,
           }}
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
@@ -105,7 +106,7 @@ const MemberList: FC<{
                 <td>
                   {member.id !== userId && (
                     <>
-                      <MoreMenu id={`member-actions-${id}`}>
+                      <MoreMenu>
                         <button
                           className="dropdown-item"
                           onClick={(e) => {

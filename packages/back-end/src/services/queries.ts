@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
   MetricValueParams,
@@ -10,7 +11,6 @@ import {
   ExperimentResults,
   ExperimentQueryResponses,
 } from "../types/Integration";
-import uniqid from "uniqid";
 import {
   Queries,
   QueryInterface,

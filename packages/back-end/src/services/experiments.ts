@@ -1,3 +1,7 @@
+import uniqid from "uniqid";
+import { FilterQuery } from "mongoose";
+import uniqBy from "lodash/uniqBy";
+import cronParser from "cron-parser";
 import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
@@ -8,13 +12,9 @@ import {
   insertMetric,
   updateMetric,
 } from "../models/MetricModel";
-import uniqid from "uniqid";
-import { analyzeExperimentMetric } from "./stats";
 import { checkSrm } from "../util/stats";
-import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
-import { getMetricValue, QueryMap, startRun } from "./queries";
 import {
   PastExperimentResult,
   Dimension,
@@ -34,27 +34,28 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
-import { FilterQuery } from "mongoose";
 import { queueWebhook } from "../jobs/webhooks";
 import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
+import { getValidDate } from "../util/dates";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { SegmentModel } from "../models/SegmentModel";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+  OrganizationSettings,
+} from "../../types/organization";
+import { logger } from "../util/logger";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
   startExperimentAnalysis,
 } from "./reports";
-import { getValidDate } from "../util/dates";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
-import uniqBy from "lodash/uniqBy";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import cronParser from "cron-parser";
-import {
-  ExperimentUpdateSchedule,
-  OrganizationInterface,
-} from "../../types/organization";
-import { logger } from "../util/logger";
+import { getMetricValue, QueryMap, startRun } from "./queries";
+import { getSourceIntegrationObject } from "./datasource";
+import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -599,7 +600,8 @@ export async function createSnapshot(
   phaseIndex: number,
   organization: OrganizationInterface,
   dimensionId: string | null,
-  useCache: boolean = false
+  useCache: boolean = false,
+  statsEngine: OrganizationSettings["statsEngine"]
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -649,7 +651,8 @@ export async function createSnapshot(
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
-    useCache
+    useCache,
+    statsEngine
   );
 
   data.queries = queries;

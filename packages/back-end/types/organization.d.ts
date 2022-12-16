@@ -144,6 +144,7 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  statsEngine?: "bayesian" | "frequentist";
 }
 
 export interface SubscriptionQuote {
@@ -221,6 +222,8 @@ export type LicenseData = {
   ref: string;
   // Name of organization on the license
   sub: string;
+  // Organization ID (keys prior to 12/2022 do not contain this field)
+  org?: string;
   // Max number of seats
   qty: number;
   // Date issued

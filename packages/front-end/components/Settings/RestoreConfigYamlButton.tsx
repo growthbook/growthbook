@@ -1,18 +1,18 @@
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { OrganizationSettings } from "back-end/types/organization";
 import { FaUpload } from "react-icons/fa";
-import { useConfigJson } from "../../services/config";
 import { useState } from "react";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
 import { useForm } from "react-hook-form";
-import Field from "../Forms/Field";
 import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import { useAuth } from "@/services/auth";
+import { useConfigJson } from "@/services/config";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Field from "../Forms/Field";
+import Page from "../Modal/Page";
+import PagedModal from "../Modal/PagedModal";
 import UploadConfigYml from "./UploadConfigYml";
 
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {

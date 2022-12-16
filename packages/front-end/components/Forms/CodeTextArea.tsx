@@ -1,7 +1,7 @@
 import React from "react";
-import Field, { FieldProps } from "./Field";
 import dynamic from "next/dynamic";
-import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(
   async () => {
@@ -43,7 +43,7 @@ export default function CodeTextArea({
   value,
   setValue,
   placeholder,
-  minLines = 3,
+  minLines = 4,
   maxLines = 50,
   ...otherProps
 }: Props) {

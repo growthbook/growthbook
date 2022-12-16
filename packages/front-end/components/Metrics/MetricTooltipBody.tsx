@@ -1,6 +1,6 @@
 import { MetricInterface } from "back-end/types/metric";
 import clsx from "clsx";
-import { isNullUndefinedOrEmpty } from "../../services/utils";
+import { isNullUndefinedOrEmpty } from "@/services/utils";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";

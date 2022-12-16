@@ -1,4 +1,6 @@
 import { Response } from "express";
+import uniqid from "uniqid";
+import format from "date-fns/format";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getExperimentsByOrganization,
@@ -15,7 +17,6 @@ import {
   getExperimentWatchers,
   getExperimentByTrackingKey,
 } from "../services/experiments";
-import uniqid from "uniqid";
 import { MetricStats } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
 import {
@@ -32,7 +33,6 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
   ExperimentInterface,
@@ -1363,7 +1363,8 @@ export async function getSnapshotStatus(
         org.id,
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
-        queryData
+        queryData,
+        org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
@@ -1509,7 +1510,8 @@ export async function postSnapshot(
       phase,
       org,
       dimension || null,
-      useCache
+      useCache,
+      org.settings?.statsEngine
     );
     await req.audit({
       event: "experiment.refresh",

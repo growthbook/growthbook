@@ -1,43 +1,44 @@
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { ago, datetime } from "../../services/dates";
 import Link from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
-import { GBAddCircle } from "../../components/Icons";
-import FeatureModal from "../../components/Features/FeatureModal";
-import ValueDisplay from "../../components/Features/ValueDisplay";
 import { useRouter } from "next/router";
-import track from "../../services/track";
-import FeaturesGetStarted from "../../components/HomePage/FeaturesGetStarted";
-import useOrgSettings from "../../hooks/useOrgSettings";
+import { useFeature } from "@growthbook/growthbook-react";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { ago, datetime } from "@/services/dates";
+import { GBAddCircle } from "@/components/Icons";
+import FeatureModal from "@/components/Features/FeatureModal";
+import ValueDisplay from "@/components/Features/ValueDisplay";
+import track from "@/services/track";
+import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   filterFeaturesByEnvironment,
   removeEnvFromSearchTerm,
   useSearch,
-} from "../../services/search";
-import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
-import RealTimeFeatureGraph from "../../components/Features/RealTimeFeatureGraph";
-import { useFeature } from "@growthbook/growthbook-react";
+} from "@/services/search";
+import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
+import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   getFeatureDefaultValue,
   getRules,
   useFeaturesList,
   useRealtimeData,
   useEnvironments,
-} from "../../services/features";
-import Tooltip from "../../components/Tooltip/Tooltip";
-import Pagination from "../../components/Pagination";
+} from "@/services/features";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Pagination from "@/components/Pagination";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "../../components/Tags/TagsFilter";
-import SortedTags from "../../components/Tags/SortedTags";
-import { FaExclamationTriangle } from "react-icons/fa";
-import Toggle from "../../components/Forms/Toggle";
-import usePermissions from "../../hooks/usePermissions";
-import WatchButton from "../../components/WatchButton";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { FeatureInterface } from "back-end/types/feature";
-import Field from "../../components/Forms/Field";
+} from "@/components/Tags/TagsFilter";
+import SortedTags from "@/components/Tags/SortedTags";
+import Toggle from "@/components/Forms/Toggle";
+import usePermissions from "@/hooks/usePermissions";
+import WatchButton from "@/components/WatchButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Field from "@/components/Forms/Field";
 
 const NUM_PER_PAGE = 20;
 
@@ -48,6 +49,10 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
+  const [
+    featureToDuplicate,
+    setFeatureToDuplicate,
+  ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -94,6 +99,12 @@ export default function FeaturesPage() {
     setCurrentPage(1);
   }, [items.length]);
 
+  // Reset featureToDuplicate when modal is closed
+  useEffect(() => {
+    if (modalOpen) return;
+    setFeatureToDuplicate(null);
+  }, [modalOpen]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -120,6 +131,7 @@ export default function FeaturesPage() {
     <div className="contents container pagecontents">
       {modalOpen && (
         <FeatureModal
+          cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
@@ -130,6 +142,7 @@ export default function FeaturesPage() {
               features: [...features, feature],
             });
           }}
+          featureToDuplicate={featureToDuplicate}
         />
       )}
       <div className="row mb-3">
@@ -243,6 +256,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
+                <th style={{ width: 30 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -336,6 +350,19 @@ export default function FeaturesPage() {
                         />
                       </td>
                     )}
+                    <td>
+                      <MoreMenu>
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            setFeatureToDuplicate(feature);
+                            setModalOpen(true);
+                          }}
+                        >
+                          Duplicate
+                        </button>
+                      </MoreMenu>
+                    </td>
                   </tr>
                 );
               })}

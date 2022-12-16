@@ -3,25 +3,26 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import MoreMenu from "../../components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../../components/Icons";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import useApi from "../../hooks/useApi";
 import React, { useState } from "react";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import RuleModal from "../../components/Features/RuleModal";
-import ForceSummary from "../../components/Features/ForceSummary";
-import RuleList from "../../components/Features/RuleList";
-import track from "../../services/track";
-import EditDefaultValueModal from "../../components/Features/EditDefaultValueModal";
-import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
-import EnvironmentToggle from "../../components/Features/EnvironmentToggle";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import EditProjectForm from "../../components/Experiment/EditProjectForm";
-import EditTagsForm from "../../components/Tags/EditTagsForm";
-import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import WatchButton from "../../components/WatchButton";
+import { FaExclamationTriangle } from "react-icons/fa";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import RuleModal from "@/components/Features/RuleModal";
+import ForceSummary from "@/components/Features/ForceSummary";
+import RuleList from "@/components/Features/RuleList";
+import track from "@/services/track";
+import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import EditProjectForm from "@/components/Experiment/EditProjectForm";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import WatchButton from "@/components/WatchButton";
 import {
   getFeatureDefaultValue,
   getRules,
@@ -29,19 +30,19 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
-} from "../../services/features";
-import Tab from "../../components/Tabs/Tab";
-import FeatureImplementationModal from "../../components/Features/FeatureImplementationModal";
-import SortedTags from "../../components/Tags/SortedTags";
-import Modal from "../../components/Modal";
-import HistoryTable from "../../components/HistoryTable";
-import DraftModal from "../../components/Features/DraftModal";
-import ConfirmButton from "../../components/Modal/ConfirmButton";
-import { FaExclamationTriangle } from "react-icons/fa";
-import RevisionDropdown from "../../components/Features/RevisionDropdown";
-import usePermissions from "../../hooks/usePermissions";
-import DiscussionThread from "../../components/DiscussionThread";
-import EditOwnerModal from "../../components/Owner/EditOwnerModal";
+} from "@/services/features";
+import Tab from "@/components/Tabs/Tab";
+import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
+import SortedTags from "@/components/Tags/SortedTags";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
+import DraftModal from "@/components/Features/DraftModal";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import usePermissions from "@/hooks/usePermissions";
+import DiscussionThread from "@/components/DiscussionThread";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import FeatureModal from "@/components/Features/FeatureModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export default function FeaturePage() {
   const [edit, setEdit] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
+  const [duplicateModal, setDuplicateModal] = useState(false);
   const permissions = usePermissions();
 
   const [env, setEnv] = useEnvironmentState();
@@ -190,6 +192,17 @@ export default function FeaturePage() {
           mutate={mutate}
         />
       )}
+      {duplicateModal && (
+        <FeatureModal
+          cta={"Duplicate"}
+          close={() => setDuplicateModal(false)}
+          onSuccess={async (feature) => {
+            const url = `/features/${feature.id}`;
+            router.push(url);
+          }}
+          featureToDuplicate={data.feature}
+        />
+      )}
 
       {isDraft && (
         <div
@@ -230,7 +243,7 @@ export default function FeaturePage() {
           />
         </div>
         <div className="col-auto">
-          <MoreMenu id="feature-more-menu">
+          <MoreMenu>
             <a
               className="dropdown-item"
               href="#"
@@ -241,6 +254,19 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
+                <a
+                  className="dropdown-item"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setDuplicateModal(true);
+                  }}
+                >
+                  Duplicate feature
+                </a>
+              )}
             {permissions.check("manageFeatures", project) &&
               permissions.check("publishFeatures", project, enabledEnvs) && (
                 <DeleteButton

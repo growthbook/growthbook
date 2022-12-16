@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from "react";
-import LoadingOverlay from "../components/LoadingOverlay";
-import MetricForm from "../components/Metrics/MetricForm";
 import { FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import { datetime, ago } from "../services/dates";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { datetime, ago } from "../services/dates";
+import MetricForm from "../components/Metrics/MetricForm";
+import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import { hasFileConfig } from "../services/env";
 import { useAddComputedFields, useSearch } from "../services/search";
@@ -50,6 +50,9 @@ const MetricsPage = (): React.ReactElement => {
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
         : "Manual",
+      datasourceDescription: m.datasource
+        ? getDatasourceById(m.datasource)?.description || undefined
+        : undefined,
       ownerName: getUserDisplay(m.owner),
     }),
     [getDatasourceById]
@@ -227,20 +230,24 @@ const MetricsPage = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <SortableTH field="name">Name</SortableTH>
-            <SortableTH field="type">Type</SortableTH>
-            <th>Tags</th>
-            <th>Owner</th>
+            <SortableTH field="name" className="col-3">
+              Name
+            </SortableTH>
+            <SortableTH field="type" className="col-1">
+              Type
+            </SortableTH>
+            <th className="col-2">Tags</th>
+            <th className="col-1">Owner</th>
             <SortableTH
               field="datasourceName"
-              className="d-none d-lg-table-cell"
+              className="d-none d-lg-table-cell col-auto"
             >
               Data Source
             </SortableTH>
             {!hasFileConfig() && (
               <SortableTH
                 field="dateUpdated"
-                className="d-none d-md-table-cell"
+                className="d-none d-md-table-cell col-1"
               >
                 Last Updated
               </SortableTH>
@@ -279,6 +286,14 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.owner}</td>
               <td className="d-none d-lg-table-cell">
                 {metric.datasourceName}
+                {metric.datasourceDescription && (
+                  <div
+                    className="text-gray font-weight-normal small text-ellipsis"
+                    style={{ maxWidth: 350 }}
+                  >
+                    {metric.datasourceDescription}
+                  </div>
+                )}
               </td>
               {!hasFileConfig() && (
                 <td

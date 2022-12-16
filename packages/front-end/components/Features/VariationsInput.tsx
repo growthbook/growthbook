@@ -1,24 +1,24 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import React, { useState } from "react";
 import {
   getDefaultVariationValue,
   getVariationColor,
   getVariationDefaultName,
-} from "../../services/features";
-import Field from "../Forms/Field";
-import FeatureValueField from "./FeatureValueField";
-import ExperimentSplitVisual from "./ExperimentSplitVisual";
-import { GBAddCircle } from "../Icons";
-import React, { useState } from "react";
-import styles from "./VariationsInput.module.scss";
-import Tooltip from "../Tooltip/Tooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
+} from "@/services/features";
 import {
   decimalToPercent,
   distributeWeights,
   getEqualWeights,
   percentToDecimal,
   rebalance,
-} from "../../services/utils";
+} from "@/services/utils";
+import Field from "../Forms/Field";
+import { GBAddCircle } from "../Icons";
+import Tooltip from "../Tooltip/Tooltip";
+import MoreMenu from "../Dropdown/MoreMenu";
+import FeatureValueField from "./FeatureValueField";
+import ExperimentSplitVisual from "./ExperimentSplitVisual";
+import styles from "./VariationsInput.module.scss";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -271,7 +271,7 @@ export default function VariationsInput({
                       )}
                       {setVariations && (
                         <div className="col-auto">
-                          <MoreMenu id={`variation-menu-${i}`}>
+                          <MoreMenu>
                             {i > 0 && (
                               <button
                                 className="dropdown-item"

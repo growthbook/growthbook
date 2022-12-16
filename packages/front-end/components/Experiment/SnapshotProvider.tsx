@@ -1,7 +1,7 @@
 import React, { useState, ReactNode, useContext } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import useApi from "../../hooks/useApi";
+import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;

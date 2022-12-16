@@ -1,54 +1,51 @@
 import { useRouter } from "next/router";
-import useApi from "../../hooks/useApi";
-import DiscussionThread from "../../components/DiscussionThread";
-import useSwitchOrg from "../../services/useSwitchOrg";
 import React, { FC, useState, useEffect, Fragment } from "react";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import Link from "next/link";
 import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
+import { MetricInterface } from "back-end/types/metric";
+import { useForm } from "react-hook-form";
+import { BsGear } from "react-icons/bs";
+import clsx from "clsx";
+import { IdeaInterface } from "back-end/types/idea";
+import useApi from "@/hooks/useApi";
+import DiscussionThread from "@/components/DiscussionThread";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
 import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
-} from "../../services/metrics";
-import MetricForm from "../../components/Metrics/MetricForm";
-import Tabs from "../../components/Tabs/Tabs";
-import Tab from "../../components/Tabs/Tab";
-import StatusIndicator from "../../components/Experiment/StatusIndicator";
-import HistoryTable from "../../components/HistoryTable";
-import DateGraph from "../../components/Metrics/DateGraph";
-import { date } from "../../services/dates";
+} from "@/services/metrics";
+import MetricForm from "@/components/Metrics/MetricForm";
+import Tabs from "@/components/Tabs/Tabs";
+import Tab from "@/components/Tabs/Tab";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import HistoryTable from "@/components/HistoryTable";
+import DateGraph from "@/components/Metrics/DateGraph";
+import { date } from "@/services/dates";
 import RunQueriesButton, {
   getQueryStatus,
-} from "../../components/Queries/RunQueriesButton";
-import ViewAsyncQueriesButton from "../../components/Queries/ViewAsyncQueriesButton";
-import RightRailSection from "../../components/Layout/RightRailSection";
-import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
-import InlineForm from "../../components/Forms/InlineForm";
-import EditableH1 from "../../components/Forms/EditableH1";
-import { MetricInterface } from "back-end/types/metric";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Code from "../../components/SyntaxHighlighting/Code";
-import {
-  getDefaultConversionWindowHours,
-  hasFileConfig,
-} from "../../services/env";
-import { useForm } from "react-hook-form";
-import { BsGear } from "react-icons/bs";
-import PickSegmentModal from "../../components/Segments/PickSegmentModal";
-import clsx from "clsx";
-import { IdeaInterface } from "back-end/types/idea";
-import MoreMenu from "../../components/Dropdown/MoreMenu";
-import Button from "../../components/Button";
-import usePermissions from "../../hooks/usePermissions";
-import EditTagsForm from "../../components/Tags/EditTagsForm";
-import EditOwnerModal from "../../components/Owner/EditOwnerModal";
-import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+} from "@/components/Queries/RunQueriesButton";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import RightRailSection from "@/components/Layout/RightRailSection";
+import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
+import InlineForm from "@/components/Forms/InlineForm";
+import EditableH1 from "@/components/Forms/EditableH1";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { getDefaultConversionWindowHours, hasFileConfig } from "@/services/env";
+import PickSegmentModal from "@/components/Segments/PickSegmentModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
+import usePermissions from "@/hooks/usePermissions";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -320,7 +317,7 @@ const MetricPage: FC = () => {
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="metric-actions">
+            <MoreMenu>
               <DeleteButton
                 className="dropdown-item"
                 text="Delete"
@@ -672,8 +669,21 @@ const MetricPage: FC = () => {
                 {metric.type}
               </RightRailSectionGroup>
               {datasource && (
-                <RightRailSectionGroup title="Data Source" type="commaList">
-                  {datasource.name}
+                <RightRailSectionGroup
+                  title="Data Source"
+                  type="commaList"
+                  titleClassName="align-top"
+                >
+                  <div className="d-inline-block" style={{ maxWidth: 280 }}>
+                    <div>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource.name}
+                      </Link>
+                    </div>
+                    <div className="text-gray font-weight-normal small text-ellipsis">
+                      {datasource?.description}
+                    </div>
+                  </div>
                 </RightRailSectionGroup>
               )}
               {datasource?.type === "google_analytics" && (

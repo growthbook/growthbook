@@ -1,12 +1,12 @@
 import React, { FC, useCallback, useState } from "react";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaPencilAlt } from "react-icons/fa";
-import { DataSourceEditExperimentEventPropertiesModal } from "./DataSourceEditExperimentEventPropertiesModal";
 import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { DataSourceEditExperimentEventPropertiesModal } from "./DataSourceEditExperimentEventPropertiesModal";
 
 type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
 

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
@@ -11,7 +12,6 @@ import {
   updateDimension,
 } from "../../models/DimensionModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
-import uniqid from "uniqid";
 
 // region GET /dimensions
 

@@ -1,6 +1,6 @@
-import { MetricInterface, MetricStats } from "../../types/metric";
-import { PythonShell } from "python-shell";
 import { promisify } from "util";
+import { PythonShell } from "python-shell";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import {
   ExperimentMetricQueryResponse,
   ExperimentResults,
@@ -10,11 +10,12 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
-import { QueryMap } from "./queries";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
+import { OrganizationSettings } from "../../types/organization";
+import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -49,7 +50,8 @@ export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
-  maxDimensions: number
+  maxDimensions: number,
+  statsEngine: OrganizationSettings["statsEngine"] = "bayesian"
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -73,6 +75,7 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 
@@ -121,6 +124,11 @@ result = analyze_metric_df(
   weights=weights,
   type=type,
   inverse=inverse,
+  engine=${
+    statsEngine === "frequentist"
+      ? "StatsEngine.FREQUENTIST"
+      : "StatsEngine.BAYESIAN"
+  }
 )
 
 print(json.dumps({
@@ -149,7 +157,8 @@ export async function analyzeExperimentResults(
   organization: string,
   variations: ExperimentReportVariation[],
   dimension: string | undefined,
-  queryData: QueryMap
+  queryData: QueryMap,
+  statsEngine: OrganizationSettings["statsEngine"] = "bayesian"
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -219,7 +228,8 @@ export async function analyzeExperimentResults(
           variations,
           metric,
           data.rows,
-          dimension === "pre:date" ? 100 : MAX_DIMENSIONS
+          dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
+          statsEngine
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

@@ -2,11 +2,11 @@ import { ApiKeyInterface, PublishableApiKey } from "back-end/types/apikey";
 import Link from "next/link";
 import { useEffect } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import useApi from "../../hooks/useApi";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEnvironments } from "../../services/features";
+import useApi from "@/hooks/useApi";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import SelectField from "../Forms/SelectField";
 import LoadingSpinner from "../LoadingSpinner";
 

@@ -1,8 +1,8 @@
 import React, { FC, useState } from "react";
-import ImportExperimentList from "../../../components/Experiment/ImportExperimentList";
-import NewExperimentForm from "../../../components/Experiment/NewExperimentForm";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
+import ImportExperimentList from "@/components/Experiment/ImportExperimentList";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const ImportPage: FC = () => {
   const [

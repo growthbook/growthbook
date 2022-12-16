@@ -1,16 +1,16 @@
 import React, { FC, useState } from "react";
-import LoadingOverlay from "../LoadingOverlay";
 import { useRouter } from "next/router";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
-import { datetime } from "../../services/dates";
-import { hasFileConfig } from "../../services/env";
-import { GBAddCircle } from "../Icons";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink } from "../DocLink";
-import NewDataSourceForm from "./NewDataSourceForm";
-import Tooltip from "../Tooltip/Tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { datetime } from "@/services/dates";
+import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
+import { GBAddCircle } from "../Icons";
+import LoadingOverlay from "../LoadingOverlay";
+import { DocLink } from "../DocLink";
+import Tooltip from "../Tooltip/Tooltip";
+import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -34,9 +34,10 @@ const DataSources: FC = () => {
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Display Name</th>
-              <th>Type</th>
-              {!hasFileConfig() && <th>Date Added</th>}
+              <th className="col-3">Display Name</th>
+              <th className="col-auto">Description</th>
+              <th className="col-2">Type</th>
+              {!hasFileConfig() && <th className="col-2">Date Added</th>}
             </tr>
           </thead>
           <tbody>
@@ -64,6 +65,9 @@ const DataSources: FC = () => {
                       <FaExclamationTriangle className="text-danger" />
                     </Tooltip>
                   )}
+                </td>
+                <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                  {d.description}
                 </td>
                 <td>{d.type}</td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}

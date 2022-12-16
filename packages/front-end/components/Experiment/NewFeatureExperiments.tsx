@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import useApi from "../../hooks/useApi";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import NewExperimentForm from "./NewExperimentForm";
-import { ago } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import usePermissions from "../../hooks/usePermissions";
+import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ago } from "@/services/dates";
+import usePermissions from "@/hooks/usePermissions";
+import NewExperimentForm from "./NewExperimentForm";
 
 export default function NewFeatureExperiments() {
   const permissions = usePermissions();

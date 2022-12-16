@@ -1,14 +1,14 @@
-import { FC } from "react";
-import Modal from "../Modal";
+import { FC, useMemo } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Field from "../Forms/Field";
+import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../../components/Forms/CodeTextArea";
-import useMembers from "../../hooks/useMembers";
 import { validateSQL } from "../../services/datasources";
+import SQLInputField from "../SQLInputField";
+import Field from "../Forms/Field";
+import { useAuth } from "../../services/auth";
+import useMembers from "../../hooks/useMembers";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -38,11 +38,15 @@ const SegmentForm: FC<{
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
+  const requiredColumns = useMemo(() => {
+    return new Set([userIdType, "date"]);
+  }, [userIdType]);
+
   return (
     <Modal
       close={close}
       open={true}
-      header={current ? "Edit Segment" : "New Segment"}
+      header={current.id ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
           validateSQL(value.sql, [value.userIdType, "date"]);
@@ -70,8 +74,9 @@ const SegmentForm: FC<{
         placeholder="Choose one..."
         options={filteredDatasources.map((d) => ({
           value: d.id,
-          label: d.name,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {datasource.properties.userIds && (
         <SelectField
@@ -88,12 +93,11 @@ const SegmentForm: FC<{
         />
       )}
       {sql ? (
-        <CodeTextArea
-          label="SQL"
-          required
-          language="sql"
-          value={form.watch("sql")}
-          setValue={(sql) => form.setValue("sql", sql)}
+        <SQLInputField
+          userEnteredQuery={form.watch("sql")}
+          datasourceId={datasource.id}
+          form={form}
+          requiredColumns={requiredColumns}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           helpText={
             <>
@@ -101,6 +105,7 @@ const SegmentForm: FC<{
               <code>date</code>
             </>
           }
+          queryType="segment"
         />
       ) : (
         <Field

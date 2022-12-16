@@ -1,5 +1,5 @@
-import { STRIPE_SECRET } from "../util/secrets";
 import { Stripe } from "stripe";
+import { STRIPE_SECRET } from "../util/secrets";
 import {
   updateOrganization,
   updateOrganizationByStripeId,

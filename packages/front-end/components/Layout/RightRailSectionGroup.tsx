@@ -17,6 +17,7 @@ const RightRailSectionGroup: FC<{
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
+  titleClassName?: string;
 }> = ({
   children,
   title = "",
@@ -25,6 +26,7 @@ const RightRailSectionGroup: FC<{
   badgeStyle = "",
   className = "",
   style,
+  titleClassName = "",
 }) => {
   let hasChildren = type === "onoff" || !!children;
   if (Array.isArray(children)) {
@@ -34,7 +36,9 @@ const RightRailSectionGroup: FC<{
 
   return (
     <div className={`mb-2 ${className}`} style={style}>
-      {title && <span className="mr-2 text-muted">{title}:</span>}
+      {title && (
+        <span className={`mr-2 text-muted ${titleClassName}`}>{title}:</span>
+      )}
       {hasChildren ? (
         <>
           {type === "tags" && (

@@ -2,8 +2,8 @@ import { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import markdown from "markdown-it";
 import sanitizer from "markdown-it-sanitizer";
 import mark from "markdown-it-mark";
-import styles from "./Markdown.module.scss";
 import clsx from "clsx";
+import styles from "./Markdown.module.scss";
 
 const md = markdown({ html: true, linkify: true }).use(sanitizer).use(mark);
 

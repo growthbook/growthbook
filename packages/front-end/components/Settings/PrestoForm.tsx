@@ -1,8 +1,8 @@
 import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
+import SelectField from "../Forms/SelectField";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
-import SelectField from "../Forms/SelectField";
 
 const PrestoForm: FC<{
   params: Partial<PrestoConnectionParams>;
@@ -20,11 +20,11 @@ const PrestoForm: FC<{
           required
           value={params.engine || ""}
           onChange={(v) => {
-            onManualParamChange("engine", v)
+            onManualParamChange("engine", v);
           }}
           options={[
             { value: "presto", label: "presto" },
-            { value: "trino", label: "trino" }
+            { value: "trino", label: "trino" },
           ]}
         />
       </div>

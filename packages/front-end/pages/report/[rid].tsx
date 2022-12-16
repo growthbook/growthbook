@@ -1,34 +1,34 @@
 import { useRouter } from "next/router";
 import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import Markdown from "../../components/Markdown/Markdown";
-import useApi from "../../hooks/useApi";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Markdown from "@/components/Markdown/Markdown";
+import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
-} from "../../components/Queries/RunQueriesButton";
-import { ago, datetime, getValidDate, date } from "../../services/dates";
-import DateResults from "../../components/Experiment/DateResults";
-import BreakDownResults from "../../components/Experiment/BreakDownResults";
-import CompactResults from "../../components/Experiment/CompactResults";
-import GuardrailResults from "../../components/Experiment/GuardrailResult";
-import { useAuth } from "../../services/auth";
-import ControlledTabs from "../../components/Tabs/ControlledTabs";
-import Tab from "../../components/Tabs/Tab";
-import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
-import ConfigureReport from "../../components/Report/ConfigureReport";
-import ResultMoreMenu from "../../components/Experiment/ResultMoreMenu";
-import Link from "next/link";
-import Toggle from "../../components/Forms/Toggle";
-import Field from "../../components/Forms/Field";
-import MarkdownInput from "../../components/Markdown/MarkdownInput";
-import Modal from "../../components/Modal";
-import { useForm } from "react-hook-form";
-import Tooltip from "../../components/Tooltip/Tooltip";
-import { useUser } from "../../services/UserContext";
-import VariationIdWarning from "../../components/Experiment/VariationIdWarning";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
+} from "@/components/Queries/RunQueriesButton";
+import { ago, datetime, getValidDate, date } from "@/services/dates";
+import DateResults from "@/components/Experiment/DateResults";
+import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import CompactResults from "@/components/Experiment/CompactResults";
+import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import { useAuth } from "@/services/auth";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
+import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import ConfigureReport from "@/components/Report/ConfigureReport";
+import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
+import Toggle from "@/components/Forms/Toggle";
+import Field from "@/components/Forms/Field";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@/services/UserContext";
+import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -321,6 +321,7 @@ export default function ReportPage() {
               <BreakDownResults
                 isLatestPhase={true}
                 metrics={report.args.metrics}
+                metricOverrides={report.args.metricOverrides}
                 reportDate={report.dateCreated}
                 results={report.results?.dimensions || []}
                 status={"stopped"}
@@ -365,6 +366,7 @@ export default function ReportPage() {
                 id={report.id}
                 isLatestPhase={true}
                 metrics={report.args.metrics}
+                metricOverrides={report.args.metricOverrides}
                 reportDate={report.dateCreated}
                 results={report.results?.dimensions?.[0]}
                 status={"stopped"}
