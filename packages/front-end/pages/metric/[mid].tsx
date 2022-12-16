@@ -317,7 +317,7 @@ const MetricPage: FC = () => {
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="metric-actions">
+            <MoreMenu>
               <DeleteButton
                 className="dropdown-item"
                 text="Delete"

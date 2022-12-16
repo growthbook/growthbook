@@ -166,7 +166,7 @@ const IdeaPage = (): ReactElement => {
           )}
         {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="idea-more-menu">
+            <MoreMenu>
               <a
                 href="#"
                 className="dropdown-item"

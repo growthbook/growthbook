@@ -121,7 +121,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
           {/* region Identity Type actions */}
           {canEdit && (
             <div>
-              <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-types">
+              <MoreMenu>
                 <button
                   className="dropdown-item py-2"
                   onClick={handleActionEditClicked(idx)}

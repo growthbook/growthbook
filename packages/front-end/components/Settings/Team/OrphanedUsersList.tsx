@@ -68,7 +68,7 @@ const OrphanedUsersList: FC<{
                 <td>{name}</td>
                 <td>{email}</td>
                 <td style={{ width: 30 }}>
-                  <MoreMenu id={`orphaned-user-actions-${id}`}>
+                  <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {
