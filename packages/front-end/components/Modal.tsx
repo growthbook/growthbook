@@ -1,9 +1,15 @@
-import { FC, useRef, useEffect, useState, ReactElement } from "react";
-import LoadingOverlay from "./LoadingOverlay";
+import {
+  FC,
+  useRef,
+  useEffect,
+  useState,
+  ReactElement,
+  ReactNode,
+} from "react";
 import clsx from "clsx";
+import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
-import { ReactNode } from "react";
-import Tooltip from "./Tooltip";
+import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {

@@ -1,8 +1,7 @@
-import { FC } from "react";
+import { FC, ChangeEventHandler } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
-import { ChangeEventHandler } from "react";
+import { isCloud } from "@/services/env";
 import Field from "../Forms/Field";
-import { isCloud } from "../../services/env";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;

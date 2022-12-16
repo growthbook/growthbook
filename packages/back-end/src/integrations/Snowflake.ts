@@ -1,14 +1,20 @@
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
+import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: SnowflakeConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

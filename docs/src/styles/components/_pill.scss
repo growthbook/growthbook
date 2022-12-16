@@ -1,0 +1,6 @@
+@import "../mixins";
+
+.pill {
+  display: inline-block;
+  @include pill(#7817d3, #fff);
+}

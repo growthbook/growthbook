@@ -3,13 +3,14 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { datetime } from "../../services/dates";
-import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { getExposureQuery } from "../../services/datasources";
-import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import { FaQuestionCircle } from "react-icons/fa";
+import { datetime } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExposureQuery } from "@/services/datasources";
+import Modal from "../Modal";
+import Code from "../SyntaxHighlighting/Code";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const FilterSummary: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -162,7 +163,11 @@ const FilterSummary: FC<{
               </div>
               <div className="col">
                 {snapshot.queryFilter ? (
-                  <code>{snapshot.queryFilter}</code>
+                  <Code
+                    language="sql"
+                    code={snapshot.queryFilter}
+                    expandable={true}
+                  />
                 ) : (
                   <em>none</em>
                 )}

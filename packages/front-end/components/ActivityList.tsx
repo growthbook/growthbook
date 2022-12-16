@@ -1,10 +1,10 @@
 import { FC } from "react";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
-import Avatar from "./Avatar";
+import useApi from "../hooks/useApi";
 import { date, datetime } from "../services/dates";
+import LoadingOverlay from "./LoadingOverlay";
+import Avatar from "./Avatar/Avatar";
 //import { phaseSummary } from "../services/utils";
 
 const eventActionMapping = {
@@ -39,26 +39,23 @@ const ActivityList: FC<{
     <div className="">
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {events.map((event) => {
-          // let details = null;
-          // try {
-          //   details = JSON.parse(event.details);
-          // } catch (e) {
-          //   // Ignore errors
-          //   console.error(e);
-          // }
-
           return (
             <li key={event.id} className="media d-flex w-100 hover-highlight">
               <Link href={`/experiment/${event.entity.id}`}>
                 <a className="no-link-color w-100">
-                  <Avatar
-                    email={event.user.email}
-                    className="mr-2 float-left"
-                    size={24}
-                  />
+                  {"email" in event.user && event.user.email && (
+                    <Avatar
+                      email={event.user.email}
+                      className="mr-2 float-left"
+                      size={24}
+                    />
+                  )}
                   <div className="d-flex flex-column flex-fill ">
                     <div className="mb-1">
-                      <strong>{event.user.name}</strong>{" "}
+                      <strong>
+                        {("name" in event.user && event.user.name) ||
+                          ("apiKey" in event.user && "API Key")}
+                      </strong>{" "}
                       {eventActionMapping[event.event] || "modified"}{" "}
                       <strong>
                         {nameMap.get(event.entity.id) || event.entity.id}

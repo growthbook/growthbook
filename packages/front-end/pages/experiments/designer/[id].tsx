@@ -18,34 +18,32 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { useRouter } from "next/router";
-import useApi from "../../../hooks/useApi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import LoadingOverlay from "../../../components/LoadingOverlay";
-import Button from "../../../components/Button";
-import { useAuth } from "../../../services/auth";
-import LoadingSpinner from "../../../components/LoadingSpinner";
 import { BsArrowClockwise, BsGear } from "react-icons/bs";
-import StatusIndicator from "../../../components/Experiment/StatusIndicator";
 import TextareaAutosize from "react-textarea-autosize";
-import Dropdown from "../../../components/Dropdown/Dropdown";
-import DropdownLink from "../../../components/Dropdown/DropdownLink";
-import Modal from "../../../components/Modal";
-import styles from "./designer.module.scss";
+import Link from "next/link";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Button";
+import { useAuth } from "@/services/auth";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
+import Modal from "@/components/Modal";
 import {
   DomMutation,
   ElementAttribute,
   ElementBreadcrumb,
   IncomingMessage,
   OutgoingMessage,
-} from "../../../types/visualDesigner";
-import {
-  addQueryStringToURL,
-  dataURItoBlob,
-} from "../../../services/visualDesigner";
-import Link from "next/link";
-import VisualEditorScriptMissing from "../../../components/Experiment/VisualEditorScriptMissing";
-import { uploadFile } from "../../../services/files";
-import useSwitchOrg from "../../../services/useSwitchOrg";
+} from "@/types/visualDesigner";
+import { addQueryStringToURL, dataURItoBlob } from "@/services/visualDesigner";
+import VisualEditorScriptMissing from "@/components/Experiment/VisualEditorScriptMissing";
+import { uploadFile } from "@/services/files";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import SelectField from "@/components/Forms/SelectField";
+import styles from "./designer.module.scss";
 
 const EditorPage: FC = () => {
   const router = useRouter();
@@ -670,19 +668,17 @@ const EditorPage: FC = () => {
             </div>
           </div>
           <div className="col-auto">
-            <select
-              value={variation}
-              className="form-control"
-              onChange={(e) => {
-                setVariation(parseInt(e.target.value) || 0);
+            <SelectField
+              value={variation + ""}
+              onChange={(v) => {
+                setVariation(parseInt(v) || 0);
               }}
-            >
-              {variations.map((v, i) => (
-                <option key={i} value={i}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+              options={variations.map((v, i) => ({
+                value: i + "",
+                label: v.name,
+              }))}
+            />
+            `
           </div>
           <div className="col text-left d-flex">
             <div className="mr-2 d-none d-lg-block">{data.experiment.name}</div>
@@ -896,7 +892,7 @@ const EditorPage: FC = () => {
                   e.preventDefault();
                   try {
                     // eslint-disable-next-line
-                      // @ts-ignore
+                    // @ts-ignore
                     const captureStream = await navigator.mediaDevices.getDisplayMedia(
                       {
                         video: {},
@@ -1000,17 +996,16 @@ const EditorPage: FC = () => {
             )}
           </div>
           <div className="col-auto">
-            <select
-              className="form-control form-control-sm"
-              value={zoom}
-              onChange={(e) => {
-                setZoom(parseFloat(e.target.value) || 1);
-              }}
-            >
-              <option value="1">100%</option>
-              <option value="0.75">75%</option>
-              <option value="0.5">50%</option>
-            </select>
+            <SelectField
+              className="small"
+              value={zoom + ""}
+              onChange={(v) => setZoom(parseFloat(v) || 1)}
+              options={[
+                { value: "1", label: "100%" },
+                { value: "0.75", label: "75%" },
+                { value: "0.5", label: "50%" },
+              ]}
+            />
           </div>
           <div className="col-auto">
             <div className="btn-group">
@@ -1480,11 +1475,15 @@ const EditorPage: FC = () => {
               </div>
               <div className="form-group">
                 Action
-                <select className="form-control" {...form.register("name")}>
-                  <option value="set">set</option>
-                  <option value="append">append</option>
-                  <option value="remove">remove</option>
-                </select>
+                <SelectField
+                  value={form.watch("name")}
+                  onChange={(v) => form.setValue("name", v)}
+                  options={[
+                    { label: "set", value: "set" },
+                    { label: "append", value: "append" },
+                    { label: "remove", value: "remove" },
+                  ]}
+                />
               </div>
               <div className="form-group">
                 Attribute

@@ -1,8 +1,14 @@
 import clsx from "clsx";
-import { ReactElement, useState } from "react";
-import { Children, FC, isValidElement, ReactNode } from "react";
-import Modal from "../Modal";
+import {
+  ReactElement,
+  useState,
+  Children,
+  FC,
+  isValidElement,
+  ReactNode,
+} from "react";
 import { MdCheck } from "react-icons/md";
+import Modal from "../Modal";
 import { DocSection } from "../DocLink";
 
 type Props = {
@@ -10,6 +16,7 @@ type Props = {
   submitColor?: string;
   cta?: string;
   closeCta?: string;
+  ctaEnabled?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";

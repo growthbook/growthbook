@@ -1,3 +1,7 @@
+import uniqid from "uniqid";
+import { FilterQuery } from "mongoose";
+import uniqBy from "lodash/uniqBy";
+import cronParser from "cron-parser";
 import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
@@ -8,13 +12,9 @@ import {
   insertMetric,
   updateMetric,
 } from "../models/MetricModel";
-import uniqid from "uniqid";
-import { analyzeExperimentMetric } from "./stats";
 import { checkSrm } from "../util/stats";
-import { getSourceIntegrationObject } from "./datasource";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
-import { getMetricValue, QueryMap, startRun } from "./queries";
 import {
   PastExperimentResult,
   Dimension,
@@ -34,26 +34,27 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
-import { FilterQuery } from "mongoose";
 import { queueWebhook } from "../jobs/webhooks";
 import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
+import { getValidDate } from "../util/dates";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { SegmentModel } from "../models/SegmentModel";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "../../types/organization";
+import { logger } from "../util/logger";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
   startExperimentAnalysis,
 } from "./reports";
-import { getValidDate } from "../util/dates";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
-import uniqBy from "lodash/uniqBy";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import cronParser from "cron-parser";
-import {
-  ExperimentUpdateSchedule,
-  OrganizationInterface,
-} from "../../types/organization";
+import { getMetricValue, QueryMap, startRun } from "./queries";
+import { getSourceIntegrationObject } from "./datasource";
+import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -293,6 +294,11 @@ export async function refreshMetric(
       throw new Error("Could not load metric datasource");
     }
     const integration = getSourceIntegrationObject(datasource);
+    if (integration.decryptionError) {
+      throw new Error(
+        "Could not decrypt data source credentials. View the data source settings for more info."
+      );
+    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
@@ -396,18 +402,7 @@ export async function createExperiment(
     throw new Error("Experiment and Organization must match");
   }
 
-  if (data.trackingKey) {
-    // Make sure id is unique
-    const existing = await getExperimentByTrackingKey(
-      data.organization,
-      data.trackingKey
-    );
-    if (existing) {
-      throw new Error(
-        "Error: Duplicate experiment id. Please choose something else"
-      );
-    }
-  } else {
+  if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
     let found = null;
@@ -585,7 +580,7 @@ function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
       hours = (next.getTime() - Date.now()) / 1000 / 60 / 60;
     } catch (e) {
-      console.error("Failed to parse cron expression: ", e);
+      logger.warn(e, "Failed to parse cron expression");
     }
   }
   if (schedule?.type === "stale") {

@@ -1,6 +1,9 @@
 import { MetricInterface } from "back-end/types/metric";
-import { isNullUndefinedOrEmpty } from "../../services/utils";
+import clsx from "clsx";
+import { isNullUndefinedOrEmpty } from "@/services/utils";
+import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
+import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
   metric: MetricInterface;
@@ -10,17 +13,12 @@ interface MetricInfo {
   show: boolean;
   label: string;
   body: string | number | JSX.Element;
+  markdown?: boolean;
 }
 
 const MetricTooltipBody = ({
   metric,
 }: MetricToolTipCompProps): React.ReactElement => {
-  function truncateMetricDescription(metricDescription: string) {
-    if (!metricDescription) return;
-    if (metricDescription.length < 300) return metricDescription;
-    return `${metricDescription.substring(0, 300)}...`;
-  }
-
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
     const regExp = new RegExp(/[A-Za-z0-9]/);
@@ -28,11 +26,6 @@ const MetricTooltipBody = ({
   }
 
   const metricInfo: MetricInfo[] = [
-    {
-      show: validMetricDescription(metric.description),
-      label: "Description",
-      body: truncateMetricDescription(metric.description),
-    },
     {
       show: true,
       label: "Type",
@@ -60,16 +53,28 @@ const MetricTooltipBody = ({
       label: "Conversion Window Hours",
       body: metric.conversionWindowHours,
     },
+    {
+      show: validMetricDescription(metric.description),
+      label: "Description",
+      body: metric.description,
+      markdown: true,
+    },
   ];
 
   return (
     <div className="text-left">
       {metricInfo
         .filter((i) => i.show)
-        .map(({ label, body }, index) => (
+        .map(({ label, body, markdown }, index) => (
           <div key={`metricInfo${index}`}>
             <strong>{`${label}: `}</strong>
-            <span className="font-weight-normal">{body}</span>
+            {markdown ? (
+              <div className={clsx("border rounded p-2", styles.markdown)}>
+                <Markdown>{body}</Markdown>
+              </div>
+            ) : (
+              <span className="font-weight-normal">{body}</span>
+            )}
           </div>
         ))}
     </div>

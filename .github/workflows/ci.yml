@@ -1,10 +1,12 @@
 name: CI
-
-# Runs on every push to every branch
 on:
-  push:
-    branches:
-      - "**"
+  pull_request:
+    paths:
+      - "packages/**"
+      - "yarn.lock"
+      - ".eslintrc"
+      - ".eslintignore"
+      - ".prettierignore"
 
 jobs:
   # Linting, type-checking, and tests
@@ -14,51 +16,48 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Use Node.js 14.x
-        uses: actions/setup-node@v1
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
-          node-version: 14.x
+          node-version: '16'
+          cache: 'yarn'
 
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
+          cache: 'pip'
 
-      - name: Get yarn cache directory
-        id: yarn-cache
-        run: |
-          echo "::set-output name=dir::$(yarn cache dir)"
-
-      - name: Cache yarn packages
-        uses: actions/cache@v1
+      - name: Cache eslint
+        uses: actions/cache@v2
         with:
-          path: ${{ steps.yarn-cache.outputs.dir }}
-          key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
+          path: ${{ github.workspace }}/.eslintcache
+          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: install dependencies
+            ${{ runner.os }}-eslint-
+      
+      - name: Install dependencies
         run: |
-          yarn
-          python -m pip install --upgrade pip
+          # Main app
+          yarn install
+
+          # Stats engine
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats
-        env:
-          CI: true
 
-      - name: lint
+      - name: Build, lint, type-check, and test 
         run: |
-          yarn lint
-          yarn workspace stats lint
-
-      - name: build sdk packages
-        run: |
+          # Build SDK packages (required for linting/type checks to work)
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
 
-      - name: type-check
-        run: |
+          # Linting
+          yarn lint
+          yarn workspace stats lint
+
+          # Typescript type checks
           yarn type-check
 
-      - name: test
-        run: |
+          # Test suites
           yarn test
+        env:
+          CI: true

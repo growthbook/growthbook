@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import Field from "../../components/Forms/Field";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import Modal from "../../components/Modal";
-import { redirectWithTimeout, safeLogout } from "../../services/auth";
-import { getApiHost, isCloud } from "../../services/env";
+import Field from "@/components/Forms/Field";
+import { redirectWithTimeout, safeLogout } from "@/services/auth";
+import { getApiHost, isCloud } from "@/services/env";
+import WelcomeFrame from "@/components/Auth/WelcomeFrame";
 
 export async function lookupByEmail(email: string) {
   if (!isCloud()) {
@@ -40,35 +39,74 @@ export default function OAuthLookup() {
     },
   });
 
-  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  if (!open) {
-    return <LoadingOverlay />;
-  }
-
+  const leftside = (
+    <>
+      <h1 className="title h1">GrowthBook Enterprise</h1>
+      <p></p>
+    </>
+  );
   return (
-    <Modal
-      open={true}
-      autoCloseOnSubmit={false}
-      submit={form.handleSubmit(async ({ email }) => {
-        // This will lookup the SSO config id and store it in a cookie
-        await lookupByEmail(email);
-        await redirectWithTimeout(window.location.origin);
-      })}
-      close={async () => {
-        setOpen(false);
-        await safeLogout();
-      }}
-      closeCta="Cancel"
-      cta="Continue"
-    >
-      <h3>Enterprise SSO Login</h3>
-      <p>
-        Enter your email address and you will be redirected to your
-        company&apos;s SSO portal, if configured.
-      </p>
-      <Field label="Email Address" {...form.register("email")} type="email" />
-    </Modal>
+    <WelcomeFrame leftside={leftside} loading={loading}>
+      <form
+        onSubmit={form.handleSubmit(async ({ email }) => {
+          try {
+            setLoading(true);
+            // This will lookup the SSO config id and store it in a cookie
+            await lookupByEmail(email);
+            await redirectWithTimeout(window.location.origin);
+            setLoading(false);
+          } catch (e) {
+            setError(e.message);
+            setLoading(false);
+          }
+        })}
+      >
+        <div>
+          <h3 className="h2">Enterprise SSO Login</h3>
+          <p>
+            Enter your email address and you will be redirected to your
+            company&apos;s SSO portal, if configured.
+          </p>
+        </div>
+        <Field
+          required
+          label="Email Address"
+          {...form.register("email")}
+          type="email"
+          autoFocus={true}
+          autoComplete="username"
+        />
+        {error && <div className="alert alert-danger mr-auto">{error}</div>}
+        <button className={`btn btn-primary btn-block btn-lg`} type="submit">
+          Continue
+        </button>
+      </form>
+      <div className="text-center mt-3">
+        <p>
+          Not using SSO?{" "}
+          <a
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              setLoading(true);
+              await safeLogout();
+            }}
+          >
+            Go back to login
+          </a>
+        </p>
+        <div>
+          <br />
+          Don&apos;t have a GrowthBook Enterprise plan yet?
+          <br />
+          Email <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> to
+          learn more and get a quote.
+        </div>
+      </div>
+    </WelcomeFrame>
   );
 }
 

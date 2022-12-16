@@ -1,6 +1,8 @@
 import React from "react";
-import Field, { FieldProps } from "./Field";
 import dynamic from "next/dynamic";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import Field, { FieldProps } from "./Field";
+
 const AceEditor = dynamic(
   async () => {
     const reactAce = await import("react-ace");
@@ -11,6 +13,7 @@ const AceEditor = dynamic(
     await import("ace-builds/src-noconflict/mode-yaml");
     await import("ace-builds/src-noconflict/mode-json");
     await import("ace-builds/src-noconflict/theme-textmate");
+    await import("ace-builds/src-noconflict/theme-tomorrow_night");
 
     return reactAce;
   },
@@ -27,38 +30,55 @@ export type Props = Omit<
 > & {
   language: Language;
   value: string;
-  height?: number;
   setValue: (value: string) => void;
+  minLines?: number;
+  maxLines?: number;
 };
+
+const LIGHT_THEME = "textmate";
+const DARK_THEME = "tomorrow_night";
 
 export default function CodeTextArea({
   language,
   value,
   setValue,
   placeholder,
-  height = 260,
+  minLines = 4,
+  maxLines = 50,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
+
+  const semicolonWarning =
+    "Warning: Please remove any terminating semicolons. GrowthBook uses Common Table Expressions that will break from terminating semicolons.";
+
+  if (language === "sql" && value.includes(";")) {
+    otherProps.error = semicolonWarning;
+  }
+
+  const { theme } = useAppearanceUITheme();
 
   return (
     <Field
       {...fieldProps}
       render={(id) => {
         return (
-          <div className="border rounded">
-            <AceEditor
-              name={id}
-              mode={language}
-              theme="textmate"
-              width="inherit"
-              height={`${height}px`}
-              value={value}
-              onChange={(newValue) => setValue(newValue)}
-              placeholder={placeholder}
-            />
-          </div>
+          <>
+            <div className="border rounded">
+              <AceEditor
+                name={id}
+                mode={language}
+                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
+                width="inherit"
+                value={value}
+                onChange={(newValue) => setValue(newValue)}
+                placeholder={placeholder}
+                minLines={minLines}
+                maxLines={maxLines}
+              />
+            </div>
+          </>
         );
       }}
     />

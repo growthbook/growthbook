@@ -1,11 +1,11 @@
 import { ReactElement, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import track from "../../services/track";
-import WelcomeFrame from "./WelcomeFrame";
-import useUser from "../../hooks/useUser";
 import { FiLogOut } from "react-icons/fi";
-import Tooltip from "../../components/Tooltip";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { useUser } from "@/services/UserContext";
+import Tooltip from "../Tooltip/Tooltip";
+import WelcomeFrame from "./WelcomeFrame";
 
 export default function InitialOrgSettings(): ReactElement {
   const techStacks = [
@@ -28,6 +28,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "Snowflake", value: "snowflake" },
     { display: "Postgres", value: "postgres" },
     { display: "MySQL or MariaDB", value: "mysql" },
+    { display: "MS SQL/SQL Server", value: "mssql" },
     { display: "BigQuery", value: "bigquery" },
     { display: "Mixpanel", value: "mixpanel" },
     { display: "ClickHouse", value: "clickhouse" },
@@ -50,7 +51,7 @@ export default function InitialOrgSettings(): ReactElement {
   const [error, setError] = useState(null);
 
   const { apiCall, logout } = useAuth();
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
 
   const submit = form.handleSubmit(async (value) => {
     // add the other to the array:
@@ -73,7 +74,7 @@ export default function InitialOrgSettings(): ReactElement {
     });
 
     track("onboarding questions");
-    update();
+    refreshOrganization();
   });
 
   const leftside = (

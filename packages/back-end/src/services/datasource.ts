@@ -6,12 +6,13 @@ import Presto from "../integrations/Presto";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface } from "../types/Integration";
+import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
 import { DataSourceInterface, DataSourceParams } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
+import Mssql from "../integrations/Mssql";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -61,12 +62,14 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
     obj = new Postgres(params, settings);
   } else if (type === "mysql") {
     obj = new Mysql(params, settings);
+  } else if (type === "mssql") {
+    obj = new Mssql(params, settings);
   } else if (type === "bigquery") {
     obj = new BigQuery(params, settings);
   } else if (type === "clickhouse") {
     obj = new ClickHouse(params, settings);
   } else if (type === "mixpanel") {
-    obj = new Mixpanel(params, settings);
+    obj = new Mixpanel(params, settings ?? {});
   } else if (type === "presto") {
     obj = new Presto(params, settings);
   } else {
@@ -84,4 +87,36 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(datasource);
   await integration.testConnection();
+}
+
+export async function testQuery(
+  datasource: DataSourceInterface,
+  query: string
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+}> {
+  const integration = getSourceIntegrationObject(datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Unable to test query.");
+  }
+
+  const sql = integration.getTestQuery(query);
+  try {
+    const { results, duration } = await integration.runTestQuery(sql);
+    return {
+      results,
+      duration,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
 }

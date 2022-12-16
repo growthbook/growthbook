@@ -1,19 +1,20 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { ago } from "../../services/dates";
-import Button from "../../components/Button";
 import { DimensionInterface } from "back-end/types/dimension";
-import DimensionForm from "../../components/Dimensions/DimensionForm";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { hasFileConfig } from "../../services/env";
 import clsx from "clsx";
 import Link from "next/link";
-import DeleteButton from "../../components/DeleteButton";
-import { useAuth } from "../../services/auth";
-import { GBAddCircle } from "../../components/Icons";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink } from "../../components/DocLink";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { ago } from "@/services/dates";
+import Button from "@/components/Button";
+import DimensionForm from "@/components/Dimensions/DimensionForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { hasFileConfig } from "@/services/env";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { GBAddCircle } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
+import { DocLink } from "@/components/DocLink";
+import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 
 const DimensionsPage: FC = () => {
   const {
@@ -138,26 +139,43 @@ const DimensionsPage: FC = () => {
               <tbody>
                 {dimensions.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
+                  const language: Language =
+                    datasource?.properties?.queryLanguage || "sql";
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
-                        {datasource?.name}
+                        {datasource && (
+                          <>
+                            <div>
+                              <Link href={`/datasources/${datasource?.id}`}>
+                                {datasource?.name}
+                              </Link>
+                            </div>
+                            <div
+                              className="text-gray font-weight-normal small text-ellipsis"
+                              style={{ maxWidth: 350 }}
+                            >
+                              {datasource?.description}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds
                           ? s.userIdType || "user_id"
                           : ""}
                       </td>
-                      <td className="d-none d-lg-table-cell">
-                        {datasource?.properties?.events ? (
-                          <div>
-                            Event property: <code>{s.sql}</code>
-                          </div>
-                        ) : (
-                          <code>{s.sql}</code>
-                        )}
+                      <td
+                        className="d-none d-lg-table-cell"
+                        style={{ maxWidth: "30em" }}
+                      >
+                        <Code
+                          language={language}
+                          code={s.sql}
+                          expandable={true}
+                        />
                       </td>
                       {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
                       {!hasFileConfig() && permissions.createDimensions && (
@@ -219,11 +237,9 @@ const DimensionsPage: FC = () => {
           settings.
         </p>
 
-        {permissions.editDatasourceSettings && (
-          <Link href="/datasources">
-            <a className="btn btn-outline-primary">View Data Sources</a>
-          </Link>
-        )}
+        <Link href="/datasources">
+          <a className="btn btn-outline-primary">View Data Sources</a>
+        </Link>
       </div>
     </div>
   );

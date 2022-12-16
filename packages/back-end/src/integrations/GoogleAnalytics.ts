@@ -1,3 +1,4 @@
+import { analyticsreporting_v4, google } from "googleapis";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -9,7 +10,6 @@ import {
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
-import { analyticsreporting_v4, google } from "googleapis";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
@@ -49,14 +49,26 @@ function convertDate(rawDate: string): string {
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   datasource: string;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   organization: string;
   settings: DataSourceSettings;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  decryptionError: boolean;
 
   constructor(encryptedParams: string) {
-    this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
-      encryptedParams
-    );
+    try {
+      this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
+        encryptedParams
+      );
+    } catch (e) {
+      this.params = { customDimension: "", refreshToken: "", viewId: "" };
+      this.decryptionError = true;
+    }
     this.settings = {};
   }
   getExperimentMetricQuery(): string {

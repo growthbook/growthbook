@@ -1,5 +1,5 @@
-import { useAuth } from "./auth";
 import { useEffect } from "react";
+import { useAuth } from "./auth";
 
 export default function useSwitchOrg(newOrg: null | string): void {
   const { orgId, setOrgId, setSpecialOrg } = useAuth();

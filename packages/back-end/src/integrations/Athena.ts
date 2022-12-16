@@ -1,14 +1,20 @@
 import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
-import SqlIntegration from "./SqlIntegration";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
+import { FormatDialect } from "../util/sql";
+import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: AthenaConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "trino";
   }
   getSensitiveParamKeys(): string[] {
     return ["accessKeyId", "secretAccessKey"];

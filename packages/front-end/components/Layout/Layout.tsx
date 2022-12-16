@@ -1,17 +1,19 @@
 import Link from "next/link";
-import styles from "./Layout.module.scss";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import TopNav from "./TopNav";
-import { GBExperiment, GBSettings } from "../Icons";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaArrowRight } from "react-icons/fa";
+import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
+import UpgradeModal from "../Settings/UpgradeModal";
+import { useUser } from "../../services/UserContext";
+import ProjectSelector from "./ProjectSelector";
+import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import TopNav from "./TopNav";
+import styles from "./Layout.module.scss";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -27,9 +29,35 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^features/,
-    beta: false,
-    className: styles.first,
+    path: /^(features|attributes|namespaces|environments|saved-groups)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "All Features",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Attributes",
+        href: "/attributes",
+        path: /^attributes/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
+        name: "Environments",
+        href: "/environments",
+        path: /^environments/,
+      },
+      {
+        name: "Saved Groups",
+        href: "/saved-groups",
+        path: /^saved-groups/,
+      },
+    ],
   },
   {
     name: "Analysis",
@@ -62,7 +90,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Data Sources",
         href: "/datasources",
         path: /^datasources/,
-        permissions: ["editDatasourceSettings"],
       },
     ],
   },
@@ -94,39 +121,41 @@ const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects|namespaces)/,
-    permissions: ["organizationSettings"],
+    path: /^(settings|admin|projects)/,
     autoClose: true,
+    permissions: [
+      "organizationSettings",
+      "manageTeam",
+      "manageTags",
+      "manageProjects",
+      "manageApiKeys",
+      "manageBilling",
+      "manageWebhooks",
+    ],
     subLinks: [
       {
         name: "General",
         href: "/settings",
         path: /^settings$/,
+        permissions: ["organizationSettings"],
       },
       {
         name: "Team",
         href: "/settings/team",
         path: /^settings\/team/,
+        permissions: ["manageTeam"],
       },
       {
         name: "Tags",
         href: "/settings/tags",
         path: /^settings\/tags/,
+        permissions: ["manageTags"],
       },
       {
         name: "Projects",
         href: "/projects",
         path: /^projects/,
-      },
-      {
-        name: "Attributes",
-        href: "/settings/attributes",
-        path: /^settings\/attributes/,
-      },
-      {
-        name: "Environments",
-        href: "/settings/environments",
-        path: /^settings\/environments/,
+        permissions: ["manageProjects"],
       },
       {
         name: "Custom Fields",
@@ -137,22 +166,20 @@ const navlinks: SidebarLinkProps[] = [
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
+        permissions: ["manageApiKeys"],
       },
       {
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
+        permissions: ["manageWebhooks"],
       },
       {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
         cloudOnly: true,
+        permissions: ["manageBilling"],
       },
       {
         name: "Admin",
@@ -215,6 +242,10 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
+  const { accountPlan } = useUser();
+
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
   const router = useRouter();
@@ -266,6 +297,13 @@ const Layout = (): React.ReactElement => {
 
   return (
     <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason=""
+          source="layout"
+        />
+      )}
       {settings?.customized && (
         <style dangerouslySetInnerHTML={{ __html: customStyles }}></style>
       )}
@@ -355,6 +393,22 @@ const Layout = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="p-3">
+          {showUpgradeButton && (
+            <button
+              className="btn btn-premium btn-block font-weight-normal"
+              onClick={() => setUpgradeModal(true)}
+            >
+              {accountPlan === "oss" ? (
+                <>
+                  Try Enterprise <GBPremiumBadge />
+                </>
+              ) : (
+                <>
+                  Upgrade to Pro <GBPremiumBadge />
+                </>
+              )}
+            </button>
+          )}
           <a
             href={inferDocUrl()}
             className="btn btn-outline-light btn-block"

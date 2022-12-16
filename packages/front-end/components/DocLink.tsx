@@ -25,13 +25,16 @@ const docSections = {
   ruby: "/lib/ruby",
   php: "/lib/php",
   python: "/lib/python",
+  java: "/lib/java",
   //Other
   user_guide: "/app",
   config: "/self-host/config",
   config_yml: "/self-host/config",
   config_domains_and_ports: "/self-host/env#domains-and-ports",
   config_organization_settings: "/self-host/config#organization-settings",
+  env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
+  encryptedSDKEndpoints: "/lib/js#hiding-features-from-users",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -48,7 +51,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/datasources": "datasources",
   "/dashboard": "experiments",
   "/settings/keys": "api",
-  "/settings/environments": "api",
+  "/environments": "api",
   "/settings/webhooks": "webhooks",
 };
 

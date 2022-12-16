@@ -8,11 +8,11 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import MetricValueColumn from "./MetricValueColumn";
 import { ExperimentReportVariation } from "back-end/types/report";
-import Tooltip from "../Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import Link from "next/link";
+import Tooltip from "../Tooltip/Tooltip";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;

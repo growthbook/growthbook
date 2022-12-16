@@ -1,30 +1,32 @@
-import React, { FC, ReactElement, useState } from "react";
-import { MetricInterface, Condition, MetricType } from "back-end/types/metric";
-import { useAuth } from "../../services/auth";
+import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
+import {
+  MetricInterface,
+  Condition,
+  MetricType,
+  Operator,
+} from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 import RadioSelector from "../Forms/RadioSelector";
 import PagedModal from "../Modal/PagedModal";
 import Page from "../Modal/Page";
-import track from "../../services/track";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEffect } from "react";
-import Code from "../Code";
+import Code from "../SyntaxHighlighting/Code";
 import TagsInput from "../Tags/TagsInput";
+import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import MultiSelectField from "../Forms/MultiSelectField";
+import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import SQLInputField from "../SQLInputField";
+import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import track from "../../services/track";
 import { getDefaultConversionWindowHours } from "../../services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "../../services/metrics";
-import BooleanSelect, { BooleanSelectControl } from "../Forms/BooleanSelect";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import { getInitialMetricQuery } from "../../services/datasources";
-import MultiSelectField from "../Forms/MultiSelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
-import { useMemo } from "react";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import { useAuth } from "../../services/auth";
+import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -42,33 +44,17 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
-function validateSQL(sql: string, type: MetricType, userIdTypes: string[]) {
-  if (!sql.length) {
-    throw new Error("SQL cannot be empty");
-  }
-
-  // require a SELECT statement
-  if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
-    throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
-  }
-
+function validateMetricSQL(
+  sql: string,
+  type: MetricType,
+  userIdTypes: string[]
+) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
   }
-
-  const missingCols = requiredCols.filter(
-    (col) => sql.toLowerCase().indexOf(col) < 0
-  );
-
-  if (missingCols.length > 0) {
-    throw new Error(
-      `Missing the following required columns: ${missingCols
-        .map((col) => '"' + col + '"')
-        .join(", ")}`
-    );
-  }
+  validateSQL(sql, requiredCols);
 }
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
@@ -89,7 +75,7 @@ function validateQuerySettings(
     return;
   }
   if (sqlInput) {
-    validateSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(value.sql, value.type, value.userIdTypes);
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
@@ -288,6 +274,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const conversionWindowSupported = capSupported;
 
   const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
+  const supportsJS =
+    currentDataSource?.properties?.queryLanguage === "javascript";
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
@@ -351,6 +339,10 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
+  const requiredColumns = useMemo(() => {
+    return new Set(["timestamp", ...value.userIdTypes]);
+  }, [value.userIdTypes]);
+
   return (
     <PagedModal
       inline={inline}
@@ -359,6 +351,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta={cta}
       closeCta={!inline && "Cancel"}
+      ctaEnabled={!riskError}
       size="lg"
       docSection="metrics"
       step={step}
@@ -421,8 +414,9 @@ const MetricForm: FC<MetricFormProps> = ({
           onChange={(v) => form.setValue("datasource", v)}
           options={(datasources || []).map((d) => ({
             value: d.id,
-            label: d.name,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
+          className="portal-overflow-ellipsis"
           name="datasource"
           initialOption="Manual"
           disabled={edit}
@@ -509,15 +503,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   label="Identifier Types Supported"
                 />
-                <CodeTextArea
-                  label="SQL"
-                  required
-                  language="sql"
-                  value={form.watch("sql")}
-                  setValue={(sql) => form.setValue("sql", sql)}
+                <SQLInputField
+                  userEnteredQuery={value.sql}
+                  datasourceId={value.datasource}
+                  form={form}
+                  requiredColumns={requiredColumns}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
                   }
+                  queryType="metric"
                 />
                 {value.type !== "binomial" && (
                   <Field
@@ -577,7 +571,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 {value.type !== "binomial" && !supportsSQL && (
                   <Field
                     label="User Value Aggregation"
-                    placeholder="values.reduce((sum,n)=>sum+n, 0)"
+                    placeholder="sum(values)"
                     textarea
                     minRows={1}
                     {...form.register("aggregation")}
@@ -602,25 +596,52 @@ const MetricForm: FC<MetricFormProps> = ({
                           />
                         </div>
                         <div className="col-auto">
-                          <select
-                            className="form-control"
-                            {...form.register(`conditions.${i}.operator`)}
-                          >
-                            <option value="=">=</option>
-                            <option value="!=">!=</option>
-                            <option value="~">~</option>
-                            <option value="!~">!~</option>
-                            <option value="<">&lt;</option>
-                            <option value=">">&gt;</option>
-                            <option value="<=">&lt;=</option>
-                            <option value=">=">&gt;=</option>
-                          </select>
+                          <SelectField
+                            value={form.watch(`conditions.${i}.operator`)}
+                            onChange={(v) =>
+                              form.setValue(
+                                `conditions.${i}.operator`,
+                                v as Operator
+                              )
+                            }
+                            options={(() => {
+                              const ret = [
+                                { value: "=", label: "equals" },
+                                { value: "!=", label: "does not equal" },
+                                { value: "~", label: "matches the regex" },
+                                {
+                                  value: "!~",
+                                  label: "does not match the regex",
+                                },
+                                { value: "<", label: "is less than" },
+                                { value: ">", label: "is greater than" },
+                                {
+                                  value: "<=",
+                                  label: "is less than or equal to",
+                                },
+                                {
+                                  value: ">=",
+                                  label: "is greater than or equal to",
+                                },
+                              ];
+                              if (supportsJS)
+                                ret.push({
+                                  value: "=>",
+                                  label: "custom javascript",
+                                });
+                              return ret;
+                            })()}
+                            sort={false}
+                          />
                         </div>
                         <div className="col-auto">
-                          <input
+                          <Field
                             required
-                            className="form-control"
                             placeholder="Value"
+                            textarea={
+                              form.watch(`conditions.${i}.operator`) === "=>"
+                            }
+                            minRows={1}
                             {...form.register(`conditions.${i}.value`)}
                           />
                         </div>
@@ -731,19 +752,19 @@ const MetricForm: FC<MetricFormProps> = ({
                 </div>
               ) : (
                 <>
-                  <h4>Query Preview</h4>
-                  SQL:
-                  <Code
-                    language="sql"
-                    theme="dark"
-                    code={getRawSQLPreview(value)}
+                  <SQLInputField
+                    userEnteredQuery={getRawSQLPreview(value)}
+                    datasourceId={value.datasource}
+                    form={form}
+                    requiredColumns={requiredColumns}
+                    showPreview
+                    queryType="metric"
                   />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
                       <Code
                         language="sql"
-                        theme="dark"
                         code={getAggregateSQLPreview(value)}
                       />
                       <small className="text-muted">
@@ -760,16 +781,25 @@ const MetricForm: FC<MetricFormProps> = ({
       <Page display="Behavior">
         <div className="form-group ">
           What is the Goal?
-          <BooleanSelect
-            required
-            control={form.control as BooleanSelectControl}
-            name="inverse"
-            falseLabel={`Increase the ${
-              value.type === "binomial" ? "conversion rate" : value.type
-            }`}
-            trueLabel={`Decrease the ${
-              value.type === "binomial" ? "conversion rate" : value.type
-            }`}
+          <SelectField
+            value={form.watch("inverse") ? "1" : "0"}
+            onChange={(v) => {
+              form.setValue("inverse", v === "1");
+            }}
+            options={[
+              {
+                value: "0",
+                label: `Increase the ${
+                  value.type === "binomial" ? "conversion rate" : value.type
+                }`,
+              },
+              {
+                value: "1",
+                label: `Decrease the ${
+                  value.type === "binomial" ? "conversion rate" : value.type
+                }`,
+              },
+            ]}
           />
         </div>
         {capSupported && ["count", "duration", "revenue"].includes(value.type) && (
@@ -839,12 +869,22 @@ const MetricForm: FC<MetricFormProps> = ({
             {ignoreNullsSupported && value.type !== "binomial" && (
               <div className="form-group">
                 Converted Users Only
-                <BooleanSelect
+                <SelectField
                   required
-                  control={form.control as BooleanSelectControl}
-                  name="ignoreNulls"
-                  falseLabel="No"
-                  trueLabel="Yes"
+                  value={form.watch("ignoreNulls") ? "1" : "0"}
+                  onChange={(v) => {
+                    form.setValue("ignoreNulls", v === "1");
+                  }}
+                  options={[
+                    {
+                      value: "0",
+                      label: "No",
+                    },
+                    {
+                      value: "1",
+                      label: "Yes",
+                    },
+                  ]}
                 />
                 <small className="text-muted">
                   If yes, exclude anyone with a metric value less than or equal

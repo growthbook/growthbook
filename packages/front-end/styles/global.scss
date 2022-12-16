@@ -1,22 +1,15 @@
-@import "colors.scss";
+@use "colors";
+@import "theme";
 
-$font-size-base: 0.875rem !default; // change the default from 16px to 14px.
-$h1-font-size: 1.5rem !default; //24px
-$h2-font-size: 1.25rem !default; //20px
-$h3-font-size: 1.125rem !default; //18px
-$h4-font-size: 1rem !default; //16px
-$h5-font-size: 0.875rem !default; //14px
-$h6-font-size: $font-size-base !default;
-$headings-font-weight: 600 !default;
-$font-weight-bold: 600 !default;
-
-$grid-gutter-width: 16px !default;
-$badge-padding-y: 0.25em !default; // 3px for default size
-$badge-padding-x: 0.584em !default; // 7px for default size
+// Bootstrap variable overrides must be loaded BEFORE Bootstrap
+@import "bootstrap-variable-overrides";
 
 @import "bootstrap/scss/bootstrap.scss";
 @import "react-bootstrap-typeahead/css/Typeahead.scss";
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
+
+// Bootstrap theme overrides must be loaded AFTER Bootstrap
+@import "_bootstrap-theme-overrides";
 
 html,
 body,
@@ -29,8 +22,22 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
-  background-color: $main-background;
-  color: $main-black;
+  background-color: var(--background-color);
+  color: var(--text-color-main);
+}
+
+.text-main {
+  color: var(--text-color-main);
+}
+
+.text-secondary {
+  color: var(--text-color-muted) !important;
+}
+
+.text-ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 #block-menu-container {
@@ -59,51 +66,69 @@ pre {
   font-size: 100%;
 }
 .text-blue {
-  color: $second-blue;
+  color: colors.$second-blue;
 }
 .text-purple {
-  color: $highlight-purple;
+  color: colors.$highlight-purple;
 }
 .text-indigo {
-  color: $indigo;
+  color: colors.$indigo;
 }
 .text-gray {
-  color: $gray1;
+  color: var(--text-color-th);
 }
 .text-light-gray {
-  color: $gray2;
+  color: var(--border-color-300);
 }
+
 .font-weight-semibold {
   font-weight: 500;
 }
 .uppercase-title {
-  color: $gray1;
+  color: var(--text-color-th);
   text-transform: uppercase;
   font-size: 11px;
   font-weight: 600;
 }
 // default bootstrap overrides:
 
+.btn:focus {
+  box-shadow: none;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
+}
+
 .btn-primary {
   @include button-variant(
-    $highlight-purple,
-    darken($highlight-purple, 7.5%),
-    darken($highlight-purple, 10%),
-    lighten($highlight-purple, 5%),
-    lighten($highlight-purple, 10%),
-    darken($highlight-purple, 30%)
+    colors.$highlight-purple,
+    darken(colors.$highlight-purple, 7.5%),
+    darken(colors.$highlight-purple, 10%),
+    lighten(colors.$highlight-purple, 5%),
+    lighten(colors.$highlight-purple, 10%),
+    darken(colors.$highlight-purple, 30%)
   );
   white-space: nowrap;
   font-weight: 600;
 }
 
-.btn-outline-primary {
-  //button-outline-variant($color, $color-hover: color-yiq($color), $active-background: $color, $active-border: $color
+.btn-premium {
   @include button-outline-variant(
-    $highlight-purple,
+    colors.$premium,
     #fff,
-    lighten($highlight-purple, 0%),
-    $highlight-purple
+    colors.$premium,
+    colors.$premium
+  );
+  font-weight: bold;
+}
+
+.btn-outline-primary {
+  @include button-outline-variant(
+    colors.$highlight-purple,
+    #fff,
+    lighten(colors.$highlight-purple, 0%),
+    colors.$highlight-purple
   );
 }
 .btn-outline-primary:not(:disabled):not(.disabled).selected {
@@ -133,16 +158,16 @@ pre {
 }
 .badge-gray {
   @include badge-variant(#f6f7f9);
-  border: 1px solid $gray4;
+  border: 1px solid colors.$gray4;
 }
 .multi-select-container {
   z-index: 99999999;
 }
 .graybox {
-  background-color: $gray6;
+  background-color: var(--surface-background-color-alt);
   padding: 15px 20px 20px;
   border-radius: 3px;
-  border: 1px solid $gray5;
+  border: 1px solid var(--border-color-300);
   label {
     font-weight: 600;
   }
@@ -176,11 +201,11 @@ pre {
 }
 .modal {
   .modal-header {
-    background-color: $gray5;
+    background-color: var(--surface-background-color-alt);
   }
   .rbt-token {
-    background-color: rgba($highlight-purple, 0.1);
-    color: $highlight-purple;
+    background-color: rgba(colors.$highlight-purple, 0.1);
+    color: colors.$highlight-purple;
     font-weight: 600;
   }
 }
@@ -188,18 +213,17 @@ pre {
   margin: 0 auto;
 }
 .gbtable {
-  color: $main-black;
+  background-color: var(--surface-background-color);
   margin-bottom: 0;
-  background-color: $white;
-  border: 1px solid $gray4;
+
   thead {
     th {
       font-size: 11px;
       text-transform: uppercase;
       font-weight: 600;
-      color: #52597a;
+      color: var(--text-color-th);
       white-space: nowrap;
-      border-bottom: 1px solid $gray4;
+      border-bottom-width: 1px;
       border-top: 0;
 
       .activesort,
@@ -243,9 +267,9 @@ pre {
     }
 
     tr {
-      border: 1px solid $gray4;
+      border: 1px solid var(--border-color-300);
       margin-bottom: 1em;
-      background-color: white;
+      background-color: var(--surface-background-color);
     }
 
     td {
@@ -253,10 +277,10 @@ pre {
       border: none;
       position: relative;
       min-height: 42px;
-      background-color: white;
+      background-color: var(--surface-background-color);
     }
     tr td:not(:last-child) {
-      border-bottom: 1px solid $gray4;
+      border-bottom: 1px solid var(--border-color-300);
     }
 
     &.experiment-table {
@@ -277,13 +301,13 @@ pre {
       padding-right: 10px;
       white-space: nowrap;
       content: attr(data-title);
-      color: $gray1;
+      color: var(--text-color-muted);
     }
   }
 }
 
 .pagination-area {
-  border-top: 1px solid $gray4;
+  border-top: 1px solid var(--border-color-300);
   padding: 10px;
 
   .pagination {
@@ -295,7 +319,7 @@ pre {
         border: 0;
         margin: 0 5px;
         font-weight: 600;
-        color: $main-black;
+        color: var(--text-color-main);
       }
       .link-number {
         min-width: 30px;
@@ -308,10 +332,10 @@ pre {
         }
       }
       &.active .page-link {
-        color: #fff;
+        color: var(--text-color-on-bright);
       }
       &.disabled .page-link {
-        color: $gray2;
+        color: var(--text-color-muted);
       }
     }
     //.active .page-link
@@ -331,22 +355,22 @@ pre {
     font-weight: 500;
     font-size: 15px;
     line-height: 22px;
-    border: 1px solid $gray4;
+    border: 1px solid var(--border-color-300);
     border-radius: 0;
     border-right: 0;
     padding: 6px 20px;
-    background-color: #fff;
-    color: $main-black;
+    background-color: var(--surface-background-color);
+    color: var(--text-color-main);
     &:hover {
-      background-color: rgba($highlight-purple, 0.08);
-      border: 1px solid rgba($highlight-purple, 0.15);
+      background-color: rgba(colors.$highlight-purple, 0.08);
+      border: 1px solid rgba(colors.$highlight-purple, 0.15);
       border-right: 0;
-      color: $highlight-purple;
+      color: colors.$highlight-purple;
     }
     &.active {
-      color: $highlight-purple;
-      background-color: rgba($highlight-purple, 0.15);
-      border: 1px solid rgba($highlight-purple, 0.15);
+      color: colors.$highlight-purple;
+      background-color: rgba(colors.$highlight-purple, 0.15);
+      border: 1px solid rgba(colors.$highlight-purple, 0.15);
       font-weight: bold;
     }
     &:first-child {
@@ -354,14 +378,14 @@ pre {
       border-bottom-left-radius: 3px;
     }
     &.last {
-      border-right: 1px solid $gray4;
+      border-right: 1px solid var(--border-color-300);
       border-top-right-radius: 3px;
       border-bottom-right-radius: 3px;
       &:hover {
-        border-right: 1px solid rgba($highlight-purple, 0.15);
+        border-right: 1px solid rgba(colors.$highlight-purple, 0.15);
       }
       &.active {
-        border-right: 1px solid rgba($highlight-purple, 0.15);
+        border-right: 1px solid rgba(colors.$highlight-purple, 0.15);
       }
     }
     .badge {
@@ -370,7 +394,7 @@ pre {
   }
   .tab-content {
     border-radius: 3px;
-    border-color: $gray4;
+    border-color: var(--border-color-300);
   }
 }
 .paged-modal-default {
@@ -380,7 +404,7 @@ pre {
   font-weight: 600;
   padding: 0;
   a {
-    color: $main-black;
+    color: var(--text-color-main);
   }
   .step {
     white-space: nowrap;
@@ -388,27 +412,27 @@ pre {
 
     .step-number {
       display: inline-block;
-      color: $highlight-purple;
+      color: colors.$highlight-purple;
       text-align: center;
       margin: 0 4px;
-      background-color: rgba($highlight-purple, 0.15);
+      background-color: rgba(colors.$highlight-purple, 0.15);
       width: 24px;
       height: 24px;
       line-height: 24px;
     }
     &.active {
       a {
-        color: $highlight-purple;
+        color: colors.$highlight-purple;
       }
       .step-number {
-        background-color: $highlight-purple;
-        color: $white;
+        background-color: colors.$highlight-purple;
+        color: colors.$white;
       }
     }
     &.completed {
       .step-number {
-        background-color: $highlight-purple;
-        color: $white;
+        background-color: colors.$highlight-purple;
+        color: colors.$white;
       }
     }
   }
@@ -422,7 +446,7 @@ pre {
         content: "";
         display: inline-block;
         width: 100%;
-        border-bottom: 1px dashed $purple-tint;
+        border-bottom: 1px dashed colors.$purple-tint;
         height: 1px;
       }
       &:last-of-type {
@@ -438,14 +462,14 @@ pre {
 }
 .modal {
   label {
-    color: $gray1;
+    color: var(--text-color-muted);
     font-weight: 500;
   }
 }
 
 .app-sidebar-header {
   .selected {
-    background-color: $purple;
+    background-color: colors.$purple;
   }
   .divider {
     margin-top: 9px;
@@ -473,8 +497,8 @@ pre {
   }
 }
 .appbox {
-  background-color: #fff;
-  border: 1px solid $app-border;
+  background-color: var(--surface-background-color);
+  border: 1px solid var(--border-color-100);
   margin-bottom: 1em;
   border-radius: 5px;
 
@@ -497,6 +521,13 @@ pre {
     }
   }
 }
+
+.appbox--align-top {
+  td {
+    vertical-align: top;
+  }
+}
+
 .flex-1 {
   flex: 1;
 }
@@ -517,25 +548,20 @@ pre {
 .code-holder {
   margin: 0.5em 0;
 
-  &.collapsible .code {
+  &.collapsible pre {
     transition: max-height 0.2s;
-    max-height: 45em;
+    max-height: 60em;
     overflow-y: scroll;
   }
 
-  &.collapsed .code {
+  &.collapsed pre {
     max-height: 10em;
   }
 
   .action-buttons {
-    z-index: 999;
-    position: absolute;
-    top: 8px;
-    right: 8px;
-
     .message {
       padding: 2px 6px;
-      background: $highlight-purple;
+      background: colors.$highlight-purple;
       color: #fff;
       position: relative;
       margin-right: 10px;
@@ -549,7 +575,7 @@ pre {
         top: 50%;
         margin-top: -6px;
         border: 6px solid transparent;
-        border-left: 6px solid $highlight-purple;
+        border-left: 6px solid colors.$highlight-purple;
       }
     }
   }
@@ -561,6 +587,10 @@ pre {
 
 .gb-tooltip {
   border-radius: 5px;
+  white-space: normal;
+  font-size: 13px;
+  text-transform: initial;
+  font-weight: normal;
 
   .arrow {
     position: absolute;
@@ -571,7 +601,7 @@ pre {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: #fff;
+      background-color: var(--surface-background-color);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -581,10 +611,15 @@ pre {
   }
 
   .body {
-    background: #fff;
-    color: $dark;
+    background-color: var(--surface-background-color);
+    color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
+  }
+
+  .premium {
+    font-weight: bold;
+    color: var(--text-color-premium);
   }
 
   &[data-popper-placement^="top"] > .arrow {
@@ -631,7 +666,7 @@ pre {
   }
 
   .intro-side {
-    background-color: $purple;
+    background-color: colors.$purple;
     background: radial-gradient(
       at 50% 100%,
       rgba(109, 18, 228, 0.75),
@@ -663,10 +698,15 @@ pre {
     text-align: center;
   }
   .form-side {
-    background-color: #fff;
+    background-color: var(--surface-background-color);
+    font-size: 0.875rem; //14px
     .formwrap {
       width: 100%;
       max-width: 500px;
+
+      label {
+        color: var(--form-input-group-color);
+      }
     }
   }
   h1,
@@ -711,10 +751,10 @@ pre {
   background: rgba(255, 255, 255, 0.7);
   .tooltip-results {
     .ci-neg {
-      color: $dark-red;
+      color: colors.$dark-red;
     }
     .ci-pos {
-      color: $dark-green;
+      color: colors.$dark-green;
     }
     > div {
       padding: 0 8px;
@@ -727,10 +767,10 @@ pre {
     transform: rotate(45deg);
     right: -8px;
     top: 70%;
-    background-color: #fff;
+    background-color: var(--surface-background-color);
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
-    border: 1px inset rgba(0, 0, 0, 0.1);
+    border: 1px inset var(--border-color-300);
   }
 }
 
@@ -756,7 +796,7 @@ pre {
     text-indent: -9999px;
     width: 50px;
     height: 25px;
-    background: $gray-300;
+    background: var(--form-switch-background);
     display: block;
     border-radius: 100px;
     margin-bottom: 0;
@@ -770,7 +810,7 @@ pre {
     left: 2px;
     width: 21px;
     height: 21px;
-    background: #fff;
+    background: var(--surface-background-color);
     border-radius: 90px;
     transition: 0.3s;
   }
@@ -781,10 +821,10 @@ pre {
   }
 
   input:checked + label {
-    background: $purple;
+    background: var(--form-switch-background-active);
   }
   &.toggle-featureValue input:checked + label {
-    background: $blue;
+    background: colors.$blue;
   }
 
   label:active:after {
@@ -801,19 +841,24 @@ pre {
   }
 }
 
+// To make non-password fields look like password fields.
+.password-presentation {
+  -webkit-text-security: disc;
+}
+
 .experiment-compact {
   border-spacing: 0;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color-100);
 
   td,
   th {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color-100);
   }
 
   thead {
     th {
-      background: #f4f4f4;
-      color: #555;
+      background: var(--surface-background-color-alt);
+      color: var(--text-color-muted);
       font-weight: 600;
 
       &.metric {
@@ -838,7 +883,7 @@ pre {
     }
   }
   .value {
-    border-left: 3px solid #ccc;
+    border-left: 3px solid var(--border-color-300);
   }
 
   thead tr:first-child th:first-child,
@@ -847,15 +892,15 @@ pre {
     left: 0;
     width: auto;
     z-index: 890;
-    border-right: 2px solid #ccc;
+    border-right: 2px solid var(--border-color-300);
   }
 
   tbody {
     tr {
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--border-color-300);
 
       &.all-dimension {
-        border-bottom: 5px solid #ccc;
+        border-bottom: 5px solid var(--border-color-300);
       }
     }
     td,
@@ -863,7 +908,7 @@ pre {
       vertical-align: middle;
     }
     th:first-child {
-      background: #fff;
+      background: var(--surface-background-color);
     }
   }
 
@@ -872,13 +917,13 @@ pre {
   }
 
   .inverse-indicator {
-    color: $orange;
+    color: colors.$orange;
   }
 
   &.aligned-graph {
     td.variation:not(.value):not(.won):not(.lost):not(.warning):not(.draw) {
       opacity: 1;
-      color: #999;
+      color: var(--text-color-muted);
     }
   }
   .aligned-graph-row {
@@ -916,7 +961,7 @@ pre {
   .change-container {
     display: flex;
     padding-bottom: 30px;
-    color: #666;
+    color: var(--text-color-muted);
     font-size: 0.9em;
     .left-label {
       flex: 1;
@@ -935,7 +980,7 @@ pre {
         top: 0;
         left: 50%;
         height: 100%;
-        border-left: 2px dotted #000;
+        border-left: 2px dotted var(--text-color-main);
       }
       .expected {
         position: absolute;
@@ -946,10 +991,10 @@ pre {
         margin-left: -50px;
       }
       .win {
-        background-color: #a6edd1;
+        background-color: var(--win-background);
       }
       .lose {
-        background-color: #ff8075;
+        background-color: var(--lose-background);
       }
     }
   }
@@ -978,21 +1023,23 @@ pre {
   }
 
   td.won {
-    background-color: rgba(#a6edd1, 0.3);
-    color: $dark-green;
+    background-color: var(--win-background);
+    color: var(--alert-success-color);
     .expected {
       font-weight: bold;
     }
   }
   td.lost {
-    background-color: rgba(#edaca6, 0.3);
+    background-color: var(--lose-background);
+    color: var(--alert-danger-color);
   }
   td.warning {
-    background-color: rgba(#eddca6, 0.3);
+    background-color: var(--warn-background);
+    color: var(--alert-warn-color);
   }
   td.draw {
-    background-color: rgba(#d7c9e2, 0.3);
-    color: $dark-purple;
+    background-color: var(--background-primary-light);
+    color: var(--text-color-on-background-primary-light);
   }
 
   .metricname:hover {
@@ -1001,7 +1048,7 @@ pre {
 }
 
 .bg-purple {
-  background: $highlight-purple;
+  background: colors.$highlight-purple;
 }
 
 .change-bar {
@@ -1011,7 +1058,7 @@ pre {
   }
   .bar-holder {
     width: 120px;
-    background: #f2f2f2;
+    background: var(--background-color);
     border-radius: 4px;
     height: 1em;
     position: relative;
@@ -1089,7 +1136,7 @@ pre {
 }
 
 .statuslabel {
-  color: $gray-600;
+  color: var(--text-color-muted);
   font-weight: normal;
 }
 
@@ -1099,7 +1146,7 @@ li.metrics a span img {
 }
 
 .leftBar {
-  background-color: $light-grey;
+  background-color: var(--surface-background-color-alt);
   width: 330px;
   padding: 20px;
   flex-direction: column;
@@ -1108,21 +1155,21 @@ li.metrics a span img {
   transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
   position: fixed;
   overflow: hidden;
-  border-right: 1px solid #cacaca;
+  border-right: 1px solid var(--border-color-300);
 }
 
 .watchaction {
-  color: $highlight-purple;
+  color: colors.$highlight-purple;
   text-decoration: none;
   &.notwatching {
-    color: $gray-500;
+    color: var(--text-color-muted);
   }
   &:hover {
-    color: lighten($highlight-purple, 5%);
+    color: lighten(colors.$highlight-purple, 5%);
   }
   &.watch-icon {
     &.notwatching {
-      color: $gray-400;
+      color: var(--text-color-muted);
     }
   }
 }
@@ -1140,7 +1187,7 @@ li.metrics a span img {
       padding-top: 0.7rem;
     }
     li:not(:last-child) {
-      border-bottom: 1px solid #e0e2eb;
+      border-bottom: 1px solid var(--border-color-100);
     }
   }
   .semi-bold {
@@ -1152,8 +1199,8 @@ li.metrics a span img {
     border-radius: 3px;
   }
   .activity-box {
-    background-color: #fff;
-    border: 1px solid #e0e2eb;
+    background-color: var(--surface-background-color);
+    border: 1px solid var(--border-color-100);
     padding: 20px;
     border-radius: 4px;
     h4 {
@@ -1164,11 +1211,11 @@ li.metrics a span img {
     background-color: rgba(124, 69, 234, 0.1);
     padding: 4px;
     font-weight: 500;
-    color: $highlight-purple;
+    color: colors.$highlight-purple;
     border-radius: 100px;
   }
   .no-link-color {
-    color: $main-black;
+    color: var(--text-color-main);
     text-decoration: none;
   }
 
@@ -1187,9 +1234,6 @@ li.metrics a span img {
 
 .experiments {
   .experiment-table {
-    //border: 1px solid $app-border;
-    //color: $gray-600;
-
     h1,
     h2,
     h3,
@@ -1217,13 +1261,13 @@ li.metrics a span img {
       padding: 0 4px;
       line-height: 20px;
       vertical-align: top;
-      color: $gray-500;
+      color: var(--text-color-muted);
       cursor: pointer;
     }
     .submenu {
       font-weight: normal;
       position: absolute;
-      background: #fff;
+      background: var(--surface-background-color);
       padding: 10px;
       box-shadow: 1px 1px 3px 3px rgba(0, 0, 0, 0.1);
     }
@@ -1233,7 +1277,7 @@ li.metrics a span img {
   }
   .testname {
     font-weight: 400;
-    color: $main-black;
+    color: var(--text-color-main);
   }
   .hypothesis {
     font-size: 1em;
@@ -1246,7 +1290,7 @@ li.metrics a span img {
     height: 20px;
     margin-right: -17px;
     vertical-align: middle;
-    color: $light-grey;
+    color: var(--text-color-muted);
     background-size: contain;
     background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSIwcHgiIHk9IjBweCIKCSB3aWR0aD0iMC44ZW0iIGhlaWdodD0iMC44ZW0iIHZpZXdCb3g9IjAgMCA0MDEuOTk4IDQwMS45OTgiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDQwMS45OTggNDAxLjk5ODsiCgkgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5jbHMtMSB7CiAgICAgICAgZmlsbDogIzk5OTsKICAgICAgICBmaWxsLXJ1bGU6IGV2ZW5vZGQ7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgo8Zz4KCTxnPgoJCTxwYXRoIGNsYXNzPSdjbHMtMScgZD0iTTczLjA5MiwxNjQuNDUyaDI1NS44MTNjNC45NDksMCw5LjIzMy0xLjgwNywxMi44NDgtNS40MjRjMy42MTMtMy42MTYsNS40MjctNy44OTgsNS40MjctMTIuODQ3CgkJCWMwLTQuOTQ5LTEuODEzLTkuMjI5LTUuNDI3LTEyLjg1TDIxMy44NDYsNS40MjRDMjEwLjIzMiwxLjgxMiwyMDUuOTUxLDAsMjAwLjk5OSwwcy05LjIzMywxLjgxMi0xMi44NSw1LjQyNEw2MC4yNDIsMTMzLjMzMQoJCQljLTMuNjE3LDMuNjE3LTUuNDI0LDcuOTAxLTUuNDI0LDEyLjg1YzAsNC45NDgsMS44MDcsOS4yMzEsNS40MjQsMTIuODQ3QzYzLjg2MywxNjIuNjQ1LDY4LjE0NCwxNjQuNDUyLDczLjA5MiwxNjQuNDUyeiIvPgoJCTxwYXRoIGNsYXNzPSdjbHMtMScgZD0iTTMyOC45MDUsMjM3LjU0OUg3My4wOTJjLTQuOTUyLDAtOS4yMzMsMS44MDgtMTIuODUsNS40MjFjLTMuNjE3LDMuNjE3LTUuNDI0LDcuODk4LTUuNDI0LDEyLjg0NwoJCQljMCw0Ljk0OSwxLjgwNyw5LjIzMyw1LjQyNCwxMi44NDhMMTg4LjE0OSwzOTYuNTdjMy42MjEsMy42MTcsNy45MDIsNS40MjgsMTIuODUsNS40MjhzOS4yMzMtMS44MTEsMTIuODQ3LTUuNDI4bDEyNy45MDctMTI3LjkwNgoJCQljMy42MTMtMy42MTQsNS40MjctNy44OTgsNS40MjctMTIuODQ4YzAtNC45NDgtMS44MTMtOS4yMjktNS40MjctMTIuODQ3QzMzOC4xMzksMjM5LjM1MywzMzMuODU0LDIzNy41NDksMzI4LjkwNSwyMzcuNTQ5eiIvPgoJPC9nPgo8L2c+Cjwvc3ZnPg==")
       no-repeat 99%;
@@ -1270,22 +1314,22 @@ li.metrics a span img {
       no-repeat 99%;
   }
   .needs-results {
-    background-color: $lighter-red;
+    background-color: colors.$lighter-red;
   }
 }
 
 .purple-phase {
   .percent-traffic,
   .split {
-    color: $highlight-purple;
+    color: colors.$highlight-purple;
   }
 }
 .experiment-details,
 .metric {
   .tab-content {
-    background-color: #fff;
+    background-color: var(--surface-background-color);
     padding: 1rem;
-    border: 1px solid $gray4;
+    border: 1px solid var(--border-color-300);
   }
 
   h5 {
@@ -1298,7 +1342,7 @@ li.metrics a span img {
     }
     .hypothesis {
       .hypothesis-title {
-        color: $secondary;
+        color: colors.$secondary;
         font-size: 13px;
       }
     }
@@ -1336,7 +1380,7 @@ li.metrics a span img {
       margin: 0;
       padding: 0;
       font-size: 11px;
-      background: $purple;
+      background: colors.$purple;
       color: white;
       padding: 0.2em 0;
       position: absolute;
@@ -1354,7 +1398,7 @@ li.metrics a span img {
 
       width: 100%;
       height: 100%;
-      background: $purple;
+      background: colors.$purple;
     }
     .ribbon:before {
       right: 100%;
@@ -1371,7 +1415,7 @@ li.metrics a span img {
     .upload-btn {
       font-size: 13px;
       padding: 20px 20px;
-      border-color: rgba(0, 0, 0, 0.4);
+      border-color: var(--border-color-300);
       border-width: 2px;
       border-radius: 0.5rem;
       color: rgba(0, 0, 0, 0.5);
@@ -1382,7 +1426,7 @@ li.metrics a span img {
     }
   }
   .winner {
-    background-color: $lighter-green;
+    background-color: colors.$lighter-green;
     border-color: #a9d6b8;
     .card-header {
       padding-right: 30px;
@@ -1406,29 +1450,30 @@ li.metrics a span img {
     }
   }
   .loser {
-    background-color: $lighter-red;
+    background-color: colors.$lighter-red;
     border-color: #f0d5ce;
   }
   .image-blank {
     background-size: contain;
-    background: #fafafa url("/images/image-blank.png") no-repeat 50% 50%;
+    background: var(--surface-background-color-alt)
+      url("/images/image-blank.png") no-repeat 50% 50%;
     min-height: 200px;
-    border-top: 1px solid $gray4;
-    border-bottom: 1px solid $gray4;
+    border-top: 1px solid var(--border-color-300);
+    border-bottom: 1px solid var(--border-color-300);
   }
   .experiment-image {
     height: 300px;
     width: 100%;
     object-fit: scale-down;
     object-position: 50% 50%;
-    background: $gray1;
-    border-top: 1px solid $gray4;
-    border-bottom: 1px solid $gray4;
+    background: var(--form-switch-background);
+    border-top: 1px solid var(--border-color-200);
+    border-bottom: 1px solid var(--border-color-200);
   }
   .results-table {
     font-size: 14px;
-    color: #444;
-    background-color: #fff;
+    color: var(--text-color-muted);
+    background-color: var(--surface-background-color);
 
     .datapoint {
       display: inline-block;
@@ -1436,12 +1481,12 @@ li.metrics a span img {
       .dataname {
         display: block;
         font-size: 0.8rem;
-        color: $gray-600;
+        color: var(--text-color-muted);
       }
     }
 
     .notenoughdata {
-      color: $gray-600;
+      color: var(--text-color-muted);
     }
     .enoughdata {
       &.significant {
@@ -1452,15 +1497,15 @@ li.metrics a span img {
       }
 
       &.losing {
-        background-color: $lighter-red;
+        background-color: colors.$lighter-red;
         .vardata {
-          color: $red;
+          color: colors.$red;
         }
       }
       &.winning {
-        background-color: $lighter-green;
+        background-color: colors.$lighter-green;
         .vardata {
-          color: $dark-green;
+          color: colors.$dark-green;
         }
       }
     }
@@ -1470,7 +1515,7 @@ li.metrics a span img {
     }
     .ctbb-title {
       margin-left: 0.75rem;
-      color: $gray-500;
+      color: colors.$gray-500;
     }
     .numberResult {
       padding: 0;
@@ -1482,12 +1527,12 @@ li.metrics a span img {
         }
       }
       .winner {
-        color: $dark-green;
-        background-color: $lighter-green;
+        color: colors.$dark-green;
+        background-color: colors.$lighter-green;
       }
       .loser {
-        color: $dark-red;
-        background-color: $light-red;
+        color: colors.$dark-red;
+        background-color: colors.$light-red;
       }
       .ctbb {
         span {
@@ -1518,10 +1563,10 @@ html {
   .edit,
   .delete {
     cursor: pointer;
-    color: $darker-blue;
+    color: colors.$darker-blue;
     margin: 0 4px;
     svg {
-      fill: $blue;
+      fill: colors.$blue;
     }
   }
   .lower-card-details {
@@ -1536,24 +1581,24 @@ html {
 }
 .moremenu {
   svg {
-    fill: $gray-600;
+    fill: var(--text-color-muted);
   }
 }
 .cursor-pointer {
   cursor: pointer;
 }
 .bg-impact {
-  background-color: $bg-impact;
+  background-color: colors.$bg-impact;
 }
 .dropdownmenu {
   position: absolute;
-  background-color: #fff;
+  background-color: var(--surface-background-color);
   z-index: 1200;
   right: 10px;
   top: 2rem;
   width: 160px;
-  border: rgba(0, 0, 0, 0.3);
-  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.2);
+  border: var(--border-color-300);
+  box-shadow: 1px 1px 4px var(--border-color-100);
 
   a {
     padding: 4px 10px;
@@ -1561,7 +1606,7 @@ html {
     cursor: pointer;
   }
   a:hover {
-    background-color: $blue;
+    background-color: colors.$blue;
     color: #fff;
   }
   &.closed {
@@ -1576,7 +1621,7 @@ html {
 
 .moremenucontents {
   position: absolute;
-  background-color: #fff;
+  background-color: var(--surface-background-color);
   z-index: 1200;
   right: 10px;
   top: 20px;
@@ -1651,7 +1696,7 @@ html {
       text-decoration: none;
     }
     p {
-      color: $gray-900;
+      color: colors.$gray-900;
     }
   }
   .secondary-box {
@@ -1696,8 +1741,9 @@ html {
     background-color: rgba(27, 103, 235, 0.036);
   }
   .shared-exp-div {
-    border: 1px solid rgb(230, 230, 230);
-    background-color: #fff;
+    border: 1px solid var(--border-color-300);
+    background-color: var(--surface-background-color);
+
     &:hover {
       .delete-exp {
         visibility: visible;
@@ -1740,12 +1786,12 @@ html {
       position: absolute;
       right: 0.8em;
       top: 0.3em;
-      color: $dark-green;
+      color: colors.$dark-green;
     }
   }
   .selected {
-    border-color: $dark-green;
-    background-color: $lighter-green;
+    border-color: colors.$dark-green;
+    background-color: colors.$lighter-green;
   }
   .scrollarea {
     max-height: 300px;
@@ -1787,7 +1833,7 @@ html {
 
 @media (max-width: 850px) {
   .leftBar {
-    background-color: $light-grey;
+    background-color: var(--surface-background-color-alt);
     width: 100%;
     padding: 15px;
     flex-direction: column;
@@ -1796,7 +1842,7 @@ html {
     transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
     position: static;
     overflow: hidden;
-    border-right: 1px solid #cacaca;
+    border-right: 1px solid var(--border-color-300);
   }
   .experiment-details .contents {
     padding: 15px;
@@ -1827,21 +1873,22 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  box-shadow: 0 4px 8px 0 var(--border-color-300),
+    0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {
   list-style-type: none;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color-300);
   margin: 0 0 0 0;
   padding: 0;
 }
 .rta__item {
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-color-300);
   padding: 2px 5px;
-  background: #fff;
+  background: var(--surface-background-color);
 }
 .rta__item--selected {
-  background: #f4f4f4;
+  background: var(--surface-background-color-alt);
 }
 
 // Pricing page
@@ -1852,13 +1899,13 @@ html {
     height: 11px;
 
     .rangeslider__fill {
-      background-color: $primary;
+      background-color: colors.$primary;
     }
 
     .rangeslider__handle {
       width: 31px;
       height: 31px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 1px 3px var(--border-color-300);
 
       &:after {
         content: "";
@@ -1869,7 +1916,7 @@ html {
         height: 1px;
         background: transparent;
         border-radius: 0;
-        border-left: 6px solid #c0c8cf;
+        border-left: 6px solid var(--border-color-300);
         border-top: 5px solid transparent;
         border-bottom: 5px solid transparent;
         top: 9px;
@@ -1883,7 +1930,7 @@ html {
         height: 1px;
         background: transparent;
         border-radius: 0;
-        border-right: 6px solid #c0c8cf;
+        border-right: 6px solid var(--border-color-300);
         border-top: 5px solid transparent;
         border-bottom: 5px solid transparent;
         top: 9px;
@@ -1896,22 +1943,22 @@ html {
     position: relative;
     padding-top: 3em;
     margin-bottom: 2em;
-    background: #fff;
+    background: var(--surface-background-color);
     border-radius: 10px;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 8px var(--border-color-300);
     margin-top: 3em;
-    color: #4d4d4d;
+    color: var(--text-color-th);
     h1 {
       margin-bottom: 0.7em;
     }
   }
   .pricingbox {
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color-300);
     padding: 3em 3em 3em;
     border-radius: 8px;
-    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 1px 1px 3px var(--border-color-300);
     margin-bottom: 2em;
-    background: #fff;
+    background: var(--surface-background-color);
 
     .boxtitle {
       font-size: 2em;
@@ -1938,3 +1985,69 @@ html {
     }
   }
 }
+
+tr.disabled,
+td.disabled {
+  background: var(--disabled-background);
+  font-style: italic;
+}
+.gb-select-wrapper.disabled {
+  cursor: not-allowed;
+}
+.gb-select--is-disabled {
+  .gb-select__control {
+    background-color: var(--disabled-background) !important;
+  }
+  .gb-select__single-value {
+    color: var(--text-color-muted) !important;
+  }
+}
+.gb-select-wrapper.small {
+  .gb-select__value-container {
+    padding: 2px;
+  }
+  .gb-select__indicator {
+    padding: 1px;
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+}
+.gb-select-wrapper.portal-overflow-ellipsis {
+  .gb-select__menu-portal {
+    .gb-select__menu {
+      max-width: 100%;
+      .gb-select__option {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
+
+.form-group.metric-override {
+  .form-control::placeholder {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}
+
+.text-premium {
+  color: var(--text-color-premium);
+}
+.alert-premium {
+  background: radial-gradient(
+    120% 150% at bottom right,
+    var(--alert-premium-background-gradient-1),
+    var(--alert-premium-background-gradient-2)
+  );
+  border-color: var(--border-color-100);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+@import "./components/react-select.scss";

@@ -1,19 +1,44 @@
-import { Request } from "express";
-import { OrganizationInterface } from "../../types/organization";
+import { Request, Response } from "express";
+import {
+  EnvScopedPermission,
+  GlobalPermission,
+  OrganizationInterface,
+  ProjectScopedPermission,
+} from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
-import { Permissions } from "../../types/organization";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
+interface PermissionFunctions {
+  checkPermissions(permission: GlobalPermission): void;
+  checkPermissions(
+    permission: ProjectScopedPermission,
+    project: string | undefined
+  ): void;
+  checkPermissions(
+    permission: EnvScopedPermission,
+    project: string | undefined,
+    envs: string[]
+  ): void;
+}
+
 // eslint-disable-next-line
-export type AuthRequest<B = any, P = any, Q = any> = Request<P, null, B, Q> & {
+export type AuthRequest<
+  Body = unknown,
+  Params = unknown,
+  QueryParams = unknown
+> = Request<Params, unknown, Body, QueryParams> & {
   email: string;
   verified?: boolean;
   userId?: string;
   loginMethod?: SSOConnectionInterface;
+  authSubject?: string;
   name?: string;
   admin?: boolean;
   organization?: OrganizationInterface;
-  permissions: Permissions;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-  checkPermissions: (...permission: (keyof Permissions)[]) => void;
-};
+} & PermissionFunctions;
+
+export type ResponseWithStatusAndError<T = unknown> = Response<
+  | (T & { status: 200 })
+  | { status: 400 | 401 | 403 | 404 | 405 | 406; message: string }
+>;

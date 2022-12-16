@@ -3,6 +3,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
+import { MetricOverride } from "back-end/types/experiment";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "../hooks/useOrgSettings";
 
@@ -180,6 +181,43 @@ export function useDomain(
     });
   });
   return [lowerBound || 0, upperBound || 0];
+}
+
+export function applyMetricOverrides(
+  metric: MetricInterface,
+  metricOverrides?: MetricOverride[]
+): {
+  newMetric: MetricInterface;
+  overrideFields: string[];
+} {
+  if (!metric || !metricOverrides) {
+    return {
+      newMetric: metric,
+      overrideFields: [],
+    };
+  }
+  const newMetric = structuredClone(metric) as MetricInterface;
+  const overrideFields: string[] = [];
+  const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
+  if (metricOverride) {
+    if ("conversionWindowHours" in metricOverride) {
+      newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
+      overrideFields.push("conversionWindowHours");
+    }
+    if ("conversionDelayHours" in metricOverride) {
+      newMetric.conversionDelayHours = metricOverride.conversionDelayHours;
+      overrideFields.push("conversionDelayHours");
+    }
+    if ("winRisk" in metricOverride) {
+      newMetric.winRisk = metricOverride.winRisk;
+      overrideFields.push("winRisk");
+    }
+    if ("loseRisk" in metricOverride) {
+      newMetric.loseRisk = metricOverride.loseRisk;
+      overrideFields.push("loseRisk");
+    }
+  }
+  return { newMetric, overrideFields };
 }
 
 export function useCustomFields() {

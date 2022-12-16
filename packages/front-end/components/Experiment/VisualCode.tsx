@@ -3,8 +3,8 @@ import stringify from "json-stringify-pretty-compact";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight, FaCode } from "react-icons/fa";
 import Link from "next/link";
-import Code from "../Code";
-import usePermissions from "../../hooks/usePermissions";
+import usePermissions from "@/hooks/usePermissions";
+import Code from "../SyntaxHighlighting/Code";
 
 export default function VisualCode({
   dom,
@@ -23,7 +23,7 @@ export default function VisualCode({
 
   const hasCode = dom.length > 0 || css.length > 0;
 
-  if (!hasCode && permissions.createAnalyses) {
+  if (!hasCode && permissions.check("createAnalyses", "")) {
     return control ? null : (
       <div className="alert alert-warning my-2">
         No visual changes yet.{" "}

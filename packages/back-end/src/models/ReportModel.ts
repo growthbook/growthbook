@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
-import { ReportInterface } from "../../types/report";
 import uniqid from "uniqid";
-import { queriesSchema } from "./QueryModel";
+import { ReportInterface } from "../../types/report";
 import { getExperimentsByOrganization } from "../services/experiments";
+import { queriesSchema } from "./QueryModel";
 
 const reportSchema = new mongoose.Schema({
   id: String,

@@ -1,8 +1,7 @@
 import clsx from "clsx";
-import { ReactNode } from "react";
-import { FC, useState } from "react";
+import { ReactNode, FC, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import useGlobalMenu from "../../services/useGlobalMenu";
+import useGlobalMenu from "@/services/useGlobalMenu";
 
 const MoreMenu: FC<{
   id: string;

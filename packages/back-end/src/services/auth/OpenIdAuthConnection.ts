@@ -1,23 +1,23 @@
 import { NextFunction, Request, Response } from "express";
 import {
-  SSOConnectionInterface,
-  UnauthenticatedResponse,
-} from "../../../types/sso-connection";
-import { MemoryCache } from "../cache";
-import {
   Issuer,
   IssuerMetadata,
   TokenSet,
   generators,
   Client,
 } from "openid-client";
-import { AuthConnection, TokensResponse } from "./AuthConnection";
-import { AuthRequest } from "../../types/AuthRequest";
 import jwtExpress from "express-jwt";
 import jwks from "jwks-rsa";
+import { AuthRequest } from "../../types/AuthRequest";
+import { MemoryCache } from "../cache";
+import {
+  SSOConnectionInterface,
+  UnauthenticatedResponse,
+} from "../../../types/sso-connection";
 import { AuthChecksCookie, SSOConnectionIdCookie } from "../../util/cookie";
 import { APP_ORIGIN, IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { getSSOConnectionById } from "../../models/SSOConnectionModel";
+import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {
   connection_id: string;
@@ -112,7 +112,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { connection } = await getConnectionFromRequest(req);
+      const { connection } = await getConnectionFromRequest(req as Request);
 
       // Store the ssoConnectionId in the request
       req.loginMethod = connection;
@@ -140,7 +140,7 @@ export class OpenIdAuthConnection implements AuthConnection {
         issuer,
         algorithms,
       });
-      middleware(req, res, next);
+      middleware(req as Request, res, next);
     } catch (e) {
       next(e);
     }

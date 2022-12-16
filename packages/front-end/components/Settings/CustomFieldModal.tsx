@@ -1,15 +1,15 @@
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
+import { CustomField, CustomFieldTypes } from "back-end/types/organization";
+import uniqid from "uniqid";
+import React from "react";
+import { useAuth } from "@/services/auth";
+import { useCustomFields } from "@/services/experiments";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import { CustomField, CustomFieldTypes } from "back-end/types/organization";
-import { useCustomFields } from "../../services/experiments";
-import useUser from "../../hooks/useUser";
 import Toggle from "../Forms/Toggle";
-import uniqid from "uniqid";
 import SelectField from "../Forms/SelectField";
 import track from "../../services/track";
-import React from "react";
 
 export default function CustomFieldModal({
   existing,

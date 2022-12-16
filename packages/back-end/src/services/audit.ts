@@ -1,8 +1,8 @@
+import uniqid from "uniqid";
+import { QueryOptions } from "mongoose";
 import { AuditModel } from "../models/AuditModel";
 import { AuditInterface } from "../../types/audit";
-import uniqid from "uniqid";
 import { WatchModel } from "../models/WatchModel";
-import { QueryOptions } from "mongoose";
 
 export function insertAudit(data: Partial<AuditInterface>) {
   return AuditModel.create({
@@ -55,6 +55,34 @@ export async function findByEntityParent(
   );
 }
 
+export async function findAllByEntityType(
+  organization: string,
+  type: string,
+  options?: QueryOptions
+) {
+  return AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+    },
+    options
+  );
+}
+
+export async function findAllByEntityTypeParent(
+  organization: string,
+  type: string,
+  options?: QueryOptions
+) {
+  return AuditModel.find(
+    {
+      organization,
+      "parent.object": type,
+    },
+    options
+  );
+}
+
 export async function getWatchedAudits(userId: string, organization: string) {
   const doc = await WatchModel.findOne({
     userId,
@@ -92,7 +120,13 @@ export async function getWatchedAudits(userId: string, organization: string) {
       $in: doc.features,
     },
     event: {
-      $in: ["feature.publish", "feature.update", "feature.toggle"],
+      $in: [
+        "feature.publish",
+        "feature.update",
+        "feature.toggle",
+        "feature.create",
+        "feature.delete",
+      ],
     },
     dateCreated: {
       $gte: startTime,

@@ -1,9 +1,6 @@
 import Link from "next/link";
-import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo, Fragment } from "react";
-import { formatConversionRate } from "../../services/metrics";
-import { date, getValidDate } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -19,6 +16,9 @@ import {
 } from "@visx/tooltip";
 import setDay from "date-fns/setDay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { date, getValidDate } from "@/services/dates";
+import { formatConversionRate } from "@/services/metrics";
+import styles from "./DateGraph.module.scss";
 
 type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
@@ -400,11 +400,17 @@ const DateGraph: FC<{
             </div>
             <svg width={width} height={height}>
               <Group left={margin[3]} top={margin[0]}>
-                <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
+                <GridRows
+                  scale={yScale}
+                  width={xMax}
+                  numTicks={numYTicks}
+                  stroke="var(--border-color-200)"
+                />
                 <GridColumns
                   scale={xScale}
                   height={graphHeight}
                   numTicks={numXTicks}
+                  stroke="var(--border-color-200)"
                 />
                 {experiments && (
                   <>
@@ -475,13 +481,29 @@ const DateGraph: FC<{
                   top={graphHeight}
                   scale={xScale}
                   numTicks={numXTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "start",
+                    dx: -15,
+                  })}
                   tickFormat={(d) => {
-                    return date(d as Date);
+                    return (d as Date).toLocaleDateString("en-us", {
+                      month: "short",
+                      day: "numeric",
+                    });
                   }}
                 />
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "end",
+                    dx: -2,
+                    dy: 2,
+                  })}
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()

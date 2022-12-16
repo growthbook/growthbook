@@ -1,15 +1,15 @@
 import React, { FC, Fragment, useState } from "react";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../LoadingOverlay";
 import { WebhookInterface } from "back-end/types/webhook";
-import DeleteButton from "../DeleteButton";
-import { useAuth } from "../../services/auth";
-import WebhooksModal from "./WebhooksModal";
-import { ago } from "../../services/dates";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Tooltip from "../Tooltip";
+import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
+import { ago } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DeleteButton from "../DeleteButton/DeleteButton";
+import LoadingOverlay from "../LoadingOverlay";
+import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
+import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
@@ -35,9 +35,10 @@ const Webhooks: FC = () => {
           current={open}
         />
       )}
+
       <p>
-        Webhooks push the latest feature definitions to your server whenever
-        they are modified within the GrowthBook app.{" "}
+        SDK Endpoint Webhooks push the latest feature definitions to your server
+        whenever they are modified within the GrowthBook app.{" "}
         <DocLink docSection="webhooks">View Documentation</DocLink>
       </p>
 
@@ -66,7 +67,7 @@ const Webhooks: FC = () => {
                       </Tooltip>
                     )}
                   </td>
-                  <td>{webhook.endpoint}</td>
+                  <td className="text-break">{webhook.endpoint}</td>
                   <td>
                     {!webhook.environment ? (
                       <>
@@ -153,7 +154,7 @@ const Webhooks: FC = () => {
           setOpen({});
         }}
       >
-        <FaBolt /> Create Webhook
+        <FaBolt /> Create an SDK Endpoint Webhook
       </button>
     </div>
   );

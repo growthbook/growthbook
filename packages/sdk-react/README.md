@@ -4,12 +4,12 @@
 
 This is the React client library that lets you evaluate feature flags and run experiments (A/B tests) within a React application. It is a thin wrapper around the [Javascript SDK](https://docs.growthbook.io/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.82KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-4.18KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
 - Local targeting and evaluation, **no HTTP requests**
-- Works for both **client and server-side** rendering
+- Works for both **client and server-side** rendering as well as **React Native**
 - **No flickering** when running A/B tests
 - Written in **Typescript** with extensive test coverage
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
@@ -37,19 +37,37 @@ npm install --save @growthbook/growthbook-react
 ### Step 1: Configure your app
 
 ```tsx
+import { useEffect } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
-const growthbook = new GrowthBook();
-
-// Load feature definitions (from API, database, etc.)
-await fetch("https://s3.amazonaws.com/myBucket/features.json")
-  .then((res) => res.json())
-  .then((parsed) => {
-    growthbook.setFeatures(parsed);
-  });
+const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
+  // Callback when a user is put into an A/B experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
 
 export default function App() {
+  useEffect(() => {
+    // Load feature definitions from GrowthBook API
+    fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
+      .then((res) => res.json())
+      .then((json) => growthbook.setFeatures(json.features))
+      .catch((e) => console.error("Failed to fetch features", e));
+
+    // Set user attributes for targeting (from cookie, auth system, etc.)
+    growthbook.setAttributes({
+      id: "123",
+      company: "acme",
+    });
+  }, []);
+
   return (
     <GrowthBookProvider growthbook={growthbook}>
       <OtherComponent />
@@ -71,7 +89,7 @@ export default function OtherComponent() {
   // Boolean on/off flags
   const newLogin = useFeature("new-login-form").on;
 
-  // Multivariate or string/JSON values
+  // Multivariate or string/JSON values with a fallback
   const buttonColor = useFeature("login-button-color").value || "blue";
 
   if (newLogin) {
@@ -82,7 +100,7 @@ export default function OtherComponent() {
 }
 ```
 
-#### <IfFeatureEnabled>
+#### IfFeatureEnabled component
 
 ```tsx
 import { IfFeatureEnabled } from "@growthbook/growthbook-react";
@@ -99,7 +117,7 @@ export default function OtherComponent() {
 }
 ```
 
-#### <FeatureString>
+#### FeatureString component
 
 ```tsx
 import { FeatureString } from "@growthbook/growthbook-react";
@@ -129,7 +147,31 @@ export default function OtherComponent() {
 }
 ```
 
-### Step 3: Use Targeting Attributes
+## The GrowthBook Context
+
+The `GrowthBook` constructor takes a number of optional settings.
+
+### Features
+
+If you already have features loaded as a JSON object, you can pass them into the constructor with the `features` field:
+
+```ts
+new GrowthBook({
+  features: {
+    "feature-1": {...},
+    "feature-2": {...},
+    "another-feature": {...},
+  }
+})
+```
+
+If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start). **Note** - if you try to use a feature before it is loaded, it will always evaluate to `null`.
+
+If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
+
+If you prefer to build this file by hand or you want to know how it works under the hood, check out the detailed [Feature Definitions](/lib/js#feature-definitions) section in the Javascript SDK docs.
+
+### Attributes
 
 You can specify attributes about the current user and request. These are used for two things:
 
@@ -142,7 +184,6 @@ The following are some comonly used attributes, but use whatever makes sense for
 new GrowthBook({
   attributes: {
     id: "123",
-    environment: "prod",
     loggedIn: true,
     deviceId: "abc123def456",
     company: "acme",
@@ -157,7 +198,7 @@ new GrowthBook({
 
 If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
 
-### Step 4: Set up a Tracking Callback
+### Tracking Callback
 
 Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
 
@@ -172,6 +213,81 @@ new GrowthBook({
   },
 });
 ```
+
+### Feature Usage Callback
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+```ts
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
+```
+
+The `result` argument is the same thing returned from the `useFeature` hook.
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
+```
+
+## Hiding Features from Users
+
+If you fetch the list of features from a client-side app, any of your users could inspect the network request and see which features and experiments you are running. In most cases, this is not a big deal, but if you did want to prevent that, you have two options:
+
+1. Evaluate feature flags using a server-side SDK and only pass the result to the browser
+2. Enable encryption for your SDK Endpoint
+
+If you enable encryption for an SDK Endpoint, instead of returning features as human-readable JSON, we will return it as an encrypted string that must be decrypted before being passed into the SDK.
+
+With encryption enabled, the response from the SDK Endpoint will be in the format:
+
+```json
+{
+  "status": 200,
+  "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
+}
+```
+
+The GrowthBook class has a `setEncryptedFeatures` helper method. You will need to pass in your encryption key, which you can find on the **Features -> Environments** page in GrowthBook.
+
+```ts
+function MyApp() {
+  useEffect(() => {
+    // Load features from the encrypted SDK Endpoint and decrypt them
+    fetch("https://cdn.growthbook.io/api/features/<your api key>")
+      .then((res) => res.json())
+      .then((json) =>
+        growthbook.setEncryptedFeatures(
+          json.encryptedFeatures,
+          "MY_ENCRYPTION_KEY"
+        )
+      )
+      .catch((e) =>
+        console.log("Failed to set GrowthBook feature definitions", e)
+      );
+  }, []);
+  // ...
+}
+```
+
+**Note**: This method is not completely private. Users could find your encryption key if they inspect your minified javascript files.
+
+### React Native
+
+If you're using React Native, you may need to polyfill the `window.crypto.subtle` API and the `TextEncoder/TextDecoder` classes.
 
 ## Inline Experiments
 

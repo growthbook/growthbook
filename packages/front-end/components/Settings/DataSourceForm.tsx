@@ -5,16 +5,16 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import track from "../../services/track";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
+import { dataSourceConnections } from "@/services/eventSchema";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
-import { getInitialSettings } from "../../services/datasources";
 import { DocLink, DocSection } from "../DocLink";
 import ConnectionSettings from "./ConnectionSettings";
-import { dataSourceConnections } from "../../services/eventSchema";
 
 const typeOptions = dataSourceConnections;
 
@@ -59,7 +59,7 @@ const DataSourceForm: FC<{
       };
       setDatasource(newValue);
     }
-  }, [data]);
+  }, [data, dirty]);
 
   if (!datasource) {
     return null;
@@ -121,7 +121,9 @@ const DataSourceForm: FC<{
     }
   };
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+    e
+  ) => {
     setDatasource({
       ...datasource,
       [e.target.name]: e.target.value,
@@ -209,6 +211,15 @@ const DataSourceForm: FC<{
           required
           onChange={onChange}
           value={datasource.name}
+        />
+      </div>
+      <div className="form-group">
+        <label>Description (optional)</label>
+        <textarea
+          className="form-control"
+          name="description"
+          onChange={onChange}
+          value={datasource.description}
         />
       </div>
       <ConnectionSettings

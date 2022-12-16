@@ -1,34 +1,20 @@
 import React from "react";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useUser } from "@/services/UserContext";
 import ActivityList from "../ActivityList";
-import styles from "./Dashboard.module.scss";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
-import useUser from "../../hooks/useUser";
+import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export interface Props {
   experiments: ExperimentInterfaceStringDates[];
 }
 
 export default function Dashboard({ experiments }: Props) {
-  const { data, error } = useApi<{
-    events: AuditInterface[];
-  }>("/activity");
-
   const { name } = useUser();
-
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
 
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
@@ -41,7 +27,7 @@ export default function Dashboard({ experiments }: Props) {
         <h1>Hello {name}</h1>
         <div className="row">
           <div className="col-md-12">
-            <NorthStar />
+            <NorthStar experiments={experiments} />
           </div>
         </div>
         <div className="row">

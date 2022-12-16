@@ -1,8 +1,8 @@
-import { FC, useMemo, useRef } from "react";
-import Field, { FieldProps } from "./Field";
+import { FC, useMemo, useRef, ReactNode } from "react";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
-import { ReactNode } from "react";
+import clsx from "clsx";
+import Field, { FieldProps } from "./Field";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -47,45 +47,20 @@ export function useSelectOptions(
 }
 
 export const ReactSelectProps = {
+  // See react-select.scss and apply styles with CSS
   styles: {
-    menu: (base) => ({
-      ...base,
-      width: "max-content",
-      minWidth: "100%",
-    }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    groupHeading: (base) => ({
-      ...base,
-      margin: "3px 0 0 -2px",
-      fontSize: "70%",
-    }),
-    group: (base) => ({
-      ...base,
-      paddingTop: 0,
-      paddingBottom: 0,
-    }),
-    option: (base) => ({
-      ...base,
-      padding: "6px 17px",
-    }),
     multiValue: (styles) => {
       return {
         ...styles,
-        backgroundColor: "#F2ECFD",
+        backgroundColor: "var(--form-multivalue-background-color)",
       };
     },
-    multiValueLabel: (styles) => ({
-      ...styles,
-      color: "#7c45ea",
-      fontWeight: 600,
-    }),
-    multiValueRemove: (styles) => ({
-      ...styles,
-      color: "#7c45ea",
-      ":hover": {
-        backgroundColor: "#d3bbff",
-      },
-    }),
+    multiValueRemove: (styles) => {
+      return {
+        ...styles,
+        color: "var(--form-multivalue-text-color)",
+      };
+    },
   },
   menuPosition: "fixed" as const,
   isSearchable: true,
@@ -114,6 +89,8 @@ const SelectField: FC<
   disabled,
   autoFocus,
   required,
+  style,
+  className,
   formatOptionLabel,
   ...otherProps
 }) => {
@@ -131,11 +108,19 @@ const SelectField: FC<
       ref={selectRef}
       render={(id, ref) => {
         return (
-          <div className="position-relative">
+          <div
+            style={style}
+            className={clsx(
+              "gb-select-wrapper position-relative",
+              disabled ? "disabled" : "",
+              className
+            )}
+          >
             <ReactSelect
               {...ReactSelectProps}
               id={id}
               ref={ref}
+              classNamePrefix="gb-select"
               isDisabled={disabled || false}
               options={sorted}
               onChange={(selected) => {

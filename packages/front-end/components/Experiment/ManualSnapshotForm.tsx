@@ -1,5 +1,4 @@
 import { FC, useState, useEffect } from "react";
-import Modal from "../Modal";
 import {
   ExperimentSnapshotInterface,
   SnapshotVariation,
@@ -7,12 +6,13 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatConversionRate,
   getMetricConversionTitle,
-} from "../../services/metrics";
+} from "@/services/metrics";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 import { SRM_THRESHOLD } from "./SRMWarning";
 

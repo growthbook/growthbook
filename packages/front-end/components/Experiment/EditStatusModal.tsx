@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
 
 export interface Props {

@@ -1,18 +1,19 @@
 import React, { FC, Fragment, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import { SegmentInterface } from "back-end/types/segment";
-import { ago } from "../../services/dates";
-import Button from "../../components/Button";
-import SegmentForm from "../../components/Segments/SegmentForm";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import DeleteButton from "../../components/DeleteButton";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
-import { useAuth } from "../../services/auth";
-import { GBAddCircle } from "../../components/Icons";
-import usePermissions from "../../hooks/usePermissions";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { ago } from "@/services/dates";
+import Button from "@/components/Button";
+import SegmentForm from "@/components/Segments/SegmentForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { GBAddCircle } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
+import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 
 const SegmentPage: FC = () => {
   const {
@@ -247,20 +248,43 @@ const SegmentPage: FC = () => {
               <tbody>
                 {segments.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
+                  const language: Language =
+                    datasource?.properties?.queryLanguage || "sql";
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
-                        {datasource?.name}
+                        {datasource && (
+                          <>
+                            <div>
+                              <Link href={`/datasources/${datasource?.id}`}>
+                                {datasource?.name}
+                              </Link>
+                            </div>
+                            <div
+                              className="text-gray font-weight-normal small text-ellipsis"
+                              style={{ maxWidth: 350 }}
+                            >
+                              {datasource?.description}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds
                           ? s.userIdType || "user_id"
                           : ""}
                       </td>
-                      <td className="d-none d-lg-table-cell">
-                        <code>{s.sql}</code>
+                      <td
+                        className="d-none d-lg-table-cell"
+                        style={{ maxWidth: "30em" }}
+                      >
+                        <Code
+                          code={s.sql}
+                          language={language}
+                          expandable={true}
+                        />
                       </td>
                       <td>{ago(s.dateUpdated)}</td>
                       {permissions.createSegments && (

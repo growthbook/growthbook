@@ -1,5 +1,6 @@
 import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
+import { logger } from "../util/logger";
 
 export function runPostgresQuery<T>(
   conn: PostgresConnectionParams,
@@ -42,7 +43,7 @@ export function runPostgresQuery<T>(
         try {
           await client.end();
         } catch (e) {
-          console.error(e);
+          logger.warn(e, "Postgres query failed");
         }
         resolve(res.rows);
       })

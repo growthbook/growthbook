@@ -1,10 +1,11 @@
+import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationById,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { Response } from "express";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import {
   createExperiment,
@@ -12,7 +13,6 @@ import {
   createSnapshot,
 } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
-import uniqid from "uniqid";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
@@ -46,7 +46,10 @@ export async function getOrganizations(req: AuthRequest, res: Response) {
   });
 }
 
-export async function addSampleData(req: AuthRequest, res: Response) {
+export async function addSampleData(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
   if (!req.admin) {
     return res.status(403).json({
       status: 403,
@@ -54,7 +57,7 @@ export async function addSampleData(req: AuthRequest, res: Response) {
     });
   }
 
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
 
   const org = await findOrganizationById(id);
   if (!org) {

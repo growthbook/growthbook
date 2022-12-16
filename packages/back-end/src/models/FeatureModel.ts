@@ -1,5 +1,7 @@
 import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
+import cloneDeep from "lodash/cloneDeep";
+import _ from "lodash";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -8,7 +10,6 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import { featureUpdated, generateRuleId } from "../services/features";
-import cloneDeep from "lodash/cloneDeep";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
 
@@ -60,6 +61,13 @@ type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
+/**
+ * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
+ * @param doc
+ */
+const toInterface = (doc: FeatureDocument): FeatureInterface =>
+  _.omit(doc.toJSON(), ["__v", "_id"]);
+
 export async function getAllFeatures(
   organization: string,
   project?: string
@@ -70,7 +78,7 @@ export async function getAllFeatures(
   }
 
   return (await FeatureModel.find(q)).map((m) =>
-    upgradeFeatureInterface(m.toJSON())
+    upgradeFeatureInterface(toInterface(m))
   );
 }
 
@@ -79,12 +87,12 @@ export async function getFeature(
   id: string
 ): Promise<FeatureInterface | null> {
   const feature = await FeatureModel.findOne({ organization, id });
-  return feature ? upgradeFeatureInterface(feature.toJSON()) : null;
+  return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
 }
 
 export async function createFeature(data: FeatureInterface) {
   const feature = await FeatureModel.create(data);
-  await saveRevision(feature.toJSON());
+  await saveRevision(toInterface(feature));
 }
 
 export async function deleteFeature(organization: string, id: string) {
@@ -132,33 +140,54 @@ function setEnvironmentSettings(
   return newFeature;
 }
 
+export async function toggleMultipleEnvironments(
+  feature: FeatureInterface,
+  toggles: Record<string, boolean>
+) {
+  const changes: Record<string, boolean> = {};
+  let newFeature = feature;
+  const previousEnvs: string[] = [];
+  Object.keys(toggles).forEach((env) => {
+    const state = toggles[env];
+    const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
+    if (currentState !== state) {
+      changes[`environmentSettings.${env}.enabled`] = state;
+      newFeature = setEnvironmentSettings(newFeature, env, { enabled: state });
+      if (currentState) {
+        previousEnvs.push(env);
+      }
+    }
+  });
+
+  // If there are changes we need to apply
+  if (Object.keys(changes).length > 0) {
+    await FeatureModel.updateOne(
+      {
+        id: feature.id,
+        organization: feature.organization,
+      },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          ...changes,
+        },
+      }
+    );
+
+    featureUpdated(newFeature, previousEnvs);
+  }
+
+  return newFeature;
+}
+
 export async function toggleFeatureEnvironment(
   feature: FeatureInterface,
   environment: string,
   state: boolean
 ) {
-  const currentState =
-    feature.environmentSettings?.[environment]?.enabled ?? false;
-
-  if (currentState === state) return;
-
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        [`environmentSettings.${environment}.enabled`]: state,
-      },
-    }
-  );
-
-  featureUpdated(
-    setEnvironmentSettings(feature, environment, { enabled: state }),
-    currentState ? [environment] : []
-  );
+  await toggleMultipleEnvironments(feature, {
+    [environment]: state,
+  });
 }
 
 export function getDraftRules(feature: FeatureInterface, environment: string) {

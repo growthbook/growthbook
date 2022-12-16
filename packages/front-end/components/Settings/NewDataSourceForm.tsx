@@ -5,18 +5,18 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import track from "../../services/track";
-import SelectField from "../Forms/SelectField";
-import { getInitialSettings } from "../../services/datasources";
+import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
   eventSchema,
-} from "../../services/eventSchema";
+} from "@/services/eventSchema";
+import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
-import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import EventSourceList from "./EventSourceList";
@@ -131,13 +131,14 @@ const NewDataSourceForm: FC<{
             },
           }),
         });
-        setDataSourceId(res.id);
         track("Submit Datasource Form", {
           source,
           type: datasource.type,
           schema,
           newDatasourceForm: true,
         });
+        setDataSourceId(res.id);
+        return res.id;
       }
     } catch (e) {
       track("Data Source Form Error", {
@@ -180,7 +181,9 @@ const NewDataSourceForm: FC<{
     });
   };
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+    e
+  ) => {
     setDatasource({
       ...datasource,
       [e.target.name]: e.target.value,
@@ -188,6 +191,7 @@ const NewDataSourceForm: FC<{
   };
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
+    form.setValue("settings.schemaFormat", s.value);
     track("Selected Event Schema", {
       schema: s.value,
       source,
@@ -219,17 +223,21 @@ const NewDataSourceForm: FC<{
 
   const hasStep2 = !!selectedSchema?.options;
   const isFinalStep = step === 2 || (!hasStep2 && step === 1);
+  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
 
   const submit =
     step === 0
       ? null
       : async () => {
+          let newDataId = dataSourceId;
           if (step === 1) {
-            await saveDataConnection();
+            newDataId = await saveDataConnection();
+          }
+          if (updateSettingsRequired) {
+            await updateSettings();
           }
           if (isFinalStep) {
-            await updateSettings();
-            await onSuccess(dataSourceId);
+            await onSuccess(newDataId);
             onCancel && onCancel();
           } else {
             setStep(step + 1);
@@ -376,6 +384,15 @@ const NewDataSourceForm: FC<{
             required
             onChange={onChange}
             value={datasource.name}
+          />
+        </div>
+        <div className="form-group">
+          <label>Description (optional)</label>
+          <textarea
+            className="form-control"
+            name="description"
+            onChange={onChange}
+            value={datasource.description}
           />
         </div>
         <ConnectionSettings

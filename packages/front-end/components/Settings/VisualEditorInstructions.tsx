@@ -1,10 +1,10 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaKey, FaPencilAlt } from "react-icons/fa";
-import { getApiHost, isCloud } from "../../services/env";
-import Code from "../Code";
+import { getApiHost, isCloud } from "@/services/env";
+import Code from "../SyntaxHighlighting/Code";
 import { DocLink } from "../DocLink";
+import SelectField from "../Forms/SelectField";
 import ApiKeysModal from "./ApiKeysModal";
 
 export default function VisualEditorInstructions({
@@ -64,19 +64,14 @@ export default function VisualEditorInstructions({
         <div className="input-group">
           <div className="input-group-prepend">
             <div className="input-group-text">API Key</div>
-            <select
-              className="form-control"
+            <SelectField
               value={key}
-              onChange={(e) => setKey(e.target.value)}
-            >
-              {apiKeys.map((k) => {
-                return (
-                  <option key={k.key} value={k.key}>
-                    {k.description || k.key}
-                  </option>
-                );
-              })}
-            </select>
+              onChange={(v) => setKey(v)}
+              options={apiKeys.map((k) => ({
+                value: k.key,
+                label: k.description || k.key,
+              }))}
+            />
           </div>
         </div>
       )}

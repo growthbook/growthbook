@@ -1,10 +1,10 @@
 import { FC, useEffect, useState } from "react";
-import NewExperimentForm from "./NewExperimentForm";
-import ImportExperimentList from "./ImportExperimentList";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useAuth } from "../../services/auth";
+import ImportExperimentList from "./ImportExperimentList";
+import NewExperimentForm from "./NewExperimentForm";
 
 const ImportExperimentModal: FC<{
   onClose: () => void;
@@ -72,7 +72,7 @@ const ImportExperimentModal: FC<{
     <Modal
       header="Add Experiment"
       open={true}
-      size="lg"
+      size="max"
       close={() => onClose()}
     >
       <div className="alert alert-info">
@@ -96,7 +96,6 @@ const ImportExperimentModal: FC<{
           }}
           changeDatasource={setDatasourceId}
           importId={importId}
-          hideImported={true}
         />
       )}
     </Modal>

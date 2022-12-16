@@ -1,21 +1,21 @@
 import React, { useState } from "react";
-import { GBEdit } from "../../components/Icons";
-import usePermissions from "../../hooks/usePermissions";
-import CustomFieldModal from "../../components/Settings/CustomFieldModal";
 import { CustomField } from "back-end/types/organization";
-import useUser from "../../hooks/useUser";
-import { useCustomFields } from "../../services/experiments";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
-import DeleteButton from "../../components/DeleteButton";
-import track from "../../services/track";
+import { useUser } from "@/services/UserContext";
+import { useCustomFields } from "@/services/experiments";
+import { useAuth } from "@/services/auth";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import track from "@/services/track";
+import usePermissions from "../../hooks/usePermissions";
+import { GBEdit } from "../../components/Icons";
+import CustomFieldModal from "../../components/Settings/CustomFieldModal";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const permissions = usePermissions();
   const customFields = useCustomFields();
   const { apiCall } = useAuth();
-  const { update, licence } = useUser();
+  const { refreshOrganization, license } = useUser();
 
   const reoderFields = async (i: number, dir: -1 | 1) => {
     [customFields[i + dir], customFields[i]] = [
@@ -30,10 +30,10 @@ const CustomFieldsPage = (): React.ReactElement => {
         },
       }),
     }).then(() => {
-      update();
+      refreshOrganization();
     });
   };
-  if (!licence) {
+  if (!license) {
     return (
       <div className="contents container-fluid pagecontents">
         <div className="mb-5">
@@ -163,7 +163,7 @@ const CustomFieldsPage = (): React.ReactElement => {
                               track("Delete Custom Experiment Field", {
                                 type: v.type,
                               });
-                              update();
+                              refreshOrganization();
                             });
                           }}
                         />
@@ -199,7 +199,7 @@ const CustomFieldsPage = (): React.ReactElement => {
         <CustomFieldModal
           existing={modalOpen}
           close={() => setModalOpen(null)}
-          onSuccess={update}
+          onSuccess={refreshOrganization}
         />
       )}
     </>

@@ -5,16 +5,17 @@ import {
 } from "back-end/types/datasource";
 
 import { useForm } from "react-hook-form";
-import Modal from "../../../Modal";
-import MultiSelectField from "../../../Forms/MultiSelectField";
-import CodeTextArea from "../../../Forms/CodeTextArea";
+import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { validateSQL } from "@/services/datasources";
 import { isDuplicateIdentityJoin } from "./utils";
 
 type AddEditIdentityJoinModalProps = {
   identityJoin: IdentityJoinQuery | null;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
-  onSave: (identityJoin: IdentityJoinQuery) => void;
+  onSave: (identityJoin: IdentityJoinQuery) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -25,8 +26,13 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   onCancel,
   onSave,
 }) => {
-  const identityTypes = dataSource.settings.userIdTypes || [];
-  const existingIdentityJoins = dataSource.settings.queries.identityJoins || [];
+  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
+    dataSource.settings.userIdTypes,
+  ]);
+  const existingIdentityJoins = useMemo(
+    () => dataSource.settings.queries.identityJoins || [],
+    [dataSource.settings.queries.identityJoins]
+  );
 
   const defaultQuery = useMemo(() => {
     return (
@@ -49,7 +55,9 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value);
+    validateSQL(value.query, value.ids);
+
+    await onSave(value);
 
     form.reset({
       ids: [],

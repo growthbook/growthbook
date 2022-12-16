@@ -1,17 +1,18 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
+import Head from "next/head";
+import { useEffect, useState } from "react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
-import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
-import { useEffect } from "react";
 import track from "../services/track";
 import { initEnv } from "../services/env";
-import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import Layout from "../components/Layout/Layout";
+import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
+import TopNavLite from "../components/Layout/TopNavLite";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -22,6 +23,7 @@ type ModAppProps = AppProps & {
 };
 
 const growthbook = new GrowthBook({
+  enableDevMode: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
@@ -66,9 +68,7 @@ function App({
     // Load feature definitions JSON from GrowthBook API
     fetch("https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44")
       .then((res) => res.json())
-      .then((json) => {
-        growthbook.setFeatures(json.features);
-      })
+      .then((json) => growthbook.setFeatures(json.features))
       .catch(() => {
         console.log("Failed to fetch GrowthBook feature definitions");
       });
@@ -85,20 +85,27 @@ function App({
           <Component {...pageProps} />
         ) : (
           <AuthProvider>
-            <GrowthBookProvider growthbook={growthbook}>
-              <ProtectedPage organizationRequired={organizationRequired}>
-                {organizationRequired ? (
-                  <DefinitionsProvider>
-                    {!liteLayout && <Layout />}
-                    <main className={`main ${parts[0]}`}>
-                      <Component {...pageProps} />
-                    </main>
-                  </DefinitionsProvider>
-                ) : (
-                  <Component {...pageProps} />
-                )}
-              </ProtectedPage>
-            </GrowthBookProvider>
+            <AppearanceUIThemeProvider>
+              <GrowthBookProvider growthbook={growthbook}>
+                <ProtectedPage organizationRequired={organizationRequired}>
+                  {organizationRequired ? (
+                    <DefinitionsProvider>
+                      {!liteLayout && <Layout />}
+                      <main className={`main ${parts[0]}`}>
+                        <Component {...pageProps} />
+                      </main>
+                    </DefinitionsProvider>
+                  ) : (
+                    <div>
+                      <TopNavLite />
+                      <main className="container mt-5">
+                        <Component {...pageProps} />
+                      </main>
+                    </div>
+                  )}
+                </ProtectedPage>
+              </GrowthBookProvider>
+            </AppearanceUIThemeProvider>
           </AuthProvider>
         )
       ) : error ? (

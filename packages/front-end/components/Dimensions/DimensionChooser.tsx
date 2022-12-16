@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { getExposureQuery } from "../../services/datasources";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { getExposureQuery } from "@/services/datasources";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 
 export interface Props {

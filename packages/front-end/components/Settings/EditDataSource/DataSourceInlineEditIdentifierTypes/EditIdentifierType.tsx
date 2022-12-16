@@ -1,8 +1,8 @@
 import React, { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import Modal from "../../../Modal";
-import Field from "../../../Forms/Field";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -10,7 +10,7 @@ type EditIdentifierTypeProps = {
   onCancel: () => void;
   userIdType: string;
   description: string;
-  onSave: (name: string, description: string) => void;
+  onSave: (name: string, description: string) => Promise<void>;
 };
 
 export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
@@ -33,7 +33,8 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    onSave(value.userIdType, value.description);
+    await onSave(value.userIdType, value.description);
+
     form.reset({
       userIdType: "",
       description: "",

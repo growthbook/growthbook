@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from "react";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { useAuth } from "../../services/auth";
 import { FaPencilAlt } from "react-icons/fa";
-import EditOrganizationForm from "../../components/Settings/EditOrganizationForm";
 import { useForm } from "react-hook-form";
-import VisualEditorInstructions from "../../components/Settings/VisualEditorInstructions";
-import track from "../../services/track";
-import BackupConfigYamlButton from "../../components/Settings/BackupConfigYamlButton";
-import RestoreConfigYamlButton from "../../components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud } from "../../services/env";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
-import Field from "../../components/Forms/Field";
-import MetricsSelector from "../../components/Experiment/MetricsSelector";
 import cronstrue from "cronstrue";
-import TempMessage from "../../components/TempMessage";
-import Button from "../../components/Button";
-import { DocLink } from "../../components/DocLink";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import { useAdminSettings } from "../../hooks/useAdminSettings";
+import { useAuth } from "@/services/auth";
+import EditOrganizationForm from "@/components/Settings/EditOrganizationForm";
+import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
+import track from "@/services/track";
+import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
+import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
+import { hasFileConfig, isCloud } from "@/services/env";
+import Field from "@/components/Forms/Field";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import TempMessage from "@/components/TempMessage";
+import Button from "@/components/Button";
+import { DocLink } from "@/components/DocLink";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -30,11 +30,13 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { data, error, refresh: mutate } = useAdminSettings();
+  const { refreshOrganization, settings, organization, apiKeys } = useUser();
 
   const [editOpen, setEditOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
+
+  const permissions = usePermissions();
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -70,7 +72,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent: 0.01,
     },
   });
-  const { apiCall, organizations, setOrganizations, orgId } = useAuth();
+  const { apiCall } = useAuth();
 
   const value = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
@@ -100,17 +102,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
       setCronString("");
     }
     setCronString(
-      cronstrue.toString(cron, {
+      `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
-      })
+        verbose: true,
+      })} (UTC time)`
     );
   }
 
   useEffect(() => {
-    if (data?.organization?.settings) {
+    if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
-        newVal[k] = data.organization.settings?.[k] || newVal[k];
+        newVal[k] = settings?.[k] || newVal[k];
 
         // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
         // Transform these values from the UI format
@@ -128,21 +131,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
       setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
     }
-  }, [data?.organization?.settings]);
-
-  if (error) {
-    return <div className="alert alert-danger">An error occurred: {error}</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
+  }, [settings]);
 
   const ctaEnabled = hasChanges(value, originalValue);
 
   const saveSettings = async () => {
     const enabledVisualEditor =
-      !data?.organization?.settings?.visualEditorEnabled &&
-      value.visualEditorEnabled;
+      !settings?.visualEditorEnabled && value.visualEditorEnabled;
 
     const transformedOrgSettings = {
       ...value,
@@ -159,13 +154,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings: transformedOrgSettings,
       }),
     });
-    await mutate();
-    organizations.forEach((org) => {
-      if (org.id === orgId) {
-        org.settings = transformedOrgSettings;
-      }
-    });
-    setOrganizations(organizations);
+    refreshOrganization();
 
     // Track usage of the Visual Editor
     if (enabledVisualEditor) {
@@ -175,6 +164,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // show the user that the settings have saved:
     setSaveMsg(true);
   };
+
+  if (!permissions.organizationSettings) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid pagecontents">
@@ -189,9 +188,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       )}
       {editOpen && (
         <EditOrganizationForm
-          name={data.organization.name}
+          name={organization.name}
           close={() => setEditOpen(false)}
-          mutate={mutate}
+          mutate={refreshOrganization}
         />
       )}
       <h1>General Settings</h1>
@@ -204,7 +203,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="col-sm-9">
               <div className="form-group row">
                 <div className="col-sm-12">
-                  <strong>Name: </strong> {data.organization.name}{" "}
+                  <strong>Name: </strong> {organization.name}{" "}
                   <a
                     href="#"
                     className="pl-1"
@@ -219,7 +218,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
               <div className="form-group row">
                 <div className="col-sm-12">
-                  <strong>Owner:</strong> {data.organization.ownerEmail}
+                  <strong>Owner:</strong> {organization.ownerEmail}
                 </div>
               </div>
             </div>
@@ -287,14 +286,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </p>
             <div className="row mb-3">
               <div className="col-auto">
-                <BackupConfigYamlButton
-                  settings={data?.organization?.settings}
-                />
+                <BackupConfigYamlButton settings={settings} />
               </div>
               <div className="col-auto">
                 <RestoreConfigYamlButton
-                  settings={data?.organization?.settings}
-                  mutate={mutate}
+                  settings={settings}
+                  mutate={refreshOrganization}
                 />
               </div>
             </div>
@@ -336,16 +333,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </label>
                 </div>
               </div>
-              {value.visualEditorEnabled &&
-                data.organization.settings?.visualEditorEnabled && (
-                  <div className="bg-light p-3 my-3 border rounded">
-                    <h5 className="font-weight-bold">Setup Instructions</h5>
-                    <VisualEditorInstructions
-                      apiKeys={data.apiKeys}
-                      mutate={mutate}
-                    />
-                  </div>
-                )}
+              {value.visualEditorEnabled && settings?.visualEditorEnabled && (
+                <div className="bg-light p-3 my-3 border rounded">
+                  <h5 className="font-weight-bold">Setup Instructions</h5>
+                  <VisualEditorInstructions
+                    apiKeys={apiKeys}
+                    mutate={refreshOrganization}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

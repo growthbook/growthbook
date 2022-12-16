@@ -1,6 +1,4 @@
-import styles from "./ExperimentDateGraph.module.scss";
-import { FC, Fragment } from "react";
-import { date } from "../../services/dates";
+import { FC, Fragment, useMemo } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -14,7 +12,8 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
-import { useMemo } from "react";
+import { date } from "@/services/dates";
+import styles from "./ExperimentDateGraph.module.scss";
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations: {
@@ -30,7 +29,7 @@ export interface ExperimentDateGraphProps {
   tickFormat: (v: number) => string;
 }
 
-const COLORS = ["#772eff", "#039dd1", "#fd7e14", "#e83e8c"];
+const COLORS = ["var(--text-color-primary)", "#039dd1", "#fd7e14", "#e83e8c"];
 
 type TooltipData = { x: number; y: number[]; d: ExperimentDateGraphDataPoint };
 
@@ -241,9 +240,15 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             </div>
             <svg width={width} height={height}>
               <Group left={margin[3]} top={margin[0]}>
-                <GridRows scale={yScale} width={xMax} numTicks={numYTicks} />
+                <GridRows
+                  scale={yScale}
+                  width={xMax}
+                  numTicks={numYTicks}
+                  stroke="var(--border-color-200)"
+                />
                 <GridColumns
                   scale={xScale}
+                  stroke="var(--border-color-200)"
                   height={yMax}
                   numTicks={numXTicks}
                   tickValues={allXTicks}
@@ -288,6 +293,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   top={yMax}
                   scale={xScale}
                   numTicks={numXTicks}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  })}
                   tickFormat={(d) => {
                     return date(d as Date);
                   }}
@@ -297,6 +307,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   scale={yScale}
                   numTicks={numYTicks}
                   tickFormat={(v) => tickFormat(v as number)}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "end",
+                  })}
                   label={label}
                   labelClassName="h5"
                 />

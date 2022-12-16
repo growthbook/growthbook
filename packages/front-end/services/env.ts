@@ -52,3 +52,6 @@ export function getGrowthBookBuild(): { sha: string; date: string } {
 export function usingSSO() {
   return env.usingSSO;
 }
+export function isSentryEnabled() {
+  return !!env.sentryDSN;
+}

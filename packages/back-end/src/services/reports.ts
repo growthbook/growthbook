@@ -5,18 +5,18 @@ import {
   ReportInterface,
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
-import { getSourceIntegrationObject } from "./datasource";
-import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
 import { QueryDocument } from "../models/QueryModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { parseDimensionId } from "./experiments";
 import { updateReport } from "../models/ReportModel";
-import { analyzeExperimentResults } from "./stats";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
+import { analyzeExperimentResults } from "./stats";
+import { parseDimensionId } from "./experiments";
+import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
+import { getSourceIntegrationObject } from "./datasource";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -50,6 +50,7 @@ export function reportArgsFromSnapshot(
     variations: getReportVariations(experiment, phase),
     segment: snapshot.segment,
     metrics: experiment.metrics,
+    metricOverrides: experiment.metricOverrides,
     guardrails: experiment.guardrails,
     activationMetric: snapshot.activationMetric,
     queryFilter: snapshot.queryFilter,
@@ -104,6 +105,11 @@ export async function startExperimentAnalysis(
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
+  if (integration.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
 
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
@@ -126,6 +132,7 @@ export async function startExperimentAnalysis(
     queryFilter: args.queryFilter,
     activationMetric: args.activationMetric,
     metrics: args.metrics,
+    metricOverrides: args.metricOverrides,
     guardrails: args.guardrails,
     removeMultipleExposures: !!args.removeMultipleExposures,
     attributionModel: args.attributionModel || "firstExposure",

@@ -4,57 +4,27 @@ import React, {
   useContext,
   ReactElement,
   ReactNode,
+  useCallback,
 } from "react";
 import { useRouter } from "next/router";
 import {
   MemberRole,
+  MemberRoleInfo,
   OrganizationInterface,
-  OrganizationSettings,
-  Permissions,
 } from "back-end/types/organization";
-import Modal from "../components/Modal";
-import { getApiHost, getAppOrigin, isCloud } from "./env";
-import { DocLink } from "../components/DocLink";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
+import * as Sentry from "@sentry/react";
+import Modal from "../components/Modal";
+import { DocLink } from "../components/DocLink";
 import Welcome from "../components/Auth/Welcome";
+import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 
-export type OrganizationMember = {
-  id: string;
-  name: string;
-  role: MemberRole;
-  permissions?: Permissions;
-  settings?: OrganizationSettings;
-  freeSeats?: number;
-  discountCode?: string;
-  hasActiveSubscription?: boolean;
-};
-
-export type UserOrganizations = OrganizationMember[];
+export type UserOrganizations = { id: string; name: string }[];
 
 export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
-
-export function getDefaultPermissions(): Permissions {
-  return {
-    addComments: false,
-    createIdeas: false,
-    createPresentations: false,
-    publishFeatures: false,
-    createFeatures: false,
-    createFeatureDrafts: false,
-    createAnalyses: false,
-    createDimensions: false,
-    createMetrics: false,
-    createSegments: false,
-    runQueries: false,
-    editDatasourceSettings: false,
-    createDatasources: false,
-    organizationSettings: false,
-    superDelete: false,
-  };
-}
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
@@ -163,7 +133,15 @@ export async function safeLogout() {
 }
 
 export async function redirectWithTimeout(url: string, timeout: number = 5000) {
-  window.location.href = url;
+  // If the URL is the same as the current one, do a reload instead
+  // This is the only way to force the page to refresh if the URL contains a hash
+  // TODO: this will still break if the paths are identical, but only the hash changed
+  if (url === window.location.href) {
+    window.location.reload();
+  } else {
+    window.location.href = url;
+  }
+
   await new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
@@ -179,14 +157,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setSpecialOrg,
   ] = useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
-  const [error, setError] = useState("");
+  const [initError, setInitError] = useState("");
+  const [sessionError, setSessionError] = useState(false);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
   async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
-      setError("");
+      setInitError("");
       setToken(resp.token);
       setLoading(false);
     } else if ("redirectURI" in resp) {
@@ -208,6 +187,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           </Modal>
         );
       } else {
+        try {
+          const redirectAddress =
+            window.location.pathname + (window.location.search || "");
+          window.sessionStorage.setItem(
+            "postAuthRedirectPath",
+            redirectAddress
+          );
+        } catch (e) {
+          // ignore
+        }
         // Don't need to confirm, just redirect immediately
         window.location.href = resp.redirectURI;
       }
@@ -231,7 +220,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // Start auth flow to get an id token
   useEffect(() => {
     init().catch((e) => {
-      setError(e.message);
+      setInitError(e.message);
       console.error(e);
     });
   }, []);
@@ -241,11 +230,100 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     orgList.push({
       id: specialOrg.id,
       name: specialOrg.name,
-      role: "admin",
     });
   }
 
-  if (error) {
+  const _makeApiCall = useCallback(
+    async (url: string, token: string, options: RequestInit = {}) => {
+      const init = { ...options };
+      init.headers = init.headers || {};
+      init.headers["Authorization"] = `Bearer ${token}`;
+      init.credentials = "include";
+
+      if (init.body) {
+        init.headers["Content-Type"] = "application/json";
+      }
+
+      if (orgId) {
+        init.headers["X-Organization"] = orgId;
+      }
+
+      const response = await fetch(getApiHost() + url, init);
+
+      const responseData = await response.json();
+      return responseData;
+    },
+    [orgId]
+  );
+
+  const apiCall = useCallback(
+    async (url: string, options: RequestInit = {}) => {
+      let responseData = await _makeApiCall(url, token, options);
+
+      if (responseData.status && responseData.status >= 400) {
+        // Id token expired, try silently refreshing and doing the API call again
+        if (responseData.message === "jwt expired") {
+          const resp = await refreshToken();
+          if ("token" in resp) {
+            setToken(resp.token);
+            responseData = await _makeApiCall(url, resp.token, options);
+            // Still failing
+            if (responseData.status && responseData.status >= 400) {
+              throw new Error(responseData.message || "There was an error");
+            }
+            return responseData;
+          } else if ("redirectURI" in resp) {
+            try {
+              const redirectAddress =
+                window.location.pathname + (window.location.search || "");
+              window.sessionStorage.setItem(
+                "postAuthRedirectPath",
+                redirectAddress
+              );
+            } catch (e) {
+              // ignore
+            }
+            // Don't need to confirm, just redirect immediately
+            await redirectWithTimeout(resp.redirectURI);
+          }
+          setSessionError(true);
+          throw new Error(
+            "Your session has expired. Refresh the page to continue."
+          );
+        }
+
+        throw new Error(responseData.message || "There was an error");
+      }
+
+      return responseData;
+    },
+    [token, _makeApiCall]
+  );
+
+  const wrappedSetOrganizations = useCallback(
+    (orgs: UserOrganizations) => {
+      setOrganizations(orgs);
+      if (orgId && orgs.map((o) => o.id).includes(orgId)) {
+        return;
+      } else if (specialOrg?.id === orgId) {
+        return;
+      } else if (
+        !orgId &&
+        initialOrgId &&
+        orgs.map((o) => o.id).includes(initialOrgId)
+      ) {
+        setOrgId(initialOrgId);
+        return;
+      }
+
+      if (orgs.length > 0) {
+        setOrgId(orgs[0].id);
+      }
+    },
+    [initialOrgId, orgId, specialOrg]
+  );
+
+  if (initError) {
     return (
       <Modal
         header="logo"
@@ -255,7 +333,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           try {
             await init();
           } catch (e) {
-            setError(e.message);
+            setInitError(e.message);
             console.error(e);
             throw new Error("Still receiving error");
           }
@@ -265,59 +343,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{getDetailedError(error)}</div>
+        <div className="alert alert-danger">{getDetailedError(initError)}</div>
       </Modal>
     );
   }
 
-  const _makeApiCall = async (
-    url: string,
-    token: string,
-    options: RequestInit = {}
-  ) => {
-    const init = { ...options };
-    init.headers = init.headers || {};
-    init.headers["Authorization"] = `Bearer ${token}`;
-    init.credentials = "include";
-
-    if (init.body) {
-      init.headers["Content-Type"] = "application/json";
-    }
-
-    if (orgId) {
-      init.headers["X-Organization"] = orgId;
-    }
-
-    const response = await fetch(getApiHost() + url, init);
-
-    const responseData = await response.json();
-    return responseData;
-  };
-
-  const apiCall = async (url: string, options: RequestInit = {}) => {
-    let responseData = await _makeApiCall(url, token, options);
-
-    if (responseData.status && responseData.status >= 400) {
-      // Id token expired, try silently refreshing and doing the API call again
-      if (responseData.message === "jwt expired") {
-        const resp = await refreshToken();
-        if ("token" in resp) {
-          setToken(resp.token);
-          responseData = await _makeApiCall(url, resp.token, options);
-          // Still failing
-          if (responseData.status && responseData.status >= 400) {
-            throw new Error(responseData.message || "There was an error");
-          }
-          return responseData;
-        }
-        // TODO: Handle cases where the token couldn't be refreshed automatically
-      }
-
-      throw new Error(responseData.message || "There was an error");
-    }
-
-    return responseData;
-  };
+  if (sessionError) {
+    return (
+      <Modal
+        open={true}
+        cta="OK"
+        submit={async () => {
+          await redirectWithTimeout(window.location.href);
+        }}
+        autoCloseOnSubmit={false}
+      >
+        <h3>You&apos;ve been logged out</h3>
+        <p>Sign back in to keep using GrowthBook</p>
+      </Modal>
+    );
+  }
 
   return (
     <AuthContext.Provider
@@ -333,29 +378,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          if (isSentryEnabled()) {
+            Sentry.setUser(null);
+          }
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
         orgId,
         setOrgId,
         organizations: orgList,
-        setOrganizations: (orgs) => {
-          setOrganizations(orgs);
-          if (orgId && orgs.map((o) => o.id).includes(orgId)) {
-            return;
-          } else if (
-            !orgId &&
-            initialOrgId &&
-            orgs.map((o) => o.id).includes(initialOrgId)
-          ) {
-            setOrgId(initialOrgId);
-            return;
-          }
-
-          if (orgs.length > 0) {
-            setOrgId(orgs[0].id);
-          }
-        },
+        setOrganizations: wrappedSetOrganizations,
         setOrgName: (name) => {
           const orgs = [...organizations];
           orgs.forEach((o, i) => {
@@ -379,3 +411,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     </AuthContext.Provider>
   );
 };
+
+export function roleSupportsEnvLimit(role: MemberRole): boolean {
+  return ["engineer", "experimenter"].includes(role);
+}
+
+export function roleHasAccessToEnv(
+  role: MemberRoleInfo,
+  env: string
+): "yes" | "no" | "N/A" {
+  if (!roleSupportsEnvLimit(role.role)) return "N/A";
+
+  if (!role.limitAccessByEnvironment) return "yes";
+
+  if (role.environments.includes(env)) return "yes";
+
+  return "no";
+}

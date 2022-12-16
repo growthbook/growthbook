@@ -1,48 +1,59 @@
 import {
   getBaseIdTypeAndJoins,
-  replaceDateVars,
-  conditionToJavascript,
-  getMixpanelPropertyColumn,
+  replaceSQLVars,
   expandDenominatorMetrics,
   format,
 } from "../src/util/sql";
 
 describe("backend", () => {
   it("replaces vars in SQL", () => {
-    const start = new Date(Date.UTC(2021, 0, 5, 10, 20, 15));
-    const end = new Date(Date.UTC(2022, 1, 9, 11, 30, 12));
+    const startDate = new Date(Date.UTC(2021, 0, 5, 10, 20, 15));
+    const endDate = new Date(Date.UTC(2022, 1, 9, 11, 30, 12));
+    const experimentId = "my-experiment";
 
     expect(
-      replaceDateVars(
+      replaceSQLVars(
         `SELECT '{{ startDate }}' as full, '{{startYear}}' as year, '{{ startMonth}}' as month, '{{startDay }}' as day`,
-        start,
-        end
+        { startDate, endDate }
       )
     ).toEqual(
       "SELECT '2021-01-05 10:20:15' as full, '2021' as year, '01' as month, '05' as day"
     );
 
-    expect(replaceDateVars(`SELECT {{ unknown }}`, start, end)).toEqual(
-      "SELECT {{ unknown }}"
-    );
+    expect(
+      replaceSQLVars(`SELECT {{ unknown }}`, { startDate, endDate })
+    ).toEqual("SELECT {{ unknown }}");
 
     expect(
-      replaceDateVars(
+      replaceSQLVars(
         `SELECT '{{ endDate }}' as full, '{{endYear}}' as year, '{{ endMonth}}' as month, '{{endDay }}' as day`,
-        start,
-        end
+        { startDate, endDate }
       )
     ).toEqual(
       "SELECT '2022-02-09 11:30:12' as full, '2022' as year, '02' as month, '09' as day"
     );
 
     expect(
-      replaceDateVars(
-        `time > {{startDateUnix}} && time < {{ endDateUnix }}`,
-        start,
-        end
-      )
+      replaceSQLVars(`time > {{startDateUnix}} && time < {{ endDateUnix }}`, {
+        startDate,
+        endDate,
+      })
     ).toEqual(`time > 1609842015 && time < 1644406212`);
+
+    expect(
+      replaceSQLVars(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+        startDate,
+        endDate,
+      })
+    ).toEqual(`SELECT * WHERE expid LIKE '%'`);
+
+    expect(
+      replaceSQLVars(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+        startDate,
+        endDate,
+        experimentId,
+      })
+    ).toEqual(`SELECT * WHERE expid LIKE 'my-experiment'`);
   });
 
   it("determines identifier joins correctly", () => {
@@ -75,7 +86,11 @@ describe("backend", () => {
 
     // Ignores empty objects
     expect(
-      getBaseIdTypeAndJoins([["user_id"], [], [null, null, null]])
+      getBaseIdTypeAndJoins([
+        ["user_id"],
+        [],
+        ([null, null, null] as unknown) as string[],
+      ])
     ).toEqual({
       baseIdType: "user_id",
       joinsRequired: [],
@@ -107,56 +122,6 @@ describe("backend", () => {
     });
   });
 
-  it("detects mixpanel property columns", () => {
-    expect(getMixpanelPropertyColumn("abc")).toEqual(`event.properties["abc"]`);
-
-    expect(getMixpanelPropertyColumn("a.b.c")).toEqual(
-      `event.properties["a"]["b"]["c"]`
-    );
-
-    expect(getMixpanelPropertyColumn("a.[10].c")).toEqual(
-      `event.properties["a"][10]["c"]`
-    );
-
-    expect(getMixpanelPropertyColumn("event.time")).toEqual(`event.time`);
-
-    expect(getMixpanelPropertyColumn("eventDays")).toEqual(
-      `event.properties["eventDays"]`
-    );
-  });
-
-  it("converts conditions to javascript", () => {
-    // Cast left side to string
-    expect(
-      conditionToJavascript({ column: "v", operator: "=", value: "true" })
-    ).toEqual(`event.properties["v"]+'' == "true"`);
-
-    // Use number when right side is numeric
-    expect(
-      conditionToJavascript({ column: "v", operator: "<", value: "10" })
-    ).toEqual(`event.properties["v"]+'' < 10`);
-
-    // Detect numbers correctly
-    expect(
-      conditionToJavascript({ column: "v", operator: "<", value: "10px" })
-    ).toEqual(`event.properties["v"]+'' < "10px"`);
-
-    // Always use strings for equals
-    expect(
-      conditionToJavascript({ column: "v", operator: "=", value: "10" })
-    ).toEqual(`event.properties["v"]+'' == "10"`);
-
-    // Regex
-    expect(
-      conditionToJavascript({ column: "v", operator: "~", value: "abc.*" })
-    ).toEqual(`event.properties["v"].match(new RegExp("abc.*"))`);
-
-    // Negative regex
-    expect(
-      conditionToJavascript({ column: "v", operator: "!~", value: "abc.*" })
-    ).toEqual(`!event.properties["v"].match(new RegExp("abc.*"))`);
-  });
-
   it("expands denominator metrics", () => {
     const metricMap = new Map<string, { denominator?: string }>(
       Object.entries({
@@ -182,15 +147,22 @@ describe("backend", () => {
 
   it("formats SQL correctly", () => {
     let inputSQL = `SELECT * FROM mytable`;
-    expect(format(inputSQL)).toEqual(`SELECT\n  *\nFROM\n  mytable`);
+
+    // No dialect
+    expect(format(inputSQL)).toEqual(inputSQL);
+
+    // Redshift
+    expect(format(inputSQL, "redshift")).toEqual(
+      `SELECT\n  *\nFROM\n  mytable`
+    );
 
     // Snowflake flatten function (=>)
     inputSQL = `select * from table(flatten(input => parse_json('{"a":1, "b":[77,88]}'), outer => true)) f`;
-    expect(format(inputSQL)).toEqual(
+    expect(format(inputSQL, "snowflake")).toEqual(
       `select
   *
 from
-  table(
+  table (
     flatten(
       input => parse_json('{"a":1, "b":[77,88]}'),
       outer => true
@@ -200,8 +172,25 @@ from
 
     // Athena lambda syntax (->)
     inputSQL = `SELECT transform(numbers, n -> n * n) as sq`;
-    expect(format(inputSQL)).toEqual(
+    expect(format(inputSQL, "trino")).toEqual(
       `SELECT\n  transform(numbers, n -> n * n) as sq`
     );
+
+    // Postgres JSON syntax
+    inputSQL = `SELECT '{"a":[1,2,3],"b":[4,5,6]}'::json#>>'{a,2}' as a,
+    '{"a":1,"b":2}'::json->>'b' as b,
+    '{"a":1, "b":2}'::jsonb @> '{"b":2}'::jsonb as c,
+    '["a", {"b":1}]'::jsonb #- '{1,b}' as d`;
+    expect(format(inputSQL, "postgresql")).toEqual(
+      `SELECT
+  '{"a":[1,2,3],"b":[4,5,6]}'::json #>> '{a,2}' as a,
+  '{"a":1,"b":2}'::json ->> 'b' as b,
+  '{"a":1, "b":2}'::jsonb @> '{"b":2}'::jsonb as c,
+  '["a", {"b":1}]'::jsonb #- '{1,b}' as d`
+    );
+
+    // Invalid syntax
+    inputSQL = `SELECT (a* as c`;
+    expect(format(inputSQL, "mysql")).toEqual(inputSQL);
   });
 });

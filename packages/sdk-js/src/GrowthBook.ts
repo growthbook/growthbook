@@ -26,6 +26,9 @@ import { evalCondition } from "./mongrule";
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
 
+const base64ToBuf = (b: string) =>
+  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+
 export class GrowthBook {
   private context: Context;
   private _renderer: null | (() => void) = null;
@@ -51,7 +54,7 @@ export class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
-    if (isBrowser && !context.disableDevTools) {
+    if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
@@ -66,6 +69,36 @@ export class GrowthBook {
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this.context.features = features;
     this.render();
+  }
+
+  public async setEncryptedFeatures(
+    encryptedString: string,
+    encryptionKey: string,
+    subtle?: SubtleCrypto
+  ): Promise<void> {
+    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+    if (!subtle) {
+      throw new Error("No SubtleCrypto implementation found");
+    }
+    try {
+      const key = await subtle.importKey(
+        "raw",
+        base64ToBuf(encryptionKey),
+        { name: "AES-CBC", length: 128 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+      const [iv, cipherText] = encryptedString.split(".");
+      const plainTextBuffer = await subtle.decrypt(
+        { name: "AES-CBC", iv: base64ToBuf(iv) },
+        key,
+        base64ToBuf(cipherText)
+      );
+
+      this.setFeatures(JSON.parse(new TextDecoder().decode(plainTextBuffer)));
+    } catch (e) {
+      throw new Error("Failed to decrypt features");
+    }
   }
 
   public setAttributes(attributes: Attributes) {
@@ -254,7 +287,9 @@ export class GrowthBook {
   }
 
   // eslint-disable-next-line
-  public feature<T extends JSONValue = any>(id: string): FeatureResult<T | null> {
+  public feature<T extends JSONValue = any>(
+    id: string
+  ): FeatureResult<T | null> {
     return this.evalFeature(id);
   }
 
@@ -504,7 +539,7 @@ export class GrowthBook {
     // 9. Get bucket ranges and choose variation
     const ranges = getBucketRanges(
       numVariations,
-      experiment.coverage || 1,
+      experiment.coverage ?? 1,
       experiment.weights
     );
     const n = hash(hashValue + key);

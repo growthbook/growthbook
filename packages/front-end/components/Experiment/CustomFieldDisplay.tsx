@@ -4,13 +4,13 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { CustomField } from "back-end/types/organization";
+import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "../../services/experiments";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import CustomFieldInput from "./CustomFieldInput";
-import { CustomField } from "back-end/types/organization";
-import useUser from "../../hooks/useUser";
 
 const CustomFieldDisplay: FC<{
   label?: string;
@@ -34,7 +34,7 @@ const CustomFieldDisplay: FC<{
     });
   }
 
-  const { licence } = useUser();
+  const { license } = useUser();
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       customFields: experiment?.customFields || defaultFields,
@@ -65,7 +65,7 @@ const CustomFieldDisplay: FC<{
             })}
             cta="Save"
           >
-            {licence ? (
+            {license ? (
               <CustomFieldInput customFields={customFields} form={form} />
             ) : (
               <div className="text-center">
@@ -78,7 +78,7 @@ const CustomFieldDisplay: FC<{
           <HeaderWithEdit
             edit={
               canEdit &&
-              licence &&
+              license &&
               (() => {
                 setEditModal(true);
               })

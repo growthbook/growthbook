@@ -1,8 +1,14 @@
-import { FC, useState, Children, isValidElement, cloneElement } from "react";
+import {
+  FC,
+  useState,
+  Children,
+  isValidElement,
+  cloneElement,
+  ReactNode,
+} from "react";
 import clsx from "clsx";
 import Modal from "./Modal";
-import DeleteButton from "./DeleteButton";
-import { ReactNode } from "react";
+import DeleteButton from "./DeleteButton/DeleteButton";
 
 const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;

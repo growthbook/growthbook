@@ -1,14 +1,14 @@
 import { Request, Response } from "express";
+import { Stripe } from "stripe";
 import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
   IS_CLOUD,
 } from "../util/secrets";
-import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
 import {
-  getNumberOfMembersAndInvites,
+  getNumberOfUniqueMembersAndInvites,
   getOrgFromReq,
 } from "../services/organizations";
 import {
@@ -17,9 +17,9 @@ import {
   getCoupon,
   getPrice,
   getStripeCustomerId,
-  isActiveSubscriptionStatus,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
+import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; returnUrl: string }>,
@@ -33,11 +33,11 @@ export async function postNewSubscription(
     returnUrl = "/settings/billing";
   }
 
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   const { org } = getOrgFromReq(req);
 
-  const desiredQty = getNumberOfMembersAndInvites(org);
+  const desiredQty = getNumberOfUniqueMembersAndInvites(org);
 
   if (desiredQty !== qty) {
     throw new Error(
@@ -88,7 +88,7 @@ export async function postNewSubscription(
 }
 
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   if (!IS_CLOUD) {
     return res.status(200).json({
@@ -108,12 +108,14 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   // TODO: handle pricing tiers
   const additionalSeatPrice = unitPrice;
-  const qty = (org.members?.length || 0) + (org.invites?.length || 0);
-  const subtotal = qty * unitPrice;
+  const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
+  const currentSeatsPaidFor = org.subscription?.qty || 0;
+  const subtotal = currentSeatsPaidFor * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);
 
   const quote: SubscriptionQuote = {
-    qty,
+    activeAndInvitedUsers,
+    currentSeatsPaidFor,
     unitPrice,
     discountAmount,
     discountMessage,
@@ -132,7 +134,7 @@ export async function postCreateBillingSession(
   req: AuthRequest,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   const { org } = getOrgFromReq(req);
 
@@ -155,7 +157,7 @@ export async function postSubscriptionSuccess(
   req: AuthRequest<{ checkoutSessionId: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  req.checkPermissions("manageBilling");
 
   const session = await stripe.checkout.sessions.retrieve(
     req.body.checkoutSessionId
@@ -219,8 +221,7 @@ export async function postWebhook(req: Request, res: Response) {
       }
     }
   } catch (err) {
-    console.error(payload, sig);
-    console.error(err);
+    req.log.error(err, "Webhook error");
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 

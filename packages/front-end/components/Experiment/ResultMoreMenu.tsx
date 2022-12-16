@@ -1,18 +1,19 @@
 import { useRouter } from "next/router";
 import { FaCog, FaFileDownload, FaPencilAlt } from "react-icons/fa";
-import { GrTableAdd } from "react-icons/gr";
+import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ReportInterface,
 } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
+import { BsArrowRepeat } from "react-icons/bs";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import Button from "../Button";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import { BsArrowRepeat } from "react-icons/bs";
-import usePermissions from "../../hooks/usePermissions";
+import Tooltip from "../Tooltip/Tooltip";
 import ResultsDownloadButton from "./ResultsDownloadButton";
 
 export default function ResultMoreMenu({
@@ -33,6 +34,7 @@ export default function ResultMoreMenu({
   variations,
   trackingKey,
   dimension,
+  project,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -51,14 +53,24 @@ export default function ResultMoreMenu({
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  project?: string;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
 
+  const canEdit = permissions.check("createAnalyses", project);
+
+  const canDownloadJupyterNotebook =
+    hasData &&
+    !hasUserQuery &&
+    supportsNotebooks &&
+    notebookUrl &&
+    notebookFilename;
+
   return (
     <MoreMenu id="exp-result-actions">
-      {permissions.createAnalyses && (
+      {canEdit && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -87,75 +99,66 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData &&
-        queries &&
-        !hasUserQuery &&
-        generateReport &&
-        permissions.createAnalyses && (
-          <Button
-            className="dropdown-item py-2"
-            color="outline-info"
-            onClick={async () => {
-              const res = await apiCall<{ report: ReportInterface }>(
-                `/experiments/report/${id}`,
-                {
-                  method: "POST",
-                }
-              );
-
-              if (!res.report) {
-                throw new Error("Failed to create report");
-              }
-
-              await router.push(`/report/${res.report.id}`);
-            }}
-          >
-            <GrTableAdd className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
-            Ad-hoc Report
-          </Button>
-        )}
-
-      {hasData &&
-        !hasUserQuery &&
-        supportsNotebooks &&
-        notebookUrl &&
-        notebookFilename && (
-          <Button
-            color="outline-info"
-            className="dropdown-item py-2"
-            onClick={async () => {
-              const res = await apiCall<{ notebook: string }>(notebookUrl, {
+      {hasData && queries && !hasUserQuery && generateReport && canEdit && (
+        <Button
+          className="dropdown-item py-2"
+          color="outline-info"
+          onClick={async () => {
+            const res = await apiCall<{ report: ReportInterface }>(
+              `/experiments/report/${id}`,
+              {
                 method: "POST",
-              });
+              }
+            );
 
-              const url = URL.createObjectURL(
-                new Blob([res.notebook], {
-                  type: "application/json",
-                })
-              );
+            if (!res.report) {
+              throw new Error("Failed to create report");
+            }
 
-              const name = notebookFilename
-                .replace(/[^a-zA-Z0-9_-]+/g, "")
-                .replace(/[-]+/g, "_")
-                .replace(/[_]{2,}/g, "_");
+            await router.push(`/report/${res.report.id}`);
+          }}
+        >
+          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+          Report
+        </Button>
+      )}
+      <Tooltip
+        shouldDisplay={!canDownloadJupyterNotebook}
+        body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
+      >
+        <Button
+          color="outline-info"
+          className="dropdown-item py-2"
+          disabled={!canDownloadJupyterNotebook}
+          onClick={async () => {
+            const res = await apiCall<{ notebook: string }>(notebookUrl, {
+              method: "POST",
+            });
 
-              const d = new Date()
-                .toISOString()
-                .slice(0, 10)
-                .replace(/-/g, "_");
+            const url = URL.createObjectURL(
+              new Blob([res.notebook], {
+                type: "application/json",
+              })
+            );
 
-              const el = document.createElement("a");
-              el.href = url;
-              el.download = `${name}_${d}.ipynb`;
-              el.click();
-            }}
-          >
-            <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
-            Download Notebook
-          </Button>
-        )}
+            const name = notebookFilename
+              .replace(/[^a-zA-Z0-9_-]+/g, "")
+              .replace(/[-]+/g, "_")
+              .replace(/[_]{2,}/g, "_");
 
-      {permissions.createAnalyses && editMetrics && (
+            const d = new Date().toISOString().slice(0, 10).replace(/-/g, "_");
+
+            const el = document.createElement("a");
+            el.href = url;
+            el.download = `${name}_${d}.ipynb`;
+            el.click();
+          }}
+        >
+          <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
+          Download Notebook
+        </Button>
+      </Tooltip>
+      {canEdit && editMetrics && (
         <button
           type="button"
           className="dropdown-item py-2"

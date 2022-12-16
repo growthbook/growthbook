@@ -1,8 +1,9 @@
-import mongoose from "mongoose";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import { getUserByEmail } from "../services/users";
 import { APP_ORIGIN } from "../util/secrets";
 import { isEmailEnabled, sendResetPasswordEmail } from "../services/email";
+import { logger } from "../util/logger";
 
 export interface ForgotPasswordInterface {
   token: string;
@@ -56,7 +57,7 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
 
     await sendResetPasswordEmail(email, resetUrl);
   } catch (e) {
-    console.error("The reset password link for " + email + " is: " + resetUrl);
+    logger.info("The reset password link for " + email + " is: " + resetUrl);
     throw e;
   }
 }

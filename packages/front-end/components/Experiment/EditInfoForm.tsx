@@ -1,14 +1,14 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import {
   CustomExperimentField,
   ExperimentInterfaceStringDates,
   ImplementationType,
 } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import useUser from "../../hooks/useUser";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 import CustomFieldInput from "./CustomFieldInput";
@@ -19,9 +19,7 @@ const EditInfoForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const {
-    settings: { visualEditorEnabled },
-  } = useUser();
+  const { visualEditorEnabled } = useOrgSettings();
   const customFields = useCustomFields();
   const defaultFields: CustomExperimentField = {};
   customFields.forEach((f) => {
@@ -29,10 +27,9 @@ const EditInfoForm: FC<{
       f.type === "boolean"
         ? JSON.stringify(false)
         : f.type === "multiselect"
-        ? JSON.stringify([])
-        : "";
+          ? JSON.stringify([])
+          : "";
   });
-
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       name: experiment.name || "",
@@ -43,6 +40,7 @@ const EditInfoForm: FC<{
     },
   });
   const { apiCall } = useAuth();
+
   return (
     <Modal
       header={"Edit Info"}
@@ -51,6 +49,7 @@ const EditInfoForm: FC<{
       size="lg"
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(data),

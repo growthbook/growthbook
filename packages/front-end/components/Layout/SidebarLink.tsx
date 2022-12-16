@@ -1,14 +1,14 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
-import useUser from "../../hooks/useUser";
 import { useRouter } from "next/router";
 import clsx from "clsx";
-import styles from "./SidebarLink.module.scss";
 import { FiChevronRight } from "react-icons/fi";
-import { isCloud } from "../../services/env";
-import { Permissions } from "back-end/types/organization";
+import { AccountPlan, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { isCloud } from "../../services/env";
+import { useUser } from "../../services/UserContext";
+import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
   name: string;
@@ -23,16 +23,17 @@ export type SidebarLinkProps = {
   cloudOnly?: boolean;
   selfHostedOnly?: boolean;
   autoClose?: boolean;
-  permissions?: (keyof Permissions)[];
+  permissions?: Permission[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
   feature?: string;
+  accountPlans?: AccountPlan[];
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const growthbook = useGrowthBook();
 
-  const { permissions, admin } = useUser();
+  const { permissions, admin, accountPlan } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -41,17 +42,26 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   const [open, setOpen] = useState(selected);
 
+  // If we navigate to a page and the nav isn't expanded yet
+  useEffect(() => {
+    if (selected) {
+      setOpen(true);
+    }
+  }, [selected]);
+
   if (props.feature && !growthbook.isOn(props.feature)) {
     return null;
   }
 
   if (props.superAdmin && !admin) return null;
   if (props.permissions) {
+    let allowed = false;
     for (let i = 0; i < props.permissions.length; i++) {
-      if (!permissions[props.permissions[i]]) {
-        return null;
+      if (permissions[props.permissions[i]]) {
+        allowed = true;
       }
     }
+    if (!allowed) return null;
   }
 
   if (props.cloudOnly && !isCloud()) {
@@ -131,6 +141,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               return null;
             }
             if (l.selfHostedOnly && isCloud()) {
+              return null;
+            }
+            if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
               return null;
             }
 

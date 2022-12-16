@@ -1,17 +1,17 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import React, { useState } from "react";
 import {
   getDefaultVariationValue,
   getVariationColor,
   getVariationDefaultName,
-} from "../../services/features";
+} from "@/services/features";
 import Field from "../Forms/Field";
+import { GBAddCircle } from "../Icons";
+import Tooltip from "../Tooltip/Tooltip";
+import MoreMenu from "../Dropdown/MoreMenu";
 import FeatureValueField from "./FeatureValueField";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
-import { GBAddCircle } from "../Icons";
-import React, { useState } from "react";
 import styles from "./VariationsInput.module.scss";
-import Tooltip from "../Tooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -430,48 +430,61 @@ export default function VariationsInput({
                 </tr>
               );
             })}
-            {(valueType !== "boolean" || !isEqualWeights) && (
-              <tr>
-                <td colSpan={4}>
-                  <div className="row">
-                    <div className="col">
-                      {valueType !== "boolean" && setVariations && (
-                        <a
-                          className="btn btn-outline-primary"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
 
-                            const newWeights = distributeWeights(
-                              [...weights, 0],
-                              customSplit
-                            );
+            <tr>
+              <td colSpan={4}>
+                <div className="row">
+                  <div className="col">
+                    {valueType !== "boolean" && setVariations ? (
+                      <a
+                        className="btn btn-outline-primary"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
 
-                            // Add a new value and update weights
-                            const newValues = [
-                              ...variations,
-                              {
-                                value: getDefaultVariationValue(defaultValue),
-                                name: "",
-                                weight: 0,
-                              },
-                            ];
-                            newValues.forEach((v, i) => {
-                              v.weight = newWeights[i] || 0;
-                            });
-                            setVariations(newValues);
-                          }}
+                          const newWeights = distributeWeights(
+                            [...weights, 0],
+                            customSplit
+                          );
+
+                          // Add a new value and update weights
+                          const newValues = [
+                            ...variations,
+                            {
+                              value: getDefaultVariationValue(defaultValue),
+                              name: "",
+                              weight: 0,
+                            },
+                          ];
+                          newValues.forEach((v, i) => {
+                            v.weight = newWeights[i] || 0;
+                          });
+                          setVariations(newValues);
+                        }}
+                      >
+                        <span
+                          className={`h4 pr-2 m-0 d-inline-block align-top`}
                         >
-                          <span
-                            className={`h4 pr-2 m-0 d-inline-block align-top`}
-                          >
-                            <GBAddCircle />
-                          </span>
-                          add another variation
-                        </a>
-                      )}
-                    </div>
-
+                          <GBAddCircle />
+                        </span>
+                        add another variation
+                      </a>
+                    ) : (
+                      <>
+                        <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                          <a className="btn btn-outline-primary disabled">
+                            <span
+                              className={`h4 pr-2 m-0 d-inline-block align-top`}
+                            >
+                              <GBAddCircle />
+                            </span>
+                            add another variation
+                          </a>
+                        </Tooltip>
+                      </>
+                    )}
+                  </div>
+                  {!isEqualWeights && (
                     <div className="col-auto text-right">
                       <a
                         href="#"
@@ -483,10 +496,11 @@ export default function VariationsInput({
                         set equal weights
                       </a>
                     </div>
-                  </div>
-                </td>
-              </tr>
-            )}
+                  )}
+                </div>
+              </td>
+            </tr>
+
             {showPreview && (
               <tr>
                 <td colSpan={4} className="pb-2">

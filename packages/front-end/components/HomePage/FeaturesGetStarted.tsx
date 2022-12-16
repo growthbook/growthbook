@@ -1,16 +1,17 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import track from "../../services/track";
+import { FaChrome } from "react-icons/fa";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import CodeSnippetModal from "../Features/CodeSnippetModal";
 import EditAttributesModal from "../Features/EditAttributesModal";
 import FeatureModal from "../Features/FeatureModal";
-import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
-import GetStartedStep from "./GetStartedStep";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaChrome } from "react-icons/fa";
-import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
+import GetStartedStep from "./GetStartedStep";
+import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 
 export interface Props {
   features: FeatureInterface[];
@@ -31,6 +32,8 @@ export default function FeaturesGetStarted({ features }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [attributeModalOpen, setAttributeModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
+
+  const { project } = useDefinitions();
 
   return (
     <div>
@@ -64,7 +67,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
-              permissionsError={!permissions.createFeatures}
+              permissionsError={!permissions.check("manageFeatures", project)}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -84,7 +87,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
-              permissionsError={!permissions.createFeatures}
+              permissionsError={!permissions.check("manageFeatures", project)}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {

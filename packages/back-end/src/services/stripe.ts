@@ -1,10 +1,12 @@
-import { STRIPE_SECRET } from "../util/secrets";
 import { Stripe } from "stripe";
+import { STRIPE_SECRET } from "../util/secrets";
 import {
   updateOrganization,
   updateOrganizationByStripeId,
 } from "../models/OrganizationModel";
 import { OrganizationInterface } from "../../types/organization";
+import { logger } from "../util/logger";
+import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2020-08-27",
@@ -53,38 +55,6 @@ export async function updateSubscriptionInDb(
   });
 }
 
-/**
- * @name updateSubscriptionInStripe
- * @description This function updates the subscription in Stripe's system via Stripe's API.
- */
-export async function updateSubscriptionInStripe(
-  subscriptionId: string,
-  qty: number
-) {
-  if (!STRIPE_SECRET) {
-    console.error("Missing STRIPE_SECRET");
-    return;
-  }
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-  // Only update subscription if the qty is different than what Stripe currently has
-  if (qty !== subscription.items.data[0].quantity) {
-    const updatedSubscription = await stripe.subscriptions.update(
-      subscriptionId,
-      {
-        items: [
-          {
-            id: subscription.items.data[0].id,
-            quantity: qty,
-          },
-        ],
-      }
-    );
-
-    await updateSubscriptionInDb(updatedSubscription);
-  }
-}
-
 const priceData: {
   [key: string]: Stripe.Price;
 } = {};
@@ -101,7 +71,7 @@ export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
     });
     return priceData[priceId];
   } catch (e) {
-    console.error(e);
+    logger.error(e, "Failed to get price data from Stripe");
     return null;
   }
 }
@@ -121,15 +91,9 @@ export async function getCoupon(
     discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
     return discountData[discountCode];
   } catch (e) {
-    console.error(e);
+    logger.error(e, "Failed to get coupon data from Stripe");
     return null;
   }
-}
-
-export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
-) {
-  return ["active", "trialing", "past_due"].includes(status || "");
 }
 
 export function hasActiveSubscription(org: OrganizationInterface) {

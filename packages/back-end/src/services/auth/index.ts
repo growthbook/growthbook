@@ -1,14 +1,13 @@
-import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { NextFunction, Request, Response } from "express";
+import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import {
-  getDefaultPermissions,
   getOrganizationById,
-  getPermissionsByRole,
   getRole,
+  validateLoginMethod,
 } from "../organizations";
-import { MemberRole } from "../../../types/organization";
+import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
 import { insertAudit } from "../audit";
@@ -20,6 +19,7 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
+import { getPermissionsByRole } from "../../util/organization.util";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -60,23 +60,63 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 
 export async function processJWT(
   // eslint-disable-next-line
-  req: AuthRequest & { user: any },
+  req: AuthRequest & { user: IdToken },
   res: Response,
   next: NextFunction
 ) {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
 
+  req.authSubject = req.user.sub || "";
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-  req.permissions = getDefaultPermissions();
+
+  const hasPermission = (
+    permission: Permission,
+    project?: string,
+    envs?: string[]
+  ): boolean => {
+    if (!req.organization || !req.userId) {
+      return false;
+    }
+
+    // Get the role based on the project (if specified)
+    const projectRole = getRole(req.organization, req.userId, project);
+
+    // Admin role always has permission
+    if (req.admin || projectRole.role === "admin") return true;
+
+    const permissions = getPermissionsByRole(
+      projectRole.role,
+      req.organization
+    );
+
+    // Missing permission
+    if (!permissions.includes(permission)) {
+      return false;
+    }
+
+    // If it's an environment-scoped permission and the user's role has limited access
+    if (envs && projectRole.limitAccessByEnvironment) {
+      for (let i = 0; i < envs.length; i++) {
+        if (!projectRole.environments.includes(envs[i])) {
+          return false;
+        }
+      }
+    }
+
+    // If it got through all the above checks, the user has permission
+    return true;
+  };
 
   // Throw error if permissions don't pass
-  req.checkPermissions = (...permissions) => {
-    for (let i = 0; i < permissions.length; i++) {
-      if (!req.permissions[permissions[i]]) {
-        throw new Error("You do not have permission to complete that action.");
-      }
+  req.checkPermissions = (
+    permission: Permission,
+    project?: string,
+    envs?: string[]
+  ) => {
+    if (!hasPermission(permission, project, envs)) {
+      throw new Error("You do not have permission to complete that action.");
     }
   };
 
@@ -121,19 +161,14 @@ export async function processJWT(
         }
 
         // Make sure this is a valid login method for the organization
-        if (req.organization.restrictLoginMethod) {
-          if (req.loginMethod?.id !== req.organization.restrictLoginMethod) {
-            return res.status(403).json({
-              status: 403,
-              message: "Must login with Enterprise SSO.",
-            });
-          }
+        try {
+          validateLoginMethod(req.organization, req);
+        } catch (e) {
+          return res.status(403).json({
+            status: 403,
+            message: e.message,
+          });
         }
-
-        const role: MemberRole = req.admin
-          ? "admin"
-          : getRole(req.organization, user.id);
-        req.permissions = getPermissionsByRole(role);
       } else {
         return res.status(404).json({
           status: 404,

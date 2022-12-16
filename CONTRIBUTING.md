@@ -15,10 +15,10 @@ The fastest way to start contributing to GrowthBook is by using our pre configur
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) 14.x or higher
+- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or higher
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
-- [Python](https://www.python.org/downloads/) 3.6+ (for the stats engine)
+- [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
   - [scipy](https://scipy.org/install/)
   - [numpy](https://numpy.org/install/)
   - [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
@@ -45,9 +45,9 @@ Now you have the basic Linux system set up, and can follow along with all the ot
 3. Run `cd growthbook`
 4. Run `yarn` to install dependencies
 5. Install [poetry](https://python-poetry.org/docs/)
-   - Run `curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -`
+   - Run `curl -sSL https://install.python-poetry.org | python3 -`
    - Close and reopen your terminal
-   - Run `poetry --v` to confirm a successful install
+   - Run `poetry --version` to confirm a successful install
    - If unsuccessful add the Poetry path (ex. `$HOME/.poetry/bin`) to your global path (ex. `/etc/profile`, `/etc/environment`, `~/.bashrc`, `~/.zshrc`)
 6. Run `yarn setup` to do the initial build
 7. If you have Docker installed, start MongoDB in Docker:
@@ -82,10 +82,10 @@ This repository is a monorepo with the following packages:
 
 - **packages/front-end** is a Next.js app and contains the full UI of the GrowthBook app.
 - **packages/back-end** is an Express app and serves as the REST api for the front-end.
-- **packages/docs** is another Next.js app of our documentation site (https://docs.growthbook.io).
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)
+- **docs** is a Docusaurus instance for our documentation site (https://docs.growthbook.io).
 
 Depending on what you're changing, you may need to edit one or more of these packages.
 
@@ -139,7 +139,7 @@ mongosh -u root
 
 ### Working on docs
 
-To start the docs site, run `yarn workspace docs dev`. You can view the site at http://localhost:3200
+To start the docs site, first `cd docs` and then run `yarn dev`. You can view the site at http://localhost:3200
 
 ### Working on the SDKs
 
