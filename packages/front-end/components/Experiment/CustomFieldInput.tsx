@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { CustomField } from "back-end/types/organization";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Field from "../Forms/Field";
 import { UseFormReturn } from "react-hook-form";
+import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import MultiSelectField from "../Forms/MultiSelectField";
 import Toggle from "../Forms/Toggle";
