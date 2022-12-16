@@ -1785,13 +1785,10 @@ export async function postPastExperiments(
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
-  if (datasourceObj?.projects?.length) {
-    for (const project of datasourceObj.projects) {
-      req.checkPermissions("runQueries", project);
-    }
-  } else {
-    req.checkPermissions("runQueries", "");
-  }
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+  );
 
   const integration = getSourceIntegrationObject(datasourceObj);
   if (integration.decryptionError) {

@@ -206,13 +206,10 @@ export async function deleteDataSource(
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
-  if (datasource?.projects?.length) {
-    for (const project of datasource.projects) {
-      req.checkPermissions("createDatasources", project);
-    }
-  } else {
-    req.checkPermissions("createDatasources", "");
-  }
+  req.checkPermissions(
+    "createDatasources",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   // Make sure there are no metrics
   const metrics = await getMetricsByDatasource(
@@ -326,13 +323,7 @@ export async function postDataSources(
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
-  if (projects?.length) {
-    for (const project of projects) {
-      req.checkPermissions("createDatasources", project);
-    }
-  } else {
-    req.checkPermissions("createDatasources", "");
-  }
+  req.checkPermissions("createDatasources", projects?.length ? projects : "");
 
   try {
     // Set default event properties and queries
@@ -388,13 +379,7 @@ export async function putDataSource(
   const permissionLevel = params
     ? "createDatasources"
     : "editDatasourceSettings";
-  if (projects?.length) {
-    for (const project of projects) {
-      req.checkPermissions(permissionLevel, project);
-    }
-  } else {
-    req.checkPermissions(permissionLevel, "");
-  }
+  req.checkPermissions(permissionLevel, projects?.length ? projects : "");
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
@@ -446,9 +431,7 @@ export async function putDataSource(
     }
 
     if (updates?.projects?.length) {
-      for (const project of updates.projects) {
-        req.checkPermissions(permissionLevel, project);
-      }
+      req.checkPermissions(permissionLevel, updates.projects);
     }
 
     // If the connection params changed, re-validate the connection
@@ -548,13 +531,10 @@ export async function testLimitedQuery(
       message: "Cannot find data source",
     });
   }
-  if (datasource?.projects?.length) {
-    for (const project of datasource.projects) {
-      req.checkPermissions("editDatasourceSettings", project);
-    }
-  } else {
-    req.checkPermissions("editDatasourceSettings", "");
-  }
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   const { results, sql, duration, error } = await testQuery(datasource, query);
 

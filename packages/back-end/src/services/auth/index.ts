@@ -112,11 +112,16 @@ export async function processJWT(
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string,
+    project?: string | string[],
     envs?: string[]
   ) => {
-    if (!hasPermission(permission, project, envs)) {
-      throw new Error("You do not have permission to complete that action.");
+    if (typeof project === "string") {
+      project = [project];
+    }
+    for (const p in project) {
+      if (!hasPermission(permission, p, envs)) {
+        throw new Error("You do not have permission to complete that action.");
+      }
     }
   };
 
