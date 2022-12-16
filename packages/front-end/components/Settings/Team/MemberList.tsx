@@ -128,7 +128,7 @@ const MemberList: FC<{
                 <td>
                   {member.id !== userId && (
                     <>
-                      <MoreMenu id={`member-actions-${id}`}>
+                      <MoreMenu>
                         <button
                           className="dropdown-item"
                           onClick={(e) => {

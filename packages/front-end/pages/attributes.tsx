@@ -41,7 +41,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
       <td className="text-gray">{v.archived && <>yes</>}</td>
       <td>
-        <MoreMenu id={`more-menu-attribute-${i}`}>
+        <MoreMenu>
           <button
             className="dropdown-item"
             onClick={async (e) => {
@@ -72,7 +72,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               await refreshOrganization();
             }}
           >
-            {v.archived ? "unarchive" : "archive"}
+            {v.archived ? "Unarchive" : "Archive"}
           </button>
         </MoreMenu>
       </td>

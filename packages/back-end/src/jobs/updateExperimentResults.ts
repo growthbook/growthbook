@@ -175,7 +175,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.phases.length - 1,
       organization,
       null,
-      false
+      false,
+      organization.settings?.statsEngine
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -193,7 +194,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               experiment.organization,
               getReportVariations(experiment, phase),
               undefined,
-              queryData
+              queryData,
+              organization.settings?.statsEngine
             );
           },
           async (updates, results, error) => {

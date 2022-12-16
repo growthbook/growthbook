@@ -1,6 +1,7 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import cloneDeep from "lodash/cloneDeep";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -43,9 +44,7 @@ const EditMetricsForm: FC<{
     (m) => m.datasource === datasource?.id
   );
 
-  const defaultMetricOverrides = structuredClone(
-    experiment.metricOverrides || []
-  );
+  const defaultMetricOverrides = cloneDeep(experiment.metricOverrides || []);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
@@ -90,7 +89,7 @@ const EditMetricsForm: FC<{
       close={cancel}
       ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        const payload = structuredClone(value) as EditMetricsFormInterface;
+        const payload = cloneDeep<EditMetricsFormInterface>(value);
         for (let i = 0; i < payload.metricOverrides.length; i++) {
           for (const key in payload.metricOverrides[i]) {
             if (key === "id") continue;

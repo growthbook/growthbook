@@ -256,7 +256,7 @@ export default function SinglePage({
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
         <div className="col-auto">
-          <MoreMenu id="exp-more-menu">
+          <MoreMenu>
             {canEdit && (
               <button
                 className="dropdown-item"

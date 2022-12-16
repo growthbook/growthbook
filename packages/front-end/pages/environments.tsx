@@ -90,7 +90,7 @@ const EnvironmentsPage: FC = () => {
                   </td>
                   {canManageEnvironments && (
                     <td style={{ width: 30 }}>
-                      <MoreMenu id={e.id + "_moremenu"}>
+                      <MoreMenu>
                         {canEdit && (
                           <button
                             className="dropdown-item"

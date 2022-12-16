@@ -69,7 +69,7 @@ export default function ResultMoreMenu({
     notebookFilename;
 
   return (
-    <MoreMenu id="exp-result-actions">
+    <MoreMenu>
       {canEdit && (
         <button
           className="btn dropdown-item py-2"
