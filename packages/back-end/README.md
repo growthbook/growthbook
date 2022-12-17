@@ -156,7 +156,7 @@ Once your local MySQL db is running, you have to ensure that your server allows 
 Then, you can run `packages/back-end/test/data-generator/sql_scripts/create_mysql.sql` from the mysql console or from the terminal like so (using example user `myuser` and example database `growthbook_db`):
 
 ```bash
-> mysql -u postgres -p growthbook_db --local-infile  < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
+> mysql -u myuser -p growthbook_db --local-infile < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
 ```
 
 ### Loading sample data in to Growthbook
