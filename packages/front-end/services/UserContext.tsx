@@ -220,13 +220,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs or updating license info
+  // Refresh organization data when switching orgs
   useEffect(() => {
     if (orgId) {
       void refreshOrganization();
       track("Organization Loaded");
     }
-  }, [orgId, currentOrg?.organization?.licenseKey, refreshOrganization]);
+  }, [orgId, refreshOrganization]);
 
   // Once authenticated, get userId, orgId from API
   useEffect(() => {
@@ -235,6 +235,22 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
     void updateUser();
   }, [isAuthenticated, updateUser]);
+
+  // Refresh user and org after loading license
+  useEffect(() => {
+    if (orgId) {
+      void refreshOrganization();
+    }
+    if (isAuthenticated) {
+      void updateUser();
+    }
+  }, [
+    orgId,
+    isAuthenticated,
+    currentOrg?.organization?.licenseKey,
+    refreshOrganization,
+    updateUser,
+  ]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook();
