@@ -57,20 +57,22 @@ const EditLicenseForm: FC<{
       autoCloseOnSubmit={false}
     >
       {editField ? (
-        <Field
-          label="License Key"
-          className={styles.textarea}
-          textarea={true}
-          minRows={12}
-          maxRows={12}
-          required
-          {...form.register("licenseKey")}
-          placeholder={
-            license
-              ? "License key present. Enter a new key here."
-              : "Enter a license key here."
-          }
-        />
+        <>
+          <Field
+            label="License Key"
+            className={styles.textarea}
+            textarea={true}
+            minRows={12}
+            maxRows={12}
+            required
+            {...form.register("licenseKey")}
+            placeholder={
+              license
+                ? "License key present. Enter a new key here."
+                : "Enter a license key here."
+            }
+          />
+        </>
       ) : (
         <div className="form-group">
           <label>Enter License Key</label>

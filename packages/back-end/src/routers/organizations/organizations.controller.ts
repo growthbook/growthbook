@@ -379,7 +379,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     connections,
     settings,
     disableSelfServeBilling,
-    licenseKey
+    licenseKey,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -388,7 +388,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     if (!licenseData || (licenseData.org && licenseData.org !== id)) {
       try {
         await licenseInit(licenseKey);
-      } catch(e) {
+      } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
       }
@@ -430,6 +430,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       id,
       url,
       subscription,
+      licenseKey,
       freeSeats,
       disableSelfServeBilling,
       discountCode: org.discountCode || "",
@@ -1354,7 +1355,7 @@ export async function putLicenseKey(
     // set new license
     await licenseInit(licenseKey);
     licenseData = getLicense();
-  } catch(e) {
+  } catch (e) {
     // eslint-disable-next-line no-console
     console.error("setting new license failed", e);
   }
@@ -1362,7 +1363,7 @@ export async function putLicenseKey(
     // setting license failed, revert to previous
     try {
       await setLicense(currentLicenseData);
-    } catch(e) {
+    } catch (e) {
       // reverting also failed
       // eslint-disable-next-line no-console
       console.error("reverting to old license failed", e);
@@ -1373,9 +1374,9 @@ export async function putLicenseKey(
 
   try {
     await updateOrganization(orgId, {
-      licenseKey
+      licenseKey,
     });
-  } catch(e) {
+  } catch (e) {
     throw new Error("Failed to save license key");
   }
 
