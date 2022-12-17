@@ -200,6 +200,7 @@ export interface OrganizationInterface {
     planNickname: string | null;
     priceId?: string;
   };
+  licenseKey?: string;
   members: Member[];
   invites: Invite[];
   connections?: OrganizationConnections;

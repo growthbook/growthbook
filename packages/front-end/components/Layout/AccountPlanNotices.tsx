@@ -22,6 +22,7 @@ export default function AccountPlanNotices() {
     trialEnd,
     subscriptionStatus,
   } = useStripeSubscription();
+  console.log("topnav", license)
 
   // GrowthBook Cloud-specific Notices
   if (isCloud() && permissions.manageBilling) {
