@@ -60,9 +60,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     });
   }
 
-  let project = "";
+  let projectFilter = "";
   if (typeof req.query?.project === "string") {
-    project = req.query.project;
+    projectFilter = req.query.project;
   }
 
   try {
@@ -70,6 +70,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       organization,
       secret,
       environment,
+      project,
       encryptSDK,
       encryptionKey,
     } = await lookupOrganizationByApiKey(key);
@@ -86,11 +87,15 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
+    if (project && !projectFilter) {
+      projectFilter = project;
+    }
+
     //Archived features not to be shown
     const { features, dateUpdated } = await getFeatureDefinitions(
       organization,
       environment,
-      project
+      projectFilter
     );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
