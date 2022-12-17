@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -97,8 +98,8 @@ const EditLicenseForm: FC<{
               <div className="alert alert-success">{successMessage}</div>
             ) : (
               <div className="alert alert-warning">
-                You already have an active license. Click &quot;Change&quot; to
-                enter a new license key.
+                <FaExclamationTriangle /> You already have an active license.
+                Click &quot;Change&quot; to enter a new license key.
               </div>
             )}
           </div>

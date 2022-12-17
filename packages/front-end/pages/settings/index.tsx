@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import EditOrganizationForm from "@/components/Settings/EditOrganizationForm";
 import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
@@ -22,7 +23,6 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import clsx from "clsx";
 import EditLicenseForm from "@/components/Settings/EditLicenseForm";
 
 function hasChanges(
@@ -35,7 +35,14 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { refreshOrganization, settings, organization, apiKeys, accountPlan, license } = useUser();
+  const {
+    refreshOrganization,
+    settings,
+    organization,
+    apiKeys,
+    accountPlan,
+    license,
+  } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
@@ -50,13 +57,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
   const licensePlanText =
-    accountPlan === "enterprise"
+    (accountPlan === "enterprise"
       ? "Enterprise"
       : accountPlan === "pro"
-        ? "Pro"
-        : accountPlan === "pro_sso"
-          ? "Pro + SSO"
-          : "Starter";
+      ? "Pro"
+      : accountPlan === "pro_sso"
+      ? "Pro + SSO"
+      : "Starter") + (license && license.trial ? " (trial)" : "");
 
   const form = useForm<OrganizationSettings>({
     defaultValues: {
@@ -290,14 +297,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
                   </div>
                 )}
-                {!isCloud() && permissions.manageBilling &&  (
+                {!isCloud() && permissions.manageBilling && (
                   <div className="form-group row mt-3 mb-0">
-                    <div className="col-sm-12">
-                      <div><strong>License Key: </strong></div>
-                      <div className={clsx(
-                        "d-inline-block mt-1 mb-2 text-center text-muted",
-                        license ? "" : "text-muted",
-                      )} style={{width: 100, borderBottom: "1px solid #cccccc", pointerEvents: "none"}}>
+                    <div className="col-sm-4">
+                      <div>
+                        <strong>License Key: </strong>
+                      </div>
+                      <div
+                        className={clsx(
+                          "d-inline-block mt-1 mb-2 text-center text-muted",
+                          license ? "" : "text-muted"
+                        )}
+                        style={{
+                          width: 100,
+                          borderBottom: "1px solid #cccccc",
+                          pointerEvents: "none",
+                          overflow: "hidden",
+                          verticalAlign: "top",
+                        }}
+                      >
                         {license ? "***************" : "(none)"}
                       </div>{" "}
                       <a
@@ -311,6 +329,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         <FaPencilAlt />
                       </a>
                     </div>
+                    {license && (
+                      <>
+                        <div className="col-sm-2">
+                          <div>Issued:</div>
+                          <span className="text-muted">{license.iat}</span>
+                        </div>
+                        <div className="col-sm-2">
+                          <div>Expires:</div>
+                          <span className="text-muted">{license.exp}</span>
+                        </div>
+                        <div className="col-sm-2">
+                          <div>Seats:</div>
+                          <span className="text-muted">{license.qty}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -324,9 +358,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
               <div className="col-sm-9">
                 <p>
-                  North stars are metrics your team is focused on improving. These
-                  metrics are shown on the home page with the experiments that
-                  have the metric as a goal.
+                  North stars are metrics your team is focused on improving.
+                  These metrics are shown on the home page with the experiments
+                  that have the metric as a goal.
                 </p>
                 <div className={"form-group"}>
                   <div className="my-3">
@@ -339,7 +373,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         }
                       />
                     </div>
-                    <Field label="Title" {...form.register("northStar.title")} />
+                    <Field
+                      label="Title"
+                      {...form.register("northStar.title")}
+                    />
                   </div>
                 </div>
               </div>
@@ -371,9 +408,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 in a database.
               </p>
               <p>
-                You can import/export these settings to a <code>config.yml</code>{" "}
-                file to more easily move between GrowthBook Cloud accounts and/or
-                self-hosted environments.{" "}
+                You can import/export these settings to a{" "}
+                <code>config.yml</code> file to more easily move between
+                GrowthBook Cloud accounts and/or self-hosted environments.{" "}
                 <DocLink docSection="config_yml" className="font-weight-bold">
                   Learn More
                 </DocLink>
@@ -391,8 +428,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
               <div className="text-muted">
                 <strong>Note:</strong> For security reasons, the exported file
-                does not include data source connection secrets such as passwords.
-                You must edit the file and add these yourself.
+                does not include data source connection secrets such as
+                passwords. You must edit the file and add these yourself.
               </div>
             </div>
           )}
@@ -401,14 +438,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="row">
               <div className="col-sm-3">
                 <h4>
-                  Visual Editor <span className="badge badge-warning">beta</span>
+                  Visual Editor{" "}
+                  <span className="badge badge-warning">beta</span>
                 </h4>
               </div>
               <div className="col-sm-9 pb-3">
                 <p>
                   {`The Visual Editor allows non-technical users to create and start
                   experiments in production without writing any code. `}
-                  <DocLink docSection="visual_editor">View Documentation</DocLink>
+                  <DocLink docSection="visual_editor">
+                    View Documentation
+                  </DocLink>
                 </p>
                 <div>
                   <div className="form-check">
@@ -583,9 +623,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 <>
                   <h5 className="mt-3">Metrics Behavior Defaults</h5>
                   <p>
-                    These are the pre-configured default values that will be used
-                    when configuring metrics. You can always change these values
-                    on a per-metric basis.
+                    These are the pre-configured default values that will be
+                    used when configuring metrics. You can always change these
+                    values on a per-metric basis.
                   </p>
 
                   {/* region Minimum Sample Size */}
@@ -604,8 +644,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
                     <p>
                       <small className="text-muted mb-3">
-                        The total count required in an experiment variation before
-                        showing results
+                        The total count required in an experiment variation
+                        before showing results
                       </small>
                     </p>
                   </div>
@@ -621,9 +661,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         className="ml-2"
                         containerClassName="mt-2"
                         disabled={hasFileConfig()}
-                        {...form.register("metricDefaults.maxPercentageChange", {
-                          valueAsNumber: true,
-                        })}
+                        {...form.register(
+                          "metricDefaults.maxPercentageChange",
+                          {
+                            valueAsNumber: true,
+                          }
+                        )}
                       />
                     </div>
                     <p>
@@ -645,9 +688,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         className="ml-2"
                         containerClassName="mt-2"
                         disabled={hasFileConfig()}
-                        {...form.register("metricDefaults.minPercentageChange", {
-                          valueAsNumber: true,
-                        })}
+                        {...form.register(
+                          "metricDefaults.minPercentageChange",
+                          {
+                            valueAsNumber: true,
+                          }
+                        )}
                       />
                     </div>
                     <p>
