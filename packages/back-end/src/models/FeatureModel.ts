@@ -56,7 +56,7 @@ const featureSchema = new mongoose.Schema({
       scheduleRules: [
         {
           timestamp: String,
-          enableFeature: Boolean,
+          status: String,
         },
       ],
     },
@@ -124,12 +124,13 @@ export async function updateFeature(
 }
 
 export async function getScheduledFeaturesToUpdate() {
-  return await FeatureModel.find({
+  const features = await FeatureModel.find({
     nextScheduledUpdate: {
       $exists: true,
       $lt: new Date(),
     },
   });
+  return features.map((m) => upgradeFeatureInterface(toInterface(m)));
 }
 
 export async function archiveFeature(

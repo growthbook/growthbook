@@ -61,11 +61,11 @@ export default function ScheduleInputs(props: Props) {
               e.preventDefault();
               setRules([
                 {
-                  enableFeature: true,
+                  status: "enabled",
                   timestamp: null,
                 },
                 {
-                  enableFeature: false,
+                  status: "disabled",
                   timestamp: null,
                 },
               ]);
@@ -86,7 +86,7 @@ export default function ScheduleInputs(props: Props) {
           Automatically enable and disable an override rule.
         </span>
         <ul className={styles.conditionslist}>
-          {rules.map(({ timestamp, enableFeature }, i) => {
+          {rules.map(({ timestamp, status }, i) => {
             const onChange = (value, property, i) => {
               const newRules = [...rules];
               newRules[i][property] = value;
@@ -105,7 +105,7 @@ export default function ScheduleInputs(props: Props) {
                       value={
                         timestamp !== null
                           ? "at a specific date and time"
-                          : enableFeature
+                          : status === "enabled"
                           ? "immediately"
                           : "manually"
                       }

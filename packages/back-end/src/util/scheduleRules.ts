@@ -1,46 +1,33 @@
 import { ScheduleRule } from "../../types/feature";
 
 export const getCurrentEnabledState = (
-  scheduleRules: ScheduleRule[],
-  currentDate: Date
+  scheduledRules: ScheduleRule[],
+  now: Date
 ) => {
-  // If a feature doesn't have any rules, don't filter it out
-  if (!scheduleRules.length) {
-    return true;
+  const sorted = scheduledRules
+    // Remove nulls
+    .filter((s) => s.timestamp)
+    // Convert timestamps to date objects
+    .map((s) => ({
+      date: new Date(s.timestamp), //TODO: Figure out why this is still throwing an error
+      enabled: s.status === "enabled" ? true : false,
+    }))
+    // Sort ascending
+    .sort((a, b) => a.date.valueOf() - b.date.valueOf());
+
+  // No schedule means it should be enabled
+  if (!sorted.length) return true;
+
+  // Start with the opposite of the first schedule rule
+  // e.g. if first rule turns it on, initial state should be off
+  let currentState = !sorted[0].enabled;
+
+  // Loop until we reach a date in the future
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].date > now) break;
+    // If this date is in the past, update the state
+    currentState = sorted[i].enabled;
   }
 
-  // Ensure the scheduleRules array is always sorted earliest to latest
-  const sortedRules = scheduleRules.sort((a, b) => {
-    let dateA;
-    let dateB;
-    if (a.timestamp === null) {
-      dateA = a.enableFeature ? new Date("01-01-1971") : new Date("01-01-2090"); //TODO: Find a better way to handle this
-    } else {
-      dateA = new Date(a.timestamp);
-    }
-
-    if (b.timestamp === null) {
-      dateB = b.enableFeature ? new Date("01-01-1971") : new Date("01-01-2090"); //TODO: Find a better way to handle this
-    } else {
-      dateB = new Date(b.timestamp);
-    }
-
-    return dateA.valueOf() - dateB.valueOf();
-  });
-
-  // Loop through the list of rules, and find the next rule to be applied
-  // (aka, the first rule in the array where the timestamp is in the future)
-  const nextRuleIndex = sortedRules.findIndex(
-    (rule) => rule.timestamp !== null && new Date(rule.timestamp) > currentDate
-  );
-
-  if (nextRuleIndex === -1) {
-    if (sortedRules.at(-1)?.timestamp === null) {
-      return true;
-    } else {
-      return sortedRules.at(-1)?.enableFeature;
-    }
-  }
-
-  return !sortedRules[nextRuleIndex].enableFeature;
+  return currentState;
 };

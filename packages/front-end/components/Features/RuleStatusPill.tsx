@@ -44,12 +44,11 @@ export default function RuleStatusPill({
   }
 
   if (upcomingScheduleRule) {
+    console.log("upcomingScheduleRule", upcomingScheduleRule);
     return (
       <div className="mr-3">
         <div className="bg-info text-light border px-2 rounded">
-          {`Rule will be ${
-            upcomingScheduleRule.enableFeature ? "enabled" : "disabled"
-          } on ${new Date(
+          {`Rule will be ${upcomingScheduleRule.status} on ${new Date(
             upcomingScheduleRule.timestamp
           ).toLocaleDateString()} at ${new Date(
             upcomingScheduleRule.timestamp
