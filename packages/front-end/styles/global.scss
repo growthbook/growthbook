@@ -1987,6 +1987,10 @@ html {
   }
 }
 
+.bg-disabled {
+  background: var(--disabled-background);
+}
+
 tr.disabled,
 td.disabled {
   background: var(--disabled-background);
