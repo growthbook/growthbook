@@ -6,11 +6,14 @@ const RiskThresholds: FC<{
   winRiskRegisterField: UseFormRegisterReturn;
   loseRisk: number;
   loseRiskRegisterField: UseFormRegisterReturn;
-}> = ({ winRisk, winRiskRegisterField, loseRisk, loseRiskRegisterField }) => {
-  const riskError =
-    loseRisk < winRisk
-      ? "The acceptable risk percentage cannot be higher than the too risky percentage"
-      : "";
+  riskError: string;
+}> = ({
+  winRisk,
+  winRiskRegisterField,
+  loseRisk,
+  loseRiskRegisterField,
+  riskError,
+}) => {
   return (
     <div className="form-group">
       Risk thresholds

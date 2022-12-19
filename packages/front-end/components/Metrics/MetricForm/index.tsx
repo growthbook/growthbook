@@ -898,6 +898,7 @@ const MetricForm: FC<MetricFormProps> = ({
               loseRisk={value.loseRisk}
               winRiskRegisterField={form.register("winRisk")}
               loseRiskRegisterField={form.register("loseRisk")}
+              riskError={riskError}
             />
             <div className="form-group">
               Minimum Sample Size
