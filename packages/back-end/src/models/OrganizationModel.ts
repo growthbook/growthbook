@@ -71,6 +71,7 @@ const organizationSchema = new mongoose.Schema({
     planNickname: String,
     priceId: String,
   },
+  licenseKey: String,
   connections: {
     slack: {
       team: String,

@@ -4,7 +4,7 @@ import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 
-const EditOrganizationForm: FC<{
+const EditOrganizationModal: FC<{
   name: string;
   close: () => void;
   mutate: () => Promise<unknown>;
@@ -38,4 +38,4 @@ const EditOrganizationForm: FC<{
     </Modal>
   );
 };
-export default EditOrganizationForm;
+export default EditOrganizationModal;
