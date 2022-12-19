@@ -8579,6 +8579,13 @@ del@^6.0.0:
     rimraf "^3.0.2"
     slash "^3.0.0"
 
+delay-cli@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/delay-cli/-/delay-cli-2.0.0.tgz#a061f7991095539a58c66796058b2dfac107919d"
+  integrity sha512-ywHHCd282pjWh0XVmxMQIXfALHMvmRlVHIY3aipUK1G1I16uFUnc/Lo4itJGMGBt77fgyxlFWjenLcMyP+ZtgA==
+  dependencies:
+    meow "^10.1.2"
+
 delayed-stream@~1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/delayed-stream/-/delayed-stream-1.0.0.tgz#df3ae199acadfb7d440aaae0b29e2272b24ec619"
@@ -16823,7 +16830,7 @@ run-queue@^1.0.0, run-queue@^1.0.3:
   dependencies:
     aproba "^1.1.1"
 
-rxjs@^7.0.0, rxjs@^7.5.1, rxjs@^7.5.5:
+rxjs@^7.0.0, rxjs@^7.5.1:
   version "7.5.7"
   resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.5.7.tgz#2ec0d57fdc89ece220d2e702730ae8f1e49def39"
   integrity sha512-z9MzKh/UcOqB3i20H6rtrlaE/CgjLOvheWK/9ILrbhROGTweAi1BaFsTT9FbwZi5Trr1qNRs+MXkhmR06awzQA==
