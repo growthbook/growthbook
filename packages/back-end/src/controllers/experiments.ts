@@ -502,6 +502,7 @@ export async function postExperiments(
     targetURLRegex: data.targetURLRegex || "",
     data: data.data || "",
     ideaSource: data.ideaSource || "",
+    customFields: data.customFields || undefined,
   };
 
   try {

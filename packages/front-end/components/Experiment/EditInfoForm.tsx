@@ -11,8 +11,8 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
-import CustomFieldInput from "./CustomFieldInput";
 import { useCustomFields } from "../../services/experiments";
+import CustomFieldInput from "./CustomFieldInput";
 
 const EditInfoForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -27,8 +27,8 @@ const EditInfoForm: FC<{
       f.type === "boolean"
         ? JSON.stringify(false)
         : f.type === "multiselect"
-          ? JSON.stringify([])
-          : "";
+        ? JSON.stringify([])
+        : "";
   });
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {

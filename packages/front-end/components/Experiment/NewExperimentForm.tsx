@@ -13,16 +13,17 @@ import { useUser } from "@/services/UserContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
 import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
+import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
 import VariationsInput from "../Features/VariationsInput";
+import { useCustomFields } from "../../services/experiments";
 import MetricsSelector from "./MetricsSelector";
 import VariationDataInput from "./VariationDataInput";
-import { useCustomFields } from "../../services/experiments";
 import CustomFieldInput from "./CustomFieldInput";
 
 const weekAgo = new Date();
@@ -96,7 +97,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     getDatasourceById,
     refreshTags,
     project,
+    projects,
   } = useDefinitions();
+  const permissions = usePermissions();
   const { refreshWatching } = useWatching();
 
   useEffect(() => {
@@ -232,6 +235,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   });
 
+  const availableProjects: (SingleValue | GroupedValue)[] = projects
+    .slice()
+    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .filter((p) => permissions.check("createAnalyses", p.id))
+    .map((p) => ({ value: p.id, label: p.name }));
+
+  const allowAllProjects = permissions.check("createAnalyses", "");
+
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const status = form.watch("status");
 
@@ -284,6 +295,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
+        {projects.length > 1 && (
+          <div className="form-group">
+            <label>Project</label>
+            <SelectField
+              value={form.watch("project")}
+              onChange={(p) => form.setValue("project", p)}
+              name="project"
+              initialOption={allowAllProjects ? "All Projects" : undefined}
+              options={availableProjects}
+            />
+          </div>
+        )}
         <Field
           label="Hypothesis"
           textarea

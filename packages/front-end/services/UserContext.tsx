@@ -68,6 +68,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageNorthStarMetric: false,
   manageProjects: false,
   manageSavedGroups: false,
+  manageCustomFields: false,
   manageTags: false,
   manageTargetingAttributes: false,
   manageTeam: false,

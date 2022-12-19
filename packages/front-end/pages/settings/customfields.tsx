@@ -6,6 +6,7 @@ import { useCustomFields } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "../../hooks/usePermissions";
 import { GBEdit } from "../../components/Icons";
 import CustomFieldModal from "../../components/Settings/CustomFieldModal";
@@ -15,6 +16,7 @@ const CustomFieldsPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const customFields = useCustomFields();
   const { apiCall } = useAuth();
+  const { getProjectById } = useDefinitions();
   const { refreshOrganization, license } = useUser();
 
   const reoderFields = async (i: number, dir: -1 | 1) => {
@@ -53,6 +55,7 @@ const CustomFieldsPage = (): React.ReactElement => {
       </div>
     );
   }
+
   return (
     <>
       <div className="contents container-fluid pagecontents">
@@ -63,7 +66,7 @@ const CustomFieldsPage = (): React.ReactElement => {
               <p className="text-gray"></p>
             </div>
             <div style={{ flex: 1 }} />
-            {permissions.organizationSettings && (
+            {permissions.manageCustomFields && (
               <div className="col-auto">
                 <button
                   className="btn btn-primary float-right"
@@ -86,6 +89,7 @@ const CustomFieldsPage = (): React.ReactElement => {
                 <th>Field Name</th>
                 <th>Field Description</th>
                 <th>Field Type</th>
+                <th>Project</th>
                 <th>Required</th>
                 <th style={{ width: 75 }}></th>
               </tr>
@@ -128,6 +132,9 @@ const CustomFieldsPage = (): React.ReactElement => {
                         {(v.type === "enum" || v.type === "multiselect") && (
                           <>: ({v.values})</>
                         )}
+                      </td>
+                      <td className="text-gray">
+                        {v.project ? getProjectById(v.project)?.name : ""}
                       </td>
                       <td className="text-gray">{v.required && <>yes</>}</td>
                       <td className="">

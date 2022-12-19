@@ -5,10 +5,11 @@ import React from "react";
 import { useAuth } from "@/services/auth";
 import { useCustomFields } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
-import SelectField from "../Forms/SelectField";
+import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
 import track from "../../services/track";
 
 export default function CustomFieldModal({
@@ -20,12 +21,17 @@ export default function CustomFieldModal({
   close: () => void;
   onSuccess?: () => void;
 }) {
+  const { project, projects } = useDefinitions();
+  const { apiCall } = useAuth();
+  const { userId } = useUser();
   const form = useForm<Partial<CustomField>>({
     defaultValues: {
       id: existing.id || uniqid("field_"),
       name: existing.name || "",
       values: existing.values || "",
       type: existing.type || "text",
+      section: "experiment", // not supporting features yet
+      project: existing.project || project,
       required: existing.required ?? false,
       dateCreated:
         existing.dateCreated || new Date().toISOString().substr(0, 16),
@@ -33,8 +39,7 @@ export default function CustomFieldModal({
       index: true,
     },
   });
-  const { apiCall } = useAuth();
-  const { userId } = useUser();
+
   const customFields = useCustomFields() ?? [];
 
   const fieldOptions = [
@@ -45,6 +50,11 @@ export default function CustomFieldModal({
     "multiselect",
     "boolean",
   ];
+
+  const availableProjects: (SingleValue | GroupedValue)[] = projects
+    .slice()
+    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .map((p) => ({ value: p.id, label: p.name }));
 
   return (
     <Modal
@@ -65,6 +75,7 @@ export default function CustomFieldModal({
           edit.required = value.required;
           edit.values = value.values;
           edit.description = value.description;
+          edit.project = value.project;
         } else {
           newCustomFields.push({
             id: value.id.toLowerCase(),
@@ -72,6 +83,7 @@ export default function CustomFieldModal({
             values: value.values,
             description: value.description,
             placeholder: value.placeholder,
+            project: value.project,
             type: value.type,
             required: value.required,
             creator: userId,
@@ -134,6 +146,16 @@ export default function CustomFieldModal({
         </div>
       )}
       <Field label="Description" {...form.register("description")} />
+      <div className="form-group mb-3 mt-3">
+        <label>Project</label>
+        <SelectField
+          value={form.watch("project")}
+          onChange={(p) => form.setValue("project", p)}
+          name="project"
+          options={availableProjects}
+          helpText="Restrict this field to only experiments in a specific project"
+        />
+      </div>
       <div className="mb-3 mt-3">
         <Toggle
           id={"required"}
