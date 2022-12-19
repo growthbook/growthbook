@@ -295,7 +295,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
-        {projects.length > 1 && (
+        {projects.length >= 1 && (
           <div className="form-group">
             <label>Project</label>
             <SelectField

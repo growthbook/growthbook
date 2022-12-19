@@ -17,7 +17,7 @@ const CustomFieldsPage = (): React.ReactElement => {
   const customFields = useCustomFields();
   const { apiCall } = useAuth();
   const { getProjectById } = useDefinitions();
-  const { refreshOrganization, license } = useUser();
+  const { refreshOrganization, license, updateUser } = useUser();
 
   const reoderFields = async (i: number, dir: -1 | 1) => {
     [customFields[i + dir], customFields[i]] = [
@@ -32,7 +32,7 @@ const CustomFieldsPage = (): React.ReactElement => {
         },
       }),
     }).then(() => {
-      refreshOrganization();
+      updateUser();
     });
   };
   if (!license) {
