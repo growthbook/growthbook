@@ -22,7 +22,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function NamespaceTableRow({
-  i,
   usage,
   namespace,
   onDelete,
@@ -73,7 +72,7 @@ export default function NamespaceTableRow({
         </td>
         {canEdit && (
           <td>
-            <MoreMenu id={"namespace" + i + "_actions"}>
+            <MoreMenu>
               <a
                 href="#"
                 className="dropdown-item"

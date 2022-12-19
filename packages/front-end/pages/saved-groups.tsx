@@ -195,7 +195,7 @@ export default function SavedGroupsPage() {
                         <td>{ago(s.dateUpdated)}</td>
                         {permissions.manageSavedGroups && (
                           <td>
-                            <MoreMenu id={"namespace" + s.id + "_actions"}>
+                            <MoreMenu>
                               <a
                                 href="#"
                                 className="dropdown-item"
