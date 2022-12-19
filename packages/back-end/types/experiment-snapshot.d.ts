@@ -11,6 +11,7 @@ export interface SnapshotMetric {
   expected?: number;
   risk?: [number, number];
   stats?: MetricStats;
+  pValue?: number;
   uplift?: {
     dist: string;
     mean?: number;
