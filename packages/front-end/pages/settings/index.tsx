@@ -5,9 +5,8 @@ import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
-import clsx from "clsx";
 import { useAuth } from "@/services/auth";
-import EditOrganizationForm from "@/components/Settings/EditOrganizationForm";
+import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
 import track from "@/services/track";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -23,7 +22,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import EditLicenseForm from "@/components/Settings/EditLicenseForm";
+import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -223,14 +222,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </TempMessage>
         )}
         {editOpen && (
-          <EditOrganizationForm
+          <EditOrganizationModal
             name={organization.name}
             close={() => setEditOpen(false)}
             mutate={refreshOrganization}
           />
         )}
         {editLicenseOpen && (
-          <EditLicenseForm
+          <EditLicenseModal
             close={() => setEditLicenseOpen(false)}
             mutate={refreshOrganization}
           />
@@ -304,10 +303,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         <strong>License Key: </strong>
                       </div>
                       <div
-                        className={clsx(
-                          "d-inline-block mt-1 mb-2 text-center text-muted",
-                          license ? "" : "text-muted"
-                        )}
+                        className="d-inline-block mt-1 mb-2 text-center text-muted"
                         style={{
                           width: 100,
                           borderBottom: "1px solid #cccccc",

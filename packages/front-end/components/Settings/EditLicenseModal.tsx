@@ -8,7 +8,7 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import styles from "./EditLicenseForm.module.scss";
 
-const EditLicenseForm: FC<{
+const EditLicenseModal: FC<{
   close: () => void;
   mutate: () => Promise<unknown>;
 }> = ({ close, mutate }) => {
@@ -110,4 +110,4 @@ const EditLicenseForm: FC<{
     </Modal>
   );
 };
-export default EditLicenseForm;
+export default EditLicenseModal;
