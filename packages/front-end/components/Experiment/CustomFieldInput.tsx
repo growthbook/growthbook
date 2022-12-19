@@ -13,14 +13,12 @@ const CustomFieldInput: FC<{
   className?: string;
 }> = ({ customFields, className, form }) => {
   const selectedProject = form.watch("project");
-  console.log("selected project?", selectedProject);
   return (
     <>
       <div className={className}>
         {customFields
           .filter((v) => {
             if (v.project) {
-              console.log("have a project for this, returning", v.project === selectedProject);
               return v.project === selectedProject;
             }
             return true;
