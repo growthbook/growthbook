@@ -86,6 +86,7 @@ const GuardrailResults: FC<{
             <tr>
               <th>Variation</th>
               <th>Value</th>
+              {/** TODO Change title to 'P-value' for frequentist **/}
               <th className="text-center">Chance of Being Worse</th>
             </tr>
           </thead>
