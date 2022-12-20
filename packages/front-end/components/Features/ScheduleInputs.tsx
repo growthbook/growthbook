@@ -66,7 +66,14 @@ export default function ScheduleInputs(props: Props) {
     );
   }
 
-  const onChange = (value, property, i) => {
+  function dateIsValid(date: Date) {
+    return date instanceof Date && !isNaN(date.valueOf());
+  }
+
+  const onChange = (value: string, property: string, i: number) => {
+    if (!dateIsValid(new Date(value))) {
+      return;
+    }
     const newRules = [...rules];
     newRules[i][property] = value;
     setRules(newRules);
