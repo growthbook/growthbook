@@ -56,7 +56,7 @@ export default async function (agenda: Agenda) {
   });
 
   agenda.define(
-    "updateSingleFeature",
+    UPDATE_SINGLE_FEATURE,
     { lockLifetime: 30 * 60 * 1000 },
     updateSingleFeature
   );
