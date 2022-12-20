@@ -78,7 +78,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   );
 
   const {
-    datasourcesFilteredByProject: filteredDatasources,
+    datasources,
     getDatasourceById,
     refreshTags,
     project,
@@ -96,8 +96,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
-      datasource:
-        initialValue?.datasource || filteredDatasources?.[0]?.id || "",
+      datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
         getExposureQuery(
           getDatasourceById(initialValue?.datasource)?.settings,
@@ -292,7 +291,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             value={form.watch("datasource")}
             onChange={(v) => form.setValue("datasource", v)}
             initialOption="Manual"
-            options={filteredDatasources.map((d) => ({
+            options={datasources.map((d) => ({
               value: d.id,
               label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
