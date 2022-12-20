@@ -38,9 +38,9 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { metricsFilteredByProject, getDatasourceById } = useDefinitions();
+  const { metrics, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metricsFilteredByProject.filter(
+  const filteredMetrics = metrics.filter(
     (m) => m.datasource === datasource?.id
   );
 

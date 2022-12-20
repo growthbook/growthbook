@@ -375,12 +375,6 @@ export async function putDataSource(
   const { id } = req.params;
   const { name, description, type, params, settings, projects } = req.body;
 
-  // Require higher permissions to change connection settings vs updating query settings
-  const permissionLevel = params
-    ? "createDatasources"
-    : "editDatasourceSettings";
-  req.checkPermissions(permissionLevel, projects?.length ? projects : "");
-
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
     res.status(404).json({
@@ -389,6 +383,14 @@ export async function putDataSource(
     });
     return;
   }
+  // Require higher permissions to change connection settings vs updating query settings
+  const permissionLevel = params
+    ? "createDatasources"
+    : "editDatasourceSettings";
+  req.checkPermissions(
+    permissionLevel,
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   if (type && type !== datasource.type) {
     res.status(400).json({

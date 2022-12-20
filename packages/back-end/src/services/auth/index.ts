@@ -115,10 +115,13 @@ export async function processJWT(
     project?: string | string[],
     envs?: string[]
   ) => {
-    if (typeof project === "string") {
-      project = [project];
+    let checkProjects: (string | undefined)[];
+    if (Array.isArray(project)) {
+      checkProjects = project.length > 0 ? project : [undefined];
+    } else {
+      checkProjects = [project];
     }
-    for (const p in project) {
+    for (const p in checkProjects) {
       if (!hasPermission(permission, p, envs)) {
         throw new Error("You do not have permission to complete that action.");
       }

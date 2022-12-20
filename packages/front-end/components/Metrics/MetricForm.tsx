@@ -135,15 +135,13 @@ const MetricForm: FC<MetricFormProps> = ({
   onSuccess,
   secondaryCTA,
 }) => {
-  const {
-    datasourcesFilteredByProject: filteredDatasources,
-    getDatasourceById,
-    metrics,
-    project,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, metrics, project } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
+  const filteredDatasources = current?.projects?.length
+    ? datasources.filter((ds) => current.projects.includes(ds.id))
+    : datasources;
 
   const {
     getMinSampleSizeForMetric,
@@ -187,10 +185,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const form = useForm({
     defaultValues: {
-      datasource:
-        ("datasource" in current
-          ? current.datasource
-          : filteredDatasources[0]?.id) || "",
+      datasource: filteredDatasources?.[0]?.id || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -266,29 +261,29 @@ const MetricForm: FC<MetricFormProps> = ({
       });
   }, [metrics, value.type, value.datasource]);
 
-  const currentDataSource = getDatasourceById(value.datasource);
+  const selectedDataSource = getDatasourceById(value.datasource);
 
-  const datasourceType = currentDataSource?.type;
+  const datasourceType = selectedDataSource?.type;
 
   const datasourceSettingsSupport =
-    currentDataSource?.properties?.hasSettings || false;
+    selectedDataSource?.properties?.hasSettings || false;
 
-  const capSupported = currentDataSource?.properties?.metricCaps || false;
+  const capSupported = selectedDataSource?.properties?.metricCaps || false;
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
   const ignoreNullsSupported = capSupported;
   const conversionWindowSupported = capSupported;
 
-  const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
+  const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
-    currentDataSource?.properties?.queryLanguage === "javascript";
+    selectedDataSource?.properties?.queryLanguage === "javascript";
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
   let table = "Table";
   let column = "Column";
-  if (currentDataSource?.properties?.events) {
+  if (selectedDataSource?.properties?.events) {
     table = "Event";
     column = "Property";
   }
@@ -374,9 +369,9 @@ const MetricForm: FC<MetricFormProps> = ({
           validateBasicInfo(form.getValues());
 
           // Initial metric SQL based on the data source
-          if (supportsSQL && currentDataSource && !value.sql) {
+          if (supportsSQL && selectedDataSource && !value.sql) {
             const [userTypes, sql] = getInitialMetricQuery(
-              currentDataSource,
+              selectedDataSource,
               value.type,
               value.name
             );
@@ -505,7 +500,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(types) => {
                     form.setValue("userIdTypes", types);
                   }}
-                  options={(currentDataSource.settings.userIdTypes || []).map(
+                  options={(selectedDataSource.settings.userIdTypes || []).map(
                     ({ userIdType }) => ({
                       value: userIdType,
                       label: userIdType,
@@ -703,12 +698,12 @@ const MetricForm: FC<MetricFormProps> = ({
                     onChange={(types) => {
                       form.setValue("userIdTypes", types);
                     }}
-                    options={(currentDataSource.settings.userIdTypes || []).map(
-                      ({ userIdType }) => ({
-                        value: userIdType,
-                        label: userIdType,
-                      })
-                    )}
+                    options={(
+                      selectedDataSource.settings.userIdTypes || []
+                    ).map(({ userIdType }) => ({
+                      value: userIdType,
+                      label: userIdType,
+                    }))}
                     label="Identifier Types Supported"
                   />
                 )}
