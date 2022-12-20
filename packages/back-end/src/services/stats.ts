@@ -1,6 +1,7 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricInterface } from "../../types/metric";
+import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
   ExperimentMetricQueryResponse,
   ExperimentResults,
@@ -18,33 +19,6 @@ import { OrganizationSettings } from "../../types/organization";
 import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
-
-export interface StatsEngineDimensionResponse {
-  dimension: string;
-  srm: number;
-  variations: {
-    cr: number;
-    value: number;
-    users: number;
-    denominator?: number;
-    stats: MetricStats;
-    expected?: number;
-    chanceToWin?: number;
-    uplift?: {
-      dist: string;
-      mean?: number;
-      stddev?: number;
-    };
-    ci?: [number, number];
-    risk?: [number, number];
-  }[];
-}
-
-export interface ExperimentMetricAnalysis {
-  unknownVariations: string[];
-  multipleExposures: number;
-  dimensions: StatsEngineDimensionResponse[];
-}
 
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
