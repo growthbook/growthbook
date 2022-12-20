@@ -13,7 +13,7 @@ import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSourc
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import ProjectTags from "../../components/Tags/ProjectTags";
+import ProjectBadges from "../../components/ProjectBadges";
 import usePermissions from "../../hooks/usePermissions";
 import Code from "../../components/SyntaxHighlighting/Code";
 import LoadingOverlay from "../../components/LoadingOverlay";
@@ -129,12 +129,12 @@ const DataSourcePage: FC = () => {
         <div className="col">
           Projects:{" "}
           {d?.projects?.length > 0 ? (
-            <ProjectTags
+            <ProjectBadges
               projectIds={d.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectTags className="badge-ellipsis align-middle" />
+            <ProjectBadges className="badge-ellipsis align-middle" />
           )}
         </div>
       </div>

@@ -50,7 +50,7 @@ import EditTagsForm from "../../components/Tags/EditTagsForm";
 import EditOwnerModal from "../../components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
-import ProjectTags from "../../components/Tags/ProjectTags";
+import ProjectBadges from "../../components/ProjectBadges";
 import EditProjectsForm from "../../components/Projects/EditProjectsForm";
 import { GBEdit } from "../../components/Icons";
 
@@ -384,12 +384,12 @@ const MetricPage: FC = () => {
         <div className="col">
           Projects:{" "}
           {metric?.projects?.length > 0 ? (
-            <ProjectTags
+            <ProjectBadges
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectTags className="badge-ellipsis align-middle" />
+            <ProjectBadges className="badge-ellipsis align-middle" />
           )}
           {canEditProjects && (
             <a
@@ -762,12 +762,12 @@ const MetricPage: FC = () => {
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length > 0 ? (
-                  <ProjectTags
+                  <ProjectBadges
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectTags className="badge-ellipsis align-middle" />
+                  <ProjectBadges className="badge-ellipsis align-middle" />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>

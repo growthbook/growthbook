@@ -10,7 +10,7 @@ import { GBAddCircle } from "../Icons";
 import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
 import Tooltip from "../Tooltip/Tooltip";
-import ProjectTags from "../Tags/ProjectTags";
+import ProjectBadges from "../ProjectBadges";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
@@ -19,7 +19,7 @@ const DataSources: FC = () => {
   const router = useRouter();
 
   const {
-    datasourcesFilteredByProject: filteredDatasources,
+    datasources,
     project,
     error,
     mutateDefinitions,
@@ -37,7 +37,7 @@ const DataSources: FC = () => {
 
   return (
     <div>
-      {filteredDatasources.length > 0 ? (
+      {datasources.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -49,7 +49,7 @@ const DataSources: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredDatasources.map((d, i) => (
+            {datasources.map((d, i) => (
               <tr
                 className="nav-item"
                 key={i}
@@ -80,12 +80,12 @@ const DataSources: FC = () => {
                 <td>{d.type}</td>
                 <td>
                   {d?.projects?.length > 0 ? (
-                    <ProjectTags
+                    <ProjectBadges
                       projectIds={d.projects}
                       className="badge-ellipsis short align-middle"
                     />
                   ) : (
-                    <ProjectTags className="badge-ellipsis short align-middle" />
+                    <ProjectBadges className="badge-ellipsis short align-middle" />
                   )}
                 </td>
                 {!hasFileConfig() && <td>{ago(d.dateUpdated)}</td>}

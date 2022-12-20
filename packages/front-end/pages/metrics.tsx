@@ -22,7 +22,7 @@ import SortedTags from "../components/Tags/SortedTags";
 import { DocLink } from "../components/DocLink";
 import { useUser } from "../services/UserContext";
 import Field from "../components/Forms/Field";
-import ProjectTags from "../components/Tags/ProjectTags";
+import ProjectBadges from "../components/ProjectBadges";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -34,7 +34,6 @@ const MetricsPage = (): React.ReactElement => {
     getDatasourceById,
     mutateDefinitions,
     project,
-    metricsFilteredByProject: filteredMetrics,
   } = useDefinitions();
   const router = useRouter();
 
@@ -51,7 +50,7 @@ const MetricsPage = (): React.ReactElement => {
   const [showArchived, setShowArchived] = useState(false);
 
   const metrics = useAddComputedFields(
-    filteredMetrics,
+    data?.metrics,
     (m) => ({
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
@@ -61,7 +60,7 @@ const MetricsPage = (): React.ReactElement => {
         : undefined,
       ownerName: getUserDisplay(m.owner),
     }),
-    [getDatasourceById, filteredMetrics]
+    [getDatasourceById]
   );
 
   // Searching
@@ -183,12 +182,10 @@ const MetricsPage = (): React.ReactElement => {
         <div className="col-auto d-flex">
           <h1>
             Your Metrics{" "}
-            <small className="text-muted">
-              <Tooltip
-                body=" Metrics define success and failure for your business. Create metrics
-        here to use throughout the GrowthBook app."
-              />
-            </small>
+            <Tooltip className="small"
+              body="Metrics define success and failure for your business. Create metrics
+      here to use throughout the GrowthBook app."
+            />
           </h1>
           <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
             View Documentation
@@ -293,12 +290,12 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               <td className="col-2">
                 {metric?.projects?.length > 0 ? (
-                  <ProjectTags
+                  <ProjectBadges
                     projectIds={metric.projects}
                     className="badge-ellipsis short align-middle"
                   />
                 ) : (
-                  <ProjectTags className="badge-ellipsis short align-middle" />
+                  <ProjectBadges className="badge-ellipsis short align-middle" />
                 )}
               </td>
               <td>{metric.owner}</td>

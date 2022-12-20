@@ -1,5 +1,6 @@
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Tag from "./Tag";
+import clsx from "clsx";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "./Badge";
 
 export interface Props {
   projectIds?: string[];
@@ -7,7 +8,7 @@ export interface Props {
   className?: string;
 }
 
-export default function ProjectTags({
+export default function ProjectBadges({
   projectIds,
   sort = true,
   className = "badge-ellipsis short",
@@ -15,12 +16,13 @@ export default function ProjectTags({
   const { projects, project } = useDefinitions();
   if (!projectIds) {
     return (
-      <Tag
-        tag="All projects"
+      <Badge
+        content="All projects"
         key="All projects"
-        badgeClassName={!project ? "badge-primary bg-purple" : "badge-gray"}
-        className={className}
-        skipColor={true}
+        className={clsx(
+          !project ? "badge-primary bg-purple" : "badge-gray",
+          className
+        )}
       />
     );
   }
@@ -41,14 +43,13 @@ export default function ProjectTags({
       {filteredProjects.map((p) => {
         if (!p?.name) return;
         return (
-          <Tag
-            tag={p.name}
+          <Badge
+            content={p.name}
             key={p.name}
-            badgeClassName={
-              project === p.id ? "badge-primary bg-purple" : "badge-gray"
-            }
-            className={className}
-            skipColor={true}
+            className={clsx(
+              project === p.id ? "badge-primary bg-purple" : "badge-gray",
+              className
+            )}
           />
         );
       })}

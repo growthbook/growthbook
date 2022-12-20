@@ -10,7 +10,7 @@ import { usingSSO } from "../../../services/env";
 import { useEnvironments } from "../../../services/features";
 import { datetime } from "../../../services/dates";
 import { useDefinitions } from "../../../services/DefinitionsContext";
-import ProjectTags from "../../Tags/ProjectTags";
+import ProjectBadges from "../../ProjectBadges";
 import ChangeRoleModal from "./ChangeRoleModal";
 import AdminSetPasswordModal from "./AdminSetPasswordModal";
 import InviteModal from "./InviteModal";
@@ -99,7 +99,7 @@ const MemberList: FC<{
                       if (p?.name) {
                         return (
                           <div key={`project-tags-${p.id}`}>
-                            <ProjectTags
+                            <ProjectBadges
                               projectIds={[p.id]}
                               className="badge-ellipsis align-middle font-weight-normal"
                             />

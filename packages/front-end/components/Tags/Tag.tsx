@@ -1,49 +1,31 @@
-import React, { CSSProperties } from "react";
-import clsx from "clsx";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import React from "react";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/components/Badge";
 
 interface Props {
   tag: string;
   color?: string;
   description?: string;
-  badgeClassName?: string;
-  className?: string;
-  skipColor?: boolean;
 }
 
-export default function Tag({
-  tag,
-  color,
-  description,
-  badgeClassName = "badge-primary",
-  className,
-  skipColor = false,
-}: Props) {
+export default function Tag({ tag, color, description }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
   const displayTitle = description ?? fullTag?.description ?? "";
   const displayColor = color ?? fullTag?.color ?? "#029dd1";
 
-  let style: CSSProperties = {
-    cursor: "default",
-  };
-  if (!skipColor) {
-    style = {
-      ...style,
-      color: isLight(displayColor) ? "#000000" : "#ffffff",
-      backgroundColor: displayColor,
-    };
-  }
-
   return (
-    <span
-      className={clsx("tag mr-2 badge", badgeClassName, className)}
+    <Badge
+      className={"tag badge-primary"}
       title={displayTitle}
-      style={style}
-    >
-      {tag}
-    </span>
+      content={tag}
+      style={{
+        backgroundColor: displayColor,
+        color: isLight(displayColor) ? "#000000" : "#ffffff",
+        cursor: "default",
+      }}
+    />
   );
 }
 
