@@ -7,18 +7,20 @@ import SelectField from "../Forms/SelectField";
 
 const MetricsSelector: FC<{
   datasource?: string;
+  project?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
-}> = ({ datasource, selected, onChange, autoFocus }) => {
-  const { metricsFilteredByProject } = useDefinitions();
-
-  const validMetrics = metricsFilteredByProject.filter(
-    (m) => m.datasource === datasource
-  );
+}> = ({ datasource, project, selected, onChange, autoFocus }) => {
+  const { metrics } = useDefinitions();
+  const filteredMetrics = metrics
+    .filter((m) => m.datasource === datasource)
+    .filter(
+      (m) => project && m?.projects?.length && m.projects.includes(project)
+    );
 
   const tagCounts: Record<string, number> = {};
-  validMetrics.forEach((m) => {
+  filteredMetrics.forEach((m) => {
     if (!selected.includes(m.id) && m.tags) {
       m.tags.forEach((t) => {
         tagCounts[t] = tagCounts[t] || 0;
@@ -32,7 +34,7 @@ const MetricsSelector: FC<{
       <MultiSelectField
         value={selected}
         onChange={onChange}
-        options={validMetrics.map((m) => {
+        options={filteredMetrics.map((m) => {
           return {
             value: m.id,
             label: m.name,
@@ -56,7 +58,7 @@ const MetricsSelector: FC<{
             onChange={(v) => {
               const newValue = new Set(selected);
               const tag = v;
-              validMetrics.forEach((m) => {
+              filteredMetrics.forEach((m) => {
                 if (m.tags && m.tags.includes(tag)) {
                   newValue.add(m.id);
                 }

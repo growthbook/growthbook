@@ -40,9 +40,14 @@ const EditMetricsForm: FC<{
 
   const { metrics, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === datasource?.id
-  );
+  const filteredMetrics = metrics
+    .filter((m) => m.datasource === datasource?.id)
+    .filter(
+      (m) =>
+        experiment?.project &&
+        m?.projects?.length &&
+        m.projects.includes(experiment.project)
+    );
 
   const defaultMetricOverrides = cloneDeep(experiment.metricOverrides || []);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
@@ -128,6 +133,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
+          project={experiment.project}
           autoFocus={true}
         />
       </div>
@@ -142,6 +148,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
+          project={experiment.project}
         />
       </div>
 
