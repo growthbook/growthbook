@@ -18,7 +18,7 @@ const DimensionForm: FC<{
   const { memberUsernameOptions } = useMembers();
   const {
     getDatasourceById,
-    datasourcesFilteredByProject: filteredDatasources,
+    datasources,
     mutateDefinitions,
   } = useDefinitions();
 
@@ -26,8 +26,7 @@ const DimensionForm: FC<{
     defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
-      datasource:
-        (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
+      datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
     },
