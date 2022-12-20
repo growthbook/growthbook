@@ -8,9 +8,8 @@ export const getCurrentEnabledState = (
     // Remove nulls
     .filter((s) => s.timestamp)
     // Convert timestamps to date objects
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((s: any) => ({
-      date: new Date(s.timestamp),
+    .map((s) => ({
+      date: new Date(s.timestamp as string),
       enabled: s.status === "enabled" ? true : false,
     }))
     // Sort ascending
