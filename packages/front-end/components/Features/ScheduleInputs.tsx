@@ -1,5 +1,6 @@
 import { ScheduleRule } from "back-end/types/feature";
 import clsx from "clsx";
+import { format } from "date-fns";
 import React, { useEffect, useState } from "react";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -9,19 +10,6 @@ interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
 }
-
-const getLocalDateTime = (rawDateTime: string) => {
-  if (!rawDateTime) {
-    return "";
-  }
-  const utcDateTime = new Date(rawDateTime);
-
-  // We need to adjust for timezone/daylight savings time before converting to ISO String to pass into datetime-local field
-  utcDateTime.setHours(
-    utcDateTime.getHours() - new Date(rawDateTime).getTimezoneOffset() / 60
-  );
-  return utcDateTime.toISOString().substring(0, 16);
-};
 
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
@@ -78,6 +66,12 @@ export default function ScheduleInputs(props: Props) {
     );
   }
 
+  const onChange = (value, property, i) => {
+    const newRules = [...rules];
+    newRules[i][property] = value;
+    setRules(newRules);
+  };
+
   return (
     <div className="form-group">
       <label>Schedule</label>
@@ -86,93 +80,117 @@ export default function ScheduleInputs(props: Props) {
           Automatically enable and disable an override rule.
         </span>
         <ul className={styles.conditionslist}>
-          {rules.map(({ timestamp, status }, i) => {
-            const onChange = (value, property, i) => {
-              const newRules = [...rules];
-              newRules[i][property] = value;
-              setRules(newRules);
-            };
-
-            return (
-              <li key={i} className={styles.listitem}>
-                <div className="row align-items-center">
-                  <span className="ml-2 mb-2">
-                    {(i + 1) % 2 === 1 ? "Launch rule" : "Disable rule"}
-                  </span>
-                  <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
-                    <SelectField
-                      name="date-operator"
-                      value={
-                        timestamp !== null
-                          ? "at a specific date and time"
-                          : status === "enabled"
-                          ? "immediately"
-                          : "manually"
-                      }
-                      options={(i + 1) % 2 === 1 ? launchOptions : endOptions}
-                      onChange={(value) => {
-                        if (value === "at a specific date and time") {
-                          onChange(new Date().toISOString(), "timestamp", i);
-                        } else {
-                          onChange(null, "timestamp", i);
-                        }
+          <li className={styles.listitem}>
+            <div className="row align-items-center">
+              <span className="ml-2 mb-2">Launch rule (UTC)</span>
+              <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
+                <SelectField
+                  name="date-operator"
+                  value={
+                    rules[0].timestamp === null
+                      ? "immediately"
+                      : "at a specific date and time"
+                  }
+                  options={launchOptions}
+                  onChange={(value) => {
+                    if (value === "at a specific date and time") {
+                      onChange(
+                        format(new Date(), "yyyy-MM-dd'T'hh:mm"),
+                        "timestamp",
+                        0
+                      );
+                    } else {
+                      onChange(null, "timestamp", 0);
+                    }
+                  }}
+                />
+              </div>
+              {rules[0].timestamp !== null && (
+                <>
+                  <div className="w-auto mb-2 p-2">
+                    <span className="mb-2">ON</span>
+                  </div>
+                  <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
+                    <Field
+                      type="datetime-local"
+                      className={clsx(dateErrors[0] && styles.error)}
+                      value={format(
+                        new Date(rules[0].timestamp),
+                        "yyyy-MM-dd'T'hh:mm"
+                      )}
+                      onChange={(e) => {
+                        onChange(e.target.value, "timestamp", 0);
                       }}
+                      name="timestamp"
                     />
                   </div>
-                  {timestamp !== null && (
-                    <>
-                      <div className="w-auto mb-2 p-2">
-                        <span className="mb-2">ON</span>
-                      </div>
-                      <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
-                        <Field
-                          type="datetime-local"
-                          className={clsx(dateErrors[i] && styles.error)}
-                          value={getLocalDateTime(timestamp)}
-                          onChange={(e) => {
-                            setDateErrors({ [i]: "" });
-                            if (
-                              i > 0 &&
-                              new Date(e.target.value).valueOf() <
-                                new Date(rules[i - 1].timestamp).valueOf()
-                            ) {
-                              setDateErrors({
-                                [i]:
-                                  "Date must be greater than the previous rule date.",
-                              });
-                              return;
-                            }
-                            onChange(e.target.value, "timestamp", i);
-                          }}
-                          name="timestamp"
-                        />
-                        {getLocalDateTime(timestamp) && (
-                          <span
-                            className="font-italic font-weight-light ml-2"
-                            style={{ fontSize: "12px" }}
-                          >
-                            (
-                            {new Date(getLocalDateTime(timestamp))
-                              .toLocaleDateString(undefined, {
-                                day: "2-digit",
-                                timeZoneName: "short",
-                              })
-                              .substring(4)}
-                            )
-                          </span>
-                        )}
-                      </div>
-                      {dateErrors[i] && (
-                        <div className="ml-2 alert alert-danger mb-0">
-                          {dateErrors[i]}
-                        </div>
+                </>
+              )}
+            </div>
+          </li>
+          <li className={styles.listitem}>
+            <div className="row align-items-center">
+              <span className="ml-2 mb-2">Disable rule (UTC)</span>
+              <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
+                <SelectField
+                  name="date-operator"
+                  value={
+                    rules[1].timestamp !== null
+                      ? "at a specific date and time"
+                      : "manually"
+                  }
+                  options={endOptions}
+                  onChange={(value) => {
+                    if (value === "at a specific date and time") {
+                      onChange(
+                        format(new Date(), "yyyy-MM-dd'T'hh:mm"),
+                        "timestamp",
+                        1
+                      );
+                    } else {
+                      onChange(null, "timestamp", 1);
+                    }
+                  }}
+                />
+              </div>
+              {rules[1].timestamp !== null && (
+                <>
+                  <div className="w-auto mb-2 p-2">
+                    <span className="mb-2">ON</span>
+                  </div>
+                  <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
+                    <Field
+                      type="datetime-local"
+                      className={clsx(dateErrors[1] && styles.error)}
+                      value={format(
+                        new Date(rules[1].timestamp),
+                        "yyyy-MM-dd'T'hh:mm"
                       )}
-                    </>
+                      onChange={(e) => {
+                        setDateErrors({ [1]: "" });
+                        if (
+                          new Date(e.target.value) <
+                          new Date(rules[0].timestamp)
+                        ) {
+                          setDateErrors({
+                            [1]: "Date must be greater than the previous rule date.",
+                          });
+                          return;
+                        }
+                        onChange(e.target.value, "timestamp", 1);
+                      }}
+                      name="timestamp"
+                    />
+                  </div>
+                  {dateErrors[1] && (
+                    <div className="ml-2 alert alert-danger mb-0">
+                      {dateErrors[1]}
+                    </div>
                   )}
-                </div>
-              </li>
-            );
-          })}
+                </>
+              )}
+            </div>
+          </li>
         </ul>
       </div>
     </div>

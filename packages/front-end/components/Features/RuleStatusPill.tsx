@@ -44,7 +44,6 @@ export default function RuleStatusPill({
   }
 
   if (upcomingScheduleRule) {
-    console.log("upcomingScheduleRule", upcomingScheduleRule);
     return (
       <div className="mr-3">
         <div className="bg-info text-light border px-2 rounded">
