@@ -95,7 +95,7 @@ export default function ScheduleInputs(props: Props) {
                   onChange={(value) => {
                     if (value === "at a specific date and time") {
                       onChange(
-                        format(new Date(), "yyyy-MM-dd'T'hh:mm"),
+                        format(new Date(), "yyyy-MM-dd'T'HH:mm"),
                         "timestamp",
                         0
                       );
@@ -116,7 +116,7 @@ export default function ScheduleInputs(props: Props) {
                       className={clsx(dateErrors[0] && styles.error)}
                       value={format(
                         new Date(rules[0].timestamp),
-                        "yyyy-MM-dd'T'hh:mm"
+                        "yyyy-MM-dd'T'HH:mm"
                       )}
                       onChange={(e) => {
                         onChange(e.target.value, "timestamp", 0);
@@ -143,7 +143,7 @@ export default function ScheduleInputs(props: Props) {
                   onChange={(value) => {
                     if (value === "at a specific date and time") {
                       onChange(
-                        format(new Date(), "yyyy-MM-dd'T'hh:mm"),
+                        format(new Date(), "yyyy-MM-dd'T'HH:mm"),
                         "timestamp",
                         1
                       );
@@ -164,7 +164,7 @@ export default function ScheduleInputs(props: Props) {
                       className={clsx(dateErrors[1] && styles.error)}
                       value={format(
                         new Date(rules[1].timestamp),
-                        "yyyy-MM-dd'T'hh:mm"
+                        "yyyy-MM-dd'T'HH:mm"
                       )}
                       onChange={(e) => {
                         setDateErrors({ [1]: "" });
