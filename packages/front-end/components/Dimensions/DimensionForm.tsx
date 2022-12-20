@@ -4,11 +4,11 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import useMembers from "../../hooks/useMembers";
-import SQLInputField from "../SQLInputField";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import useMembers from "@/hooks/useMembers";
+import SQLInputField from "@/components/SQLInputField";
 
 const DimensionForm: FC<{
   close: () => void;

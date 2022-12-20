@@ -5,7 +5,7 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import usePermissions from "@/hooks/usePermissions";
-import FixVariationIds from "./FixVariationIds";
+import FixVariationIds from "@/components/Experiment/FixVariationIds";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {

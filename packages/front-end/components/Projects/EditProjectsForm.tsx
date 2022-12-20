@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import MultiSelectField from "../Forms/MultiSelectField";
 
 const EditProjectsForm: FC<{

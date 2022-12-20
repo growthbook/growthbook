@@ -6,8 +6,8 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import useApi from "../hooks/useApi";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import useApi from "@/hooks/useApi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];

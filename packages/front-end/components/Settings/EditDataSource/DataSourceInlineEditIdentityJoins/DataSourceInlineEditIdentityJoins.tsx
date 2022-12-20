@@ -5,14 +5,14 @@ import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Code from "../../../SyntaxHighlighting/Code";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
-import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
+import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Code from "@/components/SyntaxHighlighting/Code";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 

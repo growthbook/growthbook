@@ -1,8 +1,8 @@
 import { ProjectInterface } from "back-end/types/project";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 export default function ProjectModal({
   existing,

@@ -7,12 +7,12 @@ import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Code from "../../../SyntaxHighlighting/Code";
-import usePermissions from "../../../../hooks/usePermissions";
-import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 

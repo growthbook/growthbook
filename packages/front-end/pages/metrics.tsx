@@ -3,26 +3,26 @@ import { FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { datetime, ago } from "../services/dates";
-import MetricForm from "../components/Metrics/MetricForm";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useDefinitions } from "../services/DefinitionsContext";
-import { hasFileConfig } from "../services/env";
-import { useAddComputedFields, useSearch } from "../services/search";
-import Tooltip from "../components/Tooltip/Tooltip";
-import { GBAddCircle } from "../components/Icons";
-import Toggle from "../components/Forms/Toggle";
-import useApi from "../hooks/useApi";
-import usePermissions from "../hooks/usePermissions";
+import SortedTags from "@/components/Tags/SortedTags";
+import { GBAddCircle } from "@/components/Icons";
+import ProjectBadges from "@/components/ProjectBadges";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
-} from "../components/Tags/TagsFilter";
-import SortedTags from "../components/Tags/SortedTags";
-import { DocLink } from "../components/DocLink";
-import { useUser } from "../services/UserContext";
-import Field from "../components/Forms/Field";
-import ProjectBadges from "../components/ProjectBadges";
+} from "@/components/Tags/TagsFilter";
+import { ago, datetime } from "@/services/dates";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Field from "@/components/Forms/Field";
+import MetricForm from "@/components/Metrics/MetricForm";
+import usePermissions from "@/hooks/usePermissions";
+import Toggle from "@/components/Forms/Toggle";
+import useApi from "@/hooks/useApi";
+import { DocLink } from "@/components/DocLink";
+import { useUser } from "@/services/UserContext";
+import { hasFileConfig } from "@/services/env";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -30,11 +30,7 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
   } | null>(null);
 
-  const {
-    getDatasourceById,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, project } = useDefinitions();
   const router = useRouter();
 
   const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
@@ -182,7 +178,8 @@ const MetricsPage = (): React.ReactElement => {
         <div className="col-auto d-flex">
           <h1>
             Your Metrics{" "}
-            <Tooltip className="small"
+            <Tooltip
+              className="small"
               body="Metrics define success and failure for your business. Create metrics
       here to use throughout the GrowthBook app."
             />

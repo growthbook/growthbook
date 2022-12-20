@@ -26,8 +26,8 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
-import GoogleAnalyticsMetrics from "../GoogleAnalyticsMetrics";
-import RiskThresholds from "./RiskThresholds";
+import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
+import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

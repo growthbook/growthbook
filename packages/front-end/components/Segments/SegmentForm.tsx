@@ -1,14 +1,14 @@
 import { FC, useMemo } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import { validateSQL } from "../../services/datasources";
-import SQLInputField from "../SQLInputField";
-import Field from "../Forms/Field";
-import { useAuth } from "../../services/auth";
-import useMembers from "../../hooks/useMembers";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import { validateSQL } from "@/services/datasources";
+import SQLInputField from "@/components/SQLInputField";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import useMembers from "@/hooks/useMembers";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const SegmentForm: FC<{
   close: () => void;

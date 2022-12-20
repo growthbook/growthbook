@@ -2,16 +2,16 @@ import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
-import LoadingOverlay from "../LoadingOverlay";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { ago } from "../../services/dates";
-import { hasFileConfig } from "../../services/env";
-import { GBAddCircle } from "../Icons";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink } from "../DocLink";
-import Tooltip from "../Tooltip/Tooltip";
-import ProjectBadges from "../ProjectBadges";
-import NewDataSourceForm from "./NewDataSourceForm";
+import ProjectBadges from "@/components/ProjectBadges";
+import { GBAddCircle } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
+import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
+import { ago } from "@/services/dates";
+import { DocLink } from "@/components/DocLink";
+import { hasFileConfig } from "@/services/env";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);

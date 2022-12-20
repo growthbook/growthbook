@@ -3,7 +3,7 @@ import {
   GlobalPermission,
   ProjectScopedPermission,
 } from "back-end/types/organization";
-import { PermissionFunctions } from "./UserContext";
+import { PermissionFunctions } from "@/services/UserContext";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

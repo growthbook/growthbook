@@ -9,14 +9,14 @@ import track from "@/services/track";
 import { hasFileConfig } from "@/services/env";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
-import ImportExperimentModal from "../Experiment/ImportExperimentModal";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Button";
-import MetricForm from "../Metrics/MetricForm";
-import { DocLink } from "../DocLink";
-import NewDataSourceForm from "../Settings/NewDataSourceForm";
-import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
-import GetStartedStep from "./GetStartedStep";
+import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
+import MetricForm from "@/components/Metrics/MetricForm";
+import Button from "@/components/Button";
+import { DocLink } from "@/components/DocLink";
+import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
+import GetStartedStep from "@/components/HomePage/GetStartedStep";
+import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ExperimentsGetStarted = ({
   experiments,

@@ -17,12 +17,12 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import {
-  SingleValue,
   GroupedValue,
-  useSelectOptions,
   ReactSelectProps,
-} from "./SelectField";
-import Field, { FieldProps } from "./Field";
+  SingleValue,
+  useSelectOptions,
+} from "@/components/Forms/SelectField";
+import Field, { FieldProps } from "@/components/Forms/Field";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {

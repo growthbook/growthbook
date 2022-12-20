@@ -13,12 +13,12 @@ import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSourc
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import ProjectBadges from "../../components/ProjectBadges";
-import usePermissions from "../../hooks/usePermissions";
-import Code from "../../components/SyntaxHighlighting/Code";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import DataSourceForm from "../../components/Settings/DataSourceForm";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
+import ProjectBadges from "@/components/ProjectBadges";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import DataSourceForm from "@/components/Settings/DataSourceForm";
+import Code from "@/components/SyntaxHighlighting/Code";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {

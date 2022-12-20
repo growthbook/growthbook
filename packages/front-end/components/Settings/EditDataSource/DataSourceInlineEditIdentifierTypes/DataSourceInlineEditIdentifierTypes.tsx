@@ -6,12 +6,12 @@ import {
 } from "back-end/types/datasource";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
-import { EditIdentifierType } from "./EditIdentifierType";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import usePermissions from "@/hooks/usePermissions";
+import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 

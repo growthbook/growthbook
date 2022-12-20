@@ -1,19 +1,19 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
-import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
-import { useUser } from "../../../services/UserContext";
-import DeleteButton from "../../DeleteButton/DeleteButton";
-import { GBAddCircle } from "../../Icons";
-import MoreMenu from "../../Dropdown/MoreMenu";
-import { usingSSO } from "../../../services/env";
-import { useEnvironments } from "../../../services/features";
-import { datetime } from "../../../services/dates";
-import { useDefinitions } from "../../../services/DefinitionsContext";
-import ProjectBadges from "../../ProjectBadges";
-import ChangeRoleModal from "./ChangeRoleModal";
-import AdminSetPasswordModal from "./AdminSetPasswordModal";
-import InviteModal from "./InviteModal";
+import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { datetime } from "@/services/dates";
+import ProjectBadges from "@/components/ProjectBadges";
+import { GBAddCircle } from "@/components/Icons";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { usingSSO } from "@/services/env";
+import { useEnvironments } from "@/services/features";
+import InviteModal from "@/components/Settings/Team/InviteModal";
+import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 
 const MemberList: FC<{
   mutate: () => void;

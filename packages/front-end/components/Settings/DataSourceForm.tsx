@@ -6,17 +6,17 @@ import {
   ReactElement,
 } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { useAuth } from "../../services/auth";
-import track from "../../services/track";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Button from "../Button";
-import { getInitialSettings } from "../../services/datasources";
-import { DocLink, DocSection } from "../DocLink";
-import { dataSourceConnections } from "../../services/eventSchema";
-import MultiSelectField from "../Forms/MultiSelectField";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import ConnectionSettings from "./ConnectionSettings";
+import { dataSourceConnections } from "@/services/eventSchema";
+import Button from "@/components/Button";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { getInitialSettings } from "@/services/datasources";
+import { DocLink, DocSection } from "@/components/DocLink";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import Modal from "@/components/Modal";
+import ConnectionSettings from "@/components/Settings/ConnectionSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const typeOptions = dataSourceConnections;
 

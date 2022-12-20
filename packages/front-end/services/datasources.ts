@@ -11,7 +11,7 @@ import {
   GlobalPermission,
   ProjectScopedPermission,
 } from "back-end/types/organization";
-import { PermissionFunctions } from "./UserContext";
+import { PermissionFunctions } from "@/services/UserContext";
 
 function safeTableName(name: string) {
   return name

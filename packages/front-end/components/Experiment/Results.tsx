@@ -5,17 +5,21 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import { getQueryStatus } from "../Queries/RunQueriesButton";
-import DateResults from "./DateResults";
-import AnalysisSettingsBar from "./AnalysisSettingsBar";
-import GuardrailResults from "./GuardrailResult";
-import FilterSummary from "./FilterSummary";
-import VariationIdWarning from "./VariationIdWarning";
-import { useSnapshot } from "./SnapshotProvider";
-import StatusBanner from "./StatusBanner";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import FilterSummary from "@/components/Experiment/FilterSummary";
+import DateResults from "@/components/Experiment/DateResults";
+import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
+import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
+import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import StatusBanner from "@/components/Experiment/StatusBanner";
 
-const BreakDownResults = dynamic(() => import("./BreakDownResults"));
-const CompactResults = dynamic(() => import("./CompactResults"));
+const BreakDownResults = dynamic(
+  () => import("@/components/Experiment/BreakDownResults")
+);
+const CompactResults = dynamic(
+  () => import("@/components/Experiment/CompactResults")
+);
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;

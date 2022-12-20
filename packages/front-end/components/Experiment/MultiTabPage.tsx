@@ -37,10 +37,10 @@ import Button from "@/components/Button";
 import usePermissions from "@/hooks/usePermissions";
 import { getExposureQuery } from "@/services/datasources";
 import { useUser } from "@/services/UserContext";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import VariationBox from "./VariationBox";
-import ExperimentReportsList from "./ExperimentReportsList";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
+import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
+import VariationBox from "@/components/Experiment/VariationBox";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

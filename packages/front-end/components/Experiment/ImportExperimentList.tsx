@@ -17,13 +17,15 @@ import { getExposureQuery } from "@/services/datasources";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
-import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
-import LoadingOverlay from "../LoadingOverlay";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import SelectField from "../Forms/SelectField";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 
