@@ -114,6 +114,7 @@ export default function ResultsTable({
                   className={`variation${i} text-center`}
                   style={{ minWidth: 110 }}
                 >
+                  {/** TODO Change to 'P-Value' for frequentist **/}
                   Chance to Beat Control
                 </th>
               )}
@@ -201,6 +202,7 @@ export default function ResultsTable({
                       users={stats?.users || 0}
                       className="value variation"
                     />
+                    {/** TODO Switch to p-value for frequentist **/}
                     {i > 0 && fullStats && (
                       <ChanceToWinColumn
                         baseline={baseline}
