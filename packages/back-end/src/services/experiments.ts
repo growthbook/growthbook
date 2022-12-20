@@ -321,6 +321,7 @@ export async function refreshMetric(
     const from = new Date();
     from.setDate(from.getDate() - days);
     const to = new Date();
+    to.setDate(to.getDate() + 1);
 
     const baseParams: Omit<MetricValueParams, "metric"> = {
       from,
