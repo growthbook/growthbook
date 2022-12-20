@@ -6,12 +6,12 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import MoreMenu from "../../../Dropdown/MoreMenu";
 import DeleteButton from "../../../DeleteButton/DeleteButton";
 import Code from "../../../SyntaxHighlighting/Code";
 import usePermissions from "../../../../hooks/usePermissions";
-import { useDefinitions } from "../../../../services/DefinitionsContext";
 import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -22,7 +22,6 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   onCancel,
   canEdit = true,
 }) => {
-  const { project } = useDefinitions();
   const router = useRouter();
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
@@ -38,7 +37,13 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   );
 
   const permissions = usePermissions();
-  canEdit = canEdit && permissions.check("editDatasourceSettings", project);
+  canEdit =
+    canEdit &&
+    checkDatasourceProjectPermissions(
+      dataSource,
+      permissions,
+      "editDatasourceSettings"
+    );
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
