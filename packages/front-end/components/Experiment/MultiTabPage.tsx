@@ -204,7 +204,7 @@ const MultiTabPage = ({
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="experiment-more-menu">
+            <MoreMenu>
               {duplicate && (
                 <button className="dropdown-item" onClick={duplicate}>
                   duplicate

@@ -12,6 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { getEqualWeights } from "@/services/utils";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -39,17 +40,6 @@ export type NewExperimentFormProps = {
   onCreate?: (id: string) => void;
   inline?: boolean;
 };
-
-function getEvenSplit(n: number) {
-  const weights = [];
-  const equal = 100 / n;
-
-  for (let i = 0; i < n; i++) {
-    weights.push((i > 0 ? Math.floor(equal) : Math.ceil(equal)) / 100);
-  }
-
-  return weights;
-}
 
 function getDefaultVariations(num: number) {
   // Must have at least 2 variations
@@ -140,7 +130,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               groups: [],
               variationWeights:
                 initialValue.phases?.[0].variationWeights ||
-                getEvenSplit(
+                getEqualWeights(
                   initialValue.variations ? initialValue.variations.length : 2
                 ),
             }

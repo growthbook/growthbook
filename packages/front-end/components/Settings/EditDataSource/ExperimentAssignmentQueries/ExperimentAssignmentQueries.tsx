@@ -170,7 +170,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
               <div className="d-flex align-items-center">
                 {canEdit && (
-                  <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                  <MoreMenu>
                     <button
                       className="dropdown-item py-2"
                       onClick={handleActionEditClicked(idx)}

@@ -124,7 +124,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           )}
           <div>
             {canEdit && (
-              <MoreMenu id={"edit_rule_" + rule.id}>
+              <MoreMenu>
                 <a
                   href="#"
                   className="dropdown-item"

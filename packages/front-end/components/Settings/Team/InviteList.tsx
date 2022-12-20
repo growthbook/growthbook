@@ -173,7 +173,7 @@ const InviteList: FC<{
                   );
                 })}
                 <td>
-                  <MoreMenu id={`invite-actions-${key}`}>
+                  <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {
