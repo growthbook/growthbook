@@ -89,7 +89,7 @@ const CustomFieldsPage = (): React.ReactElement => {
                 <th>Field Name</th>
                 <th>Field Description</th>
                 <th>Field Type</th>
-                <th>Project</th>
+                <th>Projects</th>
                 <th>Required</th>
                 <th style={{ width: 75 }}></th>
               </tr>
@@ -134,7 +134,15 @@ const CustomFieldsPage = (): React.ReactElement => {
                         )}
                       </td>
                       <td className="text-gray">
-                        {v.project ? getProjectById(v.project)?.name : ""}
+                        {v.projects && (
+                          <>
+                            {v.projects
+                              .map((p) => {
+                                return getProjectById(p)?.name || "";
+                              })
+                              ?.join(", ")}
+                          </>
+                        )}
                       </td>
                       <td className="text-gray">{v.required && <>yes</>}</td>
                       <td className="">

@@ -6,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import { useCustomFields } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
@@ -31,7 +32,7 @@ export default function CustomFieldModal({
       values: existing.values || "",
       type: existing.type || "text",
       section: "experiment", // not supporting features yet
-      project: existing.project || project,
+      projects: existing.projects || [project] || [],
       required: existing.required ?? false,
       dateCreated:
         existing.dateCreated || new Date().toISOString().substr(0, 16),
@@ -75,7 +76,7 @@ export default function CustomFieldModal({
           edit.required = value.required;
           edit.values = value.values;
           edit.description = value.description;
-          edit.project = value.project;
+          edit.projects = value.projects;
         } else {
           newCustomFields.push({
             id: value.id.toLowerCase(),
@@ -83,7 +84,7 @@ export default function CustomFieldModal({
             values: value.values,
             description: value.description,
             placeholder: value.placeholder,
-            project: value.project,
+            projects: value.projects,
             type: value.type,
             required: value.required,
             creator: userId,
@@ -147,14 +148,22 @@ export default function CustomFieldModal({
       )}
       <Field label="Description" {...form.register("description")} />
       <div className="form-group mb-3 mt-3">
-        <label>Project</label>
-        <SelectField
-          value={form.watch("project")}
-          onChange={(p) => form.setValue("project", p)}
-          name="project"
-          options={availableProjects}
-          helpText="Restrict this field to only experiments in a specific project"
-        />
+        {projects?.length && (
+          <div className="form-group">
+            <label>Projects (optional)</label>
+            <MultiSelectField
+              value={form.watch("projects")}
+              name="projects"
+              options={availableProjects}
+              onChange={(v) => {
+                console.log(v);
+                form.setValue("projects", v);
+              }}
+              className="label-overflow-ellipsis"
+              helpText="Restrict this field to only experiments in a specific project"
+            />
+          </div>
+        )}
       </div>
       <div className="mb-3 mt-3">
         <Toggle

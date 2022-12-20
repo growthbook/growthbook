@@ -139,7 +139,7 @@ export type CustomField = {
   required: boolean;
   index?: boolean;
   creator?: string;
-  project?: string;
+  projects?: string[];
   section?: "experiment" | "feature";
   dateCreated: string | Date;
   active: boolean;
