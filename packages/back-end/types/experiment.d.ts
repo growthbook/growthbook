@@ -48,6 +48,8 @@ export type ExperimentStatus = "draft" | "running" | "stopped";
 
 export type AttributionModel = "firstExposure" | "allExposures";
 
+export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
+
 export type MetricOverride = {
   id: string;
   conversionWindowHours?: number;
@@ -95,7 +97,7 @@ export interface ExperimentInterface {
   archived: boolean;
   status: ExperimentStatus;
   phases: ExperimentPhase[];
-  results?: "dnf" | "won" | "lost" | "inconclusive";
+  results?: ExperimentResultsType;
   winner?: number;
   analysis?: string;
   data?: string;
