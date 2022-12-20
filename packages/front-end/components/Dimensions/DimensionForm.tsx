@@ -1,14 +1,14 @@
 import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
+import { validateSQL } from "@/services/datasources";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import useMembers from "../../hooks/useMembers";
-import { validateSQL } from "../../services/datasources";
 import SQLInputField from "../SQLInputField";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -76,7 +76,7 @@ const DimensionForm: FC<{
         value={form.watch("datasource")}
         onChange={(v) => form.setValue("datasource", v)}
         placeholder="Choose one..."
-        options={filteredDatasources.map((d) => ({
+        options={datasources.map((d) => ({
           value: d.id,
           label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
