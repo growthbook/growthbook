@@ -1513,6 +1513,7 @@ export async function postSnapshot(
       useCache,
       org.settings?.statsEngine
     );
+
     await req.audit({
       event: "experiment.refresh",
       entity: {

@@ -13,14 +13,6 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import NotEnoughData from "./NotEnoughData";
 
-// TODO replace with util w/ following heuristics
-// - round to 3 digits, if < 0.001 write “<0.001”
-// - “0.000” replaced by “<0.001”
-const pValueFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 3,
-});
-
 const PValueColumn: FC<{
   metric: MetricInterface;
   status: ExperimentStatus;
@@ -125,7 +117,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter.format(stats.pValue)}</>
+          <>{stats.pValue.toFixed(3)}</>
         )}
       </Tooltip>
     </td>

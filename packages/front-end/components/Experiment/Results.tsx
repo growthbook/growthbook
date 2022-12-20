@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -13,6 +14,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
+import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -39,6 +41,7 @@ const Results: FC<{
   reportDetailsLink = true,
 }) => {
   const { getMetricById } = useDefinitions();
+  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -249,11 +252,19 @@ const Results: FC<{
                       className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
                       key={g}
                     >
-                      <GuardrailResults
-                        data={data}
-                        variations={variations}
-                        metric={metric}
-                      />
+                      {settings.statsEngine === "frequentist" ? (
+                        <PValueGuardrailResults
+                          data={data}
+                          variations={variations}
+                          metric={metric}
+                        />
+                      ) : (
+                        <GuardrailResults
+                          data={data}
+                          variations={variations}
+                          metric={metric}
+                        />
+                      )}
                     </div>
                   );
                 })}
