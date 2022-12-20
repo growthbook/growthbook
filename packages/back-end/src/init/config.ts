@@ -214,6 +214,7 @@ export function getConfigOrganizationSettings(): OrganizationSettings {
 }
 
 export function getConfigSegments(organization: string): SegmentInterface[] {
+  reloadConfigIfNeeded();
   if (!config || !config.segments) return [];
   const segments = config.segments;
 
