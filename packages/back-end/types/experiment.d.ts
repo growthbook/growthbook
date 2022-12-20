@@ -1,5 +1,7 @@
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
+export type ExperimentPhaseType = "ramp" | "main" | "holdout";
+
 export type DomChange = {
   selector: string;
   action: "append" | "set" | "remove";
@@ -27,7 +29,7 @@ export interface Variation {
 export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
-  phase: "ramp" | "main" | "holdout";
+  phase: ExperimentPhaseType;
   reason: string;
   coverage: number;
   variationWeights: number[];
