@@ -82,7 +82,7 @@ export default function ScheduleInputs(props: Props) {
         <ul className={styles.conditionslist}>
           <li className={styles.listitem}>
             <div className="row align-items-center">
-              <span className="ml-2 mb-2">Launch rule (UTC)</span>
+              <span className="ml-2 mb-2">Launch rule</span>
               <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                 <SelectField
                   name="date-operator"
@@ -123,6 +123,16 @@ export default function ScheduleInputs(props: Props) {
                       }}
                       name="timestamp"
                     />
+                    <span className="pl-2">
+                      (
+                      {new Date()
+                        .toLocaleDateString(undefined, {
+                          day: "2-digit",
+                          timeZoneName: "short",
+                        })
+                        .substring(4)}
+                      )
+                    </span>
                   </div>
                 </>
               )}
@@ -130,7 +140,7 @@ export default function ScheduleInputs(props: Props) {
           </li>
           <li className={styles.listitem}>
             <div className="row align-items-center">
-              <span className="ml-2 mb-2">Disable rule (UTC)</span>
+              <span className="ml-2 mb-2">Disable rule </span>
               <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                 <SelectField
                   name="date-operator"
@@ -181,6 +191,16 @@ export default function ScheduleInputs(props: Props) {
                       }}
                       name="timestamp"
                     />
+                    <span className="pl-2">
+                      (
+                      {new Date()
+                        .toLocaleDateString(undefined, {
+                          day: "2-digit",
+                          timeZoneName: "short",
+                        })
+                        .substring(4)}
+                      )
+                    </span>
                   </div>
                   {dateErrors[1] && (
                     <div className="ml-2 alert alert-danger mb-0">
