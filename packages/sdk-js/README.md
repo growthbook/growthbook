@@ -1,14 +1,14 @@
 # GrowthBook Javascript SDK
 
-[GrowthBook](https://www.growthbook.io) is a modular Feature Flagging and Experimentation platform.
+[GrowthBook](https://www.growthbook.io) is an open source Feature Flagging and Experimentation platform.
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.19KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-3.59KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
-- Supports both **browsers and nodejs**
+- Supports both **modern browsers and Node.js**
 - Local targeting and evaluation, **no HTTP requests**
 - **No flickering** when running A/B tests
 - Written in **Typescript** with 100% test coverage
@@ -43,14 +43,16 @@ or use directly in your HTML without installing first:
 import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook context
-const growthbook = new GrowthBook();
+const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
+});
 
 // Load feature definitions (from API, database, etc.)
-await fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
+fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
   .then((res) => res.json())
-  .then((parsed) => {
-    growthbook.setFeatures(parsed);
-  });
+  .then((json) => growthbook.setFeatures(json.features))
+  .catch((e) => console.error("Failed to fetch features", e));
 
 // Simple boolean (on/off) feature flag
 if (growthbook.isOn("my-feature")) {
@@ -98,7 +100,6 @@ The following are some comonly used attributes, but use whatever makes sense for
 new GrowthBook({
   attributes: {
     id: "123",
-    environment: "prod",
     loggedIn: true,
     deviceId: "abc123def456",
     company: "acme",
@@ -129,6 +130,8 @@ new GrowthBook({
 });
 ```
 
+If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
+
 ### Feature Usage Callback
 
 GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
@@ -144,6 +147,19 @@ new GrowthBook({
 The `result` argument is the same thing returned from `growthbook.evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const growthbook = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
+```
 
 ## Using Features
 
@@ -175,7 +191,147 @@ The `evalFeature` method returns a `FeatureResult` object with more info about w
 - **experiment** - Information about the experiment (if any) which was used to assign the value to the user
 - **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
 
-## Feature Definitions
+## Hiding Features from Users
+
+If you fetch the list of features from a client-side app, any of your users could inspect the network request and see which features and experiments you are running. In most cases, this is not a big deal, but if you did want to prevent that, you have two options:
+
+1. Evaluate feature flags using a server-side SDK and only pass the result to the browser
+2. Enable encryption for your SDK Endpoint
+
+If you enable encryption for an SDK Endpoint, instead of returning features as human-readable JSON, we will return it as an encrypted string that must be decrypted before being passed into the SDK.
+
+With encryption enabled, the response from the SDK Endpoint will be in the format:
+
+```json
+{
+  "status": 200,
+  "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
+}
+```
+
+The GrowthBook class has a `setEncryptedFeatures` helper method. You will need to pass in your encryption key, which you can find on the **Features -> Environments** page in GrowthBook.
+
+```ts
+// Load features from the encrypted SDK Endpoint and decrypt them
+fetch("https://cdn.growthbook.io/api/features/<your api key>")
+  .then((res) => res.json())
+  .then((json) =>
+    growthbook.setEncryptedFeatures(json.encryptedFeatures, "MY_ENCRYPTION_KEY")
+  )
+  .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
+```
+
+**Note**: This method is not completely private. Users could find your encryption key if they inspect your minified javascript files.
+
+### Node.js
+
+If you're using this SDK in a Node.js environment using Node 18 or lower, you will need to pass in a SubtleCrpyto implementation as the 3rd argument when calling `setEncryptedFeatures`.
+
+```ts
+// Node 15+
+const crypto = require("node:crypto").webcrypto;
+
+growthbook.setEncryptedFeatures(encryptedString, encryptionKey, crypto.subtle);
+```
+
+## Inline Experiments
+
+Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
+
+```js
+const { value } = growthbook.run({
+  key: "my-experiment",
+  variations: ["red", "blue", "green"],
+});
+```
+
+All of the other settings (`weights`, `hashAttribute`, `coverage`, `namespace`, `condition`) are supported when using inline experiments.
+
+In addition, there are a few other settings that only really make sense for inline experiments:
+
+- `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
+- `active` can be set to false to disable the experiment and return the control for everyone
+
+### Inline Experiment Return Value
+
+A call to `growthbook.run(experiment)` returns an object with a few useful properties:
+
+```ts
+const {
+  inExperiment,
+  hashUsed,
+  variationId,
+  value,
+  hashAttribute,
+  hashValue,
+} = growthbook.run({
+  key: "my-experiment",
+  variations: ["A", "B"],
+});
+
+// If user is included in the experiment
+console.log(inExperiment); // true or false
+
+// The index of the assigned variation
+console.log(variationId); // 0 or 1
+
+// The value of the assigned variation
+console.log(value); // "A" or "B"
+
+// If the variation was randomly assigned by hashing
+console.log(hashUsed);
+
+// The user attribute that was hashed
+console.log(hashAttribute); // "id"
+
+// The value of that attribute
+console.log(hashValue); // e.g. "123"
+```
+
+The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
+
+The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
+
+## Typescript
+
+When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
+
+```ts
+// color will be type "string"
+const color = growthbook.getFeatureValue("button-color", "blue");
+```
+
+When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type:
+
+```ts
+// result.value will be type "number" now
+const result = growthbook.evalFeature<number>("button-size");
+```
+
+When using inline experiments, the returned value is inferred from the variations you pass in:
+
+```ts
+// result.value will be type "string"
+const result = growthbook.run({
+  key: "my-test",
+  variations: ["blue", "green"],
+});
+```
+
+There are a number of types you can import as well if needed:
+
+```ts
+import type {
+  Context,
+  ConditionInterface,
+  Experiment,
+  FeatureDefinition,
+  FeatureResult,
+  ExperimentResult,
+} from "@growthbook/growthbook";
+```
+
+## Feature Definitions (reference)
 
 The feature definition JSON file contains information about all of the features in your application.
 
@@ -454,100 +610,3 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 ```
 
 **Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
-
-## Inline Experiments
-
-Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
-
-```js
-const { value } = growthbook.run({
-  key: "my-experiment",
-  variations: ["red", "blue", "green"],
-});
-```
-
-All of the other settings (`weights`, `hashAttribute`, `coverage`, `namespace`, `condition`) are supported when using inline experiments.
-
-In addition, there are a few other settings that only really make sense for inline experiments:
-
-- `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
-- `active` can be set to false to disable the experiment and return the control for everyone
-
-### Inline Experiment Return Value
-
-A call to `growthbook.run(experiment)` returns an object with a few useful properties:
-
-```ts
-const {
-  inExperiment,
-  hashUsed,
-  variationId,
-  value,
-  hashAttribute,
-  hashValue,
-} = growthbook.run({
-  key: "my-experiment",
-  variations: ["A", "B"],
-});
-
-// If user is included in the experiment
-console.log(inExperiment); // true or false
-
-// The index of the assigned variation
-console.log(variationId); // 0 or 1
-
-// The value of the assigned variation
-console.log(value); // "A" or "B"
-
-// If the variation was randomly assigned by hashing
-console.log(hashUsed);
-
-// The user attribute that was hashed
-console.log(hashAttribute); // "id"
-
-// The value of that attribute
-console.log(hashValue); // e.g. "123"
-```
-
-The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
-
-The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
-
-## Typescript
-
-When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
-
-```ts
-// color will be type "string"
-const color = growthbook.getFeatureValue("button-color", "blue");
-```
-
-When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type:
-
-```ts
-// result.value will be type "number" now
-const result = growthbook.evalFeature<number>("button-size");
-```
-
-When using inline experiments, the returned value is inferred from the variations you pass in:
-
-```ts
-// result.value will be type "string"
-const result = growthbook.run({
-  key: "my-test",
-  variations: ["blue", "green"],
-});
-```
-
-There are a number of types you can import as well if needed:
-
-```ts
-import type {
-  Context,
-  ConditionInterface,
-  Experiment,
-  FeatureDefinition,
-  FeatureResult,
-  ExperimentResult,
-} from "@growthbook/growthbook";
-```

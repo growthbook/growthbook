@@ -1,5 +1,4 @@
-import { ReactNode } from "react";
-import { FC, useEffect, useRef, useState } from "react";
+import { ReactNode, FC, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const PORTAL_CONTAINER_ID = "modal";

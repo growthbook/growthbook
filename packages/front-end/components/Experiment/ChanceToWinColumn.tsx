@@ -1,16 +1,16 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import useConfidenceLevels from "../../hooks/useConfidenceLevels";
+import { ExperimentStatus } from "back-end/types/experiment";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import {
   hasEnoughData,
   isBelowMinChange,
   isSuspiciousUplift,
-} from "../../services/experiments";
-import { defaultMinSampleSize } from "../../services/metrics";
+} from "@/services/experiments";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import Tooltip from "../Tooltip/Tooltip";
 import NotEnoughData from "./NotEnoughData";
-import { ExperimentStatus } from "back-end/types/experiment";
-import Tooltip from "../Tooltip";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -34,10 +34,25 @@ export default function ChanceToWinColumn({
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
 }) {
-  const minSampleSize = metric?.minSampleSize || defaultMinSampleSize;
-  const enoughData = hasEnoughData(baseline, stats, metric);
-  const suspiciousChange = isSuspiciousUplift(baseline, stats, metric);
-  const belowMinChange = isBelowMinChange(baseline, stats, metric);
+  const {
+    getMinSampleSizeForMetric,
+    metricDefaults,
+  } = useOrganizationMetricDefaults();
+
+  const minSampleSize = getMinSampleSizeForMetric(metric);
+  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const suspiciousChange = isSuspiciousUplift(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
+  const belowMinChange = isBelowMinChange(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
   const { ciUpper, ciLower } = useConfidenceLevels();
 
   const shouldHighlight =

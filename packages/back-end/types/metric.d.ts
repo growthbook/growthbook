@@ -1,6 +1,6 @@
 import { Queries } from "./query";
 
-export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=";
+export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
 

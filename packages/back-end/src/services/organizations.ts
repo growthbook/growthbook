@@ -1,19 +1,23 @@
+import { randomBytes } from "crypto";
 import {
+  createOrganization,
+  findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { randomBytes } from "crypto";
-import { APP_ORIGIN } from "../util/secrets";
+import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
-import { isEmailEnabled, sendInviteEmail } from "./email";
 import {
+  Invite,
+  Member,
   MemberRole,
+  MemberRoleInfo,
+  MemberRoleWithProjects,
   OrganizationInterface,
-  Permissions,
+  ProjectMemberRole,
 } from "../../types/organization";
-import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
 import {
@@ -21,11 +25,6 @@ import {
   getDataSourceById,
   updateDataSource,
 } from "../models/DataSourceModel";
-import {
-  encryptParams,
-  getSourceIntegrationObject,
-  mergeParams,
-} from "./datasource";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
@@ -39,10 +38,48 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
-import { updateSubscriptionInStripe } from "./stripe";
+import { SSOConnectionInterface } from "../../types/sso-connection";
+import { logger } from "../util/logger";
+import { getDefaultRole } from "../util/organization.util";
+import { markInstalled } from "./auth";
+import {
+  encryptParams,
+  getSourceIntegrationObject,
+  mergeParams,
+} from "./datasource";
+import { createMetric, getExperimentsByOrganization } from "./experiments";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
+}
+
+export function validateLoginMethod(
+  org: OrganizationInterface,
+  req: AuthRequest
+) {
+  if (
+    org.restrictLoginMethod &&
+    req.loginMethod?.id !== org.restrictLoginMethod
+  ) {
+    throw new Error(
+      "Your organization requires you to login with Enterprise SSO"
+    );
+  }
+
+  // If the org requires a specific subject in the IdToken
+  // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
+  // For that, we set `restrictAuthSubPrefix` to "google"
+  if (
+    org.restrictAuthSubPrefix &&
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+  ) {
+    throw new Error(
+      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`
+    );
+  }
+
+  return true;
 }
 
 export function getOrgFromReq(req: AuthRequest) {
@@ -91,91 +128,43 @@ export async function getConfidenceLevelsForOrg(id: string) {
   };
 }
 
-// Handle old roles in a backwards-compatible way
-export function updateRole(role: MemberRole): MemberRole {
-  if (role === "designer") {
-    return "collaborator";
-  }
-  if (role === "developer") {
-    return "experimenter";
-  }
-  return role;
-}
-
 export function getRole(
   org: OrganizationInterface,
-  userId: string
-): MemberRole {
-  return updateRole(
-    org.members.filter((m) => m.id === userId).map((m) => m.role)[0] ||
-      "readonly"
-  );
+  userId: string,
+  project?: string
+): MemberRoleInfo {
+  const member = org.members.find((m) => m.id === userId);
+
+  if (member) {
+    // Project-specific role
+    if (project && member.projectRoles) {
+      const projectRole = member.projectRoles.find(
+        (r) => r.project === project
+      );
+      if (projectRole) {
+        return projectRole;
+      }
+    }
+
+    // Global role
+    return {
+      role: member.role,
+      limitAccessByEnvironment: !!member.limitAccessByEnvironment,
+      environments: member.environments || [],
+    };
+  }
+
+  return getDefaultRole(org);
 }
 
-export function getDefaultPermissions(): Permissions {
-  return {
-    addComments: false,
-    createIdeas: false,
-    createPresentations: false,
-    publishFeatures: false,
-    createFeatures: false,
-    createFeatureDrafts: false,
-    createAnalyses: false,
-    createDimensions: false,
-    createMetrics: false,
-    createSegments: false,
-    runQueries: false,
-    editDatasourceSettings: false,
-    createDatasources: false,
-    organizationSettings: false,
-    superDelete: false,
-  };
-}
-
-export function getPermissionsByRole(role: MemberRole): Permissions {
-  role = updateRole(role);
-
-  // Start with no permissions
-  const permissions = getDefaultPermissions();
-
-  // Base permissions shared by everyone (except readonly)
-  if (role !== "readonly") {
-    permissions.addComments = true;
-    permissions.createIdeas = true;
-    permissions.createPresentations = true;
-  }
-
-  // Feature flag permissions
-  if (role === "engineer" || role === "experimenter" || role === "admin") {
-    permissions.publishFeatures = true;
-    permissions.createFeatures = true;
-    permissions.createFeatureDrafts = true;
-  }
-
-  // Analysis permissions
-  if (role === "analyst" || role === "experimenter" || role === "admin") {
-    permissions.createAnalyses = true;
-    permissions.createDimensions = true;
-    permissions.createMetrics = true;
-    permissions.createSegments = true;
-    permissions.runQueries = true;
-    permissions.editDatasourceSettings = true;
-  }
-
-  // Admin permissions
-  if (role === "admin") {
-    permissions.organizationSettings = true;
-    permissions.createDatasources = true;
-    permissions.superDelete = true;
-  }
-
-  return permissions;
-}
-
-export function getNumberOfMembersAndInvites(
+export function getNumberOfUniqueMembersAndInvites(
   organization: OrganizationInterface
 ) {
-  return organization.members.length + (organization.invites?.length || 0);
+  // There was a bug that allowed duplicate members in the members array
+  const numMembers = new Set(organization.members.map((m) => m.id)).size;
+  const numInvites = new Set(organization.invites.map((i) => i.email)).size;
+
+  return numMembers + numInvites;
 }
 
 export async function userHasAccess(
@@ -207,19 +196,6 @@ export async function removeMember(
     members,
   });
 
-  // Update Stripe subscription if org has subscription
-  if (organization.subscription?.id) {
-    // Get the updated organization
-    const updatedOrganization = await getOrganizationById(organization.id);
-
-    if (updatedOrganization?.subscription) {
-      await updateSubscriptionInStripe(
-        updatedOrganization.subscription.id,
-        getNumberOfMembersAndInvites(updatedOrganization)
-      );
-    }
-  }
-
   return organization;
 }
 
@@ -233,19 +209,6 @@ export async function revokeInvite(
     invites,
   });
 
-  // Update Stripe subscription if org has subscription
-  if (organization.subscription?.id) {
-    // Get the updated organization
-    const updatedOrganization = await getOrganizationById(organization.id);
-
-    if (updatedOrganization?.subscription) {
-      await updateSubscriptionInStripe(
-        updatedOrganization.subscription.id,
-        getNumberOfMembersAndInvites(updatedOrganization)
-      );
-    }
-  }
-
   return organization;
 }
 
@@ -253,25 +216,39 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
-export async function addMemberToOrg(
-  org: OrganizationInterface,
-  userId: string,
-  role: MemberRole = "collaborator"
-) {
-  // If memebr is already in the org, skip
-  if (org.members.find((m) => m.id === userId)) {
+export async function addMemberToOrg({
+  organization,
+  userId,
+  role,
+  environments,
+  limitAccessByEnvironment,
+  projectRoles,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+  projectRoles?: ProjectMemberRole[];
+}) {
+  // If member is already in the org, skip
+  if (organization.members.find((m) => m.id === userId)) {
     return;
   }
 
-  const members = [
-    ...org.members,
+  const members: Member[] = [
+    ...organization.members,
     {
       id: userId,
       role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+      dateCreated: new Date(),
     },
   ];
 
-  await updateOrganization(org.id, { members });
+  await updateOrganization(organization.id, { members });
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -288,16 +265,22 @@ export async function acceptInvite(key: string, userId: string) {
   }
 
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
+  if (!invite) {
+    throw new Error("Could not find invitation with that key");
+  }
 
   // Remove invite
   const invites = organization.invites.filter((invite) => invite.key !== key);
 
   // Add to member list
-  const members = [
+  const members: Member[] = [
     ...organization.members,
     {
       id: userId,
-      role: invite?.role || "admin",
+      role: invite.role || "admin",
+      limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
+      environments: invite.environments || [],
+      dateCreated: new Date(),
     },
   ];
 
@@ -309,11 +292,17 @@ export async function acceptInvite(key: string, userId: string) {
   return organization;
 }
 
-export async function inviteUser(
-  organization: OrganizationInterface,
-  email: string,
-  role: MemberRole = "admin"
-) {
+export async function inviteUser({
+  organization,
+  email,
+  role = "admin",
+  limitAccessByEnvironment,
+  environments,
+  projectRoles,
+}: {
+  organization: OrganizationInterface;
+  email: string;
+} & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
   // User is already invited
@@ -340,13 +329,16 @@ export async function inviteUser(
   const key = buffer.toString("base64").replace(/[^a-zA-Z0-9]+/g, "");
 
   // Save invite in Mongo
-  const invites = [
+  const invites: Invite[] = [
     ...organization.invites,
     {
       email,
       key,
       dateCreated: new Date(),
       role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     },
   ];
 
@@ -357,21 +349,13 @@ export async function inviteUser(
   // append the new invites to the existin object (or refetch)
   organization.invites = invites;
 
-  // Update Stripe subscription if org has subscription
-  if (organization.subscription?.id) {
-    await updateSubscriptionInStripe(
-      organization.subscription.id,
-      getNumberOfMembersAndInvites(organization)
-    );
-  }
-
   let emailSent = false;
   if (isEmailEnabled()) {
     try {
       await sendInviteEmail(organization, key);
       emailSent = true;
     } catch (e) {
-      console.error("Error sending email: " + e);
+      logger.error(e, "Error sending invite email");
       emailSent = false;
     }
   }
@@ -500,6 +484,7 @@ export async function importConfig(
 
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
+              description: ds.description || existing.description,
               type: ds.type || existing.type,
               params,
               settings: {
@@ -524,7 +509,8 @@ export async function importConfig(
               ds.type,
               ds.params,
               ds.settings || {},
-              k
+              k,
+              ds.description
             );
           }
         } catch (e) {
@@ -604,26 +590,6 @@ export async function importConfig(
   }
 }
 
-export function validateLogin(
-  req: AuthRequest,
-  organization: OrganizationInterface
-): void {
-  // If an organization restricts the login method, make sure it matches
-  if (
-    organization.restrictLoginMethod &&
-    req.loginMethod !== organization.restrictLoginMethod
-  ) {
-    throw new Error(
-      `Invalid login method. Expected '${organization.restrictLoginMethod}', received '${req.loginMethod}'.`
-    );
-  }
-
-  // If the organization has a claimed domain, require all email logins to be verified
-  if (organization.claimedDomain && !req.verified) {
-    throw new Error("You must validate your email address before logging in.");
-  }
-}
-
 export async function getEmailFromUserId(userId: string) {
   const u = await UserModel.findOne({ id: userId });
   return u?.email || "";
@@ -684,4 +650,83 @@ export async function getExperimentOverrides(
   });
 
   return { overrides, expIdMapping };
+}
+
+export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
+  if (!connection) return false;
+  // When self-hosting, SSO is always enterprise
+  if (!IS_CLOUD) return true;
+
+  // On cloud, the default SSO (Auth0) does not have a connection id
+  if (!connection.id) return false;
+
+  return true;
+}
+
+// Auto-add user to an organization if using Enterprise SSO
+export async function addMemberFromSSOConnection(
+  req: AuthRequest
+): Promise<OrganizationInterface | null> {
+  if (!req.userId) return null;
+
+  const ssoConnection = req.loginMethod;
+  if (!ssoConnection || !ssoConnection.emailDomain) return null;
+
+  // Check if the user's email domain is allowed by the SSO connection
+  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+  if (emailDomain !== ssoConnection.emailDomain) {
+    return null;
+  }
+
+  let organization: null | OrganizationInterface = null;
+  // On Cloud, we need to get the organization from the SSO connection
+  if (IS_CLOUD) {
+    if (!ssoConnection.organization) {
+      return null;
+    }
+    organization = await getOrganizationById(ssoConnection.organization);
+  }
+  // When self-hosting, there should be only one organization in Mongo
+  else {
+    const orgs = await findAllOrganizations();
+    // Sanity check in case there are multiple orgs for whatever reason
+    if (orgs.length > 1) {
+      req.log.error(
+        "Expected a single organization for self-hosted GrowthBook"
+      );
+      return null;
+    }
+    // If this is a brand-new installation, create an organization first
+    else if (!orgs.length) {
+      organization = await createOrganization(
+        req.email,
+        req.userId,
+        "My Organization",
+        ""
+      );
+      markInstalled();
+      return organization;
+    }
+
+    organization = orgs[0];
+  }
+  if (!organization) return null;
+
+  await addMemberToOrg({
+    organization,
+    userId: req.userId,
+    ...getDefaultRole(organization),
+  });
+  try {
+    await sendNewMemberEmail(
+      req.name || "",
+      req.email || "",
+      organization.name,
+      organization.ownerEmail
+    );
+  } catch (e) {
+    req.log.error(e, "Failed to send new member email");
+  }
+
+  return organization;
 }

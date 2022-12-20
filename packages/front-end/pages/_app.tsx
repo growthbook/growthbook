@@ -1,23 +1,29 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
+import Head from "next/head";
+import { useEffect, useState } from "react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
-import Layout from "../components/Layout/Layout";
-import Head from "next/head";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
-import { useEffect } from "react";
 import track from "../services/track";
 import { initEnv } from "../services/env";
-import { useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import Layout from "../components/Layout/Layout";
+import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
+import TopNavLite from "../components/Layout/TopNavLite";
 
 type ModAppProps = AppProps & {
-  Component: { noOrganization?: boolean; preAuth?: boolean };
+  Component: {
+    noOrganization?: boolean;
+    preAuth?: boolean;
+    liteLayout?: boolean;
+  };
 };
 
 const growthbook = new GrowthBook({
+  enableDevMode: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
@@ -41,6 +47,8 @@ function App({
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;
 
+  const liteLayout = Component.liteLayout || false;
+
   useEffect(() => {
     initEnv()
       .then(() => {
@@ -58,11 +66,13 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    fetch("https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44")
+    fetch(
+      process.env.NODE_ENV === "production"
+        ? "https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44"
+        : "https://cdn.growthbook.io/api/features/key_dev_676ef35b3e2f8f3f"
+    )
       .then((res) => res.json())
-      .then((json) => {
-        growthbook.setFeatures(json.features);
-      })
+      .then((json) => growthbook.setFeatures(json.features))
       .catch(() => {
         console.log("Failed to fetch GrowthBook feature definitions");
       });
@@ -75,25 +85,33 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        <AuthProvider>
-          <GrowthBookProvider growthbook={growthbook}>
-            <ProtectedPage
-              organizationRequired={organizationRequired}
-              preAuth={preAuth}
-            >
-              {organizationRequired && !preAuth ? (
-                <DefinitionsProvider>
-                  <Layout />
-                  <main className={`main ${parts[0]}`}>
-                    <Component {...pageProps} />
-                  </main>
-                </DefinitionsProvider>
-              ) : (
-                <Component {...pageProps} />
-              )}
-            </ProtectedPage>
-          </GrowthBookProvider>
-        </AuthProvider>
+        preAuth ? (
+          <Component {...pageProps} />
+        ) : (
+          <AuthProvider>
+            <AppearanceUIThemeProvider>
+              <GrowthBookProvider growthbook={growthbook}>
+                <ProtectedPage organizationRequired={organizationRequired}>
+                  {organizationRequired ? (
+                    <DefinitionsProvider>
+                      {!liteLayout && <Layout />}
+                      <main className={`main ${parts[0]}`}>
+                        <Component {...pageProps} />
+                      </main>
+                    </DefinitionsProvider>
+                  ) : (
+                    <div>
+                      <TopNavLite />
+                      <main className="container mt-5">
+                        <Component {...pageProps} />
+                      </main>
+                    </div>
+                  )}
+                </ProtectedPage>
+              </GrowthBookProvider>
+            </AppearanceUIThemeProvider>
+          </AuthProvider>
+        )
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">

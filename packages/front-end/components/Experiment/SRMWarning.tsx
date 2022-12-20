@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { formatTrafficSplit } from "../../services/utils";
+import { formatTrafficSplit } from "@/services/utils";
 import Modal from "../Modal";
 
 export const SRM_THRESHOLD = 0.001;

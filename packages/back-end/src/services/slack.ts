@@ -1,8 +1,7 @@
-import { ServerResponse } from "http";
-import { IncomingMessage } from "http";
+import { ServerResponse, IncomingMessage } from "http";
 import crypto from "crypto";
-import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { WebClient } from "@slack/web-api";
+import { SLACK_SIGNING_SECRET } from "../util/secrets";
 import { UserModel } from "../models/UserModel";
 import { OrganizationInterface } from "../../types/organization";
 
@@ -14,7 +13,6 @@ export function verifySlackRequestSignature(
   res: ServerResponse,
   buf: Buffer
 ) {
-  console.log(req.headers);
   const rawTimestamp = req.headers["x-slack-request-timestamp"];
   if (!rawTimestamp || typeof rawTimestamp !== "string") {
     throw new Error("Missing or Invalid timestamp");

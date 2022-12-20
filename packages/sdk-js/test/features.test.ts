@@ -1,5 +1,12 @@
 import { Context, GrowthBook } from "../src";
 
+/* eslint-disable */
+const { webcrypto } = require("node:crypto");
+import { TextEncoder, TextDecoder } from "util";
+global.TextEncoder = TextEncoder;
+(global as any).TextDecoder = TextDecoder;
+/* eslint-enable */
+
 const mockCallback = (context: Context) => {
   const onFeatureUsage = jest.fn((a) => {
     return a;
@@ -24,6 +31,124 @@ describe("features", () => {
     expect(called).toEqual(true);
 
     growthbook.destroy();
+  });
+
+  it("decrypts features with custom SubtleCrypto implementation", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    // Make sure it's not using the built-in crypto implementation
+    const originalCrypto = globalThis.crypto;
+    // eslint-disable-next-line
+    (globalThis.crypto as any) = undefined;
+
+    await growthbook.setEncryptedFeatures(
+      encrypedFeatures,
+      keyString,
+      webcrypto.subtle
+    );
+
+    expect(growthbook.getFeatures()).toEqual({
+      testfeature1: {
+        defaultValue: true,
+        rules: [
+          {
+            condition: { id: "1234" },
+            force: false,
+          },
+        ],
+      },
+    });
+
+    growthbook.destroy();
+    globalThis.crypto = originalCrypto;
+  });
+
+  it("decrypts features using the native SubtleCrypto implementation", async () => {
+    const growthbook = new GrowthBook();
+
+    const originalCrypto = globalThis.crypto;
+    globalThis.crypto = webcrypto;
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    await growthbook.setEncryptedFeatures(encrypedFeatures, keyString);
+
+    expect(growthbook.getFeatures()).toEqual({
+      testfeature1: {
+        defaultValue: true,
+        rules: [
+          {
+            condition: { id: "1234" },
+            force: false,
+          },
+        ],
+      },
+    });
+    growthbook.destroy();
+
+    // Reset
+    globalThis.crypto = originalCrypto;
+  });
+
+  it("throws when decrypting features with invalid key", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "fakeT5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    await expect(
+      growthbook.setEncryptedFeatures(
+        encrypedFeatures,
+        keyString,
+        webcrypto.subtle
+      )
+    ).rejects.toThrow("Failed to decrypt features");
+
+    growthbook.destroy();
+  });
+
+  it("throws when decrypting features with invalid encrypted value", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "FAKE2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    await expect(
+      growthbook.setEncryptedFeatures(
+        encrypedFeatures,
+        keyString,
+        webcrypto.subtle
+      )
+    ).rejects.toThrow("Failed to decrypt features");
+
+    growthbook.destroy();
+  });
+
+  it("throws when decrypting features and no SubtleCrypto implementation exists", async () => {
+    const growthbook = new GrowthBook();
+
+    const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
+    const encrypedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    const originalCrypto = globalThis.crypto;
+    // eslint-disable-next-line
+    (globalThis.crypto as any) = undefined;
+
+    await expect(
+      growthbook.setEncryptedFeatures(encrypedFeatures, keyString)
+    ).rejects.toThrow("No SubtleCrypto implementation found");
+
+    growthbook.destroy();
+    globalThis.crypto = originalCrypto;
   });
 
   it("can set features asynchronously", () => {

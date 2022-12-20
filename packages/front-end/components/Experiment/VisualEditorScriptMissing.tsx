@@ -1,10 +1,9 @@
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { useEffect } from "react";
-import { useState } from "react";
-import { useAuth } from "../../services/auth";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "../LoadingOverlay";
 import VisualEditorInstructions from "../Settings/VisualEditorInstructions";
-import usePermissions from "../../hooks/usePermissions";
 
 export default function VisualEditorScriptMissing({
   onSuccess,
@@ -25,11 +24,11 @@ export default function VisualEditorScriptMissing({
     const res = await apiCall<{ keys: ApiKeyInterface[] }>(`/keys`, {
       method: "GET",
     });
-    setApiKeys(res.keys);
+    setApiKeys(res.keys.filter((k) => !k.secret));
   }
 
   useEffect(() => {
-    if (!permissions.organizationSettings) {
+    if (!permissions.check("manageEnvironments", "", [])) {
       setReady(true);
       return;
     }
@@ -40,12 +39,12 @@ export default function VisualEditorScriptMissing({
       .catch((e) => {
         setError(e.message);
       });
-  }, [permissions.organizationSettings]);
+  }, [permissions.check("manageEnvironments", "", [])]);
 
   if (!ready) {
     return <LoadingOverlay />;
   }
-  if (!permissions.organizationSettings) {
+  if (!permissions.check("manageEnvironments", "", [])) {
     return (
       <div className="alert alert-info">
         We were able to load the site, but couldn&apos;t communicate with it.

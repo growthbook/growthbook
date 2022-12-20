@@ -1,28 +1,28 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import React, { ReactElement, useState } from "react";
-import useSwitchOrg from "../../services/useSwitchOrg";
 import { IdeaInterface } from "back-end/types/idea";
-import SinglePage from "../../components/Experiment/SinglePage";
-import MultiTabPage from "../../components/Experiment/MultiTabPage";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
-import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
-import usePermissions from "../../hooks/usePermissions";
-import EditVariationsForm from "../../components/Experiment/EditVariationsForm";
-import EditInfoForm from "../../components/Experiment/EditInfoForm";
-import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
-import EditTagsForm from "../../components/Tags/EditTagsForm";
-import EditProjectForm from "../../components/Experiment/EditProjectForm";
-import { useAuth } from "../../services/auth";
 import Link from "next/link";
-import { GBCircleArrowLeft } from "../../components/Icons";
-import SnapshotProvider from "../../components/Experiment/SnapshotProvider";
-import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
-import track from "../../services/track";
-import EditPhasesModal from "../../components/Experiment/EditPhasesModal";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import SinglePage from "@/components/Experiment/SinglePage";
+import MultiTabPage from "@/components/Experiment/MultiTabPage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
+import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
+import usePermissions from "@/hooks/usePermissions";
+import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
+import EditInfoForm from "@/components/Experiment/EditInfoForm";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import EditProjectForm from "@/components/Experiment/EditProjectForm";
+import { useAuth } from "@/services/auth";
+import { GBCircleArrowLeft } from "@/components/Icons";
+import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
+import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
+import track from "@/services/track";
+import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 
 const ExperimentPage = (): ReactElement => {
   const router = useRouter();
@@ -32,7 +32,7 @@ const ExperimentPage = (): ReactElement => {
 
   const [useSinglePage, setUseSinglePage] = useLocalStorage(
     "new-exp-page-layout",
-    false
+    true
   );
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
@@ -66,7 +66,9 @@ const ExperimentPage = (): ReactElement => {
   // TODO: more cases where the new page won't work?
   const supportsSinglePage = experiment.implementation !== "visual";
 
-  const canEdit = permissions.createAnalyses && !experiment.archived;
+  const canEdit =
+    permissions.check("createAnalyses", experiment.project) &&
+    !experiment.archived;
 
   const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
   const editResult = canEdit ? () => setStopModalOpen(true) : null;

@@ -23,8 +23,6 @@ export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
 
   const snapshot = await ExperimentSnapshotModel.findOne({
@@ -44,6 +42,8 @@ export async function postReportFromSnapshot(
   if (!experiment) {
     throw new Error("Could not find experiment");
   }
+
+  req.checkPermissions("createAnalyses", experiment.project);
 
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -86,7 +86,16 @@ export async function postReportFromSnapshot(
   });
 }
 
-export async function getReports(req: AuthRequest, res: Response) {
+export async function getReports(
+  req: AuthRequest<
+    unknown,
+    unknown,
+    {
+      project?: string;
+    }
+  >,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -116,7 +125,10 @@ export async function getReports(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getReportsOnExperiment(req: AuthRequest, res: Response) {
+export async function getReportsOnExperiment(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -150,8 +162,6 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses");
-
   const { org } = getOrgFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
@@ -172,7 +182,7 @@ export async function deleteReport(
 }
 
 export async function refreshReport(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
   req.checkPermissions("runQueries");
@@ -187,7 +197,7 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  await runReport(report, useCache);
+  await runReport(report, useCache, org.settings?.statsEngine);
 
   return res.status(200).json({
     status: 200,
@@ -198,7 +208,8 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses", "runQueries");
+  req.checkPermissions("createAnalyses", "");
+  req.checkPermissions("runQueries");
 
   const { org } = getOrgFromReq(req);
 
@@ -232,7 +243,8 @@ export async function putReport(
         ...report,
         ...updates,
       },
-      true
+      true,
+      org.settings?.statsEngine
     );
   }
 
@@ -260,7 +272,8 @@ export async function getReportStatus(
           org.id,
           report.args.variations,
           report.args.dimension || "",
-          queryData
+          queryData,
+          org.settings?.statsEngine
         );
       }
       throw new Error("Unsupported report type");

@@ -1,35 +1,23 @@
 import React, { FC, useState } from "react";
-import LoadingOverlay from "../LoadingOverlay";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useRouter } from "next/router";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Link from "next/link";
-import { datetime } from "../../services/dates";
-import { hasFileConfig } from "../../services/env";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { datetime } from "@/services/dates";
+import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
 import { GBAddCircle } from "../Icons";
-import EditDataSourceSettingsForm from "./EditDataSourceSettingsForm";
-import usePermissions from "../../hooks/usePermissions";
+import LoadingOverlay from "../LoadingOverlay";
 import { DocLink } from "../DocLink";
+import Tooltip from "../Tooltip/Tooltip";
 import NewDataSourceForm from "./NewDataSourceForm";
-
-const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
-  name: "My Datasource",
-  settings: {},
-};
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
-  const [queriesModalOpen, setQueriesModalOpen] = useState("");
 
   const router = useRouter();
 
-  const {
-    datasources,
-    error,
-    mutateDefinitions,
-    ready,
-    getDatasourceById,
-  } = useDefinitions();
+  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
 
   const permissions = usePermissions();
 
@@ -40,19 +28,16 @@ const DataSources: FC = () => {
     return <LoadingOverlay />;
   }
 
-  const newDataSource = queriesModalOpen
-    ? getDatasourceById(queriesModalOpen)
-    : null;
-
   return (
     <div>
       {datasources.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Display Name</th>
-              <th>Type</th>
-              {!hasFileConfig() && <th>Date Added</th>}
+              <th className="col-3">Display Name</th>
+              <th className="col-auto">Description</th>
+              <th className="col-2">Type</th>
+              {!hasFileConfig() && <th className="col-2">Date Added</th>}
             </tr>
           </thead>
           <tbody>
@@ -66,7 +51,23 @@ const DataSources: FC = () => {
                 }}
               >
                 <td>
-                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>
+                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>{" "}
+                  {d.decryptionError && (
+                    <Tooltip
+                      body={
+                        <>
+                          Could not decrypt the connection settings for this
+                          data source. Click on the data source name for more
+                          info.
+                        </>
+                      }
+                    >
+                      <FaExclamationTriangle className="text-danger" />
+                    </Tooltip>
+                  )}
+                </td>
+                <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                  {d.description}
                 </td>
                 <td>{d.type}</td>
                 {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
@@ -82,9 +83,9 @@ const DataSources: FC = () => {
             <strong>Redshift</strong>, <strong>Snowflake</strong>,{" "}
             <strong>BigQuery</strong>, <strong>ClickHouse</strong>,{" "}
             <strong>Postgres</strong>, <strong>MySQL</strong>,{" "}
-            <strong>Athena</strong>, <strong>PrestoDB</strong>,
-            <strong>Mixpanel</strong>, and <strong>Google Analytics</strong>{" "}
-            with more coming soon.
+            <strong>MS SQL/SQL Server</strong>, <strong>Athena</strong>,{" "}
+            <strong>PrestoDB</strong>,<strong>Mixpanel</strong>, and{" "}
+            <strong>Google Analytics</strong> with more coming soon.
           </p>
           <p>
             We only ever fetch aggregate data, so none of your user&apos;s
@@ -121,7 +122,10 @@ const DataSources: FC = () => {
       {newModalOpen && (
         <NewDataSourceForm
           existing={false}
-          data={DEFAULT_DATA_SOURCE}
+          data={{
+            name: "My Datasource",
+            settings: {},
+          }}
           source="datasource-list"
           onSuccess={async (id) => {
             await mutateDefinitions({});
@@ -131,18 +135,6 @@ const DataSources: FC = () => {
           onCancel={() => {
             setNewModalOpen(false);
           }}
-        />
-      )}
-      {newDataSource && (
-        <EditDataSourceSettingsForm
-          firstTime={true}
-          data={newDataSource}
-          onCancel={() => setQueriesModalOpen("")}
-          onSuccess={async () => {
-            await mutateDefinitions({});
-            await router.push(`/datasources/${newDataSource.id}`);
-          }}
-          source="datasource-list"
         />
       )}
     </div>

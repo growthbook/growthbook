@@ -1,14 +1,20 @@
-import { FC, useState, useEffect, ChangeEventHandler } from "react";
-import { useAuth } from "../../services/auth";
+import {
+  FC,
+  useState,
+  useEffect,
+  ChangeEventHandler,
+  ReactElement,
+} from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import track from "../../services/track";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
+import { dataSourceConnections } from "@/services/eventSchema";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Button from "../Button";
-import { getInitialSettings } from "../../services/datasources";
 import { DocLink, DocSection } from "../DocLink";
 import ConnectionSettings from "./ConnectionSettings";
-import { dataSourceConnections } from "../../services/eventSchema";
 
 const typeOptions = dataSourceConnections;
 
@@ -16,10 +22,23 @@ const DataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   existing: boolean;
   source: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
   importSampleData?: () => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
+  inline?: boolean;
+  cta?: string;
+  secondaryCTA?: ReactElement;
+}> = ({
+  data,
+  onSuccess,
+  onCancel,
+  source,
+  existing,
+  importSampleData,
+  inline,
+  cta = "Save",
+  secondaryCTA,
+}) => {
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -40,7 +59,7 @@ const DataSourceForm: FC<{
       };
       setDatasource(newValue);
     }
-  }, [data]);
+  }, [data, dirty]);
 
   if (!datasource) {
     return null;
@@ -102,7 +121,9 @@ const DataSourceForm: FC<{
     }
   };
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+    e
+  ) => {
     setDatasource({
       ...datasource,
       [e.target.name]: e.target.value,
@@ -112,11 +133,14 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      inline={inline}
       open={true}
       submit={handleSubmit}
       close={onCancel}
       header={existing ? "Edit Data Source" : "Add Data Source"}
-      cta="Save"
+      cta={cta}
+      size="lg"
+      secondaryCTA={secondaryCTA}
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">
@@ -187,6 +211,15 @@ const DataSourceForm: FC<{
           required
           onChange={onChange}
           value={datasource.name}
+        />
+      </div>
+      <div className="form-group">
+        <label>Description (optional)</label>
+        <textarea
+          className="form-control"
+          name="description"
+          onChange={onChange}
+          value={datasource.description}
         />
       </div>
       <ConnectionSettings

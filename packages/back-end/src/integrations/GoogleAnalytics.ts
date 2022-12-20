@@ -1,3 +1,4 @@
+import { analyticsreporting_v4, google } from "googleapis";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -9,7 +10,6 @@ import {
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
-import { analyticsreporting_v4, google } from "googleapis";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
@@ -49,14 +49,26 @@ function convertDate(rawDate: string): string {
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   datasource: string;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   organization: string;
   settings: DataSourceSettings;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  decryptionError: boolean;
 
   constructor(encryptedParams: string) {
-    this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
-      encryptedParams
-    );
+    try {
+      this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
+        encryptedParams
+      );
+    } catch (e) {
+      this.params = { customDimension: "", refreshToken: "", viewId: "" };
+      this.decryptionError = true;
+    }
     this.settings = {};
   }
   getExperimentMetricQuery(): string {
@@ -278,17 +290,20 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
             value = users * value;
           }
 
-          const mean =
-            metric.type === "binomial" ? 1 : Math.round(value) / users;
-          const count = metric.type === "binomial" ? value : users;
+          const mean = Math.round(value) / users;
+          const count = users;
 
+          // GA doesn't expose standard deviations, so we have to guess
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
+          // For binomial metrics, we can use the Normal approximation for a bernouli random variable
           const stddev =
             metric.type === "duration"
               ? mean
               : metric.type === "count"
               ? Math.sqrt(mean)
+              : metric.type === "binomial"
+              ? Math.sqrt(mean * (1 - mean))
               : 0;
 
           return {

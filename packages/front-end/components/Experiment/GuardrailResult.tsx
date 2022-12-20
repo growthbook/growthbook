@@ -8,8 +8,11 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import MetricValueColumn from "./MetricValueColumn";
 import { ExperimentReportVariation } from "back-end/types/report";
+import Link from "next/link";
+import Tooltip from "../Tooltip/Tooltip";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;
@@ -66,7 +69,14 @@ const GuardrailResults: FC<{
         {status === "warning" && <FaExclamationTriangle className="mr-1" />}
         {status === "danger" && <FaExclamation className="mr-1" />}
         {status === "secondary" && <FaQuestionCircle className="mr-1" />}
-        <strong>{metric.name}</strong>
+        <Tooltip
+          body={<MetricTooltipBody metric={metric} />}
+          tipPosition="right"
+        >
+          <Link href={`/metric/${metric.id}`}>
+            <a className="text-dark font-weight-bold">{metric.name}</a>
+          </Link>
+        </Tooltip>
       </div>
       <div>
         <table

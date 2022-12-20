@@ -1,6 +1,21 @@
-import { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import fs from "fs";
+import { NextApiRequest, NextApiResponse } from "next";
+
+export interface EnvironmentInitValue {
+  telemetry: "debug" | "enable" | "disable";
+  cloud: boolean;
+  appOrigin: string;
+  apiHost: string;
+  config: "file" | "db";
+  defaultConversionWindowHours: number;
+  build?: {
+    sha: string;
+    date: string;
+  };
+  sentryDSN: string;
+  usingSSO: boolean;
+}
 
 // Get env variables at runtime on the front-end while still using SSG
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -11,7 +26,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
-    ENABLE_API_CREDENTIALS,
+    SSO_CONFIG,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -34,7 +49,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
       .toString();
   }
-  res.status(200).json({
+
+  const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
     cloud: !!IS_CLOUD,
@@ -49,6 +65,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         ? "disable"
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
-    apiCredentials: !!ENABLE_API_CREDENTIALS,
-  });
+    usingSSO: !!SSO_CONFIG,
+  };
+
+  res.status(200).json(body);
 }

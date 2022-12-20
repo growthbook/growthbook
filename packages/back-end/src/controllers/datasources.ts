@@ -1,4 +1,5 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -12,6 +13,7 @@ import {
   getNonSensitiveParams,
   mergeParams,
   encryptParams,
+  testQuery,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -35,10 +37,10 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
-import uniqid from "uniqid";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
-  req.checkPermissions("createMetrics", "createAnalyses");
+  req.checkPermissions("createMetrics");
+  req.checkPermissions("createAnalyses", "");
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;
@@ -294,6 +296,7 @@ export async function getDataSource(
   res.status(200).json({
     id: datasource.id,
     name: datasource.name,
+    description: datasource.description,
     type: datasource.type,
     params: getNonSensitiveParams(integration),
     settings: datasource.settings,
@@ -303,6 +306,7 @@ export async function getDataSource(
 export async function postDataSources(
   req: AuthRequest<{
     name: string;
+    description?: string;
     type: DataSourceType;
     params: DataSourceParams;
     settings: DataSourceSettings;
@@ -312,7 +316,7 @@ export async function postDataSources(
   req.checkPermissions("createDatasources");
 
   const { org } = getOrgFromReq(req);
-  const { name, type, params } = req.body;
+  const { name, description, type, params } = req.body;
   const settings = req.body.settings || {};
 
   try {
@@ -329,7 +333,9 @@ export async function postDataSources(
       name,
       type,
       params,
-      settings
+      settings,
+      undefined,
+      description
     );
 
     res.status(200).json({
@@ -348,6 +354,7 @@ export async function putDataSource(
   req: AuthRequest<
     {
       name: string;
+      description?: string;
       type: DataSourceType;
       params: DataSourceParams;
       settings: DataSourceSettings;
@@ -358,7 +365,7 @@ export async function putDataSource(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { name, type, params, settings } = req.body;
+  const { name, description, type, params, settings } = req.body;
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -393,7 +400,9 @@ export async function putDataSource(
     if (name) {
       updates.name = name;
     }
-
+    if (description) {
+      updates.description = description;
+    }
     if (settings) {
       updates.settings = settings;
     }
@@ -426,7 +435,7 @@ export async function putDataSource(
       status: 200,
     });
   } catch (e) {
-    console.error(e);
+    req.log.error(e, "Failed to update data source");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",
@@ -487,5 +496,37 @@ export async function getQueries(
 
   res.status(200).json({
     queries: queries.map((id) => map.get(id) || null),
+  });
+}
+
+export async function testLimitedQuery(
+  req: AuthRequest<{
+    query: string;
+    datasourceId: string;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("editDatasourceSettings");
+
+  const { org } = getOrgFromReq(req);
+
+  const { query, datasourceId } = req.body;
+
+  const datasource = await getDataSourceById(datasourceId, org.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  const { results, sql, duration, error } = await testQuery(datasource, query);
+
+  res.status(200).json({
+    status: 200,
+    duration,
+    results,
+    sql,
+    error,
   });
 }

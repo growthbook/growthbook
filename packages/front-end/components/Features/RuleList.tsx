@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import { Rule, SortableRule } from "./Rule";
 import {
   DndContext,
   DragOverlay,
@@ -16,9 +15,11 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getRules } from "../../services/features";
+import { useAuth } from "@/services/auth";
+import { getRules } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
+import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
   feature,
@@ -36,6 +37,7 @@ export default function RuleList({
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string>(null);
   const [items, setItems] = useState(getRules(feature, environment));
+  const permissions = usePermissions();
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -65,11 +67,20 @@ export default function RuleList({
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
+  const canEdit =
+    permissions.check("manageFeatures", feature.project) &&
+    permissions.check("createFeatureDrafts", feature.project);
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
+        if (!canEdit) {
+          setActiveId(null);
+          return;
+        }
+
         if (active.id !== over.id) {
           const oldIndex = getRuleIndex(active.id);
           const newIndex = getRuleIndex(over.id);
@@ -92,6 +103,9 @@ export default function RuleList({
         setActiveId(null);
       }}
       onDragStart={({ active }) => {
+        if (!canEdit) {
+          return;
+        }
         setActiveId(active.id);
       }}
     >

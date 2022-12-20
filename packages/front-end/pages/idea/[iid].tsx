@@ -1,40 +1,39 @@
 import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { useState, ReactElement } from "react";
-import { useAuth } from "../../services/auth";
-import DeleteButton from "../../components/DeleteButton";
+import { useState, ReactElement, useEffect } from "react";
 import {
   FaAngleLeft,
   FaArchive,
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import DiscussionThread from "../../components/DiscussionThread";
-import useSwitchOrg from "../../services/useSwitchOrg";
-import ImpactModal from "../../components/Ideas/ImpactModal";
-import { date } from "../../services/dates";
-import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
-import ViewQueryButton from "../../components/Metrics/ViewQueryButton";
-import ImpactProjections from "../../components/Ideas/ImpactProjections";
 import Link from "next/link";
-import RightRailSection from "../../components/Layout/RightRailSection";
-import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
-import EditableH1 from "../../components/Forms/EditableH1";
-import InlineForm from "../../components/Forms/InlineForm";
-import TagsInput from "../../components/Tags/TagsInput";
-import MoreMenu from "../../components/Dropdown/MoreMenu";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
-import SelectField from "../../components/Forms/SelectField";
-import useUser from "../../hooks/useUser";
-import SortedTags from "../../components/Tags/SortedTags";
-import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAuth } from "@/services/auth";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import DiscussionThread from "@/components/DiscussionThread";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import ImpactModal from "@/components/Ideas/ImpactModal";
+import { date } from "@/services/dates";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import ViewQueryButton from "@/components/Metrics/ViewQueryButton";
+import ImpactProjections from "@/components/Ideas/ImpactProjections";
+import RightRailSection from "@/components/Layout/RightRailSection";
+import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
+import EditableH1 from "@/components/Forms/EditableH1";
+import InlineForm from "@/components/Forms/InlineForm";
+import TagsInput from "@/components/Tags/TagsInput";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import SelectField from "@/components/Forms/SelectField";
+import { useUser } from "@/services/UserContext";
+import SortedTags from "@/components/Tags/SortedTags";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -102,31 +101,36 @@ const IdeaPage = (): ReactElement => {
   const idea = data.idea;
   const estimate = data.estimate;
 
+  const canEdit = permissions.check("createIdeas", idea.project);
+
   return (
     <div className="container-fluid pagecontents pt-3">
-      {project && project !== idea.project && permissions.createIdeas && (
-        <div className="bg-info p-2 mb-3 text-center text-white">
-          This idea is in a different project. Move it to{" "}
-          <a
-            href="#"
-            className="text-white"
-            onClick={async (e) => {
-              e.preventDefault();
-              await apiCall(`/idea/${idea.id}`, {
-                method: "POST",
-                body: JSON.stringify({
-                  project,
-                }),
-              });
-              mutate();
-            }}
-          >
-            <strong>
-              {getProjectById(project)?.name || "the current project"}
-            </strong>
-          </a>
-        </div>
-      )}
+      {project &&
+        project !== idea.project &&
+        canEdit &&
+        permissions.check("createIdeas", project) && (
+          <div className="bg-info p-2 mb-3 text-center text-white">
+            This idea is in a different project. Move it to{" "}
+            <a
+              href="#"
+              className="text-white"
+              onClick={async (e) => {
+                e.preventDefault();
+                await apiCall(`/idea/${idea.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    project,
+                  }),
+                });
+                mutate();
+              }}
+            >
+              <strong>
+                {getProjectById(project)?.name || "the current project"}
+              </strong>
+            </a>
+          </div>
+        )}
       <div className="mb-2 mt-2 row d-flex">
         <div className="col-auto">
           <Link href="/ideas">
@@ -146,21 +150,23 @@ const IdeaPage = (): ReactElement => {
           </div>
         )}
         <div className="col"></div>
-        {!idea.archived && permissions.createAnalyses && !data.experiment && (
-          <div className="col-md-auto">
-            <button
-              className="btn btn-outline-primary mr-3"
-              onClick={() => {
-                setNewExperiment(true);
-              }}
-            >
-              Convert Idea to Experiment
-            </button>
-          </div>
-        )}
-        {permissions.createIdeas && (
+        {!idea.archived &&
+          permissions.check("createAnalyses", idea.project) &&
+          !data.experiment && (
+            <div className="col-md-auto">
+              <button
+                className="btn btn-outline-primary mr-3"
+                onClick={() => {
+                  setNewExperiment(true);
+                }}
+              >
+                Convert Idea to Experiment
+              </button>
+            </div>
+          )}
+        {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="idea-more-menu">
+            <MoreMenu>
               <a
                 href="#"
                 className="dropdown-item"
@@ -226,7 +232,7 @@ const IdeaPage = (): ReactElement => {
           <div className="bg-white p-3 border idea-wrap mb-4">
             <InlineForm
               editing={edit}
-              canEdit={permissions.createIdeas}
+              canEdit={canEdit}
               onSave={form.handleSubmit(async (value) => {
                 await apiCall<{ status: number; message?: string }>(
                   `/idea/${idea.id}`,
@@ -268,7 +274,7 @@ const IdeaPage = (): ReactElement => {
                         onChange={(e) => form.setValue("text", e.target.value)}
                       />
                     </div>
-                    {!edit && permissions.createIdeas && (
+                    {!edit && canEdit && (
                       <div className="col-auto">
                         <button
                           className="btn btn-outline-secondary"
@@ -282,7 +288,7 @@ const IdeaPage = (): ReactElement => {
                     )}
                   </div>
 
-                  {edit && permissions.createIdeas ? (
+                  {edit && canEdit ? (
                     <div className="py-2">
                       <div className="form-group">
                         <label>Tags</label>
@@ -352,15 +358,20 @@ const IdeaPage = (): ReactElement => {
                 });
               }}
               value={idea.details}
-              canCreate={permissions.createIdeas}
-              canEdit={permissions.createIdeas}
+              canCreate={canEdit}
+              canEdit={canEdit}
               label="More Details"
             />
           </div>
 
           <div className="mb-3">
             <h3>Comments</h3>
-            <DiscussionThread type="idea" id={idea.id} showTitle={true} />
+            <DiscussionThread
+              type="idea"
+              id={idea.id}
+              showTitle={true}
+              project={idea.project}
+            />
           </div>
         </div>
 
@@ -385,7 +396,7 @@ const IdeaPage = (): ReactElement => {
 
               {(!idea.estimateParams || !estimate) &&
                 permissions.runQueries &&
-                permissions.createIdeas && (
+                canEdit && (
                   <div className="mt-2 text-center">
                     <button
                       className="btn btn-outline-primary"
@@ -411,7 +422,7 @@ const IdeaPage = (): ReactElement => {
                   <RightRailSection
                     title="Parameters"
                     open={() => setImpactOpen(true)}
-                    canOpen={permissions.runQueries && permissions.createIdeas}
+                    canOpen={permissions.runQueries && canEdit}
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
                       {getMetricById(estimate?.metric)?.name}

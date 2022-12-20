@@ -1,24 +1,22 @@
 import React, { FC, useEffect, useState } from "react";
-import Modal from "../Modal";
 import { useForm } from "react-hook-form";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import { AuditInterface } from "back-end/types/audit";
-import MetricsSelector from "../Experiment/MetricsSelector";
-import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
-import { useAuth } from "../../services/auth";
 import { BsGear } from "react-icons/bs";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Modal from "../Modal";
+import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
-import useUser from "../../hooks/useUser";
+import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
-const NorthStar: FC = () => {
+const NorthStar: FC<{
+  experiments: ExperimentInterfaceStringDates[];
+}> = ({ experiments }) => {
   const { apiCall } = useAuth();
-  const { data, error } = useApi<{
-    events: AuditInterface[];
-    experiments: { id: string; name: string }[];
-  }>("/activity");
 
-  const { settings, permissions, update } = useUser();
+  const { permissions, refreshOrganization } = useUser();
+  const settings = useOrgSettings();
 
   const form = useForm<{
     title: string;
@@ -40,14 +38,8 @@ const NorthStar: FC = () => {
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
 
-  if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
   const nameMap = new Map<string, string>();
-  data.experiments.forEach((e) => {
+  experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
 
@@ -61,7 +53,7 @@ const NorthStar: FC = () => {
           className="list-group activity-box mb-3"
           style={{ position: "relative" }}
         >
-          {permissions.organizationSettings && (
+          {permissions.manageNorthStarMetric && (
             <a
               className="cursor-pointer"
               style={{ position: "absolute", top: "10px", right: "10px" }}
@@ -113,7 +105,7 @@ const NorthStar: FC = () => {
                 settings: newSettings,
               }),
             });
-            await update();
+            await refreshOrganization();
             setOpenNorthStarModal(false);
           })}
           header={

@@ -8,7 +8,6 @@ import {
   getLatestSnapshot,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
-import pino from "pino";
 import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
@@ -20,6 +19,7 @@ import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
+import { logger } from "../util/logger";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -30,8 +30,6 @@ const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
   experimentId: string;
 }>;
-
-const parentLogger = pino();
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
@@ -143,7 +141,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   if (!experimentId) return;
 
-  const logger = parentLogger.child({
+  const log = logger.child({
     cron: "updateSingleExperiment",
     experimentId,
   });
@@ -157,7 +155,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   let currentSnapshot: ExperimentSnapshotDocument;
 
   try {
-    logger.info("Start Refreshing Results");
+    log.info("Start Refreshing Results");
     const datasource = await getDataSourceById(
       experiment.datasource || "",
       experiment.organization
@@ -177,7 +175,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.phases.length - 1,
       organization,
       null,
-      false
+      false,
+      organization.settings?.statsEngine
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -195,7 +194,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               experiment.organization,
               getReportVariations(experiment, phase),
               undefined,
-              queryData
+              queryData,
+              organization.settings?.statsEngine
             );
           },
           async (updates, results, error) => {
@@ -229,11 +229,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       setTimeout(check, 2000);
     });
 
-    logger.info("Success");
+    log.info("Success");
 
     await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
   } catch (e) {
-    logger.error("Failure - " + e.message);
+    log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       experiment.autoSnapshots = false;
@@ -241,7 +241,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await experiment.save();
       // TODO: email user and let them know it failed
     } catch (e) {
-      logger.error("Failed to turn off autoSnapshots - " + e.message);
+      log.error("Failed to turn off autoSnapshots - " + e.message);
     }
   }
 }
@@ -251,7 +251,7 @@ async function sendSignificanceEmail(
   lastSnapshot: ExperimentSnapshotDocument,
   currentSnapshot: ExperimentSnapshotDocument
 ) {
-  const logger = parentLogger.child({
+  const log = logger.child({
     cron: "sendSignificanceEmail",
     experimentId: experiment.id,
   });
@@ -323,7 +323,7 @@ async function sendSignificanceEmail(
 
     if (experimentChanges.length) {
       // send an email to any subscribers on this test:
-      logger.info(
+      log.info(
         "Significant change - detected " +
           experimentChanges.length +
           " significant changes"
@@ -342,6 +342,6 @@ async function sendSignificanceEmail(
       );
     }
   } catch (e) {
-    logger.error(e.message);
+    log.error(e.message);
   }
 }

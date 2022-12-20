@@ -1,14 +1,16 @@
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { FaQuestionCircle } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
-import { getExposureQuery } from "../../services/datasources";
+import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
 
 export default function ConfigureReport({
   report,
@@ -33,6 +35,7 @@ export default function ConfigureReport({
           report.args.userIdType
         )?.id || "",
       removeMultipleExposures: !!report.args.removeMultipleExposures,
+      attributionModel: report.args.attributionModel || "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
@@ -281,6 +284,26 @@ export default function ConfigureReport({
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label={
+            <AttributionModelTooltip>
+              <strong>Attribution Model</strong> <FaQuestionCircle />
+            </AttributionModelTooltip>
+          }
+          {...form.register("attributionModel")}
+          options={[
+            {
+              display: "First Exposure",
+              value: "firstExposure",
+            },
+            {
+              display: "All Exposures",
+              value: "allExposures",
+            },
+          ]}
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

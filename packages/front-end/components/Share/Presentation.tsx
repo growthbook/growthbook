@@ -16,10 +16,10 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import CompactResults from "../Experiment/CompactResults";
-import { presentationThemes, defaultTheme } from "./ShareModal";
 import clsx from "clsx";
+import CompactResults from "../Experiment/CompactResults";
 import Markdown from "../Markdown/Markdown";
+import { presentationThemes, defaultTheme } from "./ShareModal";
 
 export interface Props {
   presentation?: PresentationInterface;
@@ -221,6 +221,7 @@ const Presentation = ({
               id={experiment.id}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               metrics={experiment.metrics}
+              metricOverrides={experiment.metricOverrides}
               reportDate={snapshot.dateCreated}
               results={snapshot.results?.[0]}
               status={experiment.status}

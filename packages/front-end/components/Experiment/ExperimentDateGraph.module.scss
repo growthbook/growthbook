@@ -1,9 +1,9 @@
 .tooltip {
   display: inline-block;
-  background-color: #fff;
+  background-color: var(--surface-background-color);
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   padding: 3px 8px;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--border-color-300);
   box-sizing: border-box;
   border-radius: 2px;
   font-size: 12px;
@@ -38,7 +38,7 @@
   border-radius: 50%;
   background: rgba(96, 48, 183, 0.8);
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--surface-background-color);
   box-sizing: border-box;
 }
 .crosshair {

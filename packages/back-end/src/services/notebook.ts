@@ -1,16 +1,17 @@
+import { promisify } from "util";
+import { PythonShell } from "python-shell";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { getMetricsByDatasource } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { MetricInterface } from "../../types/metric";
-import { getQueryData } from "./queries";
-import { promisify } from "util";
-import { PythonShell } from "python-shell";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { reportArgsFromSnapshot } from "./reports";
+import { getQueryData } from "./queries";
 
 export async function generateReportNotebook(
   reportId: string,
@@ -27,7 +28,8 @@ export async function generateReportNotebook(
     report.args,
     `/report/${report.id}`,
     report.title,
-    ""
+    "",
+    !report.results?.hasCorrectedStats
   );
 }
 
@@ -36,13 +38,15 @@ export async function generateExperimentNotebook(
   organization: string
 ): Promise<string> {
   // Get snapshot
-  const snapshot = await ExperimentSnapshotModel.findOne({
+  const snapshotDoc = await ExperimentSnapshotModel.findOne({
     id: snapshotId,
     organization,
   });
-  if (!snapshot) {
+  if (!snapshotDoc) {
     throw new Error("Cannot find snapshot");
   }
+  const snapshot: ExperimentSnapshotInterface = snapshotDoc.toJSON();
+
   if (!snapshot.queries?.length) {
     throw new Error("Snapshot does not have queries");
   }
@@ -68,7 +72,8 @@ export async function generateExperimentNotebook(
     reportArgsFromSnapshot(experiment, snapshot),
     `/experiment/${experiment.id}`,
     experiment.name,
-    experiment.hypothesis || ""
+    experiment.hypothesis || "",
+    !snapshot.hasCorrectedStats
   );
 }
 
@@ -78,7 +83,8 @@ export async function generateNotebook(
   args: ExperimentReportArgs,
   url: string,
   name: string,
-  description: string
+  description: string,
+  needsCorrection: boolean
 ) {
   // Get datasource
   const datasource = await getDataSourceById(args.datasource, organization);
@@ -129,6 +135,7 @@ export async function generateNotebook(
     var_names: args.variations.map((v) => v.name),
     weights: args.variations.map((v) => v.weight),
     run_query: datasource.settings.notebookRunQuery,
+    needs_correction: needsCorrection,
   }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
@@ -158,7 +165,8 @@ print(create_notebook(
     var_id_map=data['var_id_map'],
     var_names=data['var_names'],
     weights=data['weights'],
-    run_query=data['run_query']
+    run_query=data['run_query'],
+    needs_correction=data['needs_correction']
 ))`,
     {}
   );

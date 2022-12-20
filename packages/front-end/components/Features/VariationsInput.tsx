@@ -1,17 +1,24 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import React, { useState } from "react";
 import {
   getDefaultVariationValue,
   getVariationColor,
   getVariationDefaultName,
-} from "../../services/features";
+} from "@/services/features";
+import {
+  decimalToPercent,
+  distributeWeights,
+  getEqualWeights,
+  percentToDecimal,
+  rebalance,
+} from "@/services/utils";
 import Field from "../Forms/Field";
+import { GBAddCircle } from "../Icons";
+import Tooltip from "../Tooltip/Tooltip";
+import MoreMenu from "../Dropdown/MoreMenu";
 import FeatureValueField from "./FeatureValueField";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
-import { GBAddCircle } from "../Icons";
-import React, { useState } from "react";
 import styles from "./VariationsInput.module.scss";
-import Tooltip from "../Tooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -24,102 +31,6 @@ export interface Props {
   coverageTooltip?: string;
   valueAsId?: boolean;
   showPreview?: boolean;
-}
-
-// Returns n "equal" decimals rounded to 3 places that add up to 1
-// The sum always adds to 1. In some cases the values are not equal.
-// For example, getEqualWeights(3) returns [0.334, 0.333, 0.333]
-function getEqualWeights(n: number): number[] {
-  const w = Math.round(1000 / n) / 1000;
-  const diff = w * n - 1;
-  const nDiffs = Math.round(Math.abs(diff) * 1000);
-  return Array(n)
-    .fill(0)
-    .map((v, i) => {
-      const j = n - i - 1;
-      let d = 0;
-      if (diff < 0 && i < nDiffs) d = 0.001;
-      else if (diff > 0 && j < nDiffs) d = -0.001;
-      return +(w + d).toFixed(3);
-    });
-}
-
-function distributeWeights(weights: number[], customSplit: boolean): number[] {
-  // Always just use equal weights if we're not customizing them
-  if (!customSplit) return getEqualWeights(weights.length);
-
-  // Get current sum and distribute the different equally so it adds to 1
-  const sum = weights.reduce((sum, w) => sum + w, 0);
-  const diff = (sum - 1) / weights.length;
-  const newWeights = weights.map((w) => floatRound(w - diff));
-
-  // With rounding, the end result might be slightly off and need an adjustment
-  const adjustment = floatRound(newWeights.reduce((sum, w) => sum + w, -1));
-  if (adjustment) {
-    const i = newWeights.findIndex((w) => w >= adjustment);
-    if (i >= 0) {
-      newWeights[i] = floatRound(newWeights[i] - adjustment);
-    }
-  }
-
-  return newWeights;
-}
-
-function percentToDecimal(val: string, precision: number = 3): number {
-  return parseFloat((parseFloat(val) / 100).toFixed(precision));
-}
-function decimalToPercent(val: number, precision: number = 3): number {
-  return parseFloat((val * 100).toFixed(precision - 2));
-}
-function floatRound(val: number, precision: number = 3): number {
-  return parseFloat(val.toFixed(precision));
-}
-
-// Updates one of the variation weights and rebalances
-// the rest of the weights to keep the sum equal to 1
-function rebalance(
-  weights: number[],
-  i: number,
-  newValue: number,
-  precision: number = 3
-): number[] {
-  // Clamp new value
-  if (newValue > 1) newValue = 1;
-  if (newValue < 0) newValue = 0;
-
-  // Update the new value
-  weights = [...weights];
-  weights[i] = newValue;
-
-  // Current sum of weights
-  const currentTotal = floatRound(
-    weights.reduce((sum, w) => sum + w, 0),
-    precision
-  );
-  // The sum is too low, increment the next variation's weight
-  if (currentTotal < 1) {
-    const nextIndex = (i + 1) % weights.length;
-    const nextValue = floatRound(weights[nextIndex], precision);
-    weights[(i + 1) % weights.length] = floatRound(
-      nextValue + (1 - currentTotal),
-      precision
-    );
-  } else if (currentTotal > 1) {
-    // The sum is too high, loop through the other variations and decrement weights
-    let overage = floatRound(currentTotal - 1, precision);
-    let j = 1;
-    while (overage > 0 && j < weights.length) {
-      const nextIndex = (j + i) % weights.length;
-      const nextValue = floatRound(weights[nextIndex], precision);
-      const adjustedValue =
-        nextValue >= overage ? floatRound(nextValue - overage, precision) : 0;
-      overage = floatRound(overage - (nextValue - adjustedValue), precision);
-      weights[nextIndex] = adjustedValue;
-      j++;
-    }
-  }
-
-  return weights;
 }
 
 export default function VariationsInput({
@@ -141,7 +52,7 @@ export default function VariationsInput({
   const rebalanceAndUpdate = (
     i: number,
     newValue: number,
-    precision: number = 3
+    precision: number = 4
   ) => {
     rebalance(weights, i, newValue, precision).forEach((w, j) => {
       // The weight needs updating
@@ -319,7 +230,7 @@ export default function VariationsInput({
                             }}
                             min="0"
                             max="100"
-                            step="0.1"
+                            step="0.01"
                             type="range"
                             className="w-100 mr-3"
                           />
@@ -327,15 +238,14 @@ export default function VariationsInput({
                             className={`position-relative ${styles.percentInputWrap}`}
                           >
                             <Field
-                              value={decimalToPercent(weights[i], 4)}
+                              value={decimalToPercent(weights[i])}
                               onChange={(e) => {
                                 // the split now should add to 100% if there are two variations.
                                 rebalanceAndUpdate(
                                   i,
                                   e.target.value === ""
                                     ? 0
-                                    : percentToDecimal(e.target.value, 4),
-                                  4
+                                    : percentToDecimal(e.target.value)
                                 );
                                 if (e.target.value === "") {
                                   // I hate this, but not is also the easiest
@@ -356,12 +266,12 @@ export default function VariationsInput({
                         </div>
                       ) : (
                         <div className="col d-flex flex-row">
-                          {decimalToPercent(weights[i], 4)}%
+                          {decimalToPercent(weights[i])}%
                         </div>
                       )}
                       {setVariations && (
                         <div className="col-auto">
-                          <MoreMenu id={`variation-menu-${i}`}>
+                          <MoreMenu>
                             {i > 0 && (
                               <button
                                 className="dropdown-item"
@@ -430,48 +340,61 @@ export default function VariationsInput({
                 </tr>
               );
             })}
-            {(valueType !== "boolean" || !isEqualWeights) && (
-              <tr>
-                <td colSpan={4}>
-                  <div className="row">
-                    <div className="col">
-                      {valueType !== "boolean" && setVariations && (
-                        <a
-                          className="btn btn-outline-primary"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
 
-                            const newWeights = distributeWeights(
-                              [...weights, 0],
-                              customSplit
-                            );
+            <tr>
+              <td colSpan={4}>
+                <div className="row">
+                  <div className="col">
+                    {valueType !== "boolean" && setVariations ? (
+                      <a
+                        className="btn btn-outline-primary"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
 
-                            // Add a new value and update weights
-                            const newValues = [
-                              ...variations,
-                              {
-                                value: getDefaultVariationValue(defaultValue),
-                                name: "",
-                                weight: 0,
-                              },
-                            ];
-                            newValues.forEach((v, i) => {
-                              v.weight = newWeights[i] || 0;
-                            });
-                            setVariations(newValues);
-                          }}
+                          const newWeights = distributeWeights(
+                            [...weights, 0],
+                            customSplit
+                          );
+
+                          // Add a new value and update weights
+                          const newValues = [
+                            ...variations,
+                            {
+                              value: getDefaultVariationValue(defaultValue),
+                              name: "",
+                              weight: 0,
+                            },
+                          ];
+                          newValues.forEach((v, i) => {
+                            v.weight = newWeights[i] || 0;
+                          });
+                          setVariations(newValues);
+                        }}
+                      >
+                        <span
+                          className={`h4 pr-2 m-0 d-inline-block align-top`}
                         >
-                          <span
-                            className={`h4 pr-2 m-0 d-inline-block align-top`}
-                          >
-                            <GBAddCircle />
-                          </span>
-                          add another variation
-                        </a>
-                      )}
-                    </div>
-
+                          <GBAddCircle />
+                        </span>
+                        add another variation
+                      </a>
+                    ) : (
+                      <>
+                        <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                          <a className="btn btn-outline-primary disabled">
+                            <span
+                              className={`h4 pr-2 m-0 d-inline-block align-top`}
+                            >
+                              <GBAddCircle />
+                            </span>
+                            add another variation
+                          </a>
+                        </Tooltip>
+                      </>
+                    )}
+                  </div>
+                  {!isEqualWeights && (
                     <div className="col-auto text-right">
                       <a
                         href="#"
@@ -483,10 +406,11 @@ export default function VariationsInput({
                         set equal weights
                       </a>
                     </div>
-                  </div>
-                </td>
-              </tr>
-            )}
+                  )}
+                </div>
+              </td>
+            </tr>
+
             {showPreview && (
               <tr>
                 <td colSpan={4} className="pb-2">

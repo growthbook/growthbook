@@ -1,16 +1,22 @@
-import { decryptDataSourceParams } from "../services/datasource";
 import * as bq from "@google-cloud/bigquery";
-import SqlIntegration from "./SqlIntegration";
+import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
+import { FormatDialect } from "../util/sql";
+import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: BigQueryConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "bigquery";
   }
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];

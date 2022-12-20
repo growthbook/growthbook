@@ -15,12 +15,15 @@ const auditSchema = new mongoose.Schema({
     id: String,
     email: String,
     name: String,
+    apiKey: String,
   },
+  reason: String,
   event: String,
   entity: {
     _id: false,
     object: String,
     id: String,
+    name: String,
   },
   parent: {
     _id: false,

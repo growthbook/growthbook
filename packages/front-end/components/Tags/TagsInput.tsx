@@ -1,9 +1,10 @@
 import { FC } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import MultiSelectField from "../Forms/MultiSelectField";
 import { StylesConfig } from "react-select";
-import { isLight } from "./Tag";
 import { TagInterface } from "back-end/types/tag";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
+import MultiSelectField from "../Forms/MultiSelectField";
+import { isLight } from "./Tag";
 
 export interface ColorOption {
   readonly value: string;
@@ -32,7 +33,12 @@ const TagsInput: FC<{
   creatable = true,
 }) => {
   const { tags, getTagById } = useDefinitions();
+  const permissions = usePermissions();
   if (!tagOptions) tagOptions = tags;
+
+  if (!permissions.manageTags) {
+    creatable = false;
+  }
 
   const tagSet = new Set(tagOptions.map((t) => t.id));
   tagOptions = [...tagOptions];
@@ -106,7 +112,7 @@ const TagsInput: FC<{
           return {
             value: t.id,
             label: t.id,
-            color: t.color,
+            color: t.color || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };
         }) ?? []

@@ -1,15 +1,14 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC } from "react";
+import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import GuardrailResults from "./GuardrailResult";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ago, getValidDate } from "@/services/dates";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "../Queries/RunQueriesButton";
-import { ago, getValidDate } from "../../services/dates";
-import { useEffect } from "react";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
+import GuardrailResults from "./GuardrailResult";
 import FilterSummary from "./FilterSummary";
 import VariationIdWarning from "./VariationIdWarning";
 import { useSnapshot } from "./SnapshotProvider";
@@ -118,7 +117,7 @@ const Results: FC<{
             {snapshot &&
               phaseAgeMinutes < 120 &&
               "It was just started " +
-                ago(experiment.phases[phase].dateStarted) +
+                ago(experiment.phases[phase]?.dateStarted) +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
               permissions.runQueries &&
@@ -162,6 +161,7 @@ const Results: FC<{
             mutateExperiment();
             mutate();
           }}
+          project={experiment.project}
         />
       )}
       {hasData &&
@@ -177,6 +177,7 @@ const Results: FC<{
           <BreakDownResults
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results || []}
             status={experiment.status}
@@ -203,6 +204,7 @@ const Results: FC<{
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results?.[0]}
             status={experiment.status}
@@ -256,14 +258,15 @@ const Results: FC<{
           )}
         </>
       )}
-      {permissions.createAnalyses && experiment.metrics?.length > 0 && (
-        <div className="px-3 mb-3">
-          <span className="text-muted">
-            Click the 3 dots next to the Update button above to configure this
-            report, download as a Jupyter notebook, and more.
-          </span>
-        </div>
-      )}
+      {permissions.check("createAnalyses", experiment.project) &&
+        experiment.metrics?.length > 0 && (
+          <div className="px-3 mb-3">
+            <span className="text-muted">
+              Click the 3 dots next to the Update button above to configure this
+              report, download as a Jupyter notebook, and more.
+            </span>
+          </div>
+        )}
     </>
   );
 };

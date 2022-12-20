@@ -1,23 +1,19 @@
 import Stripe from "stripe";
+import {
+  ENV_SCOPED_PERMISSIONS,
+  GLOBAL_PERMISSIONS,
+  PROJECT_SCOPED_PERMISSIONS,
+} from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
 
-export type Permissions = {
-  addComments: boolean;
-  runQueries: boolean;
-  createPresentations: boolean;
-  createIdeas: boolean;
-  createAnalyses: boolean;
-  createMetrics: boolean;
-  createDimensions: boolean;
-  createSegments: boolean;
-  editDatasourceSettings: boolean;
-  publishFeatures: boolean;
-  createFeatures: boolean;
-  createFeatureDrafts: boolean;
-  organizationSettings: boolean;
-  createDatasources: boolean;
-  superDelete: boolean;
-};
+export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
+export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
+export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
+
+export type Permission =
+  | GlobalPermission
+  | EnvScopedPermission
+  | ProjectScopedPermission;
 
 export type MemberRole =
   | "readonly"
@@ -29,16 +25,48 @@ export type MemberRole =
   | "experimenter"
   | "admin";
 
-export interface Invite {
+export type Role = {
+  id: MemberRole;
+  description: string;
+  permissions: Permission[];
+};
+
+export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
+export type CommercialFeature =
+  | "sso"
+  | "advanced-permissions"
+  | "encrypt-features-endpoint"
+  | "override-metrics";
+export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
+
+export interface MemberRoleInfo {
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+}
+
+export interface ProjectMemberRole extends MemberRoleInfo {
+  project: string;
+}
+
+export interface MemberRoleWithProjects extends MemberRoleInfo {
+  projectRoles?: ProjectMemberRole[];
+}
+
+export interface Invite extends MemberRoleWithProjects {
   email: string;
   key: string;
   dateCreated: Date;
-  role: MemberRole;
 }
 
-export interface Member {
+export interface Member extends MemberRoleWithProjects {
   id: string;
-  role: MemberRole;
+  dateCreated?: Date;
+}
+
+export interface ExpandedMember extends Member {
+  email: string;
+  name: string;
 }
 
 export interface NorthStarMetric {
@@ -49,6 +77,12 @@ export interface NorthStarMetric {
   window?: string;
   resolution?: string;
   startDate?: Date;
+}
+
+export interface MetricDefaults {
+  minimumSampleSize?: number;
+  maxPercentageChange?: number;
+  minPercentageChange?: number;
 }
 
 export interface Namespaces {
@@ -65,12 +99,14 @@ export type SDKAttributeType =
   | "number[]"
   | "enum";
 
-export type SDKAttributeSchema = {
+export type SDKAttribute = {
   property: string;
   datatype: SDKAttributeType;
   hashAttribute?: boolean;
   enum?: string;
-}[];
+  archived?: boolean;
+};
+export type SDKAttributeSchema = SDKAttribute[];
 
 export type ExperimentUpdateSchedule = {
   type: "cron" | "never" | "stale";
@@ -94,6 +130,7 @@ export interface OrganizationSettings {
   secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
+  metricDefaults?: MetricDefaults;
   datasources?: string[];
   techsources?: string[];
   pastExperimentsMinLength?: number;
@@ -102,13 +139,17 @@ export interface OrganizationSettings {
   attributeSchema?: SDKAttributeSchema;
   environments?: Environment[];
   sdkInstructionsViewed?: boolean;
+  videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
+  defaultRole?: MemberRoleInfo;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  statsEngine?: "bayesian" | "frequentist";
 }
 
 export interface SubscriptionQuote {
-  qty: number;
+  currentSeatsPaidFor: number;
+  activeAndInvitedUsers: number;
   unitPrice: number;
   discountAmount: number;
   discountMessage: string;
@@ -117,18 +158,36 @@ export interface SubscriptionQuote {
   additionalSeatPrice: number;
 }
 
+export interface OrganizationConnections {
+  slack?: SlackConnection;
+  vercel?: VercelConnection;
+}
+
+export interface SlackConnection {
+  team: string;
+  token: string;
+}
+
+export interface VercelConnection {
+  token: string;
+  configurationId: string;
+  teamId: string | null;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
-  claimedDomain?: string;
+  dateCreated: Date;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
+  restrictAuthSubPrefix?: string;
   freeSeats?: number;
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  enterprise?: boolean;
   subscription?: {
     id: string;
     qty: number;
@@ -141,15 +200,10 @@ export interface OrganizationInterface {
     planNickname: string | null;
     priceId?: string;
   };
+  licenseKey?: string;
   members: Member[];
   invites: Invite[];
-
-  connections?: {
-    slack?: {
-      team: string;
-      token: string;
-    };
-  };
+  connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
 
@@ -163,3 +217,27 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
+
+export type LicenseData = {
+  // Unique id for the license key
+  ref: string;
+  // Name of organization on the license
+  sub: string;
+  // Organization ID (keys prior to 12/2022 do not contain this field)
+  org?: string;
+  // Max number of seats
+  qty: number;
+  // Date issued
+  iat: string;
+  // Expiration date
+  exp: string;
+  // If it's a trial or not
+  trial: boolean;
+  // The plan (pro, enterprise, etc.)
+  plan: AccountPlan;
+  /**
+   * Expiration date (old style)
+   * @deprecated
+   */
+  eat?: string;
+};

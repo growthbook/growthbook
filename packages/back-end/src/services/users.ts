@@ -1,9 +1,8 @@
-import { UserDocument, UserModel } from "../models/UserModel";
-import uniqid from "uniqid";
 import crypto from "crypto";
-import { IS_CLOUD } from "../util/secrets";
 import { promisify } from "util";
-import { validatePasswordFormat } from "./auth";
+import uniqid from "uniqid";
+import { UserDocument, UserModel } from "../models/UserModel";
+import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
 const HASH_LEN = 64;
@@ -77,7 +76,7 @@ export async function createUser(
 ) {
   let passwordHash = "";
 
-  if (!IS_CLOUD) {
+  if (!usingOpenId()) {
     password = validatePasswordFormat(password);
     passwordHash = await hash(password);
   }

@@ -1,13 +1,14 @@
-import { FC } from "react";
-import Modal from "../Modal";
+import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { DimensionInterface } from "back-end/types/dimension";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
 import useMembers from "../../hooks/useMembers";
+import { validateSQL } from "../../services/datasources";
+import SQLInputField from "../SQLInputField";
+import { useAuth } from "../../services/auth";
+import { useDefinitions } from "../../services/DefinitionsContext";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -37,23 +38,18 @@ const DimensionForm: FC<{
   const dsProps = dsObj?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
+  const requiredColumns = useMemo(() => {
+    return new Set([userIdType, "value"]);
+  }, [userIdType]);
+
   return (
     <Modal
       close={close}
       open={true}
       header={current ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
-        if (sql && !value.sql.toLowerCase().includes("select")) {
-          throw new Error(`Invalid SELECT statement`);
-        }
-        if (
-          sql &&
-          !value.sql.toLowerCase().includes(value.userIdType.toLowerCase())
-        ) {
-          throw new Error(`Must select a column named '${value.userIdType}'`);
-        }
-        if (sql && !value.sql.toLowerCase().includes("value")) {
-          throw new Error("Must select a column named 'value'");
+        if (sql) {
+          validateSQL(value.sql, [value.userIdType, "value"]);
         }
 
         await apiCall(
@@ -81,8 +77,9 @@ const DimensionForm: FC<{
         placeholder="Choose one..."
         options={datasources.map((d) => ({
           value: d.id,
-          label: d.name,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
       />
       {dsProps.userIds && (
         <SelectField
@@ -99,12 +96,11 @@ const DimensionForm: FC<{
         />
       )}
       {sql ? (
-        <CodeTextArea
-          label="SQL"
-          required
-          language="sql"
-          value={form.watch("sql")}
-          setValue={(sql) => form.setValue("sql", sql)}
+        <SQLInputField
+          userEnteredQuery={form.watch("sql")}
+          datasourceId={dsObj.id}
+          form={form}
+          requiredColumns={requiredColumns}
           placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
           helpText={
             <>
@@ -112,6 +108,7 @@ const DimensionForm: FC<{
               <code>value</code>
             </>
           }
+          queryType="dimension"
         />
       ) : (
         <Field

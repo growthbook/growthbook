@@ -1,9 +1,10 @@
 import React from "react";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import DateGraph from "../Metrics/DateGraph";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DateGraph from "../Metrics/DateGraph";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -15,6 +16,7 @@ const NorthStarMetricDisplay = ({
   window?: number | string;
   resolution?: string;
 }): React.ReactElement => {
+  const { project } = useDefinitions();
   const { data, error } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
@@ -32,7 +34,9 @@ const NorthStarMetricDisplay = ({
   // Disabled window range for now.
 
   const metric = data.metric;
-  const experiments = data.experiments;
+  const experiments = project
+    ? data.experiments.filter((e) => e.project === project)
+    : data.experiments;
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
     analysis = null;

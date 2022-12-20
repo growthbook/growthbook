@@ -65,7 +65,6 @@ export type ExperimentMetricQueryParams = {
 
 export type PastExperimentParams = {
   from: Date;
-  minLength?: number;
 };
 
 export type MetricValueParams = {
@@ -129,7 +128,6 @@ export type ExperimentMetricQueryResponse = {
   mean: number;
   stddev: number;
 }[];
-
 export interface SourceIntegrationConstructor {
   new (
     encryptedParams: string,
@@ -137,10 +135,20 @@ export interface SourceIntegrationConstructor {
   ): SourceIntegrationInterface;
 }
 
+export interface TestQueryRow {
+  [key: string]: unknown;
+}
+
+export interface TestQueryResult {
+  results: TestQueryRow[];
+  duration: number;
+}
+
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
   settings: DataSourceSettings;
+  decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
   getSensitiveParamKeys(): string[];
@@ -158,8 +166,10 @@ export interface SourceIntegrationInterface {
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
   ): Promise<ExperimentQueryResponses>;
-  testConnection(): Promise<boolean>;
   getSourceProperties(): DataSourceProperties;
+  testConnection(): Promise<boolean>;
+  getTestQuery?(query: string): string;
+  runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;

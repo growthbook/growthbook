@@ -3,9 +3,9 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import VariationsInput from "../Features/VariationsInput";
 
 export interface Props {

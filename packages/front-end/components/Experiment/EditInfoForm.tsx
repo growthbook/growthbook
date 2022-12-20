@@ -1,13 +1,13 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import {
   ExperimentInterfaceStringDates,
   ImplementationType,
 } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import useUser from "../../hooks/useUser";
 import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 
@@ -16,9 +16,7 @@ const EditInfoForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const {
-    settings: { visualEditorEnabled },
-  } = useUser();
+  const { visualEditorEnabled } = useOrgSettings();
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {

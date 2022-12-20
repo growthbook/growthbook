@@ -1,14 +1,14 @@
-import { useState } from "react";
-import { FC } from "react";
+import { useState, FC } from "react";
+import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
 import NamespaceModal from "../components/Experiment/NamespaceModal";
-import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useOrgSettings from "../hooks/useOrgSettings";
-import useUser from "../hooks/useUser";
+import { useUser } from "../services/UserContext";
 import NamespaceTableRow from "../components/Settings/NamespaceTableRow";
 import { useAuth } from "../services/auth";
+import usePermissions from "../hooks/usePermissions";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -19,7 +19,10 @@ const NamespacesPage: FC = () => {
     `/organization/namespaces`
   );
 
-  const { update } = useUser();
+  const permissions = usePermissions();
+  const canEdit = permissions.manageNamespaces;
+
+  const { refreshOrganization } = useUser();
   const { namespaces } = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
   const [editNamespace, setEditNamespace] = useState<{
@@ -49,7 +52,7 @@ const NamespacesPage: FC = () => {
             setEditNamespace(null);
           }}
           onSuccess={() => {
-            update();
+            refreshOrganization();
             setEditNamespace(null);
           }}
         />
@@ -68,7 +71,7 @@ const NamespacesPage: FC = () => {
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
-              <th style={{ width: 30 }}></th>
+              {canEdit && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -91,7 +94,7 @@ const NamespacesPage: FC = () => {
                     await apiCall(`/organization/namespaces/${ns.name}`, {
                       method: "DELETE",
                     });
-                    await update();
+                    await refreshOrganization();
                   }}
                   onArchive={async () => {
                     const newNamespace = {
@@ -103,7 +106,7 @@ const NamespacesPage: FC = () => {
                       method: "PUT",
                       body: JSON.stringify(newNamespace),
                     });
-                    await update();
+                    await refreshOrganization();
                   }}
                 />
               );
@@ -111,15 +114,17 @@ const NamespacesPage: FC = () => {
           </tbody>
         </table>
       )}
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setModalOpen(true);
-        }}
-      >
-        <GBAddCircle /> Create Namespace
-      </button>
+      {canEdit && (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setModalOpen(true);
+          }}
+        >
+          <GBAddCircle /> Create Namespace
+        </button>
+      )}
     </div>
   );
 };

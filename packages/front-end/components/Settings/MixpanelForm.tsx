@@ -1,11 +1,13 @@
 import { FC, ChangeEventHandler } from "react";
 import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import SelectField from "../Forms/SelectField";
 
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, existing, onParamChange }) => {
+  onManualParamChange: (name: string, value: string) => void;
+}> = ({ params, existing, onParamChange, onManualParamChange }) => {
   return (
     <>
       <div className="alert alert-info">
@@ -34,8 +36,9 @@ const MixpanelForm: FC<{
         <div className="form-group col-md-12">
           <label>Secret</label>
           <input
-            type="password"
-            className="form-control"
+            type="text"
+            className="form-control password-presentation"
+            autoComplete="off"
             name="secret"
             required={!existing}
             value={params.secret || ""}
@@ -56,15 +59,17 @@ const MixpanelForm: FC<{
         </div>
         <div className="form-group col-md-12">
           <label>API Server</label>
-          <select
-            className="form-control"
+          <SelectField
             name="server"
             value={params.server || "standard"}
-            onChange={onParamChange}
-          >
-            <option value="standard">Standard (mixpanel.com/api)</option>
-            <option value="eu">EU Residency (eu.mixpanel.com/api)</option>
-          </select>
+            onChange={(v) => {
+              onManualParamChange("server", v);
+            }}
+            options={[
+              { value: "standard", label: "Standard (mixpanel.com/api)" },
+              { value: "eu", label: "EU Residency (eu.mixpanel.com/api)" },
+            ]}
+          />
         </div>
       </div>
     </>

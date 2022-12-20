@@ -1,3 +1,6 @@
+import path from "path";
+import nodemailer from "nodemailer";
+import nunjucks from "nunjucks";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -8,11 +11,8 @@ import {
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
 } from "../util/secrets";
-import nodemailer from "nodemailer";
-import nunjucks from "nunjucks";
-import { getEmailFromUserId, getInviteUrl } from "./organizations";
-import path from "path";
 import { OrganizationInterface } from "../../types/organization";
+import { getEmailFromUserId, getInviteUrl } from "./organizations";
 export function isEmailEnabled(): boolean {
   if (!EMAIL_ENABLED) return false;
   if (!EMAIL_HOST) return false;
@@ -44,14 +44,24 @@ async function sendMail({
   subject,
   to,
   text,
+  ignoreUnsubscribes = false,
 }: {
   html: string;
   subject: string;
   to: string;
   text: string;
+  ignoreUnsubscribes?: boolean;
 }) {
   if (!isEmailEnabled() || !transporter) {
     throw new Error("Email server not configured.");
+  }
+
+  const headers: { [key: string]: string } = {};
+
+  // If using Sendgrid, we can bypass unsubscribe lists for important emails
+  if (ignoreUnsubscribes && EMAIL_HOST === "smtp.sendgrid.net") {
+    headers["x-smtpapi"] =
+      '{"filters":{"bypass_list_management":{"settings":{"enable":1}}}}';
   }
 
   await transporter.sendMail({
@@ -60,6 +70,7 @@ async function sendMail({
     subject,
     text,
     html,
+    headers,
   });
 }
 export async function sendInviteEmail(
@@ -82,6 +93,7 @@ export async function sendInviteEmail(
     subject: `You've been invited to join ${organization.name} on GrowthBook`,
     to: invite.email,
     text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
+    ignoreUnsubscribes: true,
   });
 }
 
@@ -125,6 +137,7 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
     subject: "Reset GrowthBook Password",
     to: email,
     text: `Reset your password by visiting ${resetUrl}`,
+    ignoreUnsubscribes: true,
   });
 }
 

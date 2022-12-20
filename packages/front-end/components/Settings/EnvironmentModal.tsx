@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
+import { Environment } from "back-end/types/organization";
+import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import { Environment } from "back-end/types/organization";
 import Toggle from "../Forms/Toggle";
-import { useEnvironments } from "../../services/features";
-import useUser from "../../hooks/useUser";
 
 export default function EnvironmentModal({
   existing,
@@ -26,7 +26,7 @@ export default function EnvironmentModal({
   });
   const { apiCall } = useAuth();
   const environments = useEnvironments();
-  const { update } = useUser();
+  const { refreshOrganization } = useUser();
 
   return (
     <Modal
@@ -52,6 +52,9 @@ export default function EnvironmentModal({
               "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
             );
           }
+          if (newEnvs.find((e) => e.id === value.id)) {
+            throw new Error("Environment id is already in use");
+          }
           newEnvs.push({
             id: value.id.toLowerCase(),
             description: value.description,
@@ -71,7 +74,7 @@ export default function EnvironmentModal({
         });
 
         // Update environments list in UI
-        await update();
+        await refreshOrganization();
 
         // Create API key for environment if it doesn't exist yet
         await apiCall(`/keys?preferExisting=true`, {

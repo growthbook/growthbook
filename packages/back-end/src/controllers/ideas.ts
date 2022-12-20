@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   getIdeasByOrganization,
@@ -18,7 +19,6 @@ import {
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
-import { FilterQuery } from "mongoose";
 import { IdeaDocument } from "../models/IdeasModel";
 
 export async function getIdeas(
@@ -44,7 +44,8 @@ export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "runQueries");
+  req.checkPermissions("createIdeas", "");
+  req.checkPermissions("runQueries");
 
   const { metric, segment } = req.body;
 
@@ -66,7 +67,8 @@ export async function postEstimatedImpactManual(
   req: AuthRequest<ImpactEstimateInterface>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "runQueries");
+  req.checkPermissions("createIdeas", "");
+  req.checkPermissions("runQueries");
 
   const { org } = getOrgFromReq(req);
   const { conversionsPerDay, metric } = req.body;
@@ -96,10 +98,11 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
-
   const { org, userId } = getOrgFromReq(req);
   const data = req.body;
+
+  req.checkPermissions("createIdeas", data.project);
+
   data.organization = org.id;
   data.source = "web";
   data.userId = userId;
@@ -112,10 +115,10 @@ export async function postIdeas(
 }
 
 export async function getIdea(
-  req: AuthRequest<Partial<IdeaInterface>>,
+  req: AuthRequest<Partial<IdeaInterface>, { id: string }>,
   res: Response
 ) {
-  const { id }: { id: string } = req.params;
+  const { id } = req.params;
   //const data = req.body;
 
   const idea = await getIdeaById(id);
@@ -142,11 +145,13 @@ export async function getIdea(
       id: idea.estimateParams.estimate,
     });
     if (estimate && estimate.organization !== idea.organization) {
-      console.error(
-        "Estimate org does not match idea org",
-        estimate.id,
-        estimate.organization,
-        idea.organization
+      req.log.error(
+        {
+          estimateId: estimate.id,
+          estimateOrg: estimate.organization,
+          ideaOrg: idea.organization,
+        },
+        "Estimate org does not match idea org"
       );
       estimate = null;
     }
@@ -181,8 +186,6 @@ export async function postIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
-
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
@@ -203,6 +206,8 @@ export async function postIdea(
     });
     return;
   }
+
+  req.checkPermissions("createIdeas", idea.project);
 
   const existing = idea.toJSON();
 
@@ -232,8 +237,6 @@ export async function deleteIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas");
-
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const { org } = getOrgFromReq(req);
@@ -253,6 +256,8 @@ export async function deleteIdea(
     });
     return;
   }
+
+  req.checkPermissions("createIdeas", idea.project);
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.
@@ -323,16 +328,16 @@ export async function postVote(
       idea: idea,
     });
   } catch (e) {
+    req.log.error(e, "Failed to vote");
     res.status(400).json({
       status: 400,
       message: e.message,
     });
-    console.error(e);
   }
 }
 
 export async function getRecentIdeas(
-  req: AuthRequest<null, { num: string }>,
+  req: AuthRequest<unknown, { num: string }, { project?: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);

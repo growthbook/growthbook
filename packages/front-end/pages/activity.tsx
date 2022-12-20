@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
+import { AuditInterface } from "back-end/types/audit";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { AuditInterface } from "back-end/types/audit";
 import { HistoryTableRow } from "../components/HistoryTable";
 
 const Activity: FC = () => {
@@ -49,7 +49,8 @@ const Activity: FC = () => {
                 setOpen={(open) => {
                   setOpen(open ? event.id : "");
                 }}
-                isActivity={true}
+                showName={true}
+                showType={true}
                 itemName={
                   nameMap.has(event.entity.id) && nameMap.get(event.entity.id)
                 }

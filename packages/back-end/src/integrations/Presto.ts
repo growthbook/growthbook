@@ -1,18 +1,24 @@
 /// <reference types="../../typings/presto-client" />
+import { Client, IPrestoClientOptions } from "presto-client";
 import { decryptDataSourceParams } from "../services/datasource";
-import SqlIntegration from "./SqlIntegration";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
-import { Client } from "presto-client";
+import { FormatDialect } from "../util/sql";
+import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
 type Row = any;
 
 export default class Presto extends SqlIntegration {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   params: PrestoConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
       encryptedParams
     );
+  }
+  getFormatDialect(): FormatDialect {
+    return "trino";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
@@ -21,7 +27,7 @@ export default class Presto extends SqlIntegration {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
   runQuery(sql: string) {
-    const client = new Client({
+    const configOptions: IPrestoClientOptions = {
       host: this.params.host,
       port: this.params.port,
       user: "growthbook",
@@ -33,7 +39,16 @@ export default class Presto extends SqlIntegration {
       schema: this.params.schema,
       catalog: this.params.catalog,
       checkInterval: 500,
-    });
+    };
+    if (this.params?.ssl) {
+      configOptions.ssl = {
+        ca: this.params?.caCert,
+        cert: this.params?.clientCert || "",
+        key: this.params?.clientKey,
+        secureProtocol: "SSLv23_method",
+      };
+    }
+    const client = new Client(configOptions);
 
     return new Promise<Row[]>((resolve, reject) => {
       let cols: string[];
@@ -83,5 +98,8 @@ export default class Presto extends SqlIntegration {
   }
   useAliasInGroupBy(): boolean {
     return false;
+  }
+  ensureFloat(col: string): string {
+    return `1.0*${col}`;
   }
 }

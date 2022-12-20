@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.2.1",
+  "specVersion": "0.2.3",
   "evalCondition": [
     [
       "$not - pass",
@@ -1995,6 +1995,42 @@
       }
     ],
     [
+      "handles integer hashAttribute",
+      {
+        "attributes": { "id": 123 },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "variations": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "experiment": {
+          "key": "feature",
+          "variations": [0, 1]
+        },
+        "experimentResult": {
+          "featureId": "feature",
+          "hashAttribute": "id",
+          "hashValue": 123,
+          "hashUsed": true,
+          "inExperiment": true,
+          "value": 1,
+          "variationId": 1
+        }
+      }
+    ],
+    [
       "skip experiment on missing hashAttribute",
       {
         "attributes": { "id": "123" },
@@ -2690,6 +2726,22 @@
         "key": "my-test",
         "variations": [0, 1],
         "namespace": ["namespace", 0, 0.1]
+      },
+      0,
+      false,
+      false
+    ],
+    [
+      "Experiment coverage - Works when 0",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "no-coverage",
+        "variations": [0, 1],
+        "coverage": 0
       },
       0,
       false,

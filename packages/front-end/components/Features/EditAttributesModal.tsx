@@ -1,22 +1,28 @@
 import { useFieldArray, useForm } from "react-hook-form";
-import { SDKAttributeSchema } from "back-end/types/organization";
-import { useAuth } from "../../services/auth";
+import {
+  SDKAttributeSchema,
+  SDKAttributeType,
+} from "back-end/types/organization";
+import { FaQuestionCircle, FaTrash } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
+import { useAttributeSchema } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
-import useUser from "../../hooks/useUser";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
-import Tooltip from "../Tooltip";
-import { FaQuestionCircle } from "react-icons/fa";
-import track from "../../services/track";
-import { useAttributeSchema } from "../../services/features";
+import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "../Forms/SelectField";
 
 export default function EditAttributesModal({ close }: { close: () => void }) {
-  const { settings, update } = useUser();
+  const { refreshOrganization } = useUser();
+  const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
   const form = useForm<{ attributeSchema: SDKAttributeSchema }>({
     defaultValues: {
-      attributeSchema: useAttributeSchema(),
+      attributeSchema: useAttributeSchema(true),
     },
   });
 
@@ -48,7 +54,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
             settings: value,
           }),
         });
-        await update();
+        await refreshOrganization();
       })}
     >
       <p>
@@ -78,7 +84,12 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
           </thead>
           <tbody>
             {attributeSchema.fields.map((v, i) => (
-              <tr key={i}>
+              <tr
+                className={
+                  form.watch(`attributeSchema.${i}.archived`) ? "disabled" : ""
+                }
+                key={i}
+              >
                 <td>
                   <input
                     {...form.register(`attributeSchema.${i}.property`)}
@@ -88,22 +99,30 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   />
                 </td>
                 <td>
-                  <select
-                    {...form.register(`attributeSchema.${i}.datatype`)}
-                    className="form-control"
-                  >
-                    <option value="boolean">Boolean</option>
-                    <option value="number">Number</option>
-                    <option value="string">String</option>
-                    <option value="enum">Enum</option>
-                    <option value="number[]">Array of Numbers</option>
-                    <option value="string[]">Array of Strings</option>
-                  </select>
+                  <SelectField
+                    value={form.watch(`attributeSchema.${i}.datatype`)}
+                    onChange={(v) =>
+                      form.setValue(
+                        `attributeSchema.${i}.datatype`,
+                        v as SDKAttributeType
+                      )
+                    }
+                    style={{ width: 200 }}
+                    options={[
+                      { value: "boolean", label: "Boolean" },
+                      { value: "number", label: "Number" },
+                      { value: "string", label: "String" },
+                      { value: "enum", label: "Enum" },
+                      { value: "number[]", label: "Array of Numbers" },
+                      { value: "string[]", label: "Array of Strings" },
+                    ]}
+                  />
                   {form.watch(`attributeSchema.${i}.datatype`) === "enum" && (
                     <div>
                       <Field
                         textarea
                         minRows={1}
+                        style={{ width: 200 }}
                         required
                         {...form.register(`attributeSchema.${i}.enum`)}
                         placeholder="Comma-separated list of all possible values"
@@ -115,6 +134,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                   <Toggle
                     id={"toggle" + i}
                     label="Identifier"
+                    style={{ marginTop: 5 }}
                     value={!!form.watch(`attributeSchema.${i}.hashAttribute`)}
                     setValue={(value) => {
                       form.setValue(
@@ -127,13 +147,14 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                 <td>
                   <button
                     className="btn btn-link text-danger close"
+                    style={{ marginTop: 5 }}
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       attributeSchema.remove(i);
                     }}
                   >
-                    x
+                    <FaTrash />
                   </button>
                 </td>
               </tr>

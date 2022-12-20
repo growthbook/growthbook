@@ -1,9 +1,12 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import {
+  getFeatureDefaultValue,
+  validateFeatureValue,
+} from "@/services/features";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
-import { getFeatureDefaultValue } from "../../services/features";
 
 export interface Props {
   feature: FeatureInterface;
@@ -27,6 +30,18 @@ export default function EditDefaultValueModal({
     <Modal
       header="Edit Default Value"
       submit={form.handleSubmit(async (value) => {
+        const newDefaultValue = validateFeatureValue(
+          feature.valueType,
+          value.defaultValue,
+          ""
+        );
+        if (newDefaultValue !== value.defaultValue) {
+          form.setValue("defaultValue", newDefaultValue);
+          throw new Error(
+            "We fixed some errors in the value. If it looks correct, submit again."
+          );
+        }
+
         await apiCall(`/feature/${feature.id}/defaultvalue`, {
           method: "POST",
           body: JSON.stringify(value),

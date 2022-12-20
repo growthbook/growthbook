@@ -1,27 +1,30 @@
 import stringify from "json-stringify-pretty-compact";
-import { getTrackingCallback, TrackingType } from "../../services/codegen";
-import { getApiHost, isCloud } from "../../services/env";
-import { useState, useEffect } from "react";
-import useUser from "../../hooks/useUser";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useState, useEffect, ReactElement } from "react";
 import { SDKAttributeSchema } from "back-end/types/organization";
+import { getTrackingCallback, TrackingType } from "@/services/codegen";
+import { getApiHost, isCloud } from "@/services/env";
+import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import { useAttributeSchema } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
-import Code from "../Code";
+import Code, { Language } from "../SyntaxHighlighting/Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
-import { useAttributeSchema } from "../../services/features";
-import { Language } from "../Code";
-import { useEnvironments } from "../../services/features";
-import SelectField from "../Forms/SelectField";
-import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
+import SDKEndpointSelector from "./SDKEndpointSelector";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
     .replace(/\{/g, "[")
     .replace(/\}/g, "]")
     .replace(/:/g, " =>");
+}
+
+function swiftArrayFormat(json: unknown) {
+  return stringify(json).replace(/\{/, "[").replace(/\}/g, "]");
 }
 
 function indentLines(code: string, indent: number | string = 2) {
@@ -76,18 +79,30 @@ function getApiBaseUrl(): string {
   return getApiHost() + "/";
 }
 
-function getFeaturesUrl(apiKey: string) {
-  return getApiBaseUrl() + `api/features/${apiKey || "<your api key here>"}`;
+export function getSDKEndpoint(apiKey: string, project?: string) {
+  let endpoint = getApiBaseUrl() + `api/features/${apiKey || "MY_SDK_KEY"}`;
+  if (project) {
+    endpoint += `?project=${project}`;
+  }
+  return endpoint;
 }
 
 export default function CodeSnippetModal({
   close,
   featureId = "my-feature",
   defaultLanguage = "javascript",
+  inline,
+  cta = "Finish",
+  submit,
+  secondaryCTA,
 }: {
-  close: () => void;
+  close?: () => void;
   featureId?: string;
   defaultLanguage?: Language;
+  inline?: boolean;
+  cta?: string;
+  submit?: () => Promise<void>;
+  secondaryCTA?: ReactElement;
 }) {
   const [language, setLanguage] = useState<Language>(defaultLanguage);
   const permissions = usePermissions();
@@ -98,25 +113,25 @@ export default function CodeSnippetModal({
     tracking: "custom",
     gaDimension: "1",
   });
-  const environments = useEnvironments();
-
-  const [environment, setEnvironment] = useState(environments[0]?.id || "");
   const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
 
-  const { settings, update } = useUser();
+  const { refreshOrganization } = useUser();
+  const settings = useOrgSettings();
 
   const attributeSchema = useAttributeSchema();
 
-  const { datasources } = useDefinitions();
+  const { datasources, project } = useDefinitions();
   const exampleAttributes = getExampleAttributes(attributeSchema);
+
+  const [currentProject, setCurrentProject] = useState(project);
 
   // Record the fact that the SDK instructions have been seen
   useEffect(() => {
     if (!settings) return;
     if (settings.sdkInstructionsViewed) return;
-    if (!permissions.organizationSettings) return;
+    if (!permissions.check("manageEnvironments", "", [])) return;
     (async () => {
       await apiCall(`/organization`, {
         method: "PUT",
@@ -126,36 +141,9 @@ export default function CodeSnippetModal({
           },
         }),
       });
-      await update();
+      await refreshOrganization();
     })();
   }, [settings]);
-
-  // Create API key if one doesn't exist yet
-  useEffect(() => {
-    (async () => {
-      if (!environment) {
-        return;
-      }
-
-      try {
-        setApiKey("...");
-        const key = await apiCall<{ key: string }>(
-          `/keys?preferExisting=true`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              description: `${environment} Features SDK`,
-              environment: environment,
-            }),
-          }
-        );
-        setApiKey(key.key || "");
-      } catch (e) {
-        // Happens when user doesn't have permission to create new API keys
-        console.error(e);
-      }
-    })();
-  }, [environment]);
 
   useEffect(() => {
     const ds = datasources?.[0];
@@ -182,41 +170,22 @@ export default function CodeSnippetModal({
   return (
     <Modal
       close={close}
+      secondaryCTA={secondaryCTA}
       open={true}
-      size="lg"
+      inline={inline}
+      size={"lg"}
       header="Implementation Instructions"
       submit={async () => {
-        return;
+        if (submit) await submit();
       }}
-      cta={"Finish"}
+      cta={cta}
     >
-      {apiKey && (
-        <>
-          <strong>API Endpoint</strong>
-          <div className="row mb-2 mt-1 align-items-center">
-            {environments.length > 1 && (
-              <div className="col-auto">
-                <SelectField
-                  options={environments.map((e) => ({
-                    value: e.id,
-                    label: e.id,
-                  }))}
-                  value={environment}
-                  onChange={(env) => setEnvironment(env)}
-                />
-              </div>
-            )}
-            <div className="col">
-              <input
-                readOnly
-                value={getFeaturesUrl(apiKey)}
-                onFocus={(e) => e.target.select()}
-                className="form-control"
-              />
-            </div>
-          </div>
-        </>
-      )}
+      <SDKEndpointSelector
+        apiKey={apiKey}
+        setApiKey={setApiKey}
+        project={currentProject}
+        setProject={setCurrentProject}
+      />
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
         languages coming soon!
@@ -239,6 +208,8 @@ import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
   trackingCallback: (experiment, result) => {
     ${indentLines(
       getTrackingCallback(
@@ -257,7 +228,7 @@ const growthbook = new GrowthBook({
                 ? ""
                 : `\n// In production, we recommend putting a CDN in front of the API endpoint`
             }
-const FEATURES_ENDPOINT = "${getFeaturesUrl(apiKey)}";
+const FEATURES_ENDPOINT = "${getSDKEndpoint(apiKey, currentProject)}";
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
@@ -294,6 +265,8 @@ import { useEffect } from "react";
 
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
+  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+  enableDevMode: true,
   trackingCallback: (experiment, result) => {
     ${indentLines(
       getTrackingCallback(
@@ -314,12 +287,12 @@ export default function MyApp() {
         ? ""
         : `\n    // In production, we recommend putting a CDN in front of the API endpoint`
     }
-    fetch("${getFeaturesUrl(apiKey)}")
+    fetch("${getSDKEndpoint(apiKey, currentProject)}")
       .then((res) => res.json())
       .then((json) => {
         growthbook.setFeatures(json.features);
       });
-    
+
     // TODO: replace with real targeting attributes
     growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 4)})
   }, [])
@@ -339,77 +312,6 @@ function MyComponent() {
             `.trim()}
           />
         </Tab>
-        <Tab display="Go" id="go">
-          <p>
-            Read the <DocLink docSection="go">full Golang SDK docs</DocLink> for
-            more details.
-          </p>
-          <Code
-            language="sh"
-            code="go get github.com/growthbook/growthbook-golang"
-          />
-          <Code
-            language="go"
-            code={`
-package main
-
-import (
-	"encoding/json"
-	"fmt"
-	growthbook "github.com/growthbook/growthbook-golang"
-	"io/ioutil"
-	"log"
-	"net/http"
-)
-
-// Features API response
-type GrowthBookApiResp struct {
-	Features json.RawMessage
-	Status   int
-}
-
-func GetFeatureMap() []byte {
-	// Fetch features JSON from api
-	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getFeaturesUrl(apiKey)}")
-	if err != nil {
-		log.Println(err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	// Just return the features map from the API response
-	apiResp := &GrowthBookApiResp{}
-	_ = json.Unmarshal(body, apiResp)
-	return apiResp.Features
-}
-
-func main() {
-	featureMap := GetFeatureMap()
-	features := growthbook.ParseFeatureMap(featureMap)
-
-	context := growthbook.NewContext().
-		WithFeatures(features).
-		// TODO: Real user attributes
-		WithAttributes(growthbook.Attributes${indentLines(
-      JSON.stringify(exampleAttributes, null, "\t"),
-      "\t\t"
-    )
-      .replace(/null/g, "nil")
-      .replace(/\n(\t+)\}/, ",\n$1}")}).
-		// TODO: Track in your analytics system
-		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
-			log.Println(fmt.Sprintf("Experiment: %s, Variation: %d", experiment.Key, result.VariationID))
-		})
-	gb := growthbook.New(context)
-
-	// Use a feature!
-	if gb.Feature(${JSON.stringify(featureId)}).On {
-		// ...
-	}
-}
-            `.trim()}
-          />
-        </Tab>{" "}
         <Tab display="Kotlin (Android)" id="kotlin">
           <p>
             Read the{" "}
@@ -420,6 +322,7 @@ func main() {
           </p>
           <Code
             language="javascript"
+            filename="build.gradle"
             code={`repositories {
     mavenCentral()
 }
@@ -445,7 +348,9 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${apiKey || "<your api key here>"}",
+  apiKey = "${apiKey || "MY_SDK_KEY"}${
+              currentProject ? "?" + currentProject : ""
+            }",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
@@ -455,6 +360,140 @@ val gb = GBSDKBuilder(
 
 if (gb.feature(${JSON.stringify(featureId)}).on) {
   // Feature is enabled!
+}
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Swift (iOS)" id="swift">
+          <p>
+            View the{" "}
+            <a
+              href="https://github.com/growthbook/growthbook-swift"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub repo
+            </a>{" "}
+            for more details.
+          </p>
+          <div className="mb-3">
+            <strong>Cocoapods Installation</strong>
+            <Code
+              language="javascript"
+              filename="Podfile"
+              code={`
+source 'https://github.com/CocoaPods/Specs.git'
+
+target 'MyApp' do
+  pod 'GrowthBook-IOS'
+end
+          `.trim()}
+            />
+            <Code language="sh" code={"pod install"} />
+          </div>
+          <div className="mb-3">
+            <strong>Swift Package Manager (SPM) Installation</strong>
+            <Code
+              language="swift"
+              filename="Package.swift"
+              code={`
+dependencies: [
+  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+]
+            `.trim()}
+            />
+          </div>
+          <strong>Usage Instructions</strong>
+          <Code
+            language="swift"
+            code={`
+// TODO: Real user attributes
+var attrs = ${swiftArrayFormat(exampleAttributes)}
+
+// Fetch and cache feature definitions from GrowthBook API${
+              !isCloud() ? "\n// We recommend using a CDN in production" : ""
+            }
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  url: "${getSDKEndpoint(apiKey, currentProject)}",
+  attributes: attrs,
+  trackingCallback: { experiment, experimentResult in 
+    // TODO: track in your analytics system
+  }
+).initializer()
+
+if (gb.isOn(${JSON.stringify(featureId)})) {
+  // Feature is enabled!
+}
+          `.trim()}
+          />
+        </Tab>
+        <Tab display="Go" id="go">
+          <p>
+            Read the <DocLink docSection="go">full Golang SDK docs</DocLink> for
+            more details.
+          </p>
+          <Code
+            language="sh"
+            code="go get github.com/growthbook/growthbook-golang"
+          />
+          <Code
+            language="go"
+            code={`
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	growthbook "github.com/growthbook/growthbook-golang"
+	"io"
+	"log"
+	"net/http"
+)
+
+// Features API response
+type GrowthBookApiResp struct {
+	Features json.RawMessage
+	Status   int
+}
+
+func GetFeatureMap() []byte {
+	// Fetch features JSON from api
+	// In production, we recommend adding a db or cache layer
+	resp, err := http.Get("${getSDKEndpoint(apiKey, currentProject)}")
+	if err != nil {
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	// Just return the features map from the API response
+	apiResp := &GrowthBookApiResp{}
+	_ = json.Unmarshal(body, apiResp)
+	return apiResp.Features
+}
+
+func main() {
+	featureMap := GetFeatureMap()
+	features := growthbook.ParseFeatureMap(featureMap)
+
+	context := growthbook.NewContext().
+		WithFeatures(features).
+		// TODO: Real user attributes
+		WithAttributes(growthbook.Attributes${indentLines(
+      JSON.stringify(exampleAttributes, null, "\t"),
+      "\t\t"
+    )
+      .replace(/null/g, "nil")
+      .replace(/\n(\t+)\}/, ",\n$1}")}).
+		// TODO: Track in your analytics system
+		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
+			log.Println("Experiment:", experiment.Key, "Variation:", result.VariationID)
+		})
+	gb := growthbook.New(context)
+
+	// Use a feature!
+	if gb.Feature(${JSON.stringify(featureId)}).On {
+		// ...
+	}
 }
             `.trim()}
           />
@@ -475,7 +514,7 @@ require 'json'
 
 # Fetch features from GrowthBook API
 # TODO: In production, we recommend adding a caching layer (Redis, etc.)
-uri = URI('${getFeaturesUrl(apiKey)}')
+uri = URI('${getSDKEndpoint(apiKey, currentProject)}')
 res = Net::HTTP.get_response(uri)
 features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
 
@@ -519,7 +558,7 @@ $attributes = ${phpArrayFormat(exampleAttributes)};
 
 // Fetch feature definitions from GrowthBook API
 // In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getFeaturesUrl(apiKey)}';
+const FEATURES_ENDPOINT = '${getSDKEndpoint(apiKey, currentProject)}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
 
@@ -551,7 +590,7 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getFeaturesUrl(apiKey)}")
+apiResp = requests.get("${getSDKEndpoint(apiKey, currentProject)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
@@ -578,6 +617,88 @@ gb = GrowthBook(
 # Use a feature
 if gb.isOn(${JSON.stringify(featureId)}):
   print("Feature is enabled!")
+            `.trim()}
+          />
+        </Tab>
+        <Tab display="Java" id="java">
+          <p>
+            Read the <DocLink docSection="java">full Java SDK docs</DocLink> for
+            more details.
+          </p>
+          <strong>Maven Installation</strong>
+          <Code
+            language="xml"
+            code={`<repositories>
+  <repository>
+    <id>jitpack.io</id>
+    <url>https://jitpack.io</url>
+  </repository>
+</repositories>
+
+<dependency>
+  <groupId>com.github.growthbook</groupId>
+  <artifactId>growthbook-sdk-java</artifactId>
+  <version>0.2.2</version>
+</dependency>`}
+          />
+          <strong>Gradle Installation</strong>
+          <Code
+            language="javascript"
+            filename="build.gradle"
+            code={`allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
+}
+dependencies {
+    implementation 'com.github.growthbook:growthbook-sdk-java:0.2.2'
+}`}
+          />
+          <strong>Usage Instructions</strong>
+          <Code
+            language="java"
+            code={`
+// Fetch feature definitions from GrowthBook API
+// We recommend adding a caching layer in production
+URI featuresEndpoint = new URI("${getSDKEndpoint(apiKey, currentProject)}");
+HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
+HttpResponse<String> response = HttpClient.newBuilder().build()
+    .send(request, HttpResponse.BodyHandlers.ofString());
+String featuresJson = new JSONObject(response.body()).get("features").toString();
+
+// Get user attributes as a JSON string
+JSONObject userAttributesObj = new JSONObject();
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
+      value
+    )});`;
+  })
+  .join("\n")}
+String userAttributesJson = userAttributesObj.toString();
+
+// Experiment tracking callback
+TrackingCallback trackingCallback = new TrackingCallback() {
+  public <ValueType> void onTrack(
+      Experiment<ValueType> experiment,
+      ExperimentResult<ValueType> experimentResult
+  ) {
+      // TODO: Log to event tracking system
+  }
+};
+
+// Create a GrowthBook instance
+GBContext context = GBContext.builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .trackingCallback(trackingCallback)
+    .build();
+GrowthBook growthBook = new GrowthBook(context);
+
+// Evaluate a feature flag
+if (growthBook.isOn(${JSON.stringify(featureId)})) {
+  // Do something!
+}
             `.trim()}
           />
         </Tab>

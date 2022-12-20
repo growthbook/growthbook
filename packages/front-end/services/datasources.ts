@@ -502,7 +502,7 @@ function getTablePrefix(params: DataSourceParams) {
     );
   }
   // PrestoDB
-  else if ("catalog" in params) {
+  else if ("catalog" in params && "schema" in params) {
     return `${params.catalog ? params.catalog + "." : ""}${
       params.schema || "public"
     }.`;
@@ -519,6 +519,7 @@ export function getInitialSettings(
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
   return {
+    schemaFormat: type,
     userIdTypes: userIdTypes.map((type) => {
       return {
         userIdType: type,
@@ -573,4 +574,24 @@ export function getInitialMetricQuery(
     schema.userIdTypes,
     schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
   ];
+}
+
+export function validateSQL(sql: string, requiredColumns: string[]): void {
+  if (!sql) throw new Error("SQL cannot be empty");
+
+  if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
+    throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
+  }
+
+  const missingCols = requiredColumns.filter(
+    (col) => !sql.toLowerCase().includes(col.toLowerCase())
+  );
+
+  if (missingCols.length > 0) {
+    throw new Error(
+      `Missing the following required columns: ${missingCols
+        .map((col) => '"' + col + '"')
+        .join(", ")}`
+    );
+  }
 }

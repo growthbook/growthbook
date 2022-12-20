@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { ProjectInterface } from "../../types/project";
 import uniqid from "uniqid";
+import { ProjectInterface } from "../../types/project";
 
 const projectSchema = new mongoose.Schema({
   id: {

@@ -5,18 +5,18 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import track from "../../services/track";
-import SelectField from "../Forms/SelectField";
-import { getInitialSettings } from "../../services/datasources";
+import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
   eventSchema,
-} from "../../services/eventSchema";
+} from "@/services/eventSchema";
+import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
-import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import EventSourceList from "./EventSourceList";
@@ -26,19 +26,33 @@ const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
   existing: boolean;
   source: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
   importSampleData?: (source: string) => Promise<void>;
-}> = ({ data, onSuccess, onCancel, source, existing, importSampleData }) => {
+  inline?: boolean;
+  secondaryCTA?: ReactElement;
+}> = ({
+  data,
+  onSuccess,
+  onCancel,
+  source,
+  existing,
+  importSampleData,
+  inline,
+  secondaryCTA,
+}) => {
   const [step, setStep] = useState(0);
   const [schema, setSchema] = useState("");
+  const [dataSourceId, setDataSourceId] = useState<string | null>(
+    data?.id || null
+  );
   const [possibleTypes, setPossibleTypes] = useState(
     dataSourceConnections.map((d) => d.type)
   );
 
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
-  >(null);
+  >(data);
   const [lastError, setLastError] = useState("");
   const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     name: "My Datasource",
@@ -69,14 +83,6 @@ const NewDataSourceForm: FC<{
   }, [source]);
 
   const { apiCall } = useAuth();
-  useEffect(() => {
-    if (data) {
-      const newValue: Partial<DataSourceInterfaceWithParams> = {
-        ...data,
-      };
-      setDatasource(newValue);
-    }
-  }, [data]);
 
   if (!datasource) {
     return null;
@@ -91,9 +97,9 @@ const NewDataSourceForm: FC<{
       }
 
       // Update
-      if (data.id) {
+      if (dataSourceId) {
         const res = await apiCall<{ status: number; message: string }>(
-          `/datasource/${data.id}`,
+          `/datasource/${dataSourceId}`,
           {
             method: "PUT",
             body: JSON.stringify(datasource),
@@ -125,13 +131,14 @@ const NewDataSourceForm: FC<{
             },
           }),
         });
-        data.id = res.id;
         track("Submit Datasource Form", {
           source,
           type: datasource.type,
           schema,
           newDatasourceForm: true,
         });
+        setDataSourceId(res.id);
+        return res.id;
       }
     } catch (e) {
       track("Data Source Form Error", {
@@ -151,7 +158,7 @@ const NewDataSourceForm: FC<{
       datasource.params,
       form.watch("settings.schemaOptions")
     );
-    if (!data.id) {
+    if (!dataSourceId) {
       throw new Error("Could not find existing data source id");
     }
     const newVal = {
@@ -160,7 +167,7 @@ const NewDataSourceForm: FC<{
     };
     setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
     await apiCall<{ status: number; message: string }>(
-      `/datasource/${data.id}`,
+      `/datasource/${dataSourceId}`,
       {
         method: "PUT",
         body: JSON.stringify(newVal),
@@ -174,7 +181,9 @@ const NewDataSourceForm: FC<{
     });
   };
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+    e
+  ) => {
     setDatasource({
       ...datasource,
       [e.target.name]: e.target.value,
@@ -182,6 +191,7 @@ const NewDataSourceForm: FC<{
   };
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
+    form.setValue("settings.schemaFormat", s.value);
     track("Selected Event Schema", {
       schema: s.value,
       source,
@@ -213,18 +223,22 @@ const NewDataSourceForm: FC<{
 
   const hasStep2 = !!selectedSchema?.options;
   const isFinalStep = step === 2 || (!hasStep2 && step === 1);
+  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
 
   const submit =
     step === 0
       ? null
       : async () => {
+          let newDataId = dataSourceId;
           if (step === 1) {
-            await saveDataConnection();
+            newDataId = await saveDataConnection();
+          }
+          if (updateSettingsRequired) {
+            await updateSettings();
           }
           if (isFinalStep) {
-            await updateSettings();
-            await onSuccess(data.id);
-            onCancel();
+            await onSuccess(newDataId);
+            onCancel && onCancel();
           } else {
             setStep(step + 1);
           }
@@ -297,6 +311,9 @@ const NewDataSourceForm: FC<{
             </div>
           )}
         </div>
+        {secondaryCTA && (
+          <div className="col-12 text-center">{secondaryCTA}</div>
+        )}
       </div>
     );
   } else if (step === 1) {
@@ -311,7 +328,10 @@ const NewDataSourceForm: FC<{
               setStep(0);
             }}
           >
-            <GBCircleArrowLeft /> Back
+            <span style={{ position: "relative", top: "-1px" }}>
+              <GBCircleArrowLeft />
+            </span>{" "}
+            Back
           </a>
         </div>
         <h3>{selectedSchema.label}</h3>
@@ -366,6 +386,15 @@ const NewDataSourceForm: FC<{
             value={datasource.name}
           />
         </div>
+        <div className="form-group">
+          <label>Description (optional)</label>
+          <textarea
+            className="form-control"
+            name="description"
+            onChange={onChange}
+            value={datasource.description}
+          />
+        </div>
         <ConnectionSettings
           datasource={datasource}
           existing={existing}
@@ -385,7 +414,10 @@ const NewDataSourceForm: FC<{
               setStep(1);
             }}
           >
-            <GBCircleArrowLeft /> Back
+            <span style={{ position: "relative", top: "-1px" }}>
+              <GBCircleArrowLeft />
+            </span>{" "}
+            Back
           </a>
         </div>
         <div className="alert alert-success mb-3">
@@ -437,6 +469,7 @@ const NewDataSourceForm: FC<{
       closeCta="Cancel"
       size="lg"
       error={lastError}
+      inline={inline}
     >
       {stepContents}
     </Modal>

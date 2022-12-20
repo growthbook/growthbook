@@ -1,39 +1,39 @@
-import { ago, date, datetime, getValidDate } from "../../services/dates";
 import Link from "next/link";
 //import Button from "../Button";
-import React, { FC } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
-import { useSearch } from "../../services/search";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useAuth } from "../../services/auth";
-import useApi from "../../hooks/useApi";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  ago,
+  date,
+  datetime,
+  daysBetween,
+  getValidDate,
+} from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
+import { getExposureQuery } from "@/services/datasources";
+import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { isCloud } from "@/services/env";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import LoadingOverlay from "../LoadingOverlay";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
-import usePermissions from "../../hooks/usePermissions";
+import Field from "../Forms/Field";
+import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip/Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 
 const ImportExperimentList: FC<{
   onImport: (obj: Partial<ExperimentInterfaceStringDates>) => void;
   importId: string;
-  searchLimit?: number;
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
-  hideImported?: boolean;
-  //useForm?: boolean;
-}> = ({
-  onImport,
-  importId,
-  searchLimit = 4,
-  showQueries = true,
-  changeDatasource,
-  hideImported = false,
-  //useForm = true,
-}) => {
+}> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
   const { getDatasourceById, ready, datasources } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -42,27 +42,76 @@ const ImportExperimentList: FC<{
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
 
+  const datasource = getDatasourceById(data?.experiments?.datasource);
+
   const status = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
   );
-  const pastExpArr = data?.experiments?.experiments || [];
-  const existing = data?.existing || [];
+  const pastExpArr = useAddComputedFields(
+    data?.experiments?.experiments,
+    (item) => ({
+      exposureQueryName: item.exposureQueryId
+        ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
+        : "experiments",
+    }),
+    [datasource]
+  );
+  const { pastExperimentsMinLength } = useOrgSettings();
 
-  const {
-    list: filteredExperiments,
-    searchInputProps,
-  } = useSearch(
-    pastExpArr?.filter((e) => !hideImported || !existing?.[e.trackingKey]) ||
-      [],
-    ["trackingKey"]
+  const [minUsersFilter, setMinUsersFilter] = useState("100");
+  const [minLengthFilter, setMinLengthFilter] = useState(
+    `${pastExperimentsMinLength || 6}`
+  );
+  const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
+    ""
   );
 
-  filteredExperiments.sort((a, b) => {
-    if (a.startDate < b.startDate) return 1;
-    else if (a.startDate > b.startDate) return -1;
-    return 0;
-  });
+  // Searching
+  const filterResults = useCallback(
+    (items: typeof pastExpArr) => {
+      return items.filter((e) => {
+        if (minUsersFilter && e.users < (parseInt(minUsersFilter) || 0)) {
+          return false;
+        }
+        if (alreadyImportedFilter && data?.existing?.[e.trackingKey]) {
+          return false;
+        }
+        const status =
+          daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
+        if (statusFilter && statusFilter !== status) {
+          return false;
+        }
+        if (
+          minLengthFilter &&
+          status === "stopped" &&
+          daysBetween(e.startDate, e.endDate) < (parseInt(minLengthFilter) || 0)
+        ) {
+          return false;
+        }
+        // Passed all the filters, include it in the table
+        return true;
+      });
+    },
+    [
+      alreadyImportedFilter,
+      data?.existing,
+      minLengthFilter,
+      minUsersFilter,
+      statusFilter,
+    ]
+  );
+  const { items, searchInputProps, clear: clearSearch, SortableTH } = useSearch(
+    {
+      items: pastExpArr,
+      searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
+      defaultSortField: "startDate",
+      defaultSortDir: -1,
+      localStorageKey: "past-experiments",
+      filterResults,
+    }
+  );
 
   if (!importId) {
     return <LoadingOverlay />;
@@ -78,7 +127,13 @@ const ImportExperimentList: FC<{
     (d) => d.properties.pastExperiments
   );
 
-  const datasource = getDatasourceById(data.experiments.datasource);
+  function clearFilters() {
+    setAlreadyImportedFilter(false);
+    setMinUsersFilter("0");
+    setMinLengthFilter("0");
+    setStatusFilter("");
+    clearSearch();
+  }
 
   return (
     <>
@@ -89,12 +144,20 @@ const ImportExperimentList: FC<{
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => ({
                 value: d.id,
-                label: d.name,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
               }))}
+              className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
           ) : (
-            <strong>{datasource?.name}</strong>
+            <>
+              <div>
+                <strong>{datasource?.name}</strong>
+              </div>
+              <div className="text-gray font-weight-normal small text-ellipsis">
+                {datasource?.description}
+              </div>
+            </>
           )}
         </div>
         <div className="col-auto ml-auto">
@@ -138,9 +201,21 @@ const ImportExperimentList: FC<{
         )}
       </div>
       {status === "failed" && (
-        <div className="alert alert-danger my-3">
-          Error importing experiments. View Queries for more info
-        </div>
+        <>
+          <div className="alert alert-danger my-3">
+            <p>Error importing experiments.</p>
+            {datasource.id && (
+              <p>
+                Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
+                may be misconfigured.{" "}
+                <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                  Edit the datasource
+                </Link>
+              </p>
+            )}
+            <span>View Queries (below) for more information.</span>
+          </div>
+        </>
       )}
       {pastExpArr.length === 0 && status !== "failed" && (
         <div>
@@ -170,47 +245,131 @@ const ImportExperimentList: FC<{
         <div>
           <h4>Experiments</h4>
           <p>
-            These are all of the {hideImported && "new "}experiments we found in
-            your datasource for the past 12 months.
+            These are all of the experiments we found in your datasource{" "}
+            {data.experiments.config && (
+              <>
+                from <strong>{date(data.experiments.config.start)}</strong> to{" "}
+                <strong>{date(data.experiments.config.end)}</strong>{" "}
+                {!isCloud() && (
+                  <Tooltip
+                    body={
+                      <>
+                        You can change the lookback window with the{" "}
+                        <code>IMPORT_LIMIT_DAYS</code> environment variable.
+                      </>
+                    }
+                  />
+                )}
+              </>
+            )}
+            .
           </p>
-          {pastExpArr.length > searchLimit && (
-            <div className="row mb-3">
-              <div className="col-lg-3 col-md-4 col-6">
-                <input
-                  type="search"
-                  className=" form-control"
-                  placeholder="Search"
-                  aria-controls="dtBasicExample"
-                  {...searchInputProps}
-                />
-              </div>
+          <div className="row mb-3 text-align-center bg-light border-top border-bottom">
+            <div className="col-auto">
+              <label className="small mb-0">Filter</label>
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
             </div>
-          )}
+            <div className="col-auto">
+              <Field
+                label="Min Users"
+                labelClassName="small mb-0"
+                type="number"
+                min={0}
+                step={1}
+                style={{ width: 80 }}
+                value={minUsersFilter}
+                onChange={(e) => {
+                  setMinUsersFilter(e.target.value || "");
+                }}
+              />
+            </div>
+            <div className="col-auto">
+              <Field
+                label="Min Duration"
+                labelClassName="small mb-0"
+                type="number"
+                min={0}
+                step={1}
+                style={{ width: 60 }}
+                value={minLengthFilter}
+                onChange={(e) => {
+                  setMinLengthFilter(e.target.value || "");
+                }}
+                append="days"
+              />
+            </div>
+            <div className="col-auto">
+              <Field
+                label="Status"
+                labelClassName="small mb-0"
+                options={[
+                  {
+                    display: "All",
+                    value: "",
+                  },
+                  {
+                    display: "Running",
+                    value: "running",
+                  },
+                  {
+                    display: "Stopped",
+                    value: "stopped",
+                  },
+                ]}
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(
+                    (e.target.value as "" | "stopped" | "running") || ""
+                  );
+                }}
+              />
+            </div>
+            <div className="col-auto align-self-center">
+              <Toggle
+                id="hide-imported"
+                value={alreadyImportedFilter}
+                setValue={setAlreadyImportedFilter}
+              />{" "}
+              Hide Imported
+            </div>
+          </div>
+          <small>
+            Showing <strong>{items.length}</strong> of{" "}
+            <strong>{pastExpArr.length}</strong> experiments.{" "}
+            {items.length < pastExpArr.length && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  clearFilters();
+                }}
+              >
+                Clear all filters
+              </a>
+            )}
+          </small>
           <table className="table appbox">
             <thead>
               <tr>
-                <th>Source</th>
-                <th>Experiment</th>
-                <th>Date Started</th>
-                <th>Date Ended</th>
-                <th>Number of Variations</th>
-                <th>Total Users</th>
+                <SortableTH field="exposureQueryName">Source</SortableTH>
+                <SortableTH field="experimentName">Experiment</SortableTH>
+                <SortableTH field="startDate">Date Started</SortableTH>
+                <SortableTH field="endDate">Date Ended</SortableTH>
+                <SortableTH field="numVariations">Variations</SortableTH>
+                <SortableTH field="users">Total Users</SortableTH>
                 <th>Traffic Split</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filteredExperiments.map((e) => {
+              {items.map((e) => {
                 return (
                   <tr key={e.trackingKey}>
-                    <td>
-                      {e.exposureQueryId
-                        ? getExposureQuery(
-                            datasource?.settings,
-                            e.exposureQueryId
-                          )?.name
-                        : "experiments"}
-                    </td>
+                    <td>{e.exposureQueryName}</td>
                     <td>{e.experimentName || e.trackingKey}</td>
                     <td>{date(e.startDate)}</td>
                     <td>{date(e.endDate)}</td>
@@ -220,8 +379,10 @@ const ImportExperimentList: FC<{
                       {e.weights.map((w) => Math.round(w * 100)).join("/")}
                     </td>
                     <td>
-                      {existing?.[e.trackingKey] ? (
-                        <Link href={`/experiment/${existing[e.trackingKey]}`}>
+                      {data?.existing?.[e.trackingKey] ? (
+                        <Link
+                          href={`/experiment/${data.existing[e.trackingKey]}`}
+                        >
                           <a>imported</a>
                         </Link>
                       ) : (
@@ -283,11 +444,30 @@ const ImportExperimentList: FC<{
                   </tr>
                 );
               })}
+              {items.length <= 0 && pastExpArr.length > 0 && (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="alert alert-info">
+                      <em>
+                        No experiments match your current filters.{" "}
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            clearFilters();
+                          }}
+                        >
+                          Clear all filters
+                        </a>
+                      </em>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       )}
-
       {showQueries && (
         <div>
           <ViewAsyncQueriesButton

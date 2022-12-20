@@ -9,6 +9,7 @@ import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
+import MssqlForm from "./MssqlForm";
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -40,6 +41,9 @@ export default function ConnectionSettings({
   const onParamChange: ChangeEventHandler<HTMLInputElement> = (e) => {
     setParams({ [e.target.name]: e.target.value });
   };
+  const onManualParamChange = (name, value) => {
+    setParams({ [name]: value });
+  };
 
   if (datasource.type === "athena") {
     return (
@@ -47,6 +51,7 @@ export default function ConnectionSettings({
         existing={existing}
         onParamChange={onParamChange}
         params={datasource.params}
+        setParams={setParams}
       />
     );
   } else if (datasource.type === "presto") {
@@ -54,6 +59,7 @@ export default function ConnectionSettings({
       <PrestoForm
         existing={existing}
         onParamChange={onParamChange}
+        onManualParamChange={onManualParamChange}
         setParams={setParams}
         params={datasource.params}
       />
@@ -79,6 +85,15 @@ export default function ConnectionSettings({
   } else if (datasource.type === "mysql") {
     return (
       <MysqlForm
+        existing={existing}
+        onParamChange={onParamChange}
+        setParams={setParams}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "mssql") {
+    return (
+      <MssqlForm
         existing={existing}
         onParamChange={onParamChange}
         setParams={setParams}
@@ -125,6 +140,7 @@ export default function ConnectionSettings({
       <MixpanelForm
         existing={existing}
         onParamChange={onParamChange}
+        onManualParamChange={onManualParamChange}
         params={datasource.params}
       />
     );

@@ -3,11 +3,14 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { datetime } from "../../services/dates";
-import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { getExposureQuery } from "../../services/datasources";
+import { FaQuestionCircle } from "react-icons/fa";
+import { datetime } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExposureQuery } from "@/services/datasources";
+import Modal from "../Modal";
+import Code from "../SyntaxHighlighting/Code";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const FilterSummary: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -139,6 +142,20 @@ const FilterSummary: FC<{
                 : "Included in analysis"}
             </div>
           </div>
+          <div className="row mb-3">
+            <div className="col-5">
+              <strong className="text-gray">
+                <AttributionModelTooltip>
+                  Attribution Model <FaQuestionCircle />
+                </AttributionModelTooltip>
+              </strong>
+            </div>
+            <div className="col">
+              {experiment.attributionModel === "allExposures"
+                ? "All Exposures"
+                : "First Exposure"}
+            </div>
+          </div>
           {datasource?.properties?.queryLanguage === "sql" && (
             <div className="row mb-3">
               <div className="col-5">
@@ -146,7 +163,11 @@ const FilterSummary: FC<{
               </div>
               <div className="col">
                 {snapshot.queryFilter ? (
-                  <code>{snapshot.queryFilter}</code>
+                  <Code
+                    language="sql"
+                    code={snapshot.queryFilter}
+                    expandable={true}
+                  />
                 ) : (
                   <em>none</em>
                 )}

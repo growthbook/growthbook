@@ -1,10 +1,11 @@
 import clsx from "clsx";
-import { ExperimentTableRow, getRisk } from "../../services/experiments";
+import { ExperimentTableRow, getRisk } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
-} from "../../services/metrics";
+} from "@/services/metrics";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -18,10 +19,15 @@ export default function RiskColumn({
   row: ExperimentTableRow;
   riskVariation: number;
 }) {
-  const { relativeRisk, risk, showRisk } = getRisk(riskVariation, row);
+  const { metricDefaults } = useOrganizationMetricDefaults();
+  const { relativeRisk, risk, showRisk } = getRisk(
+    riskVariation,
+    row,
+    metricDefaults
+  );
 
-  const winRiskThreshold = row.metric.winRisk || defaultWinRiskThreshold;
-  const loseRiskThreshold = row.metric.loseRisk || defaultLoseRiskThreshold;
+  const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
+  const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;
 
   if (!row.variations[0]?.value || !showRisk) {
     return <td className="empty-td"></td>;

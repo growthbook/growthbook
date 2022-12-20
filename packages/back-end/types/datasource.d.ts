@@ -8,6 +8,7 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { MetricType } from "./metric";
+import { MssqlConnectionParams } from "./integrations/mssql";
 
 export type DataSourceType =
   | "redshift"
@@ -16,6 +17,7 @@ export type DataSourceType =
   | "snowflake"
   | "postgres"
   | "mysql"
+  | "mssql"
   | "bigquery"
   | "clickhouse"
   | "presto"
@@ -24,6 +26,7 @@ export type DataSourceType =
 export type DataSourceParams =
   | PostgresConnectionParams
   | MysqlConnectionParams
+  | MssqlConnectionParams
   | AthenaConnectionParams
   | PrestoConnectionParams
   | GoogleAnalyticsParams
@@ -93,6 +96,7 @@ export interface DataSourceProperties {
 type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
+  decryptionError: boolean;
 };
 
 export type IdentityJoinQuery = {
@@ -115,6 +119,13 @@ export interface UserIdType {
   description?: string;
 }
 
+export type DataSourceEvents = {
+  experimentEvent?: string;
+  experimentIdProperty?: string;
+  variationIdProperty?: string;
+  extraUserIdProperty?: string;
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
@@ -130,11 +141,7 @@ export type DataSourceSettings = {
     // @deprecated
     pageviewsQuery?: string;
   };
-  events?: {
-    experimentEvent?: string;
-    experimentIdProperty?: string;
-    variationIdProperty?: string;
-  };
+  events?: DataSourceEvents;
   default?: {
     timestampColumn?: string;
     userIdColumn?: string;
@@ -162,6 +169,7 @@ export type DataSourceSettings = {
 interface DataSourceBase {
   id: string;
   name: string;
+  description: string;
   organization: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
@@ -191,6 +199,10 @@ interface SnowflakeDataSource extends DataSourceBase {
 
 interface MysqlDataSource extends DataSourceBase {
   type: "mysql";
+}
+
+interface MssqlDataSource extends DataSourceBase {
+  type: "mssql";
 }
 
 interface PostgresDataSource extends DataSourceBase {
@@ -237,6 +249,10 @@ export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
 >;
+export type MssqlDataSourceWithParams = WithParams<
+  MssqlDataSource,
+  MssqlConnectionParams
+>;
 export type BigQueryDataSourceWithParams = WithParams<
   BigQueryDataSource,
   BigQueryConnectionParams
@@ -258,6 +274,7 @@ export type DataSourceInterface =
   | SnowflakeDataSource
   | PostgresDataSource
   | MysqlDataSource
+  | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
   | MixpanelDataSource;
@@ -270,6 +287,7 @@ export type DataSourceInterfaceWithParams =
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams
   | MysqlDataSourceWithParams
+  | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
   | MixpanelDataSourceWithParams;

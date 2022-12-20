@@ -1,9 +1,15 @@
-import { FC, useRef, useEffect, useState, ReactElement } from "react";
-import LoadingOverlay from "./LoadingOverlay";
+import {
+  FC,
+  useRef,
+  useEffect,
+  useState,
+  ReactElement,
+  ReactNode,
+} from "react";
 import clsx from "clsx";
+import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
-import { ReactNode } from "react";
-import Tooltip from "./Tooltip";
+import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
@@ -38,11 +44,11 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
-  docSection,
+  inline = false,
   size = "md",
+  docSection,
   className = "",
   autoCloseOnSubmit = true,
-  inline = false,
   overflowAuto = true,
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
@@ -53,6 +59,10 @@ const Modal: FC<ModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  if (inline) {
+    size = "fill";
+  }
 
   useEffect(() => {
     setError(externalError);

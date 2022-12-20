@@ -1,16 +1,15 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import clsx from "clsx";
-import { useMemo } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MdRestore } from "react-icons/md";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
-import { ago, datetime } from "../../services/dates";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { ago, datetime } from "@/services/dates";
 import Dropdown from "../Dropdown/Dropdown";
 import Modal from "../Modal";
 import Pagination from "../Pagination";
-import Tooltip from "../Tooltip";
+import Tooltip from "../Tooltip/Tooltip";
 
 export interface Props {
   feature: FeatureInterface;
@@ -168,7 +167,10 @@ export default function RevisionDropdown({
                             draft
                           </span>
                         </div>
-                      ) : permissions.createFeatureDrafts ? (
+                      ) : permissions.check(
+                          "createFeatureDrafts",
+                          feature.project
+                        ) ? (
                         <a
                           href="#"
                           onClick={async (e) => {

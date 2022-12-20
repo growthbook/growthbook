@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
   MetricValueParams,
@@ -10,7 +11,6 @@ import {
   ExperimentResults,
   ExperimentQueryResponses,
 } from "../types/Integration";
-import uniqid from "uniqid";
 import {
   Queries,
   QueryInterface,
@@ -137,14 +137,12 @@ async function getQueryDoc<T, P>(
 //called by postPastExperiments in experiments.ts
 export async function getPastExperiments(
   integration: SourceIntegrationInterface,
-  from: Date,
-  minLength?: number
+  from: Date
 ): Promise<QueryDocument> {
   return getQueryDoc(
     integration,
     integration.getPastExperimentQuery({
       from,
-      minLength,
     }),
     (query) => integration.runPastExperimentQuery(query),
     processPastExperimentQueryResponse

@@ -1,4 +1,5 @@
-import { ReactElement } from "react";
+import { CSSProperties, ReactElement } from "react";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function Toggle({
   value,
@@ -8,6 +9,8 @@ export default function Toggle({
   disabled = false,
   type = "toggle",
   className,
+  style,
+  disabledMessage,
 }: {
   id: string;
   value: boolean;
@@ -16,23 +19,35 @@ export default function Toggle({
   disabled?: boolean;
   type?: "featureValue" | "environment" | "toggle";
   className?: string;
+  style?: CSSProperties;
+  disabledMessage?: string;
 }) {
+  const TooltipWrapper = ({ children }) =>
+    disabledMessage ? (
+      <Tooltip body={disabled && disabledMessage}>{children}</Tooltip>
+    ) : (
+      children
+    );
+
   return (
-    <div
-      className={`toggle-switch ${disabled ? "disabled" : ""} toggle-${type} ${
-        className || ""
-      }`}
-    >
-      <input
-        type="checkbox"
-        id={id}
-        checked={value}
-        onChange={(e) => {
-          if (disabled) return;
-          setValue(e.target.checked);
-        }}
-      />
-      <label htmlFor={id}>{label || id}</label>
-    </div>
+    <TooltipWrapper>
+      <div
+        className={`toggle-switch ${
+          disabled ? "disabled" : ""
+        } toggle-${type} ${className || ""}`}
+        style={style}
+      >
+        <input
+          type="checkbox"
+          id={id}
+          checked={value}
+          onChange={(e) => {
+            if (disabled) return;
+            setValue(e.target.checked);
+          }}
+        />
+        <label htmlFor={id}>{label || id}</label>
+      </div>
+    </TooltipWrapper>
   );
 }

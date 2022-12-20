@@ -1,12 +1,11 @@
-import { FC, Fragment } from "react";
+import { FC, Fragment, useState } from "react";
 import isEqual from "lodash/isEqual";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { useState } from "react";
+import usePermissions from "@/hooks/usePermissions";
 import FixVariationIds from "./FixVariationIds";
-import usePermissions from "../../hooks/usePermissions";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -31,12 +30,14 @@ const VariationIdWarning: FC<{
   variations: ExperimentReportVariation[];
   unknownVariations: string[];
   setVariationIds?: (ids: string[]) => Promise<void>;
+  project?: string;
 }> = ({
   isUpdating,
   results,
   variations,
   unknownVariations,
   setVariationIds,
+  project,
 }) => {
   const [idModal, setIdModal] = useState(false);
 
@@ -116,7 +117,7 @@ const VariationIdWarning: FC<{
           ).{" "}
           {setVariationIds &&
             permissions.runQueries &&
-            permissions.createAnalyses && (
+            permissions.check("createAnalyses", project) && (
               <button
                 className="btn btn-info btn-sm ml-3"
                 type="button"

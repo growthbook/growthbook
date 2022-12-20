@@ -1,5 +1,4 @@
-import { format as sqlFormat } from "sql-formatter";
-import { Condition } from "../../types/metric";
+import { format as sqlFormat, FormatOptions } from "sql-formatter";
 
 function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
   // If a specific id type is already chosen as the base, return it
@@ -51,7 +50,15 @@ export function getBaseIdTypeAndJoins(
 }
 
 // Replace vars in SQL queries (e.g. '{{startDate}}')
-export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
+export type SQLVars = {
+  startDate: Date;
+  endDate?: Date;
+  experimentId?: string;
+};
+export function replaceSQLVars(
+  sql: string,
+  { startDate, endDate, experimentId }: SQLVars
+) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
   // Set hours, minutes, seconds, ms to 0 so SQL can be more easily cached
@@ -68,6 +75,12 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     );
   }
 
+  // If we don't have an experimentId, fall back to using a percent sign
+  // This way it can be used in a LIKE clause to match all experiment ids
+  if (!experimentId) {
+    experimentId = "%";
+  }
+
   const replacements: Record<string, string> = {
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
@@ -79,6 +92,7 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
     endYear: endDate.toISOString().substr(0, 4),
     endMonth: endDate.toISOString().substr(5, 2),
     endDay: endDate.toISOString().substr(8, 2),
+    experimentId,
   };
 
   Object.keys(replacements).forEach((key) => {
@@ -89,46 +103,16 @@ export function replaceDateVars(sql: string, startDate: Date, endDate?: Date) {
   return sql;
 }
 
-export function format(sql: string) {
-  return (
-    sqlFormat(sql, {
-      language: "redshift",
-    })
-      // Fix Snowflate syntax for flatten function
-      .replace(/ = > /g, " => ")
-  );
-}
+export type FormatDialect = FormatOptions["language"] | "";
+export function format(sql: string, dialect?: FormatDialect) {
+  if (!dialect) return sql;
 
-export function getMixpanelPropertyColumn(col: string) {
-  // Use the column directly if it contains a reference to `event`
-  if (col.match(/\bevent\b/)) {
-    return col;
-  }
-
-  const colAccess = col.split(".").map((part) => {
-    if (part.substr(0, 1) !== "[") return `["${part}"]`;
-    return part;
-  });
-  return `event.properties${colAccess.join("")}`;
-}
-
-export function conditionToJavascript({ operator, value, column }: Condition) {
-  const col = getMixpanelPropertyColumn(column);
-  const encoded = JSON.stringify(value);
-
-  // Some operators map to special javascript syntax
-  if (operator === "~") {
-    return `${col}.match(new RegExp(${encoded}))`;
-  } else if (operator === "!~") {
-    return `!${col}.match(new RegExp(${encoded}))`;
-  } else if (operator === "=") {
-    return `${col}+'' == ${encoded}`;
-  } else {
-    // If the value is a number, don't use the JSON encoded version for comparison
-    const comp = !value || isNaN(Number(value)) ? encoded : value;
-
-    // All the other operators exactly match the javascript syntax so we can use them directly
-    return `${col}+'' ${operator} ${comp}`;
+  try {
+    return sqlFormat(sql, {
+      language: dialect,
+    });
+  } catch (e) {
+    return sql;
   }
 }
 

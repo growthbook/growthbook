@@ -1,13 +1,15 @@
 import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FaQuestionCircle } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
-import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -50,6 +52,7 @@ const AnalysisForm: FC<{
       removeMultipleExposures: experiment.removeMultipleExposures
         ? "remove"
         : "keep",
+      attributionModel: experiment.attributionModel || "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
@@ -139,9 +142,10 @@ const AnalysisForm: FC<{
           form.setValue("datasource", newDatasource);
         }}
         options={datasources.map((d) => ({
-          label: d.name,
           value: d.id,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
         initialOption="Manual"
         helpText={
           <>
@@ -287,6 +291,26 @@ const AnalysisForm: FC<{
             },
           ]}
           helpText="How to treat users who were exposed to more than 1 variation"
+        />
+      )}
+      {datasourceProperties?.separateExperimentResultQueries && (
+        <Field
+          label={
+            <AttributionModelTooltip>
+              <strong>Attribution Model</strong> <FaQuestionCircle />
+            </AttributionModelTooltip>
+          }
+          {...form.register("attributionModel")}
+          options={[
+            {
+              display: "First Exposure",
+              value: "firstExposure",
+            },
+            {
+              display: "All Exposures",
+              value: "allExposures",
+            },
+          ]}
         />
       )}
       {datasourceProperties?.queryLanguage === "sql" && (

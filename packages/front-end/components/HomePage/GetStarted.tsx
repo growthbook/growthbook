@@ -1,12 +1,10 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
-import ExperimentsGetStarted from "./ExperimentsGetStarted";
 import Tab from "../Tabs/Tab";
-import FeaturesGetStarted from "./FeaturesGetStarted";
-import { useState } from "react";
-import { useEffect } from "react";
 import ControlledTabs from "../Tabs/ControlledTabs";
+import ExperimentsGetStarted from "./ExperimentsGetStarted";
+import FeaturesGetStarted from "./FeaturesGetStarted";
 
 export interface Props {
   onboardingType: "features" | "experiments";

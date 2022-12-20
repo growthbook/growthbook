@@ -1,22 +1,23 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import FeatureValueField from "./FeatureValueField";
-import { useAuth } from "../../services/auth";
-import ConditionInput from "./ConditionInput";
+import { useAuth } from "@/services/auth";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
   validateFeatureRule,
-} from "../../services/features";
-import track from "../../services/track";
+} from "@/services/features";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import FeatureValueField from "./FeatureValueField";
+import ConditionInput from "./ConditionInput";
 import RolloutPercentInput from "./RolloutPercentInput";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
-import useOrgSettings from "../../hooks/useOrgSettings";
 
 export interface Props {
   close: () => void;
@@ -71,7 +72,13 @@ export default function RuleModal({
         const rule = values as FeatureRule;
 
         try {
-          validateFeatureRule(rule, feature.valueType);
+          const newRule = validateFeatureRule(rule, feature.valueType);
+          if (newRule) {
+            form.reset(newRule);
+            throw new Error(
+              "We fixed some errors in the rule. If it looks correct, submit again."
+            );
+          }
 
           track("Save Feature Rule", {
             source: ruleAction,
@@ -174,13 +181,18 @@ export default function RuleModal({
               form.setValue("coverage", coverage);
             }}
           />
-          <Field
-            label="Sample users based on attribute"
-            {...form.register("hashAttribute")}
+          <SelectField
+            label="Assign value based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
           />
         </div>
       )}
@@ -192,13 +204,18 @@ export default function RuleModal({
             placeholder={feature.id}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results"
           />
-          <Field
+          <SelectField
             label="Assign value based on attribute"
-            {...form.register("hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the Tracking Key to pick a value"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
           />
           <VariationsInput
             defaultValue={getFeatureDefaultValue(feature)}

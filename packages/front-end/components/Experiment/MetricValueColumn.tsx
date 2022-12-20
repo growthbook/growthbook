@@ -1,6 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { formatConversionRate } from "../../services/metrics";
+import { formatConversionRate } from "@/services/metrics";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -42,7 +42,9 @@ export default function MetricValueColumn({
                   )}
                 </span>{" "}
                 /&nbsp;
-                {numberFormatter.format(stats.users || users)}
+                {numberFormatter.format(
+                  stats.denominator || stats.users || users
+                )}
               </em>
             </small>
           </div>

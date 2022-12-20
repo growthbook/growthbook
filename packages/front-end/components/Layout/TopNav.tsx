@@ -1,56 +1,38 @@
 import { FC, useState } from "react";
-import { useWatching } from "../../services/WatchProvider";
-import useGlobalMenu from "../../services/useGlobalMenu";
 import { useForm } from "react-hook-form";
-import useUser from "../../hooks/useUser";
-import { useAuth } from "../../services/auth";
-import { daysLeft } from "../../services/dates";
-import Modal from "../Modal";
-import {
-  FaBars,
-  FaExclamationTriangle,
-  FaBell,
-  FaBuilding,
-} from "react-icons/fa";
+import { FaBars, FaBell, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
-import Avatar from "../Avatar";
 import clsx from "clsx";
-import styles from "./TopNav.module.scss";
-import { useRouter } from "next/router";
-import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import { isCloud } from "../../services/env";
-import Field from "../Forms/Field";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Head from "next/head";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import UpgradeModal from "../Settings/UpgradeModal";
+import { useWatching } from "@/services/WatchProvider";
+import useGlobalMenu from "@/services/useGlobalMenu";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import { usingSSO } from "@/services/env";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Modal from "../Modal";
+import Avatar from "../Avatar/Avatar";
+import ChangePasswordModal from "../Auth/ChangePasswordModal";
+import Field from "../Forms/Field";
+import styles from "./TopNav.module.scss";
+import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
+import AccountPlanBadge from "./AccountPlanBadge";
+import AccountPlanNotices from "./AccountPlanNotices";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
   pageTitle?: string;
   showNotices?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
-  const router = useRouter();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const { watchedExperiments, watchedFeatures } = useWatching();
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [upgradeModal, setUpgradeModal] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
-  const {
-    showSeatOverageBanner,
-    canSubscribe,
-    activeAndInvitedUsers,
-    freeSeats,
-    trialEnd,
-    subscriptionStatus,
-    hasActiveSubscription,
-  } = useStripeSubscription();
-
-  const { name, email, update, permissions, role } = useUser();
+  const { updateUser, user, name, email } = useUser();
 
   const { datasources } = useDefinitions();
 
@@ -60,14 +42,12 @@ const TopNav: FC<{
     defaultValues: { name: name || "" },
   });
 
-  const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
-
   const onSubmitEditName = form.handleSubmit(async (value) => {
     await apiCall(`/user/name`, {
       method: "PUT",
       body: JSON.stringify(value),
     });
-    update();
+    updateUser();
     setUserDropdownOpen(false);
   });
 
@@ -95,13 +75,6 @@ const TopNav: FC<{
         >
           <Field label="Name" {...form.register("name")} />
         </Modal>
-      )}
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="top-nav-freeseat-overage"
-          reason="Whoops! You are over your free seat limit."
-        />
       )}
       {changePasswordOpen && (
         <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
@@ -140,55 +113,12 @@ const TopNav: FC<{
 
         <div style={{ flex: 1 }} />
 
+        <ThemeToggler />
+
         {showNotices && (
           <>
-            {permissions.organizationSettings &&
-              subscriptionStatus === "trialing" &&
-              trialRemaining >= 0 && (
-                <button
-                  className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/settings/billing");
-                  }}
-                >
-                  <div className="badge badge-warning">{trialRemaining}</div>{" "}
-                  day
-                  {trialRemaining === 1 ? "" : "s"} left in trial
-                </button>
-              )}
-            {permissions.organizationSettings &&
-              subscriptionStatus === "past_due" && (
-                <button
-                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/settings/billing");
-                  }}
-                >
-                  <FaExclamationTriangle /> payment past due
-                </button>
-              )}
-            {showSeatOverageBanner &&
-              canSubscribe &&
-              permissions.organizationSettings &&
-              activeAndInvitedUsers > freeSeats && (
-                <button
-                  className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    setUpgradeModal(true);
-                  }}
-                >
-                  <FaExclamationTriangle /> free tier exceded
-                </button>
-              )}
-
-            {hasActiveSubscription && (
-              <div className="ml-2">
-                <span className="badge badge-pill badge-dark">PRO</span>
-              </div>
-            )}
+            <AccountPlanNotices />
+            <AccountPlanBadge />
 
             {(watchedExperiments.length > 0 || watchedFeatures.length > 0) && (
               <Link href="/activity">
@@ -266,7 +196,9 @@ const TopNav: FC<{
             <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
               <div className="text-muted">{email}</div>
               {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
-              <div className="badge badge-secondary">{role}</div>
+              {user?.role && (
+                <span className="badge badge-secondary">{user.role}</span>
+              )}
             </div>
             {datasources?.length > 0 && (
               <>
@@ -294,7 +226,7 @@ const TopNav: FC<{
               Edit Profile
             </button>
             <div className="dropdown-divider"></div>
-            {!isCloud() && (
+            {!usingSSO() && (
               <>
                 <button
                   className="dropdown-item"

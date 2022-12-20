@@ -1,25 +1,26 @@
 import { FC, useEffect, useState } from "react";
-import { useAuth } from "../../services/auth";
 import { useForm } from "react-hook-form";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import TagsInput from "../Tags/TagsInput";
 import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import MetricsSelector from "./MetricsSelector";
-import { useWatching } from "../../services/WatchProvider";
-import MarkdownInput from "../Markdown/MarkdownInput";
 import { useRouter } from "next/router";
-import track from "../../services/track";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import useUser from "../../hooks/useUser";
+import { useWatching } from "@/services/WatchProvider";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { getEqualWeights } from "@/services/utils";
+import MarkdownInput from "../Markdown/MarkdownInput";
+import TagsInput from "../Tags/TagsInput";
+import Page from "../Modal/Page";
+import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
-import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
 import VariationsInput from "../Features/VariationsInput";
+import MetricsSelector from "./MetricsSelector";
 import VariationDataInput from "./VariationDataInput";
 
 const weekAgo = new Date();
@@ -35,20 +36,10 @@ export type NewExperimentFormProps = {
   source: string;
   idea?: string;
   msg?: string;
-  onClose: () => void;
+  onClose?: () => void;
   onCreate?: (id: string) => void;
+  inline?: boolean;
 };
-
-function getEvenSplit(n: number) {
-  const weights = [];
-  const equal = 100 / n;
-
-  for (let i = 0; i < n; i++) {
-    weights.push((i > 0 ? Math.floor(equal) : Math.ceil(equal)) / 100);
-  }
-
-  return weights;
-}
 
 function getDefaultVariations(num: number) {
   // Must have at least 2 variations
@@ -78,9 +69,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   source,
   idea,
   msg,
+  inline,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
+    false
+  );
 
   const {
     datasources,
@@ -112,6 +107,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
+      attributionModel: initialValue?.attributionModel ?? "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
@@ -134,7 +130,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               groups: [],
               variationWeights:
                 initialValue.phases?.[0].variationWeights ||
-                getEvenSplit(
+                getEqualWeights(
                   initialValue.variations ? initialValue.variations.length : 2
                 ),
             }
@@ -154,14 +150,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   const implementation = form.watch("implementation");
 
   const { apiCall } = useAuth();
 
-  const {
-    settings: { visualEditorEnabled },
-  } = useUser();
+  const { visualEditorEnabled } = useOrgSettings();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
@@ -184,13 +179,26 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const body = JSON.stringify(data);
 
-    const res = await apiCall<{ experiment: ExperimentInterfaceStringDates }>(
-      `/experiments`,
+    const res = await apiCall<
+      | { experiment: ExperimentInterfaceStringDates }
+      | { duplicateTrackingKey: true; existingId: string }
+    >(
+      `/experiments${
+        allowDuplicateTrackingKey ? "?allowDuplicateTrackingKey=true" : ""
+      }`,
       {
         method: "POST",
         body,
       }
     );
+
+    if ("duplicateTrackingKey" in res) {
+      setAllowDuplicateTrackingKey(true);
+      throw new Error(
+        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again."
+      );
+    }
+
     track("Create Experiment", {
       source,
       implementation: data.implementation || "code",
@@ -222,10 +230,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       size="lg"
       step={step}
       setStep={setStep}
+      inline={inline}
     >
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
+        {!isImport && !fromFeature && datasource && (
+          <Field
+            label="Experiment Id"
+            {...form.register("trackingKey")}
+            helpText={
+              supportsSQL ? (
+                <>
+                  Must match the <code>experiment_id</code> field in your
+                  database table
+                </>
+              ) : (
+                "Must match the experiment id in your tracking callback"
+              )
+            }
+          />
+        )}
         {visualEditorEnabled && !isImport && (
           <Field
             label="Use Visual Editor"
@@ -268,8 +293,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             initialOption="Manual"
             options={datasources.map((d) => ({
               value: d.id,
-              label: d.name,
+              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
             }))}
+            className="portal-overflow-ellipsis"
           />
         )}
         {datasource?.properties?.exposureQueries && (

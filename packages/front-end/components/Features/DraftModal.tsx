@@ -1,14 +1,17 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useEnvironments } from "../../services/features";
-import Modal from "../Modal";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import Button from "../Button";
-import { useAuth } from "../../services/auth";
-import { useState } from "react";
-import Field from "../Forms/Field";
+import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { useMemo } from "react";
-import usePermissions from "../../hooks/usePermissions";
+import {
+  getAffectedEnvs,
+  getEnabledEnvironments,
+  useEnvironments,
+} from "@/services/features";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import Modal from "../Modal";
+import Button from "../Button";
+import Field from "../Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;
@@ -31,7 +34,7 @@ function ExpandableDiff({
   if (a === b) return null;
 
   return (
-    <>
+    <div className="diff-wrapper">
       <div
         className="list-group-item list-group-item-action d-flex"
         onClick={(e) => {
@@ -54,7 +57,7 @@ function ExpandableDiff({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -95,12 +98,20 @@ export default function DraftModal({ feature, close, mutate }: Props) {
     return diffs;
   }, [feature]);
 
+  const hasPermission = permissions.check(
+    "publishFeatures",
+    feature.project,
+    "defaultValue" in feature.draft
+      ? getEnabledEnvironments(feature)
+      : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}))
+  );
+
   return (
     <Modal
       open={true}
       header={"Review Draft Changes"}
       submit={
-        permissions.publishFeatures
+        hasPermission
           ? async () => {
               try {
                 await apiCall(`/feature/${feature.id}/publish`, {
@@ -121,9 +132,9 @@ export default function DraftModal({ feature, close, mutate }: Props) {
       cta="Publish"
       close={close}
       closeCta="close"
-      size="lg"
+      size="max"
       secondaryCTA={
-        permissions.createFeatureDrafts ? (
+        permissions.check("createFeatureDrafts", feature.project) ? (
           <Button
             color="outline-danger"
             onClick={async () => {
@@ -157,7 +168,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
           <ExpandableDiff {...diff} key={diff.title} />
         ))}
       </div>
-      {permissions.publishFeatures && (
+      {hasPermission && (
         <Field
           label="Add a Comment (optional)"
           textarea

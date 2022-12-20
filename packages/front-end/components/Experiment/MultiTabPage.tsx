@@ -1,11 +1,6 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../../hooks/useApi";
 import React, { useState, ReactElement } from "react";
-import { useAuth } from "../../services/auth";
-import Tabs from "../../components/Tabs/Tabs";
-import Tab from "../../components/Tabs/Tab";
-import StatusIndicator from "../../components/Experiment/StatusIndicator";
 import {
   FaStop,
   FaPlay,
@@ -14,32 +9,37 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import Link from "next/link";
-import { ago, datetime } from "../../services/dates";
-import { formatTrafficSplit, phaseSummary } from "../../services/utils";
-import Results from "../../components/Experiment/Results";
-import ResultsIndicator from "../../components/Experiment/ResultsIndicator";
-import DiscussionThread from "../../components/DiscussionThread";
-import useSwitchOrg from "../../services/useSwitchOrg";
-import WatchButton from "../../components/WatchButton";
-import HistoryTable from "../../components/HistoryTable";
-import EditDataSourceForm from "../../components/Experiment/EditDataSourceForm";
-import EditTargetingForm from "../../components/Experiment/EditTargetingForm";
-import MarkdownInlineEdit from "../../components/Markdown/MarkdownInlineEdit";
-import RightRailSection from "../../components/Layout/RightRailSection";
-import RightRailSectionGroup from "../../components/Layout/RightRailSectionGroup";
-import ConfirmButton from "../../components/Modal/ConfirmButton";
-import MoreMenu from "../../components/Dropdown/MoreMenu";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { IdeaInterface } from "back-end/types/idea";
-import DeleteButton from "../../components/DeleteButton";
-import { GBCircleArrowLeft, GBEdit } from "../../components/Icons";
-import Button from "../../components/Button";
 import { useFeature } from "@growthbook/growthbook-react";
-import usePermissions from "../../hooks/usePermissions";
-import { getExposureQuery } from "../../services/datasources";
-import useUser from "../../hooks/useUser";
-import VariationBox from "./VariationBox";
+import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
+import Tabs from "@/components/Tabs/Tabs";
+import Tab from "@/components/Tabs/Tab";
+import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import { ago, datetime } from "@/services/dates";
+import { formatTrafficSplit, phaseSummary } from "@/services/utils";
+import Results from "@/components/Experiment/Results";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import DiscussionThread from "@/components/DiscussionThread";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import WatchButton from "@/components/WatchButton";
+import HistoryTable from "@/components/HistoryTable";
+import EditDataSourceForm from "@/components/Experiment/EditDataSourceForm";
+import EditTargetingForm from "@/components/Experiment/EditTargetingForm";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import RightRailSection from "@/components/Layout/RightRailSection";
+import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import Button from "@/components/Button";
+import usePermissions from "@/hooks/usePermissions";
+import { getExposureQuery } from "@/services/datasources";
+import { useUser } from "@/services/UserContext";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
+import VariationBox from "./VariationBox";
 import ExperimentReportsList from "./ExperimentReportsList";
 
 export interface Props {
@@ -144,7 +144,7 @@ const MultiTabPage = ({
     wrapClasses += " multivariations";
   }
 
-  const canEdit = permissions.createAnalyses;
+  const canEdit = permissions.check("createAnalyses", experiment.project);
 
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -204,7 +204,7 @@ const MultiTabPage = ({
         <div style={{ flex: 1 }} />
         {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="experiment-more-menu">
+            <MoreMenu>
               {duplicate && (
                 <button className="dropdown-item" onClick={duplicate}>
                   duplicate
@@ -296,9 +296,10 @@ const MultiTabPage = ({
             </MoreMenu>
           </div>
         )}
-        {permissions.createAnalyses && ctaButton && (
-          <div className="experiment-actions col-auto">{ctaButton}</div>
-        )}
+        {permissions.check("createAnalyses", experiment.project) &&
+          ctaButton && (
+            <div className="experiment-actions col-auto">{ctaButton}</div>
+          )}
       </div>
       <div className="row align-items-center mb-3">
         <h2 className="col-auto mb-0">
@@ -648,6 +649,7 @@ const MultiTabPage = ({
             type="experiment"
             id={experiment.id}
             allowNewComments={!experiment.archived}
+            project={experiment.project}
           />
         </Tab>
         <Tab display="History" anchor="history" lazy={true}>

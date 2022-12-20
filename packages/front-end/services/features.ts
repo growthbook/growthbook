@@ -10,15 +10,18 @@ import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
+  ForceRule,
+  RolloutRule,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useUser from "../hooks/useUser";
-import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
-import { useDefinitions } from "./DefinitionsContext";
+import dJSON from "dirty-json";
+import cloneDeep from "lodash/cloneDeep";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
+import useApi from "../hooks/useApi";
+import { useDefinitions } from "./DefinitionsContext";
 
 export interface Condition {
   field: string;
@@ -32,6 +35,37 @@ export interface AttributeData {
   array: boolean;
   identifier: boolean;
   enum: string[];
+  archived: boolean;
+}
+
+export function validateFeatureValue(
+  type: FeatureValueType,
+  value: string,
+  label: string
+): string {
+  const prefix = label ? label + ": " : "";
+  if (type === "boolean") {
+    if (!["true", "false"].includes(value)) {
+      return value ? "true" : "false";
+    }
+  } else if (type === "number") {
+    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
+      throw new Error(prefix + "Must be a valid number");
+    }
+  } else if (type === "json") {
+    try {
+      JSON.parse(value);
+    } catch (e) {
+      // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      try {
+        return stringify(dJSON.parse(value));
+      } catch (e) {
+        throw new Error(prefix + e.message);
+      }
+    }
+  }
+
+  return value;
 }
 
 export function useEnvironmentState() {
@@ -171,15 +205,22 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema() {
-  const { settings } = useUser();
-  return settings?.attributeSchema || [];
+export function useAttributeSchema(showArchived = false) {
+  const attributeSchema = useOrgSettings().attributeSchema || [];
+  return useMemo(() => {
+    if (!showArchived) {
+      return attributeSchema.filter((s) => !s.archived);
+    }
+    return attributeSchema;
+  }, [attributeSchema, showArchived]);
 }
 
 export function validateFeatureRule(
   rule: FeatureRule,
   valueType: FeatureValueType
-) {
+): null | FeatureRule {
+  let hasChanges = false;
+  const ruleCopy = cloneDeep(rule);
   if (rule.condition) {
     try {
       const res = JSON.parse(rule.condition);
@@ -191,7 +232,15 @@ export function validateFeatureRule(
     }
   }
   if (rule.type === "force") {
-    isValidValue(valueType, rule.value, "Forced value");
+    const newValue = validateFeatureValue(
+      valueType,
+      rule.value,
+      "Value to Force"
+    );
+    if (newValue !== rule.value) {
+      hasChanges = true;
+      (ruleCopy as ForceRule).value = newValue;
+    }
   } else if (rule.type === "experiment") {
     const ruleValues = rule.values;
     if (!ruleValues || !ruleValues.length) {
@@ -199,10 +248,19 @@ export function validateFeatureRule(
     }
     let totalWeight = 0;
     ruleValues.forEach((val, i) => {
-      if (val.weight < 0) throw new Error("Percents cannot be negative");
+      if (val.weight < 0)
+        throw new Error("Variation weights cannot be negative");
       val.weight = roundVariationWeight(val.weight);
       totalWeight += val.weight;
-      isValidValue(valueType, val.value, "Value #" + (i + 1));
+      const newValue = validateFeatureValue(
+        valueType,
+        val.value,
+        "Variation #" + i
+      );
+      if (newValue !== val.value) {
+        hasChanges = true;
+        (ruleCopy as ExperimentRule).values[i].value = newValue;
+      }
     });
     // Without this rounding here, JS floating point messes up simple addition.
     totalWeight = roundVariationWeight(totalWeight);
@@ -213,12 +271,38 @@ export function validateFeatureRule(
       );
     }
   } else {
-    isValidValue(valueType, rule.value, "Rollout value");
+    const newValue = validateFeatureValue(
+      valueType,
+      rule.value,
+      "Value to Rollout"
+    );
+    if (newValue !== rule.value) {
+      hasChanges = true;
+      (ruleCopy as RolloutRule).value = newValue;
+    }
 
     if (rule.type === "rollout" && (rule.coverage < 0 || rule.coverage > 1)) {
       throw new Error("Rollout percent must be between 0 and 1");
     }
   }
+
+  return hasChanges ? ruleCopy : null;
+}
+
+export function getEnabledEnvironments(feature: FeatureInterface) {
+  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    return !!feature.environmentSettings?.[env]?.enabled;
+  });
+}
+
+export function getAffectedEnvs(
+  feature: FeatureInterface,
+  changedEnvs: string[]
+): string[] {
+  const settings = feature.environmentSettings;
+  if (!settings) return [];
+
+  return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
 export function getDefaultValue(valueType: FeatureValueType): string {
@@ -325,29 +409,6 @@ export function getDefaultRuleValue({
   };
 }
 
-export function isValidValue(
-  type: FeatureValueType,
-  value: string,
-  label: string
-) {
-  try {
-    if (type === "boolean") {
-      if (value !== "true" && value !== "false") {
-        throw new Error(
-          `Value must be either true or false. "${value}" given instead.`
-        );
-      }
-    } else if (type === "number") {
-      const parsed = parseFloat(value);
-      if (isNaN(parsed)) throw new Error(`Invalid number: "${value}"`);
-    } else if (type === "json") {
-      JSON.parse(value);
-    }
-  } catch (e) {
-    throw new Error(label + ": " + e.message);
-  }
-}
-
 export function jsonToConds(
   json: string,
   attributes?: Map<string, AttributeData>
@@ -375,7 +436,7 @@ export function jsonToConds(
         return;
       }
 
-      if (!value || typeof value !== "object") {
+      if (typeof value !== "object") {
         if (value === true || value === false) {
           return conds.push({
             field,
@@ -387,7 +448,7 @@ export function jsonToConds(
         return conds.push({
           field,
           operator: "$eq",
-          value: stringify(value).replace(/(^"|"$)/g, ""),
+          value: value + "",
         });
       }
       Object.keys(value).forEach((operator) => {
@@ -403,33 +464,35 @@ export function jsonToConds(
 
         if (operator === "$elemMatch") {
           if (typeof v === "object" && Object.keys(v).length === 1) {
-            if ("$eq" in v) {
+            if ("$eq" in v && typeof v["$eq"] !== "object") {
               return conds.push({
                 field,
                 operator: "$includes",
-                value: stringify(v["$eq"]).replace(/(^"|"$)/g, ""),
+                value: v["$eq"] + "",
               });
             }
           }
+          valid = false;
+          return;
         }
 
         if (operator === "$not") {
           if (typeof v === "object" && Object.keys(v).length === 1) {
-            if ("$regex" in v) {
+            if ("$regex" in v && typeof v["$regex"] === "string") {
               return conds.push({
                 field,
                 operator: "$notRegex",
-                value: stringify(v["$regex"]).replace(/(^"|"$)/g, ""),
+                value: v["$regex"],
               });
             }
             if ("$elemMatch" in v) {
               const m = v["$elemMatch"];
               if (typeof m === "object" && Object.keys(m).length === 1) {
-                if ("$eq" in m) {
+                if ("$eq" in m && typeof m["$eq"] !== "object") {
                   return conds.push({
                     field,
                     operator: "$notIncludes",
-                    value: stringify(m["$eq"]).replace(/(^"|"$)/g, ""),
+                    value: m["$eq"] + "",
                   });
                 }
               }
@@ -486,15 +549,26 @@ export function jsonToConds(
         if (
           ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$regex"].includes(
             operator
-          )
+          ) &&
+          typeof v !== "object"
         ) {
           return conds.push({
             field,
             operator,
-            value: stringify(v).replace(/(^"|"$)/g, ""),
+            value: v + "",
           });
         }
 
+        if (
+          (operator === "$inGroup" || operator === "$notInGroup") &&
+          typeof v === "string"
+        ) {
+          return conds.push({
+            field,
+            operator,
+            value: v,
+          });
+        }
         valid = false;
       });
     });
@@ -545,6 +619,8 @@ export function condToJson(
         .split(",")
         .map((x) => x.trim())
         .map((x) => parseValue(x, attributes.get(field)?.datatype));
+    } else if (operator === "$inGroup" || operator === "$notInGroup") {
+      obj[field][operator] = value;
     } else {
       obj[field][operator] = parseValue(value, attributes.get(field)?.datatype);
     }
@@ -569,7 +645,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(true);
 
   return useMemo(() => {
     if (!attributeSchema.length) {
@@ -587,6 +663,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
             ? schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
+        archived: !!schema.archived,
       });
     });
 
@@ -689,4 +766,29 @@ export function useRealtimeData(
   }, [usage]);
 
   return { usage, usageDomain: [0, max] };
+}
+
+export function getDefaultOperator(attribute: AttributeData) {
+  if (attribute.datatype === "boolean") {
+    return "$true";
+  } else if (attribute.array) {
+    return "$includes";
+  }
+  return "$eq";
+}
+
+export function genDuplicatedKey({ id }: FeatureInterface) {
+  try {
+    // Take the '_4' out of 'feature_a_4'
+    const numSuffix = id.match(/_[\d]+$/)?.[0];
+    // Store 'feature_a' from 'feature_a_4'
+    const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
+    // Parse the 4 (number) out of '_4' (string)
+    const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
+
+    return `${keyRoot}_${num}`;
+  } catch (e) {
+    // we failed, let the user name the key
+    return "";
+  }
 }

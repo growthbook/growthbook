@@ -6,6 +6,7 @@ export interface SnapshotMetric {
   value: number;
   cr: number;
   users: number;
+  denominator?: number;
   ci?: [number, number];
   expected?: number;
   risk?: [number, number];
@@ -44,6 +45,7 @@ export interface ExperimentSnapshotInterface {
   dimension: string | null;
   unknownVariations?: string[];
   multipleExposures?: number;
+  hasCorrectedStats?: boolean;
   results?: {
     name: string;
     srm: number;

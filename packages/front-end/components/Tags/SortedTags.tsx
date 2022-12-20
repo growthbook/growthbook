@@ -1,4 +1,4 @@
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Tag from "./Tag";
 
 export interface Props {

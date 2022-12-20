@@ -689,8 +689,10 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("stores growthbook instance in window", () => {
-    const context: Context = {};
+  it("stores growthbook instance in window when enableDevMode is true", () => {
+    const context: Context = {
+      enableDevMode: true,
+    };
     const growthbook = new GrowthBook(context);
 
     expect(window._growthbook).toEqual(growthbook);
@@ -700,10 +702,8 @@ describe("experiments", () => {
     expect(window._growthbook).toBeUndefined();
   });
 
-  it("does not store growthbook in window when disabled", () => {
-    const context: Context = {
-      disableDevTools: true,
-    };
+  it("does not store growthbook in window by default", () => {
+    const context: Context = {};
     const growthbook = new GrowthBook(context);
 
     expect(window._growthbook).toBeUndefined();

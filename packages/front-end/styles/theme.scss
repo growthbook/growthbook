@@ -1,0 +1,152 @@
+@use "colors";
+
+@mixin light-theme {
+  color-scheme: light;
+
+  --background-color: #{colors.$main-background};
+  --surface-background-color: #{colors.$white};
+  --surface-background-color-alt: #{colors.$gray-100};
+  --background-primary-light: #f3eff7;
+  --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
+
+  --text-color-main: #{colors.$main-black};
+  --text-color-table: #{colors.$gray-900};
+  --text-color-th: #{colors.$gray1};
+  --text-dark: #343a40; // default Bootstrap .text-dark
+  --text-link-color: #007bff; // default Bootstrap
+  --text-link-hover-color: #0056b3; // default Bootstrap
+  --text-color-muted: #{colors.$gray-600};
+  --text-color-on-bright: #{colors.$white};
+  --text-color-primary: #{colors.$highlight-purple};
+  --text-color-on-background-primary-light: #{colors.$dark-purple};
+  --text-color-premium: #{colors.$premium};
+
+  --form-input-group-background: #e9ecef;
+  --form-input-group-color: #{colors.$gray-700};
+  --form-multivalue-background-color: #f2ecfd;
+  --form-multivalue-text-color: #7c45ea;
+  --form-switch-background: #{colors.$gray-300};
+  --form-switch-background-active: #{colors.$purple};
+
+  --alert-success-background: #d4edda;
+  --alert-success-border-color: #c3e6cb;
+  --alert-success-color: #155724;
+
+  --alert-info-background: #d1ecf1;
+  --alert-info-border-color: #bee5eb;
+  --alert-info-color: #0c5460;
+
+  --alert-warn-background: #fff3cd;
+  --alert-warn-border-color: #ffeeba;
+  --alert-warn-color: #856404;
+
+  --alert-danger-background: #f8d7da;
+  --alert-danger-border-color: #f5c6cb;
+  --alert-danger-color: #721c24;
+
+  --alert-premium-background-gradient-1: #fcf8ff;
+  --alert-premium-background-gradient-2: #ece0ff;
+
+  --border-color-100: #e0e2eb;
+  --border-color-200: #dee2e6;
+  --border-color-300: #cacaca;
+
+  --diff-removed-background: #ffeef0;
+  --diff-removed-background-highlight: #fdb8c0;
+  --diff-added-background: #e6ffed;
+  --diff-added-background-highlight: #acf2bd;
+
+  --win-background: #d4edda;
+  --lose-background: #f8d7da;
+  --warn-background: #fff3cd;
+
+  --select-hover-background: #f2f7ff;
+
+  --disabled-background: #eaeaea;
+}
+
+@mixin dark-theme {
+  color-scheme: dark;
+
+  --background-color: #{colors.$main-background-dark};
+  --surface-background-color: #{colors.$surface-background-dark};
+  --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
+  --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
+  --background-primary-light: #{darken(colors.$dark-purple, 13%)};
+
+  --text-color-main: #{colors.$white};
+  --text-color-table: #{lighten(colors.$gray2, 10%)};
+  --text-color-th: #{colors.$gray6};
+  --text-dark: #{colors.$gray6};
+  --text-link-color: #{lighten(#007bff, 20%)};
+  --text-link-hover-color: #{lighten(#007bff, 10%)};
+  --text-color-muted: #{colors.$gray-500};
+  --text-color-on-bright: #{colors.$black};
+  --text-color-primary: #{colors.$highlight-purple-light};
+  --text-color-on-background-primary-light: #{colors.$highlight-purple-light};
+  --text-color-premium: #{lighten(colors.$premium, 15%)};
+
+  --form-input-group-background: #{colors.$gray-800};
+  --form-input-group-color: #{colors.$gray6};
+  --form-multivalue-background-color: #{colors.$highlight-purple-light};
+  --form-multivalue-text-color: #{colors.$black};
+  --form-switch-background: #{colors.$gray-800};
+  --form-switch-background-active: #{colors.$highlight-purple};
+
+  --alert-success-background: #{darken(#155724, 8%)};
+  --alert-success-border-color: #{darken(#155724, 0%)};
+  --alert-success-color: #d4edda;
+
+  --alert-info-background: #{darken(#0c5460, 8%)};
+  --alert-info-border-color: #{darken(#0c5460, 0%)};
+  --alert-info-color: #d1ecf1;
+
+  --alert-warn-background: #{darken(#856404, 15%)};
+  --alert-warn-border-color: #{darken(#856404, 8%)};
+  --alert-warn-color: #fff3cd;
+
+  --alert-danger-background: #{darken(#721c24, 8%)};
+  --alert-danger-border-color: #{darken(#721c24, 0%)};
+  --alert-danger-color: #f8d7da;
+
+  --alert-premium-background-gradient-1: #5f5279;
+  --alert-premium-background-gradient-2: #3e256e;
+
+  --border-color-100: #616161;
+  --border-color-200: #424242;
+  --border-color-300: #424242;
+
+  --diff-removed-background: #{rgba(#721c24, 0.35)};
+  --diff-removed-background-highlight: #721c24;
+  --diff-added-background: #{rgba(#155724, 0.35)};
+  --diff-added-background-highlight: #155724;
+
+  --win-background: #0a4947;
+  --lose-background: #4f1b1b;
+  --warn-background: #505518;
+
+  --select-hover-background: #{colors.$gray-800};
+
+  --disabled-background: #3f3f3f;
+}
+
+.theme--light {
+  @include light-theme();
+}
+
+.theme--dark {
+  @include dark-theme();
+}
+
+// OS default
+:root:not(.theme--light):not(.theme--dark) {
+  @include light-theme();
+
+  @media (prefers-color-scheme: light) {
+    @include light-theme();
+  }
+
+  @media (prefers-color-scheme: dark) {
+    @include dark-theme();
+  }
+}

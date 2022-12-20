@@ -1,7 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { useMemo } from "react";
-import Code from "../Code";
 import stringify from "json-stringify-pretty-compact";
+import InlineCode from "../SyntaxHighlighting/InlineCode";
 
 export default function ValueDisplay({
   value,
@@ -58,15 +58,8 @@ export default function ValueDisplay({
   }
 
   return (
-    <div style={{ maxHeight: 150, overflowY: "auto" }}>
-      <Code
-        language="json"
-        code={formatted}
-        theme="light"
-        className="p-0 border-0 bg-transparent"
-        actionBar={false}
-        containerClassName="m-0"
-      />
+    <div style={{ maxHeight: 150, overflowY: "auto", maxWidth: "100%" }}>
+      <InlineCode language="json" code={formatted} />
     </div>
   );
 }
