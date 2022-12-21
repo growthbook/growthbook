@@ -49,11 +49,11 @@ export default function ScheduleInputs(props: Props) {
               e.preventDefault();
               setRules([
                 {
-                  status: "enabled",
+                  scheduleRuleEnabled: true,
                   timestamp: null,
                 },
                 {
-                  status: "disabled",
+                  scheduleRuleEnabled: false,
                   timestamp: null,
                 },
               ]);

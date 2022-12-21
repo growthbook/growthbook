@@ -47,7 +47,9 @@ export default function RuleStatusPill({
     return (
       <div className="mr-3">
         <div className="bg-info text-light border px-2 rounded">
-          {`Rule will be ${upcomingScheduleRule.status} on ${new Date(
+          {`Rule will be ${
+            upcomingScheduleRule.scheduleRuleEnabled ? "enabled" : "disabled"
+          } on ${new Date(
             upcomingScheduleRule.timestamp
           ).toLocaleDateString()} at ${new Date(
             upcomingScheduleRule.timestamp

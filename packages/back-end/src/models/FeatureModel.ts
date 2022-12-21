@@ -56,7 +56,7 @@ const featureSchema = new mongoose.Schema({
       scheduleRules: [
         {
           timestamp: String,
-          status: String,
+          scheduleRuleEnabled: Boolean,
         },
       ],
     },

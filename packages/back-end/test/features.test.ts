@@ -171,8 +171,8 @@ it("should not filter out features that have no scheduled rules calling getFeatu
 it("should filter out a feature that has an upcoming rule that enables it", () => {
   // This tests when a rule has a schedule rule and the current date is before the first rule's date. Aka, the startDate
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
   ];
 
   const date = new Date("2022-11-15T12:00:00.000Z");
@@ -183,8 +183,8 @@ it("should filter out a feature that has an upcoming rule that enables it", () =
 it("should NOT filter out a feature that has an upcoming rule that disables it", () => {
   // This tests when a rule's upcoming scheduleRule is to disable the feature.
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
   ];
 
   const date = new Date("2022-12-15T12:00:00.000Z");
@@ -195,8 +195,8 @@ it("should NOT filter out a feature that has an upcoming rule that disables it",
 it("should filter out a feature that has no upcoming rules", () => {
   // This tests when a rule has gone through all of it's scheduleRules.
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
   ];
 
   const date = new Date("2023-01-15T12:00:00.000Z");
@@ -207,8 +207,8 @@ it("should filter out a feature that has no upcoming rules", () => {
 it("should NOT filter out a feature that has no upcoming rules", () => {
   // This tests when a rule has gone through all of it's scheduleRules.
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
-    { status: "disabled", timestamp: null },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: null },
   ];
 
   const date = new Date("2023-01-15T12:00:00.000Z");
@@ -218,8 +218,8 @@ it("should NOT filter out a feature that has no upcoming rules", () => {
 
 it("should filter out feature if schedule rule only contains a startDate and is in the future", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
-    { status: "disabled", timestamp: null },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: null },
   ];
 
   const date = new Date("2022-11-15T12:00:00.000Z");
@@ -230,8 +230,8 @@ it("should filter out feature if schedule rule only contains a startDate and is 
 it("should NOT filter out a feature that has a single rule to disable at a future date", () => {
   // This tests when a rule has gone through all of it's scheduleRules.
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: null },
-    { status: "disabled", timestamp: "2022-12-30T13:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: null },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T13:00:00.000Z" },
   ];
 
   const date = new Date("2022-12-15T12:00:00.000Z");
@@ -241,8 +241,8 @@ it("should NOT filter out a feature that has a single rule to disable at a futur
 
 it("should filter out feature if no upcoming rule and last rule was set to disable the feature", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: null },
-    { status: "disabled", timestamp: "2022-12-30T13:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: null },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T13:00:00.000Z" },
   ];
 
   const date = new Date("2023-01-15T12:00:00.000Z");
@@ -252,8 +252,8 @@ it("should filter out feature if no upcoming rule and last rule was set to disab
 
 it("should handle dates that are out of chronological order", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
   ];
 
   const date = new Date("2022-12-15T12:00:00.000Z");
@@ -263,8 +263,8 @@ it("should handle dates that are out of chronological order", () => {
 
 it("should handle dates that are out of chronological order", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
   ];
 
   const date = new Date("2023-01-15T12:00:00.000Z");
@@ -274,8 +274,8 @@ it("should handle dates that are out of chronological order", () => {
 
 it("should handle dates that are out of chronological order", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
   ];
 
   const date = new Date("2022-11-15T12:00:00.000Z");
@@ -285,10 +285,10 @@ it("should handle dates that are out of chronological order", () => {
 
 it("should handle more than 2 scheduleRules correctly, even when they are out of chronological order", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
-    { status: "disabled", timestamp: null },
-    { status: "enabled", timestamp: "2023-01-05T12:00:00.000Z" },
-    { status: "enabled", timestamp: null },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: null },
+    { scheduleRuleEnabled: true, timestamp: "2023-01-05T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: null },
   ];
 
   const date = new Date("2022-11-15T12:00:00.000Z");
@@ -298,10 +298,10 @@ it("should handle more than 2 scheduleRules correctly, even when they are out of
 
 it("should handle more than 2 scheduleRules correctly", () => {
   const scheduleRules: ScheduleRule[] = [
-    { status: "enabled", timestamp: "2022-12-01T13:00:00.000Z" },
-    { status: "disabled", timestamp: "2022-12-30T12:00:00.000Z" },
-    { status: "enabled", timestamp: "2023-01-05T12:00:00.000Z" },
-    { status: "disabled", timestamp: "2023-01-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    { scheduleRuleEnabled: true, timestamp: "2023-01-05T12:00:00.000Z" },
+    { scheduleRuleEnabled: false, timestamp: "2023-01-30T12:00:00.000Z" },
   ];
 
   let date = new Date("2022-11-15T12:00:00.000Z");
