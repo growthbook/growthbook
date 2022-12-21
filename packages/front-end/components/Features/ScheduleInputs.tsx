@@ -1,6 +1,7 @@
 import { ScheduleRule } from "back-end/types/feature";
 import clsx from "clsx";
 import { format } from "date-fns";
+import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -18,22 +19,6 @@ export default function ScheduleInputs(props: Props) {
   useEffect(() => {
     props.onChange(rules);
   }, [props, props.defaultValue, rules]);
-
-  const launchOptions = [
-    { label: "immediately", value: "immediately" },
-    {
-      label: "at a specific date and time",
-      value: "at a specific date and time",
-    },
-  ];
-
-  const endOptions = [
-    { label: "manually", value: "manually" },
-    {
-      label: "at a specific date and time",
-      value: "at a specific date and time",
-    },
-  ];
 
   if (!rules.length) {
     return (
@@ -93,14 +78,16 @@ export default function ScheduleInputs(props: Props) {
               <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                 <SelectField
                   name="date-operator"
-                  value={
-                    rules[0].timestamp === null
-                      ? "immediately"
-                      : "at a specific date and time"
-                  }
-                  options={launchOptions}
+                  value={rules[0].timestamp === null ? "" : "timestamp"}
+                  options={[
+                    { label: "immediately", value: "" },
+                    {
+                      label: "at a specific date and time",
+                      value: "timestamp",
+                    },
+                  ]}
                   onChange={(value) => {
-                    if (value === "at a specific date and time") {
+                    if (value) {
                       onChange(
                         format(new Date(), "yyyy-MM-dd'T'HH:mm"),
                         "timestamp",
@@ -131,14 +118,7 @@ export default function ScheduleInputs(props: Props) {
                       name="timestamp"
                     />
                     <span className="pl-2">
-                      (
-                      {new Date()
-                        .toLocaleDateString(undefined, {
-                          day: "2-digit",
-                          timeZoneName: "short",
-                        })
-                        .substring(4)}
-                      )
+                      ({formatTimeZone(new Date(), "z")})
                     </span>
                   </div>
                 </>
@@ -151,14 +131,16 @@ export default function ScheduleInputs(props: Props) {
               <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                 <SelectField
                   name="date-operator"
-                  value={
-                    rules[1].timestamp !== null
-                      ? "at a specific date and time"
-                      : "manually"
-                  }
-                  options={endOptions}
+                  value={rules[1].timestamp === null ? "" : "timestamp"}
+                  options={[
+                    { label: "manually", value: "" },
+                    {
+                      label: "at a specific date and time",
+                      value: "timestamp",
+                    },
+                  ]}
                   onChange={(value) => {
-                    if (value === "at a specific date and time") {
+                    if (value) {
                       onChange(
                         format(new Date(), "yyyy-MM-dd'T'HH:mm"),
                         "timestamp",
@@ -199,14 +181,7 @@ export default function ScheduleInputs(props: Props) {
                       name="timestamp"
                     />
                     <span className="pl-2">
-                      (
-                      {new Date()
-                        .toLocaleDateString(undefined, {
-                          day: "2-digit",
-                          timeZoneName: "short",
-                        })
-                        .substring(4)}
-                      )
+                      ({formatTimeZone(new Date(), "z")})
                     </span>
                   </div>
                   {dateErrors[1] && (

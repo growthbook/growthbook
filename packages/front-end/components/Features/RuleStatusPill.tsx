@@ -1,4 +1,5 @@
 import { FeatureRule, ScheduleRule } from "back-end/types/feature";
+import { format as formatTimeZone } from "date-fns-tz";
 import React from "react";
 
 type Props = {
@@ -28,16 +29,12 @@ export default function RuleStatusPill({
         <div className="bg-info text-light border px-2 rounded">
           {`Rule was disabled by schedule rule on ${new Date(
             rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-          ).toLocaleDateString()} at ${new Date(
-            rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-          ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-            rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-          )
-            .toLocaleDateString(undefined, {
-              day: "2-digit",
-              timeZoneName: "short",
-            })
-            .substring(4)}`}
+          ).toLocaleDateString()} at ${formatTimeZone(
+            new Date(
+              rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
+            ),
+            "h:mm a z"
+          )}`}
         </div>
       </div>
     );
@@ -51,16 +48,10 @@ export default function RuleStatusPill({
             upcomingScheduleRule.enabled ? "enabled" : "disabled"
           } on ${new Date(
             upcomingScheduleRule.timestamp
-          ).toLocaleDateString()} at ${new Date(
-            upcomingScheduleRule.timestamp
-          ).toLocaleTimeString([], { timeStyle: "short" })} ${new Date(
-            upcomingScheduleRule.timestamp
-          )
-            .toLocaleDateString(undefined, {
-              day: "2-digit",
-              timeZoneName: "short",
-            })
-            .substring(4)}`}
+          ).toLocaleDateString()} at ${formatTimeZone(
+            new Date(upcomingScheduleRule.timestamp),
+            "h:mm a z"
+          )}`}
         </div>
       </div>
     );

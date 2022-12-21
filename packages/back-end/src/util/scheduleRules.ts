@@ -1,12 +1,17 @@
 import { ScheduleRule } from "../../types/feature";
 
+// Type after the filter is applied
+type ScheduleRuleNoNulls = Omit<ScheduleRule, "timestamp"> & {
+  timestamp: string;
+};
+
 export const getCurrentEnabledState = (
   scheduledRules: ScheduleRule[],
   now: Date
 ) => {
   const sorted = scheduledRules
     // Remove nulls
-    .filter((s) => s.timestamp)
+    .filter((s): s is ScheduleRuleNoNulls => !!s.timestamp)
     // Convert timestamps to date objects
     .map((s) => ({
       date: new Date(s.timestamp as string),
