@@ -49,7 +49,7 @@ export interface FeatureInterface {
 }
 type ScheduleRule = {
   timestamp: string | null;
-  scheduleRuleEnabled: boolean;
+  enabled: boolean;
 };
 export interface BaseRule {
   description: string;

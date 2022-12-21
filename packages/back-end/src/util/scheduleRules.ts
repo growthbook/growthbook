@@ -10,7 +10,7 @@ export const getCurrentEnabledState = (
     // Convert timestamps to date objects
     .map((s) => ({
       date: new Date(s.timestamp as string),
-      enabled: s.scheduleRuleEnabled ? true : false,
+      enabled: s.enabled ? true : false,
     }))
     // Sort ascending
     .sort((a, b) => a.date.valueOf() - b.date.valueOf());

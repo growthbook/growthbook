@@ -71,7 +71,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const ruleDisabled =
       scheduleCompletedAndDisabled ||
-      upcomingScheduleRule?.scheduleRuleEnabled ||
+      upcomingScheduleRule?.enabled ||
       !rule.enabled;
 
     return (
