@@ -143,17 +143,17 @@ export default function RuleModal({
         live.
       </div>
       <h3>{environment}</h3>
-      <Field
+      <SelectField
         label="Type of Rule"
         readOnly={!!rules[i]}
         disabled={!!rules[i]}
         value={type}
-        onChange={(e) => {
+        onChange={(v) => {
           const existingCondition = form.watch("condition");
           const newVal = {
             ...getDefaultRuleValue({
               defaultValue: getFeatureDefaultValue(feature),
-              ruleType: e.target.value,
+              ruleType: v,
               attributeSchema,
             }),
             description: form.watch("description"),
@@ -164,9 +164,9 @@ export default function RuleModal({
           form.reset(newVal);
         }}
         options={[
-          { display: "Forced Value", value: "force" },
-          { display: "Percentage Rollout", value: "rollout" },
-          { display: "A/B Experiment", value: "experiment" },
+          { label: "Forced Value", value: "force" },
+          { label: "Percentage Rollout", value: "rollout" },
+          { label: "A/B Experiment", value: "experiment" },
         ]}
       />
       <Field

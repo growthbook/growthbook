@@ -1,7 +1,7 @@
 import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
+  ExperimentPhaseStringDates, ExperimentPhaseType
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -13,6 +13,7 @@ import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import VariationsInput from "../Features/VariationsInput";
+import SelectField from "@/components/Forms/SelectField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -101,14 +102,18 @@ const NewPhaseForm: FC<{
         />
       </div>
       <div className="row">
-        <Field
+        <SelectField
           label="Type of Phase"
+          value={form.watch("phase")}
           containerClassName="col-lg"
-          {...form.register("phase")}
+          onChange={(v) => {
+            const phaseType = v as ExperimentPhaseType;
+            form.setValue("phase", phaseType);
+          }}
           options={[
-            "ramp",
-            { value: "main", display: "main (default)" },
-            "holdout",
+            { label: "ramp", value: "ramp" },
+            { value: "main", label: "main (default)" },
+            { label: "holdout", value: "holdout" },
           ]}
         />
       </div>

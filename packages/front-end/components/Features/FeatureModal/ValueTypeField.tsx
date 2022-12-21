@@ -1,24 +1,24 @@
-import { ChangeEvent, FC } from "react";
+import { FC } from "react";
 import { FeatureValueType } from "back-end/types/feature";
-import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 
 const ValueTypeField: FC<{
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onChange: (v: FeatureValueType) => void;
   value: FeatureValueType;
 }> = ({ onChange, value }) => {
   return (
-    <Field
+    <SelectField
       label="Value Type"
       value={value}
       onChange={onChange}
       options={[
         {
-          display: "boolean (on/off)",
+          label: "boolean (on/off)",
           value: "boolean",
         },
-        "number",
-        "string",
-        "json",
+        { label: "number", value: "number" },
+        { label: "string", value: "string" },
+        { label: "json", value: "json" },
       ]}
     />
   );
