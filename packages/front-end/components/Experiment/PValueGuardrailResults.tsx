@@ -156,7 +156,7 @@ const PValueGuardrailResults: FC<{
                         warning: !r.expectedDirection,
                       })}
                     >
-                      {r.stats.pValue.toFixed(3)}
+                      {r.stats.pValue?.toFixed(3)}
                     </td>
                   ) : (
                     <td>

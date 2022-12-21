@@ -117,7 +117,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{stats.pValue.toFixed(3)}</>
+          <>{stats.pValue?.toFixed(3)}</>
         )}
       </Tooltip>
     </td>
