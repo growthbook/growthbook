@@ -23,6 +23,7 @@ import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { checkMetricProjectPermissions } from "@/services/metrics";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -71,6 +72,13 @@ const MetricsPage = (): React.ReactElement => {
     },
     [showArchived, tagsFilter.tags]
   );
+  const editMetricsPermissions: { [id: string]: boolean } = {};
+  metrics.forEach((m) => {
+    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
+      m,
+      permissions
+    );
+  });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: metrics,
     defaultSortField: "name",
@@ -257,8 +265,7 @@ const MetricsPage = (): React.ReactElement => {
               </SortableTH>
             )}
             {showArchived && <th>status</th>}
-            {permissions.check("createMetrics", project) &&
-              !hasFileConfig() && <th></th>}
+            {!hasFileConfig() && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -323,25 +330,27 @@ const MetricsPage = (): React.ReactElement => {
                   {metric.status === "archived" ? "archived" : "active"}
                 </td>
               )}
-              {permissions.check("createMetrics", project) && !hasFileConfig() && (
+              {!hasFileConfig() && (
                 <td>
-                  <button
-                    className="tr-hover btn btn-secondary btn-sm float-right"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setModalData({
-                        current: {
-                          ...metric,
-                          name: metric.name + " (copy)",
-                        },
-                        edit: false,
-                        duplicate: true,
-                      });
-                    }}
-                  >
-                    <FaRegCopy /> Duplicate
-                  </button>
+                  {editMetricsPermissions[metric.id] && (
+                    <button
+                      className="tr-hover btn btn-secondary btn-sm float-right"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setModalData({
+                          current: {
+                            ...metric,
+                            name: metric.name + " (copy)",
+                          },
+                          edit: false,
+                          duplicate: true,
+                        });
+                      }}
+                    >
+                      <FaRegCopy /> Duplicate
+                    </button>
+                  )}
                 </td>
               )}
             </tr>
