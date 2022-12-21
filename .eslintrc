@@ -29,7 +29,8 @@
     "react",
     "@typescript-eslint",
     "prettier",
-    "@next/eslint-plugin-next"
+    "@next/eslint-plugin-next",
+    "growthbook-imports"
   ],
   "extends": [
     "eslint:recommended",
@@ -86,7 +87,8 @@
      {
        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "unknown"]
      }
-   ]
+   ],
+   "growthbook-imports/import-paths": "error"
   },
   "overrides": [
     {
