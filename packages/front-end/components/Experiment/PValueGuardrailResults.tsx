@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import {
   FaCheckCircle,
   FaExclamation,
@@ -84,26 +84,29 @@ const PValueGuardrailResults: FC<{
 }> = ({ data, variations, metric }) => {
   const pValueThreshold = usePValueThreshold();
 
-  const results: PValueGuardrailResult[] = variations.map((v, i) => {
-    const stats = data[i]?.metrics?.[metric.id];
-    const expectedDirection = metric.inverse
-      ? stats.expected < 0
-      : stats.expected > 0;
-    const statSig = stats.pValue < pValueThreshold;
-    const users = data[i].users;
-    const name = v.name;
-    return {
-      stats,
-      expectedDirection,
-      statSig,
-      users,
-      name,
-      hasEnoughData: hasEnoughData(
-        stats.pValue,
-        data[0].metrics[metric.id]?.value
-      ),
-    };
-  });
+  const results: PValueGuardrailResult[] = useMemo(() => {
+    return variations.map((v, i) => {
+      const stats = data[i]?.metrics?.[metric.id];
+      const expectedDirection = metric.inverse
+        ? stats.expected < 0
+        : stats.expected > 0;
+      const statSig = stats.pValue < pValueThreshold;
+      const users = data[i].users;
+      const name = v.name;
+      return {
+        stats,
+        expectedDirection,
+        statSig,
+        users,
+        name,
+        hasEnoughData: hasEnoughData(
+          stats.pValue,
+          data[0].metrics[metric.id]?.value
+        ),
+      };
+    });
+    // eslint-disable-next-line
+  }, [variations]);
 
   return (
     <div className="d-flex flex-column" key={metric.id}>
