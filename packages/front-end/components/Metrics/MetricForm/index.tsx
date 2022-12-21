@@ -36,6 +36,7 @@ export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
   edit: boolean;
+  duplicate?: boolean;
   source: string;
   onClose?: () => void;
   advanced?: boolean;
@@ -127,6 +128,7 @@ function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
+  duplicate = false,
   onClose,
   source,
   initialStep = 0,
@@ -140,9 +142,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(true);
-  const filteredDatasources = current?.projects?.length
-    ? datasources.filter((ds) => current.projects.includes(ds.id))
-    : datasources;
 
   const {
     getMinSampleSizeForMetric,
@@ -186,7 +185,9 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const form = useForm({
     defaultValues: {
-      datasource: filteredDatasources?.[0]?.id || "",
+      datasource:
+        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
+        "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -311,7 +312,7 @@ const MetricForm: FC<MetricFormProps> = ({
       minPercentChange: minPercentChange / 100,
     };
 
-    if (!edit && project) {
+    if (!edit && !duplicate && project) {
       sendValue["projects"] = [project];
     }
 
@@ -418,7 +419,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label="Data Source"
           value={value.datasource || ""}
           onChange={(v) => form.setValue("datasource", v)}
-          options={(filteredDatasources || []).map((d) => ({
+          options={(datasources || []).map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}

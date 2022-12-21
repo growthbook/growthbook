@@ -15,9 +15,11 @@ const MetricsSelector: FC<{
   const { metrics } = useDefinitions();
   const filteredMetrics = metrics
     .filter((m) => m.datasource === datasource)
-    .filter(
-      (m) => project && m?.projects?.length && m.projects.includes(project)
-    );
+    .filter((m) => {
+      if (!project) return true;
+      if (!m?.projects?.length) return true;
+      return m.projects.includes(project);
+    });
 
   const tagCounts: Record<string, number> = {};
   filteredMetrics.forEach((m) => {

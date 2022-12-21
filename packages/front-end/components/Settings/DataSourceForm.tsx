@@ -232,7 +232,7 @@ const DataSourceForm: FC<{
           value={datasource.description}
         />
       </div>
-      {projects?.length && (
+      {projects?.length > 0 && (
         <div className="form-group">
           <label>Projects (optional)</label>
           <MultiSelectField

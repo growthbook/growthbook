@@ -28,6 +28,7 @@ const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
     edit: boolean;
+    duplicate: boolean;
   } | null>(null);
 
   const { getDatasourceById, mutateDefinitions, project } = useDefinitions();
@@ -151,6 +152,7 @@ const MetricsPage = (): React.ReactElement => {
               setModalData({
                 current: {},
                 edit: false,
+                duplicate: false,
               });
             }}
           >
@@ -197,6 +199,7 @@ const MetricsPage = (): React.ReactElement => {
                 setModalData({
                   current: {},
                   edit: false,
+                  duplicate: false,
                 })
               }
             >
@@ -333,6 +336,7 @@ const MetricsPage = (): React.ReactElement => {
                           name: metric.name + " (copy)",
                         },
                         edit: false,
+                        duplicate: true,
                       });
                     }}
                   >

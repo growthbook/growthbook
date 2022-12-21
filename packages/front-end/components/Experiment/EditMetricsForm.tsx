@@ -42,12 +42,11 @@ const EditMetricsForm: FC<{
   const datasource = getDatasourceById(experiment.datasource);
   const filteredMetrics = metrics
     .filter((m) => m.datasource === datasource?.id)
-    .filter(
-      (m) =>
-        experiment?.project &&
-        m?.projects?.length &&
-        m.projects.includes(experiment.project)
-    );
+    .filter((m) => {
+      if (!experiment.project) return true;
+      if (!m?.projects?.length) return true;
+      return m.projects.includes(experiment.project);
+    });
 
   const defaultMetricOverrides = cloneDeep(experiment.metricOverrides || []);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
