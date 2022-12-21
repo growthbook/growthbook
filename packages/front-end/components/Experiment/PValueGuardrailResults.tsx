@@ -17,7 +17,6 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
-import { hasEnoughData } from "./GuardrailResult";
 
 type PValueGuardrailResult = {
   stats: SnapshotMetric;
@@ -27,6 +26,11 @@ type PValueGuardrailResult = {
   name: string;
   hasEnoughData: boolean;
 };
+
+function hasEnoughData(value1: number, value2: number): boolean {
+  // TODO Is this right for pvalue?
+  return Math.max(value1, value2) >= 80 && Math.min(value1, value2) >= 0.0001;
+}
 
 const HeaderResult: FC<{
   metric: MetricInterface;
@@ -149,7 +153,7 @@ const PValueGuardrailResults: FC<{
                         warning: !r.expectedDirection,
                       })}
                     >
-                      {pValueFormatter.format(r.stats.pValue)}
+                      {r.stats.pValue.toFixed(3)}
                     </td>
                   ) : (
                     <td>

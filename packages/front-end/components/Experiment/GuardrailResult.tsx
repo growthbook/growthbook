@@ -22,8 +22,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-// TODO Needs to be modified for pvalue
-export function hasEnoughData(value1: number, value2: number): boolean {
+function hasEnoughData(value1: number, value2: number): boolean {
   return Math.max(value1, value2) >= 80 && Math.min(value1, value2) >= 20;
 }
 
@@ -79,7 +78,6 @@ const GuardrailResults: FC<{
           </Link>
         </Tooltip>
       </div>
-
       <div>
         <table
           className={clsx("rounded table table-bordered experiment-compact")}
