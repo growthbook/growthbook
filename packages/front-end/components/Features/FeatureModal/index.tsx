@@ -264,8 +264,7 @@ export default function FeatureModal({
 
           <ValueTypeField
             value={valueType}
-            onChange={(e) => {
-              const val = e.target.value as FeatureValueType;
+            onChange={(val) => {
               const defaultValue = getDefaultValue(val);
               form.setValue("valueType", val);
 

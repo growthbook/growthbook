@@ -1,8 +1,9 @@
 import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
-  ExperimentInterfaceStringDates,
-  Variation,
+  ExperimentInterfaceStringDates, ExperimentStatus,
+  ImplementationType,
+  Variation
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { useWatching } from "@/services/WatchProvider";
@@ -252,13 +253,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
         {visualEditorEnabled && !isImport && (
-          <Field
+          <SelectField
             label="Use Visual Editor"
             options={[
-              { display: "no", value: "code" },
-              { display: "yes", value: "visual" },
+              { label: "no", value: "code" },
+              { label: "yes", value: "visual" },
             ]}
-            {...form.register("implementation")}
+            value={form.watch("implementation")}
+            onChange={(v) => {
+              const impType = v as ImplementationType;
+              form.setValue("implementation", impType);
+            }}
           />
         )}
         <div className="form-group">
@@ -313,10 +318,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })}
           />
         )}
-        <Field
+        <SelectField
           label="Status"
-          options={["draft", "running", "stopped"]}
-          {...form.register("status")}
+          options={[
+            { label: "draft", value: "draft" },
+            { label: "running", value: "running" },
+            { label: "stopped", value: "stopped" },
+          ]}
+          onChange={(v) => {
+            const status = v as ExperimentStatus;
+            form.setValue("status", status);
+          }}
+          value={form.watch("status")}
         />
         {status !== "draft" && (
           <Field
