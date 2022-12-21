@@ -232,6 +232,11 @@ export default function ResultsTable({
                     {i > 0 &&
                       (fullStats ? (
                         <PercentGraphColumn
+                          barType={
+                            settings.statsEngine === "frequentist"
+                              ? "pill"
+                              : null
+                          }
                           baseline={baseline}
                           domain={domain}
                           metric={row.metric}
