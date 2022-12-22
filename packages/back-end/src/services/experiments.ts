@@ -304,7 +304,7 @@ export async function refreshMetric(
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
       segment = (await findSegmentById(metric.segment, orgId)) || undefined;
-      if (!segment) {
+      if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
     }
