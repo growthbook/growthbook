@@ -21,9 +21,7 @@ export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
   const [dateErrors, setDateErrors] = useState({});
   const { hasCommercialFeature } = useUser();
-  const [hasScheduleRules, setHasScheduleRules] = useState(
-    () => rules?.length > 0
-  );
+  const [toggleEnabled, setToggleEnabled] = useState(() => rules?.length > 0);
 
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
 
@@ -32,7 +30,7 @@ export default function ScheduleInputs(props: Props) {
   }, [props, props.defaultValue, rules]);
 
   useEffect(() => {
-    if (hasScheduleRules && !rules.length) {
+    if (toggleEnabled && !rules.length) {
       setRules([
         {
           enabled: true,
@@ -43,13 +41,13 @@ export default function ScheduleInputs(props: Props) {
           timestamp: null,
         },
       ]);
-    } else if (hasScheduleRules && rules.length) {
+    } else if (toggleEnabled && rules.length) {
       setRules(rules);
     } else {
       setRules([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasScheduleRules]);
+  }, [toggleEnabled]);
 
   if (!rules.length) {
     return (
@@ -63,12 +61,12 @@ export default function ScheduleInputs(props: Props) {
           <Toggle
             id="schedule-toggle"
             value={false}
-            setValue={() => setHasScheduleRules(!hasScheduleRules)}
+            setValue={() => setToggleEnabled(!toggleEnabled)}
             disabled={!canScheduleFeatureFlags}
             className="mr-1"
           />
           <span className="text-muted pl-2">
-            <strong>{hasScheduleRules ? "on" : "off"}</strong>
+            <strong>{toggleEnabled ? "on" : "off"}</strong>
           </span>
         </div>
         <UpgradeMessage
@@ -103,13 +101,13 @@ export default function ScheduleInputs(props: Props) {
       <div className="pb-2">
         <Toggle
           id="schedule-toggle"
-          value={hasScheduleRules}
-          setValue={() => setHasScheduleRules(!hasScheduleRules)}
+          value={toggleEnabled}
+          setValue={() => setToggleEnabled(!toggleEnabled)}
           disabled={!canScheduleFeatureFlags}
           type="featureValue"
         />
         <span className="text-muted pl-2">
-          <strong>{hasScheduleRules ? "on" : "off"}</strong>
+          <strong>{toggleEnabled ? "on" : "off"}</strong>
         </span>
       </div>
       <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
