@@ -57,6 +57,7 @@ export interface BaseRule {
   id: string;
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
+  applyScheduleRules?: boolean;
 }
 
 export interface ForceRule extends BaseRule {

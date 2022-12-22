@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
+import { UseFormReturn } from "react-hook-form";
 import { useUser } from "@/services/UserContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -15,42 +16,21 @@ interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
   setShowUpgradeModal: (value: boolean) => void;
+  // eslint-disable-next-line
+  form: UseFormReturn<any>;
+  setToggleSchedule: (value: boolean) => void;
 }
 
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
   const [dateErrors, setDateErrors] = useState({});
   const { hasCommercialFeature } = useUser();
-  const [toggleEnabled, setToggleEnabled] = useState(rules?.length > 0);
 
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
 
   useEffect(() => {
     props.onChange(rules);
   }, [props, props.defaultValue, rules]);
-
-  useEffect(() => {
-    // If toggle is enabled and there are no rules, create starting rules.
-    if (toggleEnabled && !rules.length) {
-      setRules([
-        {
-          enabled: true,
-          timestamp: null,
-        },
-        {
-          enabled: false,
-          timestamp: null,
-        },
-      ]);
-      // If there are existing rules, use those
-    } else if (toggleEnabled && rules.length) {
-      setRules(rules);
-      // If toggleEnabled is set to false, clear rules
-    } else {
-      setRules([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toggleEnabled]);
 
   function dateIsValid(date: Date) {
     return date instanceof Date && !isNaN(date.valueOf());
@@ -75,13 +55,29 @@ export default function ScheduleInputs(props: Props) {
       <div className="pb-2">
         <Toggle
           id="schedule-toggle"
-          value={toggleEnabled}
-          setValue={() => setToggleEnabled(!toggleEnabled)}
+          value={props.form.watch("applyScheduleRules")}
+          setValue={(v) => {
+            props.setToggleSchedule(v);
+            if (!rules.length) {
+              setRules([
+                {
+                  enabled: true,
+                  timestamp: null,
+                },
+                {
+                  enabled: false,
+                  timestamp: null,
+                },
+              ]);
+            }
+          }}
           disabled={!canScheduleFeatureFlags}
           type="featureValue"
         />
         <span className="text-muted pl-2">
-          <strong>{toggleEnabled ? "on" : "off"}</strong>
+          <strong>
+            {props.form.watch("applyScheduleRules") ? "on" : "off"}
+          </strong>
         </span>
       </div>
       <UpgradeMessage
@@ -89,7 +85,7 @@ export default function ScheduleInputs(props: Props) {
         commercialFeature="schedule-feature-flag"
         upgradeMessage="enable feature flag scheduling"
       />
-      {rules.length > 0 && toggleEnabled && (
+      {rules.length > 0 && props.form.watch("applyScheduleRules") && (
         <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
           <ul className={styles.conditionslist}>
             <li className={styles.listitem}>

@@ -361,6 +361,7 @@ export function getDefaultRuleValue({
       enabled: true,
       hashAttribute,
       scheduleRules: [],
+      applyScheduleRules: false,
     };
   }
   if (ruleType === "experiment") {
@@ -391,6 +392,7 @@ export function getDefaultRuleValue({
         range: [0, 0.5],
       },
       scheduleRules: [],
+      applyScheduleRules: false,
     };
   }
 
@@ -409,6 +411,7 @@ export function getDefaultRuleValue({
     enabled: true,
     condition,
     scheduleRules: [],
+    applyScheduleRules: false,
   };
 }
 

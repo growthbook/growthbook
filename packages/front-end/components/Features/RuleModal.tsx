@@ -88,6 +88,11 @@ export default function RuleModal({
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
+        // If the user has the feature schedule toggle off, skip the formatting below.
+        if (!values.applyScheduleRules) {
+          values.scheduleRules = [];
+        }
+
         // Loop through each scheduleRule and convert the timestamp to an ISOString()
         if (values.scheduleRules?.length) {
           values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
@@ -279,7 +284,11 @@ export default function RuleModal({
       <ScheduleInputs
         defaultValue={defaultValues.scheduleRules}
         onChange={(value) => form.setValue("scheduleRules", value)}
+        setToggleSchedule={(value) =>
+          form.setValue("applyScheduleRules", value)
+        }
         setShowUpgradeModal={setShowUpgradeModal}
+        form={form}
       />
     </Modal>
   );
