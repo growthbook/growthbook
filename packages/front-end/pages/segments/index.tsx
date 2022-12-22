@@ -16,6 +16,7 @@ import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import { hasFileConfig } from "@/services/env";
+import { DocLink } from "@/components/DocLink";
 
 const SegmentPage: FC = () => {
   const {
@@ -333,11 +334,19 @@ const SegmentPage: FC = () => {
           </div>
         </div>
       )}
-      {!hasFileConfig() && segments.length === 0 && (
+      {segments.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any segments defined yet.{" "}
           {permissions.createSegments &&
             "Click the button above to create your first one."}
+        </div>
+      )}
+      {segments.length === 0 && hasFileConfig() && (
+        <div className="alert alert-info">
+          It looks like you have a <code>config.yml</code> file. Segments
+          defined there will show up on this page.{" "}
+          {/* If this org has segments in Mongo, but doesn't have the env variable to allow using segments in mongo, add note here */}
+          <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>
       )}
     </div>

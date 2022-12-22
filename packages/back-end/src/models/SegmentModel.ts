@@ -32,6 +32,7 @@ export async function createSegment(segment: Partial<SegmentInterface>) {
 export async function findSegmentById(id: string, organization: string) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
+    // Need to add a check here to see if the org has an env variable that allows segments to be stored in mongo, if that is set, we can skip the getConfigSegments
     return getConfigSegments(organization).filter((s) => s.id === id)[0];
   }
 
