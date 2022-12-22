@@ -25,6 +25,10 @@ const DataSources: FC = () => {
     mutateDefinitions,
     ready,
   } = useDefinitions();
+  const filteredDatasources = datasources.filter((ds) => {
+    if (!project) return true;
+    return ds?.projects?.includes(project);
+  });
 
   const permissions = usePermissions();
 
@@ -37,7 +41,7 @@ const DataSources: FC = () => {
 
   return (
     <div>
-      {datasources.length > 0 ? (
+      {filteredDatasources.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -49,7 +53,7 @@ const DataSources: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {datasources.map((d, i) => (
+            {filteredDatasources.map((d, i) => (
               <tr
                 className="nav-item"
                 key={i}

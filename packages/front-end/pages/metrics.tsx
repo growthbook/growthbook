@@ -60,10 +60,14 @@ const MetricsPage = (): React.ReactElement => {
     }),
     [getDatasourceById]
   );
+  const filteredMetrics = metrics.filter((m) => {
+    if (!project) return true;
+    return m?.projects?.includes(project);
+  });
 
   // Searching
   const filterResults = useCallback(
-    (items: typeof metrics) => {
+    (items: typeof filteredMetrics) => {
       if (!showArchived) {
         items = items.filter((m) => m.status !== "archived");
       }
@@ -73,14 +77,14 @@ const MetricsPage = (): React.ReactElement => {
     [showArchived, tagsFilter.tags]
   );
   const editMetricsPermissions: { [id: string]: boolean } = {};
-  metrics.forEach((m) => {
+  filteredMetrics.forEach((m) => {
     editMetricsPermissions[m.id] = checkMetricProjectPermissions(
       m,
       permissions
     );
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: metrics,
+    items: filteredMetrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
     searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
@@ -106,7 +110,7 @@ const MetricsPage = (): React.ReactElement => {
     mutate();
   };
 
-  if (!metrics.length) {
+  if (!filteredMetrics.length) {
     return (
       <div className="container p-4">
         {modalData && (
@@ -171,7 +175,9 @@ const MetricsPage = (): React.ReactElement => {
     );
   }
 
-  const hasArchivedMetrics = metrics.find((m) => m.status === "archived");
+  const hasArchivedMetrics = filteredMetrics.find(
+    (m) => m.status === "archived"
+  );
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">

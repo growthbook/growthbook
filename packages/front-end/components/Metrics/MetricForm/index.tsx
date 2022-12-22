@@ -312,7 +312,9 @@ const MetricForm: FC<MetricFormProps> = ({
       minPercentChange: minPercentChange / 100,
     };
 
-    if (!edit && !duplicate && project) {
+    if (duplicate) {
+      sendValue["projects"] = current?.projects ?? [];
+    } else if (!edit && project) {
       sendValue["projects"] = [project];
     }
 
