@@ -9,7 +9,11 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import { featureUpdated, generateRuleId } from "../services/features";
+import {
+  featureUpdated,
+  generateRuleId,
+  getNextScheduledUpdate,
+} from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { saveRevision } from "./FeatureRevisionModel";
 
@@ -18,6 +22,7 @@ const featureSchema = new mongoose.Schema({
   archived: Boolean,
   description: String,
   organization: String,
+  nextScheduledUpdate: Date,
   owner: String,
   project: String,
   dateCreated: Date,
@@ -48,6 +53,12 @@ const featureSchema = new mongoose.Schema({
         },
       ],
       namespace: {},
+      scheduleRules: [
+        {
+          timestamp: String,
+          enabled: Boolean,
+        },
+      ],
     },
   ],
   environmentSettings: {},
@@ -110,6 +121,16 @@ export async function updateFeature(
       $set: updates,
     }
   );
+}
+
+export async function getScheduledFeaturesToUpdate() {
+  const features = await FeatureModel.find({
+    nextScheduledUpdate: {
+      $exists: true,
+      $lt: new Date(),
+    },
+  });
+  return features.map((m) => upgradeFeatureInterface(toInterface(m)));
 }
 
 export async function archiveFeature(
@@ -363,6 +384,7 @@ export async function publishDraft(
         rules: feature?.draft?.rules?.[key] || [],
       };
     });
+    changes.nextScheduledUpdate = getNextScheduledUpdate(envSettings);
   }
 
   changes.dateUpdated = new Date();
