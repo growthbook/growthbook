@@ -5,16 +5,23 @@ import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
+import UpgradeMessage from "../Marketing/UpgradeMessage";
 import styles from "./ScheduleInputs.module.scss";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
+  setShowUpgradeModal: (value: boolean) => void;
 }
 
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
   const [dateErrors, setDateErrors] = useState({});
+  const { hasCommercialFeature } = useUser();
+
+  const hasFeature = hasCommercialFeature("schedule-feature-flag");
 
   useEffect(() => {
     props.onChange(rules);
@@ -24,12 +31,13 @@ export default function ScheduleInputs(props: Props) {
     return (
       <div>
         <label className="mb-0">Schedule</label>
-        <div className="m-2">
-          <em className="text-muted mr-3">
-            Automatically enable and disable an override rule.
-          </em>
-          <a
-            href="#"
+        <div className="m-2 d-flex align-items-center">
+          <PremiumTooltip commercialFeature="schedule-feature-flag">
+            Add schedule to automatically enable/disable an override rule.
+          </PremiumTooltip>
+          <button
+            className="btn btn-link"
+            disabled={!hasFeature}
             onClick={(e) => {
               e.preventDefault();
               setRules([
@@ -45,8 +53,13 @@ export default function ScheduleInputs(props: Props) {
             }}
           >
             Add schedule rule
-          </a>
+          </button>
         </div>
+        <UpgradeMessage
+          showUpgradeModal={() => props.setShowUpgradeModal(true)}
+          commercialFeature="schedule-feature-flag"
+          upgradeMessage="enable feature flag scheduling"
+        />
       </div>
     );
   }

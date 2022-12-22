@@ -4,6 +4,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
+import { useState } from "react";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
@@ -17,6 +18,7 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
+import UpgradeModal from "../Settings/UpgradeModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -42,6 +44,7 @@ export default function RuleModal({
   defaultType = "force",
 }: Props) {
   const attributeSchema = useAttributeSchema();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { namespaces } = useOrgSettings();
 
@@ -64,6 +67,16 @@ export default function RuleModal({
 
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  if (showUpgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setShowUpgradeModal(false)}
+        reason="To enable feature flag scheduling,"
+        source="schedule-feature-flag"
+      />
+    );
+  }
 
   return (
     <Modal
@@ -266,6 +279,7 @@ export default function RuleModal({
       <ScheduleInputs
         defaultValue={defaultValues.scheduleRules}
         onChange={(value) => form.setValue("scheduleRules", value)}
+        setShowUpgradeModal={setShowUpgradeModal}
       />
     </Modal>
   );
