@@ -21,6 +21,8 @@ import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -41,6 +43,7 @@ const NewDataSourceForm: FC<{
   inline,
   secondaryCTA,
 }) => {
+  const { projects, project } = useDefinitions();
   const [step, setStep] = useState(0);
   const [schema, setSchema] = useState("");
   const [dataSourceId, setDataSourceId] = useState<string | null>(
@@ -189,6 +192,13 @@ const NewDataSourceForm: FC<{
       [e.target.name]: e.target.value,
     });
   };
+  const onManualChange = (name, value) => {
+    setDatasource({
+      ...datasource,
+      [name]: value,
+    });
+  };
+
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
     form.setValue("settings.schemaFormat", s.value);
@@ -209,6 +219,7 @@ const NewDataSourceForm: FC<{
       setDatasource({
         name: `${s.label}`,
         settings: {},
+        projects: project ? [project] : [],
       });
     }
     setPossibleTypes(s.types);
@@ -276,6 +287,7 @@ const NewDataSourceForm: FC<{
                 setDatasource({
                   name: "My Datasource",
                   settings: {},
+                  projects: project ? [project] : [],
                 });
                 // no options for custom:
                 form.setValue(`settings.schemaOptions`, {});
@@ -387,7 +399,7 @@ const NewDataSourceForm: FC<{
           />
         </div>
         <div className="form-group">
-          <label>Description (optional)</label>
+          <label>Description</label>
           <textarea
             className="form-control"
             name="description"
@@ -395,6 +407,18 @@ const NewDataSourceForm: FC<{
             value={datasource.description}
           />
         </div>
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label="Projects"
+              value={datasource.projects || []}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              onChange={(v) => onManualChange("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this data source to specific projects"
+            />
+          </div>
+        )}
         <ConnectionSettings
           datasource={datasource}
           existing={existing}

@@ -224,7 +224,7 @@ const DataSourceForm: FC<{
         />
       </div>
       <div className="form-group">
-        <label>Description (optional)</label>
+        <label>Description</label>
         <textarea
           className="form-control"
           name="description"
@@ -234,8 +234,8 @@ const DataSourceForm: FC<{
       </div>
       {projects?.length > 0 && (
         <div className="form-group">
-          <label>Projects (optional)</label>
           <MultiSelectField
+            label="Projects"
             value={datasource.projects || []}
             options={projects.map((p) => ({ value: p.id, label: p.name }))}
             onChange={(v) => onManualChange("projects", v)}

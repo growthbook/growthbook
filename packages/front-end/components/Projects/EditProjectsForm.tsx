@@ -28,8 +28,8 @@ const EditProjectsForm: FC<{
       })}
       cta="Save"
     >
-      <label>Projects (optional)</label>
       <MultiSelectField
+        label="Projects"
         value={form.watch("projects")}
         options={projectDefinitions.map((p) => ({
           value: p.id,
