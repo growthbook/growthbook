@@ -1,6 +1,9 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { useAuth } from "@/services/auth";
+import {
+  FeatureInterface,
+  FeatureRule,
+  ScheduleRule,
+} from "back-end/types/feature";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
@@ -10,14 +13,16 @@ import {
 } from "@/services/features";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "../Modal";
 import Field from "../Forms/Field";
+import Modal from "../Modal";
+import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
-import FeatureValueField from "./FeatureValueField";
-import ConditionInput from "./ConditionInput";
 import RolloutPercentInput from "./RolloutPercentInput";
+import ConditionInput from "./ConditionInput";
+import FeatureValueField from "./FeatureValueField";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
+import ScheduleInputs from "./ScheduleInputs";
 
 export interface Props {
   close: () => void;
@@ -69,6 +74,25 @@ export default function RuleModal({
       header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
+
+        // Loop through each scheduleRule and convert the timestamp to an ISOString()
+        values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
+          if (scheduleRule.timestamp === null) {
+            return;
+          }
+          scheduleRule.timestamp = new Date(
+            scheduleRule.timestamp
+          ).toISOString();
+        });
+
+        // We currently only support a start date and end date, and if both are null, set schedule to empty array
+        if (
+          values.scheduleRules[0].timestamp === null &&
+          values.scheduleRules[1].timestamp === null
+        ) {
+          values.scheduleRules = [];
+        }
+
         const rule = values as FeatureRule;
 
         try {
@@ -156,7 +180,6 @@ export default function RuleModal({
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}
       />
-
       {type === "force" && (
         <FeatureValueField
           label="Value to Force"
@@ -238,6 +261,10 @@ export default function RuleModal({
           )}
         </div>
       )}
+      <ScheduleInputs
+        defaultValue={defaultValues.scheduleRules}
+        onChange={(value) => form.setValue("scheduleRules", value)}
+      />
     </Modal>
   );
 }
