@@ -1,0 +1,31 @@
+@import "../../styles/colors.scss";
+
+.error {
+  border-color: $red;
+}
+.conditionbox {
+  border: 1px solid #e8e9ec;
+}
+.conditionslist {
+  list-style: none;
+  margin-left: 0;
+  padding-left: 0;
+  margin-bottom: 8px;
+  li {
+    position: relative;
+  }
+  li:after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 1px;
+    border-bottom: 1px solid $gray-200;
+  }
+  li:last-child:after {
+    display: none;
+  }
+  .listitem {
+    padding: 1.1em 0 0.7em;
+  }
+}

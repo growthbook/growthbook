@@ -1,8 +1,12 @@
 import { FC } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentResultsType,
+} from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Field from "../Forms/Field";
@@ -88,15 +92,19 @@ const StopExperimentForm: FC<{
         </>
       )}
       <div className="row">
-        <Field
+        <SelectField
           label="Conclusion"
           containerClassName="col-lg"
-          {...form.register("results")}
+          value={form.watch("results")}
+          onChange={(v) => {
+            const result = v as ExperimentResultsType;
+            form.setValue("results", result);
+          }}
           options={[
-            { display: "Did Not Finish", value: "dnf" },
-            { display: "Won", value: "won" },
-            { display: "Lost", value: "lost" },
-            { display: "Inconclusive", value: "inconclusive" },
+            { label: "Did Not Finish", value: "dnf" },
+            { label: "Won", value: "won" },
+            { label: "Lost", value: "lost" },
+            { label: "Inconclusive", value: "inconclusive" },
           ]}
         />
         {form.watch("results") === "won" && experiment.variations.length > 2 && (
