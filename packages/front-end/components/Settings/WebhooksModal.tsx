@@ -32,9 +32,9 @@ const WebhooksModal: FC<{
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    // if (value.endpoint.match(/localhost/g)) {
-    //   throw new Error("Invalid endpoint");
-    // }
+    if (value.endpoint.match(/localhost/g)) {
+      throw new Error("Invalid endpoint");
+    }
     await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
       method: current.id ? "PUT" : "POST",
       body: JSON.stringify(value),
@@ -93,8 +93,8 @@ const WebhooksModal: FC<{
         }
       />
       {form.watch("endpoint").match(/localhost/) && (
-        <div className="alert alert-warning">
-          <strong>Warning: </strong>Localhost not supported directly. Try using{" "}
+        <div className="alert alert-danger">
+          <strong>Error: </strong>Localhost not supported directly. Try using{" "}
           <a
             href="https://www.npmjs.com/package/ngrok"
             target="_blank"

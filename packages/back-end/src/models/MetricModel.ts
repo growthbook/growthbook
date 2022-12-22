@@ -201,6 +201,16 @@ export async function getMetricsByIds(ids: string[], organization: string) {
   return docs.map(toInterface);
 }
 
+export async function removeProjectFromMetrics(
+  project: string,
+  organization: string
+) {
+  await MetricModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
+}
+
 export async function getMetricsUsingSegment(
   segment: string,
   organization: string

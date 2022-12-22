@@ -252,6 +252,13 @@ export async function removeTagInFeature(organization: string, tag: string) {
   return;
 }
 
+export async function removeProjectFromFeatures(
+  project: string,
+  organization: string
+) {
+  await FeatureModel.updateMany({ organization, project }, { project: "" });
+}
+
 export async function setDefaultValue(
   feature: FeatureInterface,
   defaultValue: string

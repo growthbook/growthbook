@@ -1,7 +1,13 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { OrganizationInterface } from "../../types/organization";
+import { cloneDeep } from "lodash";
+import {
+  Invite,
+  Member,
+  OrganizationInterface,
+} from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
+import { getOrganizationById } from "../services/organizations";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -221,4 +227,39 @@ export async function getOrganizationsWithNorthStars() {
     },
   });
   return withNorthStars.map(toInterface);
+}
+
+export async function removeProjectFromProjectRoles(
+  project: string,
+  orgId: string
+) {
+  const org = await getOrganizationById(orgId);
+  if (!org) return;
+
+  const updates: {
+    members?: Member[];
+    invites?: Invite[];
+  } = {};
+
+  const members = cloneDeep(org.members);
+  members.forEach((m) => {
+    if (!m.projectRoles?.length) return;
+    m.projectRoles = m.projectRoles.filter((pr) => pr.project !== project);
+  });
+  if (JSON.stringify(members) !== JSON.stringify(org.members)) {
+    updates["members"] = members;
+  }
+
+  const invites = cloneDeep(org.invites);
+  invites.forEach((inv) => {
+    if (!inv.projectRoles?.length) return;
+    inv.projectRoles = inv.projectRoles.filter((pr) => pr.project !== project);
+  });
+  if (JSON.stringify(invites) !== JSON.stringify(org.invites)) {
+    updates["invites"] = invites;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await OrganizationModel.updateOne({ id: orgId }, { $set: updates });
+  }
 }

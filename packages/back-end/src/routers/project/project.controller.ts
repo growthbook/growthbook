@@ -9,6 +9,11 @@ import {
   findProjectById,
   updateProject,
 } from "../../models/ProjectModel";
+import { removeProjectFromDatasources } from "../../models/DataSourceModel";
+import { removeProjectFromMetrics } from "../../models/MetricModel";
+import { removeProjectFromFeatures } from "../../models/FeatureModel";
+import { removeProjectFromExperiments } from "../../services/experiments";
+import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 
 // region POST /projects
 
@@ -119,6 +124,16 @@ export const deleteProject = async (
   const { org } = getOrgFromReq(req);
 
   await deleteProjectById(id, org.id);
+
+  // Cleanup functions from other models
+  await removeProjectFromDatasources(id, org.id);
+  await removeProjectFromMetrics(id, org.id);
+  await removeProjectFromFeatures(id, org.id);
+  await removeProjectFromExperiments(id, org.id);
+  await removeProjectFromProjectRoles(id, org.id);
+  // ideas?
+  // report?
+  // webhooks?
 
   res.status(200).json({
     status: 200,

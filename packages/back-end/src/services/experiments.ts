@@ -179,6 +179,13 @@ export async function removeMetricFromExperiments(
   );
 }
 
+export async function removeProjectFromExperiments(
+  project: string,
+  organization: string
+) {
+  await ExperimentModel.updateMany({ organization, project }, { project: "" });
+}
+
 export function deleteExperimentById(id: string) {
   return ExperimentModel.deleteOne({
     id,

@@ -88,6 +88,16 @@ export async function getDataSourcesByIds(ids: string[], organization: string) {
   ).map(toInterface);
 }
 
+export async function removeProjectFromDatasources(
+  project: string,
+  organization: string
+) {
+  await DataSourceModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
+}
+
 export async function getOrganizationsWithDatasources(): Promise<string[]> {
   if (usingFileConfig()) {
     return [];
