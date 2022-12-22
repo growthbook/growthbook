@@ -8,6 +8,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
+import Toggle from "../Forms/Toggle";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {
@@ -20,42 +21,56 @@ export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
   const [dateErrors, setDateErrors] = useState({});
   const { hasCommercialFeature } = useUser();
+  const [hasScheduleRules, setHasScheduleRules] = useState(
+    () => rules?.length > 0
+  );
 
-  const hasFeature = hasCommercialFeature("schedule-feature-flag");
+  const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
 
   useEffect(() => {
     props.onChange(rules);
   }, [props, props.defaultValue, rules]);
 
+  useEffect(() => {
+    if (hasScheduleRules && !rules.length) {
+      setRules([
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ]);
+    } else if (hasScheduleRules && rules.length) {
+      setRules(rules);
+    } else {
+      setRules([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasScheduleRules]);
+
   if (!rules.length) {
     return (
       <div>
-        <div className="m-2 d-flex align-items-center">
-          <label htmlFor="schedule-feature-flags">
-            <PremiumTooltip commercialFeature="schedule-feature-flag">
-              Add scheduling to automatically enable/disable an override rule.
-            </PremiumTooltip>
-          </label>
+        <label htmlFor="schedule-feature-flag">
+          <PremiumTooltip commercialFeature="schedule-feature-flag">
+            Add scheduling to automatically enable/disable an override rule.
+          </PremiumTooltip>
+        </label>
+        <div className="pb-2">
+          <Toggle
+            id="schedule-toggle"
+            value={false}
+            setValue={() => setHasScheduleRules(!hasScheduleRules)}
+            disabled={!canScheduleFeatureFlags}
+            className="mr-1"
+          />
+          <span className="text-muted pl-2">
+            <strong>{hasScheduleRules ? "on" : "off"}</strong>
+          </span>
         </div>
-        <button
-          className="btn btn-outline-primary mb-2"
-          disabled={!hasFeature}
-          onClick={(e) => {
-            e.preventDefault();
-            setRules([
-              {
-                enabled: true,
-                timestamp: null,
-              },
-              {
-                enabled: false,
-                timestamp: null,
-              },
-            ]);
-          }}
-        >
-          Add scheduling
-        </button>
         <UpgradeMessage
           showUpgradeModal={() => props.setShowUpgradeModal(true)}
           commercialFeature="schedule-feature-flag"
@@ -80,11 +95,23 @@ export default function ScheduleInputs(props: Props) {
 
   return (
     <div className="form-group">
-      <label htmlFor="schedule-feature-flags">
+      <label htmlFor="schedule-feature-flag">
         <PremiumTooltip commercialFeature="schedule-feature-flag">
           Add scheduling to automatically enable/disable an override rule.
         </PremiumTooltip>
       </label>
+      <div className="pb-2">
+        <Toggle
+          id="schedule-toggle"
+          value={hasScheduleRules}
+          setValue={() => setHasScheduleRules(!hasScheduleRules)}
+          disabled={!canScheduleFeatureFlags}
+          type="featureValue"
+        />
+        <span className="text-muted pl-2">
+          <strong>{hasScheduleRules ? "on" : "off"}</strong>
+        </span>
+      </div>
       <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           <li className={styles.listitem}>
