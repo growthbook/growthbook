@@ -37,7 +37,7 @@ const EditProjectsForm: FC<{
         }))}
         onChange={(v) => form.setValue("projects", v)}
         customClassName="label-overflow-ellipsis"
-        helpText="Limit this metric to specific projects"
+        helpText="Assign this metric to specific projects"
       />
       <div style={{ height: 200 }} />
     </Modal>

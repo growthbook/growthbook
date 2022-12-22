@@ -240,7 +240,7 @@ const DataSourceForm: FC<{
             options={projects.map((p) => ({ value: p.id, label: p.name }))}
             onChange={(v) => onManualChange("projects", v)}
             customClassName="label-overflow-ellipsis"
-            helpText="Limit this data source to specific projects"
+            helpText="Assign this data source to specific projects"
           />
         </div>
       )}
