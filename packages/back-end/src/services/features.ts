@@ -11,6 +11,7 @@ import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeatureRule,
   FeatureValueType,
 } from "../../types/feature";
 import { queueWebhook } from "../jobs/webhooks";
@@ -21,6 +22,7 @@ import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { createEvent } from "../models/EventModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { getCurrentEnabledState } from "../util/scheduleRules";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
@@ -81,6 +83,9 @@ export function getFeatureDefinition({
     rules:
       rules
         ?.filter((r) => r.enabled)
+        ?.filter((r) => {
+          return getCurrentEnabledState(r.scheduleRules || [], new Date());
+        })
         ?.map((r) => {
           const rule: FeatureDefinitionRule = {};
           if (r.condition && r.condition !== "{}") {
@@ -395,6 +400,40 @@ export function getApiFeatureObj(
   };
 
   return featureRecord;
+}
+
+export function getNextScheduledUpdate(
+  envSettings: Record<string, FeatureEnvironment>
+): Date | null {
+  if (!envSettings) {
+    return null;
+  }
+
+  const dates: string[] = [];
+
+  for (const env in envSettings) {
+    const rules = envSettings[env].rules;
+
+    rules.forEach((rule: FeatureRule) => {
+      if (rule.scheduleRules) {
+        rule.scheduleRules.forEach((scheduleRule) => {
+          if (scheduleRule.timestamp !== null) {
+            dates.push(scheduleRule.timestamp);
+          }
+        });
+      }
+    });
+  }
+
+  const sortedFutureDates = dates
+    .filter((date) => new Date(date) > new Date())
+    .sort();
+
+  if (sortedFutureDates.length === 0) {
+    return null;
+  }
+
+  return new Date(sortedFutureDates[0]);
 }
 
 /**
