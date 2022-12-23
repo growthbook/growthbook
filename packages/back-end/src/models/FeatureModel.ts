@@ -59,7 +59,6 @@ const featureSchema = new mongoose.Schema({
           enabled: Boolean,
         },
       ],
-      applyScheduleRules: Boolean,
     },
   ],
   environmentSettings: {},

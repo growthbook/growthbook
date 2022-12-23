@@ -58,6 +58,12 @@ export default function RuleModal({
     }),
     ...((rules[i] as FeatureRule) || {}),
   };
+  const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
+    defaultValues.scheduleRules.some(
+      (scheduleRule) => scheduleRule.timestamp !== null
+    )
+  );
+
   const form = useForm({
     defaultValues,
   });
@@ -88,8 +94,8 @@ export default function RuleModal({
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
-        // If the user has the feature schedule toggle off, skip the formatting below.
-        if (!values.applyScheduleRules) {
+        // If the user built a schedule, but disabled the toggle, we ignore the schedule
+        if (!scheduleToggleEnabled) {
           values.scheduleRules = [];
         }
 
@@ -284,11 +290,9 @@ export default function RuleModal({
       <ScheduleInputs
         defaultValue={defaultValues.scheduleRules}
         onChange={(value) => form.setValue("scheduleRules", value)}
-        setToggleSchedule={(value) =>
-          form.setValue("applyScheduleRules", value)
-        }
+        scheduleToggleEnabled={scheduleToggleEnabled}
+        setScheduleToggleEnabled={setScheduleToggleEnabled}
         setShowUpgradeModal={setShowUpgradeModal}
-        form={form}
       />
     </Modal>
   );

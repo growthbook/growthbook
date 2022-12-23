@@ -360,8 +360,16 @@ export function getDefaultRuleValue({
       condition: "",
       enabled: true,
       hashAttribute,
-      scheduleRules: [],
-      applyScheduleRules: false,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
     };
   }
   if (ruleType === "experiment") {
@@ -391,8 +399,16 @@ export function getDefaultRuleValue({
         name: "",
         range: [0, 0.5],
       },
-      scheduleRules: [],
-      applyScheduleRules: false,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
     };
   }
 
@@ -410,8 +426,16 @@ export function getDefaultRuleValue({
     value,
     enabled: true,
     condition,
-    scheduleRules: [],
-    applyScheduleRules: false,
+    scheduleRules: [
+      {
+        enabled: true,
+        timestamp: null,
+      },
+      {
+        enabled: false,
+        timestamp: null,
+      },
+    ],
   };
 }
 

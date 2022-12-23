@@ -3,7 +3,6 @@ import clsx from "clsx";
 import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
-import { UseFormReturn } from "react-hook-form";
 import { useUser } from "@/services/UserContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -16,14 +15,13 @@ interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
   setShowUpgradeModal: (value: boolean) => void;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
-  setToggleSchedule: (value: boolean) => void;
+  scheduleToggleEnabled: boolean;
+  setScheduleToggleEnabled: (value: boolean) => void;
 }
 
 export default function ScheduleInputs(props: Props) {
   const [rules, setRules] = useState(props.defaultValue);
-  const [dateErrors, setDateErrors] = useState({});
+  const [dateErrors, setDateErrors] = useState("");
   const { hasCommercialFeature } = useUser();
 
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
@@ -55,29 +53,15 @@ export default function ScheduleInputs(props: Props) {
       <div className="pb-2">
         <Toggle
           id="schedule-toggle"
-          value={props.form.watch("applyScheduleRules")}
+          value={props.scheduleToggleEnabled}
           setValue={(v) => {
-            props.setToggleSchedule(v);
-            if (!rules.length) {
-              setRules([
-                {
-                  enabled: true,
-                  timestamp: null,
-                },
-                {
-                  enabled: false,
-                  timestamp: null,
-                },
-              ]);
-            }
+            props.setScheduleToggleEnabled(v);
           }}
           disabled={!canScheduleFeatureFlags}
           type="featureValue"
         />
         <span className="text-muted pl-2">
-          <strong>
-            {props.form.watch("applyScheduleRules") ? "on" : "off"}
-          </strong>
+          <strong>{props.scheduleToggleEnabled ? "on" : "off"}</strong>
         </span>
       </div>
       <UpgradeMessage
@@ -85,7 +69,7 @@ export default function ScheduleInputs(props: Props) {
         commercialFeature="schedule-feature-flag"
         upgradeMessage="enable feature flag scheduling"
       />
-      {rules.length > 0 && props.form.watch("applyScheduleRules") && (
+      {rules.length > 0 && props.scheduleToggleEnabled && (
         <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
           <ul className={styles.conditionslist}>
             <li className={styles.listitem}>
@@ -123,7 +107,6 @@ export default function ScheduleInputs(props: Props) {
                     <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                       <Field
                         type="datetime-local"
-                        className={clsx(dateErrors[0] && styles.error)}
                         value={format(
                           new Date(rules[0].timestamp),
                           "yyyy-MM-dd'T'HH:mm"
@@ -176,20 +159,20 @@ export default function ScheduleInputs(props: Props) {
                     <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                       <Field
                         type="datetime-local"
-                        className={clsx(dateErrors[1] && styles.error)}
+                        className={clsx(dateErrors && styles.error)}
                         value={format(
                           new Date(rules[1].timestamp),
                           "yyyy-MM-dd'T'HH:mm"
                         )}
                         onChange={(e) => {
-                          setDateErrors({ [1]: "" });
+                          setDateErrors("");
                           if (
                             new Date(e.target.value) <
                             new Date(rules[0].timestamp)
                           ) {
-                            setDateErrors({
-                              [1]: "Date must be greater than the previous rule date.",
-                            });
+                            setDateErrors(
+                              "End date must be greater than the previous rule date."
+                            );
                             return;
                           }
                           onChange(e.target.value, "timestamp", 1);
@@ -200,9 +183,9 @@ export default function ScheduleInputs(props: Props) {
                         ({formatTimeZone(new Date(), "z")})
                       </span>
                     </div>
-                    {dateErrors[1] && (
+                    {dateErrors && (
                       <div className="ml-2 alert alert-danger mb-0">
-                        {dateErrors[1]}
+                        {dateErrors}
                       </div>
                     )}
                   </>
