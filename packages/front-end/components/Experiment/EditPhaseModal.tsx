@@ -1,13 +1,14 @@
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates, ExperimentPhaseType
+  ExperimentPhaseStringDates,
+  ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
+import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import VariationsInput from "../Features/VariationsInput";
-import SelectField from "@/components/Forms/SelectField";
 
 export interface Props {
   close: () => void;
