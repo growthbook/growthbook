@@ -22,7 +22,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-function hasEnoughData(value1: number, value2: number): boolean {
+export function hasEnoughData(value1: number, value2: number): boolean {
   return Math.max(value1, value2) >= 80 && Math.min(value1, value2) >= 20;
 }
 
