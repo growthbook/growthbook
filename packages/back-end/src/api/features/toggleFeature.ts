@@ -54,7 +54,11 @@ export const toggleFeature = createApiRequestHandler({
       toggles[env] = state;
     });
 
-    const newFeature = await toggleMultipleEnvironments(feature, toggles);
+    const newFeature = await toggleMultipleEnvironments(
+      req.organization,
+      feature,
+      toggles
+    );
 
     if (newFeature !== feature) {
       await req.audit({

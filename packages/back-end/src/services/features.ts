@@ -23,6 +23,9 @@ import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { createEvent } from "../models/EventModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { getCurrentEnabledState } from "../util/scheduleRules";
+import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
+import { logger } from "../util/logger";
+import { promiseAllChunks } from "../util/promise";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
@@ -180,6 +183,95 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
+export async function refreshSDKPayloadCache(
+  organization: OrganizationInterface,
+  options: {
+    all?: boolean;
+    feature?: FeatureInterface;
+    filter?: (feature: FeatureInterface) => boolean;
+    projects?: string[];
+    environments?: string[];
+  } = {}
+) {
+  let allFeatures: FeatureInterface[] | null = null;
+  let changedFeatures: FeatureInterface[] = [];
+
+  // Get list of features that changed so we can determine which project/environment payloads need updating
+  if (options.all) {
+    allFeatures = await getAllFeatures(organization.id);
+    changedFeatures = allFeatures;
+  } else if (options.filter) {
+    allFeatures = await getAllFeatures(organization.id);
+    changedFeatures = allFeatures.filter(options.filter);
+  } else if (options.feature) {
+    changedFeatures = [options.feature];
+  }
+
+  // Determine which environments/projects are affected by the changed features
+  const allEnvs = getEnvironments(organization).map((e) => e.id);
+  const projects: Set<string> = new Set(options.projects || []);
+  projects.add("");
+  const environments: Set<string> = new Set(options.environments || []);
+  changedFeatures.forEach((feature) => {
+    const affectedEnvs = getAffectedEnvs(feature, allEnvs);
+    if (affectedEnvs.length > 0) {
+      projects.add(feature.project || "");
+      affectedEnvs.forEach((env) => {
+        environments.add(env);
+      });
+    }
+  });
+
+  // If no environments are affected, we don't need to update anything
+  if (!environments.size) return;
+
+  const groupMap = await getSavedGroupMap(organization);
+
+  if (!allFeatures) {
+    allFeatures = await getAllFeatures(organization.id);
+  }
+
+  // For each affected project/environment pair, generate a new SDK payload and update the cache
+  const promises: (() => Promise<void>)[] = [];
+  for (const project of projects) {
+    const projectFeatures = project
+      ? allFeatures.filter((f) => f.project === project)
+      : allFeatures;
+
+    if (!projectFeatures.length) break;
+
+    for (const environment of environments) {
+      const defs: Record<string, FeatureDefinition> = {};
+      projectFeatures.forEach((feature) => {
+        const def = getFeatureDefinition({
+          feature,
+          environment,
+          groupMap,
+        });
+        if (def) {
+          defs[feature.id] = def;
+        }
+      });
+
+      promises.push(async () => {
+        await updateSDKPayload({
+          organization: organization.id,
+          project,
+          environment,
+          featureDefinitions: defs,
+        });
+      });
+    }
+  }
+
+  if (promises.length > 0) {
+    // Vast majority of the time, there will only be 1 or 2 promises
+    // However, there could be a lot if an org has many enabled environments
+    // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
+    await promiseAllChunks(promises, 4);
+  }
+}
+
 export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
@@ -188,6 +280,28 @@ export async function getFeatureDefinitions(
   features: Record<string, FeatureDefinition>;
   dateUpdated: Date | null;
 }> {
+  // Return cached payload from Mongo if exists
+  const cached = await getSDKPayload({
+    organization,
+    environment,
+    project: project || "",
+  });
+  if (cached) {
+    try {
+      const { features } = JSON.parse(cached.payload) as {
+        features: Record<string, FeatureDefinition>;
+      };
+      if (features) {
+        return {
+          features,
+          dateUpdated: cached.dateUpdated,
+        };
+      }
+    } catch (e) {
+      logger.error(e, "Failed to JSON.parse cached SDK payload");
+    }
+  }
+
   const org = await getOrganizationById(organization);
   if (!org) {
     return {
@@ -214,6 +328,15 @@ export async function getFeatureDefinitions(
         mostRecentUpdate = feature.dateUpdated;
       }
     }
+  });
+
+  // Cache in Mongo
+  await updateSDKPayload({
+    organization,
+    project: project || "",
+    environment,
+    featureDefinitions: defs,
+    dateUpdated: mostRecentUpdate,
   });
 
   return { features: defs, dateUpdated: mostRecentUpdate };
@@ -257,11 +380,18 @@ export function getAffectedEnvs(
 }
 
 export async function featureUpdated(
+  organization: OrganizationInterface,
   feature: FeatureInterface,
   previousEnvironments: string[] = [],
   previousProject: string = ""
 ) {
   const currentEnvironments = getEnabledEnvironments(feature);
+
+  await refreshSDKPayloadCache(organization, {
+    feature,
+    projects: [previousProject],
+    environments: previousEnvironments,
+  });
 
   // fire the webhook:
   await queueWebhook(
@@ -270,6 +400,34 @@ export async function featureUpdated(
     [previousProject || "", feature.project || ""],
     true
   );
+}
+
+export function hasMatchingFeatureRule(
+  feature: FeatureInterface,
+  filter: (rule: FeatureRule) => boolean,
+  enabledRulesOnly: boolean = true
+): boolean {
+  const environmentSettings = feature.environmentSettings;
+  if (!environmentSettings) return false;
+
+  for (const s in environmentSettings) {
+    const env = environmentSettings[s];
+
+    if (env.rules && env.rules.length) {
+      for (const r of env.rules) {
+        if (enabledRulesOnly) {
+          if (!r.enabled) break;
+          if (!getCurrentEnabledState(r.scheduleRules || [], new Date())) {
+            break;
+          }
+        }
+
+        if (filter(r)) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 // eslint-disable-next-line

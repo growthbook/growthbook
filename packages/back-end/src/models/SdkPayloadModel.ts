@@ -26,6 +26,8 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface {
   return doc.toJSON();
 }
 
+export const SDK_PAYLOAD_SCHEMA_VERSION = 1;
+
 export async function getSDKPayload({
   organization,
   project,
@@ -39,6 +41,7 @@ export async function getSDKPayload({
     organization,
     project,
     environment,
+    schemaVersion: SDK_PAYLOAD_SCHEMA_VERSION,
   });
   return doc ? toInterface(doc) : null;
 }
@@ -63,14 +66,16 @@ export async function updateSDKPayload({
   organization,
   project,
   environment,
-  features,
+  featureDefinitions,
+  dateUpdated,
 }: {
   organization: string;
   project: string;
   environment: string;
-  features: Record<string, FeatureDefinition>;
+  featureDefinitions: Record<string, FeatureDefinition>;
+  dateUpdated?: Date | null;
 }) {
-  const now = new Date();
+  dateUpdated = dateUpdated || new Date();
   await SDKPayloadModel.updateOne(
     {
       organization,
@@ -79,12 +84,11 @@ export async function updateSDKPayload({
     },
     {
       $set: {
-        dateUpdated: now,
+        dateUpdated,
         deployed: false,
-        schemaVersion: 1,
+        schemaVersion: SDK_PAYLOAD_SCHEMA_VERSION,
         payload: JSON.stringify({
-          features,
-          dateUpdated: now,
+          featureDefinitions,
         }),
       },
     },

@@ -9,6 +9,7 @@ import {
   getEnabledEnvironments,
   getNextScheduledUpdate,
 } from "../services/features";
+import { getOrganizationById } from "../services/organizations";
 import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
@@ -74,13 +75,16 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     featureId,
   });
 
-  const feature = await getFeature(organization, featureId);
+  const org = await getOrganizationById(organization);
+  if (!org) return;
 
+  const feature = await getFeature(organization, featureId);
   if (!feature) return;
 
   try {
     // Fire the webhook
     featureUpdated(
+      org,
       feature,
       getEnabledEnvironments(feature),
       feature.project || ""

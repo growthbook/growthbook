@@ -15,6 +15,7 @@ import {
   getNextScheduledUpdate,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
+import { OrganizationInterface } from "../../types/organization";
 import { saveRevision } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -162,6 +163,7 @@ function setEnvironmentSettings(
 }
 
 export async function toggleMultipleEnvironments(
+  organization: OrganizationInterface,
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
@@ -195,18 +197,19 @@ export async function toggleMultipleEnvironments(
       }
     );
 
-    featureUpdated(newFeature, previousEnvs);
+    featureUpdated(organization, newFeature, previousEnvs);
   }
 
   return newFeature;
 }
 
 export async function toggleFeatureEnvironment(
+  organization: OrganizationInterface,
   feature: FeatureInterface,
   environment: string,
   state: boolean
 ) {
-  await toggleMultipleEnvironments(feature, {
+  await toggleMultipleEnvironments(organization, feature, {
     [environment]: state,
   });
 }
@@ -343,6 +346,7 @@ export async function discardDraft(feature: FeatureInterface) {
 }
 
 export async function publishDraft(
+  organization: OrganizationInterface,
   feature: FeatureInterface,
   user: {
     id: string;
@@ -404,7 +408,7 @@ export async function publishDraft(
     ...changes,
   };
 
-  featureUpdated(newFeature);
+  featureUpdated(organization, newFeature);
   await saveRevision(newFeature);
   return newFeature;
 }

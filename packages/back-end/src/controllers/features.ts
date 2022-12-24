@@ -196,7 +196,7 @@ export async function postFeatures(
     details: auditDetailsCreate(feature),
   });
 
-  featureUpdated(feature);
+  featureUpdated(org, feature);
   res.status(200).json({
     status: 200,
     feature,
@@ -248,6 +248,7 @@ export async function postFeaturePublish(
   verifyDraftsAreEqual(feature.draft, draft);
 
   const newFeature = await publishDraft(
+    org,
     feature,
     {
       id: userId,
@@ -433,7 +434,7 @@ export async function postFeatureToggle(
   const previousFeatureState = _.cloneDeep(feature);
   const newFeatureState: FeatureInterface = _.cloneDeep(previousFeatureState);
 
-  await toggleFeatureEnvironment(feature, environment, state);
+  await toggleFeatureEnvironment(org, feature, environment, state);
 
   await req.audit({
     event: "feature.toggle",
@@ -597,6 +598,7 @@ export async function putFeature(
 
   if (requiresWebhook) {
     featureUpdated(
+      org,
       newFeature,
       getEnabledEnvironments(feature),
       feature.project || ""
@@ -638,7 +640,7 @@ export async function deleteFeatureById(
       },
       details: auditDetailsDelete(feature),
     });
-    featureUpdated(feature);
+    featureUpdated(org, feature);
   }
 
   res.status(200).json({
@@ -676,7 +678,7 @@ export async function postFeatureArchive(
       { archived: !feature.archived } // New state
     ),
   });
-  featureUpdated(feature);
+  featureUpdated(org, feature);
 
   res.status(200).json({
     status: 200,
