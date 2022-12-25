@@ -600,6 +600,7 @@ export async function putFeature(
     featureUpdated(
       org,
       newFeature,
+      // Previous environments/projects in case they changed
       getEnabledEnvironments(feature),
       feature.project || ""
     );

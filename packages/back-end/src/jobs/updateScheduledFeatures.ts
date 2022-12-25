@@ -4,11 +4,7 @@ import {
   getScheduledFeaturesToUpdate,
   updateFeature,
 } from "../models/FeatureModel";
-import {
-  featureUpdated,
-  getEnabledEnvironments,
-  getNextScheduledUpdate,
-} from "../services/features";
+import { featureUpdated, getNextScheduledUpdate } from "../services/features";
 import { getOrganizationById } from "../services/organizations";
 import { logger } from "../util/logger";
 
@@ -83,12 +79,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
 
   try {
     // Fire the webhook
-    featureUpdated(
-      org,
-      feature,
-      getEnabledEnvironments(feature),
-      feature.project || ""
-    );
+    featureUpdated(org, feature);
 
     // Then, we'll need to recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(

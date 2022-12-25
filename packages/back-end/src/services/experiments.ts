@@ -799,11 +799,15 @@ export async function experimentUpdated(
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) {
+  const projects: string[] = [];
+  if (previousProject) projects.push(previousProject);
+  if (experiment.project) projects.push(experiment.project);
+
   // fire the webhook:
   await queueWebhook(
     experiment.organization,
     ["dev", "production"],
-    [previousProject || "", experiment.project || ""],
+    projects,
     false
   );
 

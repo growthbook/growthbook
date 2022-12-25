@@ -183,53 +183,50 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-export async function refreshSDKPayloadCache(
+export async function getChangedEnvironmentsAndProjects(
   organization: OrganizationInterface,
-  options: {
-    all?: boolean;
-    feature?: FeatureInterface;
-    filter?: (feature: FeatureInterface) => boolean;
-    projects?: string[];
-    environments?: string[];
-  } = {}
-) {
-  let allFeatures: FeatureInterface[] | null = null;
-  let changedFeatures: FeatureInterface[] = [];
-
-  // Get list of features that changed so we can determine which project/environment payloads need updating
-  if (options.all) {
-    allFeatures = await getAllFeatures(organization.id);
-    changedFeatures = allFeatures;
-  } else if (options.filter) {
-    allFeatures = await getAllFeatures(organization.id);
-    changedFeatures = allFeatures.filter(options.filter);
-  } else if (options.feature) {
-    changedFeatures = [options.feature];
-  }
+  allFeatures: FeatureInterface[],
+  ruleFilter: (rule: FeatureRule) => boolean | unknown
+): Promise<{
+  projects: Set<string>;
+  environments: Set<string>;
+}> {
+  // Get list of changed features that have rules that match a desired pattern
+  const changedFeatures = allFeatures.filter((f) =>
+    hasMatchingFeatureRule(f, ruleFilter)
+  );
 
   // Determine which environments/projects are affected by the changed features
   const allEnvs = getEnvironments(organization).map((e) => e.id);
-  const projects: Set<string> = new Set(options.projects || []);
-  projects.add("");
-  const environments: Set<string> = new Set(options.environments || []);
+  const projects: Set<string> = new Set();
+  const environments: Set<string> = new Set();
   changedFeatures.forEach((feature) => {
     const affectedEnvs = getAffectedEnvs(feature, allEnvs);
     if (affectedEnvs.length > 0) {
-      projects.add(feature.project || "");
+      if (feature.project) projects.add(feature.project);
       affectedEnvs.forEach((env) => {
         environments.add(env);
       });
     }
   });
 
+  return {
+    projects,
+    environments,
+  };
+}
+
+export async function refreshSDKPayloadCache(
+  organization: OrganizationInterface,
+  environments: Set<string>,
+  projects: Set<string>,
+  allFeatures: FeatureInterface[] | null = null
+) {
   // If no environments are affected, we don't need to update anything
   if (!environments.size) return;
 
   const groupMap = await getSavedGroupMap(organization);
-
-  if (!allFeatures) {
-    allFeatures = await getAllFeatures(organization.id);
-  }
+  allFeatures = allFeatures || (await getAllFeatures(organization.id));
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -238,27 +235,21 @@ export async function refreshSDKPayloadCache(
       ? allFeatures.filter((f) => f.project === project)
       : allFeatures;
 
-    if (!projectFeatures.length) break;
+    if (!projectFeatures.length) continue;
 
     for (const environment of environments) {
-      const defs: Record<string, FeatureDefinition> = {};
-      projectFeatures.forEach((feature) => {
-        const def = getFeatureDefinition({
-          feature,
-          environment,
-          groupMap,
-        });
-        if (def) {
-          defs[feature.id] = def;
-        }
-      });
+      const { featureDefinitions } = generatePayload(
+        projectFeatures,
+        environment,
+        groupMap
+      );
 
       promises.push(async () => {
         await updateSDKPayload({
           organization: organization.id,
           project,
           environment,
-          featureDefinitions: defs,
+          featureDefinitions,
         });
       });
     }
@@ -272,47 +263,14 @@ export async function refreshSDKPayloadCache(
   }
 }
 
-export async function getFeatureDefinitions(
-  organization: string,
-  environment: string = "production",
-  project?: string
-): Promise<{
-  features: Record<string, FeatureDefinition>;
+function generatePayload(
+  features: FeatureInterface[],
+  environment: string,
+  groupMap: GroupMap
+): {
+  featureDefinitions: Record<string, FeatureDefinition>;
   dateUpdated: Date | null;
-}> {
-  // Return cached payload from Mongo if exists
-  const cached = await getSDKPayload({
-    organization,
-    environment,
-    project: project || "",
-  });
-  if (cached) {
-    try {
-      const { features } = JSON.parse(cached.payload) as {
-        features: Record<string, FeatureDefinition>;
-      };
-      if (features) {
-        return {
-          features,
-          dateUpdated: cached.dateUpdated,
-        };
-      }
-    } catch (e) {
-      logger.error(e, "Failed to JSON.parse cached SDK payload");
-    }
-  }
-
-  const org = await getOrganizationById(organization);
-  if (!org) {
-    return {
-      features: {},
-      dateUpdated: null,
-    };
-  }
-
-  const features = await getAllFeatures(organization, project);
-  const groupMap = await getSavedGroupMap(org);
-
+} {
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
   features.forEach((feature) => {
@@ -330,16 +288,69 @@ export async function getFeatureDefinitions(
     }
   });
 
+  return {
+    featureDefinitions: defs,
+    dateUpdated: mostRecentUpdate,
+  };
+}
+
+export async function getFeatureDefinitions(
+  organization: string,
+  environment: string = "production",
+  project?: string
+): Promise<{
+  features: Record<string, FeatureDefinition>;
+  dateUpdated: Date | null;
+}> {
+  // Return cached payload from Mongo if exists
+  try {
+    const cached = await getSDKPayload({
+      organization,
+      environment,
+      project: project || "",
+    });
+    if (cached) {
+      const { features } = JSON.parse(cached.payload) as {
+        features: Record<string, FeatureDefinition>;
+      };
+      if (features) {
+        return {
+          features,
+          dateUpdated: cached.dateUpdated,
+        };
+      }
+    }
+  } catch (e) {
+    logger.error(e, "Failed to fetch SDK payload from cache");
+  }
+
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    return {
+      features: {},
+      dateUpdated: null,
+    };
+  }
+
+  // Generate the
+  const features = await getAllFeatures(organization, project);
+  const groupMap = await getSavedGroupMap(org);
+  const { featureDefinitions, dateUpdated } = generatePayload(
+    features,
+    environment,
+    groupMap
+  );
+
   // Cache in Mongo
   await updateSDKPayload({
     organization,
     project: project || "",
     environment,
-    featureDefinitions: defs,
-    dateUpdated: mostRecentUpdate,
+    featureDefinitions,
+    dateUpdated,
   });
 
-  return { features: defs, dateUpdated: mostRecentUpdate };
+  return { features: featureDefinitions, dateUpdated };
 }
 
 export function getEnabledEnvironments(feature: FeatureInterface) {
@@ -387,24 +398,31 @@ export async function featureUpdated(
 ) {
   const currentEnvironments = getEnabledEnvironments(feature);
 
-  await refreshSDKPayloadCache(organization, {
-    feature,
-    projects: [previousProject],
-    environments: previousEnvironments,
-  });
+  const projects: Set<string> = new Set([
+    "",
+    previousProject || "",
+    feature.project || "",
+  ]);
+
+  const environments = new Set([
+    ...currentEnvironments,
+    ...previousEnvironments,
+  ]);
+
+  await refreshSDKPayloadCache(organization, environments, projects);
 
   // fire the webhook:
   await queueWebhook(
     feature.organization,
-    [...currentEnvironments, ...previousEnvironments],
-    [previousProject || "", feature.project || ""],
+    [...environments],
+    [...projects],
     true
   );
 }
 
 export function hasMatchingFeatureRule(
   feature: FeatureInterface,
-  filter: (rule: FeatureRule) => boolean,
+  filter: (rule: FeatureRule) => boolean | unknown,
   enabledRulesOnly: boolean = true
 ): boolean {
   const environmentSettings = feature.environmentSettings;
@@ -416,12 +434,13 @@ export function hasMatchingFeatureRule(
     if (env.rules && env.rules.length) {
       for (const r of env.rules) {
         if (enabledRulesOnly) {
-          if (!r.enabled) break;
+          if (!r.enabled) continue;
           if (!getCurrentEnabledState(r.scheduleRules || [], new Date())) {
-            break;
+            continue;
           }
         }
 
+        // If one of the rules matches the filter, return immediately
         if (filter(r)) return true;
       }
     }
