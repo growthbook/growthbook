@@ -124,6 +124,7 @@ export async function queueWebhook(
   isFeature?: boolean
 ) {
   if (!CRON_ENABLED) return;
+  if (!environments.length) return;
 
   const webhooks = await WebhookModel.find({
     organization: orgId,

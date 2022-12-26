@@ -183,23 +183,21 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-export async function getChangedEnvironmentsAndProjects(
+// When features change, determine which environments/projects are affected
+// e.g. If a feature is disabled in all environments, then it's project won't be affected
+export async function getAffectedEnvironmentsAndProjects(
   organization: OrganizationInterface,
-  allFeatures: FeatureInterface[],
-  ruleFilter: (rule: FeatureRule) => boolean | unknown
+  changedFeatures: FeatureInterface[]
 ): Promise<{
   projects: Set<string>;
   environments: Set<string>;
 }> {
-  // Get list of changed features that have rules that match a desired pattern
-  const changedFeatures = allFeatures.filter((f) =>
-    hasMatchingFeatureRule(f, ruleFilter)
-  );
-
-  // Determine which environments/projects are affected by the changed features
-  const allEnvs = getEnvironments(organization).map((e) => e.id);
-  const projects: Set<string> = new Set();
+  // An empty string for projects means "All Projects", so that one is always affected
+  const projects: Set<string> = new Set([""]);
   const environments: Set<string> = new Set();
+
+  // Determine which specific environments/projects are affected by the changed features
+  const allEnvs = getEnvironments(organization).map((e) => e.id);
   changedFeatures.forEach((feature) => {
     const affectedEnvs = getAffectedEnvs(feature, allEnvs);
     if (affectedEnvs.length > 0) {
@@ -238,7 +236,7 @@ export async function refreshSDKPayloadCache(
     if (!projectFeatures.length) continue;
 
     for (const environment of environments) {
-      const { featureDefinitions } = generatePayload(
+      const { featureDefinitions, dateUpdated } = generatePayload(
         projectFeatures,
         environment,
         groupMap
@@ -250,6 +248,7 @@ export async function refreshSDKPayloadCache(
           project,
           environment,
           featureDefinitions,
+          dateUpdated,
         });
       });
     }
@@ -269,7 +268,7 @@ function generatePayload(
   groupMap: GroupMap
 ): {
   featureDefinitions: Record<string, FeatureDefinition>;
-  dateUpdated: Date | null;
+  dateUpdated: Date;
 } {
   const defs: Record<string, FeatureDefinition> = {};
   let mostRecentUpdate: Date | null = null;
@@ -290,7 +289,7 @@ function generatePayload(
 
   return {
     featureDefinitions: defs,
-    dateUpdated: mostRecentUpdate,
+    dateUpdated: mostRecentUpdate || new Date(),
   };
 }
 
@@ -328,7 +327,7 @@ export async function getFeatureDefinitions(
     };
   }
 
-  // Generate the
+  // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
   const { featureDefinitions, dateUpdated } = generatePayload(

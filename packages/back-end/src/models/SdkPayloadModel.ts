@@ -75,10 +75,8 @@ export async function updateSDKPayload({
   project: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinition>;
-  dateUpdated?: Date | null;
+  dateUpdated: Date;
 }) {
-  dateUpdated = dateUpdated || new Date();
-
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
   };

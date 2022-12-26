@@ -119,7 +119,10 @@ export async function updateFeature(
   await FeatureModel.updateOne(
     { organization, id },
     {
-      $set: updates,
+      $set: {
+        ...updates,
+        dateUpdated: new Date(),
+      },
     }
   );
 }
@@ -184,19 +187,7 @@ export async function toggleMultipleEnvironments(
 
   // If there are changes we need to apply
   if (Object.keys(changes).length > 0) {
-    await FeatureModel.updateOne(
-      {
-        id: feature.id,
-        organization: feature.organization,
-      },
-      {
-        $set: {
-          dateUpdated: new Date(),
-          ...changes,
-        },
-      }
-    );
-
+    await updateFeature(feature.organization, feature.id, changes);
     featureUpdated(organization, newFeature, previousEnvs);
   }
 
@@ -290,18 +281,7 @@ export async function updateDraft(
   feature: FeatureInterface,
   draft: FeatureDraftChanges
 ) {
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: {
-        draft,
-        dateUpdated: new Date(),
-      },
-    }
-  );
+  await updateFeature(feature.organization, feature.id, { draft });
 
   return {
     ...feature,
@@ -330,19 +310,11 @@ export async function discardDraft(feature: FeatureInterface) {
     throw new Error("There are no draft changes to discard.");
   }
 
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
+  await updateFeature(feature.organization, feature.id, {
+    draft: {
+      active: false,
     },
-    {
-      $set: {
-        draft: {
-          active: false,
-        },
-      },
-    }
-  );
+  });
 }
 
 export async function publishDraft(
@@ -384,7 +356,6 @@ export async function publishDraft(
     changes.nextScheduledUpdate = getNextScheduledUpdate(envSettings);
   }
 
-  changes.dateUpdated = new Date();
   changes.draft = { active: false };
   changes.revision = {
     version: (feature.revision?.version || 1) + 1,
@@ -392,16 +363,7 @@ export async function publishDraft(
     date: new Date(),
     publishedBy: user,
   };
-
-  await FeatureModel.updateOne(
-    {
-      id: feature.id,
-      organization: feature.organization,
-    },
-    {
-      $set: changes,
-    }
-  );
+  await updateFeature(feature.organization, feature.id, changes);
 
   const newFeature = {
     ...feature,

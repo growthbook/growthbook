@@ -78,18 +78,18 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   if (!feature) return;
 
   try {
-    // Fire the webhook
-    featureUpdated(org, feature);
-
-    // Then, we'll need to recalculate the feature's new nextScheduledUpdate
+    // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {}
     );
 
-    // And finally, we'll need to update the feature with the new nextScheduledUpdate
+    // Update the feature in Mongo
     await updateFeature(organization, featureId, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
+
+    // Fire the webhook
+    featureUpdated(org, feature);
   } catch (e) {
     log.error("Failure - " + e.message);
   }

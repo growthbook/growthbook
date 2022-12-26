@@ -578,10 +578,7 @@ export async function putFeature(
     requiresWebhook = true;
   }
 
-  await updateFeature(feature.organization, id, {
-    ...updates,
-    dateUpdated: new Date(),
-  });
+  await updateFeature(feature.organization, id, updates);
 
   const newFeature = { ...feature, ...updates };
 

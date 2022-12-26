@@ -2,7 +2,8 @@ import { OrganizationInterface } from "../../types/organization";
 import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
-  getChangedEnvironmentsAndProjects,
+  getAffectedEnvironmentsAndProjects,
+  hasMatchingFeatureRule,
   refreshSDKPayloadCache,
 } from "./features";
 
@@ -11,12 +12,20 @@ export async function savedGroupUpdated(
   id: string
 ) {
   const allFeatures = await getAllFeatures(org.id);
-
   // Only features that reference this saved group id in a condition are affected
-  const { environments, projects } = await getChangedEnvironmentsAndProjects(
+  const changedFeatures = allFeatures.filter((feature) =>
+    hasMatchingFeatureRule(
+      feature,
+      // Do a simple string lookup in the serialized condition
+      // Might have occasional false positives, but it's much faster than full parsing
+      // False positives aren't too bad, they'll just cause the cache to be invalidated more frequently
+      (rule) => rule.condition && rule.condition.includes(id)
+    )
+  );
+
+  const { environments, projects } = await getAffectedEnvironmentsAndProjects(
     org,
-    allFeatures,
-    (rule) => rule.condition && rule.condition.includes(id)
+    changedFeatures
   );
 
   await refreshSDKPayloadCache(org, environments, projects, allFeatures);
