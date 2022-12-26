@@ -310,15 +310,11 @@ export async function getFeatureDefinitions(
       project: project || "",
     });
     if (cached) {
-      const { features } = JSON.parse(cached.payload) as {
-        features: Record<string, FeatureDefinition>;
+      const { features } = cached.contents;
+      return {
+        features,
+        dateUpdated: cached.dateUpdated,
       };
-      if (features) {
-        return {
-          features,
-          dateUpdated: cached.dateUpdated,
-        };
-      }
     }
   } catch (e) {
     logger.error(e, "Failed to fetch SDK payload from cache");

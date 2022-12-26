@@ -1,6 +1,13 @@
 import mongoose from "mongoose";
 import { FeatureDefinition } from "../../types/api";
-import { SDKPayloadInterface } from "../../types/sdk-payload";
+import {
+  SDKPayloadContents,
+  SDKPayloadInterface,
+  SDKStringifiedPayloadInterface,
+} from "../../types/sdk-payload";
+
+// Increment this if we change the shape of the payload contents
+export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
 
 const sdkPayloadSchema = new mongoose.Schema({
   organization: String,
@@ -9,24 +16,35 @@ const sdkPayloadSchema = new mongoose.Schema({
   dateUpdated: Date,
   deployed: Boolean,
   schemaVersion: Number,
-  payload: String,
+  contents: String,
 });
 sdkPayloadSchema.index(
   { organization: 1, project: 1, environment: 1 },
   { unique: true }
 );
-type SDKPayloadDocument = mongoose.Document & SDKPayloadInterface;
+type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKPayloadDocument>(
   "SdkPayload",
   sdkPayloadSchema
 );
 
-function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface {
-  return doc.toJSON();
-}
+function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
+  const json = doc.toJSON();
+  try {
+    const contents = JSON.parse(json.contents);
 
-export const SDK_PAYLOAD_SCHEMA_VERSION = 1;
+    // TODO: better validation here to make sure contents are the correct type?
+    if (!contents.features) return null;
+
+    return {
+      ...json,
+      contents,
+    };
+  } catch (e) {
+    return null;
+  }
+}
 
 export async function getSDKPayload({
   organization,
@@ -41,25 +59,9 @@ export async function getSDKPayload({
     organization,
     project,
     environment,
-    schemaVersion: SDK_PAYLOAD_SCHEMA_VERSION,
+    schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
   });
   return doc ? toInterface(doc) : null;
-}
-
-export async function deleteSDKPayload({
-  organization,
-  project,
-  environment,
-}: {
-  organization: string;
-  project: string;
-  environment: string;
-}) {
-  await SDKPayloadModel.deleteOne({
-    organization,
-    project,
-    environment,
-  });
 }
 
 export async function updateSDKPayload({
@@ -76,6 +78,11 @@ export async function updateSDKPayload({
   dateUpdated?: Date | null;
 }) {
   dateUpdated = dateUpdated || new Date();
+
+  const contents: SDKPayloadContents = {
+    features: featureDefinitions,
+  };
+
   await SDKPayloadModel.updateOne(
     {
       organization,
@@ -86,10 +93,9 @@ export async function updateSDKPayload({
       $set: {
         dateUpdated,
         deployed: false,
-        schemaVersion: SDK_PAYLOAD_SCHEMA_VERSION,
-        payload: JSON.stringify({
-          featureDefinitions,
-        }),
+        schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
+        // Contents need to be serialized since they may contain invalid Mongo field keys
+        contents: JSON.stringify(contents),
       },
     },
     {
