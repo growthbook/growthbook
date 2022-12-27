@@ -371,20 +371,21 @@ export function getAffectedEnvs(
 export async function featureUpdated(
   organization: OrganizationInterface,
   feature: FeatureInterface,
-  previousEnvironments: string[] = [],
-  previousProject: string = ""
+  newFeature: FeatureInterface
 ) {
-  const currentEnvironments = getEnabledEnvironments(feature);
-
-  const projects: Set<string> = new Set([
-    "",
-    previousProject || "",
-    feature.project || "",
-  ]);
+  // Skip archived features
+  if (feature.archived && newFeature.archived) return;
 
   const environments = new Set([
-    ...currentEnvironments,
-    ...previousEnvironments,
+    ...getEnabledEnvironments(feature),
+    ...getEnabledEnvironments(newFeature),
+  ]);
+
+  const projects = new Set([
+    // Empty string is added since that represents the "All Projects" view, which every feature is part of
+    "",
+    feature.project || "",
+    newFeature.project || "",
   ]);
 
   await refreshSDKPayloadCache(organization, environments, projects);

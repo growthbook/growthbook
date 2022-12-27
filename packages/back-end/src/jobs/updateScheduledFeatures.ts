@@ -89,7 +89,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     });
 
     // Fire the webhook
-    featureUpdated(org, newFeature);
+    featureUpdated(org, feature, newFeature);
   } catch (e) {
     log.error("Failure - " + e.message);
   }

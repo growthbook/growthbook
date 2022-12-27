@@ -196,7 +196,7 @@ export async function postFeatures(
     details: auditDetailsCreate(feature),
   });
 
-  featureUpdated(org, feature);
+  featureUpdated(org, feature, feature);
   res.status(200).json({
     status: 200,
     feature,
@@ -585,20 +585,11 @@ export async function putFeature(
   await logFeatureUpdatedEvent(org, feature, newFeature);
 
   if (requiresWebhook) {
-    featureUpdated(
-      org,
-      newFeature,
-      // Previous environments/projects in case they changed
-      getEnabledEnvironments(feature),
-      feature.project || ""
-    );
+    featureUpdated(org, feature, newFeature);
   }
 
   res.status(200).json({
-    feature: {
-      ...newFeature,
-      dateUpdated: new Date(),
-    },
+    feature: newFeature,
     status: 200,
   });
 }
@@ -629,7 +620,7 @@ export async function deleteFeatureById(
       },
       details: auditDetailsDelete(feature),
     });
-    featureUpdated(org, feature);
+    featureUpdated(org, feature, feature);
   }
 
   res.status(200).json({
@@ -667,7 +658,7 @@ export async function postFeatureArchive(
       { archived: newFeature.archived } // New state
     ),
   });
-  featureUpdated(org, newFeature);
+  featureUpdated(org, feature, newFeature);
 
   res.status(200).json({
     status: 200,

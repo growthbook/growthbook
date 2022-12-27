@@ -178,23 +178,19 @@ export async function toggleMultipleEnvironments(
 ) {
   const changes: Record<string, boolean> = {};
   let newFeature = cloneDeep(feature);
-  const previousEnvs: string[] = [];
   Object.keys(toggles).forEach((env) => {
     const state = toggles[env];
     const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
     if (currentState !== state) {
       changes[`environmentSettings.${env}.enabled`] = state;
       newFeature = setEnvironmentSettings(newFeature, env, { enabled: state });
-      if (currentState) {
-        previousEnvs.push(env);
-      }
     }
   });
 
   // If there are changes we need to apply
   if (Object.keys(changes).length > 0) {
     const { dateUpdated } = await updateFeature(feature, changes);
-    featureUpdated(organization, { ...newFeature, dateUpdated }, previousEnvs);
+    featureUpdated(organization, feature, { ...newFeature, dateUpdated });
   }
 
   return newFeature;
@@ -365,7 +361,7 @@ export async function publishDraft(
   };
   const newFeature = await updateFeature(feature, changes);
 
-  featureUpdated(organization, newFeature);
+  featureUpdated(organization, feature, newFeature);
   await saveRevision(newFeature);
   return newFeature;
 }
