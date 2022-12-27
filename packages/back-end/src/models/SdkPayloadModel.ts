@@ -69,13 +69,11 @@ export async function updateSDKPayload({
   project,
   environment,
   featureDefinitions,
-  dateUpdated,
 }: {
   organization: string;
   project: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinition>;
-  dateUpdated: Date;
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
@@ -89,7 +87,7 @@ export async function updateSDKPayload({
     },
     {
       $set: {
-        dateUpdated,
+        dateUpdated: new Date(),
         deployed: false,
         schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
         // Contents need to be serialized since they may contain invalid Mongo field keys

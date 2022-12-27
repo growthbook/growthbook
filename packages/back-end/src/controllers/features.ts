@@ -430,11 +430,12 @@ export async function postFeatureToggle(
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
 
-  // Clone the current feature so we can log its current and previous states
-  const previousFeatureState = _.cloneDeep(feature);
-  const newFeatureState: FeatureInterface = _.cloneDeep(previousFeatureState);
-
-  await toggleFeatureEnvironment(org, feature, environment, state);
+  const newFeature = await toggleFeatureEnvironment(
+    org,
+    feature,
+    environment,
+    state
+  );
 
   await req.audit({
     event: "feature.toggle",
@@ -449,15 +450,7 @@ export async function postFeatureToggle(
     ),
   });
 
-  // Update the new state to reflect the toggled setting for the environment
-  if (newFeatureState.environmentSettings?.[environment]) {
-    newFeatureState.environmentSettings[environment] = {
-      ...newFeatureState.environmentSettings[environment],
-      enabled: !currentState,
-    };
-  }
-
-  await logFeatureUpdatedEvent(org, previousFeatureState, newFeatureState);
+  await logFeatureUpdatedEvent(org, feature, newFeature);
 
   res.status(200).json({
     status: 200,
@@ -578,9 +571,7 @@ export async function putFeature(
     requiresWebhook = true;
   }
 
-  await updateFeature(feature.organization, id, updates);
-
-  const newFeature = { ...feature, ...updates };
+  const newFeature = await updateFeature(feature, updates);
 
   await req.audit({
     event: "feature.update",
@@ -663,7 +654,7 @@ export async function postFeatureArchive(
     feature.project,
     getEnabledEnvironments(feature)
   );
-  await archiveFeature(feature.organization, id, !feature.archived);
+  const newFeature = await archiveFeature(feature, !feature.archived);
 
   await req.audit({
     event: "feature.archive",
@@ -673,10 +664,10 @@ export async function postFeatureArchive(
     },
     details: auditDetailsUpdate(
       { archived: feature.archived }, // Old state
-      { archived: !feature.archived } // New state
+      { archived: newFeature.archived } // New state
     ),
   });
-  featureUpdated(org, feature);
+  featureUpdated(org, newFeature);
 
   res.status(200).json({
     status: 200,

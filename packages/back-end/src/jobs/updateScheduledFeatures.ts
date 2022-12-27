@@ -84,12 +84,12 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    await updateFeature(organization, featureId, {
+    const newFeature = await updateFeature(feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
 
     // Fire the webhook
-    featureUpdated(org, feature);
+    featureUpdated(org, newFeature);
   } catch (e) {
     log.error("Failure - " + e.message);
   }

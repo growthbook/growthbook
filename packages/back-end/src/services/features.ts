@@ -236,7 +236,7 @@ export async function refreshSDKPayloadCache(
     if (!projectFeatures.length) continue;
 
     for (const environment of environments) {
-      const { featureDefinitions, dateUpdated } = generatePayload(
+      const featureDefinitions = generatePayload(
         projectFeatures,
         environment,
         groupMap
@@ -248,7 +248,6 @@ export async function refreshSDKPayloadCache(
           project,
           environment,
           featureDefinitions,
-          dateUpdated,
         });
       });
     }
@@ -266,12 +265,8 @@ function generatePayload(
   features: FeatureInterface[],
   environment: string,
   groupMap: GroupMap
-): {
-  featureDefinitions: Record<string, FeatureDefinition>;
-  dateUpdated: Date;
-} {
+): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
-  let mostRecentUpdate: Date | null = null;
   features.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
@@ -280,17 +275,10 @@ function generatePayload(
     });
     if (def) {
       defs[feature.id] = def;
-
-      if (!mostRecentUpdate || mostRecentUpdate < feature.dateUpdated) {
-        mostRecentUpdate = feature.dateUpdated;
-      }
     }
   });
 
-  return {
-    featureDefinitions: defs,
-    dateUpdated: mostRecentUpdate || new Date(),
-  };
+  return defs;
 }
 
 export async function getFeatureDefinitions(
@@ -330,11 +318,7 @@ export async function getFeatureDefinitions(
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
-  const { featureDefinitions, dateUpdated } = generatePayload(
-    features,
-    environment,
-    groupMap
-  );
+  const featureDefinitions = generatePayload(features, environment, groupMap);
 
   // Cache in Mongo
   await updateSDKPayload({
@@ -342,10 +326,9 @@ export async function getFeatureDefinitions(
     project: project || "",
     environment,
     featureDefinitions,
-    dateUpdated,
   });
 
-  return { features: featureDefinitions, dateUpdated };
+  return { features: featureDefinitions, dateUpdated: new Date() };
 }
 
 export function getEnabledEnvironments(feature: FeatureInterface) {

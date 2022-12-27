@@ -112,19 +112,26 @@ export async function deleteFeature(organization: string, id: string) {
 }
 
 export async function updateFeature(
-  organization: string,
-  id: string,
+  feature: FeatureInterface,
   updates: Partial<FeatureInterface>
-) {
+): Promise<FeatureInterface> {
+  const dateUpdated = new Date();
+
   await FeatureModel.updateOne(
-    { organization, id },
+    { organization: feature.organization, id: feature.id },
     {
       $set: {
         ...updates,
-        dateUpdated: new Date(),
+        dateUpdated,
       },
     }
   );
+
+  return {
+    ...feature,
+    ...updates,
+    dateUpdated,
+  };
 }
 
 export async function getScheduledFeaturesToUpdate() {
@@ -138,11 +145,10 @@ export async function getScheduledFeaturesToUpdate() {
 }
 
 export async function archiveFeature(
-  organization: string,
-  id: string,
+  feature: FeatureInterface,
   isArchived: boolean
 ) {
-  await updateFeature(organization, id, { archived: isArchived });
+  return await updateFeature(feature, { archived: isArchived });
 }
 
 function setEnvironmentSettings(
@@ -171,7 +177,7 @@ export async function toggleMultipleEnvironments(
   toggles: Record<string, boolean>
 ) {
   const changes: Record<string, boolean> = {};
-  let newFeature = feature;
+  let newFeature = cloneDeep(feature);
   const previousEnvs: string[] = [];
   Object.keys(toggles).forEach((env) => {
     const state = toggles[env];
@@ -187,8 +193,8 @@ export async function toggleMultipleEnvironments(
 
   // If there are changes we need to apply
   if (Object.keys(changes).length > 0) {
-    await updateFeature(feature.organization, feature.id, changes);
-    featureUpdated(organization, newFeature, previousEnvs);
+    const { dateUpdated } = await updateFeature(feature, changes);
+    featureUpdated(organization, { ...newFeature, dateUpdated }, previousEnvs);
   }
 
   return newFeature;
@@ -200,7 +206,7 @@ export async function toggleFeatureEnvironment(
   environment: string,
   state: boolean
 ) {
-  await toggleMultipleEnvironments(organization, feature, {
+  return await toggleMultipleEnvironments(organization, feature, {
     [environment]: state,
   });
 }
@@ -281,14 +287,8 @@ export async function updateDraft(
   feature: FeatureInterface,
   draft: FeatureDraftChanges
 ) {
-  await updateFeature(feature.organization, feature.id, { draft });
-
-  return {
-    ...feature,
-    draft: {
-      ...draft,
-    },
-  };
+  const newFeature = await updateFeature(feature, { draft });
+  return newFeature;
 }
 
 function getDraft(feature: FeatureInterface) {
@@ -310,7 +310,7 @@ export async function discardDraft(feature: FeatureInterface) {
     throw new Error("There are no draft changes to discard.");
   }
 
-  await updateFeature(feature.organization, feature.id, {
+  await updateFeature(feature, {
     draft: {
       active: false,
     },
@@ -363,12 +363,7 @@ export async function publishDraft(
     date: new Date(),
     publishedBy: user,
   };
-  await updateFeature(feature.organization, feature.id, changes);
-
-  const newFeature = {
-    ...feature,
-    ...changes,
-  };
+  const newFeature = await updateFeature(feature, changes);
 
   featureUpdated(organization, newFeature);
   await saveRevision(newFeature);
