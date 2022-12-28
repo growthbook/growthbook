@@ -15,6 +15,7 @@ const apiKeySchema = new mongoose.Schema({
     unique: true,
   },
   environment: String,
+  project: String,
   description: String,
   organization: String,
   dateCreated: Date,
@@ -55,12 +56,14 @@ function getShortEnvName(env: string) {
 
 export async function createApiKey({
   environment,
+  project,
   organization,
   description,
   secret,
   encryptSDK,
 }: {
   environment: string;
+  project: string;
   organization: string;
   description: string;
   secret: boolean;
@@ -78,6 +81,7 @@ export async function createApiKey({
 
   const doc = await ApiKeyModel.create({
     environment,
+    project,
     organization,
     description,
     key,

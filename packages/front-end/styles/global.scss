@@ -501,6 +501,7 @@ pre {
   border: 1px solid var(--border-color-100);
   margin-bottom: 1em;
   border-radius: 5px;
+  overflow-x: auto;
 
   td {
     vertical-align: middle;
@@ -1984,6 +1985,10 @@ html {
       }
     }
   }
+}
+
+.bg-disabled {
+  background: var(--disabled-background);
 }
 
 tr.disabled,

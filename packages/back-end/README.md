@@ -127,26 +127,45 @@ _Coming soon_
 
 ## Sample Data
 
+### Creating sample data
+
 To use the analysis parts of GrowthBook, you need to connect to a data source with experimentation events.
 
-We have a sample data generator script you can use to seed a Postgres database with realistic website traffic:
+We have a sample data generator script you can use to seed a database with realistic website traffic:
 
 1. Run `yarn workspace back-end generate-dummy-data`. This will create CSV files in `/tmp/csv`
-2. Start Postgres locally
-3. Connect to your local Postgres instance using `psql`
-4. Run the SQL commands in `packages/back-end/test/data-generator/create.sql` to create the tables and upload the generated data
+2. Start your local server (e.g. Postgres, MySQL)
+3. Connect to your local instance and run the SQL commands matching your server type in `packages/back-end/test/data-generator/sql_scripts/` to create the tables and upload the generated data
 
-Example running psql with create.sql
+We have SQL scripts set up to work with both Postgres and MySQL, but you could modify the SQL scripts to work with another system.
+
+**Postgres**
+
+For postgres, launch your connection using `psql` and run this script `packages/back-end/test/data-generator/sql_scripts/create_postgres.sql` to create the tables and upload the csvs.
+
+You can do this from your terminal with the following command, if your local postgres db is running with user `postgres`, database `growthbook_db`,
 
 ```bash
-> psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/create.sql
+> psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/sql_scripts/create_postgres.sql
 ```
 
-Next, you'll need to set up the Postgres connection within GrowthBook.
+**MySQL**
+
+Once your local MySQL db is running, you have to ensure that your server allows for local infiles. You can do this in your MySQL config file or by connecting to your instance using `mysql` and running `set global local_infile = true;` in the mysql console.
+
+Then, you can run `packages/back-end/test/data-generator/sql_scripts/create_mysql.sql` from the mysql console or from the terminal like so (using example user `myuser` and example database `growthbook_db`):
+
+```bash
+> mysql -u myuser -p growthbook_db --local-infile < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
+```
+
+### Loading sample data in to Growthbook
+
+Next, you'll need to set up the connection to your DB from within GrowthBook.
 
 1. Under Analysis->Data Sources, add a new data source
 2. Select "Custom Event Source"
-3. Select Postgres and enter your connection info. If you are running with `yarn dev`, you can use `localhost` safely and ignore the warning in the UI about docker.
+3. Select your server type (e.g. Postgres, MySQL) and enter your connection info. If you are running with `yarn dev`, you can use `localhost` safely and ignore the warning in the UI about docker.
 4. On the data source page, you can add two identifier types: `user_id` and `anonymous_id`
 5. Add an Identifier Join table:
 

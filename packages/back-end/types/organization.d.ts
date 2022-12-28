@@ -169,6 +169,7 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  statsEngine?: "bayesian" | "frequentist";
 }
 
 export interface SubscriptionQuote {
@@ -224,6 +225,7 @@ export interface OrganizationInterface {
     planNickname: string | null;
     priceId?: string;
   };
+  licenseKey?: string;
   members: Member[];
   invites: Invite[];
   connections?: OrganizationConnections;

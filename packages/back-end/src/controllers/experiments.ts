@@ -1366,7 +1366,8 @@ export async function getSnapshotStatus(
         org.id,
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
-        queryData
+        queryData,
+        org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
@@ -1512,7 +1513,8 @@ export async function postSnapshot(
       phase,
       org,
       dimension || null,
-      useCache
+      useCache,
+      org.settings?.statsEngine
     );
     await req.audit({
       event: "experiment.refresh",

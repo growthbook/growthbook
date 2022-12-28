@@ -1,5 +1,7 @@
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
+export type ExperimentPhaseType = "ramp" | "main" | "holdout";
+
 export type DomChange = {
   selector: string;
   action: "append" | "set" | "remove";
@@ -27,7 +29,7 @@ export interface Variation {
 export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
-  phase: "ramp" | "main" | "holdout";
+  phase: ExperimentPhaseType;
   reason: string;
   coverage: number;
   variationWeights: number[];
@@ -45,6 +47,8 @@ export type ExperimentPhaseStringDates = Omit<
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
 export type AttributionModel = "firstExposure" | "allExposures";
+
+export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
 
 export type MetricOverride = {
   id: string;
@@ -95,7 +99,7 @@ export interface ExperimentInterface {
   archived: boolean;
   status: ExperimentStatus;
   phases: ExperimentPhase[];
-  results?: "dnf" | "won" | "lost" | "inconclusive";
+  results?: ExperimentResultsType;
   winner?: number;
   analysis?: string;
   data?: string;

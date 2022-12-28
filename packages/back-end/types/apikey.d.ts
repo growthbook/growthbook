@@ -2,6 +2,7 @@ export interface ApiKeyInterface {
   id?: string;
   key: string;
   environment?: string;
+  project?: string;
   description?: string;
   organization: string;
   dateCreated: Date;
@@ -16,7 +17,7 @@ export type PublishableApiKey = Omit<ApiKeyInterface, "secret"> & {
 
 export type SecretApiKey = Omit<
   ApiKeyInterface,
-  "secret" | "environment" | "id"
+  "secret" | "environment" | "project" | "id"
 > & {
   secret: true;
   id: string;

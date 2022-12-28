@@ -45,6 +45,7 @@ import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import {
@@ -599,7 +600,8 @@ export async function createSnapshot(
   phaseIndex: number,
   organization: OrganizationInterface,
   dimensionId: string | null,
-  useCache: boolean = false
+  useCache: boolean = false,
+  statsEngine: OrganizationSettings["statsEngine"]
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -649,7 +651,8 @@ export async function createSnapshot(
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
-    useCache
+    useCache,
+    statsEngine
   );
 
   data.queries = queries;

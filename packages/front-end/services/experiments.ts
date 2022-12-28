@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
+import cloneDeep from "lodash/cloneDeep";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "../hooks/useOrgSettings";
 
@@ -196,7 +197,7 @@ export function applyMetricOverrides(
       overrideFields: [],
     };
   }
-  const newMetric = structuredClone(metric) as MetricInterface;
+  const newMetric = cloneDeep<MetricInterface>(metric);
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {

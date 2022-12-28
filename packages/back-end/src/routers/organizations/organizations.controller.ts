@@ -79,6 +79,7 @@ import {
   getRoles,
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+import licenseInit, { getLicense, setLicense } from "../../init/license";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -378,7 +379,21 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     connections,
     settings,
     disableSelfServeBilling,
+    licenseKey,
   } = org;
+
+  if (!IS_CLOUD && licenseKey) {
+    // automatically set the license data based on org license key
+    const licenseData = getLicense();
+    if (!licenseData || (licenseData.org && licenseData.org !== id)) {
+      try {
+        await licenseInit(licenseKey);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("setting license failed", e);
+      }
+    }
+  }
 
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(org.id);
@@ -415,6 +430,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       id,
       url,
       subscription,
+      licenseKey,
       freeSeats,
       disableSelfServeBilling,
       discountCode: org.discountCode || "",
@@ -935,13 +951,14 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     environment: string;
+    project: string;
     secret: boolean;
     encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment, secret, encryptSDK } = req.body;
+  const { description, environment, project, secret, encryptSDK } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -968,6 +985,7 @@ export async function postApiKey(
     organization: org.id,
     description: description || "",
     environment: environment || "",
+    project: project || "",
     secret: !!secret,
     encryptSDK,
   });
@@ -1309,6 +1327,60 @@ export async function putAdminResetUserPassword(
   }
 
   await updatePassword(userToUpdateId, updatedPassword);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putLicenseKey(
+  req: AuthRequest<{ licenseKey: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const orgId = org?.id;
+  if (!orgId) {
+    throw new Error("Must be part of an organization");
+  }
+  req.checkPermissions("manageBilling");
+  if (IS_CLOUD) {
+    throw new Error("License keys are only applicable to self-hosted accounts");
+  }
+  const { licenseKey } = req.body;
+  if (!licenseKey) {
+    throw new Error("missing license key");
+  }
+
+  const currentLicenseData = getLicense();
+  let licenseData = null;
+  try {
+    // set new license
+    await licenseInit(licenseKey);
+    licenseData = getLicense();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("setting new license failed", e);
+  }
+  if (!licenseData) {
+    // setting license failed, revert to previous
+    try {
+      await setLicense(currentLicenseData);
+    } catch (e) {
+      // reverting also failed
+      // eslint-disable-next-line no-console
+      console.error("reverting to old license failed", e);
+      await setLicense(null);
+    }
+    throw new Error("Invalid license key");
+  }
+
+  try {
+    await updateOrganization(orgId, {
+      licenseKey,
+    });
+  } catch (e) {
+    throw new Error("Failed to save license key");
+  }
 
   res.status(200).json({
     status: 200,

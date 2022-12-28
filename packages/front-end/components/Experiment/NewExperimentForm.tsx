@@ -2,6 +2,8 @@ import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentStatus,
+  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -14,6 +16,7 @@ import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
+import { getEqualWeights } from "@/services/utils";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -43,17 +46,6 @@ export type NewExperimentFormProps = {
   onCreate?: (id: string) => void;
   inline?: boolean;
 };
-
-function getEvenSplit(n: number) {
-  const weights = [];
-  const equal = 100 / n;
-
-  for (let i = 0; i < n; i++) {
-    weights.push((i > 0 ? Math.floor(equal) : Math.ceil(equal)) / 100);
-  }
-
-  return weights;
-}
 
 function getDefaultVariations(num: number) {
   // Must have at least 2 variations
@@ -147,7 +139,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               groups: [],
               variationWeights:
                 initialValue.phases?.[0].variationWeights ||
-                getEvenSplit(
+                getEqualWeights(
                   initialValue.variations ? initialValue.variations.length : 2
                 ),
             }
@@ -279,13 +271,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
         {visualEditorEnabled && !isImport && (
-          <Field
+          <SelectField
             label="Use Visual Editor"
             options={[
-              { display: "no", value: "code" },
-              { display: "yes", value: "visual" },
+              { label: "no", value: "code" },
+              { label: "yes", value: "visual" },
             ]}
-            {...form.register("implementation")}
+            value={form.watch("implementation")}
+            onChange={(v) => {
+              const impType = v as ImplementationType;
+              form.setValue("implementation", impType);
+            }}
           />
         )}
         <div className="form-group">
@@ -352,10 +348,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })}
           />
         )}
-        <Field
+        <SelectField
           label="Status"
-          options={["draft", "running", "stopped"]}
-          {...form.register("status")}
+          options={[
+            { label: "draft", value: "draft" },
+            { label: "running", value: "running" },
+            { label: "stopped", value: "stopped" },
+          ]}
+          onChange={(v) => {
+            const status = v as ExperimentStatus;
+            form.setValue("status", status);
+          }}
+          value={form.watch("status")}
         />
         {status !== "draft" && (
           <Field

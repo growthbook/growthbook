@@ -39,6 +39,7 @@ type OrgSettingsResponse = {
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
+  licenseKey?: string;
 };
 
 interface PermissionFunctions {
@@ -223,7 +224,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   // Refresh organization data when switching orgs
   useEffect(() => {
     if (orgId) {
-      refreshOrganization();
+      void refreshOrganization();
       track("Organization Loaded");
     }
   }, [orgId, refreshOrganization]);
@@ -233,8 +234,24 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated) {
       return;
     }
-    updateUser();
+    void updateUser();
   }, [isAuthenticated, updateUser]);
+
+  // Refresh user and org after loading license
+  useEffect(() => {
+    if (orgId) {
+      void refreshOrganization();
+    }
+    if (isAuthenticated) {
+      void updateUser();
+    }
+  }, [
+    orgId,
+    isAuthenticated,
+    currentOrg?.organization?.licenseKey,
+    refreshOrganization,
+    updateUser,
+  ]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook();
