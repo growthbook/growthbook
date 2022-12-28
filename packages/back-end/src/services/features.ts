@@ -398,8 +398,11 @@ export function hasMatchingFeatureRule(
   return false;
 }
 
-// eslint-disable-next-line
-export function arrayMove(array: Array<any>, from: number, to: number) {
+export function arrayMove<T>(
+  array: Array<T>,
+  from: number,
+  to: number
+): Array<T> {
   const newArray = array.slice();
   newArray.splice(
     to < 0 ? newArray.length + to : to,
