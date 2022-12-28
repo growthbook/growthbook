@@ -39,9 +39,9 @@ import { getExposureQuery } from "@/services/datasources";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
+import { useCustomFields } from "../../services/experiments";
 import VariationBox from "./VariationBox";
 import ExperimentReportsList from "./ExperimentReportsList";
-import { useCustomFields } from "../../services/experiments";
 import CustomFieldDisplay from "./CustomFieldDisplay";
 
 export interface Props {
