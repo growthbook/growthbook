@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import _ from "lodash";
 import {
   FeatureDraftChanges,
   FeatureInterface,
@@ -30,11 +29,9 @@ import {
   addIdsToRules,
   arrayMove,
   encrypt,
-  featureUpdated,
   getAffectedEnvs,
   getEnabledEnvironments,
   getFeatureDefinitions,
-  logFeatureUpdatedEvent,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
@@ -184,7 +181,7 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(feature);
+  await createFeature(org, feature);
   await ensureWatching(userId, org.id, feature.id, "features");
 
   await req.audit({
@@ -196,7 +193,6 @@ export async function postFeatures(
     details: auditDetailsCreate(feature),
   });
 
-  featureUpdated(org, feature, feature);
   res.status(200).json({
     status: 200,
     feature,
@@ -225,9 +221,6 @@ export async function postFeaturePublish(
 
   req.checkPermissions("manageFeatures", feature.project);
 
-  // Clone the current feature so we can log its current and previous states
-  const previousFeatureState = _.cloneDeep(feature);
-
   // If changing the default value, it affects all enabled environments
   if ("defaultValue" in draft) {
     req.checkPermissions(
@@ -247,7 +240,7 @@ export async function postFeaturePublish(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  const newFeature = await publishDraft(
+  const updatedFeature = await publishDraft(
     org,
     feature,
     {
@@ -264,12 +257,11 @@ export async function postFeaturePublish(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, newFeature, {
-      revision: newFeature.revision?.version || 1,
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: updatedFeature.revision?.version || 1,
       comment,
     }),
   });
-  await logFeatureUpdatedEvent(org, previousFeatureState, newFeature);
 
   res.status(200).json({
     status: 200,
@@ -295,7 +287,7 @@ export async function postFeatureDiscard(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  await discardDraft(feature);
+  await discardDraft(org, feature);
 
   res.status(200).json({
     status: 200,
@@ -325,7 +317,7 @@ export async function postFeatureDraft(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await updateDraft(feature, {
+  await updateDraft(org, feature, {
     active: true,
     comment,
     dateCreated: new Date(),
@@ -355,7 +347,7 @@ export async function postFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await addFeatureRule(feature, environment, rule);
+  await addFeatureRule(org, feature, environment, rule);
 
   res.status(200).json({
     status: 200,
@@ -378,7 +370,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await setDefaultValue(feature, defaultValue);
+  await setDefaultValue(org, feature, defaultValue);
 
   res.status(200).json({
     status: 200,
@@ -404,7 +396,7 @@ export async function putFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await editFeatureRule(feature, environment, i, rule);
+  await editFeatureRule(org, feature, environment, i, rule);
 
   res.status(200).json({
     status: 200,
@@ -430,12 +422,7 @@ export async function postFeatureToggle(
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
 
-  const newFeature = await toggleFeatureEnvironment(
-    org,
-    feature,
-    environment,
-    state
-  );
+  await toggleFeatureEnvironment(org, feature, environment, state);
 
   await req.audit({
     event: "feature.toggle",
@@ -449,8 +436,6 @@ export async function postFeatureToggle(
       { environment }
     ),
   });
-
-  await logFeatureUpdatedEvent(org, feature, newFeature);
 
   res.status(200).json({
     status: 200,
@@ -483,7 +468,7 @@ export async function postFeatureMoveRule(
 
   const newRules = arrayMove(rules, from, to);
 
-  await setFeatureDraftRules(feature, environment, newRules);
+  await setFeatureDraftRules(org, feature, environment, newRules);
 
   res.status(200).json({
     status: 200,
@@ -511,7 +496,7 @@ export async function deleteFeatureRule(
   const newRules = rules.slice();
   newRules.splice(i, 1);
 
-  await setFeatureDraftRules(feature, environment, newRules);
+  await setFeatureDraftRules(org, feature, environment, newRules);
 
   res.status(200).json({
     status: 200,
@@ -565,13 +550,7 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  // See if anything important changed that requires firing a webhook
-  let requiresWebhook = false;
-  if ("project" in updates && updates.project !== feature.project) {
-    requiresWebhook = true;
-  }
-
-  const newFeature = await updateFeature(feature, updates);
+  const updatedFeature = await updateFeature(org, feature, updates);
 
   await req.audit({
     event: "feature.update",
@@ -579,17 +558,11 @@ export async function putFeature(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, newFeature),
+    details: auditDetailsUpdate(feature, updatedFeature),
   });
 
-  await logFeatureUpdatedEvent(org, feature, newFeature);
-
-  if (requiresWebhook) {
-    featureUpdated(org, feature, newFeature);
-  }
-
   res.status(200).json({
-    feature: newFeature,
+    feature: updatedFeature,
     status: 200,
   });
 }
@@ -611,7 +584,7 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature)
     );
-    await deleteFeature(org.id, id);
+    await deleteFeature(org, feature);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -620,7 +593,6 @@ export async function deleteFeatureById(
       },
       details: auditDetailsDelete(feature),
     });
-    featureUpdated(org, feature, feature);
   }
 
   res.status(200).json({
@@ -645,7 +617,7 @@ export async function postFeatureArchive(
     feature.project,
     getEnabledEnvironments(feature)
   );
-  const newFeature = await archiveFeature(feature, !feature.archived);
+  const updatedFeature = await archiveFeature(org, feature, !feature.archived);
 
   await req.audit({
     event: "feature.archive",
@@ -655,10 +627,9 @@ export async function postFeatureArchive(
     },
     details: auditDetailsUpdate(
       { archived: feature.archived }, // Old state
-      { archived: newFeature.archived } // New state
+      { archived: updatedFeature.archived } // New state
     ),
   });
-  featureUpdated(org, feature, newFeature);
 
   res.status(200).json({
     status: 200,

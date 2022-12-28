@@ -1,7 +1,8 @@
 import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
-import _ from "lodash";
+import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -10,13 +11,17 @@ import {
   LegacyFeatureInterface,
 } from "../../types/feature";
 import {
-  featureUpdated,
   generateRuleId,
+  getEnabledEnvironments,
   getNextScheduledUpdate,
+  refreshSDKPayloadCache,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
+import { FeatureUpdatedNotificationEvent } from "../events/base-events";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { saveRevision } from "./FeatureRevisionModel";
+import { createEvent } from "./EventModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -78,7 +83,7 @@ const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
  * @param doc
  */
 const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  _.omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function getAllFeatures(
   organization: string,
@@ -102,16 +107,128 @@ export async function getFeature(
   return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
 }
 
-export async function createFeature(data: FeatureInterface) {
+export async function createFeature(
+  org: OrganizationInterface,
+  data: FeatureInterface
+) {
   const feature = await FeatureModel.create(data);
   await saveRevision(toInterface(feature));
+  onFeatureCreate(org, feature);
 }
 
-export async function deleteFeature(organization: string, id: string) {
-  await FeatureModel.deleteOne({ organization, id });
+export async function deleteFeature(
+  org: OrganizationInterface,
+  feature: FeatureInterface
+) {
+  await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
+  onFeatureDelete(org, feature);
+}
+
+// If changes to a feature are going to affect it's value in at least one environment
+function changesAffectFeatureValue(
+  feature: FeatureInterface,
+  updatedFeature: FeatureInterface
+) {
+  // If the feature was and still is archived, then the changes don't matter
+  if (feature.archived && updatedFeature.archived) return false;
+
+  const ignoredFields: (keyof FeatureInterface)[] = [
+    "description",
+    "owner",
+    "dateUpdated",
+    "tags",
+    "revision",
+    "draft",
+  ];
+
+  return !isEqual(
+    omit(feature, ignoredFields),
+    omit(updatedFeature, ignoredFields)
+  );
+}
+
+/**
+ * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
+ * will log an update event in the events collection
+ * @param organization
+ * @param previous
+ * @param current
+ */
+async function logFeatureUpdatedEvent(
+  organization: OrganizationInterface,
+  previous: FeatureInterface,
+  current: FeatureInterface
+): Promise<string> {
+  const payload: FeatureUpdatedNotificationEvent = {
+    object: "feature",
+    event: "feature.updated",
+    data: {
+      current,
+      previous,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+}
+
+async function onFeatureCreate(
+  organization: OrganizationInterface,
+  feature: FeatureInterface
+) {
+  const environments = new Set([...getEnabledEnvironments(feature)]);
+
+  // Empty string is added since that represents the "All Projects" view, which every feature is part of
+  const projects = new Set(["", feature.project || ""]);
+
+  await refreshSDKPayloadCache(organization, environments, projects);
+
+  // TODO: logFeatureCreatedEvent
+}
+
+async function onFeatureDelete(
+  organization: OrganizationInterface,
+  feature: FeatureInterface
+) {
+  const environments = new Set([...getEnabledEnvironments(feature)]);
+
+  // Empty string is added since that represents the "All Projects" view, which every feature is part of
+  const projects = new Set(["", feature.project || ""]);
+
+  await refreshSDKPayloadCache(organization, environments, projects);
+
+  // TODO: logFeatureDeletedEvent
+}
+
+export async function onFeatureUpdate(
+  organization: OrganizationInterface,
+  feature: FeatureInterface,
+  updatedFeature: FeatureInterface
+) {
+  if (changesAffectFeatureValue(feature, updatedFeature)) {
+    const environments = new Set([
+      ...getEnabledEnvironments(feature),
+      ...getEnabledEnvironments(updatedFeature),
+    ]);
+
+    // Empty string is added since that represents the "All Projects" view, which every feature is part of
+    const projects = new Set([
+      "",
+      feature.project || "",
+      updatedFeature.project || "",
+    ]);
+
+    await refreshSDKPayloadCache(organization, environments, projects);
+  }
+
+  // New event-based webhooks
+  await logFeatureUpdatedEvent(organization, feature, updatedFeature);
 }
 
 export async function updateFeature(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>
 ): Promise<FeatureInterface> {
@@ -127,11 +244,15 @@ export async function updateFeature(
     }
   );
 
-  return {
+  const updatedFeature = {
     ...feature,
     ...updates,
     dateUpdated,
   };
+
+  onFeatureUpdate(org, feature, updatedFeature);
+
+  return updatedFeature;
 }
 
 export async function getScheduledFeaturesToUpdate() {
@@ -145,10 +266,11 @@ export async function getScheduledFeaturesToUpdate() {
 }
 
 export async function archiveFeature(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   isArchived: boolean
 ) {
-  return await updateFeature(feature, { archived: isArchived });
+  return await updateFeature(org, feature, { archived: isArchived });
 }
 
 function setEnvironmentSettings(
@@ -156,19 +278,18 @@ function setEnvironmentSettings(
   environment: string,
   settings: Partial<FeatureEnvironment>
 ) {
-  const newFeature = cloneDeep(feature);
+  const updatedFeature = cloneDeep(feature);
 
-  newFeature.environmentSettings = newFeature.environmentSettings || {};
-  newFeature.environmentSettings[environment] = newFeature.environmentSettings[
-    environment
-  ] || { enabled: false, rules: [] };
+  updatedFeature.environmentSettings = updatedFeature.environmentSettings || {};
+  updatedFeature.environmentSettings[environment] = updatedFeature
+    .environmentSettings[environment] || { enabled: false, rules: [] };
 
-  newFeature.environmentSettings[environment] = {
-    ...newFeature.environmentSettings[environment],
+  updatedFeature.environmentSettings[environment] = {
+    ...updatedFeature.environmentSettings[environment],
     ...settings,
   };
 
-  return newFeature;
+  return updatedFeature;
 }
 
 export async function toggleMultipleEnvironments(
@@ -176,24 +297,28 @@ export async function toggleMultipleEnvironments(
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
-  const changes: Record<string, boolean> = {};
-  let newFeature = cloneDeep(feature);
+  let featureCopy = cloneDeep(feature);
+  let hasChanges = false;
   Object.keys(toggles).forEach((env) => {
     const state = toggles[env];
     const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
     if (currentState !== state) {
-      changes[`environmentSettings.${env}.enabled`] = state;
-      newFeature = setEnvironmentSettings(newFeature, env, { enabled: state });
+      hasChanges = true;
+      featureCopy = setEnvironmentSettings(featureCopy, env, {
+        enabled: state,
+      });
     }
   });
 
   // If there are changes we need to apply
-  if (Object.keys(changes).length > 0) {
-    const { dateUpdated } = await updateFeature(feature, changes);
-    featureUpdated(organization, feature, { ...newFeature, dateUpdated });
+  if (hasChanges) {
+    const updatedFeature = await updateFeature(organization, feature, {
+      environmentSettings: featureCopy.environmentSettings,
+    });
+    return updatedFeature;
   }
 
-  return newFeature;
+  return featureCopy;
 }
 
 export async function toggleFeatureEnvironment(
@@ -216,6 +341,7 @@ export function getDraftRules(feature: FeatureInterface, environment: string) {
 }
 
 export async function addFeatureRule(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   environment: string,
   rule: FeatureRule
@@ -224,13 +350,14 @@ export async function addFeatureRule(
     rule.id = generateRuleId();
   }
 
-  await setFeatureDraftRules(feature, environment, [
+  await setFeatureDraftRules(org, feature, environment, [
     ...getDraftRules(feature, environment),
     rule,
   ]);
 }
 
 export async function editFeatureRule(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   environment: string,
   i: number,
@@ -246,10 +373,11 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
 
-  await setFeatureDraftRules(feature, environment, rules);
+  await setFeatureDraftRules(org, feature, environment, rules);
 }
 
 export async function setFeatureDraftRules(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   environment: string,
   rules: FeatureRule[]
@@ -258,7 +386,7 @@ export async function setFeatureDraftRules(
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
-  await updateDraft(feature, draft);
+  await updateDraft(org, feature, draft);
 }
 
 export async function removeTagInFeature(organization: string, tag: string) {
@@ -266,25 +394,26 @@ export async function removeTagInFeature(organization: string, tag: string) {
   await FeatureModel.updateMany(query, {
     $pull: { tags: tag },
   });
-  return;
+  // TODO: call onFeatureUpdate for each affected feature
 }
 
 export async function setDefaultValue(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   defaultValue: string
 ) {
   const draft = getDraft(feature);
   draft.defaultValue = defaultValue;
 
-  return updateDraft(feature, draft);
+  return updateDraft(org, feature, draft);
 }
 
 export async function updateDraft(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   draft: FeatureDraftChanges
 ) {
-  const newFeature = await updateFeature(feature, { draft });
-  return newFeature;
+  return await updateFeature(org, feature, { draft });
 }
 
 function getDraft(feature: FeatureInterface) {
@@ -301,12 +430,15 @@ function getDraft(feature: FeatureInterface) {
   return draft;
 }
 
-export async function discardDraft(feature: FeatureInterface) {
+export async function discardDraft(
+  org: OrganizationInterface,
+  feature: FeatureInterface
+) {
   if (!feature.draft?.active) {
     throw new Error("There are no draft changes to discard.");
   }
 
-  await updateFeature(feature, {
+  await updateFeature(org, feature, {
     draft: {
       active: false,
     },
@@ -359,9 +491,8 @@ export async function publishDraft(
     date: new Date(),
     publishedBy: user,
   };
-  const newFeature = await updateFeature(feature, changes);
+  const updatedFeature = await updateFeature(organization, feature, changes);
 
-  featureUpdated(organization, feature, newFeature);
-  await saveRevision(newFeature);
-  return newFeature;
+  await saveRevision(updatedFeature);
+  return updatedFeature;
 }

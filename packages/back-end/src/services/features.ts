@@ -14,18 +14,15 @@ import {
   FeatureRule,
   FeatureValueType,
 } from "../../types/feature";
-import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import { replaceSavedGroupsInCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
-import { FeatureUpdatedNotificationEvent } from "../events/base-events";
-import { createEvent } from "../models/EventModel";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { getCurrentEnabledState } from "../util/scheduleRules";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
+import { queueWebhook } from "../jobs/webhooks";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
@@ -253,12 +250,16 @@ export async function refreshSDKPayloadCache(
     }
   }
 
-  if (promises.length > 0) {
-    // Vast majority of the time, there will only be 1 or 2 promises
-    // However, there could be a lot if an org has many enabled environments
-    // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
-    await promiseAllChunks(promises, 4);
-  }
+  // If there are no changes, we don't need to do anything
+  if (!promises.length) return;
+
+  // Vast majority of the time, there will only be 1 or 2 promises
+  // However, there could be a lot if an org has many enabled environments
+  // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
+  await promiseAllChunks(promises, 4);
+
+  // After the SDK payloads are updated, fire any webhooks on the organization
+  await queueWebhook(organization.id, [...environments], [...projects], true);
 }
 
 function generatePayload(
@@ -366,37 +367,6 @@ export function getAffectedEnvs(
   const settings = feature.environmentSettings;
   if (!settings) return [];
   return changedEnvs.filter((e) => settings?.[e]?.enabled);
-}
-
-export async function featureUpdated(
-  organization: OrganizationInterface,
-  feature: FeatureInterface,
-  newFeature: FeatureInterface
-) {
-  // Skip archived features
-  if (feature.archived && newFeature.archived) return;
-
-  const environments = new Set([
-    ...getEnabledEnvironments(feature),
-    ...getEnabledEnvironments(newFeature),
-  ]);
-
-  const projects = new Set([
-    // Empty string is added since that represents the "All Projects" view, which every feature is part of
-    "",
-    feature.project || "",
-    newFeature.project || "",
-  ]);
-
-  await refreshSDKPayloadCache(organization, environments, projects);
-
-  // fire the webhook:
-  await queueWebhook(
-    feature.organization,
-    [...environments],
-    [...projects],
-    true
-  );
 }
 
 export function hasMatchingFeatureRule(
@@ -590,31 +560,4 @@ export function getNextScheduledUpdate(
   }
 
   return new Date(sortedFutureDates[0]);
-}
-
-/**
- * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
- * will log an update event in the events collection
- * @param organization
- * @param previous
- * @param current
- */
-export async function logFeatureUpdatedEvent(
-  organization: OrganizationInterface,
-  previous: FeatureInterface,
-  current: FeatureInterface
-): Promise<string> {
-  const payload: FeatureUpdatedNotificationEvent = {
-    object: "feature",
-    event: "feature.updated",
-    data: {
-      current,
-      previous,
-    },
-  };
-
-  const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
 }

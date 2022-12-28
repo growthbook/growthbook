@@ -1,5 +1,4 @@
 import { OrganizationInterface } from "../../types/organization";
-import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
   getAffectedEnvironmentsAndProjects,
@@ -31,5 +30,4 @@ export async function savedGroupUpdated(
   );
 
   await refreshSDKPayloadCache(org, environments, projects, allFeatures);
-  await queueWebhook(org.id, [...environments], [...projects], true);
 }

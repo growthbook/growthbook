@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import z from "zod";
-import _ from "lodash";
+import omit from "lodash/omit";
 import mongoose from "mongoose";
 import {
   notificationEventNames,
@@ -71,7 +71,7 @@ type EventDocument<T> = mongoose.Document & EventInterface<T>;
  * @returns
  */
 const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
+  omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
 
 const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
 

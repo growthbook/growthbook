@@ -4,7 +4,7 @@ import {
   getScheduledFeaturesToUpdate,
   updateFeature,
 } from "../models/FeatureModel";
-import { featureUpdated, getNextScheduledUpdate } from "../services/features";
+import { getNextScheduledUpdate } from "../services/features";
 import { getOrganizationById } from "../services/organizations";
 import { logger } from "../util/logger";
 
@@ -84,12 +84,9 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    const newFeature = await updateFeature(feature, {
+    await updateFeature(org, feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
-
-    // Fire the webhook
-    featureUpdated(org, feature, newFeature);
   } catch (e) {
     log.error("Failure - " + e.message);
   }

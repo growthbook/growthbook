@@ -54,27 +54,27 @@ export const toggleFeature = createApiRequestHandler({
       toggles[env] = state;
     });
 
-    const newFeature = await toggleMultipleEnvironments(
+    const updatedFeature = await toggleMultipleEnvironments(
       req.organization,
       feature,
       toggles
     );
 
-    if (newFeature !== feature) {
+    if (updatedFeature !== feature) {
       await req.audit({
         event: "feature.toggle",
         entity: {
           object: "feature",
           id: feature.id,
         },
-        details: auditDetailsUpdate(feature, newFeature),
+        details: auditDetailsUpdate(feature, updatedFeature),
         reason: req.body.reason,
       });
     }
 
     const groupMap = await getSavedGroupMap(req.organization);
     return {
-      feature: getApiFeatureObj(newFeature, req.organization, groupMap),
+      feature: getApiFeatureObj(updatedFeature, req.organization, groupMap),
     };
   }
 );
