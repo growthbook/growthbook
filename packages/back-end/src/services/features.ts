@@ -13,7 +13,7 @@ import {
   FeatureRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
-import { generatePayload, getFeatureDefinition } from "../util/features";
+import { getFeatureDefinition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
 import { getCurrentEnabledState } from "../util/scheduleRules";
@@ -25,6 +25,26 @@ import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
+
+function generatePayload(
+  features: FeatureInterface[],
+  environment: string,
+  groupMap: GroupMap
+): Record<string, FeatureDefinition> {
+  const defs: Record<string, FeatureDefinition> = {};
+  features.forEach((feature) => {
+    const def = getFeatureDefinition({
+      feature,
+      environment,
+      groupMap,
+    });
+    if (def) {
+      defs[feature.id] = def;
+    }
+  });
+
+  return defs;
+}
 
 export async function getSavedGroupMap(
   organization: OrganizationInterface

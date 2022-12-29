@@ -206,23 +206,3 @@ export function getFeatureDefinition({
 
   return def;
 }
-
-export function generatePayload(
-  features: FeatureInterface[],
-  environment: string,
-  groupMap: GroupMap
-): Record<string, FeatureDefinition> {
-  const defs: Record<string, FeatureDefinition> = {};
-  features.forEach((feature) => {
-    const def = getFeatureDefinition({
-      feature,
-      environment,
-      groupMap,
-    });
-    if (def) {
-      defs[feature.id] = def;
-    }
-  });
-
-  return defs;
-}
