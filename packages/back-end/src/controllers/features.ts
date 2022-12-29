@@ -29,7 +29,6 @@ import {
   addIdsToRules,
   arrayMove,
   encrypt,
-  getAffectedEnvs,
   getEnabledEnvironments,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
@@ -46,6 +45,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
+import { getAffectedEnvs } from "../util/features";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -133,6 +133,10 @@ export async function postFeatures(
 
   if (!id) {
     throw new Error("Must specify feature key");
+  }
+
+  if (!environmentSettings) {
+    throw new Error("Feature missing initial environment toggle settings");
   }
 
   if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {

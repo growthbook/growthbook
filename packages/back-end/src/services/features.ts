@@ -5,17 +5,15 @@ import {
   ApiFeatureEnvironmentInterface,
   ApiFeatureInterface,
   FeatureDefinition,
-  FeatureDefinitionRule,
 } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
-  FeatureValueType,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
-import { replaceSavedGroupsInCondition } from "../util/features";
+import { generatePayload, getFeatureDefinition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
 import { getCurrentEnabledState } from "../util/scheduleRules";
@@ -27,124 +25,6 @@ import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
-
-function roundVariationWeight(num: number): number {
-  return Math.round(num * 1000) / 1000;
-}
-
-// eslint-disable-next-line
-function getJSONValue(type: FeatureValueType, value: string): any {
-  if (type === "json") {
-    try {
-      return JSON.parse(value);
-    } catch (e) {
-      return null;
-    }
-  }
-  if (type === "number") return parseFloat(value) || 0;
-  if (type === "string") return value;
-  if (type === "boolean") return value === "false" ? false : true;
-  return null;
-}
-
-export function getFeatureDefinition({
-  feature,
-  environment,
-  groupMap,
-  useDraft = false,
-}: {
-  feature: FeatureInterface;
-  environment: string;
-  groupMap: GroupMap;
-  useDraft?: boolean;
-}): FeatureDefinition | null {
-  const settings = feature.environmentSettings?.[environment];
-
-  // Don't include features which are disabled for this environment
-  if (!settings || !settings.enabled || feature.archived) {
-    return null;
-  }
-
-  const draft = feature.draft;
-  if (!draft?.active) {
-    useDraft = false;
-  }
-
-  const defaultValue = useDraft
-    ? draft?.defaultValue ?? feature.defaultValue
-    : feature.defaultValue;
-
-  const rules = useDraft
-    ? draft?.rules?.[environment] ?? settings.rules
-    : settings.rules;
-
-  const def: FeatureDefinition = {
-    defaultValue: getJSONValue(feature.valueType, defaultValue),
-    rules:
-      rules
-        ?.filter((r) => r.enabled)
-        ?.filter((r) => {
-          return getCurrentEnabledState(r.scheduleRules || [], new Date());
-        })
-        ?.map((r) => {
-          const rule: FeatureDefinitionRule = {};
-          if (r.condition && r.condition !== "{}") {
-            try {
-              rule.condition = JSON.parse(
-                replaceSavedGroupsInCondition(r.condition, groupMap)
-              );
-            } catch (e) {
-              // ignore condition parse errors here
-            }
-          }
-
-          if (r.type === "force") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-          } else if (r.type === "experiment") {
-            rule.variations = r.values.map((v) =>
-              getJSONValue(feature.valueType, v.value)
-            );
-
-            rule.coverage = r.coverage;
-
-            rule.weights = r.values
-              .map((v) => v.weight)
-              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-              .map((w) => roundVariationWeight(w));
-
-            if (r.trackingKey) {
-              rule.key = r.trackingKey;
-            }
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
-            if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-              rule.namespace = [
-                r.namespace.name,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[0] as any) || 0,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[1] as any) || 0,
-              ];
-            }
-          } else if (r.type === "rollout") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-            rule.coverage =
-              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
-          }
-          return rule;
-        }) ?? [],
-  };
-  if (def.rules && !def.rules.length) {
-    delete def.rules;
-  }
-
-  return def;
-}
 
 export async function getSavedGroupMap(
   organization: OrganizationInterface
@@ -178,37 +58,6 @@ export async function getSavedGroupMap(
   );
 
   return groupMap;
-}
-
-// When features change, determine which environments/projects are affected
-// e.g. If a feature is disabled in all environments, then it's project won't be affected
-export async function getAffectedEnvironmentsAndProjects(
-  organization: OrganizationInterface,
-  changedFeatures: FeatureInterface[]
-): Promise<{
-  projects: Set<string>;
-  environments: Set<string>;
-}> {
-  // An empty string for projects means "All Projects", so that one is always affected
-  const projects: Set<string> = new Set([""]);
-  const environments: Set<string> = new Set();
-
-  // Determine which specific environments/projects are affected by the changed features
-  const allEnvs = getEnvironments(organization).map((e) => e.id);
-  changedFeatures.forEach((feature) => {
-    const affectedEnvs = getAffectedEnvs(feature, allEnvs);
-    if (affectedEnvs.length > 0) {
-      if (feature.project) projects.add(feature.project);
-      affectedEnvs.forEach((env) => {
-        environments.add(env);
-      });
-    }
-  });
-
-  return {
-    projects,
-    environments,
-  };
 }
 
 export async function refreshSDKPayloadCache(
@@ -260,26 +109,6 @@ export async function refreshSDKPayloadCache(
 
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, [...environments], [...projects], true);
-}
-
-function generatePayload(
-  features: FeatureInterface[],
-  environment: string,
-  groupMap: GroupMap
-): Record<string, FeatureDefinition> {
-  const defs: Record<string, FeatureDefinition> = {};
-  features.forEach((feature) => {
-    const def = getFeatureDefinition({
-      feature,
-      environment,
-      groupMap,
-    });
-    if (def) {
-      defs[feature.id] = def;
-    }
-  });
-
-  return defs;
 }
 
 export async function getFeatureDefinitions(
@@ -358,15 +187,6 @@ export function addIdsToRules(
       });
     }
   });
-}
-
-export function getAffectedEnvs(
-  feature: FeatureInterface,
-  changedEnvs: string[]
-): string[] {
-  const settings = feature.environmentSettings;
-  if (!settings) return [];
-  return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
 export function hasMatchingFeatureRule(

@@ -1,8 +1,39 @@
-import { replaceSavedGroupsInCondition } from "../src/util/features";
+import cloneDeep from "lodash/cloneDeep";
+import {
+  changesAffectFeatureValue,
+  getAffectedEnvironmentsAndProjects,
+  getAffectedEnvs,
+  getFeatureDefinition,
+  getJSONValue,
+  replaceSavedGroupsInCondition,
+  roundVariationWeight,
+} from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
-import { ScheduleRule } from "../types/feature";
+import { FeatureInterface, ScheduleRule } from "../types/feature";
 
 const groupMap = new Map();
+
+const baseFeature: FeatureInterface = {
+  id: "feature",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  defaultValue: "true",
+  organization: "123",
+  owner: "",
+  valueType: "boolean" as const,
+  archived: false,
+  description: "",
+  environmentSettings: {
+    dev: {
+      enabled: true,
+      rules: [],
+    },
+    production: {
+      enabled: true,
+      rules: [],
+    },
+  },
+};
 
 describe("replaceSavedGroupsInCondition", () => {
   it("does not format condition that doesn't contain $inGroup", () => {
@@ -64,255 +95,530 @@ describe("replaceSavedGroupsInCondition", () => {
       '{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}'
     );
   });
-});
 
-it("should correctly replace the $in operator in advanced mode conditions", () => {
-  const ids = [1, 2, 3, 4];
-  const groupId = "grp_exl5jijgl8c3n0qt";
-  groupMap.set(groupId, ids);
+  it("should correctly replace the $in operator in advanced mode conditions", () => {
+    const ids = [1, 2, 3, 4];
+    const groupId = "grp_exl5jijgl8c3n0qt";
+    groupMap.set(groupId, ids);
 
-  const rawCondition = JSON.stringify({
-    $and: [
-      {
-        $or: [{ browser: "chrome" }, { deviceId: { $inGroup: groupId } }],
-      },
-      {
-        $not: [{ company: { $notInGroup: groupId } }],
-      },
-    ],
+    const rawCondition = JSON.stringify({
+      $and: [
+        {
+          $or: [{ browser: "chrome" }, { deviceId: { $inGroup: groupId } }],
+        },
+        {
+          $not: [{ company: { $notInGroup: groupId } }],
+        },
+      ],
+    });
+
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}'
+    );
   });
 
-  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}'
-  );
-});
-
-it("handle extra whitespace and spaces correctly", () => {
-  const ids = ["123", "345", "678", "910"];
-  const groupId = "grp_exl5jgrdl8bzy4x4";
-  groupMap.set(groupId, ids);
+  it("handle extra whitespace and spaces correctly", () => {
+    const ids = ["123", "345", "678", "910"];
+    const groupId = "grp_exl5jgrdl8bzy4x4";
+    groupMap.set(groupId, ids);
 
   /* eslint-disable */
   const rawCondition =
     '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
-  /* eslint-enable */
+    /* eslint-enable */
 
-  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"id":{"$in": ["123","345","678","910"]}}'
-  );
-});
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"id":{"$in": ["123","345","678","910"]}}'
+    );
+  });
 
-it("handle extra newlines and spaces correctly", () => {
-  const ids = ["123", "345", "678", "910"];
-  const groupId = "grp_exl5jgrdl8bzy4x4";
-  groupMap.set(groupId, ids);
+  it("handle extra newlines and spaces correctly", () => {
+    const ids = ["123", "345", "678", "910"];
+    const groupId = "grp_exl5jgrdl8bzy4x4";
+    groupMap.set(groupId, ids);
 
   /* eslint-disable */
   const rawCondition = `{"id":{"$notInGroup"
        :
              "grp_exl5jgrdl8bzy4x4"
     }}`;
-  /* eslint-enable */
+    /* eslint-enable */
 
-  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"id":{"$nin": ["123","345","678","910"]}}'
-  );
-});
-
-it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
-  const ids = ["1", "2", "3", "4"];
-  const groupId = "grp_exl5jijgl8c3n0qt";
-  groupMap.set(groupId, ids);
-
-  const rawCondition = JSON.stringify({
-    number: { $inGroup: "invalid-groupId" },
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"id":{"$nin": ["123","345","678","910"]}}'
+    );
   });
 
-  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"number":{"$in": []}}'
-  );
-});
+  it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
+    const ids = ["1", "2", "3", "4"];
+    const groupId = "grp_exl5jijgl8c3n0qt";
+    groupMap.set(groupId, ids);
 
-it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
-  const ids = ["1", "2", "3", "4"];
-  const groupId = "grp_exl5jijgl8c3n0qt";
-  groupMap.set(groupId, ids);
+    const rawCondition = JSON.stringify({
+      number: { $inGroup: "invalid-groupId" },
+    });
 
-  const rawCondition = JSON.stringify({
-    number: { $eq: "$inGroup" },
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"number":{"$in": []}}'
+    );
   });
 
-  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"number":{"$eq":"$inGroup"}}'
-  );
-});
+  it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
+    const ids = ["1", "2", "3", "4"];
+    const groupId = "grp_exl5jijgl8c3n0qt";
+    groupMap.set(groupId, ids);
 
-it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
-  const ids = ["1", "2", "3", "4"];
-  const groupId = "grp_exl5jijgl8c3n0qt";
-  groupMap.set(groupId, ids);
+    const rawCondition = JSON.stringify({
+      number: { $eq: "$inGroup" },
+    });
 
-  const rawCondition = JSON.stringify({
-    number: { $inGroup: false },
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"number":{"$eq":"$inGroup"}}'
+    );
   });
 
-  expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-    '{"number":{"$inGroup":false}}'
-  );
+  it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
+    const ids = ["1", "2", "3", "4"];
+    const groupId = "grp_exl5jijgl8c3n0qt";
+    groupMap.set(groupId, ids);
+
+    const rawCondition = JSON.stringify({
+      number: { $inGroup: false },
+    });
+
+    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
+      '{"number":{"$inGroup":false}}'
+    );
+  });
 });
 
-it("should not filter out features that have no scheduled rules calling getFeatureDefinition", () => {
-  const scheduleRules = undefined;
+describe("Scheduled Rules", () => {
+  it("should not filter out features that have no scheduled rules calling getFeatureDefinition", () => {
+    const scheduleRules = undefined;
 
-  expect(getCurrentEnabledState(scheduleRules || [], new Date())).toEqual(true);
+    expect(getCurrentEnabledState(scheduleRules || [], new Date())).toEqual(
+      true
+    );
+  });
+
+  it("should filter out a feature that has an upcoming schedule rule with enabled = true", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    ];
+
+    const date = new Date("2022-11-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+  });
+
+  it("should NOT filter out a feature that has an upcoming schedule rule with enabled = false", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    ];
+
+    const date = new Date("2022-12-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+  });
+
+  it("should filter out a feature that has no upcoming rules and the last schedule rule to run had enabled = false", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+    ];
+
+    const date = new Date("2023-01-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+  });
+
+  it("should NOT filter out a feature that has no upcoming schedule rules and the last schedule rule to run had enabled = true", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+      { enabled: false, timestamp: null },
+    ];
+
+    const date = new Date("2023-01-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+  });
+
+  it("should filter out feature if upcoming schedule rule is in the future and enabled is true", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+      { enabled: false, timestamp: null },
+    ];
+
+    const date = new Date("2022-11-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+  });
+
+  it("should NOT filter out a feature if upcoming schedule rule is in the future and enabled is false", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: null },
+      { enabled: false, timestamp: "2022-12-30T13:00:00.000Z" },
+    ];
+
+    const date = new Date("2022-12-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+  });
+
+  it("should filter out feature if no upcoming schedule rule and last schedule rule had enabled = false", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: null },
+      { enabled: false, timestamp: "2022-12-30T13:00:00.000Z" },
+    ];
+
+    const date = new Date("2023-01-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+  });
+
+  it("should handle dates that are out of chronological order", () => {
+    let scheduleRules: ScheduleRule[] = [
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    ];
+
+    let date = new Date("2022-12-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+
+    scheduleRules = [
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    ];
+
+    date = new Date("2023-01-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+
+    scheduleRules = [
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+    ];
+
+    date = new Date("2022-11-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+  });
+
+  it("should handle more than 2 scheduleRules correctly, even when they are out of chronological order", () => {
+    // NOTE: Currently, a user can only have 2 schedule rules, a startDate and an endDate, but this was built in a way where
+    // in the future, we can support multiple start/stop dates.
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+      { enabled: false, timestamp: null },
+      { enabled: true, timestamp: "2023-01-05T12:00:00.000Z" },
+      { enabled: true, timestamp: null },
+    ];
+
+    const date = new Date("2022-11-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+  });
+
+  it("should handle more than 2 scheduleRules correctly", () => {
+    const scheduleRules: ScheduleRule[] = [
+      { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
+      { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
+      { enabled: true, timestamp: "2023-01-05T12:00:00.000Z" },
+      { enabled: false, timestamp: "2023-01-30T12:00:00.000Z" },
+    ];
+
+    let date = new Date("2022-11-15T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+
+    date = new Date("2022-12-05T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+
+    date = new Date("2023-01-02T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+
+    date = new Date("2023-01-10T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
+
+    date = new Date("2023-02-01T12:00:00.000Z");
+
+    expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+  });
 });
 
-it("should filter out a feature that has an upcoming schedule rule with enabled = true", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-  ];
+describe("Detecting Feature Changes", () => {
+  it("Gets affected environments", () => {
+    const feature = cloneDeep(baseFeature);
 
-  const date = new Date("2022-11-15T12:00:00.000Z");
+    expect(getAffectedEnvs(feature)).toEqual(["dev", "production"]);
 
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+    expect(getAffectedEnvs(feature, ["dev", "production", "testing"])).toEqual([
+      "dev",
+      "production",
+    ]);
+
+    expect(getAffectedEnvs(feature, ["dev", "testing"])).toEqual(["dev"]);
+
+    feature.environmentSettings.dev.enabled = false;
+    expect(getAffectedEnvs(feature, ["dev", "production", "testing"])).toEqual([
+      "production",
+    ]);
+  });
+
+  it("Gets affected environments and projects", () => {
+    const feature1 = cloneDeep(baseFeature);
+    const feature2 = cloneDeep(baseFeature);
+    const changedFeatures = [feature1, feature2];
+
+    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
+      projects: new Set([""]),
+      environments: new Set(["dev", "production"]),
+    });
+
+    expect(
+      getAffectedEnvironmentsAndProjects(changedFeatures, ["dev"])
+    ).toEqual({
+      projects: new Set([""]),
+      environments: new Set(["dev"]),
+    });
+
+    // Give the features different projects and env enabled states
+    feature1.project = "p1";
+    feature1.environmentSettings.dev.enabled = false;
+
+    feature2.project = "p2";
+    feature2.environmentSettings.dev.enabled = false;
+
+    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
+      projects: new Set(["", "p1", "p2"]),
+      environments: new Set(["production"]),
+    });
+
+    // If a feature is disabled in all environments, then it's project should be ignored
+    feature2.environmentSettings.production.enabled = false;
+    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
+      projects: new Set(["", "p1"]),
+      environments: new Set(["production"]),
+    });
+
+    // Environments should be unioned together
+    feature2.environmentSettings.dev.enabled = true;
+    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
+      projects: new Set(["", "p1", "p2"]),
+      environments: new Set(["dev", "production"]),
+    });
+  });
+
+  it("Detects changes to feature values", () => {
+    const feature = cloneDeep(baseFeature);
+    const updatedFeature = cloneDeep(baseFeature);
+
+    expect(changesAffectFeatureValue(feature, updatedFeature)).toEqual(false);
+
+    updatedFeature.description = "New description";
+    updatedFeature.draft = {
+      active: true,
+    };
+    updatedFeature.owner = "new owner";
+    updatedFeature.tags = ["a"];
+    updatedFeature.revision = {
+      comment: "",
+      date: new Date(),
+      publishedBy: {
+        email: "",
+        id: "",
+        name: "",
+      },
+      version: 1,
+    };
+    updatedFeature.dateUpdated = new Date();
+
+    expect(changesAffectFeatureValue(feature, updatedFeature)).toEqual(false);
+
+    expect(
+      changesAffectFeatureValue(feature, {
+        ...updatedFeature,
+        defaultValue: "false",
+      })
+    ).toEqual(true);
+    expect(
+      changesAffectFeatureValue(feature, {
+        ...updatedFeature,
+        archived: true,
+      })
+    ).toEqual(true);
+    expect(
+      changesAffectFeatureValue(feature, {
+        ...updatedFeature,
+        nextScheduledUpdate: new Date(),
+      })
+    ).toEqual(true);
+    expect(
+      changesAffectFeatureValue(feature, {
+        ...updatedFeature,
+        project: "p2",
+      })
+    ).toEqual(true);
+
+    updatedFeature.environmentSettings.dev.enabled = false;
+    expect(changesAffectFeatureValue(feature, updatedFeature)).toEqual(true);
+  });
 });
 
-it("should NOT filter out a feature that has an upcoming schedule rule with enabled = false", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-  ];
+describe("SDK Payloads", () => {
+  it("Rounds variation weights", () => {
+    expect(roundVariationWeight(0.48675849)).toEqual(0.4868);
+  });
 
-  const date = new Date("2022-12-15T12:00:00.000Z");
+  it("Gets JSON values", () => {
+    expect(getJSONValue("boolean", "false")).toEqual(false);
+    expect(getJSONValue("boolean", "true")).toEqual(true);
+    expect(getJSONValue("boolean", "other")).toEqual(true);
 
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-});
+    expect(getJSONValue("number", "123.53")).toEqual(123.53);
+    expect(getJSONValue("number", "unknown")).toEqual(0);
 
-it("should filter out a feature that has no upcoming rules and the last schedule rule to run had enabled = false", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-  ];
+    expect(getJSONValue("string", "foo")).toEqual("foo");
+    expect(getJSONValue("string", "123")).toEqual("123");
 
-  const date = new Date("2023-01-15T12:00:00.000Z");
+    expect(getJSONValue("json", "invalid")).toEqual(null);
+    expect(getJSONValue("json", '{"foo": 1}')).toEqual({ foo: 1 });
+  });
 
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-});
+  it("Gets Feature Definitions", () => {
+    const feature = cloneDeep(baseFeature);
 
-it("should NOT filter out a feature that has no upcoming schedule rules and the last schedule rule to run had enabled = true", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-    { enabled: false, timestamp: null },
-  ];
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
 
-  const date = new Date("2023-01-15T12:00:00.000Z");
+    feature.environmentSettings.production.enabled = false;
 
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-});
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        useDraft: false,
+      })
+    ).toEqual(null);
 
-it("should filter out feature if upcoming schedule rule is in the future and enabled is true", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-    { enabled: false, timestamp: null },
-  ];
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "unknown",
+        groupMap: groupMap,
+        useDraft: false,
+      })
+    ).toEqual(null);
 
-  const date = new Date("2022-11-15T12:00:00.000Z");
+    feature.environmentSettings.dev.rules = [
+      {
+        type: "force",
+        description: "",
+        id: "1",
+        value: "false",
+        condition: '{"country": "US"}',
+        scheduleRules: [
+          {
+            enabled: true,
+            timestamp: "2000-01-01T00:00:00Z",
+          },
+        ],
+        enabled: true,
+      },
+      {
+        type: "force",
+        description: "",
+        id: "skipped1",
+        value: "false",
+        enabled: false,
+      },
+      {
+        type: "force",
+        description: "",
+        id: "skipped2",
+        value: "false",
+        scheduleRules: [
+          {
+            enabled: true,
+            timestamp: "2199-01-01T00:00:00Z",
+          },
+        ],
+        enabled: true,
+      },
+      {
+        type: "rollout",
+        description: "",
+        id: "2",
+        coverage: 0.8,
+        hashAttribute: "id",
+        value: "false",
+        enabled: true,
+      },
+      {
+        type: "experiment",
+        description: "",
+        id: "3",
+        coverage: 1,
+        hashAttribute: "anonymous_id",
+        trackingKey: "testing",
+        values: [
+          {
+            value: "true",
+            weight: 0.7,
+          },
+          {
+            value: "false",
+            weight: 0.3,
+          },
+        ],
+        enabled: true,
+      },
+    ];
 
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-});
-
-it("should NOT filter out a feature if upcoming schedule rule is in the future and enabled is false", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: null },
-    { enabled: false, timestamp: "2022-12-30T13:00:00.000Z" },
-  ];
-
-  const date = new Date("2022-12-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-});
-
-it("should filter out feature if no upcoming schedule rule and last schedule rule had enabled = false", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: null },
-    { enabled: false, timestamp: "2022-12-30T13:00:00.000Z" },
-  ];
-
-  const date = new Date("2023-01-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-});
-
-it("should handle dates that are out of chronological order", () => {
-  let scheduleRules: ScheduleRule[] = [
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-  ];
-
-  let date = new Date("2022-12-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-
-  scheduleRules = [
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-  ];
-
-  date = new Date("2023-01-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-
-  scheduleRules = [
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-  ];
-
-  date = new Date("2022-11-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-});
-
-it("should handle more than 2 scheduleRules correctly, even when they are out of chronological order", () => {
-  // NOTE: Currently, a user can only have 2 schedule rules, a startDate and an endDate, but this was built in a way where
-  // in the future, we can support multiple start/stop dates.
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-    { enabled: false, timestamp: null },
-    { enabled: true, timestamp: "2023-01-05T12:00:00.000Z" },
-    { enabled: true, timestamp: null },
-  ];
-
-  const date = new Date("2022-11-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-});
-
-it("should handle more than 2 scheduleRules correctly", () => {
-  const scheduleRules: ScheduleRule[] = [
-    { enabled: true, timestamp: "2022-12-01T13:00:00.000Z" },
-    { enabled: false, timestamp: "2022-12-30T12:00:00.000Z" },
-    { enabled: true, timestamp: "2023-01-05T12:00:00.000Z" },
-    { enabled: false, timestamp: "2023-01-30T12:00:00.000Z" },
-  ];
-
-  let date = new Date("2022-11-15T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-
-  date = new Date("2022-12-05T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-
-  date = new Date("2023-01-02T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
-
-  date = new Date("2023-01-10T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(true);
-
-  date = new Date("2023-02-01T12:00:00.000Z");
-
-  expect(getCurrentEnabledState(scheduleRules, date)).toEqual(false);
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap: groupMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          condition: {
+            country: "US",
+          },
+          force: false,
+        },
+        {
+          coverage: 0.8,
+          force: false,
+          hashAttribute: "id",
+        },
+        {
+          coverage: 1,
+          hashAttribute: "anonymous_id",
+          variations: [true, false],
+          weights: [0.7, 0.3],
+          key: "testing",
+        },
+      ],
+    });
+  });
 });

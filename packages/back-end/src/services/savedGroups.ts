@@ -1,10 +1,8 @@
 import { OrganizationInterface } from "../../types/organization";
 import { getAllFeatures } from "../models/FeatureModel";
-import {
-  getAffectedEnvironmentsAndProjects,
-  hasMatchingFeatureRule,
-  refreshSDKPayloadCache,
-} from "./features";
+import { getAffectedEnvironmentsAndProjects } from "../util/features";
+import { getEnvironments } from "./organizations";
+import { hasMatchingFeatureRule, refreshSDKPayloadCache } from "./features";
 
 export async function savedGroupUpdated(
   org: OrganizationInterface,
@@ -24,9 +22,9 @@ export async function savedGroupUpdated(
       )
     );
 
-  const { environments, projects } = await getAffectedEnvironmentsAndProjects(
-    org,
-    changedFeatures
+  const { environments, projects } = getAffectedEnvironmentsAndProjects(
+    changedFeatures,
+    getEnvironments(org).map((e) => e.id)
   );
 
   await refreshSDKPayloadCache(org, environments, projects, allFeatures);

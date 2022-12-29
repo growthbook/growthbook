@@ -2,7 +2,6 @@ import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
-import isEqual from "lodash/isEqual";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -20,6 +19,7 @@ import { upgradeFeatureInterface } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { changesAffectFeatureValue } from "../util/features";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 
@@ -122,29 +122,6 @@ export async function deleteFeature(
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
   onFeatureDelete(org, feature);
-}
-
-// If changes to a feature are going to affect it's value in at least one environment
-function changesAffectFeatureValue(
-  feature: FeatureInterface,
-  updatedFeature: FeatureInterface
-) {
-  // If the feature was and still is archived, then the changes don't matter
-  if (feature.archived && updatedFeature.archived) return false;
-
-  const ignoredFields: (keyof FeatureInterface)[] = [
-    "description",
-    "owner",
-    "dateUpdated",
-    "tags",
-    "revision",
-    "draft",
-  ];
-
-  return !isEqual(
-    omit(feature, ignoredFields),
-    omit(updatedFeature, ignoredFields)
-  );
 }
 
 /**
