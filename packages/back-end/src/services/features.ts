@@ -414,17 +414,17 @@ export function getNextScheduledUpdate(
   for (const env in envSettings) {
     const rules = envSettings[env].rules;
 
-    if (rules.length) {
-      rules.forEach((rule: FeatureRule) => {
-        if (rule?.scheduleRules) {
-          rule.scheduleRules.forEach((scheduleRule) => {
-            if (scheduleRule.timestamp !== null) {
-              dates.push(scheduleRule.timestamp);
-            }
-          });
-        }
-      });
-    }
+    if (!rules) continue;
+
+    rules.forEach((rule: FeatureRule) => {
+      if (rule?.scheduleRules) {
+        rule.scheduleRules.forEach((scheduleRule) => {
+          if (scheduleRule.timestamp !== null) {
+            dates.push(scheduleRule.timestamp);
+          }
+        });
+      }
+    });
   }
 
   const sortedFutureDates = dates
