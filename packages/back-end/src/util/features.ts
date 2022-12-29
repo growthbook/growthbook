@@ -1,8 +1,8 @@
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface, FeatureValueType } from "../../types/feature";
-import { GroupMap } from "../services/features";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
+import { GroupMap } from "../../types/saved-group";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function replaceSavedGroupsInCondition(

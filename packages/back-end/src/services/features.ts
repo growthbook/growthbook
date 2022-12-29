@@ -21,9 +21,9 @@ import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
+import { GroupMap } from "../../types/saved-group";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
-export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
 
 function generatePayload(
