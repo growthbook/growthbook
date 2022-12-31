@@ -1,10 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import {
-  changesAffectFeatureValue,
-  getAffectedEnvironmentsAndProjects,
-  getAffectedEnvs,
+  getAffectedSDKPayloadKeys,
+  getEnabledEnvironments,
   getFeatureDefinition,
   getJSONValue,
+  getSDKPayloadKeysByDiff,
   replaceSavedGroupsInCondition,
   roundVariationWeight,
 } from "../src/util/features";
@@ -353,73 +353,104 @@ describe("Scheduled Rules", () => {
 });
 
 describe("Detecting Feature Changes", () => {
-  it("Gets affected environments", () => {
+  it("Gets enabled environments", () => {
     const feature = cloneDeep(baseFeature);
+    feature.environmentSettings.dev.rules = [
+      {
+        enabled: true,
+        type: "force",
+        description: "",
+        id: "",
+        value: "true",
+      },
+    ];
+    feature.environmentSettings.production.rules = [
+      {
+        enabled: true,
+        type: "force",
+        description: "",
+        id: "",
+        value: "false",
+      },
+    ];
 
-    expect(getAffectedEnvs(feature)).toEqual(["dev", "production"]);
+    expect(getEnabledEnvironments(feature)).toEqual(
+      new Set(["dev", "production"])
+    );
 
-    expect(getAffectedEnvs(feature, ["dev", "production", "testing"])).toEqual([
-      "dev",
-      "production",
-    ]);
+    expect(
+      getEnabledEnvironments(
+        feature,
+        (rule) => rule.type === "force" && rule.value === "true"
+      )
+    ).toEqual(new Set(["dev"]));
 
-    expect(getAffectedEnvs(feature, ["dev", "testing"])).toEqual(["dev"]);
+    expect(
+      getEnabledEnvironments(
+        feature,
+        (rule) => rule.type === "force" && rule.value === "false"
+      )
+    ).toEqual(new Set(["production"]));
 
     feature.environmentSettings.dev.enabled = false;
-    expect(getAffectedEnvs(feature, ["dev", "production", "testing"])).toEqual([
-      "production",
-    ]);
+    expect(getEnabledEnvironments(feature)).toEqual(new Set(["production"]));
+
+    expect(
+      getEnabledEnvironments(
+        feature,
+        (rule) => rule.type === "force" && rule.value === "true"
+      )
+    ).toEqual(new Set([]));
   });
 
-  it("Gets affected environments and projects", () => {
+  it("Gets Affected SDK Payload Keys", () => {
     const feature1 = cloneDeep(baseFeature);
     const feature2 = cloneDeep(baseFeature);
     const changedFeatures = [feature1, feature2];
 
-    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
-      projects: new Set([""]),
-      environments: new Set(["dev", "production"]),
-    });
-
-    expect(
-      getAffectedEnvironmentsAndProjects(changedFeatures, ["dev"])
-    ).toEqual({
-      projects: new Set([""]),
-      environments: new Set(["dev"]),
-    });
+    expect(getAffectedSDKPayloadKeys(changedFeatures)).toEqual([
+      {
+        project: "",
+        environment: "dev",
+      },
+      {
+        project: "",
+        environment: "production",
+      },
+    ]);
 
     // Give the features different projects and env enabled states
     feature1.project = "p1";
     feature1.environmentSettings.dev.enabled = false;
 
     feature2.project = "p2";
-    feature2.environmentSettings.dev.enabled = false;
-
-    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
-      projects: new Set(["", "p1", "p2"]),
-      environments: new Set(["production"]),
-    });
-
-    // If a feature is disabled in all environments, then it's project should be ignored
     feature2.environmentSettings.production.enabled = false;
-    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
-      projects: new Set(["", "p1"]),
-      environments: new Set(["production"]),
-    });
 
-    // Environments should be unioned together
-    feature2.environmentSettings.dev.enabled = true;
-    expect(getAffectedEnvironmentsAndProjects(changedFeatures)).toEqual({
-      projects: new Set(["", "p1", "p2"]),
-      environments: new Set(["dev", "production"]),
-    });
+    expect(getAffectedSDKPayloadKeys(changedFeatures)).toEqual([
+      {
+        project: "",
+        environment: "production",
+      },
+      {
+        project: "p1",
+        environment: "production",
+      },
+      {
+        project: "",
+        environment: "dev",
+      },
+      {
+        project: "p2",
+        environment: "dev",
+      },
+    ]);
   });
 
-  it("Detects changes to feature values", () => {
+  it("Detects which projects/environments are affected by a feature change", () => {
     const feature = cloneDeep(baseFeature);
     const updatedFeature = cloneDeep(baseFeature);
 
-    expect(changesAffectFeatureValue(feature, updatedFeature)).toEqual(false);
+    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
 
     updatedFeature.description = "New description";
     updatedFeature.draft = {
@@ -439,35 +470,98 @@ describe("Detecting Feature Changes", () => {
     };
     updatedFeature.dateUpdated = new Date();
 
-    expect(changesAffectFeatureValue(feature, updatedFeature)).toEqual(false);
+    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
 
     expect(
-      changesAffectFeatureValue(feature, {
+      getSDKPayloadKeysByDiff(feature, {
         ...updatedFeature,
         defaultValue: "false",
       })
-    ).toEqual(true);
+    ).toEqual([
+      {
+        project: "",
+        environment: "dev",
+      },
+      {
+        project: "",
+        environment: "production",
+      },
+    ]);
     expect(
-      changesAffectFeatureValue(feature, {
+      getSDKPayloadKeysByDiff(feature, {
         ...updatedFeature,
         archived: true,
       })
-    ).toEqual(true);
+    ).toEqual([
+      {
+        project: "",
+        environment: "dev",
+      },
+      {
+        project: "",
+        environment: "production",
+      },
+    ]);
     expect(
-      changesAffectFeatureValue(feature, {
+      getSDKPayloadKeysByDiff(feature, {
         ...updatedFeature,
         nextScheduledUpdate: new Date(),
       })
-    ).toEqual(true);
+    ).toEqual([
+      {
+        project: "",
+        environment: "dev",
+      },
+      {
+        project: "",
+        environment: "production",
+      },
+    ]);
     expect(
-      changesAffectFeatureValue(feature, {
+      getSDKPayloadKeysByDiff(feature, {
         ...updatedFeature,
         project: "p2",
       })
-    ).toEqual(true);
+    ).toEqual([
+      {
+        project: "",
+        environment: "dev",
+      },
+      {
+        project: "p2",
+        environment: "dev",
+      },
+      {
+        project: "",
+        environment: "production",
+      },
+      {
+        project: "p2",
+        environment: "production",
+      },
+    ]);
 
     updatedFeature.environmentSettings.dev.enabled = false;
-    expect(changesAffectFeatureValue(feature, updatedFeature)).toEqual(true);
+    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([
+      {
+        project: "",
+        environment: "dev",
+      },
+    ]);
+
+    // If an environment was disabled before and after the change, then it won't be included
+    feature.environmentSettings.dev.enabled = false;
+    expect(
+      getSDKPayloadKeysByDiff(feature, {
+        ...updatedFeature,
+        defaultValue: "false",
+      })
+    ).toEqual([
+      {
+        project: "",
+        environment: "production",
+      },
+    ]);
   });
 });
 

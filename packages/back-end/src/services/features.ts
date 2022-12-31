@@ -16,12 +16,12 @@ import { getAllFeatures } from "../models/FeatureModel";
 import { getFeatureDefinition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
-import { getCurrentEnabledState } from "../util/scheduleRules";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -82,41 +82,44 @@ export async function getSavedGroupMap(
 
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
-  environments: Set<string>,
-  projects: Set<string>,
+  payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null
 ) {
+  // Ignore any old environments which don't exist anymore
+  const allowedEnvs = new Set(
+    organization.settings?.environments?.map((e) => e.id) || []
+  );
+  payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
+
   // If no environments are affected, we don't need to update anything
-  if (!environments.size) return;
+  if (!payloadKeys.length) return;
 
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
-  for (const project of projects) {
-    const projectFeatures = project
-      ? allFeatures.filter((f) => f.project === project)
+  for (const key of payloadKeys) {
+    const projectFeatures = key.project
+      ? allFeatures.filter((f) => f.project === key.project)
       : allFeatures;
 
     if (!projectFeatures.length) continue;
 
-    for (const environment of environments) {
-      const featureDefinitions = generatePayload(
-        projectFeatures,
-        environment,
-        groupMap
-      );
+    const featureDefinitions = generatePayload(
+      projectFeatures,
+      key.environment,
+      groupMap
+    );
 
-      promises.push(async () => {
-        await updateSDKPayload({
-          organization: organization.id,
-          project,
-          environment,
-          featureDefinitions,
-        });
+    promises.push(async () => {
+      await updateSDKPayload({
+        organization: organization.id,
+        project: key.project,
+        environment: key.environment,
+        featureDefinitions,
       });
-    }
+    });
   }
 
   // If there are no changes, we don't need to do anything
@@ -128,7 +131,7 @@ export async function refreshSDKPayloadCache(
   await promiseAllChunks(promises, 4);
 
   // After the SDK payloads are updated, fire any webhooks on the organization
-  await queueWebhook(organization.id, [...environments], [...projects], true);
+  await queueWebhook(organization.id, payloadKeys, true);
 }
 
 export async function getFeatureDefinitions(
@@ -181,12 +184,6 @@ export async function getFeatureDefinitions(
   return { features: featureDefinitions, dateUpdated: new Date() };
 }
 
-export function getEnabledEnvironments(feature: FeatureInterface) {
-  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
-    return !!feature.environmentSettings?.[env]?.enabled;
-  });
-}
-
 export function generateRuleId() {
   return uniqid("fr_");
 }
@@ -207,35 +204,6 @@ export function addIdsToRules(
       });
     }
   });
-}
-
-export function hasMatchingFeatureRule(
-  feature: FeatureInterface,
-  filter: (rule: FeatureRule) => boolean | unknown,
-  enabledRulesOnly: boolean = true
-): boolean {
-  const environmentSettings = feature.environmentSettings;
-  if (!environmentSettings) return false;
-
-  for (const s in environmentSettings) {
-    const env = environmentSettings[s];
-
-    if (env.rules && env.rules.length) {
-      for (const r of env.rules) {
-        if (enabledRulesOnly) {
-          if (!r.enabled) continue;
-          if (!getCurrentEnabledState(r.scheduleRules || [], new Date())) {
-            continue;
-          }
-        }
-
-        // If one of the rules matches the filter, return immediately
-        if (filter(r)) return true;
-      }
-    }
-  }
-
-  return false;
 }
 
 export function arrayMove<T>(

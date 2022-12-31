@@ -29,7 +29,6 @@ import {
   addIdsToRules,
   arrayMove,
   encrypt,
-  getEnabledEnvironments,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
@@ -45,7 +44,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
-import { getAffectedEnvs } from "../util/features";
+import { getEnabledEnvironments } from "../util/features";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -235,10 +234,11 @@ export async function postFeaturePublish(
   }
   // Otherwise, only the environments with rule changes are affected
   else {
+    const draftRules = draft.rules || {};
     req.checkPermissions(
       "publishFeatures",
       feature.project,
-      getAffectedEnvs(feature, Object.keys(draft.rules || {}))
+      [...getEnabledEnvironments(feature)].filter((e) => e in draftRules)
     );
   }
 

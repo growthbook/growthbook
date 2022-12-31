@@ -1,8 +1,12 @@
-import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { FeatureInterface, FeatureValueType } from "../../types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureValueType,
+} from "../../types/feature";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function replaceSavedGroupsInCondition(
@@ -22,71 +26,122 @@ export function replaceSavedGroupsInCondition(
   return newString;
 }
 
-// If changes to a feature are going to affect it's value in at least one environment
-export function changesAffectFeatureValue(
-  feature: FeatureInterface,
-  updatedFeature: FeatureInterface
-) {
-  // If the feature was and still is archived, then the changes don't matter
-  if (feature.archived && updatedFeature.archived) return false;
+export function isRuleEnabled(rule: FeatureRule): boolean {
+  // Manually disabled
+  if (!rule.enabled) return false;
 
-  const ignoredFields: (keyof FeatureInterface)[] = [
-    "description",
-    "owner",
-    "dateUpdated",
-    "tags",
-    "revision",
-    "draft",
-  ];
-
-  return !isEqual(
-    omit(feature, ignoredFields),
-    omit(updatedFeature, ignoredFields)
-  );
-}
-
-export function getAffectedEnvs(
-  feature: FeatureInterface,
-  changedEnvs?: string[]
-): string[] {
-  const settings = feature.environmentSettings;
-  if (!settings) return [];
-
-  if (!changedEnvs) {
-    changedEnvs = Object.keys(settings);
+  // Disabled because of an automatic schedule
+  if (!getCurrentEnabledState(rule.scheduleRules || [], new Date())) {
+    return false;
   }
 
-  return changedEnvs.filter((e) => settings[e]?.enabled);
+  return true;
 }
 
-// When features change, determine which environments/projects are affected
-// e.g. If a feature is disabled in all environments, then it's project won't be affected
-export function getAffectedEnvironmentsAndProjects(
-  changedFeatures: FeatureInterface[],
-  allowedEnvs?: string[]
-): {
-  projects: Set<string>;
-  environments: Set<string>;
-} {
-  // An empty string for projects means "All Projects", so that one is always affected
-  const projects: Set<string> = new Set([""]);
-  const environments: Set<string> = new Set();
+export function getEnabledEnvironments(
+  features: FeatureInterface | FeatureInterface[],
+  ruleFilter?: (rule: FeatureRule) => boolean | unknown
+): Set<string> {
+  if (!Array.isArray(features)) features = [features];
 
-  // Determine which specific environments/projects are affected by the changed features
-  changedFeatures.forEach((feature) => {
-    const affectedEnvs = getAffectedEnvs(feature, allowedEnvs);
-    if (affectedEnvs.length > 0) {
-      if (feature.project) projects.add(feature.project);
-      affectedEnvs.forEach((env) => {
-        environments.add(env);
+  const environments = new Set<string>();
+  features.forEach((feature) => {
+    const settings = feature.environmentSettings || {};
+
+    Object.keys(settings)
+      .filter((e) => settings[e].enabled)
+      .filter((e) => {
+        if (!ruleFilter) return true;
+        const env = settings[e];
+        if (!env?.rules) return false;
+        return env.rules.filter(ruleFilter).some(isRuleEnabled);
+      })
+      .forEach((e) => environments.add(e));
+  });
+
+  return environments;
+}
+
+export function getSDKPayloadKeys(
+  environments: Set<string>,
+  projects: Set<string>
+) {
+  const keys: SDKPayloadKey[] = [];
+
+  environments.forEach((e) => {
+    projects.forEach((p) => {
+      keys.push({
+        environment: e,
+        project: p,
       });
+    });
+  });
+
+  return keys;
+}
+
+export function getSDKPayloadKeysByDiff(
+  originalFeature: FeatureInterface,
+  updatedFeature: FeatureInterface
+): SDKPayloadKey[] {
+  const environments = new Set<string>();
+
+  // Some of the feature keys that change affect all enabled environments
+  const allEnvKeys: (keyof FeatureInterface)[] = [
+    "archived",
+    "defaultValue",
+    "project",
+    "valueType",
+    "nextScheduledUpdate",
+  ];
+  if (allEnvKeys.some((k) => !isEqual(originalFeature[k], updatedFeature[k]))) {
+    getEnabledEnvironments([originalFeature, updatedFeature]).forEach((e) =>
+      environments.add(e)
+    );
+  }
+
+  // Add in environments if their specific settings changed
+  Object.keys(originalFeature.environmentSettings).forEach((e) => {
+    if (
+      !isEqual(
+        originalFeature.environmentSettings[e],
+        updatedFeature.environmentSettings[e]
+      )
+    ) {
+      environments.add(e);
     }
   });
 
-  return {
-    projects,
-    environments,
-  };
+  const projects = new Set([
+    "",
+    originalFeature.project || "",
+    updatedFeature.project || "",
+  ]);
+
+  return getSDKPayloadKeys(environments, projects);
+}
+
+export function getAffectedSDKPayloadKeys(
+  features: FeatureInterface[],
+  ruleFilter?: (rule: FeatureRule) => boolean | unknown
+): SDKPayloadKey[] {
+  const keys: SDKPayloadKey[] = [];
+
+  features.forEach((feature) => {
+    const environments = getEnabledEnvironments(feature, ruleFilter);
+    const projects = new Set(["", feature.project || ""]);
+    keys.push(...getSDKPayloadKeys(environments, projects));
+  });
+
+  // Unique the list
+  const usedKeys = new Set<string>();
+
+  return keys.filter((key) => {
+    const s = JSON.stringify(key);
+    if (usedKeys.has(s)) return false;
+    usedKeys.add(s);
+    return true;
+  });
 }
 
 // eslint-disable-next-line
@@ -142,63 +197,57 @@ export function getFeatureDefinition({
   const def: FeatureDefinition = {
     defaultValue: getJSONValue(feature.valueType, defaultValue),
     rules:
-      rules
-        ?.filter((r) => r.enabled)
-        ?.filter((r) => {
-          return getCurrentEnabledState(r.scheduleRules || [], new Date());
-        })
-        ?.map((r) => {
-          const rule: FeatureDefinitionRule = {};
-          if (r.condition && r.condition !== "{}") {
-            try {
-              rule.condition = JSON.parse(
-                replaceSavedGroupsInCondition(r.condition, groupMap)
-              );
-            } catch (e) {
-              // ignore condition parse errors here
-            }
-          }
-
-          if (r.type === "force") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-          } else if (r.type === "experiment") {
-            rule.variations = r.values.map((v) =>
-              getJSONValue(feature.valueType, v.value)
+      rules?.filter(isRuleEnabled)?.map((r) => {
+        const rule: FeatureDefinitionRule = {};
+        if (r.condition && r.condition !== "{}") {
+          try {
+            rule.condition = JSON.parse(
+              replaceSavedGroupsInCondition(r.condition, groupMap)
             );
-
-            rule.coverage = r.coverage;
-
-            rule.weights = r.values
-              .map((v) => v.weight)
-              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-              .map((w) => roundVariationWeight(w));
-
-            if (r.trackingKey) {
-              rule.key = r.trackingKey;
-            }
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
-            if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-              rule.namespace = [
-                r.namespace.name,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[0] as any) || 0,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[1] as any) || 0,
-              ];
-            }
-          } else if (r.type === "rollout") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-            rule.coverage =
-              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
+          } catch (e) {
+            // ignore condition parse errors here
           }
-          return rule;
-        }) ?? [],
+        }
+
+        if (r.type === "force") {
+          rule.force = getJSONValue(feature.valueType, r.value);
+        } else if (r.type === "experiment") {
+          rule.variations = r.values.map((v) =>
+            getJSONValue(feature.valueType, v.value)
+          );
+
+          rule.coverage = r.coverage;
+
+          rule.weights = r.values
+            .map((v) => v.weight)
+            .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
+            .map((w) => roundVariationWeight(w));
+
+          if (r.trackingKey) {
+            rule.key = r.trackingKey;
+          }
+          if (r.hashAttribute) {
+            rule.hashAttribute = r.hashAttribute;
+          }
+          if (r?.namespace && r.namespace.enabled && r.namespace.name) {
+            rule.namespace = [
+              r.namespace.name,
+              // eslint-disable-next-line
+                parseFloat(r.namespace.range[0] as any) || 0,
+              // eslint-disable-next-line
+                parseFloat(r.namespace.range[1] as any) || 0,
+            ];
+          }
+        } else if (r.type === "rollout") {
+          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.coverage = r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+          if (r.hashAttribute) {
+            rule.hashAttribute = r.hashAttribute;
+          }
+        }
+        return rule;
+      }) ?? [],
   };
   if (def.rules && !def.rules.length) {
     delete def.rules;

@@ -11,7 +11,6 @@ import {
 } from "../../types/feature";
 import {
   generateRuleId,
-  getEnabledEnvironments,
   getNextScheduledUpdate,
   refreshSDKPayloadCache,
 } from "../services/features";
@@ -19,7 +18,10 @@ import { upgradeFeatureInterface } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
 import { FeatureUpdatedNotificationEvent } from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
-import { changesAffectFeatureValue } from "../util/features";
+import {
+  getAffectedSDKPayloadKeys,
+  getSDKPayloadKeysByDiff,
+} from "../util/features";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 
@@ -155,12 +157,10 @@ async function onFeatureCreate(
   organization: OrganizationInterface,
   feature: FeatureInterface
 ) {
-  const environments = new Set([...getEnabledEnvironments(feature)]);
-
-  // Empty string is added since that represents the "All Projects" view, which every feature is part of
-  const projects = new Set(["", feature.project || ""]);
-
-  await refreshSDKPayloadCache(organization, environments, projects);
+  await refreshSDKPayloadCache(
+    organization,
+    getAffectedSDKPayloadKeys([feature])
+  );
 
   // TODO: logFeatureCreatedEvent
 }
@@ -169,12 +169,10 @@ async function onFeatureDelete(
   organization: OrganizationInterface,
   feature: FeatureInterface
 ) {
-  const environments = new Set([...getEnabledEnvironments(feature)]);
-
-  // Empty string is added since that represents the "All Projects" view, which every feature is part of
-  const projects = new Set(["", feature.project || ""]);
-
-  await refreshSDKPayloadCache(organization, environments, projects);
+  await refreshSDKPayloadCache(
+    organization,
+    getAffectedSDKPayloadKeys([feature])
+  );
 
   // TODO: logFeatureDeletedEvent
 }
@@ -184,21 +182,10 @@ export async function onFeatureUpdate(
   feature: FeatureInterface,
   updatedFeature: FeatureInterface
 ) {
-  if (changesAffectFeatureValue(feature, updatedFeature)) {
-    const environments = new Set([
-      ...getEnabledEnvironments(feature),
-      ...getEnabledEnvironments(updatedFeature),
-    ]);
-
-    // Empty string is added since that represents the "All Projects" view, which every feature is part of
-    const projects = new Set([
-      "",
-      feature.project || "",
-      updatedFeature.project || "",
-    ]);
-
-    await refreshSDKPayloadCache(organization, environments, projects);
-  }
+  await refreshSDKPayloadCache(
+    organization,
+    getSDKPayloadKeysByDiff(feature, updatedFeature)
+  );
 
   // New event-based webhooks
   await logFeatureUpdatedEvent(organization, feature, updatedFeature);
