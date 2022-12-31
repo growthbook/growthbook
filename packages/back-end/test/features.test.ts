@@ -548,21 +548,40 @@ describe("Detecting Feature Changes", () => {
         environment: "dev",
       },
     ]);
-
-    // If an environment was disabled before and after the change, then it won't be included
-    feature.environmentSettings.dev.enabled = false;
-    expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        defaultValue: "false",
-      })
-    ).toEqual([
-      {
-        project: "",
-        environment: "production",
-      },
-    ]);
   });
+});
+
+describe("Changes are ignored when archived or disabled", () => {
+  const feature = cloneDeep(baseFeature);
+  const updatedFeature = cloneDeep(baseFeature);
+
+  // Ignore changes when archived before and after
+  expect(
+    getSDKPayloadKeysByDiff(
+      {
+        ...feature,
+        archived: true,
+      },
+      {
+        ...updatedFeature,
+        archived: true,
+        project: "43280943fjdskalfja",
+      }
+    )
+  ).toEqual([]);
+
+  // Ignore environment changes if it's disabled before and after
+  feature.environmentSettings.dev.enabled = false;
+  updatedFeature.environmentSettings.dev.enabled = false;
+  updatedFeature.environmentSettings.dev.rules = [
+    {
+      type: "force",
+      description: "",
+      id: "",
+      value: "true",
+    },
+  ];
+  expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
 });
 
 describe("SDK Payloads", () => {
