@@ -86,6 +86,11 @@ export function getSDKPayloadKeysByDiff(
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
+  // If the feature is archived both before and after the change, no payloads need to update
+  if (originalFeature.archived && updatedFeature.archived) {
+    return [];
+  }
+
   // Some of the feature keys that change affect all enabled environments
   const allEnvKeys: (keyof FeatureInterface)[] = [
     "archived",
@@ -100,14 +105,23 @@ export function getSDKPayloadKeysByDiff(
     );
   }
 
+  const allEnvs = new Set([
+    ...Object.keys(originalFeature.environmentSettings),
+    ...Object.keys(updatedFeature.environmentSettings),
+  ]);
+
   // Add in environments if their specific settings changed
-  Object.keys(originalFeature.environmentSettings).forEach((e) => {
-    if (
-      !isEqual(
-        originalFeature.environmentSettings[e],
-        updatedFeature.environmentSettings[e]
-      )
-    ) {
+  allEnvs.forEach((e) => {
+    const oldSettings = originalFeature.environmentSettings[e];
+    const newSettings = updatedFeature.environmentSettings[e];
+
+    // If the environment is disabled both before and after the change, ignore changes
+    if (!oldSettings?.enabled && !newSettings?.enabled) {
+      return;
+    }
+
+    // Otherwise, if the environment settings are not equal
+    if (!isEqual(oldSettings, newSettings)) {
       environments.add(e);
     }
   });
