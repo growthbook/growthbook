@@ -73,7 +73,7 @@ export default function SavedGroupsPage() {
         if (feature.environmentSettings[env]?.rules) {
           feature.environmentSettings[env].rules.forEach((rule) => {
             savedGroups.forEach((group) => {
-              if (rule.condition.includes(group.id)) {
+              if (rule.condition?.includes(group.id)) {
                 map[group.id] = map[group.id] || new Set();
                 map[group.id].add(feature.id);
               }
