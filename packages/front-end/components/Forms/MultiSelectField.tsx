@@ -17,12 +17,12 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import {
-  SingleValue,
   GroupedValue,
-  useSelectOptions,
   ReactSelectProps,
-} from "./SelectField";
-import Field, { FieldProps } from "./Field";
+  SingleValue,
+  useSelectOptions,
+} from "@/components/Forms/SelectField";
+import Field, { FieldProps } from "@/components/Forms/Field";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -75,6 +75,7 @@ const MultiSelectField: FC<
     onChange: (value: string[]) => void;
     sort?: boolean;
     customStyles?: StylesConfig;
+    customClassName?: string;
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
   }
@@ -88,6 +89,7 @@ const MultiSelectField: FC<
   disabled,
   autoFocus,
   customStyles,
+  customClassName,
   creatable,
   closeMenuOnSelect = false,
   ...otherProps
@@ -113,6 +115,7 @@ const MultiSelectField: FC<
   return (
     <Field
       {...fieldProps}
+      customClassName={customClassName}
       render={(id, ref) => {
         return (
           <Component

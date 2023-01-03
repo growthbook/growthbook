@@ -19,6 +19,7 @@ import {
   formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
+  checkMetricProjectPermissions,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
@@ -46,6 +47,9 @@ import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import ProjectBadges from "@/components/ProjectBadges";
+import EditProjectsForm from "@/components/Projects/EditProjectsForm";
+import { GBEdit } from "@/components/Icons";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -60,9 +64,9 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
-
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
+  const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
   const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
@@ -101,7 +105,10 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEdit = permissions.createMetrics && !hasFileConfig();
+  const canEditMetric =
+    checkMetricProjectPermissions(metric, permissions) && !hasFileConfig();
+  const canEditProjects =
+    permissions.check("createMetrics", "") && !hasFileConfig();
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -261,6 +268,21 @@ const MetricPage: FC = () => {
           }}
         />
       )}
+      {editProjects && (
+        <EditProjectsForm
+          cancel={() => setEditProjects(false)}
+          mutate={mutate}
+          projects={metric.projects}
+          save={async (projects) => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                projects,
+              }),
+            });
+          }}
+        />
+      )}
       {editOwnerModal && (
         <EditOwnerModal
           cancel={() => setEditOwnerModal(false)}
@@ -315,7 +337,7 @@ const MetricPage: FC = () => {
       <div className="row align-items-center mb-2">
         <h1 className="col-auto">{metric.name}</h1>
         <div style={{ flex: 1 }} />
-        {canEdit && (
+        {canEditMetric && (
           <div className="col-auto">
             <MoreMenu>
               <DeleteButton
@@ -355,6 +377,30 @@ const MetricPage: FC = () => {
           </div>
         )}
       </div>
+      <div className="row mb-3 align-items-center">
+        <div className="col">
+          Projects:{" "}
+          {metric?.projects?.length > 0 ? (
+            <ProjectBadges
+              projectIds={metric.projects}
+              className="badge-ellipsis align-middle"
+            />
+          ) : (
+            <ProjectBadges className="badge-ellipsis align-middle" />
+          )}
+          {canEditProjects && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditProjects(true);
+              }}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+      </div>
 
       <div className="row">
         <div className="col-12 col-md-8">
@@ -365,7 +411,7 @@ const MetricPage: FC = () => {
                   <InlineForm
                     editing={editing}
                     setEdit={setEditing}
-                    canEdit={canEdit}
+                    canEdit={canEditMetric}
                     onSave={form.handleSubmit(async (value) => {
                       await apiCall(`/metric/${metric.id}`, {
                         method: "PUT",
@@ -389,12 +435,12 @@ const MetricPage: FC = () => {
                               onChange={(e) =>
                                 form.setValue("name", e.target.value)
                               }
-                              editing={canEdit && editing}
+                              editing={canEditMetric && editing}
                               save={save}
                               cancel={cancel}
                             />
                           </div>
-                          {canEdit && !editing && (
+                          {canEditMetric && !editing && (
                             <div className="col-auto">
                               <button
                                 className="btn btn-outline-primary"
@@ -423,8 +469,8 @@ const MetricPage: FC = () => {
                       mutateDefinitions({});
                     }}
                     value={metric.description}
-                    canCreate={canEdit}
-                    canEdit={canEdit}
+                    canCreate={canEditMetric}
+                    canEdit={canEditMetric}
                     label="Description"
                   />
                   <hr />
@@ -436,7 +482,7 @@ const MetricPage: FC = () => {
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.runQueries && (
+                          {permissions.check("runQueries", "") && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -485,17 +531,18 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">No segment applied</span>
                               )}
-                              {canEdit && permissions.runQueries && (
-                                <a
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setSegmentOpen(true);
-                                  }}
-                                  href="#"
-                                >
-                                  <BsGear />
-                                </a>
-                              )}
+                              {canEditMetric &&
+                                permissions.check("runQueries", "") && (
+                                  <a
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setSegmentOpen(true);
+                                    }}
+                                    href="#"
+                                  >
+                                    <BsGear />
+                                  </a>
+                                )}
                             </>
                           )}
                         </div>
@@ -652,7 +699,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Owner"
               open={() => setEditOwnerModal(true)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="custom">
                 {metric.owner}
@@ -663,7 +710,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Basic Info"
               open={() => setEditModalOpen(0)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup title="Type" type="commaList">
                 {metric.type}
@@ -697,10 +744,28 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Tags"
               open={() => setEditTags(true)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="tags">
                 {metric.tags}
+              </RightRailSectionGroup>
+            </RightRailSection>
+
+            <hr />
+            <RightRailSection
+              title="Projects"
+              open={() => setEditProjects(true)}
+              canOpen={canEditProjects}
+            >
+              <RightRailSectionGroup>
+                {metric?.projects?.length > 0 ? (
+                  <ProjectBadges
+                    projectIds={metric.projects}
+                    className="badge-ellipsis align-middle"
+                  />
+                ) : (
+                  <ProjectBadges className="badge-ellipsis align-middle" />
+                )}
               </RightRailSectionGroup>
             </RightRailSection>
 
@@ -710,7 +775,7 @@ const MetricPage: FC = () => {
                 <RightRailSection
                   title="Query Settings"
                   open={() => setEditModalOpen(1)}
-                  canOpen={canEdit}
+                  canOpen={canEditMetric}
                 >
                   {supportsSQL &&
                   metric.queryFormat !== "builder" &&
@@ -826,7 +891,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Behavior"
               open={() => setEditModalOpen(2)}
-              canOpen={canEdit}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="commaList" empty="">
                 {[

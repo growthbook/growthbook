@@ -174,6 +174,7 @@ interface DataSourceBase {
   dateCreated: Date | null;
   dateUpdated: Date | null;
   params: string;
+  projects?: string[];
   settings: DataSourceSettings;
 }
 

@@ -1,4 +1,9 @@
-import { MetricType } from "back-end/types/metric";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import {
+  GlobalPermission,
+  ProjectScopedPermission,
+} from "back-end/types/organization";
+import { PermissionFunctions } from "@/services/UserContext";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -95,4 +100,21 @@ export function formatConversionRate(type: MetricType, value: number): string {
   }
 
   return percentFormatter.format(value);
+}
+
+export function checkMetricProjectPermissions(
+  metric: MetricInterface,
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
+  permission: ProjectScopedPermission = "createMetrics"
+): boolean {
+  let hasPermission = true;
+  if (metric?.projects?.length) {
+    for (const project of metric.projects) {
+      hasPermission = permissions.check(permission, project);
+      if (!hasPermission) break;
+    }
+  } else {
+    hasPermission = permissions.check(permission, "");
+  }
+  return hasPermission;
 }
