@@ -1,4 +1,5 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import _ from "lodash";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import { useRouter } from "next/router";
 import useApi from "../../../hooks/useApi";
@@ -72,18 +73,13 @@ export const EventWebHookLogsContainer = () => {
     null
   );
 
-  const logLookup: Map<string, EventWebHookLogInterface> = useMemo(() => {
-    return (data?.eventWebHookLogs || []).reduce<
-      Map<string, EventWebHookLogInterface>
-    >((all, curr) => {
-      all.set(curr.id, curr);
-      return all;
-    }, new Map());
+  const logLookup: Record<string, EventWebHookLogInterface> = useMemo(() => {
+    return _.keyBy(data?.eventWebHookLogs || [], "id");
   }, [data]);
 
   const handleLogItemClick = useCallback(
     (logId: string) => {
-      const logToHighlight = logLookup.get(logId) || null;
+      const logToHighlight = logLookup[logId] || null;
       setActiveLog(logToHighlight);
     },
     [logLookup]
