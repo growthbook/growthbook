@@ -954,13 +954,14 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     environment: string;
+    project: string;
     secret: boolean;
     encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment, secret, encryptSDK } = req.body;
+  const { description, environment, project, secret, encryptSDK } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -987,6 +988,7 @@ export async function postApiKey(
     organization: org.id,
     description: description || "",
     environment: environment || "",
+    project: project || "",
     secret: !!secret,
     encryptSDK,
   });

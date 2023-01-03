@@ -229,6 +229,8 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { apiCall } = useAuth();
 
+  const type = form.watch("type");
+
   const value = {
     name: form.watch("name"),
     queryFormat: form.watch("queryFormat"),
@@ -239,7 +241,7 @@ const MetricForm: FC<MetricFormProps> = ({
     denominator: form.watch("denominator"),
     column: form.watch("column"),
     table: form.watch("table"),
-    type: form.watch("type"),
+    type,
     winRisk: form.watch("winRisk"),
     loseRisk: form.watch("loseRisk"),
     tags: form.watch("tags"),
@@ -354,6 +356,12 @@ const MetricForm: FC<MetricFormProps> = ({
   const requiredColumns = useMemo(() => {
     return new Set(["timestamp", ...value.userIdTypes]);
   }, [value.userIdTypes]);
+
+  useEffect(() => {
+    if (type === "binomial") {
+      form.setValue("ignoreNulls", false);
+    }
+  }, [type, form]);
 
   return (
     <PagedModal

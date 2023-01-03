@@ -113,7 +113,7 @@ export async function processJWT(
   req.checkPermissions = (
     permission: Permission,
     project?: string | string[],
-    envs?: string[]
+    envs?: string[] | Set<string>
   ) => {
     let checkProjects: (string | undefined)[];
     if (Array.isArray(project)) {
@@ -122,7 +122,7 @@ export async function processJWT(
       checkProjects = [project];
     }
     for (const p in checkProjects) {
-      if (!hasPermission(permission, p, envs)) {
+      if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
         throw new Error("You do not have permission to complete that action.");
       }
     }

@@ -8,6 +8,7 @@
   --surface-background-color-alt: #{colors.$gray-100};
   --background-primary-light: #f3eff7;
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
+  --table-row-highlight-background-color: #{rgba(124, 69, 234, 0.06)};
 
   --text-color-main: #{colors.$main-black};
   --text-color-table: #{colors.$gray-900};
@@ -72,6 +73,10 @@
   --surface-background-color: #{colors.$surface-background-dark};
   --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
+  --table-row-highlight-background-color: #{lighten(
+      colors.$surface-background-dark,
+      10%
+    )};
   --background-primary-light: #{darken(colors.$dark-purple, 13%)};
 
   --text-color-main: #{colors.$white};

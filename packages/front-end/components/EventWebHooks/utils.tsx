@@ -1,4 +1,6 @@
 import { NotificationEventName } from "back-end/src/events/base-types";
+import React, { ReactNode, useMemo } from "react";
+import { BsCheck, BsQuestion, BsX } from "react-icons/bs";
 
 export type EventWebHookEditParams = {
   name: string;
@@ -30,3 +32,23 @@ export type EventWebHookModalMode =
       data: EventWebHookEditParams;
     }
   | { mode: "create" };
+
+/**
+ * Get the icon for the event web hook state
+ * @param state
+ */
+export const useIconForState = (
+  state: "none" | "success" | "error"
+): ReactNode =>
+  useMemo(() => {
+    switch (state) {
+      case "none":
+        return <BsQuestion className="d-block text-muted" />;
+      case "success":
+        return <BsCheck className="d-block text-success" />;
+      case "error":
+        return <BsX className="d-block text-danger" />;
+      default:
+        return null;
+    }
+  }, [state]);
