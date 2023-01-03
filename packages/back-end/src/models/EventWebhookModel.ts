@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import z from "zod";
-import _ from "lodash";
+import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
 import {
@@ -88,7 +88,7 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @returns
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
+  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
 
 const EventWebHookModel = mongoose.model<EventWebHookDocument>(
   "EventWebHook",

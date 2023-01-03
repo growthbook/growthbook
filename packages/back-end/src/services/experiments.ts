@@ -48,6 +48,7 @@ import {
   OrganizationSettings,
 } from "../../types/organization";
 import { logger } from "../util/logger";
+import { getSDKPayloadKeys } from "../util/features";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -799,13 +800,13 @@ export async function experimentUpdated(
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) {
-  // fire the webhook:
-  await queueWebhook(
-    experiment.organization,
-    ["dev", "production"],
-    [previousProject || "", experiment.project || ""],
-    false
+  const payloadKeys = getSDKPayloadKeys(
+    new Set(["dev", "production"]),
+    new Set(["", previousProject || "", experiment.project || ""])
   );
+
+  // fire the webhook:
+  await queueWebhook(experiment.organization, payloadKeys, false);
 
   // invalidate the CDN
   await queueCDNInvalidate(experiment.organization, (key) => {
