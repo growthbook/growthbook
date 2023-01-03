@@ -169,7 +169,9 @@ async function logFeatureCreatedEvent(
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
-    data: feature,
+    data: {
+      current: feature,
+    },
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
