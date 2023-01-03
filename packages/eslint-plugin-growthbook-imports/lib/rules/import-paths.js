@@ -4,6 +4,7 @@
  */
 "use strict";
 
+// eslint-disable-next-line
 const path = require("node:path");
 
 const replaceWithAlias = (filePath, importDeclarationNode) => {

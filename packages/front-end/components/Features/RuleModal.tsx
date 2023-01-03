@@ -11,11 +11,11 @@ import {
   useAttributeSchema,
   validateFeatureRule,
 } from "@/services/features";
+import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
