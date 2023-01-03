@@ -215,11 +215,7 @@ const ImportExperimentList: FC<{
             )}
             <span>
               <ViewAsyncQueriesButton
-                queries={
-                  data.experiments.queries?.length > 0
-                    ? data.experiments.queries.map((q) => q.query)
-                    : []
-                }
+                queries={data.experiments.queries?.map((q) => q.query) ?? []}
                 error={data.experiments.error}
                 ctaCommponent={(onClick) => (
                   <a className="alert-link" href="#" onClick={onClick}>
