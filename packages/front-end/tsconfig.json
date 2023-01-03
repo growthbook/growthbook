@@ -16,7 +16,8 @@
     "incremental": true,
     "baseUrl": "./",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/back-end/*": ["../back-end/*"]
     }
   },
   "exclude": ["node_modules"],
