@@ -16,7 +16,7 @@
     "rootDir": "src",
     "baseUrl": "./src",
     "paths": {
-      "@/types/*": ["../types/*"],
+      "@back-end/*": ["../*"],
       "@/*": ["*"]
     }
   },
