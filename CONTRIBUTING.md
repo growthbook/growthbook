@@ -182,7 +182,9 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 ### `black` not found
 
-If you an experience issues with `black` when committing during the pre-commiti hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate`
+If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate`.
+
+If you get the error that `poetry env info --path` is not defined, try re-running `yarn setup` from the project root.
 
 ## Getting Help
 
