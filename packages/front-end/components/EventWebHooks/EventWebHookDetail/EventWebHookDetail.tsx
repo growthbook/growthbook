@@ -5,11 +5,11 @@ import { FaAngleLeft } from "react-icons/fa";
 import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { useIconForState } from "../utils";
 import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
 import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
-import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import useApi from "../../../hooks/useApi";
 
 type EventWebHookDetailProps = {

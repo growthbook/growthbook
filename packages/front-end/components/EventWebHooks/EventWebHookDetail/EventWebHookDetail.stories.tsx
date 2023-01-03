@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 
-import { EventWebHookDetail } from "./EventWebHookDetail";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import { getValidDate } from "../../../services/dates";
+import { EventWebHookDetail } from "./EventWebHookDetail";
 
 export default {
   component: EventWebHookDetail,

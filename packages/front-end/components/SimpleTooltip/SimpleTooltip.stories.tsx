@@ -1,8 +1,8 @@
 import React from "react";
 import { radios, select, text } from "@storybook/addon-knobs";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
-import { SimpleTooltip } from "./SimpleTooltip";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { SimpleTooltip } from "./SimpleTooltip";
 
 export default {
   component: SimpleTooltip,

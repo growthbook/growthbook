@@ -1,8 +1,8 @@
 import React, { FC } from "react";
-import { datetime } from "../../../../services/dates";
 import { NotificationEvent } from "back-end/src/events/base-events";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import classNames from "classnames";
+import { datetime } from "../../../../services/dates";
 import { useIconForState } from "../../utils";
 
 type EventWebHookLogItemProps = {
