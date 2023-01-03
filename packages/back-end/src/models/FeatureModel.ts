@@ -16,7 +16,11 @@ import {
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
-import { FeatureUpdatedNotificationEvent } from "../events/base-events";
+import {
+  FeatureCreatedNotificationEvent,
+  FeatureDeletedNotificationEvent,
+  FeatureUpdatedNotificationEvent,
+} from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import {
   getAffectedSDKPayloadKeys,
@@ -153,6 +157,50 @@ async function logFeatureUpdatedEvent(
   return emittedEvent.id;
 }
 
+/**
+ * @param organization
+ * @param feature
+ * @returns event.id
+ */
+async function logFeatureCreatedEvent(
+  organization: OrganizationInterface,
+  feature: FeatureInterface
+): Promise<string> {
+  const payload: FeatureCreatedNotificationEvent = {
+    object: "feature",
+    event: "feature.created",
+    data: feature,
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+}
+
+/**
+ * @param organization
+ * @param feature
+ * @returns event.id
+ */
+async function logFeatureDeletedEvent(
+  organization: OrganizationInterface,
+  previousFeature: FeatureInterface
+): Promise<string> {
+  const payload: FeatureDeletedNotificationEvent = {
+    object: "feature",
+    event: "feature.deleted",
+    data: {
+      previous: previousFeature,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+}
+
 async function onFeatureCreate(
   organization: OrganizationInterface,
   feature: FeatureInterface
@@ -162,7 +210,7 @@ async function onFeatureCreate(
     getAffectedSDKPayloadKeys([feature])
   );
 
-  // TODO: logFeatureCreatedEvent
+  await logFeatureCreatedEvent(organization, feature);
 }
 
 async function onFeatureDelete(
@@ -174,7 +222,7 @@ async function onFeatureDelete(
     getAffectedSDKPayloadKeys([feature])
   );
 
-  // TODO: logFeatureDeletedEvent
+  await logFeatureDeletedEvent(organization, feature);
 }
 
 export async function onFeatureUpdate(
