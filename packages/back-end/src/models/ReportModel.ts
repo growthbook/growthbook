@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ReportInterface } from "../../types/report";
+import { ReportInterface } from "@/back-end/types/report";
 import { getExperimentsByOrganization } from "../services/experiments";
 import { queriesSchema } from "./QueryModel";
 

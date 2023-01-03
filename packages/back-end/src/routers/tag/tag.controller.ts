@@ -1,12 +1,12 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
-import { TagInterface } from "../../../types/tag";
-import { addTag, removeTag } from "../../models/TagModel";
-import { ExperimentModel } from "../../models/ExperimentModel";
-import { removeTagInMetrics } from "../../models/MetricModel";
-import { removeTagInFeature } from "../../models/FeatureModel";
+import { AuthRequest } from "@/types/AuthRequest";
+import { ApiErrorResponse } from "@/back-end/types/api";
+import { getOrgFromReq } from "@/services/organizations";
+import { TagInterface } from "@/back-end/types/tag";
+import { addTag, removeTag } from "@/models/TagModel";
+import { ExperimentModel } from "@/models/ExperimentModel";
+import { removeTagInMetrics } from "@/models/MetricModel";
+import { removeTagInFeature } from "@/models/FeatureModel";
 
 // region POST /tag
 

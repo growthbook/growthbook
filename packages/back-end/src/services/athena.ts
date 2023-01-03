@@ -1,6 +1,6 @@
 import { Athena } from "aws-sdk";
 import { ResultSet } from "aws-sdk/clients/athena";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
+import { AthenaConnectionParams } from "@/back-end/types/integrations/athena";
 import { logger } from "../util/logger";
 import { IS_CLOUD } from "../util/secrets";
 

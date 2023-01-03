@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { AuditInterface } from "../../types/audit";
+import { AuditInterface } from "@/back-end/types/audit";
 
 const auditSchema = new mongoose.Schema({
   id: {

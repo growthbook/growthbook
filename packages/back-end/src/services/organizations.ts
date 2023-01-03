@@ -1,5 +1,19 @@
 import { randomBytes } from "crypto";
 import {
+  Invite,
+  Member,
+  MemberRole,
+  MemberRoleInfo,
+  MemberRoleWithProjects,
+  OrganizationInterface,
+  ProjectMemberRole,
+} from "@/back-end/types/organization";
+import { ExperimentOverride } from "@/back-end/types/api";
+import { MetricInterface } from "@/back-end/types/metric";
+import { DimensionInterface } from "@/back-end/types/dimension";
+import { DataSourceInterface } from "@/back-end/types/datasource";
+import { SSOConnectionInterface } from "@/back-end/types/sso-connection";
+import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -9,16 +23,6 @@ import {
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
-import {
-  Invite,
-  Member,
-  MemberRole,
-  MemberRoleInfo,
-  MemberRoleWithProjects,
-  OrganizationInterface,
-  ProjectMemberRole,
-} from "../../types/organization";
-import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
 import {
   createDataSource,
@@ -30,15 +34,11 @@ import {
   getMetricById,
   updateMetric,
 } from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
 } from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { getDefaultRole } from "../util/organization.util";
 import { markInstalled } from "./auth";

@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
+import { notificationEventNames } from "@/events/base-types";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { notificationEventNames } from "../../events/base-types";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import fetch from "node-fetch";
-import { LicenseData } from "../../types/organization";
+import { LicenseData } from "@/back-end/types/organization";
 import { logger } from "../util/logger";
 import { planHasPremiumFeature } from "../util/organization.util";
 

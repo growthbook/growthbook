@@ -1,19 +1,22 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface } from "@/back-end/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "../../types/datasource";
-import SqlIntegration from "../integrations/SqlIntegration";
-import { getSourceIntegrationObject } from "../services/datasource";
+} from "@/back-end/types/datasource";
 import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+} from "@/back-end/types/feature";
+import {
+  MemberRole,
+  OrganizationInterface,
+} from "@/back-end/types/organization";
+import SqlIntegration from "../integrations/SqlIntegration";
+import { getSourceIntegrationObject } from "../services/datasource";
 import { getConfigOrganizationSettings } from "../init/config";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 

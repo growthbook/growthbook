@@ -3,6 +3,14 @@ import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
 import {
+  DataSourceInterface,
+  DataSourceInterfaceWithParams,
+} from "@/back-end/types/datasource";
+import { MetricInterface } from "@/back-end/types/metric";
+import { DimensionInterface } from "@/back-end/types/dimension";
+import { OrganizationSettings } from "@/back-end/types/organization";
+import { encryptParams } from "../services/datasource";
+import {
   EMAIL_ENABLED,
   ENVIRONMENT,
   IS_CLOUD,
@@ -12,14 +20,6 @@ import {
   EMAIL_HOST_USER,
   EMAIL_PORT,
 } from "../util/secrets";
-import {
-  DataSourceInterface,
-  DataSourceInterfaceWithParams,
-} from "../../types/datasource";
-import { MetricInterface } from "../../types/metric";
-import { DimensionInterface } from "../../types/dimension";
-import { encryptParams } from "../services/datasource";
-import { OrganizationSettings } from "../../types/organization";
 import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 import { logger } from "../util/logger";
 

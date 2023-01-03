@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { PastExperimentsInterface } from "../../types/past-experiments";
+import { PastExperimentsInterface } from "@/back-end/types/past-experiments";
 import { queriesSchema } from "./QueryModel";
 
 const pastExperimentsSchema = new mongoose.Schema({

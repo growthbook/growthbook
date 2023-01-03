@@ -1,18 +1,18 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import FilterSummary from "@/components/Experiment/FilterSummary";
-import DateResults from "@/components/Experiment/DateResults";
-import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
-import StatusBanner from "@/components/Experiment/StatusBanner";
+import { getQueryStatus } from "../Queries/RunQueriesButton";
+import DateResults from "./DateResults";
+import AnalysisSettingsBar from "./AnalysisSettingsBar";
+import GuardrailResults from "./GuardrailResult";
+import FilterSummary from "./FilterSummary";
+import VariationIdWarning from "./VariationIdWarning";
+import { useSnapshot } from "./SnapshotProvider";
+import StatusBanner from "./StatusBanner";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")

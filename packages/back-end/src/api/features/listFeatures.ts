@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { ApiFeatureInterface, ApiPaginationFields } from "../../../types/api";
-import { getAllFeatures } from "../../models/FeatureModel";
-import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { createApiRequestHandler } from "../../util/handler";
+import { ApiFeatureInterface, ApiPaginationFields } from "@/back-end/types/api";
+import { getAllFeatures } from "@/models/FeatureModel";
+import { getApiFeatureObj, getSavedGroupMap } from "@/services/features";
+import { createApiRequestHandler } from "@/util/handler";
 
 export const listFeatures = createApiRequestHandler({
   querySchema: z

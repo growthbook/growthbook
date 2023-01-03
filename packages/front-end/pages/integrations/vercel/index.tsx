@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { Environment } from "back-end/types/organization";
 import { GbVercelEnvMap } from "back-end/types/vercel";
 import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import useApi from "@/hooks/useApi";
-import { useEnvironments } from "@/services/features";
 
 export default function VercelIntegrationPage() {
   const router = useRouter();

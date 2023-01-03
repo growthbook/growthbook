@@ -1,6 +1,6 @@
 import express from "express";
+import { IS_CLOUD } from "@/util/secrets";
 import { wrapController } from "../wrapController";
-import { IS_CLOUD } from "../../util/secrets";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();

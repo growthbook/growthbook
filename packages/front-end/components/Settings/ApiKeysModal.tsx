@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "../../services/auth";
+import track from "@/services/track";
 import Modal from "../Modal";
-import track from "../../services/track";
 import Field from "../Forms/Field";
-import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";

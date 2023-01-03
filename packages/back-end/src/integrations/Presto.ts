@@ -1,7 +1,7 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
+import { PrestoConnectionParams } from "@/back-end/types/integrations/presto";
 import { decryptDataSourceParams } from "../services/datasource";
-import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 

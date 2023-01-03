@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { ApiRequestLocals } from "../../types/api";
+import { ApiRequestLocals } from "@/back-end/types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { insertAudit } from "../services/audit";
 import { getOrganizationById } from "../services/organizations";

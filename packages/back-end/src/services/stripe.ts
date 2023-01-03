@@ -1,10 +1,10 @@
 import { Stripe } from "stripe";
+import { OrganizationInterface } from "@/back-end/types/organization";
 import { STRIPE_SECRET } from "../util/secrets";
 import {
   updateOrganization,
   updateOrganizationByStripeId,
 } from "../models/OrganizationModel";
-import { OrganizationInterface } from "../../types/organization";
 import { logger } from "../util/logger";
 import { isActiveSubscriptionStatus } from "../util/organization.util";
 

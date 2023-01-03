@@ -1,7 +1,7 @@
 import { CommercialFeature } from "back-end/types/organization";
 import clsx from "clsx";
-import { useUser } from "../../services/UserContext";
-import { isCloud } from "../../services/env";
+import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "../Icons";
 import styles from "./UpgradeMessage.module.scss";
 

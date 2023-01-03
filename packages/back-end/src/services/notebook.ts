@@ -1,15 +1,15 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import { MetricInterface } from "@/back-end/types/metric";
+import { ExperimentReportArgs } from "@/back-end/types/report";
+import { Queries } from "@/back-end/types/query";
+import { ExperimentSnapshotInterface } from "@/back-end/types/experiment-snapshot";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { getMetricsByDatasource } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { MetricInterface } from "../../types/metric";
-import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
-import { Queries } from "../../types/query";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { reportArgsFromSnapshot } from "./reports";
 import { getQueryData } from "./queries";
 

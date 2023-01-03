@@ -1,25 +1,25 @@
 import { NextFunction, Request, Response } from "express";
-import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
-import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
-import {
-  getOrganizationById,
-  getRole,
-  validateLoginMethod,
-} from "../organizations";
-import { Permission } from "../../../types/organization";
-import { UserInterface } from "../../../types/user";
-import { AuditInterface } from "../../../types/audit";
-import { insertAudit } from "../audit";
-import { getUserByEmail } from "../users";
-import { hasOrganization } from "../../models/OrganizationModel";
+import { IS_CLOUD, SSO_CONFIG } from "@/util/secrets";
+import { AuthRequest } from "@/types/AuthRequest";
+import { markUserAsVerified, UserModel } from "@/models/UserModel";
+import { Permission } from "@/back-end/types/organization";
+import { UserInterface } from "@/back-end/types/user";
+import { AuditInterface } from "@/back-end/types/audit";
+import { hasOrganization } from "@/models/OrganizationModel";
 import {
   IdTokenCookie,
   AuthChecksCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../../util/cookie";
-import { getPermissionsByRole } from "../../util/organization.util";
+} from "@/util/cookie";
+import { getPermissionsByRole } from "@/util/organization.util";
+import { getUserByEmail } from "../users";
+import { insertAudit } from "../audit";
+import {
+  getOrganizationById,
+  getRole,
+  validateLoginMethod,
+} from "../organizations";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";

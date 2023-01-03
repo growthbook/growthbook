@@ -1,18 +1,21 @@
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface } from "@/back-end/types/metric";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
   ReportInterface,
-} from "../../types/report";
+} from "@/back-end/types/report";
+import { SegmentInterface } from "@/back-end/types/segment";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@/back-end/types/experiment";
+import { OrganizationSettings } from "@/back-end/types/organization";
+import { ExperimentSnapshotInterface } from "@/back-end/types/experiment-snapshot";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { QueryDocument } from "../models/QueryModel";
 import { SegmentModel } from "../models/SegmentModel";
-import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { OrganizationSettings } from "../../types/organization";
 import { updateReport } from "../models/ReportModel";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
 import { analyzeExperimentResults } from "./stats";
 import { parseDimensionId } from "./experiments";

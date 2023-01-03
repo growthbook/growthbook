@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { WatchInterface } from "../../types/watch";
+import { WatchInterface } from "@/back-end/types/watch";
 
 const watchSchema = new mongoose.Schema({
   userId: String,

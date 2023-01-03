@@ -1,4 +1,20 @@
 import { analyticsreporting_v4, google } from "googleapis";
+import { GoogleAnalyticsParams } from "@/back-end/types/integrations/googleanalytics";
+import {
+  DataSourceProperties,
+  DataSourceSettings,
+} from "@/back-end/types/datasource";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@/back-end/types/experiment";
+import { MetricInterface } from "@/back-end/types/metric";
+import {
+  GOOGLE_OAUTH_CLIENT_ID,
+  GOOGLE_OAUTH_CLIENT_SECRET,
+  APP_ORIGIN,
+} from "../util/secrets";
+import { decryptDataSourceParams } from "../services/datasource";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -8,19 +24,6 @@ import {
   MetricValueQueryResponse,
   ExperimentQueryResponses,
 } from "../types/Integration";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
-import { decryptDataSourceParams } from "../services/datasource";
-import {
-  GOOGLE_OAUTH_CLIENT_ID,
-  GOOGLE_OAUTH_CLIENT_SECRET,
-  APP_ORIGIN,
-} from "../util/secrets";
-import {
-  DataSourceProperties,
-  DataSourceSettings,
-} from "../../types/datasource";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface } from "../../types/metric";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(

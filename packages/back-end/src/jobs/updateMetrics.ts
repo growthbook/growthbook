@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { OrganizationSettings } from "@/back-end/types/organization";
 import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
   refreshMetric,
@@ -6,7 +7,6 @@ import {
 } from "../services/experiments";
 import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
-import { OrganizationSettings } from "../../types/organization";
 import { logger } from "../util/logger";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";

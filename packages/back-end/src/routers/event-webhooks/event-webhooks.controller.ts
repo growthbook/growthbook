@@ -1,8 +1,8 @@
 import type { Response } from "express";
-import { ApiErrorResponse } from "../../../types/api";
-import { EventWebHookInterface } from "../../../types/event-webhook";
-import * as EventWebHook from "../../models/EventWebhookModel";
-import * as EventWebHookLog from "../../models/EventWebHookLogModel";
+import { ApiErrorResponse } from "@/back-end/types/api";
+import { EventWebHookInterface } from "@/back-end/types/event-webhook";
+import * as EventWebHook from "@/models/EventWebhookModel";
+import * as EventWebHookLog from "@/models/EventWebHookLogModel";
 
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";

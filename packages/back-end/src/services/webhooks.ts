@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import md5 from "md5";
+import { WebhookInterface } from "@/back-end/types/webhook";
 import { WebhookModel } from "../models/WebhookModel";
-import { WebhookInterface } from "../../types/webhook";
 
 export async function createWebhook(
   organization: string,

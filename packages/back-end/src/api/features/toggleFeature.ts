@@ -1,13 +1,10 @@
 import { z } from "zod";
-import { ApiFeatureInterface } from "../../../types/api";
-import {
-  getFeature,
-  toggleMultipleEnvironments,
-} from "../../models/FeatureModel";
-import { auditDetailsUpdate } from "../../services/audit";
-import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { getEnvironments } from "../../services/organizations";
-import { createApiRequestHandler } from "../../util/handler";
+import { ApiFeatureInterface } from "@/back-end/types/api";
+import { getFeature, toggleMultipleEnvironments } from "@/models/FeatureModel";
+import { auditDetailsUpdate } from "@/services/audit";
+import { getApiFeatureObj, getSavedGroupMap } from "@/services/features";
+import { getEnvironments } from "@/services/organizations";
+import { createApiRequestHandler } from "@/util/handler";
 
 export const toggleFeature = createApiRequestHandler({
   paramsSchema: z

@@ -1,6 +1,16 @@
 import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
+import { MetricStats } from "@/back-end/types/metric";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentPhase,
+  ExperimentStatus,
+  Variation,
+} from "@/back-end/types/experiment";
+import { IdeaInterface } from "@/back-end/types/idea";
+import { ExperimentRule, FeatureInterface } from "@/back-end/types/feature";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getExperimentsByOrganization,
@@ -17,7 +27,6 @@ import {
   getExperimentWatchers,
   getExperimentByTrackingKey,
 } from "../services/experiments";
-import { MetricStats } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
@@ -34,17 +43,9 @@ import {
   getPastExperiments,
 } from "../services/queries";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-  ExperimentPhase,
-  ExperimentStatus,
-  Variation,
-} from "../../types/experiment";
 import { getMetricById } from "../models/MetricModel";
 import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
-import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
@@ -52,7 +53,6 @@ import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
-import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
   auditDetailsCreate,
   auditDetailsUpdate,

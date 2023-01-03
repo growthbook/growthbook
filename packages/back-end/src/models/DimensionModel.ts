@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DimensionInterface } from "../../types/dimension";
+import { DimensionInterface } from "@/back-end/types/dimension";
 import { getConfigDimensions, usingFileConfig } from "../init/config";
 
 const dimensionSchema = new mongoose.Schema({

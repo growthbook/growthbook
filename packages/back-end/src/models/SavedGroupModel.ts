@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { SavedGroupInterface } from "../../types/saved-group";
+import { SavedGroupInterface } from "@/back-end/types/saved-group";
 import { usingFileConfig } from "../init/config";
 
 const savedGroupSchema = new mongoose.Schema({

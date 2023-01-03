@@ -8,15 +8,15 @@ import {
 } from "openid-client";
 import jwtExpress from "express-jwt";
 import jwks from "jwks-rsa";
-import { AuthRequest } from "../../types/AuthRequest";
-import { MemoryCache } from "../cache";
+import { AuthRequest } from "@/types/AuthRequest";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "../../../types/sso-connection";
-import { AuthChecksCookie, SSOConnectionIdCookie } from "../../util/cookie";
-import { APP_ORIGIN, IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
-import { getSSOConnectionById } from "../../models/SSOConnectionModel";
+} from "@/back-end/types/sso-connection";
+import { AuthChecksCookie, SSOConnectionIdCookie } from "@/util/cookie";
+import { APP_ORIGIN, IS_CLOUD, SSO_CONFIG } from "@/util/secrets";
+import { getSSOConnectionById } from "@/models/SSOConnectionModel";
+import { MemoryCache } from "../cache";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import {
   ago,
@@ -11,7 +12,6 @@ import {
   getValidDate,
 } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getExposureQuery } from "@/services/datasources";
 import usePermissions from "@/hooks/usePermissions";

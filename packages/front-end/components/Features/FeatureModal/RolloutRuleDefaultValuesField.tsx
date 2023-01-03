@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { UseFormRegisterReturn } from "react-hook-form";
 import { FeatureValueType } from "back-end/types/feature";
-import Field from "@/components/Forms/Field";
 import { useAttributeSchema } from "@/services/features";
+import Field from "@/components/Forms/Field";
 import RolloutPercentInput from "../RolloutPercentInput";
 import ConditionInput from "../ConditionInput";
 import FeatureValueField from "../FeatureValueField";

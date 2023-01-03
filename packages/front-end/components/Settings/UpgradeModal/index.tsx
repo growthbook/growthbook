@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import Modal from "../../Modal";
+import Modal from "@/components/Modal";
 import CloudUpgradeForm from "./CloudUpgradeForm";
 import SelfHostedUpgradeForm from "./SelfHostedUpgradeForm";
 

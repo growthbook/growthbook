@@ -1,4 +1,6 @@
 import { Response } from "express";
+import { MetricAnalysis, MetricInterface } from "@/back-end/types/metric";
+import { IdeaInterface } from "@/back-end/types/idea";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createMetric,
@@ -7,7 +9,6 @@ import {
   refreshMetric,
   getExperimentsByMetric,
 } from "../services/experiments";
-import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
@@ -18,7 +19,6 @@ import {
   getMetricById,
   updateMetric,
 } from "../models/MetricModel";
-import { IdeaInterface } from "../../types/idea";
 
 import { getDataSourceById } from "../models/DataSourceModel";
 import { getIdeasByQuery } from "../services/ideas";

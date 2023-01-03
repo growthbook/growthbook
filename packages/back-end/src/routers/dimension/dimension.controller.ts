@@ -1,17 +1,17 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
-import { DimensionInterface } from "../../../types/dimension";
+import { AuthRequest } from "@/types/AuthRequest";
+import { ApiErrorResponse } from "@/back-end/types/api";
+import { getOrgFromReq } from "@/services/organizations";
+import { DimensionInterface } from "@/back-end/types/dimension";
 import {
   createDimension,
   deleteDimensionById,
   findDimensionById,
   findDimensionsByOrganization,
   updateDimension,
-} from "../../models/DimensionModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
+} from "@/models/DimensionModel";
+import { getDataSourceById } from "@/models/DataSourceModel";
 
 // region GET /dimensions
 

@@ -1,11 +1,14 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, MetricStats } from "../../types/metric";
-import { SegmentInterface } from "../../types/segment";
+} from "@/back-end/types/datasource";
+import { DimensionInterface } from "@/back-end/types/dimension";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@/back-end/types/experiment";
+import { MetricInterface, MetricStats } from "@/back-end/types/metric";
+import { SegmentInterface } from "@/back-end/types/segment";
 
 export type VariationMetricResult = MetricStats & {
   metric: string;

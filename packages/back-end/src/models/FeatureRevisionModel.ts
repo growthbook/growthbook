@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { FeatureInterface, FeatureRule } from "@/back-end/types/feature";
+import { FeatureRevisionInterface } from "@/back-end/types/feature-revision";
 import { logger } from "../util/logger";
 
 const featureRevisionSchema = new mongoose.Schema({

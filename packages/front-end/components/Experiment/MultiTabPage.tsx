@@ -11,8 +11,8 @@ import {
 import Link from "next/link";
 import { IdeaInterface } from "back-end/types/idea";
 import { useFeature } from "@growthbook/growthbook-react";
-import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";

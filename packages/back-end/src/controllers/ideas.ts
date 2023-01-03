@@ -1,5 +1,8 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
+import { IdeaInterface } from "@/back-end/types/idea";
+import { Vote } from "@/back-end/types/vote";
+import { ImpactEstimateInterface } from "@/back-end/types/impact-estimate";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   getIdeasByOrganization,
@@ -8,16 +11,13 @@ import {
   deleteIdeaById,
   getIdeasByQuery,
 } from "../services/ideas";
-import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../models/TagModel";
-import { Vote } from "../../types/vote";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
   createImpactEstimate,
 } from "../models/ImpactEstimateModel";
-import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { IdeaDocument } from "../models/IdeasModel";
 

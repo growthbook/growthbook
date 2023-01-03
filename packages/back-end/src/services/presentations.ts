@@ -1,9 +1,9 @@
 import uniqid from "uniqid";
-import { PresentationModel } from "../models/PresentationModel";
 import {
   PresentationSlide,
   PresentationInterface,
-} from "../../types/presentation";
+} from "@/back-end/types/presentation";
+import { PresentationModel } from "../models/PresentationModel";
 //import {query} from "../config/postgres";
 
 export function getPresentationsByOrganization(organization: string) {

@@ -1,19 +1,19 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { usingOpenId } from "../../services/auth";
-import { createUser } from "../../services/users";
-import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
+import { AuthRequest } from "@/types/AuthRequest";
+import { usingOpenId } from "@/services/auth";
+import { createUser } from "@/services/users";
+import { findOrganizationsByMemberId } from "@/models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
   getOrgFromReq,
   validateLoginMethod,
-} from "../../services/organizations";
-import { IS_CLOUD } from "../../util/secrets";
-import { getLicense } from "../../init/license";
-import { UserModel } from "../../models/UserModel";
-import { WatchModel } from "../../models/WatchModel";
-import { getFeature } from "../../models/FeatureModel";
-import { ensureWatching, getExperimentById } from "../../services/experiments";
+} from "@/services/organizations";
+import { IS_CLOUD } from "@/util/secrets";
+import { getLicense } from "@/init/license";
+import { UserModel } from "@/models/UserModel";
+import { WatchModel } from "@/models/WatchModel";
+import { getFeature } from "@/models/FeatureModel";
+import { ensureWatching, getExperimentById } from "@/services/experiments";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet

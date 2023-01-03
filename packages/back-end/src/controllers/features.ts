@@ -3,7 +3,8 @@ import {
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
-} from "../../types/feature";
+} from "@/back-end/types/feature";
+import { FeatureUsageRecords } from "@/back-end/types/realtime";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -37,7 +38,6 @@ import {
   ensureWatching,
 } from "../services/experiments";
 import { ExperimentDocument } from "../models/ExperimentModel";
-import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
   auditDetailsUpdate,

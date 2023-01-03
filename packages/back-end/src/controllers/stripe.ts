@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Stripe } from "stripe";
+import { SubscriptionQuote } from "@/back-end/types/organization";
 import {
   APP_ORIGIN,
   STRIPE_PRICE,
@@ -18,7 +19,6 @@ import {
   getPrice,
   getStripeCustomerId,
 } from "../services/stripe";
-import { SubscriptionQuote } from "../../types/organization";
 import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export async function postNewSubscription(

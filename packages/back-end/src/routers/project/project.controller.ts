@@ -1,8 +1,8 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
-import { ProjectInterface } from "../../../types/project";
+import { AuthRequest } from "@/types/AuthRequest";
+import { ApiErrorResponse } from "@/back-end/types/api";
+import { getOrgFromReq } from "@/services/organizations";
+import { ProjectInterface } from "@/back-end/types/project";
 import {
   createProject,
   deleteProjectById,

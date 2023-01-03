@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
-import { FeatureDefinition } from "../../types/api";
+import { FeatureDefinition } from "@/back-end/types/api";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
-} from "../../types/sdk-payload";
+} from "@/back-end/types/sdk-payload";
 
 // Increment this if we change the shape of the payload contents
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;

@@ -5,7 +5,7 @@ import {
   VercelEnvVar,
   VercelProject,
   VercelTarget,
-} from "../../types/vercel";
+} from "@/back-end/types/vercel";
 import { createApiKey } from "../models/ApiKeyModel";
 import { logger } from "../util/logger";
 

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { SegmentInterface } from "../../types/segment";
+import { SegmentInterface } from "@/back-end/types/segment";
 
 const segmentSchema = new mongoose.Schema({
   id: String,

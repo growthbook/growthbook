@@ -1,11 +1,14 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
+import { ExperimentInterface } from "@/back-end/types/experiment";
+import {
+  ErrorResponse,
+  ExperimentOverridesResponse,
+} from "@/back-end/types/api";
 import { getExperimentsByOrganization } from "../services/experiments";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { APP_ORIGIN } from "../util/secrets";
-import { ExperimentInterface } from "../../types/experiment";
-import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
 
 export function canAutoAssignExperiment(

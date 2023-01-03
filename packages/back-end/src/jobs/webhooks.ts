@@ -1,12 +1,12 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
+import { WebhookInterface } from "@/back-end/types/webhook";
+import { SDKPayloadKey } from "@/back-end/types/sdk-payload";
 import { WebhookModel } from "../models/WebhookModel";
 import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
-import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{

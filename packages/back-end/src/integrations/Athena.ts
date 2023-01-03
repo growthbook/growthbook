@@ -1,6 +1,6 @@
+import { AthenaConnectionParams } from "@/back-end/types/integrations/athena";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 

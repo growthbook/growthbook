@@ -3,10 +3,10 @@ import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
-} from "../../types/feature";
-import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+} from "@/back-end/types/feature";
+import { FeatureDefinition, FeatureDefinitionRule } from "@/back-end/types/api";
+import { GroupMap } from "@/back-end/types/saved-group";
+import { SDKPayloadKey } from "@/back-end/types/sdk-payload";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function replaceSavedGroupsInCondition(

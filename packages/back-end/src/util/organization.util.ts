@@ -8,7 +8,7 @@ import {
   OrganizationInterface,
   Permission,
   Role,
-} from "../../types/organization";
+} from "@/back-end/types/organization";
 import { getLicense } from "../init/license";
 import { IS_CLOUD } from "./secrets";
 

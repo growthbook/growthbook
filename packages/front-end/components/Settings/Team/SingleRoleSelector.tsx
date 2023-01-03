@@ -1,12 +1,12 @@
 import { ReactNode } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
-import { useUser } from "../../../services/UserContext";
-import { useEnvironments } from "../../../services/features";
-import MultiSelectField from "../../Forms/MultiSelectField";
-import Toggle from "../../Forms/Toggle";
-import SelectField from "../../Forms/SelectField";
-import { roleSupportsEnvLimit } from "../../../services/auth";
-import PremiumTooltip from "../../Marketing/PremiumTooltip";
+import { useEnvironments } from "@/services/features";
+import { roleSupportsEnvLimit } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Toggle from "@/components/Forms/Toggle";
+import SelectField from "@/components/Forms/SelectField";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({
   value,

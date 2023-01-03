@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import z from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { EventInterface } from "@/back-end/types/event";
 import {
   notificationEventNames,
   notificationEventResources,
 } from "../events/base-types";
-import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { NotificationEvent } from "../events/base-events";

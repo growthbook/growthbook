@@ -10,15 +10,15 @@ import {
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
+import { useAuth } from "@/services/auth";
+import { applyMetricOverrides } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { phaseSummary } from "@/services/utils";
 import { date } from "@/services/dates";
 import { getDefaultConversionWindowHours } from "@/services/env";
-import { applyMetricOverrides } from "@/services/experiments";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";

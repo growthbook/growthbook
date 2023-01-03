@@ -5,8 +5,8 @@ import {
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
-} from "../../types/datasource";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
+} from "@/back-end/types/datasource";
+import { GoogleAnalyticsParams } from "@/back-end/types/integrations/googleanalytics";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,

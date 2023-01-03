@@ -1,11 +1,14 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
-import { MetricInterface } from "../../types/metric";
+} from "@/back-end/types/datasource";
+import { DimensionInterface } from "@/back-end/types/dimension";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@/back-end/types/experiment";
+import { MixpanelConnectionParams } from "@/back-end/types/integrations/mixpanel";
+import { MetricInterface } from "@/back-end/types/metric";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {

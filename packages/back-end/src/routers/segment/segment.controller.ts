@@ -1,23 +1,20 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
-import { SegmentDocument, SegmentModel } from "../../models/SegmentModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { getIdeasByQuery } from "../../services/ideas";
-import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
+import { AuthRequest } from "@/types/AuthRequest";
+import { ApiErrorResponse } from "@/back-end/types/api";
+import { getOrgFromReq } from "@/services/organizations";
+import { SegmentDocument, SegmentModel } from "@/models/SegmentModel";
+import { getDataSourceById } from "@/models/DataSourceModel";
+import { getIdeasByQuery } from "@/services/ideas";
+import { IdeaDocument, IdeaModel } from "@/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   updateMetricsByQuery,
-} from "../../models/MetricModel";
-import { getExperimentsUsingSegment } from "../../services/experiments";
-import {
-  ExperimentDocument,
-  ExperimentModel,
-} from "../../models/ExperimentModel";
-import { MetricInterface } from "../../../types/metric";
+} from "@/models/MetricModel";
+import { getExperimentsUsingSegment } from "@/services/experiments";
+import { ExperimentDocument, ExperimentModel } from "@/models/ExperimentModel";
+import { MetricInterface } from "@/back-end/types/metric";
 
 // region GET /segments
 

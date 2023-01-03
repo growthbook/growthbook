@@ -5,12 +5,20 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import {
+  getFeatureDefaultValue,
+  getRules,
+  useEnvironmentState,
+  useEnvironments,
+  getEnabledEnvironments,
+  getAffectedEnvs,
+} from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
 import RuleModal from "@/components/Features/RuleModal";
 import ForceSummary from "@/components/Features/ForceSummary";
 import RuleList from "@/components/Features/RuleList";
@@ -23,14 +31,6 @@ import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import WatchButton from "@/components/WatchButton";
-import {
-  getFeatureDefaultValue,
-  getRules,
-  useEnvironmentState,
-  useEnvironments,
-  getEnabledEnvironments,
-  getAffectedEnvs,
-} from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import SortedTags from "@/components/Tags/SortedTags";

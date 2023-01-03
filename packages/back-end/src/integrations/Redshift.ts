@@ -1,4 +1,4 @@
-import { PostgresConnectionParams } from "../../types/integrations/postgres";
+import { PostgresConnectionParams } from "@/back-end/types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
 import { FormatDialect } from "../util/sql";

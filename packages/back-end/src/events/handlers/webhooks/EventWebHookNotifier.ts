@@ -1,15 +1,15 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getAgendaInstance } from "../../../services/queueing";
-import { getEvent } from "../../../models/EventModel";
+import { getAgendaInstance } from "@/services/queueing";
+import { getEvent } from "@/models/EventModel";
 import {
   getEventWebHookById,
   updateEventWebHookStatus,
-} from "../../../models/EventWebhookModel";
-import { EventWebHookInterface } from "../../../../types/event-webhook";
-import { getSavedGroupMap } from "../../../services/features";
-import { findOrganizationById } from "../../../models/OrganizationModel";
-import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
-import { logger } from "../../../util/logger";
+} from "@/models/EventWebhookModel";
+import { EventWebHookInterface } from "@/back-end/types/event-webhook";
+import { getSavedGroupMap } from "@/services/features";
+import { findOrganizationById } from "@/models/OrganizationModel";
+import { createEventWebHookLog } from "@/models/EventWebHookLogModel";
+import { logger } from "@/util/logger";
 import {
   cancellableFetch,
   EventWebHookErrorResult,

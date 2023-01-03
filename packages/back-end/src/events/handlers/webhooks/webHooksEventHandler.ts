@@ -1,6 +1,6 @@
-import { getAllEventWebHooksForEvent } from "../../../models/EventWebhookModel";
-import { NotificationEventHandler } from "../../notifiers/EventNotifier";
-import { getEvent } from "../../../models/EventModel";
+import { getAllEventWebHooksForEvent } from "@/models/EventWebhookModel";
+import { NotificationEventHandler } from "@/events/notifiers/EventNotifier";
+import { getEvent } from "@/models/EventModel";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
 /**

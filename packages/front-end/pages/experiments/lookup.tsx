@@ -3,9 +3,9 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ExperimentLookupPage() {

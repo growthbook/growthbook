@@ -1,10 +1,16 @@
 import cloneDeep from "lodash/cloneDeep";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface } from "@/back-end/types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
-} from "../../types/datasource";
+} from "@/back-end/types/datasource";
+import {
+  ExperimentPhase,
+  ExperimentInterface,
+} from "@/back-end/types/experiment";
+import { DimensionInterface } from "@/back-end/types/dimension";
+import { SegmentInterface } from "@/back-end/types/segment";
 import {
   MetricValueParams,
   SourceIntegrationInterface,
@@ -18,14 +24,11 @@ import {
   Dimension,
   TestQueryResult,
 } from "../types/Integration";
-import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
-import { DimensionInterface } from "../../types/dimension";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   IMPORT_LIMIT_DAYS,
 } from "../util/secrets";
 import { getValidDate } from "../util/dates";
-import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
   replaceSQLVars,

@@ -1,13 +1,14 @@
 import { Response } from "express";
 import uniqid from "uniqid";
-import { AuthRequest } from "../types/AuthRequest";
-import { getOrgFromReq } from "../services/organizations";
 import {
   DataSourceParams,
   DataSourceType,
   DataSourceSettings,
   DataSourceInterface,
-} from "../../types/datasource";
+} from "@/back-end/types/datasource";
+import { GoogleAnalyticsParams } from "@/back-end/types/integrations/googleanalytics";
+import { AuthRequest } from "../types/AuthRequest";
+import { getOrgFromReq } from "../services/organizations";
 import {
   getSourceIntegrationObject,
   getNonSensitiveParams,
@@ -31,7 +32,6 @@ import {
   deleteDatasourceById,
   updateDataSource,
 } from "../models/DataSourceModel";
-import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import {
   insertMetric,
   getMetricsByDatasource,

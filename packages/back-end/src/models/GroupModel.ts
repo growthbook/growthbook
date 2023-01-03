@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { GroupInterface } from "../../types/group";
+import { GroupInterface } from "@/back-end/types/group";
 
 const groupSchema = new mongoose.Schema({
   organization: {

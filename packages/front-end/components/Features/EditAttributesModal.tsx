@@ -5,9 +5,9 @@ import {
 } from "back-end/types/organization";
 import { FaQuestionCircle, FaTrash } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
+import { useAttributeSchema } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import Toggle from "../Forms/Toggle";

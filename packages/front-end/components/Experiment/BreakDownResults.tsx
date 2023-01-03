@@ -5,12 +5,12 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "../Forms/Toggle";
 import ResultsTable from "./ResultsTable";
 import UsersTable from "./UsersTable";

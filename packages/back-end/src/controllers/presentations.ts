@@ -1,4 +1,7 @@
 import { Response } from "express";
+import { ExperimentInterface } from "@/back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "@/back-end/types/experiment-snapshot";
+import { PresentationInterface } from "@/back-end/types/presentation";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   getPresentationById,
@@ -11,9 +14,6 @@ import {
   getLatestSnapshot,
 } from "../services/experiments";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
-import { ExperimentInterface } from "../../types/experiment";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { PresentationInterface } from "../../types/presentation";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);

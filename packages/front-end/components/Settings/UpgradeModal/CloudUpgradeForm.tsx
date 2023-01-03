@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { AccountPlan } from "back-end/types/organization";
-import useStripeSubscription from "../../../hooks/useStripeSubscription";
-import { redirectWithTimeout, useAuth } from "../../../services/auth";
-import track from "../../../services/track";
-import LoadingOverlay from "../../LoadingOverlay";
-import Tooltip from "../../Tooltip/Tooltip";
-import Button from "../../Button";
+import { redirectWithTimeout, useAuth } from "@/services/auth";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import track from "@/services/track";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Button";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",

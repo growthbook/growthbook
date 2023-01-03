@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema } from "zod";
-import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
+import { ApiErrorResponse, ApiRequestLocals } from "@/back-end/types/api";
 
 type ApiRequest<
   ResponseType = never,

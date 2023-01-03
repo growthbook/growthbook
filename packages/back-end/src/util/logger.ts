@@ -1,6 +1,6 @@
 import pinoHttp from "pino-http";
 import { Request } from "express";
-import { ApiRequestLocals } from "../../types/api";
+import { ApiRequestLocals } from "@/back-end/types/api";
 import { AuthRequest } from "../types/AuthRequest";
 import { ENVIRONMENT } from "./secrets";
 

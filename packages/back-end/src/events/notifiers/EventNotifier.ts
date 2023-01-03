@@ -1,5 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getAgendaInstance } from "../../services/queueing";
+import { getAgendaInstance } from "@/services/queueing";
 import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
 
 let jobDefined = false;

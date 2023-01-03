@@ -1,21 +1,21 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
-import { SavedGroupInterface } from "../../../types/saved-group";
+import { AuthRequest } from "@/types/AuthRequest";
+import { ApiErrorResponse } from "@/back-end/types/api";
+import { getOrgFromReq } from "@/services/organizations";
+import { SavedGroupInterface } from "@/back-end/types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
   parseSavedGroupString,
   updateSavedGroup,
-} from "../../models/SavedGroupModel";
+} from "@/models/SavedGroupModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
-import { savedGroupUpdated } from "../../services/savedGroups";
+} from "@/services/audit";
+import { savedGroupUpdated } from "@/services/savedGroups";
 
 // region POST /saved-groups
 

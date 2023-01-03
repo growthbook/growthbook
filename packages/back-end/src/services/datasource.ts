@@ -1,4 +1,8 @@
 import { AES, enc } from "crypto-js";
+import {
+  DataSourceInterface,
+  DataSourceParams,
+} from "@/back-end/types/datasource";
 import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
@@ -10,7 +14,6 @@ import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
-import { DataSourceInterface, DataSourceParams } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 

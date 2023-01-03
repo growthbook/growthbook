@@ -8,14 +8,14 @@ import {
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "../../types/feature";
+} from "@/back-end/types/feature";
+import { OrganizationInterface } from "@/back-end/types/organization";
 import {
   generateRuleId,
   getNextScheduledUpdate,
   refreshSDKPayloadCache,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
-import { OrganizationInterface } from "../../types/organization";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,

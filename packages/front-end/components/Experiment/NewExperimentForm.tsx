@@ -7,8 +7,8 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
+import { useWatching } from "@/services/WatchProvider";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";

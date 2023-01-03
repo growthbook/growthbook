@@ -1,15 +1,15 @@
 import { NextFunction, Request, Response } from "express";
 import jwtExpress from "express-jwt";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../../util/secrets";
-import { UserInterface } from "../../../types/user";
+import { JWT_SECRET } from "@/util/secrets";
+import { UserInterface } from "@/back-end/types/user";
 import {
   AuthRefreshModel,
   createRefreshToken,
   getUserIdFromAuthRefreshToken,
-} from "../../models/AuthRefreshModel";
-import { RefreshTokenCookie } from "../../util/cookie";
-import { UnauthenticatedResponse } from "../../../types/sso-connection";
+} from "@/models/AuthRefreshModel";
+import { RefreshTokenCookie } from "@/util/cookie";
+import { UnauthenticatedResponse } from "@/back-end/types/sso-connection";
 import { getUserById } from "../users";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";

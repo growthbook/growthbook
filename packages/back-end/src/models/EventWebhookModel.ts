@@ -3,12 +3,12 @@ import z from "zod";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
+import { EventWebHookInterface } from "@/back-end/types/event-webhook";
 import {
   NotificationEventName,
   notificationEventNames,
 } from "../events/base-types";
 import { errorStringFromZodResult } from "../util/validation";
-import { EventWebHookInterface } from "../../types/event-webhook";
 import { logger } from "../util/logger";
 
 const eventWebHookSchema = new mongoose.Schema({

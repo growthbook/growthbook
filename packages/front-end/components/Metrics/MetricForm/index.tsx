@@ -6,6 +6,7 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +17,6 @@ import {
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "@/services/metrics";
-import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";

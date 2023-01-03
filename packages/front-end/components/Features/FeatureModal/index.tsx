@@ -8,9 +8,6 @@ import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
 import { ReactElement } from "react";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
 import {
   getDefaultRuleValue,
   getDefaultValue,
@@ -21,6 +18,9 @@ import {
   useEnvironments,
   genDuplicatedKey,
 } from "@/services/features";
+import Modal from "@/components/Modal";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import FeatureValueField from "../FeatureValueField";

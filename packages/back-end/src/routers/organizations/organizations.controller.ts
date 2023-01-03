@@ -1,9 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
-import {
-  AuthRequest,
-  ResponseWithStatusAndError,
-} from "../../types/AuthRequest";
+import { AuthRequest, ResponseWithStatusAndError } from "@/types/AuthRequest";
 import {
   acceptInvite,
   addMemberToOrg,
@@ -14,13 +11,13 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
-} from "../../services/organizations";
+} from "@/services/organizations";
 import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
-} from "../../services/datasource";
-import { getUsersByIds, updatePassword } from "../../services/users";
-import { getAllTags } from "../../models/TagModel";
+} from "@/services/datasource";
+import { getUsersByIds, updatePassword } from "@/services/users";
+import { getAllTags } from "@/models/TagModel";
 import {
   ExpandedMember,
   Invite,
@@ -29,7 +26,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
-} from "../../../types/organization";
+} from "@/back-end/types/organization";
 import {
   auditDetailsUpdate,
   findAllByEntityType,
@@ -37,19 +34,19 @@ import {
   findByEntity,
   findByEntityParent,
   getWatchedAudits,
-} from "../../services/audit";
-import { ExperimentModel } from "../../models/ExperimentModel";
-import { getAllFeatures } from "../../models/FeatureModel";
-import { SegmentModel } from "../../models/SegmentModel";
-import { findDimensionsByOrganization } from "../../models/DimensionModel";
-import { IS_CLOUD } from "../../util/secrets";
-import { sendInviteEmail, sendNewOrgEmail } from "../../services/email";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getAllGroups } from "../../services/group";
-import { getAllSavedGroups } from "../../models/SavedGroupModel";
-import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel } from "../../models/WebhookModel";
-import { createWebhook } from "../../services/webhooks";
+} from "@/services/audit";
+import { ExperimentModel } from "@/models/ExperimentModel";
+import { getAllFeatures } from "@/models/FeatureModel";
+import { SegmentModel } from "@/models/SegmentModel";
+import { findDimensionsByOrganization } from "@/models/DimensionModel";
+import { IS_CLOUD } from "@/util/secrets";
+import { sendInviteEmail, sendNewOrgEmail } from "@/services/email";
+import { getDataSourcesByOrganization } from "@/models/DataSourceModel";
+import { getAllGroups } from "@/services/group";
+import { getAllSavedGroups } from "@/models/SavedGroupModel";
+import { getMetricsByOrganization } from "@/models/MetricModel";
+import { WebhookModel } from "@/models/WebhookModel";
+import { createWebhook } from "@/services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -57,13 +54,13 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
-} from "../../models/OrganizationModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { ConfigFile } from "../../init/config";
-import { WebhookInterface } from "../../../types/webhook";
-import { ExperimentRule, NamespaceValue } from "../../../types/feature";
-import { usingOpenId } from "../../services/auth";
-import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
+} from "@/models/OrganizationModel";
+import { findAllProjectsByOrganization } from "@/models/ProjectModel";
+import { ConfigFile } from "@/init/config";
+import { WebhookInterface } from "@/back-end/types/webhook";
+import { ExperimentRule, NamespaceValue } from "@/back-end/types/feature";
+import { usingOpenId } from "@/services/auth";
+import { getSSOConnectionSummary } from "@/models/SSOConnectionModel";
 import {
   createApiKey,
   deleteApiKeyById,
@@ -72,14 +69,14 @@ import {
   getApiKeyByIdOrKey,
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
-} from "../../models/ApiKeyModel";
+} from "@/models/ApiKeyModel";
 import {
   accountFeatures,
   getAccountPlan,
   getRoles,
-} from "../../util/organization.util";
-import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
-import licenseInit, { getLicense, setLicense } from "../../init/license";
+} from "@/util/organization.util";
+import { deleteUser, findUserById, getAllUsers } from "@/models/UserModel";
+import licenseInit, { getLicense, setLicense } from "@/init/license";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);

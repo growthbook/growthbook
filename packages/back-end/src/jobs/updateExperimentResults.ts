@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ExperimentInterface } from "@/back-end/types/experiment";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
@@ -12,7 +13,6 @@ import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";

@@ -1,6 +1,6 @@
 import { Response } from "express";
+import { DiscussionParentType } from "@/back-end/types/discussion";
 import { AuthRequest } from "../types/AuthRequest";
-import { DiscussionParentType } from "../../types/discussion";
 import {
   addComment,
   getDiscussionByParent,

@@ -4,6 +4,13 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
+import {
+  getFeatureDefaultValue,
+  getRules,
+  useFeaturesList,
+  useRealtimeData,
+  useEnvironments,
+} from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { ago, datetime } from "@/services/dates";
 import { GBAddCircle } from "@/components/Icons";
@@ -19,13 +26,6 @@ import {
 } from "@/services/search";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
-import {
-  getFeatureDefaultValue,
-  getRules,
-  useFeaturesList,
-  useRealtimeData,
-  useEnvironments,
-} from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";

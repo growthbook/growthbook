@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface } from "@/back-end/types/experiment";
 
 export type ExperimentDocument = mongoose.Document & ExperimentInterface;
 

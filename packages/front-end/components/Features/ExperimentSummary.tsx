@@ -2,11 +2,11 @@ import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useState } from "react";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExperimentDefinitionFromFeature,
   getVariationColor,
 } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 import Modal from "../Modal";
 import ValueDisplay from "./ValueDisplay";

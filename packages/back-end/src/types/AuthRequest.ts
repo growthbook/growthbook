@@ -4,9 +4,9 @@ import {
   GlobalPermission,
   OrganizationInterface,
   ProjectScopedPermission,
-} from "../../types/organization";
-import { AuditInterface } from "../../types/audit";
-import { SSOConnectionInterface } from "../../types/sso-connection";
+} from "@/back-end/types/organization";
+import { AuditInterface } from "@/back-end/types/audit";
+import { SSOConnectionInterface } from "@/back-end/types/sso-connection";
 
 interface PermissionFunctions {
   checkPermissions(permission: GlobalPermission): void;

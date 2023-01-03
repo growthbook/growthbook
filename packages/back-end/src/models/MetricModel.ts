@@ -1,5 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface } from "@/back-end/types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { queriesSchema } from "./QueryModel";

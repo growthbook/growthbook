@@ -1,5 +1,5 @@
 import mssql from "mssql";
-import { MssqlConnectionParams } from "../../types/integrations/mssql";
+import { MssqlConnectionParams } from "@/back-end/types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";

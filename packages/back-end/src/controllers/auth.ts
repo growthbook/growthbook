@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { UserInterface } from "@/back-end/types/user";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -31,7 +32,6 @@ import {
 } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
-import { UserInterface } from "../../types/user";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();

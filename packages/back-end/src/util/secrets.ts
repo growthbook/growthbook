@@ -1,7 +1,7 @@
 import fs from "fs";
 import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
-import { SSOConnectionInterface } from "../../types/sso-connection";
+import { SSOConnectionInterface } from "@/back-end/types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";

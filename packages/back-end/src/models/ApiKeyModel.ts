@@ -6,7 +6,7 @@ import {
   ApiKeyInterface,
   PublishableApiKey,
   SecretApiKey,
-} from "../../types/apikey";
+} from "@/back-end/types/apikey";
 
 const apiKeySchema = new mongoose.Schema({
   id: String,

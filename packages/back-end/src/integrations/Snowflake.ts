@@ -1,4 +1,4 @@
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
+import { SnowflakeConnectionParams } from "@/back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
 import { FormatDialect } from "../util/sql";

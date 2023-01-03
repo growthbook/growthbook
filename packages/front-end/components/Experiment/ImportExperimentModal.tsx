@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";

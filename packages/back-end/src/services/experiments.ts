@@ -2,11 +2,24 @@ import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import uniqBy from "lodash/uniqBy";
 import cronParser from "cron-parser";
-import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
+} from "@/back-end/types/experiment-snapshot";
+import {
+  MetricInterface,
+  MetricStats,
+  MetricAnalysis,
+} from "@/back-end/types/metric";
+import { SegmentInterface } from "@/back-end/types/segment";
+import { ExperimentInterface } from "@/back-end/types/experiment";
+import { PastExperiment } from "@/back-end/types/past-experiments";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+  OrganizationSettings,
+} from "@/back-end/types/organization";
+import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
 import {
   getMetricsByOrganization,
   insertMetric,
@@ -26,14 +39,6 @@ import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import {
-  MetricInterface,
-  MetricStats,
-  MetricAnalysis,
-} from "../../types/metric";
-import { SegmentInterface } from "../../types/segment";
-import { ExperimentInterface } from "../../types/experiment";
-import { PastExperiment } from "../../types/past-experiments";
 import { queueWebhook } from "../jobs/webhooks";
 import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
@@ -42,11 +47,6 @@ import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import {
-  ExperimentUpdateSchedule,
-  OrganizationInterface,
-  OrganizationSettings,
-} from "../../types/organization";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
 import {

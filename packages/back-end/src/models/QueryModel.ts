@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { QueryInterface } from "../../types/query";
+import { QueryInterface } from "@/back-end/types/query";
 
 export const queriesSchema = [
   {

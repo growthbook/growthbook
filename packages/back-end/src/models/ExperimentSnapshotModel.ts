@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "@/back-end/types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({

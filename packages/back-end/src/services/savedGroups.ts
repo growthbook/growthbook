@@ -1,4 +1,4 @@
-import { OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface } from "@/back-end/types/organization";
 import { getAllFeatures } from "../models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { refreshSDKPayloadCache } from "./features";

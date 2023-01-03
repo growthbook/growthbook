@@ -1,9 +1,9 @@
 import { ReactElement, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Field from "../Forms/Field";

@@ -8,13 +8,13 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
+import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import DiscussionThread from "@/components/DiscussionThread";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useAuth } from "@/services/auth";
 import {
   formatConversionRate,
   defaultWinRiskThreshold,

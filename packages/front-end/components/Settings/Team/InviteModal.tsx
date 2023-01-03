@@ -1,10 +1,10 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
+import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import UpgradeModal from "../UpgradeModal";

@@ -1,5 +1,16 @@
 import uniqid from "uniqid";
-import { QueryDocument, QueryModel } from "../models/QueryModel";
+import {
+  Queries,
+  QueryInterface,
+  QueryPointer,
+  QueryStatus,
+} from "@/back-end/types/query";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "@/back-end/types/experiment";
+import { MetricInterface, MetricStats } from "@/back-end/types/metric";
+import { DimensionInterface } from "@/back-end/types/dimension";
 import {
   MetricValueParams,
   SourceIntegrationInterface,
@@ -11,15 +22,7 @@ import {
   ExperimentResults,
   ExperimentQueryResponses,
 } from "../types/Integration";
-import {
-  Queries,
-  QueryInterface,
-  QueryPointer,
-  QueryStatus,
-} from "../../types/query";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, MetricStats } from "../../types/metric";
-import { DimensionInterface } from "../../types/dimension";
+import { QueryDocument, QueryModel } from "../models/QueryModel";
 import { getValidDate } from "../util/dates";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 export type QueryMap = Map<string, QueryInterface>;

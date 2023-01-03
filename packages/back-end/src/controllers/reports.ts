@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { ReportInterface } from "../../types/report";
+import { ReportInterface } from "@/back-end/types/report";
 import { ExperimentModel } from "../models/ExperimentModel";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {

@@ -5,23 +5,23 @@ import {
   ApiFeatureEnvironmentInterface,
   ApiFeatureInterface,
   FeatureDefinition,
-} from "../../types/api";
+} from "@/back-end/types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
-} from "../../types/feature";
+} from "@/back-end/types/feature";
+import { OrganizationInterface } from "@/back-end/types/organization";
+import { GroupMap } from "@/back-end/types/saved-group";
+import { SDKPayloadKey } from "@/back-end/types/sdk-payload";
 import { getAllFeatures } from "../models/FeatureModel";
 import { getFeatureDefinition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { OrganizationInterface } from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;

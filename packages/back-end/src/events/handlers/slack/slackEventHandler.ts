@@ -1,4 +1,4 @@
-import { NotificationEventHandler } from "../../notifiers/EventNotifier";
+import { NotificationEventHandler } from "@/events/notifiers/EventNotifier";
 
 /**
  * handle Slack events. Can be handled individually or with a common handler, depending on needs.

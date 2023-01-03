@@ -1,21 +1,21 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
-import { MetricInterface } from "../../types/metric";
-import { ExperimentMetricAnalysis } from "../../types/stats";
-import {
-  ExperimentMetricQueryResponse,
-  ExperimentResults,
-} from "../types/Integration";
+import { MetricInterface } from "@/back-end/types/metric";
+import { ExperimentMetricAnalysis } from "@/back-end/types/stats";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
-} from "../../types/report";
+} from "@/back-end/types/report";
+import { OrganizationSettings } from "@/back-end/types/organization";
+import {
+  ExperimentMetricQueryResponse,
+  ExperimentResults,
+} from "../types/Integration";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
-import { OrganizationSettings } from "../../types/organization";
 import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;

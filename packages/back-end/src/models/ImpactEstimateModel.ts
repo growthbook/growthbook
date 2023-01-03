@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ImpactEstimateInterface } from "../../types/impact-estimate";
+import { ImpactEstimateInterface } from "@/back-end/types/impact-estimate";
+import { SegmentInterface } from "@/back-end/types/segment";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
-import { SegmentInterface } from "../../types/segment";
 import { processMetricValueQueryResponse } from "../services/queries";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { SegmentModel } from "./SegmentModel";
