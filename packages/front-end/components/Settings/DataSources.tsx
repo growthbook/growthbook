@@ -27,6 +27,7 @@ const DataSources: FC = () => {
   } = useDefinitions();
   const filteredDatasources = datasources.filter((ds) => {
     if (!project) return true;
+    if (!ds?.projects?.length) return true;
     return ds?.projects?.includes(project);
   });
 

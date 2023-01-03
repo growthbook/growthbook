@@ -432,6 +432,7 @@ const MetricForm: FC<MetricFormProps> = ({
           <div className="form-group">
             <MultiSelectField
               label="Projects"
+              placeholder="All projects"
               value={value.projects || []}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
               onChange={(v) => form.setValue("projects", v)}

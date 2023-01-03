@@ -236,6 +236,7 @@ const DataSourceForm: FC<{
         <div className="form-group">
           <MultiSelectField
             label="Projects"
+            placeholder="All projects"
             value={datasource.projects || []}
             options={projects.map((p) => ({ value: p.id, label: p.name }))}
             onChange={(v) => onManualChange("projects", v)}

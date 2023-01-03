@@ -7,7 +7,6 @@ import {
   OrganizationInterface,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
-import { getOrganizationById } from "../services/organizations";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -231,9 +230,8 @@ export async function getOrganizationsWithNorthStars() {
 
 export async function removeProjectFromProjectRoles(
   project: string,
-  orgId: string
+  org: OrganizationInterface
 ) {
-  const org = await getOrganizationById(orgId);
   if (!org) return;
 
   const updates: {
@@ -260,6 +258,6 @@ export async function removeProjectFromProjectRoles(
   }
 
   if (Object.keys(updates).length > 0) {
-    await OrganizationModel.updateOne({ id: orgId }, { $set: updates });
+    await OrganizationModel.updateOne({ id: org.id }, { $set: updates });
   }
 }

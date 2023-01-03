@@ -30,6 +30,7 @@ const EditProjectsForm: FC<{
     >
       <MultiSelectField
         label="Projects"
+        placeholder="All projects"
         value={form.watch("projects")}
         options={projectDefinitions.map((p) => ({
           value: p.id,

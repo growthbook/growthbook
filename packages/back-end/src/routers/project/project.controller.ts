@@ -130,7 +130,7 @@ export const deleteProject = async (
   await removeProjectFromMetrics(id, org.id);
   await removeProjectFromFeatures(id, org.id);
   await removeProjectFromExperiments(id, org.id);
-  await removeProjectFromProjectRoles(id, org.id);
+  await removeProjectFromProjectRoles(id, org);
   // ideas?
   // report?
   // api endpoints & webhooks?

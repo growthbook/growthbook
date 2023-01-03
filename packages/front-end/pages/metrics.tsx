@@ -62,6 +62,7 @@ const MetricsPage = (): React.ReactElement => {
   );
   const filteredMetrics = metrics.filter((m) => {
     if (!project) return true;
+    if (!m?.projects?.length) return true;
     return m?.projects?.includes(project);
   });
 
