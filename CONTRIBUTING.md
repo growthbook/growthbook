@@ -176,6 +176,14 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 2. Open a Pull Request on GitHub with a description of your changes.
 
+
+## Troubleshooting
+
+### `black` not found
+
+If you an experience issues with `black` when committing during the pre-commiti hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate` 
+
+
 ## Getting Help
 
 Join our [Slack community](https://slack.growthbook.io?ref=contributing) if you need help getting set up or want to chat. We're also happy to hop on a call and do some pair programming.
