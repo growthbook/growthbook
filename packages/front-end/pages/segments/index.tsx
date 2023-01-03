@@ -41,9 +41,6 @@ const SegmentPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  const showConfigError =
-    hasFileConfig() && !process.env.STORE_SEGMENTS_IN_MONGO && !segments.length;
-
   const getSegmentUsage = (s: SegmentInterface) => {
     return async () => {
       try {
@@ -231,14 +228,6 @@ const SegmentPage: FC = () => {
           There was an error loading the list of segments
         </div>
       )}
-      {showConfigError && (
-        <div className="alert alert-warning">
-          Your organization is configured via the uploaded config.yml file. If
-          you would like to store and access segments in MongoDB, please add the
-          STORE_SEGMENTS_IN_MONGO environment variable or add segments to your
-          config.yml file. <DocLink docSection="config_yml">View Docs.</DocLink>
-        </div>
-      )}
       {segments.length > 0 && (
         <div className="row mb-4">
           <div className="col-12">
@@ -352,14 +341,18 @@ const SegmentPage: FC = () => {
             "Click the button above to create your first one."}
         </div>
       )}
-      {segments.length === 0 && hasFileConfig() && (
-        <div className="alert alert-info">
-          It looks like you have a <code>config.yml</code> file. Segments
-          defined there will show up on this page.{" "}
-          {/* If this org has segments in Mongo, but doesn't have the env variable to allow using segments in mongo, add note here */}
-          <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
-      )}
+      {segments.length === 0 &&
+        hasFileConfig() &&
+        !process.env.STORE_SEGMENTS_IN_MONGO && (
+          <div className="alert alert-info">
+            It looks like you have a <code>config.yml</code> file. Segments
+            defined there will show up on this page. If you would like to store
+            and access segments in MongoDB instead, please add the{" "}
+            <code>STORE_SEGMENTS_IN_MONGO</code>
+            environment variable.
+            <DocLink docSection="config_yml">View Documentation</DocLink>
+          </div>
+        )}
     </div>
   );
 };
