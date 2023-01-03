@@ -41,6 +41,9 @@ const SegmentPage: FC = () => {
     return <LoadingOverlay />;
   }
 
+  const showConfigError =
+    hasFileConfig() && !process.env.STORE_SEGMENTS_IN_MONGO && !segments.length;
+
   const getSegmentUsage = (s: SegmentInterface) => {
     return async () => {
       try {
@@ -226,6 +229,14 @@ const SegmentPage: FC = () => {
       {segmentsError && (
         <div className="alert alert-danger">
           There was an error loading the list of segments
+        </div>
+      )}
+      {showConfigError && (
+        <div className="alert alert-warning">
+          Your organization is configured via the uploaded config.yml file. If
+          you would like to store and access segments in MongoDB, please add the
+          STORE_SEGMENTS_IN_MONGO environment variable or add segments to your
+          config.yml file. <DocLink docSection="config_yml">View Docs.</DocLink>
         </div>
       )}
       {segments.length > 0 && (
