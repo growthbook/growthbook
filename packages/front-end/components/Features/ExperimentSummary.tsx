@@ -1,15 +1,15 @@
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
-import ValueDisplay from "./ValueDisplay";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import React, { useState } from "react";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExperimentDefinitionFromFeature,
   getVariationColor,
-} from "../../services/features";
+} from "@/services/features";
+import NewExperimentForm from "../Experiment/NewExperimentForm";
 import Modal from "../Modal";
+import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

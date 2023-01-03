@@ -1,5 +1,9 @@
 import { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
+import { cloneDeep } from "lodash";
+import {
+  AuthRequest,
+  ResponseWithStatusAndError,
+} from "../../types/AuthRequest";
 import {
   acceptInvite,
   addMemberToOrg,
@@ -20,6 +24,7 @@ import { getAllTags } from "../../models/TagModel";
 import {
   ExpandedMember,
   Invite,
+  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
@@ -27,6 +32,8 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
+  findAllByEntityType,
+  findAllByEntityTypeParent,
   findByEntity,
   findByEntityParent,
   getWatchedAudits,
@@ -45,6 +52,7 @@ import { WebhookModel } from "../../models/WebhookModel";
 import { createWebhook } from "../../services/webhooks";
 import {
   createOrganization,
+  findOrganizationByInviteKey,
   findAllOrganizations,
   findOrganizationsByMemberId,
   hasOrganization,
@@ -55,7 +63,6 @@ import { ConfigFile } from "../../init/config";
 import { WebhookInterface } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
-import { cloneDeep } from "lodash";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
   createApiKey,
@@ -72,6 +79,7 @@ import {
   getRoles,
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+import licenseInit, { getLicense, setLicense } from "../../init/license";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -110,6 +118,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       return {
         id: d.id,
         name: d.name,
+        description: d.description,
         type: d.type,
         settings: d.settings,
         params: getNonSensitiveParams(integration),
@@ -165,6 +174,39 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
       message: e.message,
     });
   }
+}
+
+export async function getAllHistory(
+  req: AuthRequest<null, { type: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { type } = req.params;
+
+  const events = await Promise.all([
+    findAllByEntityType(org.id, type),
+    findAllByEntityTypeParent(org.id, type),
+  ]);
+
+  const merged = [...events[0], ...events[1]];
+
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+
+  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to view history",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    events: merged,
+  });
 }
 
 export async function getHistory(
@@ -330,13 +372,28 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     members,
     ownerEmail,
     name,
+    id,
     url,
     subscription,
     freeSeats,
     connections,
     settings,
     disableSelfServeBilling,
+    licenseKey,
   } = org;
+
+  if (!IS_CLOUD && licenseKey) {
+    // automatically set the license data based on org license key
+    const licenseData = getLicense();
+    if (!licenseData || (licenseData.org && licenseData.org !== id)) {
+      try {
+        await licenseInit(licenseKey);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("setting license failed", e);
+      }
+    }
+  }
 
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(org.id);
@@ -370,8 +427,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       invites,
       ownerEmail,
       name,
+      id,
       url,
       subscription,
+      licenseKey,
       freeSeats,
       disableSelfServeBilling,
       discountCode: org.discountCode || "",
@@ -571,6 +630,40 @@ export async function deleteNamespace(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function getInviteInfo(
+  req: AuthRequest<unknown, { key: string }>,
+  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+) {
+  const { key } = req.params;
+
+  try {
+    if (!req.userId) {
+      throw new Error("Must be logged in");
+    }
+    const org = await findOrganizationByInviteKey(key);
+
+    if (!org) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    const invite = org.invites.find((i) => i.key === key);
+    if (!invite) {
+      throw new Error("Invalid or expired invitation key");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      organization: org.name,
+      role: invite.role,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 }
 
 export async function postInviteAccept(
@@ -858,13 +951,14 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     environment: string;
+    project: string;
     secret: boolean;
     encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { description, environment, secret, encryptSDK } = req.body;
+  const { description, environment, project, secret, encryptSDK } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -891,6 +985,7 @@ export async function postApiKey(
     organization: org.id,
     description: description || "",
     environment: environment || "",
+    project: project || "",
     secret: !!secret,
     encryptSDK,
   });
@@ -1232,6 +1327,60 @@ export async function putAdminResetUserPassword(
   }
 
   await updatePassword(userToUpdateId, updatedPassword);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putLicenseKey(
+  req: AuthRequest<{ licenseKey: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const orgId = org?.id;
+  if (!orgId) {
+    throw new Error("Must be part of an organization");
+  }
+  req.checkPermissions("manageBilling");
+  if (IS_CLOUD) {
+    throw new Error("License keys are only applicable to self-hosted accounts");
+  }
+  const { licenseKey } = req.body;
+  if (!licenseKey) {
+    throw new Error("missing license key");
+  }
+
+  const currentLicenseData = getLicense();
+  let licenseData = null;
+  try {
+    // set new license
+    await licenseInit(licenseKey);
+    licenseData = getLicense();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("setting new license failed", e);
+  }
+  if (!licenseData) {
+    // setting license failed, revert to previous
+    try {
+      await setLicense(currentLicenseData);
+    } catch (e) {
+      // reverting also failed
+      // eslint-disable-next-line no-console
+      console.error("reverting to old license failed", e);
+      await setLicense(null);
+    }
+    throw new Error("Invalid license key");
+  }
+
+  try {
+    await updateOrganization(orgId, {
+      licenseKey,
+    });
+  } catch (e) {
+    throw new Error("Failed to save license key");
+  }
 
   res.status(200).json({
     status: 200,

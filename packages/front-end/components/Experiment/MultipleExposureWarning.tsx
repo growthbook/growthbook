@@ -1,4 +1,4 @@
-import useOrgSettings from "../../hooks/useOrgSettings";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const MINIMUM_MULTIPLE_EXPOSURES = 10;
 

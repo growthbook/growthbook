@@ -1,10 +1,10 @@
 import { FC } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import TagsInput from "../Tags/TagsInput";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import Field from "../Forms/Field";
 
 const IdeaForm: FC<{

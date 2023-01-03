@@ -1,8 +1,8 @@
 import pinoHttp from "pino-http";
+import { Request } from "express";
 import { ApiRequestLocals } from "../../types/api";
 import { AuthRequest } from "../types/AuthRequest";
 import { ENVIRONMENT } from "./secrets";
-import { Request } from "express";
 
 // Request logging
 export function getCustomLogProps(req: Request) {

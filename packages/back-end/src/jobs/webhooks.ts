@@ -1,11 +1,12 @@
-import Agenda, { Job } from "agenda";
-import { WebhookModel } from "../models/WebhookModel";
 import { createHmac } from "crypto";
+import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
+import { WebhookModel } from "../models/WebhookModel";
 import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
 import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -119,11 +120,11 @@ export default function (ag: Agenda) {
 
 export async function queueWebhook(
   orgId: string,
-  environments: string[],
-  projects: string[],
+  payloadKeys: SDKPayloadKey[],
   isFeature?: boolean
 ) {
   if (!CRON_ENABLED) return;
+  if (!payloadKeys.length) return;
 
   const webhooks = await WebhookModel.find({
     organization: orgId,
@@ -134,21 +135,17 @@ export async function queueWebhook(
   for (let i = 0; i < webhooks.length; i++) {
     const webhook: WebhookInterface = webhooks[i];
 
-    // Skip if this webhook is for another project
-    if (webhook.project && !projects.includes(webhook.project)) {
-      continue;
-    }
-    // Legacy webhook without an environment, default to "production" only
+    // Skip if this webhook isn't affected by the changes
     if (
-      webhook.environment === undefined &&
-      !environments.includes("production")
+      !payloadKeys.some(
+        (key) =>
+          key.project === (webhook.project || "") &&
+          key.environment === (webhook.environment || "production")
+      )
     ) {
       continue;
     }
-    // Skip if this webhook is for another environment
-    if (webhook.environment && !environments.includes(webhook.environment)) {
-      continue;
-    }
+
     // Skip if this webhook is only for features and this isn't a feature event
     if (!isFeature && webhook.featuresOnly) {
       continue;

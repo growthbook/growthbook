@@ -1,16 +1,17 @@
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { FaQuestionCircle } from "react-icons/fa";
+import { AttributionModel } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { getValidDate } from "../../services/dates";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
-import { getExposureQuery } from "../../services/datasources";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import { FaQuestionCircle } from "react-icons/fa";
 
 export default function ConfigureReport({
   report,
@@ -242,20 +243,20 @@ export default function ConfigureReport({
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
-        <Field
+        <SelectField
           label="Metric Conversion Windows"
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData") ? "strict" : "loose"}
-          onChange={(e) => {
-            form.setValue("skipPartialData", e.target.value === "strict");
+          onChange={(v) => {
+            form.setValue("skipPartialData", v === "strict");
           }}
           options={[
             {
-              display: "Include In-Progress Conversions",
+              label: "Include In-Progress Conversions",
               value: "loose",
             },
             {
-              display: "Exclude In-Progress Conversions",
+              label: "Exclude In-Progress Conversions",
               value: "strict",
             },
           ]}
@@ -263,23 +264,20 @@ export default function ConfigureReport({
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
-        <Field
+        <SelectField
           label="Users in Multiple Variations"
           labelClassName="font-weight-bold"
           value={form.watch("removeMultipleExposures") ? "remove" : "keep"}
-          onChange={(e) => {
-            form.setValue(
-              "removeMultipleExposures",
-              e.target.value === "remove"
-            );
+          onChange={(v) => {
+            form.setValue("removeMultipleExposures", v === "remove");
           }}
           options={[
             {
-              display: "Include in both variations",
+              label: "Include in both variations",
               value: "keep",
             },
             {
-              display: "Remove from analysis",
+              label: "Remove from analysis",
               value: "remove",
             },
           ]}
@@ -287,20 +285,24 @@ export default function ConfigureReport({
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
-        <Field
+        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
-          {...form.register("attributionModel")}
+          value={form.watch("attributionModel")}
+          onChange={(value) => {
+            const model = value as AttributionModel;
+            form.setValue("attributionModel", model);
+          }}
           options={[
             {
-              display: "First Exposure",
+              label: "First Exposure",
               value: "firstExposure",
             },
             {
-              display: "All Exposures",
+              label: "All Exposures",
               value: "allExposures",
             },
           ]}

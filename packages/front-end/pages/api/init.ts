@@ -1,6 +1,6 @@
-import { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import fs from "fs";
+import { NextApiRequest, NextApiResponse } from "next";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";

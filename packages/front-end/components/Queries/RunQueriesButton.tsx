@@ -1,11 +1,11 @@
 import { FC, useEffect, useState } from "react";
-import useApi from "../../hooks/useApi";
 import { QueryStatus, Queries } from "back-end/types/query";
 import clsx from "clsx";
-import LoadingSpinner from "../LoadingSpinner";
 import { FaPlay } from "react-icons/fa";
-import { useAuth } from "../../services/auth";
 import { BsArrowRepeat } from "react-icons/bs";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
+import LoadingSpinner from "../LoadingSpinner";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {

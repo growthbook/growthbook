@@ -1,7 +1,7 @@
 import express from "express";
-import * as organizationsControllerRaw from "./organizations.controller";
 import { wrapController } from "../wrapController";
 import { IS_CLOUD } from "../../util/secrets";
+import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
 
@@ -9,6 +9,7 @@ const organizationsController = wrapController(organizationsControllerRaw);
 
 router.get("/organization/definitions", organizationsController.getDefinitions);
 router.get("/activity", organizationsController.getActivityFeed);
+router.get("/history/:type", organizationsController.getAllHistory);
 router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
@@ -27,6 +28,7 @@ router.delete(
   "/organization/namespaces/:name",
   organizationsController.deleteNamespace
 );
+router.get("/invite/:key", organizationsController.getInviteInfo);
 router.post("/invite/accept", organizationsController.postInviteAccept);
 router.post("/invite", organizationsController.postInvite);
 router.post("/invite/resend", organizationsController.postInviteResend);
@@ -38,6 +40,7 @@ router.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
 );
+router.put("/organization/license", organizationsController.putLicenseKey);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);

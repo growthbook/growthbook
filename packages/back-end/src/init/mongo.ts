@@ -1,6 +1,6 @@
-import { MONGODB_URI } from "../util/secrets";
 import mongoose from "mongoose";
 import bluebird from "bluebird";
+import { MONGODB_URI } from "../util/secrets";
 import { logger } from "../util/logger";
 
 mongoose.Promise = bluebird;

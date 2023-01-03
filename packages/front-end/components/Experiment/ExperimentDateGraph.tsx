@@ -1,6 +1,4 @@
-import styles from "./ExperimentDateGraph.module.scss";
 import { FC, Fragment, useMemo } from "react";
-import { date } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -14,6 +12,8 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
+import { date } from "@/services/dates";
+import styles from "./ExperimentDateGraph.module.scss";
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations: {

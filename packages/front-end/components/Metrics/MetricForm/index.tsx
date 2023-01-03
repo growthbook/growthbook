@@ -5,28 +5,29 @@ import {
   MetricType,
   Operator,
 } from "back-end/types/metric";
-import { useAuth } from "../../services/auth";
 import { useFieldArray, useForm } from "react-hook-form";
-import GoogleAnalyticsMetrics from "./GoogleAnalyticsMetrics";
-import RadioSelector from "../Forms/RadioSelector";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import track from "../../services/track";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Code from "../SyntaxHighlighting/Code";
-import TagsInput from "../Tags/TagsInput";
-import { getDefaultConversionWindowHours } from "../../services/env";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
+import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
-} from "../../services/metrics";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import { getInitialMetricQuery, validateSQL } from "../../services/datasources";
-import MultiSelectField from "../Forms/MultiSelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+} from "@/services/metrics";
+import { useAuth } from "@/services/auth";
+import RadioSelector from "@/components/Forms/RadioSelector";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
+import Code from "@/components/SyntaxHighlighting/Code";
+import TagsInput from "@/components/Tags/TagsInput";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SQLInputField from "@/components/SQLInputField";
+import GoogleAnalyticsMetrics from "../GoogleAnalyticsMetrics";
+import RiskThresholds from "./RiskThresholds";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -218,6 +219,8 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { apiCall } = useAuth();
 
+  const type = form.watch("type");
+
   const value = {
     name: form.watch("name"),
     queryFormat: form.watch("queryFormat"),
@@ -228,7 +231,7 @@ const MetricForm: FC<MetricFormProps> = ({
     denominator: form.watch("denominator"),
     column: form.watch("column"),
     table: form.watch("table"),
-    type: form.watch("type"),
+    type,
     winRisk: form.watch("winRisk"),
     loseRisk: form.watch("loseRisk"),
     tags: form.watch("tags"),
@@ -258,7 +261,7 @@ const MetricForm: FC<MetricFormProps> = ({
           label: m.name,
         };
       });
-  }, [metrics, value.type, value.datasource]);
+  }, [metrics, value.type, value.datasource, current?.id]);
 
   const currentDataSource = getDatasourceById(value.datasource);
 
@@ -339,6 +342,16 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
+  const requiredColumns = useMemo(() => {
+    return new Set(["timestamp", ...value.userIdTypes]);
+  }, [value.userIdTypes]);
+
+  useEffect(() => {
+    if (type === "binomial") {
+      form.setValue("ignoreNulls", false);
+    }
+  }, [type, form]);
+
   return (
     <PagedModal
       inline={inline}
@@ -347,6 +360,7 @@ const MetricForm: FC<MetricFormProps> = ({
       submit={onSubmit}
       cta={cta}
       closeCta={!inline && "Cancel"}
+      ctaEnabled={!riskError}
       size="lg"
       docSection="metrics"
       step={step}
@@ -409,8 +423,9 @@ const MetricForm: FC<MetricFormProps> = ({
           onChange={(v) => form.setValue("datasource", v)}
           options={(datasources || []).map((d) => ({
             value: d.id,
-            label: d.name,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
+          className="portal-overflow-ellipsis"
           name="datasource"
           initialOption="Manual"
           disabled={edit}
@@ -497,15 +512,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   label="Identifier Types Supported"
                 />
-                <CodeTextArea
-                  label="SQL"
-                  required
-                  language="sql"
-                  value={form.watch("sql")}
-                  setValue={(sql) => form.setValue("sql", sql)}
+                <SQLInputField
+                  userEnteredQuery={value.sql}
+                  datasourceId={value.datasource}
+                  form={form}
+                  requiredColumns={requiredColumns}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
                   }
+                  queryType="metric"
                 />
                 {value.type !== "binomial" && (
                   <Field
@@ -746,9 +761,14 @@ const MetricForm: FC<MetricFormProps> = ({
                 </div>
               ) : (
                 <>
-                  <h4>Query Preview</h4>
-                  SQL:
-                  <Code language="sql" code={getRawSQLPreview(value)} />
+                  <SQLInputField
+                    userEnteredQuery={getRawSQLPreview(value)}
+                    datasourceId={value.datasource}
+                    form={form}
+                    requiredColumns={requiredColumns}
+                    showPreview
+                    queryType="metric"
+                  />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
                       User Value Aggregation:
@@ -881,104 +901,13 @@ const MetricForm: FC<MetricFormProps> = ({
                 </small>
               </div>
             )}
-            <div className="form-group">
-              Risk thresholds
-              <div className="riskbar row align-items-center pt-3">
-                <div className="col green-bar pr-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "-20px",
-                      color: "#009a6d",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    acceptable risk under {value.winRisk}%
-                  </span>
-                  <div
-                    style={{
-                      height: "10px",
-                      backgroundColor: "#009a6d",
-                      borderRadius: "5px 0 0 5px",
-                    }}
-                  ></div>
-                </div>
-                <div className="col-2 px-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: "4px",
-                      top: "6px",
-                      color: "#888",
-                    }}
-                  >
-                    %
-                  </span>
-                  <input
-                    className="form-control winrisk text-center"
-                    type="number"
-                    step="any"
-                    min="0"
-                    max="100"
-                    {...form.register("winRisk", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="col yellow-bar px-0">
-                  <div
-                    style={{
-                      height: "10px",
-                      backgroundColor: "#dfd700",
-                    }}
-                  ></div>
-                </div>
-                <div className="col-2 px-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: "4px",
-                      top: "6px",
-                      color: "#888",
-                    }}
-                  >
-                    %
-                  </span>
-                  <input
-                    className="form-control loserisk text-center"
-                    type="number"
-                    step="any"
-                    min="0"
-                    max="100"
-                    {...form.register("loseRisk", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="col red-bar pl-0">
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "-20px",
-                      right: "15px",
-                      color: "#c50f0f",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    too much risk over {value.loseRisk}%
-                  </span>
-                  <div
-                    style={{
-                      height: "10px",
-                      backgroundColor: "#c50f0f",
-                      borderRadius: "0 5px 5px 0",
-                    }}
-                  ></div>
-                </div>
-              </div>
-              {riskError && <div className="text-danger">{riskError}</div>}
-              <small className="text-muted">
-                Set the thresholds for risk for this metric. This is used when
-                determining metric significance, highlighting the risk value as
-                green, yellow, or red.
-              </small>
-            </div>
+            <RiskThresholds
+              winRisk={value.winRisk}
+              loseRisk={value.loseRisk}
+              winRiskRegisterField={form.register("winRisk")}
+              loseRiskRegisterField={form.register("loseRisk")}
+              riskError={riskError}
+            />
             <div className="form-group">
               Minimum Sample Size
               <input

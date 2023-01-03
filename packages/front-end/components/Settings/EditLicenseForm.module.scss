@@ -1,0 +1,13 @@
+@import "../../styles/colors.scss";
+
+.textarea {
+  font-size: 10px;
+  line-height: 12px;
+  word-break: break-all;
+  font-family: monospace;
+  padding: 4px 6px;
+  &::placeholder {
+    font-style: italic;
+    opacity: 0.75;
+  }
+}

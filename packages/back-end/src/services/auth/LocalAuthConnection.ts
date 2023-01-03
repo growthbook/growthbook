@@ -1,8 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import { JWT_SECRET } from "../../util/secrets";
-import { AuthConnection, TokensResponse } from "./AuthConnection";
 import jwtExpress from "express-jwt";
 import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../../util/secrets";
 import { UserInterface } from "../../../types/user";
 import {
   AuthRefreshModel,
@@ -11,8 +10,9 @@ import {
 } from "../../models/AuthRefreshModel";
 import { RefreshTokenCookie } from "../../util/cookie";
 import { UnauthenticatedResponse } from "../../../types/sso-connection";
-import { isNewInstallation } from ".";
 import { getUserById } from "../users";
+import { AuthConnection, TokensResponse } from "./AuthConnection";
+import { isNewInstallation } from ".";
 
 const jwtCheck = jwtExpress({
   secret: JWT_SECRET,

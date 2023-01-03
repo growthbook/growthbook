@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import VariationDataInput from "./VariationDataInput";
 

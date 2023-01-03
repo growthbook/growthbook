@@ -7,14 +7,14 @@ import {
   ExperimentReportVariation,
   ReportInterface,
 } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
+import { BsArrowRepeat } from "react-icons/bs";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import Button from "../Button";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import { BsArrowRepeat } from "react-icons/bs";
-import usePermissions from "../../hooks/usePermissions";
-import ResultsDownloadButton from "./ResultsDownloadButton";
 import Tooltip from "../Tooltip/Tooltip";
+import ResultsDownloadButton from "./ResultsDownloadButton";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -69,7 +69,7 @@ export default function ResultMoreMenu({
     notebookFilename;
 
   return (
-    <MoreMenu id="exp-result-actions">
+    <MoreMenu>
       {canEdit && (
         <button
           className="btn dropdown-item py-2"

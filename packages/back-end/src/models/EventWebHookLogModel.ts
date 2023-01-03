@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import _ from "lodash";
+import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { EventWebHookLogInterface } from "../../types/event-webhook-log";
 
@@ -45,7 +45,7 @@ eventWebHookLogSchema.index({ eventWebHookId: 1 });
 type EventWebHookLogDocument = mongoose.Document & EventWebHookLogInterface;
 
 const toInterface = (doc: EventWebHookLogDocument): EventWebHookLogDocument =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLogDocument;
+  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLogDocument;
 
 const EventWebHookLogModel = mongoose.model<EventWebHookLogDocument>(
   "EventWebHookLog",

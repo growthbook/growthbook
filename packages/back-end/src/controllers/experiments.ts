@@ -1,5 +1,7 @@
 import { Response } from "express";
-import { AuthRequest } from "../types/AuthRequest";
+import uniqid from "uniqid";
+import format from "date-fns/format";
+import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getExperimentsByOrganization,
   getExperimentById,
@@ -15,7 +17,6 @@ import {
   getExperimentWatchers,
   getExperimentByTrackingKey,
 } from "../services/experiments";
-import uniqid from "uniqid";
 import { MetricStats } from "../../types/metric";
 import { ExperimentModel } from "../models/ExperimentModel";
 import {
@@ -32,7 +33,6 @@ import {
   cancelRun,
   getPastExperiments,
 } from "../services/queries";
-import format from "date-fns/format";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
   ExperimentInterface,
@@ -144,6 +144,28 @@ export async function getExperimentsFrequencyMonth(
   res.status(200).json({
     status: 200,
     data: { all: allData, ...dataByStatus },
+  });
+}
+
+export async function lookupExperimentByTrackingKey(
+  req: AuthRequest<unknown, unknown, { trackingKey: string }>,
+  res: ResponseWithStatusAndError<{ experimentId: string | null }>
+) {
+  const { org } = getOrgFromReq(req);
+  const { trackingKey } = req.query;
+
+  if (!trackingKey) {
+    return res.status(400).json({
+      status: 400,
+      message: "Tracking key cannot be empty",
+    });
+  }
+
+  const experiment = await getExperimentByTrackingKey(org.id, trackingKey + "");
+
+  return res.status(200).json({
+    status: 200,
+    experimentId: experiment?.id || null,
   });
 }
 
@@ -1341,7 +1363,8 @@ export async function getSnapshotStatus(
         org.id,
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
-        queryData
+        queryData,
+        org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
@@ -1487,7 +1510,8 @@ export async function postSnapshot(
       phase,
       org,
       dimension || null,
-      useCache
+      useCache,
+      org.settings?.statsEngine
     );
     await req.audit({
       event: "experiment.refresh",

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import uniqid from "uniqid";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -11,13 +12,13 @@ import {
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
-import uniqid from "uniqid";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
   name: String,
+  description: String,
   organization: {
     type: String,
     index: true,
@@ -90,7 +91,8 @@ export async function createDataSource(
   type: DataSourceType,
   params: DataSourceParams,
   settings: DataSourceSettings,
-  id?: string
+  id?: string,
+  description: string = ""
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
@@ -118,6 +120,7 @@ export async function createDataSource(
   const datasource: DataSourceInterface = {
     id,
     name,
+    description,
     organization,
     type,
     settings,

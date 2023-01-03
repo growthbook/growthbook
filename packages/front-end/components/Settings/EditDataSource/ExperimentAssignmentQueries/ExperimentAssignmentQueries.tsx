@@ -1,17 +1,17 @@
 import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Code from "../../../SyntaxHighlighting/Code";
-import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
-import usePermissions from "../../../../hooks/usePermissions";
 import { useRouter } from "next/router";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Code from "@/components/SyntaxHighlighting/Code";
+import usePermissions from "@/hooks/usePermissions";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -170,7 +170,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
               <div className="d-flex align-items-center">
                 {canEdit && (
-                  <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                  <MoreMenu>
                     <button
                       className="dropdown-item py-2"
                       onClick={handleActionEditClicked(idx)}

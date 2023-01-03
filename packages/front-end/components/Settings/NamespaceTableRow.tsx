@@ -1,11 +1,11 @@
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
-import { findGaps } from "../../services/features";
+import { findGaps } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
 import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
-import usePermissions from "../../hooks/usePermissions";
 
 export interface Props {
   i: number;
@@ -22,7 +22,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function NamespaceTableRow({
-  i,
   usage,
   namespace,
   onDelete,
@@ -73,7 +72,7 @@ export default function NamespaceTableRow({
         </td>
         {canEdit && (
           <td>
-            <MoreMenu id={"namespace" + i + "_actions"}>
+            <MoreMenu>
               <a
                 href="#"
                 className="dropdown-item"

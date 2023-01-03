@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { FC, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import SubscriptionInfo from "../../components/Settings/SubscriptionInfo";
-import { isCloud } from "../../services/env";
-import UpgradeModal from "../../components/Settings/UpgradeModal";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
-import usePermissions from "../../hooks/usePermissions";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
+import { isCloud } from "@/services/env";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import usePermissions from "@/hooks/usePermissions";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);

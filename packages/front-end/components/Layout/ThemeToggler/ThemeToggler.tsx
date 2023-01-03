@@ -3,11 +3,11 @@ import { FaMoon } from "react-icons/fa";
 import { BsCircleHalf } from "react-icons/bs";
 import { ImSun } from "react-icons/im";
 import clsx from "clsx";
-import useGlobalMenu from "../../../services/useGlobalMenu";
+import useGlobalMenu from "@/services/useGlobalMenu";
 import {
   PreferredAppearanceUITheme,
   useAppearanceUITheme,
-} from "../../../services/AppearanceUIThemeProvider";
+} from "@/services/AppearanceUIThemeProvider";
 
 // Icons
 const SystemIcon = BsCircleHalf;
@@ -48,7 +48,7 @@ export const ThemeToggler: FC = () => {
         onClick={() => {
           setThemeDropdownOpen(!themeDropdownOpen);
         }}
-        className="btn mr-1"
+        className="btn p-0 mr-1"
       >
         <span className="nav-link dropdown-toggle text-main">{activeIcon}</span>
       </button>

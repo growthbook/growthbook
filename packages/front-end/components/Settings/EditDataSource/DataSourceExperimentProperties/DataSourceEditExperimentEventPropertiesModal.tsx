@@ -4,8 +4,8 @@ import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
 } from "back-end/types/datasource";
-import Field from "../../../Forms/Field";
-import Modal from "../../../Modal";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
 
 type DataSourceEditExperimentEventPropertiesProps = {
   dataSource: DataSourceInterfaceWithParams;

@@ -1,7 +1,7 @@
 /// <reference types="../../typings/jstat" />
+import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import { jStat } from "jstat";
-import fs from "fs";
 
 const NUM_USERS = 10000;
 const OUTPUT_DIR = "/tmp/csv";
@@ -416,7 +416,7 @@ function writeCSV(objs: Record<string, unknown>[], filename: string) {
   for (let i = 0; i < objs.length; i++) {
     const row: string[] = [];
     for (let j = 0; j < headers.length; j++) {
-      row.push(String(objs[i][headers[j]] || ""));
+      row.push(String(objs[i][headers[j]] ?? ""));
     }
     rows.push(row);
   }

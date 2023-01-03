@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
 import { FaKey } from "react-icons/fa";
-import ApiKeysModal from "./ApiKeysModal";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
-import usePermissions from "../../hooks/usePermissions";
+import ApiKeysModal from "./ApiKeysModal";
 import ClickToReveal from "./ClickToReveal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -75,7 +75,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
                 </td>
                 {canManageKeys && (
                   <td>
-                    <MoreMenu id={key.key + "_actions"}>
+                    <MoreMenu>
                       <DeleteButton
                         onClick={async () => {
                           await apiCall(`/keys`, {

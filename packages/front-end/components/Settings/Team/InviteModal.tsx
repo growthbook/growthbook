@@ -1,15 +1,15 @@
 import { FC, useState } from "react";
-import { useAuth } from "../../../services/auth";
 import { useForm } from "react-hook-form";
-import Modal from "../../Modal";
-import RoleSelector from "./RoleSelector";
-import track from "../../../services/track";
-import Field from "../../Forms/Field";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
-import useStripeSubscription from "../../../hooks/useStripeSubscription";
+import track from "@/services/track";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import { useAuth } from "@/services/auth";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import UpgradeModal from "../UpgradeModal";
-import useOrgSettings from "../../../hooks/useOrgSettings";
+import RoleSelector from "./RoleSelector";
+import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
 type InviteResult = {
   email: string;

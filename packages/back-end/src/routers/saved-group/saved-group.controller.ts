@@ -10,7 +10,11 @@ import {
   parseSavedGroupString,
   updateSavedGroup,
 } from "../../models/SavedGroupModel";
-import { auditDetailsCreate, auditDetailsUpdate } from "../../services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
 
 // region POST /saved-groups
@@ -57,6 +61,7 @@ export const postSavedGroup = async (
     entity: {
       object: "savedGroup",
       id: savedGroup.id,
+      name: groupName,
     },
     details: auditDetailsCreate(savedGroup),
   });
@@ -126,13 +131,14 @@ export const putSavedGroup = async (
     entity: {
       object: "savedGroup",
       id: updatedSavedGroup.id,
+      name: groupName,
     },
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
   // If the values change, we need to invalidate cached feature rules
   if (savedGroup.values !== values) {
-    savedGroupUpdated(org);
+    savedGroupUpdated(org, savedGroup.id);
   }
 
   return res.status(200).json({
@@ -193,6 +199,16 @@ export const deleteSavedGroup = async (
   }
 
   await deleteSavedGroupById(id, org.id);
+
+  await req.audit({
+    event: "savedGroup.deleted",
+    entity: {
+      object: "savedGroup",
+      id: id,
+      name: savedGroup.groupName,
+    },
+    details: auditDetailsDelete(savedGroup),
+  });
 
   res.status(200).json({
     status: 200,

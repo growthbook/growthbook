@@ -1,15 +1,16 @@
 import clsx from "clsx";
 import { ReactNode, FC, useState } from "react";
+import uniqId from "uniqid";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import useGlobalMenu from "../../services/useGlobalMenu";
+import useGlobalMenu from "@/services/useGlobalMenu";
 
 const MoreMenu: FC<{
-  id: string;
   autoCloseOnClick?: boolean;
   className?: string;
   children: ReactNode;
-}> = ({ children, id, autoCloseOnClick = true, className = "" }) => {
+}> = ({ children, autoCloseOnClick = true, className = "" }) => {
   const [open, setOpen] = useState(false);
+  const [id] = useState(uniqId("more_menu_"));
   useGlobalMenu(`#${id}`, () => setOpen(false));
   return (
     <div className={`dropdown ${className}`} id={id}>

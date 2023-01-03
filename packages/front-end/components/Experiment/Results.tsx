@@ -1,14 +1,14 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import GuardrailResults from "./GuardrailResult";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ago, getValidDate } from "@/services/dates";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "../Queries/RunQueriesButton";
-import { ago, getValidDate } from "../../services/dates";
 import DateResults from "./DateResults";
 import AnalysisSettingsBar from "./AnalysisSettingsBar";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
+import GuardrailResults from "./GuardrailResult";
 import FilterSummary from "./FilterSummary";
 import VariationIdWarning from "./VariationIdWarning";
 import { useSnapshot } from "./SnapshotProvider";
@@ -177,6 +177,7 @@ const Results: FC<{
           <BreakDownResults
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results || []}
             status={experiment.status}
@@ -203,6 +204,7 @@ const Results: FC<{
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results?.[0]}
             status={experiment.status}

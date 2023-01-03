@@ -1,10 +1,10 @@
 import { FC } from "react";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "./LoadingOverlay";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
-import Avatar from "./Avatar/Avatar";
+import useApi from "../hooks/useApi";
 import { date, datetime } from "../services/dates";
+import LoadingOverlay from "./LoadingOverlay";
+import Avatar from "./Avatar/Avatar";
 //import { phaseSummary } from "../services/utils";
 
 const eventActionMapping = {

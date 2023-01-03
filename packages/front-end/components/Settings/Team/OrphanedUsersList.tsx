@@ -1,11 +1,11 @@
 import React, { FC, useEffect, useState } from "react";
-import DeleteButton from "../../DeleteButton/DeleteButton";
-import MoreMenu from "../../Dropdown/MoreMenu";
-import useApi from "../../../hooks/useApi";
-import LoadingOverlay from "../../LoadingOverlay";
-import { useAuth } from "../../../services/auth";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
-import { isCloud } from "../../../services/env";
 
 const OrphanedUsersList: FC<{
   mutateUsers: () => void;
@@ -68,7 +68,7 @@ const OrphanedUsersList: FC<{
                 <td>{name}</td>
                 <td>{email}</td>
                 <td style={{ width: 30 }}>
-                  <MoreMenu id={`orphaned-user-actions-${id}`}>
+                  <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {

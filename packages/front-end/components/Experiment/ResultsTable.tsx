@@ -3,15 +3,15 @@ import React, { ReactElement } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { ExperimentTableRow, useDomain } from "../../services/experiments";
+import { ExperimentStatus } from "back-end/types/experiment";
+import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
-import { ExperimentStatus } from "back-end/types/experiment";
-import SelectField from "../Forms/SelectField";
 
 export type ResultsTableProps = {
   id: string;
@@ -74,7 +74,7 @@ export default function ResultsTable({
             <th
               rowSpan={2}
               className="metric"
-              style={{ maxWidth: 142, minWidth: 125 }}
+              style={{ maxWidth: 155, minWidth: 125 }}
             >
               Risk of Choosing&nbsp;
               <Tooltip body="How much you are likely to lose if you choose this variation and it's actually worse">
@@ -114,6 +114,7 @@ export default function ResultsTable({
                   className={`variation${i} text-center`}
                   style={{ minWidth: 110 }}
                 >
+                  {/** TODO Change to 'P-Value' for frequentist **/}
                   Chance to Beat Control
                 </th>
               )}
@@ -201,6 +202,7 @@ export default function ResultsTable({
                       users={stats?.users || 0}
                       className="value variation"
                     />
+                    {/** TODO Switch to p-value for frequentist **/}
                     {i > 0 && fullStats && (
                       <ChanceToWinColumn
                         baseline={baseline}

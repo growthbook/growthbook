@@ -1,34 +1,29 @@
 import { ApiKeyInterface, PublishableApiKey } from "back-end/types/apikey";
 import Link from "next/link";
 import { useEffect } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import useApi from "../../hooks/useApi";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useEnvironments } from "../../services/features";
+import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
+import useApi from "@/hooks/useApi";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import SelectField from "../Forms/SelectField";
 import LoadingSpinner from "../LoadingSpinner";
 
 export interface Props {
   apiKey: string;
   setApiKey: (apiKey: string) => void;
-  project: string;
-  setProject: (project: string) => void;
 }
 
-export default function SDKEndpointSelector({
-  apiKey,
-  setApiKey,
-  project,
-  setProject,
-}: Props) {
+export default function SDKEndpointSelector({ apiKey, setApiKey }: Props) {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const environments = useEnvironments();
   const { apiCall } = useAuth();
-  const { projects } = useDefinitions();
+  const { getProjectById, project } = useDefinitions();
 
-  const keys = (data?.keys || []).filter((k) => !k.secret);
+  const keys = (data?.keys || [])
+    .filter((k) => !k.secret)
+    .filter((k) => !project || !k.project || k.project === project);
   const hasKeys = keys.length > 0;
   const hasData = !!data;
   const hasError = !!error;
@@ -36,11 +31,22 @@ export default function SDKEndpointSelector({
   const permissions = usePermissions();
 
   useEffect(() => {
-    setApiKey(keys[0]?.key || "");
-    // eslint-disable-next-line
-  }, [hasData, hasError, hasKeys]);
+    // Default to the first key
+    let key = keys[0];
 
-  const createApiKey = async (env: string) => {
+    // If a project is selected, first try to pick a key that's just for that project
+    if (project) {
+      const projectKey = keys.find((k) => k.project === project);
+      if (projectKey) {
+        key = projectKey;
+      }
+    }
+
+    setApiKey(key?.key || "");
+    // eslint-disable-next-line
+  }, [hasData, hasError, project, hasKeys]);
+
+  const createApiKey = async (env: string, proj: string) => {
     const res = await apiCall<{ key: PublishableApiKey }>(
       `/keys?preferExisting=true`,
       {
@@ -48,6 +54,7 @@ export default function SDKEndpointSelector({
         body: JSON.stringify({
           description: `${env} Features SDK`,
           environment: env,
+          project: proj,
           secret: false,
         }),
       }
@@ -62,7 +69,7 @@ export default function SDKEndpointSelector({
   async function createMissingEndpoints() {
     for (let i = 0; i < environments.length; i++) {
       if (!envsWithEndpoints.has(environments[i].id)) {
-        await createApiKey(environments[i].id);
+        await createApiKey(environments[i].id, "");
       }
     }
   }
@@ -96,21 +103,12 @@ export default function SDKEndpointSelector({
 
   return (
     <div className="mb-2">
-      <div className="row align-items-top">
-        <div className="col-auto">
+      <label>SDK Endpoint</label>
+      <div className="row align-items-center">
+        <div className="col">
           <SelectField
-            label="SDK Endpoint"
             value={apiKey}
             onChange={setApiKey}
-            helpText={
-              permissions.check("manageEnvironments", "", []) && (
-                <Link href="/environments">
-                  <a>
-                    Manage environments and endpoints <FaExternalLinkAlt />
-                  </a>
-                </Link>
-              )
-            }
             options={keys.map((k) => {
               return {
                 value: k.key,
@@ -119,40 +117,29 @@ export default function SDKEndpointSelector({
             })}
             formatOptionLabel={({ value }) => {
               const key = keyMap.get(value);
+              const env = key?.environment || "production";
               return (
-                <div className="d-flex align-items-center">
-                  <div className="mr-2">{key?.description}</div>
-                  <div className="ml-auto">
-                    <span className="badge badge-primary">
-                      {key?.environment}
-                    </span>
-                  </div>
+                <div>
+                  {getProjectById(key?.project)?.name || "All Projects"}{" "}
+                  <FaAngleRight /> {env}
+                  {key?.description && key.description !== env && (
+                    <small className="text-muted d-block">
+                      {key.description}
+                    </small>
+                  )}
                 </div>
               );
             }}
           />
         </div>
-        {projects.length > 0 && (
-          <div className="col-auto">
-            <SelectField
-              label="Project"
-              value={project}
-              helpText={
-                permissions.manageProjects && (
-                  <Link href="/projects">
-                    <a>
-                      Manage projects <FaExternalLinkAlt />
-                    </a>
-                  </Link>
-                )
-              }
-              onChange={setProject}
-              initialOption="All Projects"
-              options={projects.map((p) => ({
-                value: p.id,
-                label: p.name,
-              }))}
-            />
+
+        {permissions.check("manageEnvironments", "", []) && (
+          <div>
+            <Link href="/environments">
+              <a>
+                Manage environments and endpoints <FaExternalLinkAlt />
+              </a>
+            </Link>
           </div>
         )}
       </div>

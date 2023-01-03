@@ -1,20 +1,21 @@
-import { useState } from "react";
-import SelectField from "../Forms/SelectField";
+import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Field from "../Forms/Field";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "../Forms/SelectField";
+import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
-import { getDefaultConversionWindowHours } from "../../services/env";
 
 export default function MetricsOverridesSelector({
   experiment,
   form,
   disabled,
+  setHasMetricOverrideRiskError,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<EditMetricsFormInterface>;
   disabled: boolean;
+  setHasMetricOverrideRiskError: (boolean) => void;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const { metrics: metricDefinitions } = useDefinitions();
@@ -34,6 +35,33 @@ export default function MetricsOverridesSelector({
   const usedMetrics = new Set(form.watch("metricOverrides").map((m) => m.id));
   const unusedMetrics = [...metrics].filter((m) => !usedMetrics.has(m));
 
+  useEffect(() => {
+    let hasRiskError = false;
+    !disabled &&
+      metricOverrides.fields.map((v, i) => {
+        const mo = form.watch(`metricOverrides.${i}`);
+        const metricDefinition = metricDefinitions.find(
+          (md) => md.id === mo.id
+        );
+        const loseRisk = isNaN(mo.loseRisk)
+          ? metricDefinition.loseRisk
+          : mo.loseRisk / 100;
+        const winRisk = isNaN(mo.winRisk)
+          ? metricDefinition.winRisk
+          : mo.winRisk / 100;
+        if (loseRisk < winRisk) {
+          hasRiskError = true;
+        }
+      });
+    setHasMetricOverrideRiskError(hasRiskError);
+  }, [
+    disabled,
+    metricDefinitions,
+    metricOverrides,
+    form,
+    setHasMetricOverrideRiskError,
+  ]);
+
   return (
     <div className="mb-3">
       {!disabled &&
@@ -42,8 +70,18 @@ export default function MetricsOverridesSelector({
           const metricDefinition = metricDefinitions.find(
             (md) => md.id === mo.id
           );
+          const loseRisk = isNaN(mo.loseRisk)
+            ? metricDefinition.loseRisk
+            : mo.loseRisk / 100;
+          const winRisk = isNaN(mo.winRisk)
+            ? metricDefinition.winRisk
+            : mo.winRisk / 100;
+          const riskError =
+            loseRisk < winRisk
+              ? "The acceptable risk percentage cannot be higher than the too risky percentage"
+              : "";
           return (
-            <div className="appbox px-3 bg-light" key={i}>
+            <div className="appbox px-3 pt-1 bg-light" key={i}>
               <div style={{ float: "right" }}>
                 <a
                   href="#"
@@ -58,15 +96,22 @@ export default function MetricsOverridesSelector({
               </div>
 
               <div>
-                <label>
+                <label className="mb-1">
                   <strong>{metricDefinition.name}</strong>
                 </label>
-                <div className="row mb-2">
+                <div className="row">
                   <div className="col">
                     <Field
                       label="Conversion Delay (hours)"
+                      placeholder="default"
+                      helpText={
+                        <div className="text-right">
+                          default: {metricDefinition.conversionDelayHours}
+                        </div>
+                      }
+                      labelClassName="small mb-1"
                       type="number"
-                      containerClassName="mb-1"
+                      containerClassName="mb-1 metric-override"
                       step="any"
                       {...form.register(
                         `metricOverrides.${i}.conversionDelayHours`,
@@ -77,8 +122,15 @@ export default function MetricsOverridesSelector({
                   <div className="col">
                     <Field
                       label="Conversion Window (hours)"
+                      placeholder="default"
+                      helpText={
+                        <div className="text-right">
+                          default: {metricDefinition.conversionWindowHours}{" "}
+                        </div>
+                      }
+                      labelClassName="small mb-1"
                       type="number"
-                      containerClassName="mb-1"
+                      containerClassName="mb-1 metric-override"
                       min={0}
                       step="any"
                       {...form.register(
@@ -87,7 +139,53 @@ export default function MetricsOverridesSelector({
                       )}
                     />
                   </div>
+                  <div className="col">
+                    <Field
+                      label="Acceptable risk under..."
+                      placeholder="default"
+                      helpText={
+                        <div className="text-right">
+                          default: {(metricDefinition.winRisk || 0) * 100}%
+                        </div>
+                      }
+                      append="%"
+                      labelClassName="small mb-1"
+                      type="number"
+                      containerClassName="mb-1 metric-override"
+                      min={0}
+                      step="any"
+                      {...form.register(`metricOverrides.${i}.winRisk`, {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
+                  <div className="col">
+                    <Field
+                      label="Too much risk over..."
+                      placeholder="default"
+                      helpText={
+                        <div className="text-right">
+                          default: {(metricDefinition.loseRisk || 0) * 100}%
+                        </div>
+                      }
+                      append="%"
+                      labelClassName="small mb-1"
+                      type="number"
+                      containerClassName="mb-1 metric-override"
+                      min={0}
+                      step="any"
+                      {...form.register(`metricOverrides.${i}.loseRisk`, {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </div>
                 </div>
+                {riskError && (
+                  <div className="row mb-1">
+                    <div className="col-6"></div>
+                    <div className="col-6 text-danger small">{riskError}</div>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -118,16 +216,8 @@ export default function MetricsOverridesSelector({
               disabled={disabled || !selectedMetricId}
               onClick={(e) => {
                 e.preventDefault();
-                const metricDefinition = metricDefinitions.find(
-                  (md) => md.id === selectedMetricId
-                );
                 metricOverrides.append({
                   id: selectedMetricId,
-                  conversionDelayHours:
-                    metricDefinition?.conversionDelayHours || 0,
-                  conversionWindowHours:
-                    metricDefinition?.conversionWindowHours ||
-                    getDefaultConversionWindowHours(),
                 });
                 setSelectedMetricId("");
               }}

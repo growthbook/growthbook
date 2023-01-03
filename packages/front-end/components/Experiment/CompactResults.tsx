@@ -1,21 +1,22 @@
 import React, { FC, useMemo } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { MdSwapCalls } from "react-icons/md";
-import Tooltip from "../Tooltip/Tooltip";
-import DataQualityWarning from "./DataQualityWarning";
-import {
-  ExperimentTableRow,
-  useRiskVariation,
-} from "../../services/experiments";
-import ResultsTable from "./ResultsTable";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
-import MultipleExposureWarning from "./MultipleExposureWarning";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import Link from "next/link";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  applyMetricOverrides,
+  ExperimentTableRow,
+  useRiskVariation,
+} from "@/services/experiments";
+import Tooltip from "../Tooltip/Tooltip";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import DataQualityWarning from "./DataQualityWarning";
+import ResultsTable from "./ResultsTable";
+import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -27,6 +28,7 @@ const CompactResults: FC<{
   isLatestPhase: boolean;
   status: ExperimentStatus;
   metrics: string[];
+  metricOverrides: MetricOverride[];
   id: string;
 }> = ({
   results,
@@ -38,6 +40,7 @@ const CompactResults: FC<{
   status,
   isLatestPhase,
   metrics,
+  metricOverrides,
   id,
 }) => {
   const { getMetricById, ready } = useDefinitions();
@@ -45,19 +48,20 @@ const CompactResults: FC<{
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     return metrics
-      .map((m) => {
-        const metric = getMetricById(m);
+      .map((metricId) => {
+        const metric = getMetricById(metricId);
+        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         return {
-          label: metric?.name,
-          metric,
-          rowClass: metric?.inverse ? "inverse" : "",
+          label: newMetric?.name,
+          metric: newMetric,
+          rowClass: newMetric?.inverse ? "inverse" : "",
           variations: results.variations.map((v) => {
-            return v.metrics[m];
+            return v.metrics[metricId];
           }),
         };
       })
       .filter((row) => row.metric);
-  }, [results, ready]);
+  }, [results, metrics, metricOverrides, ready]);
 
   const users = useMemo(() => {
     const vars = results?.variations;

@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import {
   createOrganization,
   findAllOrganizations,
@@ -5,11 +6,9 @@ import {
   findOrganizationByInviteKey,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { randomBytes } from "crypto";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import {
   Invite,
   Member,
@@ -19,7 +18,6 @@ import {
   OrganizationInterface,
   ProjectMemberRole,
 } from "../../types/organization";
-import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
 import {
@@ -27,11 +25,6 @@ import {
   getDataSourceById,
   updateDataSource,
 } from "../models/DataSourceModel";
-import {
-  encryptParams,
-  getSourceIntegrationObject,
-  mergeParams,
-} from "./datasource";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
@@ -45,10 +38,17 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
-import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { getDefaultRole } from "../util/organization.util";
+import { markInstalled } from "./auth";
+import {
+  encryptParams,
+  getSourceIntegrationObject,
+  mergeParams,
+} from "./datasource";
+import { createMetric, getExperimentsByOrganization } from "./experiments";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -484,6 +484,7 @@ export async function importConfig(
 
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
+              description: ds.description || existing.description,
               type: ds.type || existing.type,
               params,
               settings: {
@@ -508,7 +509,8 @@ export async function importConfig(
               ds.type,
               ds.params,
               ds.settings || {},
-              k
+              k,
+              ds.description
             );
           }
         } catch (e) {

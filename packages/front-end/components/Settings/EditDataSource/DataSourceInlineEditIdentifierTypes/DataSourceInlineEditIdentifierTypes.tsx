@@ -1,16 +1,16 @@
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import React, { FC, useCallback, useMemo, useState } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "back-end/types/datasource";
-import { EditIdentifierType } from "./EditIdentifierType";
-import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissions from "@/hooks/usePermissions";
+import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { EditIdentifierType } from "./EditIdentifierType";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -121,7 +121,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
           {/* region Identity Type actions */}
           {canEdit && (
             <div>
-              <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-types">
+              <MoreMenu>
                 <button
                   className="dropdown-item py-2"
                   onClick={handleActionEditClicked(idx)}

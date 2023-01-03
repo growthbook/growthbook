@@ -1,9 +1,9 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { jsonToConds, useAttributeMap } from "../../services/features";
-import InlineCode from "../SyntaxHighlighting/InlineCode";
 import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { jsonToConds, useAttributeMap } from "@/services/features";
+import InlineCode from "../SyntaxHighlighting/InlineCode";
 
 function operatorToText(operator: string): string {
   switch (operator) {

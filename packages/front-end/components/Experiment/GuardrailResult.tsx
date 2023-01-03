@@ -8,11 +8,11 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import MetricValueColumn from "./MetricValueColumn";
 import { ExperimentReportVariation } from "back-end/types/report";
+import Link from "next/link";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
-import Link from "next/link";
+import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;
@@ -86,6 +86,7 @@ const GuardrailResults: FC<{
             <tr>
               <th>Variation</th>
               <th>Value</th>
+              {/** TODO Change title to 'P-value' for frequentist **/}
               <th className="text-center">Chance of Being Worse</th>
             </tr>
           </thead>
