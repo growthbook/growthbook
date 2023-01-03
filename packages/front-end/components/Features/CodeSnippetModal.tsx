@@ -79,12 +79,8 @@ function getApiBaseUrl(): string {
   return getApiHost() + "/";
 }
 
-export function getSDKEndpoint(apiKey: string, project?: string) {
-  let endpoint = getApiBaseUrl() + `api/features/${apiKey || "MY_SDK_KEY"}`;
-  if (project) {
-    endpoint += `?project=${project}`;
-  }
-  return endpoint;
+export function getSDKEndpoint(apiKey: string) {
+  return getApiBaseUrl() + `api/features/${apiKey || "MY_SDK_KEY"}`;
 }
 
 export default function CodeSnippetModal({
@@ -122,10 +118,8 @@ export default function CodeSnippetModal({
 
   const attributeSchema = useAttributeSchema();
 
-  const { datasources, project } = useDefinitions();
+  const { datasources } = useDefinitions();
   const exampleAttributes = getExampleAttributes(attributeSchema);
-
-  const [currentProject, setCurrentProject] = useState(project);
 
   // Record the fact that the SDK instructions have been seen
   useEffect(() => {
@@ -180,12 +174,7 @@ export default function CodeSnippetModal({
       }}
       cta={cta}
     >
-      <SDKEndpointSelector
-        apiKey={apiKey}
-        setApiKey={setApiKey}
-        project={currentProject}
-        setProject={setCurrentProject}
-      />
+      <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
       <p>
         Below is some starter code to integrate GrowthBook into your app. More
         languages coming soon!
@@ -228,7 +217,7 @@ const growthbook = new GrowthBook({
                 ? ""
                 : `\n// In production, we recommend putting a CDN in front of the API endpoint`
             }
-const FEATURES_ENDPOINT = "${getSDKEndpoint(apiKey, currentProject)}";
+const FEATURES_ENDPOINT = "${getSDKEndpoint(apiKey)}";
 fetch(FEATURES_ENDPOINT)
   .then((res) => res.json())
   .then((json) => {
@@ -287,7 +276,7 @@ export default function MyApp() {
         ? ""
         : `\n    // In production, we recommend putting a CDN in front of the API endpoint`
     }
-    fetch("${getSDKEndpoint(apiKey, currentProject)}")
+    fetch("${getSDKEndpoint(apiKey)}")
       .then((res) => res.json())
       .then((json) => {
         growthbook.setFeatures(json.features);
@@ -348,9 +337,7 @@ val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API${
     !isCloud() ? "\n  // We recommend using a CDN in production" : ""
   }
-  apiKey = "${apiKey || "MY_SDK_KEY"}${
-              currentProject ? "?" + currentProject : ""
-            }",
+  apiKey = "${apiKey || "MY_SDK_KEY"}",
   hostURL = "${getApiBaseUrl()}",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
@@ -414,7 +401,7 @@ var attrs = ${swiftArrayFormat(exampleAttributes)}
               !isCloud() ? "\n// We recommend using a CDN in production" : ""
             }
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  url: "${getSDKEndpoint(apiKey, currentProject)}",
+  url: "${getSDKEndpoint(apiKey)}",
   attributes: attrs,
   trackingCallback: { experiment, experimentResult in 
     // TODO: track in your analytics system
@@ -459,7 +446,7 @@ type GrowthBookApiResp struct {
 func GetFeatureMap() []byte {
 	// Fetch features JSON from api
 	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getSDKEndpoint(apiKey, currentProject)}")
+	resp, err := http.Get("${getSDKEndpoint(apiKey)}")
 	if err != nil {
 		log.Println(err)
 	}
@@ -514,7 +501,7 @@ require 'json'
 
 # Fetch features from GrowthBook API
 # TODO: In production, we recommend adding a caching layer (Redis, etc.)
-uri = URI('${getSDKEndpoint(apiKey, currentProject)}')
+uri = URI('${getSDKEndpoint(apiKey)}')
 res = Net::HTTP.get_response(uri)
 features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
 
@@ -558,7 +545,7 @@ $attributes = ${phpArrayFormat(exampleAttributes)};
 
 // Fetch feature definitions from GrowthBook API
 // In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getSDKEndpoint(apiKey, currentProject)}';
+const FEATURES_ENDPOINT = '${getSDKEndpoint(apiKey)}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
 
@@ -590,7 +577,7 @@ from growthbook import GrowthBook
 
 # Fetch feature definitions from GrowthBook API
 # In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getSDKEndpoint(apiKey, currentProject)}")
+apiResp = requests.get("${getSDKEndpoint(apiKey)}")
 features = apiResp.json()["features"]
 
 # TODO: Real user attributes
@@ -660,7 +647,7 @@ dependencies {
             code={`
 // Fetch feature definitions from GrowthBook API
 // We recommend adding a caching layer in production
-URI featuresEndpoint = new URI("${getSDKEndpoint(apiKey, currentProject)}");
+URI featuresEndpoint = new URI("${getSDKEndpoint(apiKey)}");
 HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
 HttpResponse<String> response = HttpClient.newBuilder().build()
     .send(request, HttpResponse.BodyHandlers.ofString());

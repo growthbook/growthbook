@@ -17,12 +17,6 @@ Currently, GrowthBook has a single public endpoint, the **SDK Endpoint**. This i
 
 Using this endpoint is one way to get your feature definitions. The other way is via [Webhooks](/app/webhooks), where we send the same payload to you automatically whenever someone updates a feature in GrowthBook.
 
-### Environments
-
-SDK Endpoints are scoped to a single environment (e.g. `dev` or `production`).
-
-When you first create a GrowthBook account, we add a default "production" environment for you with a single SDK Endpoint. You can add new environments and SDK Endpoints by going to **Features -> Environments**.
-
 ### The SDK Endpoint
 
 In **GrowthBook Cloud**, the SDK endpoint is served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you'll want to set up either a CDN or cache layer yourself in front of the GrowthBook API for scalability and speed.
@@ -84,17 +78,15 @@ interface FeatureDefinitionRule {
 
 </details>
 
-#### Project-scoping
+#### Environments
 
-If you've set up multiple projects within GrowthBook, you can optionally add a querystring to the SDK endpoint to only include features in a specific project. By default, features from all projects are returned.
+SDK Endpoints are scoped to a single environment (e.g. `dev` or `production`).
 
-To do this, add the querystring `?project={projectId}`. You can find the id for your project under Settings > Projects (will start with `prj_`).
+When you first create a GrowthBook account, we add a default "production" environment for you with a single SDK Endpoint. You can add new environments and SDK Endpoints by going to **Features -> Environments**.
 
-For example:
+#### Projects
 
-```
-/api/features/dev_abc123?project=prj_456def
-```
+If you've set up multiple projects within GrowthBook, you can optionally scope your SDK Endpoint to a specific project. By default, features from all projects are returned.
 
 #### Encryption
 
@@ -124,35 +116,13 @@ interface SDKEncryptedEndpointResponse {
 
 </details>
 
-You will need to decrypt the features first before passing into the SDK. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
+You will need to decrypt the features first before passing into the SDK. Our front-end SDKs (Javascript and React) have a `setEncryptedFeatures` helper method to make this easy:
 
-Here's an example in JavaScript using the SubtleCrypto API, which is available in all modern web browsers:
-
-<details>
-<summary className="cursor-pointer">Decryption Code Example</summary>
-
-```js
-async function decrypt(encryptedText) {
-  const GB_ENCRYPTION_KEY = "MY_ENCRYPTION_KEY"; // <-- Set your encryption key here
-  const base64ToBuf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-  const key = await window.crypto.subtle.importKey(
-    "raw", base64ToBuf(GB_ENCRYPTION_KEY),
-    { name: "AES-CBC", length: 128 }, true, ["encrypt", "decrypt"]
-  );
-  const [iv, cipherText] = encryptedText.split(".");
-  const plainTextBuffer = await window.crypto.subtle
-    .decrypt({name: "AES-CBC", iv: base64ToBuf(iv)}, key, base64ToBuf(cipherText));
-  return new TextDecoder().decode(plainTextBuffer);
-}
-
-// Decrypting gives you a JSON-encoded string
-const featuresStr = await decrypt(encryptedFeatures);
-
-// Turn it into a JSON object
-const features = JSON.parse(featuresStr);
+```ts
+growthbook.setEncryptedFeatures(json.encryptedFeatures, "MY_ENCRYPTION_KEY");
 ```
 
-</details>
+You can find your encryption key on the **Features -> Environments** page in GrowthBook.
 
 ## Authenticated REST API <Pill>beta</Pill>
 

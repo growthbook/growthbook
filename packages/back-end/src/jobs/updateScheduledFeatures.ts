@@ -4,11 +4,8 @@ import {
   getScheduledFeaturesToUpdate,
   updateFeature,
 } from "../models/FeatureModel";
-import {
-  featureUpdated,
-  getEnabledEnvironments,
-  getNextScheduledUpdate,
-} from "../services/features";
+import { getNextScheduledUpdate } from "../services/features";
+import { getOrganizationById } from "../services/organizations";
 import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
@@ -74,25 +71,20 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     featureId,
   });
 
-  const feature = await getFeature(organization, featureId);
+  const org = await getOrganizationById(organization);
+  if (!org) return;
 
+  const feature = await getFeature(organization, featureId);
   if (!feature) return;
 
   try {
-    // Fire the webhook
-    featureUpdated(
-      feature,
-      getEnabledEnvironments(feature),
-      feature.project || ""
-    );
-
-    // Then, we'll need to recalculate the feature's new nextScheduledUpdate
+    // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {}
     );
 
-    // And finally, we'll need to update the feature with the new nextScheduledUpdate
-    await updateFeature(organization, featureId, {
+    // Update the feature in Mongo
+    await updateFeature(org, feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
   } catch (e) {

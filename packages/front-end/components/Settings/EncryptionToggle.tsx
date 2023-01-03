@@ -8,6 +8,7 @@ import PremiumTooltip from "../Marketing/PremiumTooltip";
 type FormKeys = {
   description: string;
   environment: string;
+  project: string;
   encryptSDK: boolean;
 };
 

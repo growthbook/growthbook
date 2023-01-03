@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import _ from "lodash";
 import {
   FeatureDraftChanges,
   FeatureInterface,
@@ -30,11 +29,7 @@ import {
   addIdsToRules,
   arrayMove,
   encrypt,
-  featureUpdated,
-  getAffectedEnvs,
-  getEnabledEnvironments,
   getFeatureDefinitions,
-  logFeatureUpdatedEvent,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
@@ -49,6 +44,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
+import { getEnabledEnvironments } from "../util/features";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -60,9 +56,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     });
   }
 
-  let project = "";
+  let projectFilter = "";
   if (typeof req.query?.project === "string") {
-    project = req.query.project;
+    projectFilter = req.query.project;
   }
 
   try {
@@ -70,6 +66,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       organization,
       secret,
       environment,
+      project,
       encryptSDK,
       encryptionKey,
     } = await lookupOrganizationByApiKey(key);
@@ -86,11 +83,15 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       });
     }
 
+    if (project && !projectFilter) {
+      projectFilter = project;
+    }
+
     //Archived features not to be shown
     const { features, dateUpdated } = await getFeatureDefinitions(
       organization,
       environment,
-      project
+      projectFilter
     );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -131,6 +132,10 @@ export async function postFeatures(
 
   if (!id) {
     throw new Error("Must specify feature key");
+  }
+
+  if (!environmentSettings) {
+    throw new Error("Feature missing initial environment toggle settings");
   }
 
   if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
@@ -179,7 +184,7 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(feature);
+  await createFeature(org, feature);
   await ensureWatching(userId, org.id, feature.id, "features");
 
   await req.audit({
@@ -191,7 +196,6 @@ export async function postFeatures(
     details: auditDetailsCreate(feature),
   });
 
-  featureUpdated(feature);
   res.status(200).json({
     status: 200,
     feature,
@@ -220,9 +224,6 @@ export async function postFeaturePublish(
 
   req.checkPermissions("manageFeatures", feature.project);
 
-  // Clone the current feature so we can log its current and previous states
-  const previousFeatureState = _.cloneDeep(feature);
-
   // If changing the default value, it affects all enabled environments
   if ("defaultValue" in draft) {
     req.checkPermissions(
@@ -233,16 +234,18 @@ export async function postFeaturePublish(
   }
   // Otherwise, only the environments with rule changes are affected
   else {
+    const draftRules = draft.rules || {};
     req.checkPermissions(
       "publishFeatures",
       feature.project,
-      getAffectedEnvs(feature, Object.keys(draft.rules || {}))
+      [...getEnabledEnvironments(feature)].filter((e) => e in draftRules)
     );
   }
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  const newFeature = await publishDraft(
+  const updatedFeature = await publishDraft(
+    org,
     feature,
     {
       id: userId,
@@ -258,12 +261,11 @@ export async function postFeaturePublish(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, newFeature, {
-      revision: newFeature.revision?.version || 1,
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: updatedFeature.revision?.version || 1,
       comment,
     }),
   });
-  await logFeatureUpdatedEvent(org, previousFeatureState, newFeature);
 
   res.status(200).json({
     status: 200,
@@ -289,7 +291,7 @@ export async function postFeatureDiscard(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  await discardDraft(feature);
+  await discardDraft(org, feature);
 
   res.status(200).json({
     status: 200,
@@ -319,7 +321,7 @@ export async function postFeatureDraft(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await updateDraft(feature, {
+  await updateDraft(org, feature, {
     active: true,
     comment,
     dateCreated: new Date(),
@@ -349,7 +351,7 @@ export async function postFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await addFeatureRule(feature, environment, rule);
+  await addFeatureRule(org, feature, environment, rule);
 
   res.status(200).json({
     status: 200,
@@ -372,7 +374,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await setDefaultValue(feature, defaultValue);
+  await setDefaultValue(org, feature, defaultValue);
 
   res.status(200).json({
     status: 200,
@@ -398,7 +400,7 @@ export async function putFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await editFeatureRule(feature, environment, i, rule);
+  await editFeatureRule(org, feature, environment, i, rule);
 
   res.status(200).json({
     status: 200,
@@ -424,11 +426,7 @@ export async function postFeatureToggle(
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
 
-  // Clone the current feature so we can log its current and previous states
-  const previousFeatureState = _.cloneDeep(feature);
-  const newFeatureState: FeatureInterface = _.cloneDeep(previousFeatureState);
-
-  await toggleFeatureEnvironment(feature, environment, state);
+  await toggleFeatureEnvironment(org, feature, environment, state);
 
   await req.audit({
     event: "feature.toggle",
@@ -442,16 +440,6 @@ export async function postFeatureToggle(
       { environment }
     ),
   });
-
-  // Update the new state to reflect the toggled setting for the environment
-  if (newFeatureState.environmentSettings?.[environment]) {
-    newFeatureState.environmentSettings[environment] = {
-      ...newFeatureState.environmentSettings[environment],
-      enabled: !currentState,
-    };
-  }
-
-  await logFeatureUpdatedEvent(org, previousFeatureState, newFeatureState);
 
   res.status(200).json({
     status: 200,
@@ -484,7 +472,7 @@ export async function postFeatureMoveRule(
 
   const newRules = arrayMove(rules, from, to);
 
-  await setFeatureDraftRules(feature, environment, newRules);
+  await setFeatureDraftRules(org, feature, environment, newRules);
 
   res.status(200).json({
     status: 200,
@@ -512,7 +500,7 @@ export async function deleteFeatureRule(
   const newRules = rules.slice();
   newRules.splice(i, 1);
 
-  await setFeatureDraftRules(feature, environment, newRules);
+  await setFeatureDraftRules(org, feature, environment, newRules);
 
   res.status(200).json({
     status: 200,
@@ -566,18 +554,7 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  // See if anything important changed that requires firing a webhook
-  let requiresWebhook = false;
-  if ("project" in updates && updates.project !== feature.project) {
-    requiresWebhook = true;
-  }
-
-  await updateFeature(feature.organization, id, {
-    ...updates,
-    dateUpdated: new Date(),
-  });
-
-  const newFeature = { ...feature, ...updates };
+  const updatedFeature = await updateFeature(org, feature, updates);
 
   await req.audit({
     event: "feature.update",
@@ -585,24 +562,11 @@ export async function putFeature(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(feature, newFeature),
+    details: auditDetailsUpdate(feature, updatedFeature),
   });
 
-  await logFeatureUpdatedEvent(org, feature, newFeature);
-
-  if (requiresWebhook) {
-    featureUpdated(
-      newFeature,
-      getEnabledEnvironments(feature),
-      feature.project || ""
-    );
-  }
-
   res.status(200).json({
-    feature: {
-      ...newFeature,
-      dateUpdated: new Date(),
-    },
+    feature: updatedFeature,
     status: 200,
   });
 }
@@ -624,7 +588,7 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature)
     );
-    await deleteFeature(org.id, id);
+    await deleteFeature(org, feature);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -633,7 +597,6 @@ export async function deleteFeatureById(
       },
       details: auditDetailsDelete(feature),
     });
-    featureUpdated(feature);
   }
 
   res.status(200).json({
@@ -658,7 +621,7 @@ export async function postFeatureArchive(
     feature.project,
     getEnabledEnvironments(feature)
   );
-  await archiveFeature(feature.organization, id, !feature.archived);
+  const updatedFeature = await archiveFeature(org, feature, !feature.archived);
 
   await req.audit({
     event: "feature.archive",
@@ -668,10 +631,9 @@ export async function postFeatureArchive(
     },
     details: auditDetailsUpdate(
       { archived: feature.archived }, // Old state
-      { archived: !feature.archived } // New state
+      { archived: updatedFeature.archived } // New state
     ),
   });
-  featureUpdated(feature);
 
   res.status(200).json({
     status: 200,
