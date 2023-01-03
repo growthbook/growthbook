@@ -69,6 +69,7 @@ export async function createOrgGbKeys(
       organization: orgId,
       secret: false,
       environment: envMapEntry.gb,
+      project: "",
       encryptSDK: false,
       description:
         "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API.",

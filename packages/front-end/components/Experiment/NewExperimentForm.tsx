@@ -1,9 +1,10 @@
 import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
-  ExperimentInterfaceStringDates, ExperimentStatus,
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
   ImplementationType,
-  Variation
+  Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { useWatching } from "@/services/WatchProvider";
