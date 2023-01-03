@@ -133,7 +133,7 @@ export const deleteProject = async (
   await removeProjectFromProjectRoles(id, org.id);
   // ideas?
   // report?
-  // webhooks?
+  // api endpoints & webhooks?
 
   res.status(200).json({
     status: 200,

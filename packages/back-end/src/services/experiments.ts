@@ -184,7 +184,10 @@ export async function removeProjectFromExperiments(
   project: string,
   organization: string
 ) {
-  await ExperimentModel.updateMany({ organization, project }, { project: "" });
+  await ExperimentModel.updateMany(
+    { organization, project },
+    { $set: { project: "" } }
+  );
 }
 
 export function deleteExperimentById(id: string) {

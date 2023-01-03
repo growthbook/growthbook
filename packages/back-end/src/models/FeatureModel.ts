@@ -365,7 +365,10 @@ export async function removeProjectFromFeatures(
   project: string,
   organization: string
 ) {
-  await FeatureModel.updateMany({ organization, project }, { project: "" });
+  await FeatureModel.updateMany(
+    { organization, project },
+    { $set: { project: "" } }
+  );
 }
 
 export async function setDefaultValue(
