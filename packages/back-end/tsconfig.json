@@ -13,7 +13,12 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "incremental": true,
-    "rootDir": "src"
+    "rootDir": "src",
+    "baseUrl": "./src",
+    "paths": {
+      "@/types/*": ["../types/*"],
+      "@/*": ["*"]
+    }
   },
   "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }
