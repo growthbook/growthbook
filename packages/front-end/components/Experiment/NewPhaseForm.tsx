@@ -1,7 +1,8 @@
 import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates, ExperimentPhaseType
+  ExperimentPhaseStringDates,
+  ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -9,11 +10,11 @@ import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import VariationsInput from "../Features/VariationsInput";
-import SelectField from "@/components/Forms/SelectField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;

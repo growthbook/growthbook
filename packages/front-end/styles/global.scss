@@ -160,6 +160,11 @@ pre {
   @include badge-variant(#f6f7f9);
   border: 1px solid colors.$gray4;
 }
+.badge-purple {
+  background-color: var(--form-multivalue-background-color);
+  color: var(--form-multivalue-text-color);
+}
+
 .multi-select-container {
   z-index: 99999999;
 }
@@ -179,8 +184,9 @@ pre {
   }
 }
 .highlight {
-  background-color: rgba(124, 69, 234, 0.06);
+  background-color: var(--table-row-highlight-background-color);
 }
+
 .hover-show {
   .show-target {
     transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
