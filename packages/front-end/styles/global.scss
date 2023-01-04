@@ -164,6 +164,15 @@ pre {
   background-color: var(--form-multivalue-background-color);
   color: var(--form-multivalue-text-color);
 }
+.badge-ellipsis {
+  max-width: 250px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  &.short {
+    max-width: 120px;
+  }
+}
 
 .multi-select-container {
   z-index: 99999999;
@@ -2034,6 +2043,14 @@ td.disabled {
   .form-control::placeholder {
     font-style: italic;
     opacity: 0.75;
+  }
+}
+.form-group.label-overflow-ellipsis {
+  .gb-multi-select__multi-value__label {
+    max-width: 200px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 

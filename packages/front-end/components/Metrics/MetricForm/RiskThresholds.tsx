@@ -16,7 +16,7 @@ const RiskThresholds: FC<{
 }) => {
   return (
     <div className="form-group">
-      Risk thresholds
+      <label className="mb-0">Risk thresholds</label>
       <div className="riskbar row align-items-center pt-3">
         <div className="col green-bar pr-0">
           <span

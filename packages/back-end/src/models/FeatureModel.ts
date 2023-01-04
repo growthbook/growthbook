@@ -411,6 +411,16 @@ export async function removeTagInFeature(organization: string, tag: string) {
   // TODO: call onFeatureUpdate for each affected feature
 }
 
+export async function removeProjectFromFeatures(
+  project: string,
+  organization: string
+) {
+  await FeatureModel.updateMany(
+    { organization, project },
+    { $set: { project: "" } }
+  );
+}
+
 export async function setDefaultValue(
   org: OrganizationInterface,
   feature: FeatureInterface,

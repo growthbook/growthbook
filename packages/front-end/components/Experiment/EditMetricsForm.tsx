@@ -38,11 +38,15 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { metrics: metricDefinitions, getDatasourceById } = useDefinitions();
+  const { metrics, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metricDefinitions.filter(
-    (m) => m.datasource === datasource?.id
-  );
+  const filteredMetrics = metrics
+    .filter((m) => m.datasource === datasource?.id)
+    .filter((m) => {
+      if (!experiment.project) return true;
+      if (!m?.projects?.length) return true;
+      return m.projects.includes(experiment.project);
+    });
 
   const defaultMetricOverrides = cloneDeep(experiment.metricOverrides || []);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
@@ -128,6 +132,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
+          project={experiment.project}
           autoFocus={true}
         />
       </div>
@@ -142,6 +147,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
+          project={experiment.project}
         />
       </div>
 

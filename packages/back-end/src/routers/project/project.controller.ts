@@ -9,6 +9,11 @@ import {
   findProjectById,
   updateProject,
 } from "../../models/ProjectModel";
+import { removeProjectFromDatasources } from "../../models/DataSourceModel";
+import { removeProjectFromMetrics } from "../../models/MetricModel";
+import { removeProjectFromFeatures } from "../../models/FeatureModel";
+import { removeProjectFromExperiments } from "../../services/experiments";
+import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 
 // region POST /projects
 
@@ -66,7 +71,7 @@ type PutProjectResponse = {
  */
 export const putProject = async (
   req: PutProjectRequest,
-  res: Response<PutProjectResponse>
+  res: Response<PutProjectResponse | ApiErrorResponse>
 ) => {
   req.checkPermissions("manageProjects");
 
@@ -75,7 +80,10 @@ export const putProject = async (
   const project = await findProjectById(id, org.id);
 
   if (!project) {
-    throw new Error("Could not find project");
+    res.status(404).json({
+      message: "Could not find project",
+    });
+    return;
   }
 
   const { name } = req.body;
@@ -116,6 +124,16 @@ export const deleteProject = async (
   const { org } = getOrgFromReq(req);
 
   await deleteProjectById(id, org.id);
+
+  // Cleanup functions from other models
+  await removeProjectFromDatasources(id, org.id);
+  await removeProjectFromMetrics(id, org.id);
+  await removeProjectFromFeatures(id, org.id);
+  await removeProjectFromExperiments(id, org.id);
+  await removeProjectFromProjectRoles(id, org);
+  // ideas?
+  // report?
+  // api endpoints & webhooks?
 
   res.status(200).json({
     status: 200,

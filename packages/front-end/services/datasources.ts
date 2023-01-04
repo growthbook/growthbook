@@ -7,6 +7,11 @@ import {
   SchemaInterface,
 } from "back-end/types/datasource";
 import { MetricType } from "back-end/types/metric";
+import {
+  GlobalPermission,
+  ProjectScopedPermission,
+} from "back-end/types/organization";
+import { PermissionFunctions } from "@/services/UserContext";
 
 function safeTableName(name: string) {
   return name
@@ -594,4 +599,21 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
         .join(", ")}`
     );
   }
+}
+
+export function checkDatasourceProjectPermissions(
+  datasource: DataSourceInterfaceWithParams,
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
+  permission: ProjectScopedPermission
+): boolean {
+  let hasPermission = true;
+  if (datasource?.projects?.length) {
+    for (const project of datasource.projects) {
+      hasPermission = permissions.check(permission, project);
+      if (!hasPermission) break;
+    }
+  } else {
+    hasPermission = permissions.check(permission, "");
+  }
+  return hasPermission;
 }

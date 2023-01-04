@@ -33,13 +33,16 @@ export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
   req.checkPermissions("createAnalyses", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id);
+  req.checkPermissions(
+    "createMetrics",
+    metric?.projects?.length ? metric.projects : ""
+  );
 
   if (!metric) {
     res.status(403).json({
@@ -169,7 +172,7 @@ export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -195,7 +198,7 @@ export async function postMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -290,8 +293,6 @@ export async function postMetrics(
   req: AuthRequest<Partial<MetricInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
-
   const { org, userName } = getOrgFromReq(req);
 
   const {
@@ -311,6 +312,7 @@ export async function postMetrics(
     queryFormat,
     segment,
     tags,
+    projects,
     winRisk,
     loseRisk,
     maxPercentChange,
@@ -325,6 +327,8 @@ export async function postMetrics(
     userIdTypes,
     anonymousIdColumn,
   } = req.body;
+
+  req.checkPermissions("createMetrics", projects?.length ? projects : "");
 
   if (datasource) {
     const datasourceObj = await getDataSourceById(datasource, org.id);
@@ -365,6 +369,7 @@ export async function postMetrics(
     timestampColumn,
     conditions,
     tags,
+    projects,
     winRisk,
     loseRisk,
     maxPercentChange,
@@ -391,14 +396,16 @@ export async function putMetric(
   req: AuthRequest<Partial<MetricInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const metric = await getMetricById(id, org.id);
   if (!metric) {
     throw new Error("Could not find metric");
   }
+  req.checkPermissions(
+    "createMetrics",
+    metric?.projects?.length ? metric.projects : ""
+  );
 
   const updates: Partial<MetricInterface> = {};
 
@@ -419,6 +426,7 @@ export async function putMetric(
     "queryFormat",
     "status",
     "tags",
+    "projects",
     "winRisk",
     "loseRisk",
     "maxPercentChange",
@@ -441,6 +449,10 @@ export async function putMetric(
       (updates as any)[k] = req.body[k];
     }
   });
+
+  if (updates?.projects?.length) {
+    req.checkPermissions("createMetrics", updates.projects);
+  }
 
   await updateMetric(metric.id, updates, org.id);
 
