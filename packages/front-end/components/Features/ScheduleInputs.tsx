@@ -6,9 +6,8 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "@/services/UserContext";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import UpgradeMessage from "../Marketing/UpgradeMessage";
 import Toggle from "../Forms/Toggle";
+import UpgradeLabel from "../Marketing/UpgradeLabel";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {
@@ -45,11 +44,12 @@ export default function ScheduleInputs(props: Props) {
 
   return (
     <div className="form-group">
-      <label htmlFor="schedule-feature-flag">
-        <PremiumTooltip commercialFeature="schedule-feature-flag">
-          Add scheduling to automatically enable/disable an override rule.
-        </PremiumTooltip>
-      </label>
+      <UpgradeLabel
+        showUpgradeModal={() => props.setShowUpgradeModal(true)}
+        commercialFeature="schedule-feature-flag"
+        upgradeMessage="enable feature flag scheduling"
+        labelText="Add scheduling to automatically enable/disable an override rule."
+      />
       <div className="pb-2">
         <Toggle
           id="schedule-toggle"
@@ -64,11 +64,6 @@ export default function ScheduleInputs(props: Props) {
           <strong>{props.scheduleToggleEnabled ? "on" : "off"}</strong>
         </span>
       </div>
-      <UpgradeMessage
-        showUpgradeModal={() => props.setShowUpgradeModal(true)}
-        commercialFeature="schedule-feature-flag"
-        upgradeMessage="enable feature flag scheduling"
-      />
       {rules.length > 0 && props.scheduleToggleEnabled && (
         <div className={`mb-3 bg-light pt-3 pr-3 pl-3 ${styles.conditionbox}`}>
           <ul className={styles.conditionslist}>

@@ -427,17 +427,19 @@ export function GBAddCircle({ className = "" }): React.ReactElement {
 
 interface GBPremiumBadge extends React.ReactElement {
   shouldDisplay?: boolean;
+  size?: "small" | "large";
 }
 export function GBPremiumBadge({
   className = "",
   shouldDisplay = true,
   prependsText = false,
+  size = "large",
 }): GBPremiumBadge {
   if (!shouldDisplay) return null;
   return (
     <svg
-      width="18"
-      height="18"
+      width={size === "large" ? "18" : "14"}
+      height={size === "large" ? "18" : "14"}
       viewBox="0 0 370.04 370.04"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
