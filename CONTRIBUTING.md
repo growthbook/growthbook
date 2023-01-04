@@ -35,7 +35,9 @@ One sure shot way to run GrowthBook on Windows is through installing [Windows Su
 5. Set up your Linux username and password
 6. Run `sudo apt update && sudo apt upgrade` (for Ubuntu or Desbian) to update and upgrade packages
 
-Now you have the basic Linux system set up, and can follow along with all the other steps
+Now you have the basic Linux system set up, and can follow along with all the other steps.
+
+It's **strongly recommended** that if you are using WSL on Windows that you run the project from your `/home/:user` directory rather than a `/mnt/` directory: the `/mnt` directory has poor performance, and the file watcher for nodemon will not work, requiring you to manually stop and re-run the `yarn dev` command.
 
 ## Getting started
 
@@ -175,6 +177,14 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
    the remote name and you are on the `main` branch).
 
 2. Open a Pull Request on GitHub with a description of your changes.
+
+## Troubleshooting
+
+### `black` not found
+
+If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate`.
+
+If you get the error that `poetry env info --path` is not defined, try re-running `yarn setup` from the project root.
 
 ## Getting Help
 

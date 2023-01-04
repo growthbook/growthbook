@@ -60,5 +60,31 @@ module.exports = function (plop) {
     ],
   });
 
+  plop.setGenerator("next-page", {
+    description: "[front-end] Generates a Next.js page",
+    prompts: [
+      {
+        type: "input",
+        name: "route",
+        message:
+          "What is the path this should live? e.g. settings/webhooks/[eventwebhookid] if you want to create the file settings/webhooks/[eventwebhookid].tsx",
+      },
+      {
+        type: "input",
+        name: "pageName",
+        message:
+          "What is the name of this page? This is used internally in the file and will have a `Page` suffix, e.g. EventWebHookDetail will be EventWebHookDetailPage",
+      },
+    ],
+    actions: [
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/front-end/pages/{{route}}.tsx",
+        templateFile: "./plop-templates/front-end/next-page.hbs",
+      },
+    ],
+  });
+
   // endregion Front-end
 };

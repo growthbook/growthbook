@@ -49,4 +49,20 @@ router.get(
   eventWebHooksController.getEventWebHookLogs
 );
 
+/**
+ * GET /event-webhooks/:eventWebHookId
+ * Get one eventwebhook for an organization by ID
+ */
+router.get(
+  "/event-webhooks/:eventWebHookId",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        eventWebHookId: z.string(),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.getEventWebHook
+);
+
 export { router as eventWebHooksRouter };

@@ -1,24 +1,28 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "../Tooltip/Tooltip";
-import MultiSelectField from "../Forms/MultiSelectField";
-import SelectField from "../Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MetricsSelector: FC<{
   datasource?: string;
+  project?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
-}> = ({ datasource, selected, onChange, autoFocus }) => {
+}> = ({ datasource, project, selected, onChange, autoFocus }) => {
   const { metrics } = useDefinitions();
-
-  const validMetrics = metrics.filter(
-    (m) => !datasource || m.datasource === datasource
-  );
+  const filteredMetrics = metrics
+    .filter((m) => m.datasource === datasource)
+    .filter((m) => {
+      if (!project) return true;
+      if (!m?.projects?.length) return true;
+      return m.projects.includes(project);
+    });
 
   const tagCounts: Record<string, number> = {};
-  validMetrics.forEach((m) => {
+  filteredMetrics.forEach((m) => {
     if (!selected.includes(m.id) && m.tags) {
       m.tags.forEach((t) => {
         tagCounts[t] = tagCounts[t] || 0;
@@ -32,7 +36,7 @@ const MetricsSelector: FC<{
       <MultiSelectField
         value={selected}
         onChange={onChange}
-        options={validMetrics.map((m) => {
+        options={filteredMetrics.map((m) => {
           return {
             value: m.id,
             label: m.name,
@@ -56,7 +60,7 @@ const MetricsSelector: FC<{
             onChange={(v) => {
               const newValue = new Set(selected);
               const tag = v;
-              validMetrics.forEach((m) => {
+              filteredMetrics.forEach((m) => {
                 if (m.tags && m.tags.includes(tag)) {
                   newValue.add(m.id);
                 }

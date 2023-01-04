@@ -28,6 +28,7 @@ type Props = {
   helpText?: ReactElement;
   identityTypes?: UserIdType[];
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
+  className?: string;
 };
 
 export default function SQLInputField({
@@ -40,6 +41,7 @@ export default function SQLInputField({
   helpText,
   identityTypes,
   queryType,
+  className,
 }: Props) {
   const [
     testQueryResults,
@@ -161,7 +163,7 @@ export default function SQLInputField({
   };
 
   return (
-    <>
+    <div className={className}>
       <label className="font-weight-bold mb-1">SQL Query</label>
       <div className="row flex-column-reverse flex-md-row">
         <div
@@ -269,6 +271,6 @@ export default function SQLInputField({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

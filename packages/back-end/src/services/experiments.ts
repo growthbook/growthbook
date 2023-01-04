@@ -180,6 +180,16 @@ export async function removeMetricFromExperiments(
   );
 }
 
+export async function removeProjectFromExperiments(
+  project: string,
+  organization: string
+) {
+  await ExperimentModel.updateMany(
+    { organization, project },
+    { $set: { project: "" } }
+  );
+}
+
 export function deleteExperimentById(id: string) {
   return ExperimentModel.deleteOne({
     id,
@@ -318,6 +328,7 @@ export async function refreshMetric(
     const from = new Date();
     from.setDate(from.getDate() - days);
     const to = new Date();
+    to.setDate(to.getDate() + 1);
 
     const baseParams: Omit<MetricValueParams, "metric"> = {
       from,
