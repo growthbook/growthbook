@@ -1,8 +1,8 @@
 import { CommercialFeature } from "@/../back-end/types/organization";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import { GBPremiumBadge } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
+import { GBPremiumBadge } from "../Icons";
 
 export default function UpgradeLabel({
   showUpgradeModal,
@@ -30,8 +30,8 @@ export default function UpgradeLabel({
     : `Please purchase a commercial license to ${upgradeMessage}.`;
 
   return (
-    <div>
-      <label htmlFor="schedule-feature-flag">
+    <div className="row align-items-center">
+      <label className="col-auto" htmlFor="schedule-feature-flag">
         {showUpgradeCTA ? (
           <Tooltip
             body={`This is a premium feature. ${headerMessage}`}
@@ -46,7 +46,7 @@ export default function UpgradeLabel({
       {showUpgradeCTA && (
         <a
           href="#"
-          className="btn btn-sm btn-outline-primary ml-4 px-2"
+          className="btn btn-sm btn-outline-primary ml-2 px-2 mb-2 col-auto"
           style={{ paddingTop: "2px", paddingBottom: "2px" }}
           onClick={(e) => {
             e.preventDefault();
