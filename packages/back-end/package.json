@@ -11,7 +11,7 @@
     "build:typescript": "tsc",
     "dev": "yarn build:clean && concurrently \"yarn watch-compile\" \"yarn watch-dev | yarn pino-pretty\"",
     "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
-    "start": "node dist/server.js",
+    "start": "TS_NODE_BASEURL=./dist node -r tsconfig-paths/register dist/server.js",
     "repl": "node --require ts-node/register/transpile-only --experimental-repl-await repl",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
@@ -68,6 +68,7 @@
     "sql-formatter": "^11.0.2",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^9.14.0",
+    "tsconfig-paths": "^4.1.2",
     "uniqid": "^5.3.0",
     "zod": "^3.19.1"
   },
