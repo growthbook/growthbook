@@ -139,12 +139,17 @@ export const createEventWebHook = async ({
 /**
  * Retrieve an EventWebHook by ID
  * @param eventWebHookId
+ * @param organizationId
  */
 export const getEventWebHookById = async (
-  eventWebHookId: string
+  eventWebHookId: string,
+  organizationId: string
 ): Promise<EventWebHookInterface | null> => {
   try {
-    const doc = await EventWebHookModel.findOne({ id: eventWebHookId });
+    const doc = await EventWebHookModel.findOne({
+      id: eventWebHookId,
+      organizationId,
+    });
     return !doc ? null : toInterface(doc);
   } catch (e) {
     logger.error(e, "getEventWebHookById");

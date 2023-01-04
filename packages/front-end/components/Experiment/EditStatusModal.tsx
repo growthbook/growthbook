@@ -1,9 +1,12 @@
-import { ExperimentInterfaceStringDates, ExperimentStatus } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
+} from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
+import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

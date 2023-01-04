@@ -211,7 +211,7 @@ export default function ReportPage() {
                 )}
               </div>
               <div className="col-auto">
-                {permissions.runQueries && (
+                {permissions.check("runQueries", "") && (
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
@@ -303,7 +303,7 @@ export default function ReportPage() {
                       ago(report.args.startDate) +
                       ". Give it a little longer and click the 'Refresh' button to check again."}
                   {!report.results &&
-                    permissions.runQueries &&
+                    permissions.check("runQueries", "") &&
                     `Click the "Refresh" button.`}
                 </div>
               )}

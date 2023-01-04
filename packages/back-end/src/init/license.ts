@@ -9,7 +9,7 @@ import { LICENSE_KEY, SSO_CONFIG } from "../util/secrets";
 let licenseData: LicenseData | null = null;
 
 export default async (licenseKey?: string) => {
-  let key = licenseKey || LICENSE_KEY || null;
+  const key = licenseKey || LICENSE_KEY || null;
   if (!key) {
     licenseData = null;
     return;

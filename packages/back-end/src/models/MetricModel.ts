@@ -50,6 +50,10 @@ const metricSchema = new mongoose.Schema({
   timestampColumn: String,
   queryFormat: String,
   tags: [String],
+  projects: {
+    type: [String],
+    index: true,
+  },
   conditions: [
     {
       _id: false,
@@ -180,6 +184,31 @@ export async function getMetricById(
   });
 
   return res ? toInterface(res) : null;
+}
+
+export async function getMetricsByIds(ids: string[], organization: string) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    return getConfigMetrics(organization).filter(
+      (m) => ids.includes(m.datasource) || []
+    );
+  }
+
+  const docs = await MetricModel.find({
+    id: { $in: ids },
+    organization,
+  });
+  return docs.map(toInterface);
+}
+
+export async function removeProjectFromMetrics(
+  project: string,
+  organization: string
+) {
+  await MetricModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
 }
 
 export async function getMetricsUsingSegment(
