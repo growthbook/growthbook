@@ -6,12 +6,13 @@ import { isSentryEnabled } from "@/services/env";
 export default function Custom404() {
   const ind = Math.ceil(Math.random() * 2);
   const router = useRouter();
-  const badPath = router?.asPath || window?.location?.href || "";
+  const badPath = router?.asPath;
   useEffect(() => {
-    if (isSentryEnabled()) {
-      const referrer = document?.referrer || "";
-      Sentry.captureMessage("404: " + badPath + " from " + referrer);
-    }
+    if (!isSentryEnabled()) return;
+    if (!badPath) return;
+
+    const referrer = document && document?.referrer ? document.referrer : "-";
+    Sentry.captureMessage("404: " + badPath + " from " + referrer);
   }, [badPath]);
 
   return (
