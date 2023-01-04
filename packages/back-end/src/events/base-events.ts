@@ -4,7 +4,9 @@ import { NotificationEventPayload } from "./base-types";
 export type FeatureCreatedNotificationEvent = NotificationEventPayload<
   "feature.created",
   "feature",
-  FeatureInterface
+  {
+    current: FeatureInterface;
+  }
 >;
 
 export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
