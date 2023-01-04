@@ -30,6 +30,17 @@ const SegmentPage: FC = () => {
 
   const permissions = usePermissions();
 
+  function canAddEditRemoveSegments(): boolean {
+    if (!permissions.createSegments) {
+      return false;
+    }
+
+    if (hasFileConfig() && !storeSegmentsInMongo()) {
+      return false;
+    }
+    return true;
+  }
+
   const [
     segmentForm,
     setSegmentForm,
@@ -207,7 +218,7 @@ const SegmentPage: FC = () => {
           <h1>Segments</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {!hasFileConfig() && permissions.createSegments && (
+        {canAddEditRemoveSegments() && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -248,8 +259,8 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  {!hasFileConfig() && <th>Date Updated</th>}
-                  {!hasFileConfig() && permissions.createSegments && <th></th>}
+                  {canAddEditRemoveSegments() && <th>Date Updated</th>}
+                  {canAddEditRemoveSegments() && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -293,8 +304,10 @@ const SegmentPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
-                      {!hasFileConfig() && permissions.createSegments && (
+                      {canAddEditRemoveSegments() && (
+                        <td>{ago(s.dateUpdated)}</td>
+                      )}
+                      {canAddEditRemoveSegments() && (
                         <td>
                           <a
                             href="#"
@@ -346,8 +359,7 @@ const SegmentPage: FC = () => {
           It looks like you have a <code>config.yml</code> file. Segments
           defined there will show up on this page. If you would like to store
           and access segments in MongoDB instead, please add the{" "}
-          <code>STORE_SEGMENTS_IN_MONGO</code>
-          environment variable.
+          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
           <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>
       )}
