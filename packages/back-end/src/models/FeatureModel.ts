@@ -403,22 +403,48 @@ export async function setFeatureDraftRules(
   await updateDraft(org, feature, draft);
 }
 
-export async function removeTagInFeature(organization: string, tag: string) {
-  const query = { organization, tags: tag };
+export async function removeTagInFeature(
+  organization: OrganizationInterface,
+  tag: string
+) {
+  const query = { organization: organization.id, tags: tag };
+
+  const featureDocs = await FeatureModel.find(query);
+  const features = (featureDocs || []).map(toInterface);
+
   await FeatureModel.updateMany(query, {
     $pull: { tags: tag },
   });
-  // TODO: call onFeatureUpdate for each affected feature
+
+  features.forEach((feature) => {
+    const updatedFeature = {
+      ...feature,
+      tags: (feature.tags || []).filter((t) => t !== tag),
+    };
+
+    onFeatureUpdate(organization, feature, updatedFeature);
+  });
 }
 
 export async function removeProjectFromFeatures(
   project: string,
-  organization: string
+  organization: OrganizationInterface
 ) {
-  await FeatureModel.updateMany(
-    { organization, project },
-    { $set: { project: "" } }
-  );
+  const query = { organization: organization.id, project };
+
+  const featureDocs = await FeatureModel.find(query);
+  const features = (featureDocs || []).map(toInterface);
+
+  await FeatureModel.updateMany(query, { $set: { project: "" } });
+
+  features.forEach((feature) => {
+    const updatedFeature = {
+      ...feature,
+      project: "",
+    };
+
+    onFeatureUpdate(organization, feature, updatedFeature);
+  });
 }
 
 export async function setDefaultValue(
