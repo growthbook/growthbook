@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { SegmentInterface } from "../../types/segment";
-import { getConfigSegments, usingFileConfig } from "../init/config";
+import { getConfigSegments, usingFileConfigForSegments } from "../init/config";
 
 const segmentSchema = new mongoose.Schema({
   id: String,
@@ -30,9 +30,9 @@ export async function createSegment(segment: Partial<SegmentInterface>) {
 }
 
 export async function findSegmentById(id: string, organization: string) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
-    // Need to add a check here to see if the org has an env variable that allows segments to be stored in mongo, if that is set, we can skip the getConfigSegments
+  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
+  // immediately return the list from there
+  if (usingFileConfigForSegments()) {
     return getConfigSegments(organization).filter((s) => s.id === id)[0];
   }
 
@@ -42,8 +42,9 @@ export async function findSegmentById(id: string, organization: string) {
 }
 
 export async function findSegmentsByOrganization(organization: string) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
+  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
+  // immediately return the list from there
+  if (usingFileConfigForSegments()) {
     return getConfigSegments(organization);
   }
 
@@ -54,8 +55,9 @@ export async function findSegmentsByDataSource(
   datasource: string,
   organization: string
 ) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
+  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
+  // immediately return the list from there
+  if (usingFileConfigForSegments()) {
     return getConfigSegments(organization).filter(
       (s) => s.datasource === datasource
     );
@@ -67,8 +69,9 @@ export async function findSegmentsByDataSource(
 }
 
 export async function deleteSegmentById(id: string, organization: string) {
-  // If using config.yml, immediately throw error
-  if (usingFileConfig()) {
+  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
+  // immediately throw error
+  if (usingFileConfigForSegments()) {
     throw new Error("Cannot delete. Segments are being managed by config.yml");
   }
 
@@ -80,8 +83,9 @@ export async function updateSegment(
   organization: string,
   updates: Partial<SegmentInterface>
 ) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
+  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
+  // immediately return the list from there
+  if (usingFileConfigForSegments()) {
     throw new Error("Cannot update. Segments are being managed by config.yml");
   }
 

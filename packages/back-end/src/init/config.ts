@@ -11,6 +11,7 @@ import {
   EMAIL_HOST_PASSWORD,
   EMAIL_HOST_USER,
   EMAIL_PORT,
+  STORE_SEGMENTS_IN_MONGO,
 } from "../util/secrets";
 import {
   DataSourceInterface,
@@ -140,6 +141,13 @@ function reloadConfigIfNeeded() {
 export function usingFileConfig(): boolean {
   reloadConfigIfNeeded();
   return !!config;
+}
+
+export function usingFileConfigForSegments(): boolean {
+  reloadConfigIfNeeded();
+  // This should only return true if the org has a config file &&
+  // env variable STORE_SEGMENTS_IN_MONGO is false
+  return !!config && !STORE_SEGMENTS_IN_MONGO;
 }
 
 export function getConfigDatasources(

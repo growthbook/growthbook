@@ -15,7 +15,7 @@ import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
-import { hasFileConfig } from "@/services/env";
+import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 
 const SegmentPage: FC = () => {
@@ -341,18 +341,16 @@ const SegmentPage: FC = () => {
             "Click the button above to create your first one."}
         </div>
       )}
-      {segments.length === 0 &&
-        hasFileConfig() &&
-        !process.env.STORE_SEGMENTS_IN_MONGO && (
-          <div className="alert alert-info">
-            It looks like you have a <code>config.yml</code> file. Segments
-            defined there will show up on this page. If you would like to store
-            and access segments in MongoDB instead, please add the{" "}
-            <code>STORE_SEGMENTS_IN_MONGO</code>
-            environment variable.
-            <DocLink docSection="config_yml">View Documentation</DocLink>
-          </div>
-        )}
+      {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
+        <div className="alert alert-info">
+          It looks like you have a <code>config.yml</code> file. Segments
+          defined there will show up on this page. If you would like to store
+          and access segments in MongoDB instead, please add the{" "}
+          <code>STORE_SEGMENTS_IN_MONGO</code>
+          environment variable.
+          <DocLink docSection="config_yml">View Documentation</DocLink>
+        </div>
+      )}
     </div>
   );
 };

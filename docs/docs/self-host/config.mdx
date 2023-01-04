@@ -68,11 +68,9 @@ segments:
   visitors:
     name: Visitors in the US
     datasource: warehouse
-    owner: Sample User
     sql: |-
-      SELECT userid as user_id, timestamp as date, country
-      FROM pages
-      WHERE country='US'
+      SELECT userid as user_id, timestamp as date
+      FROM users
     userIdType: user_id
 ```
 
