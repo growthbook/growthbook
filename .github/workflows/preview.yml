@@ -12,7 +12,7 @@ jobs:
     - name: Context
       uses: okteto/context@latest
       with:
-        url: 'https://growthbook.okteto.dev'
+        url: ${{ secrets.OKTETO_URL }}
         token: ${{ secrets.OKTETO_TOKEN }}
 
     - name: Deploy preview environment
