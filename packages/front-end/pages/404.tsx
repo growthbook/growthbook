@@ -1,11 +1,11 @@
 import * as Sentry from "@sentry/react";
 import { useRouter } from "next/router";
-import { isCloud, isSentryEnabled } from "@/services/env";
+import { isSentryEnabled } from "@/services/env";
 
 export default function Custom404() {
   const ind = Math.ceil(Math.random() * 2);
   const router = useRouter();
-  if (isSentryEnabled() && isCloud()) {
+  if (isSentryEnabled()) {
     const badPath = router?.asPath || window?.location?.href || "";
     const referrer = document?.referrer || "";
     Sentry.captureMessage("404: " + badPath + " from " + referrer);
