@@ -158,5 +158,4 @@ export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
-export const STORE_SEGMENTS_IN_MONGO =
-  process.env.STORE_SEGMENTS_IN_MONGO === "true";
+export const STORE_SEGMENTS_IN_MONGO = !!process.env.STORE_SEGMENTS_IN_MONGO;
