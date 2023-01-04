@@ -17,13 +17,6 @@ const replaceWithAlias = (filePath, importDeclarationNode) => {
   const parentDirs = importPath.match(/[../]+/)[0];
   const resolvedPath = path.resolve(fileDirname, parentDirs);
 
-  // console.log("DEBUG: ", {
-  //   resolvedPath,
-  //   fileDirname,
-  //   parentDirs,
-  //   importPath,
-  // });
-
   let replacedPath = "";
 
   // ignore paths outside of package dir for now

@@ -4,7 +4,6 @@ import React, { FC, useCallback, useState } from "react";
 import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import { DocLink, DocSection } from "@/components/DocLink";
