@@ -6,11 +6,11 @@ import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { datetime } from "@/services/dates";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import useApi from "@/hooks/useApi";
 import { useIconForState } from "../utils";
-import { datetime } from "../../../services/dates";
-import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
-import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
-import useApi from "../../../hooks/useApi";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;

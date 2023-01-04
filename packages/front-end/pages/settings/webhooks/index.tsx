@@ -1,8 +1,8 @@
 import Link from "next/link";
 import React, { FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import Webhooks from "../../../components/Settings/Webhooks";
-import usePermissions from "../../../hooks/usePermissions";
+import Webhooks from "@/components/Settings/Webhooks";
+import usePermissions from "@/hooks/usePermissions";
 
 const WebhooksPage: FC = () => {
   const permissions = usePermissions();

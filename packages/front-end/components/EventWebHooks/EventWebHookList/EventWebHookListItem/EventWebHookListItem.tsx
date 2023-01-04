@@ -1,8 +1,8 @@
 import React, { FC } from "react";
 import Link from "next/link";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { datetime } from "../../../../services/dates";
-import { useIconForState } from "../../utils";
+import { datetime } from "@/services/dates";
+import { useIconForState } from "@/components/EventWebHooks/utils";
 
 type EventWebHookListItemProps = {
   href: string;

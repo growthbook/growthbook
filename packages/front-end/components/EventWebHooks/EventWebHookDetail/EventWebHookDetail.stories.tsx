@@ -2,7 +2,7 @@
 
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { NotificationEventName } from "back-end/src/events/base-types";
-import { getValidDate } from "../../../services/dates";
+import { getValidDate } from "@/services/dates";
 import { EventWebHookDetail } from "./EventWebHookDetail";
 
 export default {
