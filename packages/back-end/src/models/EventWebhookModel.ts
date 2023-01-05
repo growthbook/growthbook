@@ -159,12 +159,22 @@ export const getEventWebHookById = async (
 
 /**
  * Given an EventWebHook.id will delete the corresponding document
- * @param eventWebHookId
+ * @param options DeleteEventWebHookParams
  */
-export const deleteEventWebHookById = async (eventWebHookId: string) => {
-  await EventWebHookModel.deleteOne({
+type DeleteEventWebHookParams = {
+  eventWebHookId: string;
+  organizationId: string;
+};
+export const deleteEventWebHookById = async ({
+  eventWebHookId,
+  organizationId,
+}: DeleteEventWebHookParams): Promise<boolean> => {
+  const result = await EventWebHookModel.deleteOne({
     id: eventWebHookId,
+    organizationId,
   });
+
+  return result.deletedCount === 1;
 };
 
 type UpdateEventWebHookOptions = {

@@ -65,4 +65,20 @@ router.get(
   eventWebHooksController.getEventWebHook
 );
 
+/**
+ * DELETE /event-webhooks/:eventWebHookId
+ * Delete an eventwebhook for an organization by ID
+ */
+router.delete(
+  "/event-webhooks/:eventWebHookId",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        eventWebHookId: z.string(),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.deleteEventWebHook
+);
+
 export { router as eventWebHooksRouter };
