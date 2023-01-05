@@ -16,6 +16,7 @@ const webhookSchema = new mongoose.Schema({
   environment: String,
   featuresOnly: Boolean,
   signingKey: String,
+  apiKey: String,
   lastSuccess: Date,
   error: String,
   created: Date,

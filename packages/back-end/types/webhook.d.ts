@@ -7,6 +7,7 @@ export interface WebhookInterface {
   environment?: string;
   featuresOnly?: boolean;
   signingKey: string;
+  apiKey?: string;
   lastSuccess: Date | null;
   error: string;
   created: Date;

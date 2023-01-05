@@ -57,11 +57,17 @@ export default function (ag: Agenda) {
       .update(payload)
       .digest("hex");
 
+    // eslint-disable-next-line
+    let headers:any = {
+      "Content-Type": "application/json",
+      "X-GrowthBook-Signature": signature,
+    };
+    if (webhook.apiKey) {
+      headers["X-GrowthBook-Api-Key"] = webhook.apiKey;
+    }
+
     const res = await fetch(webhook.endpoint, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-GrowthBook-Signature": signature,
-      },
+      headers,
       method: "POST",
       body: payload,
     });
