@@ -111,7 +111,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             id="events-input"
             labelKey="name"
             multiple={true}
-            allowNew={true}
+            allowNew={false}
             options={eventWebHookEventOptions.map(({ id }) => {
               return {
                 id: id,
