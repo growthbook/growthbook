@@ -108,7 +108,7 @@ const getPayloadForFeatureCreated = ({
   ...event,
   data: {
     ...event.data,
-    feature: getApiFeatureObj(event.data, organization, savedGroupMap),
+    feature: getApiFeatureObj(event.data.current, organization, savedGroupMap),
   },
 });
 
