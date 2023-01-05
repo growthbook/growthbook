@@ -195,12 +195,12 @@ export const EventWebHookDetailContainer = () => {
           }
         );
 
-        if (response.status === 200) {
+        if (response.error) {
+          handleUpdateError(response.error || "Unknown error");
+        } else {
           mutate();
-          return;
+          setEditError(null);
         }
-
-        handleUpdateError(response.error || "Unknown error");
       } catch (e) {
         handleUpdateError("Unknown error");
       }
@@ -236,7 +236,10 @@ export const EventWebHookDetailContainer = () => {
       isModalOpen={isEditModalOpen}
       onEdit={handleEdit}
       onDelete={handleDelete}
-      onEditModalOpen={() => setIsEditModalOpen(true)}
+      onEditModalOpen={() => {
+        setIsEditModalOpen(true);
+        setEditError(null);
+      }}
       onModalClose={() => setIsEditModalOpen(false)}
       eventWebHook={data.eventWebHook}
       editError={editError}

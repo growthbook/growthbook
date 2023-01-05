@@ -1,12 +1,14 @@
-import React, { FC } from "react";
-import { NotificationEventName } from "back-end/src/events/base-types";
+import React, { FC, useCallback, useState } from "react";
+import z from "zod";
 import { useForm } from "react-hook-form";
 import { Typeahead } from "react-bootstrap-typeahead";
+import { NotificationEventName } from "back-end/src/events/base-types";
 import Modal from "@/components/Modal";
 import {
   EventWebHookEditParams,
   eventWebHookEventOptions,
   EventWebHookModalMode,
+  notificationEventNames,
 } from "../utils";
 
 type EventWebHookAddEditModalProps = {
@@ -24,6 +26,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   mode,
   error,
 }) => {
+  const [ctaEnabled, setCtaEnabled] = useState(false);
+
   const form = useForm<EventWebHookEditParams>({
     defaultValues:
       mode.mode === "edit"
@@ -42,6 +46,18 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const modalTitle =
     mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
 
+  const handleFormValidation = useCallback(() => {
+    const formValues = form.getValues();
+
+    const schema = z.object({
+      url: z.string().url(),
+      name: z.string().trim().min(2),
+      events: z.array(z.enum(notificationEventNames)).min(1),
+    });
+
+    setCtaEnabled(schema.safeParse(formValues).success);
+  }, [form]);
+
   if (!isOpen) return null;
 
   return (
@@ -52,6 +68,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       open={isOpen}
       submit={handleSubmit}
       error={error}
+      ctaEnabled={ctaEnabled}
     >
       <div className="form-group">
         <label htmlFor="EventWebHookAddModal-name">Webhook Name</label>
@@ -63,6 +80,10 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           placeholder="My Webhook"
           id="EventWebHookAddModal-name"
           {...form.register("name")}
+          onChange={(evt) => {
+            form.setValue("name", evt.target.value);
+            handleFormValidation();
+          }}
         />
       </div>
 
@@ -76,6 +97,10 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           placeholder="https://example.com/growthbook-webhook"
           id="EventWebHookAddModal-url"
           {...form.register("url")}
+          onChange={(evt) => {
+            form.setValue("url", evt.target.value);
+            handleFormValidation();
+          }}
         />
       </div>
 
@@ -103,6 +128,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
                 "events",
                 selected.map((item) => item.id)
               );
+              handleFormValidation();
             }}
             selected={form.watch("events").map((v) => ({ id: v, name: v }))}
             placeholder="Choose events"
