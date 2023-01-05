@@ -1,23 +1,35 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import React, { FC } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { TbWebhook } from "react-icons/tb";
-import { FaAngleLeft } from "react-icons/fa";
+import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
 import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
-import { useIconForState } from "../utils";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { EventWebHookEditParams, useIconForState } from "../utils";
 import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
 import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
 import useApi from "../../../hooks/useApi";
+import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;
+  onEdit: (data: EventWebHookEditParams) => Promise<void>;
+  onDelete: () => Promise<void>;
+  onEditModalOpen: () => void;
+  onModalClose: () => void;
+  isModalOpen: boolean;
 };
 
 export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   eventWebHook,
+  onEdit,
+  onDelete,
+  onEditModalOpen,
+  onModalClose,
+  isModalOpen,
 }) => {
   const { lastState, lastRunAt, url, events, name, signingKey } = eventWebHook;
 
@@ -37,8 +49,33 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Link>
       </div>
 
-      <h1>{name}</h1>
-      <h3 className="text-muted font-weight-bold">{url}</h3>
+      <div className="d-sm-flex justify-content-between mb-3 mb-sm-0">
+        <div>
+          {/* Title */}
+          <h1>{name}</h1>
+        </div>
+
+        <div>
+          {/* Actions */}
+          <button
+            onClick={onEditModalOpen}
+            className="btn btn-sm btn-outline-primary mr-1"
+          >
+            <FaPencilAlt className="mr-1" />
+            Edit
+          </button>
+
+          <DeleteButton
+            displayName={name}
+            onClick={onDelete}
+            outline={true}
+            className="btn-sm"
+            text="Delete"
+          />
+        </div>
+      </div>
+
+      <h3 className="text-muted text-break font-weight-bold">{url}</h3>
 
       <div className="card mt-3 p-3">
         <div className="row">
@@ -82,7 +119,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                 </button>
               ) : null}
               <span className="ml-3">
-                <code className="text-main">{signingKey}</code>
+                <code className="text-main text-break">{signingKey}</code>
               </span>
 
               {copySuccess ? (
@@ -108,6 +145,15 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           </div>
         </div>
       </div>
+
+      {isModalOpen ? (
+        <EventWebHookAddEditModal
+          isOpen={isModalOpen}
+          onClose={onModalClose}
+          onSubmit={onEdit}
+          mode={{ mode: "edit", data: eventWebHook }}
+        />
+      ) : null}
     </div>
   );
 };
@@ -119,6 +165,21 @@ export const EventWebHookDetailContainer = () => {
   const { data, error } = useApi<{ eventWebHook: EventWebHookInterface }>(
     `/event-webhooks/${eventWebHookId}`
   );
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+
+  const handleEdit = useCallback(async (data: EventWebHookEditParams) => {
+    console.log("should edit", data);
+    // await apiCall("/event-webhooks/TODO", {
+    //   method: "PUT",
+    //   body: JSON.stringify(data),
+    // });
+    // mutate();
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    console.log("should delete");
+  }, []);
 
   if (error) {
     return (
@@ -132,5 +193,14 @@ export const EventWebHookDetailContainer = () => {
     return null;
   }
 
-  return <EventWebHookDetail eventWebHook={data.eventWebHook} />;
+  return (
+    <EventWebHookDetail
+      isModalOpen={isEditModalOpen}
+      onEdit={handleEdit}
+      onDelete={handleDelete}
+      onEditModalOpen={() => setIsEditModalOpen(true)}
+      onModalClose={() => setIsEditModalOpen(false)}
+      eventWebHook={data.eventWebHook}
+    />
+  );
 };
