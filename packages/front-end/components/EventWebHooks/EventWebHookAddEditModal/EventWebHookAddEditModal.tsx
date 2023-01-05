@@ -77,37 +77,35 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       </div>
 
       <div className="form-group">
-        <label className="d-block">
-          <span>Events</span>
-          <div className="mt-1">
-            <Typeahead
-              id="events-input"
-              labelKey="name"
-              multiple={true}
-              allowNew={true}
-              options={eventWebHookEventOptions.map(({ id }) => {
-                return {
-                  id: id,
-                  name: id,
-                };
-              })}
-              onChange={(
-                selected: {
-                  id: NotificationEventName;
-                  name: NotificationEventName;
-                }[]
-              ) => {
-                form.setValue(
-                  "events",
-                  selected.map((item) => item.id)
-                );
-              }}
-              selected={form.watch("events").map((v) => ({ id: v, name: v }))}
-              placeholder="Choose events"
-              positionFixed={true}
-            />
-          </div>
-        </label>
+        <label className="d-block">Events</label>
+        <div className="mt-1">
+          <Typeahead
+            id="events-input"
+            labelKey="name"
+            multiple={true}
+            allowNew={true}
+            options={eventWebHookEventOptions.map(({ id }) => {
+              return {
+                id: id,
+                name: id,
+              };
+            })}
+            onChange={(
+              selected: {
+                id: NotificationEventName;
+                name: NotificationEventName;
+              }[]
+            ) => {
+              form.setValue(
+                "events",
+                selected.map((item) => item.id)
+              );
+            }}
+            selected={form.watch("events").map((v) => ({ id: v, name: v }))}
+            placeholder="Choose events"
+            positionFixed={true}
+          />
+        </div>
       </div>
     </Modal>
   );
