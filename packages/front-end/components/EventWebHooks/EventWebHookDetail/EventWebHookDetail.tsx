@@ -1,5 +1,6 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import React, { FC, useCallback, useState } from "react";
+import pick from "lodash/pick";
 import { TbWebhook } from "react-icons/tb";
 import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
 import classNames from "classnames";
@@ -7,6 +8,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams, useIconForState } from "../utils";
 import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
@@ -162,24 +164,37 @@ export const EventWebHookDetailContainer = () => {
   const router = useRouter();
   const { eventwebhookid: eventWebHookId } = router.query;
 
-  const { data, error } = useApi<{ eventWebHook: EventWebHookInterface }>(
-    `/event-webhooks/${eventWebHookId}`
-  );
+  const { apiCall } = useAuth();
+
+  const { data, error, mutate } = useApi<{
+    eventWebHook: EventWebHookInterface;
+  }>(`/event-webhooks/${eventWebHookId}`);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
-  const handleEdit = useCallback(async (data: EventWebHookEditParams) => {
-    console.log("should edit", data);
-    // await apiCall("/event-webhooks/TODO", {
-    //   method: "PUT",
-    //   body: JSON.stringify(data),
-    // });
-    // mutate();
-  }, []);
+  const handleEdit = useCallback(
+    async (data: EventWebHookEditParams) => {
+      if (!eventWebHookId) return;
+
+      await apiCall(`/event-webhooks/${eventWebHookId}`, {
+        method: "PUT",
+        body: JSON.stringify(pick(data, ["events", "name", "url"])),
+      });
+      mutate();
+    },
+    [mutate, apiCall, eventWebHookId]
+  );
 
   const handleDelete = useCallback(async () => {
-    console.log("should delete");
-  }, []);
+    if (!router) return;
+    if (!eventWebHookId) return;
+
+    await apiCall(`/event-webhooks/${eventWebHookId}`, {
+      method: "DELETE",
+    });
+
+    router.back();
+  }, [eventWebHookId, apiCall, router]);
 
   if (error) {
     return (
