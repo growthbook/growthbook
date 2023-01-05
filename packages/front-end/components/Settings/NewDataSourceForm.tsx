@@ -15,14 +15,14 @@ import {
   dataSourceConnections,
   eventSchema,
 } from "@/services/eventSchema";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;

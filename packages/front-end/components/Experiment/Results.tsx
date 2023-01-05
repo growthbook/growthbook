@@ -67,7 +67,9 @@ const Results: FC<{
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasData =
+    snapshot?.results?.[0]?.variations?.length > 0 &&
+    snapshot.statsEngine === settings.statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
