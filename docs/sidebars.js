@@ -69,6 +69,11 @@ const sidebars = {
         { type: "doc", id: "guide/nextjs-and-growthbook", label: "Next.js" },
         {
           type: "doc",
+          id: "guide/nextjs-13-and-growthbook",
+          label: "Next.js (13 beta)",
+        },
+        {
+          type: "doc",
           id: "guide/create-react-app-and-growthbook",
           label: "Create React App",
         },
