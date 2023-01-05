@@ -640,6 +640,7 @@ export async function createSnapshot(
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
+    statsEngine,
   };
 
   const nextUpdate = determineNextDate(

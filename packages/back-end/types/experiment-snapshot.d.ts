@@ -1,5 +1,6 @@
 import { QueryLanguage } from "./datasource";
 import { MetricStats } from "./metric";
+import { OrganizationSettings } from "./organization";
 import { Queries } from "./query";
 
 export interface SnapshotMetric {
@@ -57,4 +58,5 @@ export interface ExperimentSnapshotInterface {
   segment?: string;
   activationMetric?: string;
   skipPartialData?: boolean;
+  statsEngine: OrganizationSettings["statsEngine"];
 }
