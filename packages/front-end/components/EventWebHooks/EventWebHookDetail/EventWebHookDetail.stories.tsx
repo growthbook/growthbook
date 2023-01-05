@@ -59,6 +59,8 @@ const eventWebHookNoState: EventWebHookInterface = {
 export const SuccessfulRun = () => {
   return (
     <EventWebHookDetail
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
       isModalOpen={false}
       onDelete={async () => {
         action("onDelete")();
@@ -74,6 +76,8 @@ export const SuccessfulRun = () => {
 export const FailedRun = () => {
   return (
     <EventWebHookDetail
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
       isModalOpen={false}
       onDelete={async () => {
         action("onDelete")();
@@ -89,6 +93,8 @@ export const FailedRun = () => {
 export const WithoutRuns = () => {
   return (
     <EventWebHookDetail
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
       isModalOpen={false}
       onDelete={async () => {
         action("onDelete")();
@@ -123,6 +129,8 @@ export const LotsOfEvents = () => {
 
   return (
     <EventWebHookDetail
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
       isModalOpen={false}
       onDelete={async () => {
         action("onDelete")();
