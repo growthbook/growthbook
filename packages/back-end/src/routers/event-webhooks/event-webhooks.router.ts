@@ -81,4 +81,27 @@ router.delete(
   eventWebHooksController.deleteEventWebHook
 );
 
+/**
+ * PUT /event-webhooks/:eventWebHookId
+ * Update one eventwebhook for an organization by ID
+ */
+router.put(
+  "/event-webhooks/:eventWebHookId",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        eventWebHookId: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        url: z.string().url(),
+        name: z.string().trim().min(2),
+        events: z.array(z.enum(notificationEventNames)).min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.putEventWebHook
+);
+
 export { router as eventWebHooksRouter };

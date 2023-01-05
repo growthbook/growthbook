@@ -11,6 +11,7 @@ import { NotificationEventName } from "../../events/base-types";
 import {
   deleteEventWebHookById,
   getEventWebHookById,
+  updateEventWebHook,
 } from "../../models/EventWebhookModel";
 
 // region GET /event-webhooks
@@ -160,3 +161,43 @@ export const deleteEventWebHook = async (
 };
 
 // endregion DELETE /event-webhooks/:eventWebHookId
+
+// region PUT /event-webhooks/:eventWebHookId
+
+type UpdateEventWebHookRequest = AuthRequest<
+  {
+    name: string;
+    url: string;
+    events: NotificationEventName[];
+  },
+  { eventWebHookId: string }
+>;
+
+type UpdateEventWebHookResponse = {
+  status: number;
+};
+
+export const putEventWebHook = async (
+  req: UpdateEventWebHookRequest,
+  res: Response<UpdateEventWebHookResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+
+  const successful = await updateEventWebHook(
+    {
+      eventWebHookId: req.params.eventWebHookId,
+      organizationId: org.id,
+    },
+    req.body
+  );
+
+  const status = successful ? 200 : 404;
+
+  res.status(status).json({
+    status,
+  });
+};
+
+// endregion PUT /event-webhooks/:eventWebHookId
