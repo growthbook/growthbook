@@ -11,7 +11,12 @@ export default function Custom404() {
     if (!isSentryEnabled()) return;
     if (!badPath) return;
 
-    const referrer = document && document?.referrer ? document.referrer : "-";
+    const referrer =
+      typeof document === "undefined"
+        ? "-"
+        : document?.referrer
+        ? document.referrer
+        : "-";
     Sentry.captureMessage("404: " + badPath + " from " + referrer);
   }, [badPath]);
 
