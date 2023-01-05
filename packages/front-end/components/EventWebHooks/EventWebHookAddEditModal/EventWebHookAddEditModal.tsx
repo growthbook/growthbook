@@ -14,6 +14,7 @@ type EventWebHookAddEditModalProps = {
   onClose: () => void;
   onSubmit: (data: EventWebHookEditParams) => void;
   mode: EventWebHookModalMode;
+  error: string | null;
 };
 
 export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
@@ -21,6 +22,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   onClose,
   onSubmit,
   mode,
+  error,
 }) => {
   const form = useForm<EventWebHookEditParams>({
     defaultValues:
@@ -49,6 +51,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       close={onClose}
       open={isOpen}
       submit={handleSubmit}
+      error={error}
     >
       <div className="form-group">
         <label htmlFor="EventWebHookAddModal-name">Webhook Name</label>

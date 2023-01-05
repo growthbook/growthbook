@@ -23,6 +23,7 @@ type EventWebHookDetailProps = {
   onEditModalOpen: () => void;
   onModalClose: () => void;
   isModalOpen: boolean;
+  editError: string | null;
 };
 
 export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
@@ -32,6 +33,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   onEditModalOpen,
   onModalClose,
   isModalOpen,
+  editError,
 }) => {
   const { lastState, lastRunAt, url, events, name, signingKey } = eventWebHook;
 
@@ -153,6 +155,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           isOpen={isModalOpen}
           onClose={onModalClose}
           onSubmit={onEdit}
+          error={editError}
           mode={{ mode: "edit", data: eventWebHook }}
         />
       ) : null}
@@ -171,16 +174,36 @@ export const EventWebHookDetailContainer = () => {
   }>(`/event-webhooks/${eventWebHookId}`);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const handleEdit = useCallback(
     async (data: EventWebHookEditParams) => {
       if (!eventWebHookId) return;
 
-      await apiCall(`/event-webhooks/${eventWebHookId}`, {
-        method: "PUT",
-        body: JSON.stringify(pick(data, ["events", "name", "url"])),
-      });
-      mutate();
+      // Keep the modal open and display error
+      const handleUpdateError = (message: string) => {
+        setEditError(`Failed to update webhook: ${message}`);
+        setIsEditModalOpen(true);
+      };
+
+      try {
+        const response = await apiCall<{ error?: string; status?: number }>(
+          `/event-webhooks/${eventWebHookId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(pick(data, ["events", "name", "url"])),
+          }
+        );
+
+        if (response.status === 200) {
+          mutate();
+          return;
+        }
+
+        handleUpdateError(response.error || "Unknown error");
+      } catch (e) {
+        handleUpdateError("Unknown error");
+      }
     },
     [mutate, apiCall, eventWebHookId]
   );
@@ -216,6 +239,7 @@ export const EventWebHookDetailContainer = () => {
       onEditModalOpen={() => setIsEditModalOpen(true)}
       onModalClose={() => setIsEditModalOpen(false)}
       eventWebHook={data.eventWebHook}
+      editError={editError}
     />
   );
 };
