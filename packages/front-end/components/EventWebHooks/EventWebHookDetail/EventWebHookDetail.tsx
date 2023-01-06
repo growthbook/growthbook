@@ -216,7 +216,7 @@ export const EventWebHookDetailContainer = () => {
       method: "DELETE",
     });
 
-    router.back();
+    router.replace("/settings/webhooks");
   }, [eventWebHookId, apiCall, router]);
 
   if (error) {
