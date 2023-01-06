@@ -40,10 +40,16 @@ const SDKConnectionModel = mongoose.model<SDKConnectionDocument>(
   sdkConnectionSchema
 );
 
-function toInterface(
-  doc: SDKConnectionDocument | null
-): SDKConnectionInterface | null {
-  return doc ? doc.toJSON() : null;
+function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
+  return doc.toJSON();
+}
+
+export async function findSDKConnectionById(organization: string, id: string) {
+  const doc = await SDKConnectionModel.findOne({
+    organization,
+    id,
+  });
+  return doc ? toInterface(doc) : null;
 }
 
 export async function findSDKConnectionsByOrganization(organization: string) {
@@ -55,7 +61,7 @@ export async function findSDKConnectionsByOrganization(organization: string) {
 
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
-  return toInterface(doc);
+  return doc ? toInterface(doc) : null;
 }
 
 const createSDKConnectionValidator = z
@@ -151,7 +157,10 @@ export async function editSDKConnection(
   );
 }
 
-export async function deleteSDKConnection(organization: string, id: string) {
+export async function deleteSDKConnectionById(
+  organization: string,
+  id: string
+) {
   await SDKConnectionModel.deleteOne({
     organization,
     id,
@@ -205,11 +214,10 @@ export async function testProxyConnection(connection: SDKConnectionInterface) {
   );
 
   if (!responseWithoutBody.ok || !stringBody) {
-    await setProxyError(
+    return await setProxyError(
       connection,
       stringBody || "Received status code " + responseWithoutBody.status
     );
-    return;
   }
 
   try {

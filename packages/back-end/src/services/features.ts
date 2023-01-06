@@ -134,13 +134,39 @@ export async function refreshSDKPayloadCache(
   await queueWebhook(organization.id, payloadKeys, true);
 }
 
+async function getFeatureDefinitionsResponse(
+  features: Record<string, FeatureDefinition>,
+  dateUpdated: Date | null,
+  encryptionKey?: string
+) {
+  if (!encryptionKey) {
+    return {
+      features,
+      dateUpdated,
+    };
+  }
+
+  const encryptedFeatures = await encrypt(
+    JSON.stringify(features),
+    encryptionKey
+  );
+
+  return {
+    features: {},
+    dateUpdated,
+    encryptedFeatures,
+  };
+}
+
 export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
-  project?: string
+  project?: string,
+  encryptionKey?: string
 ): Promise<{
   features: Record<string, FeatureDefinition>;
   dateUpdated: Date | null;
+  encryptedFeatures?: string;
 }> {
   // Return cached payload from Mongo if exists
   try {
@@ -151,10 +177,11 @@ export async function getFeatureDefinitions(
     });
     if (cached) {
       const { features } = cached.contents;
-      return {
+      return await getFeatureDefinitionsResponse(
         features,
-        dateUpdated: cached.dateUpdated,
-      };
+        cached.dateUpdated,
+        encryptionKey
+      );
     }
   } catch (e) {
     logger.error(e, "Failed to fetch SDK payload from cache");
@@ -162,10 +189,7 @@ export async function getFeatureDefinitions(
 
   const org = await getOrganizationById(organization);
   if (!org) {
-    return {
-      features: {},
-      dateUpdated: null,
-    };
+    return await getFeatureDefinitionsResponse({}, null, encryptionKey);
   }
 
   // Generate the feature definitions
@@ -181,7 +205,11 @@ export async function getFeatureDefinitions(
     featureDefinitions,
   });
 
-  return { features: featureDefinitions, dateUpdated: new Date() };
+  return await getFeatureDefinitionsResponse(
+    featureDefinitions,
+    new Date(),
+    encryptionKey
+  );
 }
 
 export function generateRuleId() {

@@ -1,3 +1,14 @@
+// GrowthBook Proxy
+export interface ProxyConnection {
+  enabled: boolean;
+  host: string;
+  signingKey: string;
+  connected: boolean;
+  proxyVersion: string;
+  error: string;
+  lastError: Date | null;
+}
+
 export interface SDKConnectionInterface {
   id: string;
   organization: string;
@@ -20,14 +31,5 @@ export interface SDKConnectionInterface {
   // Set to true when it's used for the first time
   connected: boolean;
 
-  // GrowthBook Proxy
-  proxy?: {
-    enabled: boolean;
-    host: string;
-    signingKey: string;
-    connected: boolean;
-    proxyVersion: string;
-    error: string;
-    lastError: Date | null;
-  };
+  proxy?: ProxyConnection;
 }

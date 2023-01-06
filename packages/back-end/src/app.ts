@@ -83,6 +83,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
+import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 
@@ -193,6 +194,25 @@ app.get(
 // For preflight requests
 app.options(
   "/api/features/:key?",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  function (req, res) {
+    res.send(200);
+  }
+);
+
+app.get(
+  "/sdk-data/:key?",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  featuresController.getSDKDataPublic
+);
+app.options(
+  "/sdk-data/:key?",
   cors({
     credentials: false,
     origin: "*",
@@ -420,6 +440,8 @@ app.get("/reports", reportsController.getReports);
 app.use("/segments", segmentRouter);
 
 app.use("/dimensions", dimensionRouter);
+
+app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 

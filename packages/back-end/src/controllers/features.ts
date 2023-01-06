@@ -28,7 +28,6 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
-  encrypt,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
@@ -45,6 +44,64 @@ import {
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
+import {
+  findSDKConnectionByKey,
+  markSDKConnectionUsed,
+} from "../models/SdkConnectionModel";
+import { logger } from "../util/logger";
+
+export async function getSDKDataPublic(req: Request, res: Response) {
+  try {
+    const { key } = req.params;
+
+    if (!key) {
+      return res.status(400).json({
+        status: 400,
+        error: "Missing key",
+      });
+    }
+
+    const connection = await findSDKConnectionByKey(key);
+    if (!connection) {
+      return res.status(400).json({
+        status: 400,
+        error: "Invalid key",
+      });
+    }
+
+    // If this is the first time the SDK Connection is being used, mark it as successfully connected
+    if (!connection.connected) {
+      // This is async, but we don't care about the response
+      markSDKConnectionUsed(key).catch(() => {
+        // Errors are not fatal, ignore them
+        logger.warn("Failed to mark SDK Connection as used - " + key);
+      });
+    }
+
+    const defs = await getFeatureDefinitions(
+      connection.organization,
+      connection.environment,
+      connection.project,
+      connection.encryptPayload ? connection.encryptionKey : ""
+    );
+
+    // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
+    res.set(
+      "Cache-control",
+      "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
+    );
+
+    res.status(200).json({
+      status: 200,
+      ...defs,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      error: "Failed to get features",
+    });
+  }
+}
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -87,11 +144,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       projectFilter = project;
     }
 
-    //Archived features not to be shown
-    const { features, dateUpdated } = await getFeatureDefinitions(
+    const defs = await getFeatureDefinitions(
       organization,
       environment,
-      projectFilter
+      projectFilter,
+      encryptSDK ? encryptionKey : ""
     );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -102,14 +159,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     res.status(200).json({
       status: 200,
-      features: !encryptSDK ? features : {},
-      ...(encryptSDK && {
-        encryptedFeatures: await encrypt(
-          JSON.stringify(features),
-          encryptionKey
-        ),
-      }),
-      dateUpdated,
+      ...defs,
     });
   } catch (e) {
     req.log.error(e, "Failed to get features");
