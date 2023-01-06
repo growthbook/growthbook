@@ -8,7 +8,11 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
 import { NotificationEventName } from "../../events/base-types";
-import { getEventWebHookById } from "../../models/EventWebhookModel";
+import {
+  deleteEventWebHookById,
+  getEventWebHookById,
+  updateEventWebHook,
+} from "../../models/EventWebhookModel";
 
 // region GET /event-webhooks
 
@@ -127,3 +131,73 @@ export const getEventWebHookLogs = async (
 };
 
 // endregion GET /event-webhooks/logs/:eventWebHookId
+
+// region DELETE /event-webhooks/:eventWebHookId
+
+type DeleteEventWebhookRequest = AuthRequest<null, { eventWebHookId: string }>;
+
+type DeleteEventWebhookResponse = {
+  status: number;
+};
+
+export const deleteEventWebHook = async (
+  req: DeleteEventWebhookRequest,
+  res: Response<DeleteEventWebhookResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+
+  const successful = await deleteEventWebHookById({
+    eventWebHookId: req.params.eventWebHookId,
+    organizationId: org.id,
+  });
+
+  const status = successful ? 200 : 404;
+
+  res.status(status).json({
+    status,
+  });
+};
+
+// endregion DELETE /event-webhooks/:eventWebHookId
+
+// region PUT /event-webhooks/:eventWebHookId
+
+type UpdateEventWebHookRequest = AuthRequest<
+  {
+    name: string;
+    url: string;
+    events: NotificationEventName[];
+  },
+  { eventWebHookId: string }
+>;
+
+type UpdateEventWebHookResponse = {
+  status: number;
+};
+
+export const putEventWebHook = async (
+  req: UpdateEventWebHookRequest,
+  res: Response<UpdateEventWebHookResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+
+  const successful = await updateEventWebHook(
+    {
+      eventWebHookId: req.params.eventWebHookId,
+      organizationId: org.id,
+    },
+    req.body
+  );
+
+  const status = successful ? 200 : 404;
+
+  res.status(status).json({
+    status,
+  });
+};
+
+// endregion PUT /event-webhooks/:eventWebHookId
