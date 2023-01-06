@@ -45,6 +45,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const modalTitle =
     mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
+  const buttonText = mode.mode == "edit" ? "Save" : "Create";
 
   const handleFormValidation = useCallback(() => {
     const formValues = form.getValues();
@@ -63,7 +64,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   return (
     <Modal
       header={modalTitle}
-      cta="Create"
+      cta={buttonText}
       close={onClose}
       open={isOpen}
       submit={handleSubmit}
