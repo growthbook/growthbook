@@ -1,13 +1,15 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
-import { SDKConnectionInterface } from "../../../types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  CreateSDKConnectionParams,
+  EditSDKConnectionParams,
+} from "../../../types/sdk-connection";
 import {
   createSDKConnection,
-  CreateSDKConnectionParams,
   deleteSDKConnectionById,
   editSDKConnection,
-  EditSDKConnectionParams,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
   testProxyConnection,

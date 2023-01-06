@@ -1,14 +1,18 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { SDKConnectionInterface } from "../../types/sdk-connection";
+import {
+  CreateSDKConnectionParams,
+  EditSDKConnectionParams,
+  SDKConnectionInterface,
+} from "../../types/sdk-connection";
 import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
   id: String,
   organization: String,
-  description: String,
+  name: String,
   dateCreated: Date,
   dateUpdated: Date,
   languages: [String],
@@ -64,10 +68,10 @@ export async function findSDKConnectionByKey(key: string) {
   return doc ? toInterface(doc) : null;
 }
 
-const createSDKConnectionValidator = z
+export const createSDKConnectionValidator = z
   .object({
     organization: z.string(),
-    description: z.string(),
+    name: z.string(),
     languages: z.array(z.string()),
     environment: z.string(),
     project: z.string(),
@@ -76,9 +80,7 @@ const createSDKConnectionValidator = z
     proxyHost: z.string(),
   })
   .strict();
-export type CreateSDKConnectionParams = z.infer<
-  typeof createSDKConnectionValidator
->;
+
 export async function createSDKConnection(params: CreateSDKConnectionParams) {
   const {
     proxyEnabled,
@@ -93,8 +95,10 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     id: uniqid("sdk_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    encryptionKey: generateEncryptionKey(),
+    encryptionKey: await generateEncryptionKey(),
     connected: false,
+    // This is not for cryptography, it just needs to be long enough to be unique
+    key: generateSigningKey("", 12),
     proxy: {
       enabled: proxyEnabled,
       host: proxyHost,
@@ -109,17 +113,14 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   return toInterface(doc);
 }
 
-const editSDKConnectionValidator = z
+export const editSDKConnectionValidator = z
   .object({
-    description: z.string().optional(),
+    name: z.string().optional(),
     languages: z.array(z.string()).optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
   })
   .strict();
-export type EditSDKConnectionParams = z.infer<
-  typeof editSDKConnectionValidator
->;
 
 export async function editSDKConnection(
   organization: string,

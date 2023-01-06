@@ -1,3 +1,9 @@
+import { z } from "zod";
+import {
+  editSDKConnectionValidator,
+  createSDKConnectionValidator,
+} from "../src/models/SdkConnectionModel";
+
 // GrowthBook Proxy
 export interface ProxyConnection {
   enabled: boolean;
@@ -20,12 +26,13 @@ export type SDKLanguage =
   | "csharp"
   | "android"
   | "ios"
-  | "flutter";
+  | "flutter"
+  | "other";
 
 export interface SDKConnectionInterface {
   id: string;
   organization: string;
-  description: string;
+  name: string;
   dateCreated: Date;
   dateUpdated: Date;
 
@@ -46,3 +53,10 @@ export interface SDKConnectionInterface {
 
   proxy?: ProxyConnection;
 }
+
+export type EditSDKConnectionParams = z.infer<
+  typeof editSDKConnectionValidator
+>;
+export type CreateSDKConnectionParams = z.infer<
+  typeof createSDKConnectionValidator
+>;

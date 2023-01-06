@@ -16,12 +16,17 @@ import useApi from "@/hooks/useApi";
 import Button from "@/components/Button";
 import { getApiHost } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { GBAddCircle } from "@/components/Icons";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ClickToReveal from "@/components/Settings/ClickToReveal";
+import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "../../Tooltip/Tooltip";
 import MoreMenu from "../../Dropdown/MoreMenu";
 import Tabs from "../../Tabs/Tabs";
 import Tab from "../../Tabs/Tab";
 import Code from "../../SyntaxHighlighting/Code";
-import LanguageLogo from "./LanguageLogo";
+import SDKLanguageLogo from "./SDKLanguageLogo";
+import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useApi<{
@@ -31,8 +36,14 @@ export default function SDKConnectionsList() {
   const { apiCall } = useAuth();
   const [rowOpen, setRowOpen] = useState("");
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editModal, setEditModal] = useState<SDKConnectionInterface | null>(
+    null
+  );
+
   const { getProjectById } = useDefinitions();
 
+  const permissions = usePermissions();
   const environments = useEnvironments();
 
   if (error) {
@@ -46,12 +57,22 @@ export default function SDKConnectionsList() {
 
   return (
     <div className="mt-4">
+      {createOpen && (
+        <SDKConnectionForm close={() => setCreateOpen(false)} mutate={mutate} />
+      )}
+      {editModal && (
+        <SDKConnectionForm
+          close={() => setEditModal(null)}
+          mutate={mutate}
+          current={editModal}
+        />
+      )}
       <h1>SDK Connections</h1>
       {connections.length > 0 && (
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              <th>Description</th>
+              <th>Name</th>
               <th>Languages</th>
               <th style={{ width: 30 }}></th>
             </tr>
@@ -61,6 +82,12 @@ export default function SDKConnectionsList() {
               const env = connection.environment;
               const envExists = environments?.some((e) => e.id === env);
               const open = rowOpen === connection.id;
+
+              const hasPermission = permissions.check(
+                "manageEnvironments",
+                connection.project,
+                [connection.environment]
+              );
 
               return (
                 <React.Fragment key={connection.id}>
@@ -72,10 +99,10 @@ export default function SDKConnectionsList() {
                       );
                     }}
                   >
-                    <td>{connection.description}</td>
+                    <td>{connection.name}</td>
                     <td>
                       {connection.languages.map((language, i) => (
-                        <LanguageLogo key={i} language={language} />
+                        <SDKLanguageLogo key={i} language={language} />
                       ))}
                     </td>
                     <td>{open ? <FaAngleDown /> : <FaAngleRight />}</td>
@@ -89,7 +116,34 @@ export default function SDKConnectionsList() {
                               <h4>Included Features</h4>
                             </div>
                             <div className="col-auto">
-                              <MoreMenu>TODO</MoreMenu>
+                              {hasPermission && (
+                                <MoreMenu>
+                                  <button
+                                    className="dropdown-item"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setEditModal(connection);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <DeleteButton
+                                    className="dropdown-item"
+                                    displayName="SDK Connection"
+                                    text="Delete"
+                                    useIcon={false}
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/sdk-connections/${connection.id}`,
+                                        {
+                                          method: "DELETE",
+                                        }
+                                      );
+                                      mutate();
+                                    }}
+                                  />
+                                </MoreMenu>
+                              )}
                             </div>
                           </div>
                           <div className="row mb-3">
@@ -110,7 +164,7 @@ export default function SDKConnectionsList() {
                                 body={
                                   envExists
                                     ? ""
-                                    : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                                    : "This environment no longer exists. This SDK Connection will continue working, but will no longer be updated."
                                 }
                               >
                                 {connection.environment}{" "}
@@ -119,13 +173,18 @@ export default function SDKConnectionsList() {
                                 )}
                               </Tooltip>
                             </div>
-                            <div className="col-auto">
+                            <div className="col-auto d-flex">
                               <span className="mr-1 text-muted">
                                 Encrypted:
                               </span>{" "}
-                              {connection.encryptPayload ? "yes" : "no"}
-                              {connection.encryptPayload && (
-                                <span>TODO: `reveal key` button</span>
+                              {connection.encryptPayload ? "yes " : "no"}
+                              {connection.encryptPayload && hasPermission && (
+                                <ClickToReveal
+                                  getValue={async () =>
+                                    connection.encryptionKey
+                                  }
+                                  valueWhenHidden="abcdef123456abcdef123456"
+                                />
                               )}
                             </div>
                           </div>
@@ -154,27 +213,24 @@ export default function SDKConnectionsList() {
                                       <FaQuestionCircle /> no status
                                     </span>
                                   )}
-                                  <Button
-                                    color="link"
-                                    className="btn-sm"
-                                    title="Test connection"
-                                    onClick={async () => {
-                                      await apiCall(
-                                        `/sdk-connections/${connection.id}/test-proxy`,
-                                        {
-                                          method: "POST",
-                                        }
-                                      );
-                                      await mutate();
-                                    }}
-                                  >
-                                    <BiRepeat />
-                                  </Button>
-                                </div>
-                                <div className="col-auto">
-                                  <a href="#">
-                                    Setup Instructions <FaAngleRight />
-                                  </a>
+                                  {hasPermission && (
+                                    <Button
+                                      color="link"
+                                      className="btn-sm"
+                                      title="Test connection"
+                                      onClick={async () => {
+                                        await apiCall(
+                                          `/sdk-connections/${connection.id}/test-proxy`,
+                                          {
+                                            method: "POST",
+                                          }
+                                        );
+                                        await mutate();
+                                      }}
+                                    >
+                                      <BiRepeat />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -217,6 +273,17 @@ export default function MyApp() {
           </tbody>
         </table>
       )}
+
+      {permissions.check("manageEnvironments", "", [])}
+      <button
+        className="btn btn-primary"
+        onClick={(e) => {
+          e.preventDefault();
+          setCreateOpen(true);
+        }}
+      >
+        <GBAddCircle /> Create New SDK Connection
+      </button>
     </div>
   );
 }

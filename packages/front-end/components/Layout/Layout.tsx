@@ -53,6 +53,11 @@ const navlinks: SidebarLinkProps[] = [
         path: /^environments/,
       },
       {
+        name: "SDKs",
+        href: "/sdks",
+        path: /^sdks/,
+      },
+      {
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,

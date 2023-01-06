@@ -54,9 +54,9 @@ function getShortEnvName(env: string) {
   return env.substring(0, 4);
 }
 
-export function generateSigningKey(prefix: string = ""): string {
+export function generateSigningKey(prefix: string = "", bytes = 32): string {
   return (
-    prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "")
+    prefix + crypto.randomBytes(bytes).toString("base64").replace(/[=/+]/g, "")
   );
 }
 
