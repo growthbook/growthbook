@@ -1,9 +1,3 @@
-import { z } from "zod";
-import {
-  editSDKConnectionValidator,
-  createSDKConnectionValidator,
-} from "../src/models/SdkConnectionModel";
-
 // GrowthBook Proxy
 export interface ProxyConnection {
   enabled: boolean;
@@ -14,6 +8,23 @@ export interface ProxyConnection {
   error: string;
   lastError: Date | null;
 }
+
+export type EditSDKConnectionParams = {
+  name?: string;
+  languages?: SDKLanguage[];
+  proxyEnabled?: boolean;
+  proxyHost?: string;
+};
+export type CreateSDKConnectionParams = {
+  organization: string;
+  name?: string;
+  languages?: SDKLanguage[];
+  proxyEnabled?: boolean;
+  proxyHost?: string;
+  environment: string;
+  project: string;
+  encryptPayload: boolean;
+};
 
 export type SDKLanguage =
   | "javascript"
@@ -53,10 +64,3 @@ export interface SDKConnectionInterface {
 
   proxy: ProxyConnection;
 }
-
-export type EditSDKConnectionParams = z.infer<
-  typeof editSDKConnectionValidator
->;
-export type CreateSDKConnectionParams = z.infer<
-  typeof createSDKConnectionValidator
->;

@@ -72,7 +72,7 @@ export default function SDKConnectionForm({
             body: JSON.stringify(body),
           });
         } else {
-          const body: CreateSDKConnectionParams = {
+          const body: Omit<CreateSDKConnectionParams, "organization"> = {
             ...value,
           };
           await apiCall(`/sdk-connections`, {
