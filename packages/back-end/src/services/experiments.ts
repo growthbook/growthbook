@@ -518,7 +518,8 @@ export async function createManualSnapshot(
   users: number[],
   metrics: {
     [key: string]: MetricStats[];
-  }
+  },
+  statsEngine?: OrganizationSettings["statsEngine"]
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -544,6 +545,7 @@ export async function createManualSnapshot(
         variations,
       },
     ],
+    statsEngine,
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);
