@@ -14,8 +14,8 @@ services:
       - mongo
     environment:
       - MONGODB_URI=mongodb://root:password@mongo:27017/
-      - APP_ORIGIN=https://growthbook-3000-${OKTETO_NAMESPACE}.cloud.okteto.net
-      - API_HOST=https://growthbook-3100-${OKTETO_NAMESPACE}.cloud.okteto.net
+      - APP_ORIGIN=https://growthbook-3000-${OKTETO_NAMESPACE}.growthbook.okteto.dev
+      - API_HOST=https://growthbook-3100-${OKTETO_NAMESPACE}.growthbook.okteto.dev
       - JWT_SECRET=${JWT_SECRET}
       - IS_CLOUD=true
       - SSO_CONFIG=${SSO_CONFIG}

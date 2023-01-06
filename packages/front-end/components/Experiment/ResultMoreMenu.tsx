@@ -10,11 +10,11 @@ import {
 import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import Button from "../Button";
-import MoreMenu from "../Dropdown/MoreMenu";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import Tooltip from "../Tooltip/Tooltip";
-import ResultsDownloadButton from "./ResultsDownloadButton";
+import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
+import Button from "@/components/Button";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -88,7 +88,7 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.runQueries && (
+      {forceRefresh && permissions.check("runQueries", "") && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {

@@ -5,13 +5,14 @@ import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import { checkDatasourceProjectPermissions } from "@/services/datasources";
+import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissions from "@/hooks/usePermissions";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
-import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -19,12 +20,19 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   dataSource,
   onSave,
   onCancel,
+  canEdit = true,
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  canEdit =
+    canEdit &&
+    checkDatasourceProjectPermissions(
+      dataSource,
+      permissions,
+      "editDatasourceSettings"
+    );
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
 
@@ -120,6 +128,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
         </div>
       ) : null}
       {/* endregion Heading */}
+
       {/* region Identity Joins list */}
       {identityJoins.length > 0 ? (
         <div className="">
@@ -194,7 +203,9 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
         // Empty state
         <div className="alert alert-info">No identity joins.</div>
       ) : null}
+
       {/* endregion Identity Joins list */}
+
       {/* region Add/Edit modal */}
       {uiMode === "edit" || uiMode === "add" ? (
         <AddEditIdentityJoinModal

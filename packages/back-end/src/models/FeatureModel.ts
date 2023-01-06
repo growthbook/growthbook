@@ -16,7 +16,11 @@ import {
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
-import { FeatureUpdatedNotificationEvent } from "../events/base-events";
+import {
+  FeatureCreatedNotificationEvent,
+  FeatureDeletedNotificationEvent,
+  FeatureUpdatedNotificationEvent,
+} from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import {
   getAffectedSDKPayloadKeys,
@@ -153,6 +157,52 @@ async function logFeatureUpdatedEvent(
   return emittedEvent.id;
 }
 
+/**
+ * @param organization
+ * @param feature
+ * @returns event.id
+ */
+async function logFeatureCreatedEvent(
+  organization: OrganizationInterface,
+  feature: FeatureInterface
+): Promise<string> {
+  const payload: FeatureCreatedNotificationEvent = {
+    object: "feature",
+    event: "feature.created",
+    data: {
+      current: feature,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+}
+
+/**
+ * @param organization
+ * @param feature
+ * @returns event.id
+ */
+async function logFeatureDeletedEvent(
+  organization: OrganizationInterface,
+  previousFeature: FeatureInterface
+): Promise<string> {
+  const payload: FeatureDeletedNotificationEvent = {
+    object: "feature",
+    event: "feature.deleted",
+    data: {
+      previous: previousFeature,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+}
+
 async function onFeatureCreate(
   organization: OrganizationInterface,
   feature: FeatureInterface
@@ -162,7 +212,7 @@ async function onFeatureCreate(
     getAffectedSDKPayloadKeys([feature])
   );
 
-  // TODO: logFeatureCreatedEvent
+  await logFeatureCreatedEvent(organization, feature);
 }
 
 async function onFeatureDelete(
@@ -174,7 +224,7 @@ async function onFeatureDelete(
     getAffectedSDKPayloadKeys([feature])
   );
 
-  // TODO: logFeatureDeletedEvent
+  await logFeatureDeletedEvent(organization, feature);
 }
 
 export async function onFeatureUpdate(
@@ -353,12 +403,48 @@ export async function setFeatureDraftRules(
   await updateDraft(org, feature, draft);
 }
 
-export async function removeTagInFeature(organization: string, tag: string) {
-  const query = { organization, tags: tag };
+export async function removeTagInFeature(
+  organization: OrganizationInterface,
+  tag: string
+) {
+  const query = { organization: organization.id, tags: tag };
+
+  const featureDocs = await FeatureModel.find(query);
+  const features = (featureDocs || []).map(toInterface);
+
   await FeatureModel.updateMany(query, {
     $pull: { tags: tag },
   });
-  // TODO: call onFeatureUpdate for each affected feature
+
+  features.forEach((feature) => {
+    const updatedFeature = {
+      ...feature,
+      tags: (feature.tags || []).filter((t) => t !== tag),
+    };
+
+    onFeatureUpdate(organization, feature, updatedFeature);
+  });
+}
+
+export async function removeProjectFromFeatures(
+  project: string,
+  organization: OrganizationInterface
+) {
+  const query = { organization: organization.id, project };
+
+  const featureDocs = await FeatureModel.find(query);
+  const features = (featureDocs || []).map(toInterface);
+
+  await FeatureModel.updateMany(query, { $set: { project: "" } });
+
+  features.forEach((feature) => {
+    const updatedFeature = {
+      ...feature,
+      project: "",
+    };
+
+    onFeatureUpdate(organization, feature, updatedFeature);
+  });
 }
 
 export async function setDefaultValue(

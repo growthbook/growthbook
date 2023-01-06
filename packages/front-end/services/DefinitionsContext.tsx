@@ -6,8 +6,8 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import useApi from "../hooks/useApi";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import useApi from "@/hooks/useApi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -112,7 +112,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     if (!data || !data.metrics) {
       return [];
     }
-
     return data.metrics.filter((m) => m.status !== "archived");
   }, [data?.metrics]);
 
@@ -130,6 +129,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
+    const filteredProject =
+      data.projects && data.projects.map((p) => p.id).includes(project)
+        ? project
+        : "";
     value = {
       ready: true,
       metrics: activeMetrics,
@@ -140,10 +143,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       groups: data.groups,
       savedGroups: data.savedGroups,
       projects: data.projects,
-      project:
-        data.projects && data.projects.map((p) => p.id).includes(project)
-          ? project
-          : "",
+      project: filteredProject,
       setProject,
       getMetricById,
       getDatasourceById,
