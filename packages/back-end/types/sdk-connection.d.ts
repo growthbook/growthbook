@@ -9,6 +9,19 @@ export interface ProxyConnection {
   lastError: Date | null;
 }
 
+export type SDKLanguage =
+  | "javascript"
+  | "react"
+  | "php"
+  | "ruby"
+  | "python"
+  | "go"
+  | "java"
+  | "csharp"
+  | "android"
+  | "ios"
+  | "flutter";
+
 export interface SDKConnectionInterface {
   id: string;
   organization: string;
@@ -17,7 +30,7 @@ export interface SDKConnectionInterface {
   dateUpdated: Date;
 
   // The SDK languages being used (e.g. `javascript`)
-  languages: string[];
+  languages: SDKLanguage[];
 
   // SDK payload settings
   environment: string;
