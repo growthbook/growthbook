@@ -28,7 +28,7 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
-async function generateEncryptionKey(): Promise<string> {
+export async function generateEncryptionKey(): Promise<string> {
   const key = await webcrypto.subtle.generateKey(
     {
       name: "AES-CBC",
@@ -54,6 +54,12 @@ function getShortEnvName(env: string) {
   return env.substring(0, 4);
 }
 
+export function generateSigningKey(prefix: string = ""): string {
+  return (
+    prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "")
+  );
+}
+
 export async function createApiKey({
   environment,
   project,
@@ -74,8 +80,7 @@ export async function createApiKey({
   }
 
   const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
-  const key =
-    prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
+  const key = generateSigningKey(prefix);
 
   const id = uniqid("key_");
 
