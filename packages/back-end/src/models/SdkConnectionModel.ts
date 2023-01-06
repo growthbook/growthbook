@@ -12,8 +12,14 @@ import { errorStringFromZodResult } from "../util/validation";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
-  id: String,
-  organization: String,
+  id: {
+    type: String,
+    unique: true,
+  },
+  organization: {
+    type: String,
+    index: true,
+  },
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
@@ -37,7 +43,6 @@ const sdkConnectionSchema = new mongoose.Schema({
     lastError: Date,
   },
 });
-sdkConnectionSchema.index({ organization: 1, id: 1 }, { unique: true });
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
@@ -50,9 +55,8 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
   return doc.toJSON();
 }
 
-export async function findSDKConnectionById(organization: string, id: string) {
+export async function findSDKConnectionById(id: string) {
   const doc = await SDKConnectionModel.findOne({
-    organization,
     id,
   });
   return doc ? toInterface(doc) : null;

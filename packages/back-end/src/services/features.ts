@@ -22,6 +22,7 @@ import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -132,6 +133,9 @@ export async function refreshSDKPayloadCache(
 
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);
+
+  // Update any Proxy servers that are affected by this change
+  await queueProxyUpdate(organization.id, payloadKeys);
 }
 
 async function getFeatureDefinitionsResponse(

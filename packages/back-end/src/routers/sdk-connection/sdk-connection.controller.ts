@@ -58,9 +58,9 @@ export const putSDKConnection = async (
 ) => {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const connection = await findSDKConnectionById(org.id, id);
+  const connection = await findSDKConnectionById(id);
 
-  if (!connection) {
+  if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");
   }
 
@@ -81,9 +81,9 @@ export const deleteSDKConnection = async (
 ) => {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
-  const connection = await findSDKConnectionById(org.id, id);
+  const connection = await findSDKConnectionById(id);
 
-  if (!connection) {
+  if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");
   }
 
@@ -107,9 +107,9 @@ export const checkSDKConnectionStatus = async (
 ) => {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
-  const connection = await findSDKConnectionById(org.id, id);
+  const connection = await findSDKConnectionById(id);
 
-  if (!connection) {
+  if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");
   }
 
@@ -133,9 +133,9 @@ export const checkSDKConnectionProxyStatus = async (
 ) => {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
-  const connection = await findSDKConnectionById(org.id, id);
+  const connection = await findSDKConnectionById(id);
 
-  if (!connection) {
+  if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");
   }
 
