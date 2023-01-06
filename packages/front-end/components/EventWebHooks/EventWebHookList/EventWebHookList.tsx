@@ -14,6 +14,7 @@ type EventWebHookListProps = {
   onAdd: (data: EventWebHookEditParams) => void;
   eventWebHooks: EventWebHookInterface[];
   errorMessage: string | null;
+  createError: string | null;
 };
 
 export const EventWebHookList: FC<EventWebHookListProps> = ({
@@ -23,6 +24,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
   onModalClose,
   onCreateModalOpen,
   errorMessage,
+  createError,
 }) => {
   return (
     <div>
@@ -32,6 +34,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
           onClose={onModalClose}
           onSubmit={onAdd}
           mode={{ mode: "create" }}
+          error={createError}
         />
       ) : null}
 
@@ -95,6 +98,8 @@ export const EventWebHookListContainer = () => {
   const { apiCall } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const { data, error, mutate } = useApi<{
     eventWebHooks: EventWebHookInterface[];
   }>("/event-webhooks");
@@ -105,11 +110,31 @@ export const EventWebHookListContainer = () => {
 
   const handleAdd = useCallback(
     async (data: EventWebHookEditParams) => {
-      await apiCall("/event-webhooks", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      mutate();
+      // Keep the modal open and display error
+      const handleCreateError = (message: string) => {
+        setCreateError(`Failed to create webhook: ${message}`);
+        setIsModalOpen(true);
+      };
+
+      try {
+        const response = await apiCall<{
+          error?: string;
+          eventWebHook?: EventWebHookInterface;
+        }>("/event-webhooks", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+
+        if (response.error) {
+          handleCreateError(response.error || "Unknown error");
+        } else {
+          setCreateError(null);
+          mutate();
+        }
+      } catch (e) {
+        setIsModalOpen(true);
+        handleCreateError("Unknown error");
+      }
     },
     [mutate, apiCall]
   );
@@ -122,6 +147,7 @@ export const EventWebHookListContainer = () => {
       eventWebHooks={data?.eventWebHooks || []}
       onAdd={handleAdd}
       errorMessage={error?.message || null}
+      createError={createError}
     />
   );
 };
