@@ -68,7 +68,7 @@ export const putSDKConnection = async (
     connection.environment,
   ]);
 
-  await editSDKConnection(org.id, id, req.body);
+  await editSDKConnection(connection, req.body);
 
   res.status(200).json({
     status: 200,
@@ -121,7 +121,15 @@ export const checkSDKConnectionStatus = async (
 
 export const checkSDKConnectionProxyStatus = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{
+    status: 200;
+    result: {
+      status: number;
+      body: string;
+      error: string;
+      version: string;
+    };
+  }>
 ) => {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
@@ -131,9 +139,10 @@ export const checkSDKConnectionProxyStatus = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  await testProxyConnection(connection);
+  const result = await testProxyConnection(connection);
 
   res.status(200).json({
     status: 200,
+    result,
   });
 };

@@ -17,11 +17,13 @@ import Toggle from "@/components/Forms/Toggle";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 
 export default function SDKConnectionForm({
-  current,
+  initialValue = {},
+  edit,
   close,
   mutate,
 }: {
-  current?: SDKConnectionInterface;
+  initialValue?: Partial<SDKConnectionInterface>;
+  edit: boolean;
   close: () => void;
   mutate: () => void;
 }) {
@@ -33,13 +35,13 @@ export default function SDKConnectionForm({
 
   const form = useForm({
     defaultValues: {
-      name: current?.name || "",
-      languages: current?.languages || [],
-      environment: environments[0]?.id || "",
-      project: project || "",
-      encryptPayload: false,
-      proxyEnabled: current?.proxy?.enabled || false,
-      proxyHost: current?.proxy?.host || "",
+      name: initialValue.name || "",
+      languages: initialValue.languages || [],
+      environment: initialValue.environment || environments[0]?.id || "",
+      project: "project" in initialValue ? initialValue.project : project || "",
+      encryptPayload: initialValue.encryptPayload || false,
+      proxyEnabled: initialValue.proxy?.enabled || false,
+      proxyHost: initialValue.proxy?.host || "",
     },
   });
 
@@ -55,17 +57,17 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
-      header={current ? "Edit SDK COnnection" : "New SDK Connection"}
+      header={edit ? "Edit SDK COnnection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
-        if (current) {
+        if (edit) {
           const body: EditSDKConnectionParams = {
             name: value.name,
             languages: value.languages,
             proxyEnabled: value.proxyEnabled,
             proxyHost: value.proxyHost,
           };
-          await apiCall(`/sdk-connections/${current.id}`, {
+          await apiCall(`/sdk-connections/${initialValue.id}`, {
             method: "PUT",
             body: JSON.stringify(body),
           });
@@ -90,7 +92,7 @@ export default function SDKConnectionForm({
         setValue={(languages) => form.setValue("languages", languages)}
       />
 
-      {!current && projects.length > 0 && (
+      {!edit && projects.length > 0 && (
         <SelectField
           label="Project"
           initialOption="All Projects"
@@ -103,7 +105,7 @@ export default function SDKConnectionForm({
         />
       )}
 
-      {!current && (
+      {!edit && (
         <SelectField
           label="Environment"
           required
@@ -137,7 +139,7 @@ export default function SDKConnectionForm({
         />
       )}
 
-      {!current && (
+      {!edit && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           value={form.watch("encryptPayload")}

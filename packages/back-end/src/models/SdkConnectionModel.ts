@@ -5,8 +5,10 @@ import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   SDKConnectionInterface,
+  SDKLanguage,
 } from "../../types/sdk-connection";
 import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
+import { errorStringFromZodResult } from "../util/validation";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -85,13 +87,14 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   const {
     proxyEnabled,
     proxyHost,
+    languages,
     ...otherParams
   } = createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
-
-  const doc = await SDKConnectionModel.create({
+  const connection: SDKConnectionInterface = {
     ...otherParams,
+    languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -104,11 +107,19 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       host: proxyHost,
       signingKey: generateSigningKey(),
       connected: false,
-      lastHeartbeat: null,
+      lastError: null,
       proxyVersion: "",
       error: "",
     },
-  });
+  };
+
+  if (proxyEnabled && proxyHost) {
+    const res = await testProxyConnection(connection, false);
+    connection.proxy.connected = !res.error;
+    connection.proxy.proxyVersion = res.version || "";
+  }
+
+  const doc = await SDKConnectionModel.create(connection);
 
   return toInterface(doc);
 }
@@ -123,8 +134,7 @@ export const editSDKConnectionValidator = z
   .strict();
 
 export async function editSDKConnection(
-  organization: string,
-  id: string,
+  connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams
 ) {
   const {
@@ -133,26 +143,36 @@ export async function editSDKConnection(
     ...otherChanges
   } = editSDKConnectionValidator.parse(updates);
 
-  const proxyChanges: {
-    ["proxy.enabled"]?: boolean;
-    ["proxy.host"]?: string;
-  } = {};
-  if (proxyEnabled !== undefined) {
-    proxyChanges["proxy.enabled"] = proxyEnabled;
+  const newProxy = {
+    ...connection.proxy,
+  };
+  if (proxyEnabled !== undefined && proxyEnabled !== connection.proxy.enabled) {
+    newProxy.enabled = proxyEnabled;
   }
-  if (proxyHost !== undefined) {
-    proxyChanges["proxy.host"] = proxyHost;
+  if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
+    newProxy.host = proxyHost;
+
+    const res = await testProxyConnection(
+      {
+        ...connection,
+        proxy: newProxy,
+      },
+      false
+    );
+    newProxy.connected = !res.error;
+    newProxy.proxyVersion = res.version;
   }
 
   await SDKConnectionModel.updateOne(
     {
-      organization,
-      id,
+      organization: connection.organization,
+      id: connection.id,
     },
     {
       $set: {
         ...otherChanges,
-        ...proxyChanges,
+        proxy: newProxy,
+        dateUpdated: new Date(),
       },
     }
   );
@@ -179,7 +199,7 @@ export async function markSDKConnectionUsed(key: string) {
   );
 }
 
-async function setProxyError(
+export async function setProxyError(
   connection: SDKConnectionInterface,
   error: string
 ) {
@@ -198,51 +218,88 @@ async function setProxyError(
   );
 }
 
-export async function testProxyConnection(connection: SDKConnectionInterface) {
+export async function testProxyConnection(
+  connection: SDKConnectionInterface,
+  updateDB: boolean = true
+): Promise<{
+  status: number;
+  body: string;
+  error: string;
+  version: string;
+}> {
   const proxy = connection.proxy;
-  if (!proxy || !proxy.enabled || !proxy.host) return;
-
-  const { responseWithoutBody, stringBody } = await cancellableFetch(
-    // TODO: Is this the real endpoint we want to use?
-    proxy.host.replace(/\/*$/, "") + "/healthcheck",
-    {
-      method: "GET",
-    },
-    {
-      maxTimeMs: 5000,
-      maxContentSize: 500,
-    }
-  );
-
-  if (!responseWithoutBody.ok || !stringBody) {
-    return await setProxyError(
-      connection,
-      stringBody || "Received status code " + responseWithoutBody.status
-    );
+  if (!proxy || !proxy.enabled || !proxy.host) {
+    return {
+      status: 0,
+      body: "",
+      error: "",
+      version: "",
+    };
   }
-
+  let statusCode = 0,
+    body = "";
   try {
+    const { responseWithoutBody, stringBody } = await cancellableFetch(
+      // TODO: Is this the real endpoint we want to use?
+      proxy.host.replace(/\/*$/, "") + "/healthcheck",
+      {
+        method: "GET",
+      },
+      {
+        maxTimeMs: 5000,
+        maxContentSize: 500,
+      }
+    );
+    statusCode = responseWithoutBody.status;
+    body = stringBody;
+
+    if (!responseWithoutBody.ok || !stringBody) {
+      return {
+        status: statusCode,
+        body: body,
+        error: "Proxy healthcheck returned a non-successful status code",
+        version: "",
+      };
+    }
+
     // TODO: Is this the actual response format we want to use?
     const validator = z.object({
       proxyVersion: z.string(),
     });
-    const json = validator.parse(JSON.parse(stringBody));
+    const res = validator.safeParse(JSON.parse(stringBody));
+    if (!res.success) {
+      throw new Error("Error: " + errorStringFromZodResult(res));
+    }
 
-    await SDKConnectionModel.updateOne(
-      {
-        organization: connection.organization,
-        id: connection.id,
-      },
-      {
-        $set: {
-          "proxy.connected": true,
-          "proxy.proxyVersion": json.proxyVersion,
-          "proxy.error": "",
-          "proxy.lastError": null,
+    const version = res.data.proxyVersion;
+
+    if (updateDB) {
+      await SDKConnectionModel.updateOne(
+        {
+          organization: connection.organization,
+          id: connection.id,
         },
-      }
-    );
+        {
+          $set: {
+            "proxy.connected": true,
+            "proxy.version": version,
+          },
+        }
+      );
+    }
+
+    return {
+      status: statusCode,
+      body: body,
+      error: "",
+      version,
+    };
   } catch (e) {
-    await setProxyError(connection, `Invalid JSON response: ` + stringBody);
+    return {
+      status: statusCode || 0,
+      body: body || "",
+      error: e.message || "Failed to connect to Proxy server",
+      version: "",
+    };
   }
 }
