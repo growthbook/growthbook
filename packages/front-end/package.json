@@ -69,7 +69,8 @@
     "react-textarea-autosize": "^8.3.4",
     "spectacle": "^8.3.0",
     "swr": "^0.5.4",
-    "uniqid": "^5.3.0"
+    "uniqid": "^5.3.0",
+    "zod": "^3.19.1"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
