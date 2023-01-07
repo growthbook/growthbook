@@ -17,6 +17,7 @@ const docSections = {
   bigquery: "/guide/bigquery",
   google_analytics: "/app/datasources#google-analytics",
   //Language
+  buildYourOwn: "/lib/build-your-own",
   sdks: "/lib",
   javascript: "/lib/js",
   tsx: "/lib/react",

@@ -16,6 +16,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "../../Tooltip/Tooltip";
 import MoreMenu from "../../Dropdown/MoreMenu";
+import CodeSnippetModal from "../CodeSnippetModal";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 import ProxyTestButton from "./ProxyTestButton";
@@ -30,6 +31,11 @@ export default function SDKConnectionsList() {
     mode: "edit" | "create" | "closed";
     initialValue?: SDKConnectionInterface;
   }>({ mode: "closed" });
+
+  const [
+    instructionsModal,
+    setInstructionsModal,
+  ] = useState<SDKConnectionInterface | null>(null);
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -52,6 +58,13 @@ export default function SDKConnectionsList() {
           mutate={mutate}
           initialValue={modalState.initialValue}
           edit={modalState.mode === "edit"}
+        />
+      )}
+      {instructionsModal && (
+        <CodeSnippetModal
+          close={() => setInstructionsModal(null)}
+          defaultLanguage={instructionsModal.languages[0]}
+          sdkConnection={instructionsModal}
         />
       )}
       <h1>SDK Connections</h1>
@@ -135,7 +148,7 @@ export default function SDKConnectionsList() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        // TODO: show CodeSnippet modal
+                        setInstructionsModal(connection);
                       }}
                     >
                       <FaCode /> Setup Instructions
