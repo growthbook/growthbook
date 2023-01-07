@@ -29,7 +29,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features|attributes|namespaces|environments|saved-groups)/,
+    path: /^(features|attributes|namespaces|environments|saved-groups|sdks)/,
     autoClose: true,
     subLinks: [
       {

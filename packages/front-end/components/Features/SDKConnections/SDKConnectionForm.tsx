@@ -84,13 +84,20 @@ export default function SDKConnectionForm({
       })}
       close={close}
       open={true}
+      cta="Save"
     >
       <Field label="Name" {...form.register("name")} required />
 
-      <SDKLanguageSelector
-        value={form.watch("languages")}
-        setValue={(languages) => form.setValue("languages", languages)}
-      />
+      <div className="form-group">
+        <label>Tech Stack</label>
+        <small className="text-muted ml-3">(Select all that apply)</small>
+        <SDKLanguageSelector
+          value={form.watch("languages")}
+          setValue={(languages) => form.setValue("languages", languages)}
+          multiple={true}
+          includeOther={true}
+        />
+      </div>
 
       {!edit && projects.length > 0 && (
         <SelectField

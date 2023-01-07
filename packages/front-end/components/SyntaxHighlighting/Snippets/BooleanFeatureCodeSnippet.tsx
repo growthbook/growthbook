@@ -44,6 +44,23 @@ function MyComponent() {
       />
     );
   }
+  if (language === "nodejs") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+app.get("/", (req, res) => {
+  if (req.growthbook.isOn(${JSON.stringify(featureId)})) {
+    res.send("Feature is enabled!");
+  }
+  else {
+    res.send("Feature is disabled");
+  }
+});
+`.trim()}
+      />
+    );
+  }
   if (language === "android") {
     return (
       <Code

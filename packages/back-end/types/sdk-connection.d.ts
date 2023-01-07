@@ -28,6 +28,7 @@ export type CreateSDKConnectionParams = {
 
 export type SDKLanguage =
   | "javascript"
+  | "nodejs"
   | "react"
   | "php"
   | "ruby"

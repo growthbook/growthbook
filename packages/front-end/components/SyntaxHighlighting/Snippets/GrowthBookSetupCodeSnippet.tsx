@@ -62,16 +62,13 @@ export default function GrowthBookSetupCodeSnippet({
   apiKey,
   apiHost,
   useStreaming = false,
-  isSDKConnection,
 }: {
   language: SDKLanguage;
   apiKey: string;
   apiHost: string;
-  isSDKConnection: boolean;
   useStreaming?: boolean;
 }) {
-  const apiPath = isSDKConnection ? "/sdk-data/" : "/api/features/";
-  const featuresEndpoint = apiHost + apiPath + apiKey;
+  const featuresEndpoint = apiHost + "api/features/" + apiKey;
 
   const attributeSchema = useAttributeSchema();
   const exampleAttributes = getExampleAttributes(attributeSchema);
@@ -85,19 +82,10 @@ import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook Context
 const growthbook = new GrowthBook({
-  ${
-    isSDKConnection
-      ? `
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-          useStreaming
-            ? `
-  streaming: true,`
-            : ""
-        }`.trim()
-      : `
-  featuresEndpoint: ${JSON.stringify(featuresEndpoint)},`.trim()
-  }
+          useStreaming ? `\n  streaming: true,` : ""
+        }
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
     // TODO: use your real analytics tracking system
@@ -124,19 +112,11 @@ import { useEffect } from "react";
 
 // Create a GrowthBook Context
 const growthbook = new GrowthBook({
-  ${
-    isSDKConnection
-      ? `
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-          useStreaming
-            ? `
-  streaming: true,`
-            : ""
-        }`.trim()
-      : `
-  featuresEndpoint: ${JSON.stringify(featuresEndpoint)},`.trim()
-  }
+          useStreaming ? `\n  streaming: true,` : ""
+        }
+  enableDevMode: true,
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
     // TODO: use your real analytics tracking system
@@ -157,6 +137,46 @@ export default function MyApp() {
     </GrowthBookProvider>
   )
 }
+`.trim()}
+      />
+    );
+  }
+  if (language === "nodejs") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+const { GrowthBook } = require("@growthbook/growthbook");
+const fetch = require("node-fetch");
+
+app.use(function(req, res, next) {
+  // Create a GrowthBook Context
+  req.growthbook = new GrowthBook({
+    apiHost: ${JSON.stringify(apiHost)},
+    clientKey: ${JSON.stringify(apiKey)},${
+          useStreaming ? `\n  streaming: true,` : ""
+        }
+    fetch: fetch,
+    enableDevMode: true,
+    trackingCallback: (experiment, result) => {
+      // TODO: use your real analytics tracking system
+      analytics.track("Viewed Experiment", {
+        experimentId: experiment.key,
+        variationId: result.variationId
+      });
+    },
+    // TODO: replace with real targeting attribute values
+    attributes: ${indentLines(stringify(exampleAttributes), 4)}
+  });
+
+  // Wait for features to load (will be cached in-memory for future requests)
+  req.growthbook.waitForFeatures()
+    .then(() => next())
+    .catch((e) => {
+      console.error("Failed to load features from GrowthBook", e));
+      next();
+    })
+})
 `.trim()}
       />
     );

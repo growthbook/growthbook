@@ -87,6 +87,12 @@ export const createSDKConnectionValidator = z
   })
   .strict();
 
+function generateSDKConnectionKey() {
+  // IMPORTANT: we use the /^sdk-/ regex to match against this for incoming API requests
+  // DO NOT CHANGE the prefix without also updating that
+  return generateSigningKey("sdk-", 12);
+}
+
 export async function createSDKConnection(params: CreateSDKConnectionParams) {
   const {
     proxyEnabled,
@@ -105,7 +111,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     encryptionKey: await generateEncryptionKey(),
     connected: false,
     // This is not for cryptography, it just needs to be long enough to be unique
-    key: generateSigningKey("", 12),
+    key: generateSDKConnectionKey(),
     proxy: {
       enabled: proxyEnabled,
       host: proxyHost,

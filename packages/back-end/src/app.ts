@@ -203,25 +203,6 @@ app.options(
   }
 );
 
-app.get(
-  "/sdk-data/:key?",
-  cors({
-    credentials: false,
-    origin: "*",
-  }),
-  featuresController.getSDKDataPublic
-);
-app.options(
-  "/sdk-data/:key?",
-  cors({
-    credentials: false,
-    origin: "*",
-  }),
-  function (req, res) {
-    res.send(200);
-  }
-);
-
 // Secret API routes (no JWT or CORS)
 app.use("/api/v1", apiRouter);
 

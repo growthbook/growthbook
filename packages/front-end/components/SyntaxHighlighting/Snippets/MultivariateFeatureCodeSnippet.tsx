@@ -36,7 +36,7 @@ export default function MultivariateFeatureCodeSnippet({
         code={`
 const value = growthbook.getFeatureValue(
   ${JSON.stringify(featureId)},
-  "fallback value"
+  "fallback"
 );
 console.log(value);
 `.trim()}
@@ -57,6 +57,23 @@ function MyComponent() {
     <div>{feature.value ?? "fallback"}</div>
   )
 }
+`.trim()}
+      />
+    );
+  }
+  if (language === "nodejs") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+app.get("/", (req, res) => {
+  const value = req.growthbook.getFeatureValue(
+    ${JSON.stringify(featureId)},
+    "fallback"
+  );
+  
+  res.send("The feature value is: " + value);
+});
 `.trim()}
       />
     );

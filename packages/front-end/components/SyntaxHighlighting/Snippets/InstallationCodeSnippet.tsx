@@ -26,6 +26,9 @@ npm i --save @growthbook/growthbook-react
       />
     );
   }
+  if (language === "nodejs") {
+    return <Code language="sh" code={`npm i --save @growthbook/growthbook`} />;
+  }
   if (language === "android") {
     return (
       <Code

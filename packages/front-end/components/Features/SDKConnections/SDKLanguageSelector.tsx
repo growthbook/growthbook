@@ -1,32 +1,41 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import clsx from "clsx";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 
 function LanguageOption({
   language,
   selected,
   setValue,
+  multiple,
 }: {
   language: SDKLanguage;
   selected: Set<SDKLanguage>;
   setValue: (languages: SDKLanguage[]) => void;
+  multiple: boolean;
 }) {
   return (
     <div
-      className={clsx("cursor-pointer border rounded m-1", {
-        "bg-purple-light": selected.has(language),
-      })}
+      className={`cursor-pointer border rounded mr-2 mb-2 ${
+        selected.has(language) ? "bg-light" : ""
+      }`}
       style={{
         height: 50,
         padding: 10,
+        boxShadow: selected.has(language)
+          ? "0 0 0 3px var(--text-color-primary)"
+          : "",
       }}
       key={language}
       onClick={(e) => {
         e.preventDefault();
         if (selected.has(language)) {
+          if (!multiple) return;
           selected.delete(language);
         } else {
-          selected.add(language);
+          if (multiple) {
+            selected.add(language);
+          } else {
+            selected = new Set([language]);
+          }
         }
         setValue([...selected]);
       }}
@@ -39,14 +48,19 @@ function LanguageOption({
 export default function SDKLanguageSelector({
   value,
   setValue,
+  multiple = false,
+  includeOther = true,
 }: {
   value: SDKLanguage[];
   setValue: (languages: SDKLanguage[]) => void;
+  multiple?: boolean;
+  includeOther?: boolean;
 }) {
   const selected = new Set(value);
 
   const frontEnd: SDKLanguage[] = ["javascript", "react"];
   const backEnd: SDKLanguage[] = [
+    "nodejs",
     "php",
     "ruby",
     "python",
@@ -57,10 +71,24 @@ export default function SDKLanguageSelector({
   const mobile: SDKLanguage[] = ["ios", "android", "flutter"];
 
   return (
-    <div className="form-group">
-      <label>Tech Stack</label>
-      <small className="text-muted ml-3">(Select all that apply)</small>
+    <div>
       <div className="row">
+        <div className="col-auto">
+          <small>
+            <strong>Back-end</strong>
+          </small>
+          <div className="d-flex flex-wrap">
+            {backEnd.map((l) => (
+              <LanguageOption
+                key={l}
+                language={l}
+                setValue={setValue}
+                selected={selected}
+                multiple={multiple}
+              />
+            ))}
+          </div>
+        </div>
         <div className="col-auto">
           <small>
             <strong>Front-end</strong>
@@ -72,6 +100,7 @@ export default function SDKLanguageSelector({
                 language={l}
                 setValue={setValue}
                 selected={selected}
+                multiple={multiple}
               />
             ))}
           </div>
@@ -87,35 +116,24 @@ export default function SDKLanguageSelector({
                 language={l}
                 setValue={setValue}
                 selected={selected}
+                multiple={multiple}
               />
             ))}
           </div>
         </div>
-        <div className="col-auto">
-          <small>
-            <strong>Back-end</strong>
-          </small>
-          <div className="d-flex flex-wrap">
-            {backEnd.map((l) => (
-              <LanguageOption
-                key={l}
-                language={l}
-                setValue={setValue}
-                selected={selected}
-              />
-            ))}
+        {includeOther && (
+          <div className="col-auto">
+            <small>
+              <strong>Other</strong>
+            </small>
+            <LanguageOption
+              language={"other"}
+              setValue={setValue}
+              selected={selected}
+              multiple={multiple}
+            />
           </div>
-        </div>
-        <div className="col-auto">
-          <small>
-            <strong>Other</strong>
-          </small>
-          <LanguageOption
-            language={"other"}
-            setValue={setValue}
-            selected={selected}
-          />
-        </div>
+        )}
       </div>
     </div>
   );

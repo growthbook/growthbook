@@ -10,12 +10,12 @@ import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import { DocLink } from "../DocLink";
-import SDKLanguageTabs from "../SyntaxHighlighting/Snippets/SDKLanguageTabs";
 import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import SDKEndpointSelector from "./SDKEndpointSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   if (connection?.proxy?.enabled && connection?.proxy?.host) {
@@ -38,6 +38,7 @@ export default function CodeSnippetModal({
   submit,
   secondaryCTA,
   sdkConnection,
+  allowChangingLanguage = true,
 }: {
   close?: () => void;
   featureId?: string;
@@ -47,6 +48,7 @@ export default function CodeSnippetModal({
   submit?: () => Promise<void>;
   secondaryCTA?: ReactElement;
   sdkConnection?: SDKConnectionInterface;
+  allowChangingLanguage?: boolean;
 }) {
   const [language, setLanguage] = useState<SDKLanguage>(defaultLanguage);
   const permissions = usePermissions();
@@ -95,8 +97,19 @@ export default function CodeSnippetModal({
         <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
       )}
 
-      <h4>Choose your language</h4>
-      <SDKLanguageTabs language={language} setLanguage={setLanguage} />
+      {allowChangingLanguage ? (
+        <>
+          <h4>Choose your language</h4>
+          <SDKLanguageSelector
+            value={[language]}
+            setValue={([language]) => setLanguage(language)}
+            multiple={false}
+            includeOther={false}
+          />
+        </>
+      ) : (
+        <h4>{label} Instructions</h4>
+      )}
       <p className="mt-3">
         Below is some starter code to integrate GrowthBook into your app. Read
         the <DocLink docSection={docs}>{label} docs</DocLink> for more details.
@@ -110,8 +123,7 @@ export default function CodeSnippetModal({
         language={language}
         apiHost={getApiBaseUrl(sdkConnection)}
         apiKey={sdkConnection ? sdkConnection.key : apiKey}
-        isSDKConnection={!!sdkConnection}
-        useStreaming={sdkConnection?.proxy?.enabled}
+        useStreaming={!!sdkConnection?.proxy?.enabled}
       />
 
       <h4>Usage</h4>

@@ -2,7 +2,13 @@ import { SDKLanguage } from "back-end/types/sdk-connection";
 import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
 import { FaHashtag, FaApple, FaJava, FaCode } from "react-icons/fa";
-import { SiFlutter, SiGo, SiJavascript, SiPhp } from "react-icons/si";
+import {
+  SiFlutter,
+  SiGo,
+  SiJavascript,
+  SiNodedotjs,
+  SiPhp,
+} from "react-icons/si";
 import { DocSection } from "@/components/DocLink";
 
 export const languageMapping: Record<
@@ -12,7 +18,7 @@ export const languageMapping: Record<
   react: {
     Icon: DiReact,
     color: "#61DBFB",
-    label: "ReactJS",
+    label: "React",
     docs: "tsx",
   },
   ruby: {
@@ -30,7 +36,7 @@ export const languageMapping: Record<
   android: {
     Icon: DiAndroid,
     color: "#78C257",
-    label: "Android (Kotlin)",
+    label: "Kotlin",
     docs: "kotlin",
   },
   csharp: {
@@ -42,7 +48,7 @@ export const languageMapping: Record<
   flutter: {
     Icon: SiFlutter,
     color: "#02569B",
-    label: "Flutter (Dart)",
+    label: "Flutter",
     docs: "sdks",
   },
   go: {
@@ -54,7 +60,7 @@ export const languageMapping: Record<
   ios: {
     Icon: FaApple,
     color: "#000000",
-    label: "iOS (Swift)",
+    label: "Swift",
     docs: "sdks",
   },
   java: {
@@ -75,6 +81,12 @@ export const languageMapping: Record<
     label: "PHP",
     docs: "php",
   },
+  nodejs: {
+    Icon: SiNodedotjs,
+    color: "#339933",
+    label: "Node.js",
+    docs: "javascript",
+  },
   other: {
     Icon: FaCode,
     color: "#777",
@@ -87,10 +99,12 @@ export default function SDKLanguageLogo({
   language,
   showLabel = false,
   size = 25,
+  titlePrefix = "",
 }: {
   language: SDKLanguage;
   showLabel?: boolean;
   size?: number;
+  titlePrefix?: string;
 }) {
   const { Icon, color, label } =
     languageMapping[language] || languageMapping["other"];
@@ -100,7 +114,7 @@ export default function SDKLanguageLogo({
       <Icon
         style={{ color, height: size, fontSize: size, lineHeight: size }}
         className="m-0"
-        title={label}
+        title={titlePrefix + label}
       />
       {showLabel && <span className="ml-1">{label}</span>}
     </span>
