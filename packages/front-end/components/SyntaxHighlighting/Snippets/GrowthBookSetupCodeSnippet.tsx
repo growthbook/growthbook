@@ -62,11 +62,13 @@ export default function GrowthBookSetupCodeSnippet({
   apiKey,
   apiHost,
   useStreaming = false,
+  encryptionKey,
 }: {
   language: SDKLanguage;
   apiKey: string;
   apiHost: string;
   useStreaming?: boolean;
+  encryptionKey?: string;
 }) {
   const featuresEndpoint = apiHost + "api/features/" + apiKey;
 
@@ -85,6 +87,10 @@ const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
           useStreaming ? `\n  streaming: true,` : ""
+        }${
+          encryptionKey
+            ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
+            : ""
         }
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
@@ -115,8 +121,11 @@ const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
           useStreaming ? `\n  streaming: true,` : ""
+        }${
+          encryptionKey
+            ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
+            : ""
         }
-  enableDevMode: true,
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
     // TODO: use your real analytics tracking system
@@ -148,16 +157,22 @@ export default function MyApp() {
         code={`
 const { GrowthBook } = require("@growthbook/growthbook");
 const fetch = require("node-fetch");
-
+${encryptionKey ? `const subtleCrypto = require('node:crypto')\n` : ""}
 app.use(function(req, res, next) {
   // Create a GrowthBook Context
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
-          useStreaming ? `\n  streaming: true,` : ""
+          useStreaming ? `\n    streaming: true,` : ""
+        }${
+          encryptionKey
+            ? `\n    encryptionKey: ${JSON.stringify(
+                encryptionKey
+              )},\n    crypto: subtleCrypto,`
+            : ""
         }
-    fetch: fetch,
     enableDevMode: true,
+    fetch: fetch,
     trackingCallback: (experiment, result) => {
       // TODO: use your real analytics tracking system
       analytics.track("Viewed Experiment", {
@@ -168,6 +183,9 @@ app.use(function(req, res, next) {
     // TODO: replace with real targeting attribute values
     attributes: ${indentLines(stringify(exampleAttributes), 4)}
   });
+
+  // Clean up at the end of the request
+  res.on('close', () => req.growthbook.destroy());
 
   // Wait for features to load (will be cached in-memory for future requests)
   req.growthbook.waitForFeatures()

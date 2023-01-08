@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MdNetworkCheck } from "react-icons/md";
+import { ProxyTestResult } from "back-end/types/sdk-connection";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
@@ -9,17 +10,17 @@ export default function ProxyTestButton({
   host,
   id,
   mutate,
+  showButton,
 }: {
   host: string;
   id: string;
+  showButton: boolean;
   mutate: () => void;
 }) {
-  const [proxyTestResult, setProxyTestResult] = useState<null | {
-    status: number;
-    body: string;
-    error: string;
-    version: string;
-  }>(null);
+  const [
+    proxyTestResult,
+    setProxyTestResult,
+  ] = useState<null | ProxyTestResult>(null);
 
   const { apiCall } = useAuth();
 
@@ -38,13 +39,16 @@ export default function ProxyTestButton({
         >
           {proxyTestResult.error ? (
             <div>
-              {proxyTestResult.status > 0 && (
-                <p>
-                  Received a <strong>{proxyTestResult.status}</strong> status
-                  code.
-                </p>
+              {proxyTestResult.url && (
+                <div className="mb-2">
+                  GET <code>{proxyTestResult.url}</code>
+                </div>
               )}
-              <div className="alert alert-danger">{proxyTestResult.error}</div>
+              {proxyTestResult.status > 0 && (
+                <div className="mb-2">
+                  Status Code: <code>{proxyTestResult.status}</code>
+                </div>
+              )}
               {proxyTestResult.body && (
                 <Code
                   language={
@@ -59,6 +63,9 @@ export default function ProxyTestButton({
                   expandable={true}
                 />
               )}
+              <div className="alert alert-danger">
+                Error: {proxyTestResult.error}
+              </div>
             </div>
           ) : (
             <div className="alert alert-success">
@@ -68,30 +75,27 @@ export default function ProxyTestButton({
           )}
         </Modal>
       )}
-      <Button
-        color="outline-primary"
-        className="btn-sm"
-        title="Test connection"
-        onClick={async () => {
-          const res = await apiCall<{
-            result: {
-              status: number;
-              body: string;
-              error: string;
-              version: string;
-            };
-          }>(`/sdk-connections/${id}/check-proxy`, {
-            method: "POST",
-          });
-          mutate();
+      {showButton && (
+        <Button
+          color="outline-primary"
+          className="btn-sm"
+          title="Test connection"
+          onClick={async () => {
+            const res = await apiCall<{
+              result: ProxyTestResult;
+            }>(`/sdk-connections/${id}/check-proxy`, {
+              method: "POST",
+            });
+            mutate();
 
-          if (res.result) {
-            setProxyTestResult(res.result);
-          }
-        }}
-      >
-        <MdNetworkCheck /> Test Connection
-      </Button>
+            if (res.result) {
+              setProxyTestResult(res.result);
+            }
+          }}
+        >
+          <MdNetworkCheck /> Test Connection
+        </Button>
+      )}
     </>
   );
 }

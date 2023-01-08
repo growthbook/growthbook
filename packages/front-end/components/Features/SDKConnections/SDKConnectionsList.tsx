@@ -6,6 +6,7 @@ import {
 import {
   FaAngleRight,
   FaCheckCircle,
+  FaCode,
   FaExclamationTriangle,
   FaLock,
 } from "react-icons/fa";
@@ -36,7 +37,7 @@ export default function SDKConnectionsList() {
 
   const [instructionsModal, setInstructionsModal] = useState<{
     connection: SDKConnectionInterface;
-    language: SDKLanguage;
+    languages: SDKLanguage[];
   } | null>(null);
 
   const { getProjectById, projects } = useDefinitions();
@@ -65,9 +66,9 @@ export default function SDKConnectionsList() {
       {instructionsModal && (
         <CodeSnippetModal
           close={() => setInstructionsModal(null)}
-          defaultLanguage={instructionsModal.language}
+          defaultLanguage={instructionsModal.languages[0]}
+          limitLanguages={instructionsModal.languages}
           sdkConnection={instructionsModal.connection}
-          allowChangingLanguage={false}
         />
       )}
       <h1>SDK Connections</h1>
@@ -77,8 +78,9 @@ export default function SDKConnectionsList() {
             <tr>
               <th>Name</th>
               <th>Features</th>
-              <th>Languages</th>
               <th>Proxy</th>
+              <th>Languages</th>
+              <th>Setup</th>
               <th></th>
             </tr>
           </thead>
@@ -113,26 +115,6 @@ export default function SDKConnectionsList() {
                     )}
                   </td>
                   <td>
-                    <div className="d-flex">
-                      {connection.languages.map((language) => (
-                        <a
-                          key={language}
-                          href="#"
-                          className="mx-1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setInstructionsModal({ connection, language });
-                          }}
-                        >
-                          <SDKLanguageLogo
-                            language={language}
-                            titlePrefix="Setup Instructions: "
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
                     {connection.proxy?.enabled ? (
                       <>
                         <span className="text-break">
@@ -140,24 +122,48 @@ export default function SDKConnectionsList() {
                         </span>
                         {connection.proxy.connected ? (
                           <FaCheckCircle className="text-success ml-1" />
-                        ) : hasPermission ? (
-                          <>
-                            <FaExclamationTriangle className="text-danger ml-1" />
-                            <div className="mt-1">
-                              <ProxyTestButton
-                                host={connection.proxy.host}
-                                id={connection.id}
-                                mutate={mutate}
-                              />
-                            </div>
-                          </>
                         ) : (
-                          <FaExclamationTriangle className="text-danger" />
+                          <FaExclamationTriangle className="text-danger ml-1" />
+                        )}
+
+                        {hasPermission && (
+                          <div className="mt-1">
+                            <ProxyTestButton
+                              host={connection.proxy.host}
+                              id={connection.id}
+                              mutate={mutate}
+                              showButton={!connection.proxy.connected}
+                            />
+                          </div>
                         )}
                       </>
                     ) : (
                       <em className="text-muted">not enabled</em>
                     )}
+                  </td>
+                  <td>
+                    <div className="d-flex">
+                      {connection.languages.map((language) => (
+                        <span className="mx-1" key={language}>
+                          <SDKLanguageLogo language={language} />
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <a
+                      href="#"
+                      className="ml-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setInstructionsModal({
+                          connection,
+                          languages: connection.languages,
+                        });
+                      }}
+                    >
+                      <FaCode /> view instructions
+                    </a>
                   </td>
                   <td>
                     <div className="d-flex align-items-center">

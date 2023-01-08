@@ -50,16 +50,24 @@ export default function SDKLanguageSelector({
   setValue,
   multiple = false,
   includeOther = true,
+  limitLanguages,
 }: {
   value: SDKLanguage[];
   setValue: (languages: SDKLanguage[]) => void;
   multiple?: boolean;
   includeOther?: boolean;
+  limitLanguages?: SDKLanguage[];
 }) {
   const selected = new Set(value);
 
-  const frontEnd: SDKLanguage[] = ["javascript", "react"];
-  const backEnd: SDKLanguage[] = [
+  const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
+    return languages.filter(
+      (language) => !limitLanguages || limitLanguages.includes(language)
+    );
+  };
+
+  const frontEnd = filterLanguages(["javascript", "react"]);
+  const backEnd = filterLanguages([
     "nodejs",
     "php",
     "ruby",
@@ -67,61 +75,67 @@ export default function SDKLanguageSelector({
     "java",
     "csharp",
     "go",
-  ];
-  const mobile: SDKLanguage[] = ["ios", "android", "flutter"];
+  ]);
+  const mobile = filterLanguages(["ios", "android", "flutter"]);
 
   return (
     <div>
       <div className="row">
-        <div className="col-auto">
-          <small>
-            <strong>Back-end</strong>
-          </small>
-          <div className="d-flex flex-wrap">
-            {backEnd.map((l) => (
-              <LanguageOption
-                key={l}
-                language={l}
-                setValue={setValue}
-                selected={selected}
-                multiple={multiple}
-              />
-            ))}
+        {backEnd.length > 0 && (
+          <div className="col-auto">
+            <small>
+              <strong>Back-end</strong>
+            </small>
+            <div className="d-flex flex-wrap">
+              {backEnd.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="col-auto">
-          <small>
-            <strong>Front-end</strong>
-          </small>
-          <div className="d-flex align-items-center">
-            {frontEnd.map((l) => (
-              <LanguageOption
-                key={l}
-                language={l}
-                setValue={setValue}
-                selected={selected}
-                multiple={multiple}
-              />
-            ))}
+        )}
+        {frontEnd.length > 0 && (
+          <div className="col-auto">
+            <small>
+              <strong>Front-end</strong>
+            </small>
+            <div className="d-flex align-items-center">
+              {frontEnd.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="col-auto">
-          <small>
-            <strong>Mobile</strong>
-          </small>
-          <div className="d-flex">
-            {mobile.map((l) => (
-              <LanguageOption
-                key={l}
-                language={l}
-                setValue={setValue}
-                selected={selected}
-                multiple={multiple}
-              />
-            ))}
+        )}
+        {mobile.length > 0 && (
+          <div className="col-auto">
+            <small>
+              <strong>Mobile</strong>
+            </small>
+            <div className="d-flex">
+              {mobile.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        {includeOther && (
+        )}
+        {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
           <div className="col-auto">
             <small>
               <strong>Other</strong>

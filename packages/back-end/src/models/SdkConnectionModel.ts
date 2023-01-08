@@ -1,9 +1,11 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
+import { ApiSDKConnectionInterface } from "../../types/api";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
+  ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
 } from "../../types/sdk-connection";
@@ -231,27 +233,25 @@ export async function setProxyError(
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
   updateDB: boolean = true
-): Promise<{
-  status: number;
-  body: string;
-  error: string;
-  version: string;
-}> {
+): Promise<ProxyTestResult> {
   const proxy = connection.proxy;
   if (!proxy || !proxy.enabled || !proxy.host) {
     return {
       status: 0,
       body: "",
-      error: "",
+      error: "Proxy connection is not enabled",
       version: "",
+      url: "",
     };
   }
+
+  // TODO: Is this the real endpoint we want to use?
+  const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
   let statusCode = 0,
     body = "";
   try {
     const { responseWithoutBody, stringBody } = await cancellableFetch(
-      // TODO: Is this the real endpoint we want to use?
-      proxy.host.replace(/\/*$/, "") + "/healthcheck",
+      url,
       {
         method: "GET",
       },
@@ -269,6 +269,7 @@ export async function testProxyConnection(
         body: body,
         error: "Proxy healthcheck returned a non-successful status code",
         version: "",
+        url,
       };
     }
 
@@ -278,7 +279,7 @@ export async function testProxyConnection(
     });
     const res = validator.safeParse(JSON.parse(stringBody));
     if (!res.success) {
-      throw new Error("Error: " + errorStringFromZodResult(res));
+      throw new Error(errorStringFromZodResult(res));
     }
 
     const version = res.data.proxyVersion;
@@ -303,6 +304,7 @@ export async function testProxyConnection(
       body: body,
       error: "",
       version,
+      url,
     };
   } catch (e) {
     return {
@@ -310,6 +312,26 @@ export async function testProxyConnection(
       body: body || "",
       error: e.message || "Failed to connect to Proxy server",
       version: "",
+      url,
     };
   }
+}
+
+export function toApiSDKConnectionInterface(
+  connection: SDKConnectionInterface
+): ApiSDKConnectionInterface {
+  return {
+    id: connection.id,
+    name: connection.name,
+    dateCreated: connection.dateCreated.toISOString(),
+    dateUpdated: connection.dateUpdated.toISOString(),
+    languages: connection.languages,
+    environment: connection.environment,
+    project: connection.project,
+    encryptPayload: connection.encryptPayload,
+    encryptionKey: connection.encryptionKey,
+    key: connection.key,
+    proxyEnabled: connection.proxy.enabled,
+    proxyHost: connection.proxy.host,
+  };
 }

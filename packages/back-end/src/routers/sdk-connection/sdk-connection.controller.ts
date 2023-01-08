@@ -5,6 +5,7 @@ import {
   SDKConnectionInterface,
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
+  ProxyTestResult,
 } from "../../../types/sdk-connection";
 import {
   createSDKConnection,
@@ -123,12 +124,7 @@ export const checkSDKConnectionProxyStatus = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
     status: 200;
-    result: {
-      status: number;
-      body: string;
-      error: string;
-      version: string;
-    };
+    result: ProxyTestResult;
   }>
 ) => {
   const { id } = req.params;

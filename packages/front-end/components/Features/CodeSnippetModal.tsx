@@ -13,6 +13,7 @@ import { DocLink } from "../DocLink";
 import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
+import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import SDKEndpointSelector from "./SDKEndpointSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
@@ -38,7 +39,7 @@ export default function CodeSnippetModal({
   submit,
   secondaryCTA,
   sdkConnection,
-  allowChangingLanguage = true,
+  limitLanguages,
 }: {
   close?: () => void;
   featureId?: string;
@@ -49,6 +50,7 @@ export default function CodeSnippetModal({
   secondaryCTA?: ReactElement;
   sdkConnection?: SDKConnectionInterface;
   allowChangingLanguage?: boolean;
+  limitLanguages?: SDKLanguage[];
 }) {
   const [language, setLanguage] = useState<SDKLanguage>(defaultLanguage);
   const permissions = usePermissions();
@@ -96,38 +98,46 @@ export default function CodeSnippetModal({
       {!sdkConnection && (
         <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
       )}
-
-      {allowChangingLanguage ? (
-        <>
+      {(!limitLanguages || limitLanguages.length > 1) && (
+        <div className="mb-2">
           <h4>Choose your language</h4>
           <SDKLanguageSelector
             value={[language]}
             setValue={([language]) => setLanguage(language)}
             multiple={false}
             includeOther={false}
+            limitLanguages={limitLanguages}
           />
-        </>
-      ) : (
-        <h4>{label} Instructions</h4>
+        </div>
       )}
-      <p className="mt-3">
+      <h4>{label} Instructions</h4>
+      <p>
         Below is some starter code to integrate GrowthBook into your app. Read
         the <DocLink docSection={docs}>{label} docs</DocLink> for more details.
       </p>
-
       <h4>Installation</h4>
       <InstallationCodeSnippet language={language} />
-
       <h4>Setup</h4>
       <GrowthBookSetupCodeSnippet
         language={language}
         apiHost={getApiBaseUrl(sdkConnection)}
         apiKey={sdkConnection ? sdkConnection.key : apiKey}
+        encryptionKey={
+          sdkConnection &&
+          sdkConnection.encryptPayload &&
+          sdkConnection.encryptionKey
+        }
         useStreaming={!!sdkConnection?.proxy?.enabled}
       />
-
       <h4>Usage</h4>
+      On/Off Feature:
       <BooleanFeatureCodeSnippet language={language} featureId={featureId} />
+      String Feature:
+      <MultivariateFeatureCodeSnippet
+        language={language}
+        featureId={featureId}
+        valueType={"string"}
+      />
     </Modal>
   );
 }
