@@ -15,6 +15,7 @@ import EncryptionToggle from "@/components/Settings/EncryptionToggle";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import SDKLanguageSelector from "./SDKLanguageSelector";
+import { languageMapping } from "./SDKLanguageLogo";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -55,6 +56,10 @@ export default function SDKConnectionForm({
     );
   }
 
+  const hasSDKsWithoutEncryptionSupport = form
+    .watch("languages")
+    .some((l) => !languageMapping[l].supportsEncryption);
+
   return (
     <Modal
       header={edit ? "Edit SDK COnnection" : "New SDK Connection"}
@@ -72,6 +77,15 @@ export default function SDKConnectionForm({
             body: JSON.stringify(body),
           });
         } else {
+          // Make sure encryption is disabled if they selected at least 1 language that's not supported
+          // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
+          // For example, toggling encryption ON and then selecting an unsupported language
+          if (
+            value.languages.some((l) => !languageMapping[l].supportsEncryption)
+          ) {
+            value.encryptPayload = false;
+          }
+
           const body: Omit<CreateSDKConnectionParams, "organization"> = {
             ...value,
           };
@@ -146,11 +160,12 @@ export default function SDKConnectionForm({
         />
       )}
 
-      {!edit && (
+      {!edit && !hasSDKsWithoutEncryptionSupport && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           value={form.watch("encryptPayload")}
           setValue={(value) => form.setValue("encryptPayload", value)}
+          showRequiresChangesWarning={false}
         />
       )}
     </Modal>

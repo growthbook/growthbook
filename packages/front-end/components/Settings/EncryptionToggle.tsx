@@ -1,3 +1,4 @@
+import React from "react";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
@@ -8,12 +9,14 @@ type Props = {
   value: boolean;
   setValue: (value: boolean) => void;
   showUpgradeModal: () => void;
+  showRequiresChangesWarning?: boolean;
 };
 
 export default function EncryptionToggle({
   value,
   setValue,
   showUpgradeModal,
+  showRequiresChangesWarning = true,
 }: Props) {
   const { hasCommercialFeature } = useUser();
 
@@ -36,13 +39,15 @@ export default function EncryptionToggle({
               disabled={!hasFeature}
             />
           </div>
-          <div
-            className="col-md-9 text-gray text-right pt-2"
-            style={{ fontSize: 11 }}
-          >
-            Requires changes to your implementation.{" "}
-            <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
-          </div>
+          {showRequiresChangesWarning && (
+            <div
+              className="col-md-9 text-gray text-right pt-2"
+              style={{ fontSize: 11 }}
+            >
+              Requires changes to your implementation.{" "}
+              <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
+            </div>
+          )}
         </div>
       </div>
       <UpgradeMessage

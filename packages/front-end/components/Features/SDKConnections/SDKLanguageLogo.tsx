@@ -13,85 +13,104 @@ import { DocSection } from "@/components/DocLink";
 
 export const languageMapping: Record<
   SDKLanguage,
-  { Icon: IconType; color: string; label: string; docs: DocSection }
+  {
+    Icon: IconType;
+    color: string;
+    label: string;
+    docs: DocSection;
+    supportsEncryption: boolean;
+  }
 > = {
   react: {
     Icon: DiReact,
     color: "#61DBFB",
     label: "React",
     docs: "tsx",
+    supportsEncryption: true,
   },
   ruby: {
     Icon: DiRuby,
     color: "#A91401",
     label: "Ruby",
     docs: "ruby",
+    supportsEncryption: false,
   },
   python: {
     Icon: DiPython,
     color: "#306998",
     label: "Python",
     docs: "python",
+    supportsEncryption: false,
   },
   android: {
     Icon: DiAndroid,
     color: "#78C257",
     label: "Kotlin",
     docs: "kotlin",
+    supportsEncryption: false,
   },
   csharp: {
     Icon: FaHashtag,
     color: "#684D95",
     label: "C Sharp",
     docs: "sdks",
+    supportsEncryption: false,
   },
   flutter: {
     Icon: SiFlutter,
     color: "#02569B",
     label: "Flutter",
     docs: "sdks",
+    supportsEncryption: false,
   },
   go: {
     Icon: SiGo,
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
+    supportsEncryption: false,
   },
   ios: {
     Icon: FaApple,
     color: "#000000",
     label: "Swift",
     docs: "sdks",
+    supportsEncryption: false,
   },
   java: {
     Icon: FaJava,
     color: "#f89820",
     label: "Java",
     docs: "java",
+    supportsEncryption: false,
   },
   javascript: {
     Icon: SiJavascript,
     color: "#f7df1e",
     label: "Javascript",
     docs: "javascript",
+    supportsEncryption: true,
   },
   php: {
     Icon: SiPhp,
     color: "#8993be",
     label: "PHP",
     docs: "php",
+    supportsEncryption: false,
   },
   nodejs: {
     Icon: SiNodedotjs,
     color: "#339933",
     label: "Node.js",
     docs: "javascript",
+    supportsEncryption: true,
   },
   other: {
     Icon: FaCode,
     color: "#777",
     label: "Other",
     docs: "sdks",
+    supportsEncryption: false,
   },
 };
 
