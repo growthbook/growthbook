@@ -99,9 +99,7 @@ const SDKEndpoints: FC<{
                   </td>
                   <td>{key.description}</td>
                   <td>
-                    <ClickToCopy valueToCopy={endpoint}>
-                      <span style={{ wordBreak: "break-all" }}>{endpoint}</span>
-                    </ClickToCopy>
+                    <ClickToCopy>{endpoint}</ClickToCopy>
                   </td>
                   <td style={{ width: 295 }}>
                     {canManageKeys && key.encryptSDK ? (

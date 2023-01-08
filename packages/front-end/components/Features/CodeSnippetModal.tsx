@@ -14,6 +14,7 @@ import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/Installation
 import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import ClickToCopy from "../Settings/ClickToCopy";
 import SDKEndpointSelector from "./SDKEndpointSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
@@ -81,6 +82,13 @@ export default function CodeSnippetModal({
   }, [settings]);
 
   const { docs, label } = languageMapping[language];
+  const apiHost = getApiBaseUrl(sdkConnection);
+  const clientKey = sdkConnection ? sdkConnection.key : apiKey;
+  const featuresEndpoint = apiHost + "api/features/" + clientKey;
+  const encryptionKey =
+    sdkConnection &&
+    sdkConnection.encryptPayload &&
+    sdkConnection.encryptionKey;
 
   return (
     <Modal
@@ -98,6 +106,39 @@ export default function CodeSnippetModal({
       {!sdkConnection && (
         <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
       )}
+      <h4>Config Settings</h4>
+      <table className="gbtable table table-bordered mb-3 table-sm">
+        <tbody>
+          <tr>
+            <th style={{ width: "140px", verticalAlign: "middle" }}>
+              API Host
+            </th>
+            <td>
+              <ClickToCopy>{apiHost}</ClickToCopy>
+            </td>
+          </tr>
+          <tr>
+            <th style={{ verticalAlign: "middle" }}>Client Key</th>
+            <td>
+              <ClickToCopy>{clientKey}</ClickToCopy>
+            </td>
+          </tr>
+          {encryptionKey && (
+            <tr>
+              <th style={{ verticalAlign: "middle" }}>Encryption Key</th>
+              <td>
+                <ClickToCopy>{encryptionKey}</ClickToCopy>
+              </td>
+            </tr>
+          )}
+          <tr>
+            <th style={{ verticalAlign: "middle" }}>Features Endpoint</th>
+            <td>
+              <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       {(!limitLanguages || limitLanguages.length > 1) && (
         <div className="mb-2">
           <h4>Choose your language</h4>
@@ -120,13 +161,9 @@ export default function CodeSnippetModal({
       <h4>Setup</h4>
       <GrowthBookSetupCodeSnippet
         language={language}
-        apiHost={getApiBaseUrl(sdkConnection)}
-        apiKey={sdkConnection ? sdkConnection.key : apiKey}
-        encryptionKey={
-          sdkConnection &&
-          sdkConnection.encryptPayload &&
-          sdkConnection.encryptionKey
-        }
+        apiHost={apiHost}
+        apiKey={clientKey}
+        encryptionKey={encryptionKey}
         useStreaming={!!sdkConnection?.proxy?.enabled}
       />
       <h4>Usage</h4>
