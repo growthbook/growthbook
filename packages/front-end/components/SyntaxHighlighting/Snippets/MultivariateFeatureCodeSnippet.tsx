@@ -174,7 +174,7 @@ Println(feature.value)
       <Code
         language="csharp"
         code={`
-var value = GrowthBook.GetFeatureValue<string>(${JSON.stringify(
+var value = gb.GetFeatureValue<string>(${JSON.stringify(
           featureId
         )}, "fallback");
 Console.WriteLine(value);

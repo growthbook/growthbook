@@ -8,7 +8,7 @@ type Props = {
 
 export default function ClickToCopy({ children }: Props) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 1500,
+    timeout: 800,
   });
   return (
     <div className="d-flex align-items-center position-relative">
@@ -27,12 +27,12 @@ export default function ClickToCopy({ children }: Props) {
           </span>
         </button>
       ) : null}
-      <span className="ml-3">
+      <span className="ml-2">
         <code className="text-main text-break">{children}</code>
       </span>
 
       {copySuccess ? (
-        <SimpleTooltip position="top">Copied to clipboard!</SimpleTooltip>
+        <SimpleTooltip position="left">Copied to clipboard!</SimpleTooltip>
       ) : null}
     </div>
   );

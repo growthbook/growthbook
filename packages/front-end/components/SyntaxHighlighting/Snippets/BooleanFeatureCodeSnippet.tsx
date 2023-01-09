@@ -161,7 +161,7 @@ if (gb.feature(${JSON.stringify(featureId)}).on) {
       <Code
         language="csharp"
         code={`
-if (GrowthBook.IsOn(${JSON.stringify(featureId)})) {
+if (gb.IsOn(${JSON.stringify(featureId)})) {
   // Feature is enabled!
 }
     `.trim()}

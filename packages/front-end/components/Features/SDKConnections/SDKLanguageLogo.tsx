@@ -19,6 +19,7 @@ export const languageMapping: Record<
     label: string;
     docs: DocSection;
     supportsEncryption: boolean;
+    usesEntireEndpoint: boolean;
   }
 > = {
   react: {
@@ -27,6 +28,7 @@ export const languageMapping: Record<
     label: "React",
     docs: "tsx",
     supportsEncryption: true,
+    usesEntireEndpoint: false,
   },
   ruby: {
     Icon: DiRuby,
@@ -34,6 +36,7 @@ export const languageMapping: Record<
     label: "Ruby",
     docs: "ruby",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   python: {
     Icon: DiPython,
@@ -41,6 +44,7 @@ export const languageMapping: Record<
     label: "Python",
     docs: "python",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   android: {
     Icon: DiAndroid,
@@ -48,6 +52,7 @@ export const languageMapping: Record<
     label: "Kotlin",
     docs: "kotlin",
     supportsEncryption: false,
+    usesEntireEndpoint: false,
   },
   csharp: {
     Icon: FaHashtag,
@@ -55,6 +60,7 @@ export const languageMapping: Record<
     label: "C Sharp",
     docs: "sdks",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   flutter: {
     Icon: SiFlutter,
@@ -62,6 +68,7 @@ export const languageMapping: Record<
     label: "Flutter",
     docs: "sdks",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   go: {
     Icon: SiGo,
@@ -69,6 +76,7 @@ export const languageMapping: Record<
     label: "Golang",
     docs: "go",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   ios: {
     Icon: FaApple,
@@ -76,6 +84,7 @@ export const languageMapping: Record<
     label: "Swift",
     docs: "sdks",
     supportsEncryption: false,
+    usesEntireEndpoint: false,
   },
   java: {
     Icon: FaJava,
@@ -83,6 +92,7 @@ export const languageMapping: Record<
     label: "Java",
     docs: "java",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   javascript: {
     Icon: SiJavascript,
@@ -90,6 +100,7 @@ export const languageMapping: Record<
     label: "Javascript",
     docs: "javascript",
     supportsEncryption: true,
+    usesEntireEndpoint: false,
   },
   php: {
     Icon: SiPhp,
@@ -97,6 +108,7 @@ export const languageMapping: Record<
     label: "PHP",
     docs: "php",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -104,6 +116,7 @@ export const languageMapping: Record<
     label: "Node.js",
     docs: "javascript",
     supportsEncryption: true,
+    usesEntireEndpoint: false,
   },
   other: {
     Icon: FaCode,
@@ -111,6 +124,7 @@ export const languageMapping: Record<
     label: "Other",
     docs: "sdks",
     supportsEncryption: false,
+    usesEntireEndpoint: true,
   },
 };
 

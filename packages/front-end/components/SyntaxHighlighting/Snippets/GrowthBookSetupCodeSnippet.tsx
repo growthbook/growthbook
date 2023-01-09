@@ -77,21 +77,22 @@ export default function GrowthBookSetupCodeSnippet({
 
   if (language === "javascript") {
     return (
-      <Code
-        language="javascript"
-        code={`
+      <>
+        Create a GrowthBook instance
+        <Code
+          language="javascript"
+          code={`
 import { GrowthBook } from "@growthbook/growthbook";
 
-// Create a GrowthBook Context
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-          useStreaming ? `\n  streaming: true,` : ""
-        }${
-          encryptionKey
-            ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
-            : ""
-        }
+            useStreaming ? `\n  streaming: true,` : ""
+          }${
+            encryptionKey
+              ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
+              : ""
+          }
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
     // TODO: use your real analytics tracking system
@@ -101,31 +102,37 @@ const growthbook = new GrowthBook({
     });
   }
 });
-
+`.trim()}
+        />
+        Set targeting attributes
+        <Code
+          language="javascript"
+          code={`
 // TODO: replace with real targeting attribute values
 growthbook.setAttributes(${stringify(exampleAttributes)});
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "react") {
     return (
-      <Code
-        language="tsx"
-        code={`
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
-import { useEffect } from "react";
+      <>
+        Create a GrowthBook instance
+        <Code
+          language="tsx"
+          code={`
+import { GrowthBook } from "@growthbook/growthbook-react";
 
-// Create a GrowthBook Context
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-          useStreaming ? `\n  streaming: true,` : ""
-        }${
-          encryptionKey
-            ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
-            : ""
-        }
+            useStreaming ? `\n  streaming: true,` : ""
+          }${
+            encryptionKey
+              ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
+              : ""
+          }
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
     // TODO: use your real analytics tracking system
@@ -135,9 +142,21 @@ const growthbook = new GrowthBook({
     });
   }
 });
-
+`.trim()}
+        />
+        Set targeting attributes
+        <Code
+          language="tsx"
+          code={`
 // TODO: replace with real targeting attribute values
 growthbook.setAttributes(${stringify(exampleAttributes)});
+`.trim()}
+        />
+        Wrap app in a GrowthBookProvider
+        <Code
+          language="tsx"
+          code={`
+import { GrowthBookProvider } from "@growthbook/growthbook-react";
 
 export default function MyApp() {
   return (
@@ -147,14 +166,17 @@ export default function MyApp() {
   )
 }
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "nodejs") {
     return (
-      <Code
-        language="javascript"
-        code={`
+      <>
+        Add a middleware before any routes that will use GrowthBook
+        <Code
+          language="javascript"
+          code={`
 const { GrowthBook } = require("@growthbook/growthbook");
 const fetch = require("node-fetch");
 ${encryptionKey ? `const subtleCrypto = require('node:crypto')\n` : ""}
@@ -163,14 +185,14 @@ app.use(function(req, res, next) {
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
-          useStreaming ? `\n    streaming: true,` : ""
-        }${
-          encryptionKey
-            ? `\n    encryptionKey: ${JSON.stringify(
-                encryptionKey
-              )},\n    crypto: subtleCrypto,`
-            : ""
-        }
+            useStreaming ? `\n    streaming: true,` : ""
+          }${
+            encryptionKey
+              ? `\n    encryptionKey: ${JSON.stringify(
+                  encryptionKey
+                )},\n    crypto: subtleCrypto,`
+              : ""
+          }
     enableDevMode: true,
     fetch: fetch,
     trackingCallback: (experiment, result) => {
@@ -196,16 +218,17 @@ app.use(function(req, res, next) {
     })
 })
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "android") {
     return (
-      <Code
-        language="kotlin"
-        code={`
-import com.sdk.growthbook.GBSDKBuilder
-
+      <>
+        Define targeting attributes
+        <Code
+          language="kotlin"
+          code={`
 // TODO: replace with real targeting attribute values
 val attrs = HashMap<String, Any>()
 ${Object.keys(exampleAttributes)
@@ -213,8 +236,14 @@ ${Object.keys(exampleAttributes)
     return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
   })
   .join("\n")}
+`.trim()}
+        />
+        Create GrowthBook instance
+        <Code
+          language="kotlin"
+          code={`
+import com.sdk.growthbook.GBSDKBuilder
 
-// Create a GrowthBook Context
 val gb = GBSDKBuilder(
   apiKey = "${apiKey || "MY_SDK_KEY"}",
   hostURL = "${apiHost}",
@@ -227,18 +256,25 @@ val gb = GBSDKBuilder(
   });
   }
 ).initialize()`.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "ios") {
     return (
-      <Code
-        language="swift"
-        code={`
+      <>
+        Define targeting attributes
+        <Code
+          language="swift"
+          code={`
 // TODO: replace with real targeting attribute values
 var attrs = ${swiftArrayFormat(exampleAttributes)}
-
-// Create a GrowthBook Context
+    `.trim()}
+        />
+        Create GrowthBook instance
+        <Code
+          language="swift"
+          code={`
 var gb: GrowthBookSDK = GrowthBookBuilder(
   url: "${featuresEndpoint}",
   attributes: attrs,
@@ -248,20 +284,21 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 }
 ).initializer()
     `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "go") {
     return (
-      <Code
-        language="go"
-        code={`
+      <>
+        Helper function to load features from the GrowthBook API
+        <Code
+          language="go"
+          code={`
 package main
 
 import (
 	"encoding/json"
-	"fmt"
-	growthbook "github.com/growthbook/growthbook-golang"
 	"io"
 	"log"
 	"net/http"
@@ -286,6 +323,18 @@ func GetFeatureMap() []byte {
 	_ = json.Unmarshal(body, apiResp)
 	return apiResp.Features
 }
+            `.trim()}
+        />
+        Create GrowthBook instance
+        <Code
+          language="go"
+          code={`
+package main
+
+import (
+	growthbook "github.com/growthbook/growthbook-golang"
+	"log"
+)
 
 func main() {
 	featureMap := GetFeatureMap()
@@ -307,119 +356,180 @@ func main() {
 	gb := growthbook.New(context)
 }
             `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "ruby") {
     return (
-      <Code
-        language="ruby"
-        code={`
-require 'growthbook'
+      <>
+        Get features from the GrowthBook API
+        <Code
+          language="ruby"
+          code={`
 require 'uri'
 require 'net/http'
 require 'json'
 
-# Fetch features from GrowthBook API
 uri = URI('${featuresEndpoint}')
 res = Net::HTTP.get_response(uri)
 features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
-
-# Tracking callback when users are put into an experiment
+            `.trim()}
+        />
+        Tracking callback when users are put into an experiment
+        <Code
+          language="ruby"
+          code={`
 class MyImpressionListener
   def on_experiment_viewed(experiment, result)
-    # TODO: track in your analytics system
-    puts "Assigned variation #{result.variation_id} in experiment #{experiment.key}"
+    # TODO: track in your real analytics system
+    Analytics.track(
+      user_id: '123abc',
+      event: 'Viewed Experiment',
+      properties: { 
+        variationId: result.variation_id,
+        experimentId: experiment.key
+      })
   end
 end
+            `.trim()}
+        />
+        Create a GrowthBook instance
+        <Code
+          language="ruby"
+          code={`
+require 'growthbook'
 
 # Create a context for the current user/request
 gb = Growthbook::Context.new(
   features: features,
-  # TODO: Real user attributes for targeting
-  attributes: ${indentLines(stringify(exampleAttributes), 4).replace(
+  # TODO: Real targeting attribute values
+  attributes: ${indentLines(stringify(exampleAttributes), 2).replace(
     /: null/g,
     ": nil"
   )},
   listener: MyImpressionListener.new
 )
             `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "php") {
     return (
-      <Code
-        language="php"
-        code={`
-use Growthbook\\Growthbook;
-
+      <>
+        Targeting attributes
+        <Code
+          language="php"
+          code={`
 // TODO: Use real targeting attribute values
 $attributes = ${phpArrayFormat(exampleAttributes)};
-
-// Fetch feature definitions from GrowthBook API
+            `.trim()}
+        />
+        Get features from GrowthBook API
+        <Code
+          language="php"
+          code={`
 const FEATURES_ENDPOINT = '${featuresEndpoint}';
 $apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
 $features = $apiResponse["features"];
+            `.trim()}
+        />
+        Create a GrowthBook instance
+        <Code
+          language="php"
+          code={`
+use Growthbook\\Growthbook;
 
-// Create a GrowthBook instance
 $growthbook = Growthbook::create()
   ->withAttributes($attributes)
   ->withFeatures($features)
   ->withTrackingCallback(function ($experiment, $result) {
-    // TODO: track in your analytics system
+    // TODO: track in your real analytics system
+    Segment::track([
+      "userId" => "abc123",
+      "event" => "Viewed Experiment",
+      "properties" => [
+        "variationId" => $result->variationId,
+        "experimentId" => $experiment->key
+      ]
+    ]);
   });
             `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "python") {
     return (
-      <Code
-        language="python"
-        code={`
+      <>
+        Get features from the GrowthBook API
+        <Code
+          language="python"
+          code={`
 import requests
-from growthbook import GrowthBook
 
-# Fetch feature definitions from GrowthBook API
 apiResp = requests.get("${featuresEndpoint}")
 features = apiResp.json()["features"]
-
+            `.trim()}
+        />
+        Define targeting attributes
+        <Code
+          language="python"
+          code={`
 # TODO: Real targeting attribute values
 attributes = ${stringify(exampleAttributes)
-          .replace(/: true/g, ": True")
-          .replace(/: false/g, ": False")
-          .replace(/: null/g, ": None")}
-
+            .replace(/: true/g, ": True")
+            .replace(/: false/g, ": False")
+            .replace(/: null/g, ": None")}
+            `.trim()}
+        />
+        Callback when a user is put into an experiment
+        <Code
+          language="python"
+          code={`
 def on_experiment_viewed(experiment, result):
   # Use whatever event tracking system you want
   analytics.track('usr_123abc', 'Viewed Experiment', {
     'experimentId': experiment.key,
     'variationId': result.variationId
   })
+            `.trim()}
+        />
+        Create a GrowthBook instance
+        <Code
+          language="python"
+          code={`
+from growthbook import GrowthBook
 
-# Create a GrowthBook instance
 gb = GrowthBook(
   attributes = attributes,
   features = features,
   trackingCallback = on_experiment_viewed
 )
             `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "java") {
     return (
-      <Code
-        language="java"
-        code={`
-// Fetch feature definitions from GrowthBook API
+      <>
+        Get features from the GrowthBook API
+        <Code
+          language="java"
+          code={`
 URI featuresEndpoint = new URI("${featuresEndpoint}");
 HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
 HttpResponse<String> response = HttpClient.newBuilder().build()
     .send(request, HttpResponse.BodyHandlers.ofString());
 String featuresJson = new JSONObject(response.body()).get("features").toString();
-
+            `.trim()}
+        />
+        Define targeting attributes
+        <Code
+          language="java"
+          code={`
 // Get user attributes as a JSON string
 JSONObject userAttributesObj = new JSONObject();
 ${Object.entries(exampleAttributes)
@@ -430,8 +540,12 @@ ${Object.entries(exampleAttributes)
   })
   .join("\n")}
 String userAttributesJson = userAttributesObj.toString();
-
-// Experiment tracking callback
+            `.trim()}
+        />
+        Callback when a user is put into an experiment
+        <Code
+          language="java"
+          code={`
 TrackingCallback trackingCallback = new TrackingCallback() {
   public <ValueType> void onTrack(
       Experiment<ValueType> experiment,
@@ -445,11 +559,16 @@ TrackingCallback trackingCallback = new TrackingCallback() {
           .put("variationId", experimentResult.variationId)
           .build()
       )
-);
+    );
   }
 };
 
-// Create a GrowthBook instance
+            `.trim()}
+        />
+        Create a GrowthBook instance
+        <Code
+          language="java"
+          code={`
 GBContext context = GBContext.builder()
     .featuresJson(featuresJson)
     .attributesJson(userAttributesJson)
@@ -457,22 +576,31 @@ GBContext context = GBContext.builder()
     .build();
 GrowthBook growthBook = new GrowthBook(context);
             `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "flutter") {
     return (
-      <Code
-        language="dart"
-        code={`
+      <>
+        Define targeting attributes
+        <Code
+          language="dart"
+          code={`
 val attrs = HashMap<String, Any>()
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
     return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
   })
   .join("\n")}
-
-final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
+`.trim()}
+        />
+        Create a GrowthBook instance
+        <Code
+          language="dart"
+          code={`
+final GrowthBookSDK gb = GBSDKBuilderApp(
+  hostURL: '${apiHost}',
   apiKey: "${apiKey}",
   attributes: {
     attrs
@@ -487,17 +615,19 @@ final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
       },
     );
   },
-  hostURL: '${apiHost}',
 ).initialize();
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "csharp") {
     return (
-      <Code
-        language="csharp"
-        code={`
+      <>
+        Get features from the GrowthBook API
+        <Code
+          language="csharp"
+          code={`
 using GrowthBook;
 
 // Fetch feature flags from the GrowthBook API
@@ -516,25 +646,35 @@ if (response.IsSuccessStatusCode)
     var featuresResult = JsonConvert.DeserializeObject<FeaturesResult>(content);
     features = featuresResult.Features;
 }
-
-// TODO: real user targeting attribute values
+    `.trim()}
+        />
+        Define targeting attributes
+        <Code
+          language="csharp"
+          code={`
+// TODO: real targeting attribute values
 var attrs = new JObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
-    return `attrs.Add("${JSON.stringify(key)}", ${JSON.stringify(value)});`;
+    return `attrs.Add(${JSON.stringify(key)}, ${JSON.stringify(value)});`;
   })
   .join("\n")}
-
-// Create a GrowthBook instance
+    `.trim()}
+        />
+        Create a GrowthBook instance
+        <Code
+          language="csharp"
+          code={`
 var context = new Context
 {
     Enabled = true,
     Features = features,
     Attributes = attrs
 };
-var GrowthBook = new GrowthBook.GrowthBook(context);
+var gb = new GrowthBook.GrowthBook(context);
     `.trim()}
-      />
+        />
+      </>
     );
   }
 

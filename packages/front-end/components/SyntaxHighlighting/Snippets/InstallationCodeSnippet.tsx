@@ -49,7 +49,7 @@ dependencies {
     return (
       <>
         <div className="mb-3">
-          <strong>Cocoapods Installation</strong>
+          Cocoapods
           <Code
             language="javascript"
             filename="Podfile"
@@ -64,7 +64,7 @@ end
           <Code language="sh" code={"pod install"} />
         </div>
         <div className="mb-3">
-          <strong>Swift Package Manager (SPM) Installation</strong>
+          Swift Package Manager (SPM)
           <Code
             language="swift"
             filename="Package.swift"
@@ -101,7 +101,7 @@ dependencies: [
     return (
       <>
         <div className="mb-3">
-          <strong>Maven Installation</strong>
+          Maven
           <Code
             language="xml"
             code={`
@@ -121,7 +121,7 @@ dependencies: [
           />
         </div>
         <div className="mb-3">
-          <strong>Gradle Installation</strong>
+          Gradle
           <Code
             language="javascript"
             filename="build.gradle"

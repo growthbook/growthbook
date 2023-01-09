@@ -3,6 +3,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "back-end/types/sdk-connection";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { getApiHost, isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -56,6 +57,11 @@ export default function CodeSnippetModal({
   const [language, setLanguage] = useState<SDKLanguage>(defaultLanguage);
   const permissions = usePermissions();
 
+  const [configOpen, setConfigOpen] = useState(true);
+  const [installationOpen, setInstallationOpen] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(true);
+  const [usageOpen, setUsageOpen] = useState(true);
+
   const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
@@ -81,7 +87,7 @@ export default function CodeSnippetModal({
     })();
   }, [settings]);
 
-  const { docs, label } = languageMapping[language];
+  const { docs, label, usesEntireEndpoint } = languageMapping[language];
   const apiHost = getApiBaseUrl(sdkConnection);
   const clientKey = sdkConnection ? sdkConnection.key : apiKey;
   const featuresEndpoint = apiHost + "api/features/" + clientKey;
@@ -94,6 +100,7 @@ export default function CodeSnippetModal({
     <Modal
       close={close}
       secondaryCTA={secondaryCTA}
+      bodyClassName="p-0"
       open={true}
       inline={inline}
       size={"lg"}
@@ -106,42 +113,11 @@ export default function CodeSnippetModal({
       {!sdkConnection && (
         <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
       )}
-      <h4>Config Settings</h4>
-      <table className="gbtable table table-bordered mb-3 table-sm">
-        <tbody>
-          <tr>
-            <th style={{ width: "140px", verticalAlign: "middle" }}>
-              API Host
-            </th>
-            <td>
-              <ClickToCopy>{apiHost}</ClickToCopy>
-            </td>
-          </tr>
-          <tr>
-            <th style={{ verticalAlign: "middle" }}>Client Key</th>
-            <td>
-              <ClickToCopy>{clientKey}</ClickToCopy>
-            </td>
-          </tr>
-          {encryptionKey && (
-            <tr>
-              <th style={{ verticalAlign: "middle" }}>Encryption Key</th>
-              <td>
-                <ClickToCopy>{encryptionKey}</ClickToCopy>
-              </td>
-            </tr>
-          )}
-          <tr>
-            <th style={{ verticalAlign: "middle" }}>Features Endpoint</th>
-            <td>
-              <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-            </td>
-          </tr>
-        </tbody>
-      </table>
       {(!limitLanguages || limitLanguages.length > 1) && (
-        <div className="mb-2">
-          <h4>Choose your language</h4>
+        <div
+          className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
+          style={{ top: 0, zIndex: 999 }}
+        >
           <SDKLanguageSelector
             value={[language]}
             setValue={([language]) => setLanguage(language)}
@@ -151,30 +127,136 @@ export default function CodeSnippetModal({
           />
         </div>
       )}
-      <h4>{label} Instructions</h4>
-      <p>
-        Below is some starter code to integrate GrowthBook into your app. Read
-        the <DocLink docSection={docs}>{label} docs</DocLink> for more details.
-      </p>
-      <h4>Installation</h4>
-      <InstallationCodeSnippet language={language} />
-      <h4>Setup</h4>
-      <GrowthBookSetupCodeSnippet
-        language={language}
-        apiHost={apiHost}
-        apiKey={clientKey}
-        encryptionKey={encryptionKey}
-        useStreaming={!!sdkConnection?.proxy?.enabled}
-      />
-      <h4>Usage</h4>
-      On/Off Feature:
-      <BooleanFeatureCodeSnippet language={language} featureId={featureId} />
-      String Feature:
-      <MultivariateFeatureCodeSnippet
-        language={language}
-        featureId={featureId}
-        valueType={"string"}
-      />
+      <div className="px-3">
+        <p>
+          Below is some starter code to integrate GrowthBook into your app. Read
+          the <DocLink docSection={docs}>{label} docs</DocLink> for more
+          details.
+        </p>
+        <div className="mb-3">
+          <h4
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setConfigOpen(!configOpen);
+            }}
+          >
+            {label} Config Settings{" "}
+            {configOpen ? <FaAngleDown /> : <FaAngleRight />}
+          </h4>
+          {configOpen && (
+            <div className="appbox bg-light p-3">
+              <table className="gbtable table table-bordered table-sm">
+                <tbody>
+                  {usesEntireEndpoint ? (
+                    <tr>
+                      <th style={{ verticalAlign: "middle" }}>
+                        Features Endpoint
+                      </th>
+                      <td>
+                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      <tr>
+                        <th style={{ width: "140px", verticalAlign: "middle" }}>
+                          API Host
+                        </th>
+                        <td>
+                          <ClickToCopy>{apiHost}</ClickToCopy>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style={{ verticalAlign: "middle" }}>Client Key</th>
+                        <td>
+                          <ClickToCopy>{clientKey}</ClickToCopy>
+                        </td>
+                      </tr>
+                    </>
+                  )}
+                  {encryptionKey && (
+                    <tr>
+                      <th style={{ verticalAlign: "middle" }}>
+                        Encryption Key
+                      </th>
+                      <td>
+                        <ClickToCopy>{encryptionKey}</ClickToCopy>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="mb-3">
+          <h4
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setInstallationOpen(!installationOpen);
+            }}
+          >
+            {label} Installation{" "}
+            {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+          </h4>
+          {installationOpen && (
+            <div className="appbox bg-light p-3">
+              <InstallationCodeSnippet language={language} />
+            </div>
+          )}
+        </div>
+        <div className="mb-3">
+          <h4
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setSetupOpen(!setupOpen);
+            }}
+          >
+            {label} Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+          </h4>
+          {setupOpen && (
+            <div className="appbox bg-light p-3">
+              <GrowthBookSetupCodeSnippet
+                language={language}
+                apiHost={apiHost}
+                apiKey={clientKey}
+                encryptionKey={encryptionKey}
+                useStreaming={!!sdkConnection?.proxy?.enabled}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="mb-3">
+          <h4
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setUsageOpen(!usageOpen);
+            }}
+          >
+            {label} Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
+          </h4>
+          {usageOpen && (
+            <div className="appbox bg-light p-3">
+              On/Off Feature:
+              <BooleanFeatureCodeSnippet
+                language={language}
+                featureId={featureId}
+              />
+              String Feature:
+              <MultivariateFeatureCodeSnippet
+                language={language}
+                featureId={featureId}
+                valueType={"string"}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </Modal>
   );
 }
