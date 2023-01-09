@@ -2,6 +2,7 @@
 
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { NotificationEventName } from "back-end/src/events/base-types";
+import { action } from "@storybook/addon-actions";
 import { getValidDate } from "../../../services/dates";
 import { EventWebHookDetail } from "./EventWebHookDetail";
 
@@ -56,15 +57,57 @@ const eventWebHookNoState: EventWebHookInterface = {
 };
 
 export const SuccessfulRun = () => {
-  return <EventWebHookDetail eventWebHook={eventWebHookSuccessState} />;
+  return (
+    <EventWebHookDetail
+      editError={null}
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
+      isModalOpen={false}
+      onDelete={async () => {
+        action("onDelete")();
+      }}
+      onEdit={async () => {
+        action("onEdit")();
+      }}
+      eventWebHook={eventWebHookSuccessState}
+    />
+  );
 };
 
 export const FailedRun = () => {
-  return <EventWebHookDetail eventWebHook={eventWebHookFailedState} />;
+  return (
+    <EventWebHookDetail
+      editError={null}
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
+      isModalOpen={false}
+      onDelete={async () => {
+        action("onDelete")();
+      }}
+      onEdit={async () => {
+        action("onEdit")();
+      }}
+      eventWebHook={eventWebHookFailedState}
+    />
+  );
 };
 
 export const WithoutRuns = () => {
-  return <EventWebHookDetail eventWebHook={eventWebHookNoState} />;
+  return (
+    <EventWebHookDetail
+      editError={null}
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
+      isModalOpen={false}
+      onDelete={async () => {
+        action("onDelete")();
+      }}
+      onEdit={async () => {
+        action("onEdit")();
+      }}
+      eventWebHook={eventWebHookNoState}
+    />
+  );
 };
 
 export const LotsOfEvents = () => {
@@ -89,6 +132,16 @@ export const LotsOfEvents = () => {
 
   return (
     <EventWebHookDetail
+      editError={null}
+      onEditModalOpen={action("onEditModalOpen")}
+      onModalClose={action("onModalClose")}
+      isModalOpen={false}
+      onDelete={async () => {
+        action("onDelete")();
+      }}
+      onEdit={async () => {
+        action("onEdit")();
+      }}
       eventWebHook={{
         ...eventWebHookSuccessState,
         events: eventsList,
