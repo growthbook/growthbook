@@ -150,7 +150,7 @@ const PValueGuardrailResults: FC<{
                       className={clsx("chance result-number align-middle", {
                         won: r.expectedDirection && r.statSig,
                         lost: !r.expectedDirection && r.statSig,
-                        warning: !r.expectedDirection,
+                        warning: !r.expectedDirection && !r.statSig,
                       })}
                     >
                       {r.expectedDirection ? "Better" : "Worse"}{" "}
