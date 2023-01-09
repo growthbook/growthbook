@@ -7,7 +7,6 @@ import {
   useSensors,
   PointerSensor,
   KeyboardSensor,
-  DragOverlay,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -27,7 +26,7 @@ import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import styles from "./VariationsInput.module.scss";
-import { SortableVariationRow, VariationRow } from "./Variation";
+import { SortableVariationRow } from "./Variation";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -60,7 +59,6 @@ export default function VariationsInput({
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
-  const [activeId, setActiveId] = useState<string>(null);
   const [items, setItems] = useState(() =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     variations.map((variation: any) => ({ ...variation, id: variation.name }))
@@ -93,8 +91,6 @@ export default function VariationsInput({
     }
     return -1;
   }
-
-  const activeVariation = activeId ? items[getVariationIndex(activeId)] : null;
 
   const canEdit =
     permissions.check("manageFeatures", feature.project) &&
@@ -238,19 +234,6 @@ export default function VariationsInput({
                   />
                 ))}
               </SortableContext>
-              <DragOverlay>
-                {activeVariation && (
-                  <VariationRow
-                    i={getVariationIndex(activeId)}
-                    variation={variations[getVariationIndex(activeId)]}
-                    variations={variations}
-                    setVariations={setVariations}
-                    setWeight={setWeight}
-                    customSplit={customSplit}
-                    valueType={valueType}
-                  />
-                )}
-              </DragOverlay>
             </DndContext>
             <tr>
               <td colSpan={4}>
