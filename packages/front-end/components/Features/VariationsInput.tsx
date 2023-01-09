@@ -1,5 +1,5 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -61,11 +61,18 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
   const [activeId, setActiveId] = useState<string>(null);
-  const [items, setItems] = useState(
+  const [items, setItems] = useState(() =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     variations.map((variation: any) => ({ ...variation, id: variation.name }))
   );
   const permissions = usePermissions();
+
+  useEffect(() => {
+    setItems(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      variations.map((variation: any) => ({ ...variation, id: variation.name }))
+    );
+  }, [variations]);
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
@@ -226,7 +233,7 @@ export default function VariationsInput({
                     setVariations={setVariations}
                     setWeight={setWeight}
                     customSplit={customSplit}
-                    key={i}
+                    key={variation.value}
                     valueType={valueType}
                   />
                 ))}
