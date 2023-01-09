@@ -2,6 +2,7 @@ import { logger } from "../util/logger";
 import mongoInit from "./mongo";
 import licenseInit from "./license";
 import { queueInit } from "./queue";
+import { initSlackIntegration } from "./slack-integration";
 
 let initPromise: Promise<void>;
 export async function init() {
@@ -10,6 +11,7 @@ export async function init() {
       await mongoInit();
       await queueInit();
       await licenseInit();
+      await initSlackIntegration();
     })();
   }
   try {

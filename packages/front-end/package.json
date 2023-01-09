@@ -19,6 +19,7 @@
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
     "@sentry/react": "^7.14.2",
+    "@slack/bolt": "^3.12.2",
     "@visx/axis": "^2.1.0",
     "@visx/curve": "^2.1.0",
     "@visx/event": "^2.6.0",
