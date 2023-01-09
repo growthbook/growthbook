@@ -110,9 +110,6 @@ export default function CodeSnippetModal({
       }}
       cta={cta}
     >
-      {!sdkConnection && (
-        <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
-      )}
       {(!limitLanguages || limitLanguages.length > 1) && (
         <div
           className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
@@ -128,6 +125,9 @@ export default function CodeSnippetModal({
         </div>
       )}
       <div className="px-3">
+        {!sdkConnection && (
+          <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
+        )}
         <p>
           Below is some starter code to integrate GrowthBook into your app. Read
           the <DocLink docSection={docs}>{label} docs</DocLink> for more

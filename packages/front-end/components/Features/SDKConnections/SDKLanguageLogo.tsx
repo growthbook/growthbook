@@ -68,7 +68,7 @@ export const languageMapping: Record<
     label: "Flutter",
     docs: "sdks",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
+    usesEntireEndpoint: false,
   },
   go: {
     Icon: SiGo,
@@ -84,7 +84,7 @@ export const languageMapping: Record<
     label: "Swift",
     docs: "sdks",
     supportsEncryption: false,
-    usesEntireEndpoint: false,
+    usesEntireEndpoint: true,
   },
   java: {
     Icon: FaJava,
