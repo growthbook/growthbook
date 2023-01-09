@@ -2,6 +2,7 @@ import React, { forwardRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FaArrowsAlt } from "react-icons/fa";
+import { ExperimentValue, FeatureValueType } from "@/../back-end/types/feature";
 import {
   decimalToPercent,
   distributeWeights,
@@ -17,8 +18,26 @@ import Field from "../Forms/Field";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
+interface SortableProps {
+  i: number;
+  id: string;
+  variation: ExperimentValue & { id?: string };
+  variations: ExperimentValue[] & { id?: string };
+  key: string;
+  valueType: FeatureValueType;
+  setVariations: (value: ExperimentValue[]) => void;
+  setWeight: (i: number, weight: number) => void;
+  customSplit: boolean;
+  valueAsId: boolean;
+}
+
+type VariationProps = SortableProps &
+  React.HTMLAttributes<HTMLTableRowElement> & {
+    handle?: React.HTMLAttributes<HTMLDivElement>;
+  };
+
 // eslint-disable-next-line
-export const VariationRow = forwardRef<HTMLElement, any>(
+export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
   (
     {
       i,
@@ -192,8 +211,7 @@ export const VariationRow = forwardRef<HTMLElement, any>(
   }
 );
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function SortableVariationRow(props: any) {
+export function SortableVariationRow(props: SortableProps) {
   const {
     attributes,
     listeners,

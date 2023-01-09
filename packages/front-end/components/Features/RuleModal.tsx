@@ -252,7 +252,6 @@ export default function RuleModal({
             }
             variations={form.watch("values") || []}
             setVariations={(variations) => form.setValue("values", variations)}
-            feature={feature}
           />
           {namespaces?.length > 0 && (
             <NamespaceSelector

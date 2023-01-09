@@ -38,8 +38,6 @@ export interface Props {
   coverageTooltip?: string;
   valueAsId?: boolean;
   showPreview?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  feature: any;
 }
 
 export default function VariationsInput({
@@ -58,14 +56,18 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
   const [items, setItems] = useState(() =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    variations.map((variation: any) => ({ ...variation, id: variation.name }))
+    variations.map((variation: ExperimentValue) => ({
+      ...variation,
+      id: variation.name,
+    }))
   );
 
   useEffect(() => {
     setItems(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      variations.map((variation: any) => ({ ...variation, id: variation.name }))
+      variations.map((variation: ExperimentValue) => ({
+        ...variation,
+        id: variation.name,
+      }))
     );
   }, [variations]);
 
@@ -212,6 +214,7 @@ export default function VariationsInput({
                     customSplit={customSplit}
                     key={variation.value}
                     valueType={valueType}
+                    valueAsId={valueAsId}
                   />
                 ))}
               </SortableContext>
