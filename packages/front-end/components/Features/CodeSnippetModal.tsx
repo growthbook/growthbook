@@ -16,6 +16,7 @@ import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBoo
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import ClickToCopy from "../Settings/ClickToCopy";
+import TargetingAttributeCodeSnippet from "../SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import SDKEndpointSelector from "./SDKEndpointSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
@@ -61,6 +62,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
+  const [attributesOpen, setAttributesOpen] = useState(true);
 
   const [apiKey, setApiKey] = useState("");
 
@@ -150,7 +152,7 @@ export default function CodeSnippetModal({
                 <tbody>
                   {usesEntireEndpoint ? (
                     <tr>
-                      <th style={{ verticalAlign: "middle" }}>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
                         Features Endpoint
                       </th>
                       <td>
@@ -160,7 +162,10 @@ export default function CodeSnippetModal({
                   ) : (
                     <>
                       <tr>
-                        <th style={{ width: "140px", verticalAlign: "middle" }}>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
                           API Host
                         </th>
                         <td>
@@ -168,7 +173,12 @@ export default function CodeSnippetModal({
                         </td>
                       </tr>
                       <tr>
-                        <th style={{ verticalAlign: "middle" }}>Client Key</th>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          Client Key
+                        </th>
                         <td>
                           <ClickToCopy>{clientKey}</ClickToCopy>
                         </td>
@@ -177,7 +187,7 @@ export default function CodeSnippetModal({
                   )}
                   {encryptionKey && (
                     <tr>
-                      <th style={{ verticalAlign: "middle" }}>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
                         Encryption Key
                       </th>
                       <td>
@@ -198,8 +208,7 @@ export default function CodeSnippetModal({
               setInstallationOpen(!installationOpen);
             }}
           >
-            {label} Installation{" "}
-            {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+            Installation {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
           </h4>
           {installationOpen && (
             <div className="appbox bg-light p-3">
@@ -215,7 +224,7 @@ export default function CodeSnippetModal({
               setSetupOpen(!setupOpen);
             }}
           >
-            {label} Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+            Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
           </h4>
           {setupOpen && (
             <div className="appbox bg-light p-3">
@@ -235,10 +244,29 @@ export default function CodeSnippetModal({
             className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
+              setAttributesOpen(!attributesOpen);
+            }}
+          >
+            Targeting Attributes{" "}
+            {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
+          </h4>
+          {attributesOpen && (
+            <div className="appbox bg-light p-3">
+              Replace the placeholders with your real targeting attribute values
+              <TargetingAttributeCodeSnippet language={language} />
+            </div>
+          )}
+        </div>
+
+        <div className="mb-3">
+          <h4
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
               setUsageOpen(!usageOpen);
             }}
           >
-            {label} Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
+            Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
           </h4>
           {usageOpen && (
             <div className="appbox bg-light p-3">

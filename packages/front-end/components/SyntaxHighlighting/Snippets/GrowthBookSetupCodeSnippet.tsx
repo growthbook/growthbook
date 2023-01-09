@@ -1,61 +1,6 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import stringify from "json-stringify-pretty-compact";
-import { SDKAttributeSchema } from "back-end/types/organization";
-import { useAttributeSchema } from "@/services/features";
 import { DocLink } from "@/components/DocLink";
 import Code from "../Code";
-
-function phpArrayFormat(json: unknown) {
-  return stringify(json)
-    .replace(/\{/g, "[")
-    .replace(/\}/g, "]")
-    .replace(/:/g, " =>");
-}
-
-function swiftArrayFormat(json: unknown) {
-  return stringify(json).replace(/\{/, "[").replace(/\}/g, "]");
-}
-
-function indentLines(code: string, indent: number | string = 2) {
-  const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
-  return code.split("\n").join("\n" + spaces);
-}
-
-function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
-  if (!attributeSchema?.length) return {};
-
-  // eslint-disable-next-line
-  const exampleAttributes: any = {};
-  attributeSchema.forEach(({ property, datatype, enum: enumList }) => {
-    const parts = property.split(".");
-    const last = parts.pop();
-    let current = exampleAttributes;
-    for (let i = 0; i < parts.length; i++) {
-      current[parts[i]] = current[parts[i]] || {};
-      current = current[parts[i]];
-    }
-
-    // eslint-disable-next-line
-    let value: any = null;
-    if (datatype === "boolean") {
-      value = true;
-    } else if (datatype === "number") {
-      value = 123;
-    } else if (datatype === "string") {
-      value = "foo";
-    } else if (datatype === "number[]") {
-      value = [1, 2, 3];
-    } else if (datatype === "string[]") {
-      value = ["foo", "bar"];
-    } else if (datatype === "enum") {
-      value = enumList.split(",").map((v) => v.trim())[0] ?? null;
-    }
-
-    current[last] = value;
-  });
-
-  return exampleAttributes;
-}
 
 export default function GrowthBookSetupCodeSnippet({
   language,
@@ -71,9 +16,6 @@ export default function GrowthBookSetupCodeSnippet({
   encryptionKey?: string;
 }) {
   const featuresEndpoint = apiHost + "api/features/" + apiKey;
-
-  const attributeSchema = useAttributeSchema();
-  const exampleAttributes = getExampleAttributes(attributeSchema);
 
   if (language === "javascript") {
     return (
@@ -102,14 +44,6 @@ const growthbook = new GrowthBook({
     });
   }
 });
-`.trim()}
-        />
-        Set targeting attributes
-        <Code
-          language="javascript"
-          code={`
-// TODO: replace with real targeting attribute values
-growthbook.setAttributes(${stringify(exampleAttributes)});
 `.trim()}
         />
       </>
@@ -142,14 +76,6 @@ const growthbook = new GrowthBook({
     });
   }
 });
-`.trim()}
-        />
-        Set targeting attributes
-        <Code
-          language="tsx"
-          code={`
-// TODO: replace with real targeting attribute values
-growthbook.setAttributes(${stringify(exampleAttributes)});
 `.trim()}
         />
         Wrap app in a GrowthBookProvider
@@ -201,9 +127,7 @@ app.use(function(req, res, next) {
         experimentId: experiment.key,
         variationId: result.variationId
       });
-    },
-    // TODO: replace with real targeting attribute values
-    attributes: ${indentLines(stringify(exampleAttributes), 4)}
+    }
   });
 
   // Clean up at the end of the request
@@ -225,19 +149,6 @@ app.use(function(req, res, next) {
   if (language === "android") {
     return (
       <>
-        Define targeting attributes
-        <Code
-          language="kotlin"
-          code={`
-// TODO: replace with real targeting attribute values
-val attrs = HashMap<String, Any>()
-${Object.keys(exampleAttributes)
-  .map((k) => {
-    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
-  })
-  .join("\n")}
-`.trim()}
-        />
         Create GrowthBook instance
         <Code
           language="kotlin"
@@ -247,13 +158,12 @@ import com.sdk.growthbook.GBSDKBuilder
 val gb = GBSDKBuilder(
   apiKey = "${apiKey || "MY_SDK_KEY"}",
   hostURL = "${apiHost}",
-  attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
     // TODO: Use your real analytics tracking system
     analytics.track("Viewed Experiment", buildJsonObject {
       put("experimentId", gbExperiment.key)
       put("variationId" gbExperimentResult.variationId)
-  });
+    })
   }
 ).initialize()`.trim()}
         />
@@ -263,21 +173,12 @@ val gb = GBSDKBuilder(
   if (language === "ios") {
     return (
       <>
-        Define targeting attributes
-        <Code
-          language="swift"
-          code={`
-// TODO: replace with real targeting attribute values
-var attrs = ${swiftArrayFormat(exampleAttributes)}
-    `.trim()}
-        />
         Create GrowthBook instance
         <Code
           language="swift"
           code={`
 var gb: GrowthBookSDK = GrowthBookBuilder(
   url: "${featuresEndpoint}",
-  attributes: attrs,
   trackingCallback: { experiment, experimentResult in 
     // TODO: track in your analytics system
     print("Viewed Experiment", experiment.key, experimentResult.variationId)
@@ -342,13 +243,6 @@ func main() {
 
 	context := growthbook.NewContext().
 		WithFeatures(features).
-		// TODO: Real targeting attribute values
-		WithAttributes(growthbook.Attributes${indentLines(
-      JSON.stringify(exampleAttributes, null, "\t"),
-      "\t\t"
-    )
-      .replace(/null/g, "nil")
-      .replace(/\n(\t+)\}/, ",\n$1}")}).
 		// TODO: Track in your analytics system
 		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
 			log.Println("Viewed Experiment", experiment.Key, result.VariationID)
@@ -403,11 +297,6 @@ require 'growthbook'
 # Create a context for the current user/request
 gb = Growthbook::Context.new(
   features: features,
-  # TODO: Real targeting attribute values
-  attributes: ${indentLines(stringify(exampleAttributes), 2).replace(
-    /: null/g,
-    ": nil"
-  )},
   listener: MyImpressionListener.new
 )
             `.trim()}
@@ -418,15 +307,7 @@ gb = Growthbook::Context.new(
   if (language === "php") {
     return (
       <>
-        Targeting attributes
-        <Code
-          language="php"
-          code={`
-// TODO: Use real targeting attribute values
-$attributes = ${phpArrayFormat(exampleAttributes)};
-            `.trim()}
-        />
-        Get features from GrowthBook API
+        Get features from the GrowthBook API
         <Code
           language="php"
           code={`
@@ -442,7 +323,6 @@ $features = $apiResponse["features"];
 use Growthbook\\Growthbook;
 
 $growthbook = Growthbook::create()
-  ->withAttributes($attributes)
   ->withFeatures($features)
   ->withTrackingCallback(function ($experiment, $result) {
     // TODO: track in your real analytics system
@@ -473,17 +353,6 @@ apiResp = requests.get("${featuresEndpoint}")
 features = apiResp.json()["features"]
             `.trim()}
         />
-        Define targeting attributes
-        <Code
-          language="python"
-          code={`
-# TODO: Real targeting attribute values
-attributes = ${stringify(exampleAttributes)
-            .replace(/: true/g, ": True")
-            .replace(/: false/g, ": False")
-            .replace(/: null/g, ": None")}
-            `.trim()}
-        />
         Callback when a user is put into an experiment
         <Code
           language="python"
@@ -503,7 +372,6 @@ def on_experiment_viewed(experiment, result):
 from growthbook import GrowthBook
 
 gb = GrowthBook(
-  attributes = attributes,
   features = features,
   trackingCallback = on_experiment_viewed
 )
@@ -524,22 +392,6 @@ HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build
 HttpResponse<String> response = HttpClient.newBuilder().build()
     .send(request, HttpResponse.BodyHandlers.ofString());
 String featuresJson = new JSONObject(response.body()).get("features").toString();
-            `.trim()}
-        />
-        Define targeting attributes
-        <Code
-          language="java"
-          code={`
-// Get user attributes as a JSON string
-JSONObject userAttributesObj = new JSONObject();
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
-      value
-    )});`;
-  })
-  .join("\n")}
-String userAttributesJson = userAttributesObj.toString();
             `.trim()}
         />
         Callback when a user is put into an experiment
@@ -571,7 +423,6 @@ TrackingCallback trackingCallback = new TrackingCallback() {
           code={`
 GBContext context = GBContext.builder()
     .featuresJson(featuresJson)
-    .attributesJson(userAttributesJson)
     .trackingCallback(trackingCallback)
     .build();
 GrowthBook growthBook = new GrowthBook(context);
@@ -583,18 +434,6 @@ GrowthBook growthBook = new GrowthBook(context);
   if (language === "flutter") {
     return (
       <>
-        Define targeting attributes
-        <Code
-          language="dart"
-          code={`
-val attrs = HashMap<String, Any>()
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
-  })
-  .join("\n")}
-`.trim()}
-        />
         Create a GrowthBook instance
         <Code
           language="dart"
@@ -602,9 +441,6 @@ ${Object.entries(exampleAttributes)
 final GrowthBookSDK gb = GBSDKBuilderApp(
   hostURL: '${apiHost}',
   apiKey: "${apiKey}",
-  attributes: {
-    attrs
-  },
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {
     // TODO: Use your real analytics tracking system
     Analytics.track(
@@ -648,19 +484,6 @@ if (response.IsSuccessStatusCode)
 }
     `.trim()}
         />
-        Define targeting attributes
-        <Code
-          language="csharp"
-          code={`
-// TODO: real targeting attribute values
-var attrs = new JObject();
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.Add(${JSON.stringify(key)}, ${JSON.stringify(value)});`;
-  })
-  .join("\n")}
-    `.trim()}
-        />
         Create a GrowthBook instance
         <Code
           language="csharp"
@@ -668,8 +491,7 @@ ${Object.entries(exampleAttributes)
 var context = new Context
 {
     Enabled = true,
-    Features = features,
-    Attributes = attrs
+    Features = features
 };
 var gb = new GrowthBook.GrowthBook(context);
     `.trim()}

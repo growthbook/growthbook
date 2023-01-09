@@ -14,9 +14,9 @@ import { hasFileConfig } from "@/services/env";
 import track from "@/services/track";
 import MetricForm from "../Metrics/MetricForm";
 import FeatureModal from "../Features/FeatureModal";
-import CodeSnippetModal from "../Features/CodeSnippetModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
+import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
 import styles from "./GuidedGetStarted.module.scss";
 import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
@@ -151,13 +151,13 @@ export default function GuidedGetStarted({
       blackTitle: "Install an ",
       purpleTitle: "SDK",
       text:
-        "Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!",
+        "Integrate GrowthBook into your front-end, back-end, or mobile application.",
       learnMoreLink: "Learn more about our SDKs.",
       docSection: "sdks",
       completed:
         settings?.sdkInstructionsViewed || skippedSteps["install-sdk"] || false,
       render: (
-        <CodeSnippetModal
+        <InitialSDKConnectionForm
           inline={true}
           cta={"Next: Create Feature Flag"}
           submit={async () => {

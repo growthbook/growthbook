@@ -12,7 +12,8 @@ export default function InstallationCodeSnippet({
         language="sh"
         code={`
 npm i --save @growthbook/growthbook
-# yarn add @growthbook/growthbook`.trim()}
+# OR
+yarn add @growthbook/growthbook`.trim()}
       />
     );
   }
@@ -22,12 +23,21 @@ npm i --save @growthbook/growthbook
         language="sh"
         code={`
 npm i --save @growthbook/growthbook-react
-# yarn add @growthbook/growthbook-react`.trim()}
+# OR
+yarn add @growthbook/growthbook-react`.trim()}
       />
     );
   }
   if (language === "nodejs") {
-    return <Code language="sh" code={`npm i --save @growthbook/growthbook`} />;
+    return (
+      <Code
+        language="sh"
+        code={`
+npm i --save @growthbook/growthbook
+# OR
+yarn add @growthbook/growthbook`.trim()}
+      />
+    );
   }
   if (language === "android") {
     return (
