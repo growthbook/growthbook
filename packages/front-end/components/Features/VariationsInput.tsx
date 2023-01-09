@@ -1,24 +1,33 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
 import {
-  getDefaultVariationValue,
-  getVariationColor,
-  getVariationDefaultName,
-} from "@/services/features";
+  DndContext,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   decimalToPercent,
   distributeWeights,
   getEqualWeights,
   percentToDecimal,
-  rebalance,
 } from "@/services/utils";
-import Field from "../Forms/Field";
+import { getDefaultVariationValue } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
-import FeatureValueField from "./FeatureValueField";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import styles from "./VariationsInput.module.scss";
+import { SortableVariationRow, VariationRow } from "./Variation";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -31,6 +40,8 @@ export interface Props {
   coverageTooltip?: string;
   valueAsId?: boolean;
   showPreview?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  feature: any;
 }
 
 export default function VariationsInput({
@@ -44,29 +55,43 @@ export default function VariationsInput({
   coverageTooltip = "Users not included in the experiment will skip this rule.",
   valueAsId = false,
   showPreview = true,
+  feature,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
-
-  const rebalanceAndUpdate = (
-    i: number,
-    newValue: number,
-    precision: number = 4
-  ) => {
-    rebalance(weights, i, newValue, precision).forEach((w, j) => {
-      // The weight needs updating
-      if (w !== weights[j]) {
-        setWeight(j, w);
-      }
-    });
-  };
+  const [activeId, setActiveId] = useState<string>(null);
+  const [items, setItems] = useState(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    variations.map((variation: any) => ({ ...variation, id: variation.name }))
+  );
+  const permissions = usePermissions();
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
       setWeight(i, w);
     });
   };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  function getVariationIndex(id: string) {
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].id === id) return i;
+    }
+    return -1;
+  }
+
+  const activeVariation = activeId ? items[getVariationIndex(activeId)] : null;
+
+  const canEdit =
+    permissions.check("manageFeatures", feature.project) &&
+    permissions.check("createFeatureDrafts", feature.project);
 
   return (
     <div className="form-group">
@@ -156,196 +181,75 @@ export default function VariationsInput({
             </tr>
           </thead>
           <tbody>
-            {variations.map((val, i) => {
-              return (
-                <tr key={i}>
-                  {!valueAsId && (
-                    <td
-                      style={{ width: 45 }}
-                      className="position-relative pl-3"
-                    >
-                      <div
-                        className={styles.colorMarker}
-                        style={{
-                          backgroundColor: getVariationColor(i),
-                        }}
-                      />
-                      {i}
-                    </td>
-                  )}
-                  <td>
-                    {setVariations ? (
-                      <FeatureValueField
-                        id={`value_${i}`}
-                        value={val.value}
-                        placeholder={valueAsId ? i + "" : ""}
-                        setValue={(value) => {
-                          const newVariations = [...variations];
-                          newVariations[i] = {
-                            ...val,
-                            value,
-                          };
-                          setVariations(newVariations);
-                        }}
-                        label=""
-                        valueType={valueType}
-                      />
-                    ) : (
-                      <>{val.value}</>
-                    )}
-                  </td>
-                  <td>
-                    {setVariations ? (
-                      <Field
-                        label=""
-                        placeholder={`${getVariationDefaultName(
-                          val,
-                          valueType
-                        )}`}
-                        value={val.name || ""}
-                        onChange={(e) => {
-                          const newVariations = [...variations];
-                          newVariations[i] = {
-                            ...val,
-                            name: e.target.value,
-                          };
-                          setVariations(newVariations);
-                        }}
-                      />
-                    ) : (
-                      <strong>{val.name || ""}</strong>
-                    )}
-                  </td>
-                  <td>
-                    <div className="row">
-                      {customSplit ? (
-                        <div className="col d-flex flex-row">
-                          <input
-                            value={decimalToPercent(weights[i])}
-                            onChange={(e) => {
-                              rebalanceAndUpdate(
-                                i,
-                                percentToDecimal(e.target.value)
-                              );
-                            }}
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            type="range"
-                            className="w-100 mr-3"
-                          />
-                          <div
-                            className={`position-relative ${styles.percentInputWrap}`}
-                          >
-                            <Field
-                              value={decimalToPercent(weights[i])}
-                              onChange={(e) => {
-                                // the split now should add to 100% if there are two variations.
-                                rebalanceAndUpdate(
-                                  i,
-                                  e.target.value === ""
-                                    ? 0
-                                    : percentToDecimal(e.target.value)
-                                );
-                                if (e.target.value === "") {
-                                  // I hate this, but not is also the easiest
-                                  setTimeout(() => {
-                                    e.target.focus();
-                                    e.target.select();
-                                  }, 100);
-                                }
-                              }}
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="any"
-                              className={styles.percentInput}
-                            />
-                            <span>%</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="col d-flex flex-row">
-                          {decimalToPercent(weights[i])}%
-                        </div>
-                      )}
-                      {setVariations && (
-                        <div className="col-auto">
-                          <MoreMenu>
-                            {i > 0 && (
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.preventDefault();
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={({ active, over }) => {
+                if (!canEdit) {
+                  setActiveId(null);
+                  return;
+                }
 
-                                  const newValues = [...variations];
-                                  [newValues[i], newValues[i - 1]] = [
-                                    newValues[i - 1],
-                                    newValues[i],
-                                  ];
+                if (active.id !== over.id) {
+                  const oldIndex = getVariationIndex(active.id);
+                  const newIndex = getVariationIndex(over.id);
 
-                                  setVariations(newValues);
-                                }}
-                              >
-                                move up
-                              </button>
-                            )}
-                            {i < variations.length - 1 && (
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.preventDefault();
+                  if (oldIndex === -1 || newIndex === -1) return;
 
-                                  const newValues = [...variations];
-                                  [newValues[i], newValues[i + 1]] = [
-                                    newValues[i + 1],
-                                    newValues[i],
-                                  ];
+                  const newVariations = arrayMove(
+                    variations,
+                    oldIndex,
+                    newIndex
+                  );
 
-                                  setVariations(newValues);
-                                }}
-                              >
-                                move down
-                              </button>
-                            )}
-                            {variations.length > 2 && (
-                              <button
-                                className="dropdown-item text-danger"
-                                onClick={(e) => {
-                                  e.preventDefault();
-
-                                  const newValues = [...variations];
-                                  newValues.splice(i, 1);
-
-                                  const newWeights = distributeWeights(
-                                    newValues.map((v) => v.weight),
-                                    customSplit
-                                  );
-
-                                  newValues.forEach((v, j) => {
-                                    v.weight = newWeights[j] || 0;
-                                  });
-                                  setVariations(newValues);
-                                }}
-                                type="button"
-                              >
-                                remove
-                              </button>
-                            )}
-                          </MoreMenu>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-
+                  setVariations(newVariations);
+                }
+                setActiveId(null);
+              }}
+              onDragStart={({ active }) => {
+                if (!canEdit) {
+                  return;
+                }
+                setActiveId(active.id);
+              }}
+            >
+              <SortableContext
+                items={items}
+                strategy={verticalListSortingStrategy}
+              >
+                {items.map(({ ...variation }, i) => (
+                  <SortableVariationRow
+                    i={i}
+                    id={variation.id}
+                    variation={variation}
+                    variations={variations}
+                    setVariations={setVariations}
+                    setWeight={setWeight}
+                    customSplit={customSplit}
+                    key={i}
+                    valueType={valueType}
+                  />
+                ))}
+              </SortableContext>
+              <DragOverlay>
+                {activeVariation && (
+                  <VariationRow
+                    i={getVariationIndex(activeId)}
+                    variation={variations[getVariationIndex(activeId)]}
+                    variations={variations}
+                    setVariations={setVariations}
+                    setWeight={setWeight}
+                    customSplit={customSplit}
+                    valueType={valueType}
+                  />
+                )}
+              </DragOverlay>
+            </DndContext>
             <tr>
               <td colSpan={4}>
                 <div className="row">
                   <div className="col">
-                    {valueType !== "boolean" && setVariations ? (
+                    {valueType !== "boolean" && setItems ? (
                       <a
                         className="btn btn-outline-primary"
                         href="#"
