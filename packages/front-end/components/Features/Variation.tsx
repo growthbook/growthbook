@@ -218,13 +218,11 @@ export function SortableVariationRow(props: SortableProps) {
     setNodeRef,
     transform,
     transition,
-    active,
   } = useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: active?.id === props.variation.id ? 0.3 : 1,
   };
 
   return (

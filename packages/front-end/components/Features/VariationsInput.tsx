@@ -1,5 +1,5 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -23,10 +23,9 @@ import {
 import { getDefaultVariationValue } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
-import ExperimentSplitVisual from "./ExperimentSplitVisual";
-import styles from "./VariationsInput.module.scss";
 import { SortableVariationRow } from "./Variation";
-
+import styles from "./VariationsInput.module.scss";
+import ExperimentSplitVisual from "./ExperimentSplitVisual";
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
@@ -55,21 +54,22 @@ export default function VariationsInput({
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
-  const [items, setItems] = useState(() =>
-    variations.map((variation: ExperimentValue) => ({
-      ...variation,
-      id: variation.name,
-    }))
-  );
 
-  useEffect(() => {
-    setItems(
-      variations.map((variation: ExperimentValue) => ({
-        ...variation,
-        id: variation.name,
-      }))
-    );
-  }, [variations]);
+  const items = useMemo(
+    () =>
+      variations.map((variation: ExperimentValue & { id: string }, i) => {
+        if (!variation.id) {
+          return {
+            ...variation,
+            id: i.toString(),
+          };
+        } else {
+          return variation;
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [variations, weights]
+  );
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
@@ -189,11 +189,7 @@ export default function VariationsInput({
 
                   if (oldIndex === -1 || newIndex === -1) return;
 
-                  const newVariations = arrayMove(
-                    variations,
-                    oldIndex,
-                    newIndex
-                  );
+                  const newVariations = arrayMove(items, oldIndex, newIndex);
 
                   setVariations(newVariations);
                 }
@@ -212,7 +208,7 @@ export default function VariationsInput({
                     setVariations={setVariations}
                     setWeight={setWeight}
                     customSplit={customSplit}
-                    key={variation.value}
+                    key={variation.id}
                     valueType={valueType}
                     valueAsId={valueAsId}
                   />
@@ -223,7 +219,7 @@ export default function VariationsInput({
               <td colSpan={4}>
                 <div className="row">
                   <div className="col">
-                    {valueType !== "boolean" && setItems ? (
+                    {valueType !== "boolean" && setVariations ? (
                       <a
                         className="btn btn-outline-primary"
                         href="#"
