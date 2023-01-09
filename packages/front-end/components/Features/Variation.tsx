@@ -169,7 +169,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 {decimalToPercent(weights[i])}%
               </div>
             )}
-            {variations.length > 1 && (
+            {variations.length > 1 && setVariations && (
               <div {...handle} title="Drag and drop to re-order rules">
                 <FaArrowsAlt />
               </div>
