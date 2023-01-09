@@ -56,6 +56,31 @@ export function isBelowMinChange(
   return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
 }
 
+export function shouldHighlight({
+  metric,
+  baseline,
+  stats,
+  hasEnoughData,
+  suspiciousChange,
+  belowMinChange,
+}: {
+  metric: MetricInterface;
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
+  hasEnoughData: boolean;
+  suspiciousChange: boolean;
+  belowMinChange: boolean;
+}): boolean {
+  return (
+    metric &&
+    baseline?.value &&
+    stats?.value &&
+    hasEnoughData &&
+    !suspiciousChange &&
+    !belowMinChange
+  );
+}
+
 export function getRisk(
   riskVariation: number,
   row: ExperimentTableRow,

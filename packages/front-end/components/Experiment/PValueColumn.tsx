@@ -7,6 +7,7 @@ import {
   hasEnoughData,
   isBelowMinChange,
   isSuspiciousUplift,
+  shouldHighlight as _shouldHighlight,
 } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -49,13 +50,14 @@ const PValueColumn: FC<{
     metricDefaults
   );
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const shouldHighlight =
-    metric &&
-    baseline?.value &&
-    stats?.value &&
-    enoughData &&
-    !suspiciousChange &&
-    !belowMinChange;
+  const shouldHighlight = _shouldHighlight({
+    metric,
+    baseline,
+    stats,
+    hasEnoughData: enoughData,
+    suspiciousChange,
+    belowMinChange,
+  });
   const expectedDirection = metric.inverse
     ? stats.expected < 0
     : stats.expected > 0;
