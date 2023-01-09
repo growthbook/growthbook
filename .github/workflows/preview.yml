@@ -7,12 +7,12 @@ on:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    # if: ${{ github.repository == 'growthbook/growthbook' }}
-    if: ${{ false }}  # disable for now
+    if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
     - name: Context
       uses: okteto/context@latest
       with:
+        url: ${{ secrets.OKTETO_URL }}
         token: ${{ secrets.OKTETO_TOKEN }}
 
     - name: Deploy preview environment
