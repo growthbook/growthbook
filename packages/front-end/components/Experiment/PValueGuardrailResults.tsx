@@ -13,6 +13,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { pValueFormatter } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
@@ -152,7 +153,8 @@ const PValueGuardrailResults: FC<{
                         warning: !r.expectedDirection,
                       })}
                     >
-                      {r.stats.pValue?.toFixed(3)}
+                      {r.expectedDirection ? "Better" : "Worse"}{" "}
+                      {`(${pValueFormatter(r.stats.pValue)})`}
                     </td>
                   ) : (
                     <td>

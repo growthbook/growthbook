@@ -8,6 +8,7 @@ import {
   isBelowMinChange,
   isSuspiciousUplift,
   shouldHighlight as _shouldHighlight,
+  pValueFormatter,
 } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -63,14 +64,19 @@ const PValueColumn: FC<{
     : stats.expected > 0;
   const statSig = stats.pValue < pValueThreshold;
 
-  let sigText = "";
+  let sigText: string | JSX.Element = "";
   let className = "";
 
   if (shouldHighlight && statSig && expectedDirection) {
     sigText = `Significant win as the p-value is below ${pValueThreshold} and the change is in the desired direction.`;
     className = "won";
   } else if (shouldHighlight && statSig && !expectedDirection) {
-    sigText = `Significant loss as the p-value is below ${pValueThreshold} and the change is in the opposite direction.`;
+    sigText = (
+      <>
+        Significant loss as the p-value is below {pValueThreshold} and the
+        change is <em>not</em> in the desired direction.
+      </>
+    );
     className = "lost";
   } else if (belowMinChange && statSig) {
     sigText =
@@ -119,7 +125,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{stats.pValue?.toFixed(3)}</>
+          <>{pValueFormatter(stats.pValue)}</>
         )}
       </Tooltip>
     </td>

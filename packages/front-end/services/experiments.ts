@@ -244,3 +244,7 @@ export function applyMetricOverrides(
   }
   return { newMetric, overrideFields };
 }
+
+export function pValueFormatter(pValue: number) {
+  return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
+}
