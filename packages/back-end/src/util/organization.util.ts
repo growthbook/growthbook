@@ -23,18 +23,21 @@ export const accountFeatures: CommercialFeaturesMap = {
   pro: new Set<CommercialFeature>([
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "schedule-feature-flag",
     "override-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "schedule-feature-flag",
     "override-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "schedule-feature-flag",
     "override-metrics",
   ]),
 };

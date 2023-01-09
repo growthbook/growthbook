@@ -7,7 +7,7 @@ export const EventWebHooksPage = () => {
 
   if (!permissions.manageWebhooks) {
     return (
-      <div className="container pagecontents">
+      <div className="pagecontents">
         <div className="alert alert-danger">
           You do not have access to view this page.
         </div>
@@ -16,7 +16,7 @@ export const EventWebHooksPage = () => {
   }
 
   return (
-    <div className="container pagecontents">
+    <div className="pagecontents">
       <EventWebHookListContainer />
     </div>
   );

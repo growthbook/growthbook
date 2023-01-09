@@ -8,6 +8,12 @@ export type EventWebHookEditParams = {
   events: NotificationEventName[];
 };
 
+export const notificationEventNames = [
+  "feature.created",
+  "feature.updated",
+  "feature.deleted",
+] as const;
+
 export const eventWebHookEventOptions: {
   id: NotificationEventName;
   name: NotificationEventName;

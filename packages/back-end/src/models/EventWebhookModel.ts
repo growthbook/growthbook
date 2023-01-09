@@ -159,15 +159,25 @@ export const getEventWebHookById = async (
 
 /**
  * Given an EventWebHook.id will delete the corresponding document
- * @param eventWebHookId
+ * @param options DeleteEventWebHookParams
  */
-export const deleteEventWebHookById = async (eventWebHookId: string) => {
-  await EventWebHookModel.deleteOne({
+type DeleteEventWebHookParams = {
+  eventWebHookId: string;
+  organizationId: string;
+};
+export const deleteEventWebHookById = async ({
+  eventWebHookId,
+  organizationId,
+}: DeleteEventWebHookParams): Promise<boolean> => {
+  const result = await EventWebHookModel.deleteOne({
     id: eventWebHookId,
+    organizationId,
   });
+
+  return result.deletedCount === 1;
 };
 
-type UpdateEventWebHookOptions = {
+type UpdateEventWebHookAttributes = {
   name?: string;
   url?: string;
   events?: NotificationEventName[];
@@ -175,15 +185,19 @@ type UpdateEventWebHookOptions = {
 
 /**
  * Given an EventWebHook.id allows updating some of the properties on the document
- * @param eventWebHookId
- * @param updates UpdateEventWebHookOptions
+ * @param options UpdateEventWebHookQueryOptions
+ * @param updates UpdateEventWebHookAttributes
  */
+type UpdateEventWebHookQueryOptions = {
+  eventWebHookId: string;
+  organizationId: string;
+};
 export const updateEventWebHook = async (
-  eventWebHookId: string,
-  updates: UpdateEventWebHookOptions
-): Promise<void> => {
-  await EventWebHookModel.updateOne(
-    { id: eventWebHookId },
+  { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
+  updates: UpdateEventWebHookAttributes
+): Promise<boolean> => {
+  const result = await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId },
     {
       $set: {
         ...updates,
@@ -191,6 +205,8 @@ export const updateEventWebHook = async (
       },
     }
   );
+
+  return result.nModified === 1;
 };
 
 type EventWebHookStatusUpdate =
