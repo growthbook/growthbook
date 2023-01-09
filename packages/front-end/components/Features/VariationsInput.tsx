@@ -21,7 +21,6 @@ import {
   percentToDecimal,
 } from "@/services/utils";
 import { getDefaultVariationValue } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -54,7 +53,6 @@ export default function VariationsInput({
   coverageTooltip = "Users not included in the experiment will skip this rule.",
   valueAsId = false,
   showPreview = true,
-  feature,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -63,7 +61,6 @@ export default function VariationsInput({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     variations.map((variation: any) => ({ ...variation, id: variation.name }))
   );
-  const permissions = usePermissions();
 
   useEffect(() => {
     setItems(
@@ -91,10 +88,6 @@ export default function VariationsInput({
     }
     return -1;
   }
-
-  const canEdit =
-    permissions.check("manageFeatures", feature.project) &&
-    permissions.check("createFeatureDrafts", feature.project);
 
   return (
     <div className="form-group">
@@ -188,11 +181,6 @@ export default function VariationsInput({
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={({ active, over }) => {
-                if (!canEdit) {
-                  setActiveId(null);
-                  return;
-                }
-
                 if (active.id !== over.id) {
                   const oldIndex = getVariationIndex(active.id);
                   const newIndex = getVariationIndex(over.id);
@@ -207,13 +195,6 @@ export default function VariationsInput({
 
                   setVariations(newVariations);
                 }
-                setActiveId(null);
-              }}
-              onDragStart={({ active }) => {
-                if (!canEdit) {
-                  return;
-                }
-                setActiveId(active.id);
               }}
             >
               <SortableContext
