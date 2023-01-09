@@ -4,6 +4,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
+import { useState } from "react";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
@@ -17,6 +18,7 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
+import UpgradeModal from "../Settings/UpgradeModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -42,6 +44,7 @@ export default function RuleModal({
   defaultType = "force",
 }: Props) {
   const attributeSchema = useAttributeSchema();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { namespaces } = useOrgSettings();
 
@@ -55,6 +58,12 @@ export default function RuleModal({
     }),
     ...((rules[i] as FeatureRule) || {}),
   };
+  const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
+    defaultValues.scheduleRules.some(
+      (scheduleRule) => scheduleRule.timestamp !== null
+    )
+  );
+
   const form = useForm({
     defaultValues,
   });
@@ -65,6 +74,16 @@ export default function RuleModal({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
+  if (showUpgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setShowUpgradeModal(false)}
+        reason="To enable feature flag scheduling,"
+        source="schedule-feature-flag"
+      />
+    );
+  }
+
   return (
     <Modal
       open={true}
@@ -74,6 +93,11 @@ export default function RuleModal({
       header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
+
+        // If the user built a schedule, but disabled the toggle, we ignore the schedule
+        if (!scheduleToggleEnabled) {
+          values.scheduleRules = [];
+        }
 
         // Loop through each scheduleRule and convert the timestamp to an ISOString()
         if (values.scheduleRules?.length) {
@@ -266,6 +290,9 @@ export default function RuleModal({
       <ScheduleInputs
         defaultValue={defaultValues.scheduleRules}
         onChange={(value) => form.setValue("scheduleRules", value)}
+        scheduleToggleEnabled={scheduleToggleEnabled}
+        setScheduleToggleEnabled={setScheduleToggleEnabled}
+        setShowUpgradeModal={setShowUpgradeModal}
       />
     </Modal>
   );

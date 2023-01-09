@@ -36,7 +36,8 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
-  | "override-metrics";
+  | "override-metrics"
+  | "schedule-feature-flag";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
