@@ -55,16 +55,18 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
 
-  const items = variations.map((variation: ExperimentValue, i) => {
-    if (!variation.id) {
-      return {
-        ...variation,
-        id: i.toString(),
-      };
-    } else {
-      return variation;
+  const items = variations.map(
+    (variation: ExperimentValue & { id: string }, i) => {
+      if (!variation.id) {
+        return {
+          ...variation,
+          id: i.toString(),
+        };
+      } else {
+        return variation;
+      }
     }
-  });
+  );
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
