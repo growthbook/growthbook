@@ -6,39 +6,47 @@ export interface CacheEntry {
 }
 
 export interface Settings {
-  engine?: "memory" | "localStorage";
+  engine: "memory" | "localStorage";
   staleTTL?: number;
   expiresTTL?: number;
 }
 
 export class Cache {
-  private readonly localStoragePrefix = "growthbook_features";
-  private readonly engine: "memory" | "localStorage";
-  private readonly store:
+  private localStoragePrefix = "growthbook_features";
+  private engine: "memory" | "localStorage" = "memory";
+  private store:
     | Map<string, CacheEntry>
     | {
-        get: (key: string) => CacheEntry;
+        get: (key: string) => CacheEntry | undefined;
         set: (key: string, payload: CacheEntry) => void;
       }
     | undefined;
-  private readonly staleTTL: number;
-  private readonly expiresTTL: number;
+  private staleTTL: number = 60;
+  private expiresTTL: number = 10 * 60;
 
-  public constructor({
+  public initialize({
     engine = "memory",
-    staleTTL = 60, // 1 minute
-    expiresTTL = 10 * 60, // 10 minutes
-  }: Settings = {}) {
+    staleTTL,
+    expiresTTL,
+  }: Settings) {
     this.engine = engine;
+    this.staleTTL = (staleTTL || this.staleTTL) * 1000;
+    this.expiresTTL = (expiresTTL || this.expiresTTL) * 1000;
+
     if (engine === "memory") {
       this.store = new Map();
     } else if (engine === "localStorage") {
       this.store = {
-        get: (key: string): CacheEntry => {
-          const res = window.localStorage.getItem(
-            `${this.localStoragePrefix}_${key}`
-          );
-          return res ? JSON.parse(res) : null;
+        get: (key: string): CacheEntry | undefined => {
+          try {
+            const res = window.localStorage.getItem(
+              `${this.localStoragePrefix}_${key}`
+            );
+            return res ? JSON.parse(res) : undefined;
+          } catch(e) {
+            console.error('cache get error', e);
+            return undefined;
+          }
         },
         set: (key: string, payload: CacheEntry) => {
           window.localStorage.setItem(
@@ -48,11 +56,9 @@ export class Cache {
         },
       };
     }
-    this.staleTTL = staleTTL * 1000;
-    this.expiresTTL = expiresTTL * 1000;
   }
 
-  public async get(key: string): Promise<CacheEntry | undefined> {
+  public get(key: string): CacheEntry | undefined {
     const entry = this.store?.get(key);
     if (!entry || entry.expiresOn < new Date()) {
       return undefined;
@@ -60,7 +66,7 @@ export class Cache {
     return entry;
   }
 
-  public async set(key: string, payload: unknown) {
+  public set(key: string, payload: unknown) {
     this.store?.set(key, {
       payload,
       staleOn: new Date(Date.now() + this.staleTTL),
@@ -69,7 +75,5 @@ export class Cache {
   }
 }
 
-const featuresCache = new Cache({
-  engine: typeof window === "undefined" ? "memory" : "localStorage",
-});
+const featuresCache = new Cache();
 export default featuresCache;

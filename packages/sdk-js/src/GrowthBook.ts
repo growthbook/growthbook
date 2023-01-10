@@ -23,6 +23,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import featuresCache from "./cache";
+import streamManager from "./stream";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -56,6 +57,21 @@ export class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
+    if (context.useCache) {
+      featuresCache.initialize({
+        engine: context.useCache,
+        staleTTL: context.cacheStaleTTL,
+        expiresTTL: context.cacheExpiresTTL,
+      });
+    }
+
+    if (context.apiHost) {
+      streamManager.initialize({ apiHost: context.apiHost, eventSource: context.eventSource });
+      if (context.streaming && this.context.clientKey) {
+        streamManager.startStream(this.context.clientKey, this.onStreamMessage.bind(this));
+      }
+    }
+
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
@@ -67,7 +83,7 @@ export class GrowthBook {
       console.error("No API host or client key");
       return;
     }
-    if (this.context.clientKey) {
+    if (this.context.useCache && this.context.clientKey) {
       const cachedRes = await featuresCache.get(this.context.clientKey);
       if (cachedRes) {
         // eslint-disable-next-line
@@ -90,10 +106,21 @@ export class GrowthBook {
               this.context.encryptionKey
             )
           : this.setFeatures(json.features);
-        this.context.clientKey &&
+        if (this.context.useCache && this.context.clientKey) {
           featuresCache.set(this.context.clientKey, json);
+        }
       })
       .catch((e: Error) => console.error("Failed to fetch features", e));
+  }
+
+  // eslint-disable-next-line
+  private onStreamMessage(event: string, data: any) {
+    if (event === "features" && data) {
+      this.context.encryptionKey ? this.setEncryptedFeatures(data, this.context.encryptionKey) : this.setFeatures(data);
+      if (this.context.useCache && this.context.clientKey) {
+        featuresCache.set(this.context.clientKey, data);
+      }
+    }
   }
 
   private render() {

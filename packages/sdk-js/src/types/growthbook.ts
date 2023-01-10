@@ -118,10 +118,13 @@ export interface Context {
   overrides?: Record<string, ExperimentOverride>;
   /* @deprecated */
   groups?: Record<string, boolean>;
-  fetch?: any; // todo: type?
-  crypto?: Crypto;
-  cache?: any; // todo: specify type
-  apiHost?: string;
+  fetch?: any;
+  crypto?: any;
+  eventSource?: any;
+  useCache?: "localStorage" | "memory";
+  cacheStaleTTL?: number;
+  cacheExpiresTTL?: number;
+  apiHost?: string; // todo: add backup url?
   clientKey?: string;
   encryptionKey?: string;
   streaming?: boolean;
