@@ -1,5 +1,6 @@
 export interface CacheEntry {
-  payload: unknown;
+  // eslint-disable-next-line
+  payload: any;
   staleOn: Date;
   expiresOn: Date;
 }
