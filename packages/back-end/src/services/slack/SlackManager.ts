@@ -40,54 +40,63 @@ export class SlackManager {
    * https://slack.dev/bolt-js/concepts#event-listening
    */
   private registerEvents() {
-    this.slackApp.event("app_home_opened", async ({ event, client }) => {
-      try {
-        // TODO: delete this view
-        await client.views.publish({
-          user_id: event.user,
+    this.slackApp.event(
+      "app_home_opened",
+      async ({ /*say, */ event, client }) => {
+        // try {
+        //   await say(`Thanks for opening the home tab, <@${event.user}>!`);
+        // } catch (error) {
+        //   logger.error(error);
+        // }
 
-          view: {
-            type: "home",
-            callback_id: "home_view",
+        try {
+          // TODO: delete this view
+          await client.views.publish({
+            user_id: event.user,
 
-            blocks: [
-              {
-                type: "section",
-                text: {
-                  type: "mrkdwn",
-                  text: "*Welcome to the GrowthBook home tab!* :tada:",
-                },
-              },
-              {
-                type: "divider",
-              },
-              {
-                type: "section",
-                text: {
-                  type: "mrkdwn",
-                  text:
-                    "This button won't do much for now but you can set up a listener for it using the `actions()` method and passing its unique `action_id`.",
-                },
-              },
-              {
-                type: "actions",
-                elements: [
-                  {
-                    action_id: "welcome_button",
-                    type: "button",
-                    text: {
-                      type: "plain_text",
-                      text: "Welcome! Click me!",
-                    },
+            view: {
+              type: "home",
+              callback_id: "home_view",
+
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "*Welcome to the GrowthBook home tab!* :tada:",
                   },
-                ],
-              },
-            ],
-          },
-        });
-      } catch (error) {
-        logger.error(error);
+                },
+                {
+                  type: "divider",
+                },
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text:
+                      "This button won't do much for now but you can set up a listener for it using the `actions()` method and passing its unique `action_id`.",
+                  },
+                },
+                {
+                  type: "actions",
+                  elements: [
+                    {
+                      action_id: "welcome_button",
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "Welcome! Click me!",
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        } catch (error) {
+          logger.error(error);
+        }
       }
-    });
+    );
   }
 }
