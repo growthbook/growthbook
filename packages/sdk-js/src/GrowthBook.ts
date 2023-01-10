@@ -22,6 +22,7 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
+import featuresCache from "./cache";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -55,25 +56,42 @@ export class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
-    console.log('constructor');
-    if (this.context.apiHost && this.context.clientKey) {
-      console.log('will fetch');
-      this.featuresLoadedPromise = this.fetchFeatures();
-    }
-
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
   }
 
-  private async fetchFeatures(): Promise<void> {
-    console.log('fetch features')
-    return (this.context.fetch || fetch)(`${this.context.apiHost}/api/features/${this.context.clientKey}`)
+  public async loadFeatures(): Promise<void> {
+    if (!this.context.apiHost || !this.context.clientKey) {
+      console.error("No API host or client key");
+      return;
+    }
+    if (this.context.clientKey) {
+      const cachedRes = await featuresCache.get(this.context.clientKey);
+      if (cachedRes) {
+        // eslint-disable-next-line
+        this.context.encryptionKey ? await this.setEncryptedFeatures(cachedRes.payload.encryptedFeatures, this.context.encryptionKey) : this.setFeatures(cachedRes.payload.features);
+        if (cachedRes.staleOn > new Date()) {
+          return;
+          // otherwise, re-fetch in background
+        }
+      }
+    }
+    this.featuresLoadedPromise = (this.context.fetch || fetch)(
+      `${this.context.apiHost}/api/features/${this.context.clientKey}`
+    )
       .then((res: Response) => res.json())
+      // eslint-disable-next-line
       .then((json: any) => {
-        console.log({json})
-        this.context.encryptionKey ? this.setEncryptedFeatures(json.features, this.context.encryptionKey) : this.setFeatures(json.features);
+        this.context.encryptionKey
+          ? this.setEncryptedFeatures(
+              json.encryptedFeatures,
+              this.context.encryptionKey
+            )
+          : this.setFeatures(json.features);
+        this.context.clientKey &&
+          featuresCache.set(this.context.clientKey, json);
       })
       .catch((e: Error) => console.error("Failed to fetch features", e));
   }
@@ -82,10 +100,6 @@ export class GrowthBook {
     if (this._renderer) {
       this._renderer();
     }
-  }
-
-  public async waitForFeatures() {
-    return this.featuresLoadedPromise;
   }
 
   public setFeatures(features: Record<string, FeatureDefinition>) {
@@ -98,7 +112,10 @@ export class GrowthBook {
     encryptionKey: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+    subtle =
+      subtle ||
+      (this.context.crypto && this.context.crypto.subtle) ||
+      (globalThis.crypto && globalThis.crypto.subtle);
     if (!subtle) {
       throw new Error("No SubtleCrypto implementation found");
     }

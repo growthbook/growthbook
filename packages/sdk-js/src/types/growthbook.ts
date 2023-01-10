@@ -119,11 +119,12 @@ export interface Context {
   /* @deprecated */
   groups?: Record<string, boolean>;
   fetch?: any; // todo: type?
+  crypto?: Crypto;
+  cache?: any; // todo: specify type
   apiHost?: string;
   clientKey?: string;
   encryptionKey?: string;
   streaming?: boolean;
-  cache?: any; // todo: specify type
 }
 
 export type SubscriptionFunction = (
