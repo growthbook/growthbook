@@ -1,13 +1,33 @@
 import { App as SlackApp } from "@slack/bolt";
 import { logger } from "../../util/logger";
 
+type SlackManagerOptions = {
+  botToken: string;
+  signingSecret: string;
+  port: string;
+};
+
+// TODO: Authorize user (for Cloud and self-hosted)
+
 export class SlackManager {
-  constructor(private slackApp: SlackApp) {}
+  private readonly port: string;
+  private readonly slackApp: SlackApp;
+
+  constructor({ botToken, signingSecret, port }: SlackManagerOptions) {
+    this.port = port;
+
+    this.slackApp = new SlackApp({
+      token: botToken,
+      signingSecret,
+    });
+  }
 
   /**
    * Registers all of the listeners
    */
   public async init() {
+    await this.slackApp.start(this.port);
+
     this.registerActions();
     this.registerCommands();
     this.registerEvents();
@@ -17,13 +37,18 @@ export class SlackManager {
    * https://slack.dev/bolt-js/concepts#commands
    */
   private registerCommands() {
-    this.slackApp.command("/ping", async ({ command, ack, respond }) => {
-      await ack();
+    this.slackApp.command(
+      "/ping",
+      async ({ /*body, context,*/ command, ack, respond }) => {
+        await ack();
 
-      await respond(
-        `<@${command.user_name}> pong! :table_tennis_paddle_and_ball:`
-      );
-    });
+        await respond(
+          `<@${command.user_name}> pong! :table_tennis_paddle_and_ball:`
+        );
+
+        // console.log({ body, context });
+      }
+    );
   }
 
   /**

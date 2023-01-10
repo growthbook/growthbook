@@ -1,4 +1,3 @@
-import { App as SlackApp } from "@slack/bolt";
 import { SlackManager } from "../services/slack/SlackManager";
 import { logger } from "../util/logger";
 
@@ -18,13 +17,7 @@ export const initSlackIntegration = async (): Promise<void> => {
     throw new Error("ImplementationError: Missing SLACK_SIGNING_SECRET");
   }
 
-  const slackApp = new SlackApp({
-    token: botToken,
-    signingSecret,
-  });
-
-  await slackApp.start(port);
-  const slackManager = new SlackManager(slackApp);
+  const slackManager = new SlackManager({ botToken, signingSecret, port });
   await slackManager.init();
 
   logger.info("⚡️ Slack Bolt app is running!");
