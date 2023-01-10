@@ -8,6 +8,15 @@ export class SlackManager {
    * Registers all of the listeners
    */
   public async init() {
+    this.registerActions();
+    this.registerCommands();
+    this.registerEvents();
+  }
+
+  /**
+   * https://slack.dev/bolt-js/concepts#commands
+   */
+  private registerCommands() {
     this.slackApp.command("/ping", async ({ command, ack, respond }) => {
       await ack();
 
@@ -15,7 +24,22 @@ export class SlackManager {
         `<@${command.user_name}> pong! :table_tennis_paddle_and_ball:`
       );
     });
+  }
 
+  /**
+   * https://slack.dev/bolt-js/concepts#action-listening
+   */
+  private registerActions() {
+    this.slackApp.action("welcome_button", async ({ ack }) => {
+      logger.info("Clicked the welcome button!");
+      await ack();
+    });
+  }
+
+  /**
+   * https://slack.dev/bolt-js/concepts#event-listening
+   */
+  private registerEvents() {
     this.slackApp.event("app_home_opened", async ({ event, client }) => {
       try {
         // TODO: delete this view
@@ -31,7 +55,7 @@ export class SlackManager {
                 type: "section",
                 text: {
                   type: "mrkdwn",
-                  text: "*Welcome to your _App's Home_* :tada:",
+                  text: "*Welcome to the GrowthBook home tab!* :tada:",
                 },
               },
               {
@@ -42,7 +66,7 @@ export class SlackManager {
                 text: {
                   type: "mrkdwn",
                   text:
-                    "This button won't do much for now but you can set up a listener for it using the `actions()` method and passing its unique `action_id`. See an example in the `examples` folder within your Bolt app.",
+                    "This button won't do much for now but you can set up a listener for it using the `actions()` method and passing its unique `action_id`.",
                 },
               },
               {
