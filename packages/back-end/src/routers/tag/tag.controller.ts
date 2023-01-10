@@ -75,7 +75,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org.id, id);
+  await removeTagInFeature(org, id);
 
   // finally, remove the tag itself
   await removeTag(org.id, id);

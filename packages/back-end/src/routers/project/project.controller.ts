@@ -128,7 +128,7 @@ export const deleteProject = async (
   // Cleanup functions from other models
   await removeProjectFromDatasources(id, org.id);
   await removeProjectFromMetrics(id, org.id);
-  await removeProjectFromFeatures(id, org.id);
+  await removeProjectFromFeatures(id, org);
   await removeProjectFromExperiments(id, org.id);
   await removeProjectFromProjectRoles(id, org);
   // ideas?
