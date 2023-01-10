@@ -50,9 +50,16 @@ export class GrowthBook {
   // eslint-disable-next-line
   private _forcedFeatureValues = new Map<string, any>();
   private _attributeOverrides: Attributes = {};
+  private featuresLoadedPromise: Promise<void> | null = null;
 
   constructor(context: Context = {}) {
     this.context = context;
+
+    console.log('constructor');
+    if (this.context.apiHost && this.context.clientKey) {
+      console.log('will fetch');
+      this.featuresLoadedPromise = this.fetchFeatures();
+    }
 
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
@@ -60,10 +67,25 @@ export class GrowthBook {
     }
   }
 
+  private async fetchFeatures(): Promise<void> {
+    console.log('fetch features')
+    return (this.context.fetch || fetch)(`${this.context.apiHost}/api/features/${this.context.clientKey}`)
+      .then((res: Response) => res.json())
+      .then((json: any) => {
+        console.log({json})
+        this.context.encryptionKey ? this.setEncryptedFeatures(json.features, this.context.encryptionKey) : this.setFeatures(json.features);
+      })
+      .catch((e: Error) => console.error("Failed to fetch features", e));
+  }
+
   private render() {
     if (this._renderer) {
       this._renderer();
     }
+  }
+
+  public async waitForFeatures() {
+    return this.featuresLoadedPromise;
   }
 
   public setFeatures(features: Record<string, FeatureDefinition>) {

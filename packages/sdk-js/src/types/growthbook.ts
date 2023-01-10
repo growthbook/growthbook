@@ -118,6 +118,12 @@ export interface Context {
   overrides?: Record<string, ExperimentOverride>;
   /* @deprecated */
   groups?: Record<string, boolean>;
+  fetch?: any; // todo: type?
+  apiHost?: string;
+  clientKey?: string;
+  encryptionKey?: string;
+  streaming?: boolean;
+  cache?: any; // todo: specify type
 }
 
 export type SubscriptionFunction = (
