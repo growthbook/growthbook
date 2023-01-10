@@ -17,7 +17,32 @@ export const initSlackIntegration = async (): Promise<void> => {
     throw new Error("ImplementationError: Missing SLACK_SIGNING_SECRET");
   }
 
-  const slackManager = new SlackManager({ botToken, signingSecret, port });
+  const clientId = process.env.SLACK_OAUTH_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("ImplementationError: Missing SLACK_OAUTH_CLIENT_ID");
+  }
+
+  const clientSecret = process.env.SLACK_OAUTH_CLIENT_SECRET;
+  if (!clientSecret) {
+    throw new Error("ImplementationError: Missing SLACK_OAUTH_CLIENT_SECRET");
+  }
+
+  const stateSecret = process.env.SLACK_OAUTH_STATE_SECRET;
+  if (!stateSecret) {
+    throw new Error("ImplementationError: Missing SLACK_OAUTH_STATE_SECRET");
+  }
+
+  const slackManager = new SlackManager({
+    botToken,
+    signingSecret,
+    port,
+    oauth: {
+      clientSecret,
+      clientId,
+      stateSecret,
+    },
+  });
+
   await slackManager.init();
 
   logger.info("⚡️ Slack Bolt app is running!");

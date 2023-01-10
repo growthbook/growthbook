@@ -1,10 +1,16 @@
 import { App as SlackApp } from "@slack/bolt";
+import { FileInstallationStore } from "@slack/oauth";
 import { logger } from "../../util/logger";
 
 type SlackManagerOptions = {
   botToken: string;
   signingSecret: string;
   port: string;
+  oauth: {
+    clientId: string;
+    clientSecret: string;
+    stateSecret: string;
+  };
 };
 
 // TODO: Authorize user (for Cloud and self-hosted)
@@ -13,12 +19,50 @@ export class SlackManager {
   private readonly port: string;
   private readonly slackApp: SlackApp;
 
-  constructor({ botToken, signingSecret, port }: SlackManagerOptions) {
+  constructor({ signingSecret, port, oauth }: SlackManagerOptions) {
     this.port = port;
 
+    const { clientId, clientSecret, stateSecret } = oauth;
+
     this.slackApp = new SlackApp({
-      token: botToken,
+      // Cannot use bot token for multi-workspace apps
+      // token: botToken,
       signingSecret,
+      clientId,
+      clientSecret,
+      stateSecret,
+      installerOptions: {
+        directInstall: true,
+      },
+      // Can only request bot-level scopes??
+      scopes: [
+        // User
+        // "identity.basic",
+        // "identity.email",
+        // Bot
+        "chat:write",
+        "commands",
+        "team:read",
+        "users:read",
+        "users:read.email",
+      ],
+      // https://455c-192-252-230-22.ngrok.io/slack/install
+      // https://455c-192-252-230-22.ngrok.io/slack/oauth_redirect
+      installationStore: new FileInstallationStore(),
+      // TODO: the real deal
+      // installationStore: {
+      //   storeInstallation: async (installation) => {
+      //     console.log("installation", installation);
+      //   },
+      //   // TODO: Figure this out
+      //   fetchInstallation: async (installQuery) => {
+      //     console.log("fetchInstallation -> installQuery", installQuery);
+      //     throw new Error("Failed fetching installation");
+      //   },
+      //   deleteInstallation: async (installQuery) => {
+      //     console.log("deleteInstallation -> installQuery", installQuery);
+      //   },
+      // },
     });
   }
 
