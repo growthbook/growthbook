@@ -108,4 +108,5 @@ export type ApiSDKConnectionInterface = {
   key: string;
   proxyEnabled: boolean;
   proxyHost: string;
+  proxySigningKey: string;
 };

@@ -333,5 +333,6 @@ export function toApiSDKConnectionInterface(
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
+    proxySigningKey: connection.proxy.signingKey,
   };
 }
