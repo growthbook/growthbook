@@ -1,55 +1,52 @@
+import { randomUUID } from "node:crypto";
 import { App as SlackApp } from "@slack/bolt";
 import { FileInstallationStore } from "@slack/oauth";
 import { logger } from "../../util/logger";
 
+const SLACK_BOT_SCOPES = [
+  "chat:write",
+  "commands",
+  "team:read",
+  "users:read",
+  "users:read.email",
+];
+
+const SLACK_USER_SCOPES = ["identity.basic", "identity.email"];
+
 type SlackManagerOptions = {
-  botToken: string;
   signingSecret: string;
   port: string;
   oauth: {
     clientId: string;
     clientSecret: string;
-    stateSecret: string;
   };
 };
 
-// TODO: Authorize user (for Cloud and self-hosted)
-
 export class SlackManager {
-  private readonly port: string;
   private readonly slackApp: SlackApp;
 
-  constructor({ signingSecret, port, oauth }: SlackManagerOptions) {
-    this.port = port;
-
-    const { clientId, clientSecret, stateSecret } = oauth;
+  constructor(private options: SlackManagerOptions) {
+    const {
+      signingSecret,
+      oauth: { clientId, clientSecret },
+    } = options;
 
     this.slackApp = new SlackApp({
-      // Cannot use bot token for multi-workspace apps
-      // token: botToken,
       signingSecret,
       clientId,
       clientSecret,
-      stateSecret,
+      stateSecret: randomUUID(),
       installerOptions: {
         directInstall: true,
+        userScopes: SLACK_USER_SCOPES,
       },
-      // Can only request bot-level scopes??
-      scopes: [
-        // User
-        // "identity.basic",
-        // "identity.email",
-        // Bot
-        "chat:write",
-        "commands",
-        "team:read",
-        "users:read",
-        "users:read.email",
-      ],
+      scopes: SLACK_BOT_SCOPES,
       // https://455c-192-252-230-22.ngrok.io/slack/install
       // https://455c-192-252-230-22.ngrok.io/slack/oauth_redirect
       installationStore: new FileInstallationStore(),
+
       // TODO: the real deal
+      // TODO: Authorize user (for Cloud and self-hosted)
       // installationStore: {
       //   storeInstallation: async (installation) => {
       //     console.log("installation", installation);
@@ -70,11 +67,13 @@ export class SlackManager {
    * Registers all of the listeners
    */
   public async init() {
-    await this.slackApp.start(this.port);
+    await this.slackApp.start(this.options.port);
 
     this.registerActions();
     this.registerCommands();
     this.registerEvents();
+
+    logger.info("⚡️ Slack Bolt app is running!");
   }
 
   /**
@@ -93,6 +92,13 @@ export class SlackManager {
         // console.log({ body, context });
       }
     );
+
+    this.slackApp.command("/link", async ({ ack, respond }) => {
+      const installUrl = "https://455c-192-252-230-22.ngrok.io/slack/install";
+
+      await ack();
+      await respond(`Link your GrowthBook account with Slack: ${installUrl}`);
+    });
   }
 
   /**
