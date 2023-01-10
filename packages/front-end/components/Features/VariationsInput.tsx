@@ -216,7 +216,7 @@ export default function VariationsInput({
               <td colSpan={4}>
                 <div className="row">
                   <div className="col">
-                    {valueType !== "boolean" && setVariations ? (
+                    {valueType !== "boolean" && setVariations && (
                       <a
                         className="btn btn-outline-primary"
                         href="#"
@@ -250,7 +250,8 @@ export default function VariationsInput({
                         </span>
                         add another variation
                       </a>
-                    ) : (
+                    )}
+                    {valueType === "boolean" && (
                       <>
                         <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
                           <a className="btn btn-outline-primary disabled">
