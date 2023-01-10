@@ -1,5 +1,5 @@
 import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -55,21 +55,16 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
 
-  const items = useMemo(
-    () =>
-      variations.map((variation: ExperimentValue & { id: string }, i) => {
-        if (!variation.id) {
-          return {
-            ...variation,
-            id: i.toString(),
-          };
-        } else {
-          return variation;
-        }
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [variations, weights]
-  );
+  const items = variations.map((variation: ExperimentValue, i) => {
+    if (!variation.id) {
+      return {
+        ...variation,
+        id: i.toString(),
+      };
+    } else {
+      return variation;
+    }
+  });
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {

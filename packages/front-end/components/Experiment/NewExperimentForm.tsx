@@ -373,6 +373,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     ...current,
                     name: data.name || current?.name || "",
                     key: data.value || current?.key || "",
+                    id: data.id || "",
                   };
                 })
               );
@@ -387,6 +388,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   value: v.key || "",
                   name: v.name,
                   weight: form.watch(`phases.0.variationWeights.${i}`),
+                  id: v.id || "",
                 };
               }) || []
             }
