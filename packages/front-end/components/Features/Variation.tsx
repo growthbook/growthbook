@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FaArrowsAlt } from "react-icons/fa";
 import { ExperimentValue, FeatureValueType } from "@/../back-end/types/feature";
+import clsx from "clsx";
 import {
   decimalToPercent,
   distributeWeights,
@@ -177,30 +178,32 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {setVariations && (
               <div className="col-auto">
                 <MoreMenu>
-                  {variations.length > 2 && (
-                    <button
-                      className="dropdown-item text-danger"
-                      onClick={(e) => {
-                        e.preventDefault();
+                  <button
+                    disabled={variations.length <= 2}
+                    className={clsx(
+                      "dropdown-item",
+                      variations.length > 2 && "text-danger"
+                    )}
+                    onClick={(e) => {
+                      e.preventDefault();
 
-                        const newValues = [...variations];
-                        newValues.splice(i, 1);
+                      const newValues = [...variations];
+                      newValues.splice(i, 1);
 
-                        const newWeights = distributeWeights(
-                          newValues.map((v) => v.weight),
-                          customSplit
-                        );
+                      const newWeights = distributeWeights(
+                        newValues.map((v) => v.weight),
+                        customSplit
+                      );
 
-                        newValues.forEach((v, j) => {
-                          v.weight = newWeights[j] || 0;
-                        });
-                        setVariations(newValues);
-                      }}
-                      type="button"
-                    >
-                      remove
-                    </button>
-                  )}
+                      newValues.forEach((v, j) => {
+                        v.weight = newWeights[j] || 0;
+                      });
+                      setVariations(newValues);
+                    }}
+                    type="button"
+                  >
+                    remove
+                  </button>
                 </MoreMenu>
               </div>
             )}
