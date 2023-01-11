@@ -121,12 +121,15 @@ export class GrowthBook {
 
   // eslint-disable-next-line
   private onStreamMessage(event: string, data: any) {
-    if (event === "features" && data?.features) {
+    if (event === "features" && data) {
       this.context.encryptionKey
-        ? this.setEncryptedFeatures(data.features, this.context.encryptionKey)
+        ? this.setEncryptedFeatures(
+            data.encryptedFeatures,
+            this.context.encryptionKey
+          )
         : this.setFeatures(data.features);
       if (this.context.useCache && this.context.clientKey) {
-        featuresCache.set(this.context.clientKey, data.features);
+        featuresCache.set(this.context.clientKey, data);
       }
     }
   }
