@@ -1,6 +1,6 @@
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useState } from "react";
 import ReactPlayer from "react-player";
 import Link from "next/link";
 import clsx from "clsx";
@@ -18,7 +18,7 @@ import FeatureModal from "../Features/FeatureModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
-import TestConnectionCard from "./TestConnectionCard";
+import MetricForm from "../Metrics/MetricForm";
 import styles from "./GuidedGetStarted.module.scss";
 import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
@@ -49,27 +49,10 @@ export default function GuidedGetStarted({
     [key: string]: boolean;
   }>("onboarding-steps-skipped", {});
   const [showVideo, setShowVideo] = useState(false);
-  const [sdkConnected, setSdkConnected] = useState(false);
 
-  //TODO: Should we destructure error and pass that to TestConnectionCard?
-  const { data: SDKData, mutate: mutateSDKData } = useApi<{
+  const { data: SDKData, mutate: mutateSDKData, error: SDKError } = useApi<{
     connections: SDKConnectionInterface[];
   }>(`/sdk-connections`);
-
-  useEffect(() => {
-    // Determine if any SDK Connections have been connected
-    if (SDKData?.connections?.length) {
-      SDKData.connections.forEach((connection) => {
-        if (connection.connected === true) {
-          setSdkConnected(true);
-        }
-      });
-    }
-  }, [SDKData]);
-
-  setInterval(() => {
-    mutateSDKData();
-  }, 1000);
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
@@ -222,10 +205,11 @@ export default function GuidedGetStarted({
       render: (
         <InitialSDKConnectionForm
           inline={true}
-          cta={"Next: Test Your Connection"}
-          submit={async () => {
-            setCurrentStep(currentStep + 1);
-          }}
+          cta={"Next: Check Your Connection"}
+          goToNextStep={() => setCurrentStep(currentStep + 1)}
+          mutate={mutateSDKData}
+          error={SDKError}
+          connections={SDKData?.connections}
           secondaryCTA={
             <button
               onClick={() => {
@@ -237,19 +221,6 @@ export default function GuidedGetStarted({
               Skip Step
             </button>
           }
-        />
-      ),
-    },
-    {
-      blackTitle: "Test Your ",
-      purpleTitle: "Feature Flag",
-      docSection: "sdks",
-      completed: sdkConnected,
-      render: (
-        <TestConnectionCard
-          connections={SDKData?.connections}
-          handleNextStep={() => setCurrentStep(currentStep + 1)}
-          handlePreviousStep={() => setCurrentStep(currentStep - 1)}
         />
       ),
     },
@@ -298,6 +269,52 @@ export default function GuidedGetStarted({
                 allowImport &&
                 !hasSampleExperiment &&
                 importSampleData("datasource-form")
+              }
+            />
+          )}
+        </>
+      ),
+    },
+    {
+      blackTitle: "Define a ",
+      purpleTitle: "Metric",
+      text:
+        "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
+      learnMoreLink: "Learn more about how to use metrics.",
+      docSection: "metrics",
+      completed: metrics.length > 0 || skippedSteps["metrics-definitions"],
+      render: (
+        <>
+          {metrics.length > 0 ? (
+            <SuccessCard
+              feature="metric"
+              href="/metrics"
+              onClick={async () => setCurrentStep(currentStep + 1)}
+              nextStep="Continue Setting up Account"
+            />
+          ) : (
+            <MetricForm
+              inline={true}
+              cta={"Finish"}
+              current={{}}
+              edit={false}
+              source="get-started"
+              onSuccess={() => {
+                setCurrentStep(currentStep + 1);
+              }}
+              secondaryCTA={
+                <button
+                  onClick={() => {
+                    setSkippedSteps({
+                      ...skippedSteps,
+                      "metric-definition": true,
+                    });
+                    setCurrentStep(currentStep + 1);
+                  }}
+                  className="btn btn-link"
+                >
+                  Skip Step
+                </button>
               }
             />
           )}

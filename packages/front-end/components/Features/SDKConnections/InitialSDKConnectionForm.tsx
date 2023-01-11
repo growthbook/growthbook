@@ -4,13 +4,13 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { ReactElement } from "react";
-import useApi from "@/hooks/useApi";
+import { ReactElement, useEffect, useState } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useEnvironments } from "@/services/features";
+import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import CodeSnippetModal from "../CodeSnippetModal";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 
@@ -19,21 +19,35 @@ export default function InitialSDKConnectionForm({
   cta,
   inline,
   secondaryCTA,
-  submit,
+  goToNextStep,
+  error,
+  mutate,
+  connections,
 }: {
   close?: () => void;
   cta?: string;
   inline?: boolean;
   secondaryCTA?: ReactElement;
-  submit?: () => Promise<void>;
+  goToNextStep: () => void;
+  error?: Error;
+  mutate: () => void;
+  connections: SDKConnectionInterface[];
 }) {
   const { apiCall } = useAuth();
+  const [currentConnection, setCurrentConnection] = useState(null);
+  const [showTestModal, setShowTestModal] = useState(false);
+
+  useEffect(() => {
+    setCurrentConnection(() => {
+      if (connections && connections[0]) {
+        return connections[0];
+      } else {
+        return null;
+      }
+    });
+  }, [connections]);
 
   const environments = useEnvironments();
-
-  const { data, mutate, error } = useApi<{
-    connections: SDKConnectionInterface[];
-  }>(`/sdk-connections`);
 
   const form = useForm<{ name: string; languages: SDKLanguage[] }>({
     defaultValues: {
@@ -45,25 +59,47 @@ export default function InitialSDKConnectionForm({
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
-  if (!data) {
+  if (!connections) {
     return <LoadingOverlay />;
   }
 
-  const firstConnection = data?.connections?.[0];
-
-  if (firstConnection) {
+  if (currentConnection) {
     return (
-      <CodeSnippetModal
-        allowChangingLanguage={false}
-        close={close}
-        cta={cta}
-        defaultLanguage={firstConnection.languages[0] || "javascript"}
-        limitLanguages={firstConnection.languages}
-        inline={inline}
-        sdkConnection={firstConnection}
-        secondaryCTA={secondaryCTA}
-        submit={submit}
-      />
+      <>
+        {connections?.length > 1 && (
+          <div className="d-flex justify-content-end">
+            <Field
+              label="Select SDK Connection"
+              options={connections.map((connection) => connection.name)}
+              onChange={(e) => {
+                const index = connections.findIndex(
+                  (connection) => connection.name === e.target.value
+                );
+                setCurrentConnection(connections[index]);
+              }}
+            />
+          </div>
+        )}
+        <CodeSnippetModal
+          allowChangingLanguage={false}
+          close={close}
+          cta={cta}
+          defaultLanguage={currentConnection.languages[0] || "javascript"}
+          limitLanguages={currentConnection.languages}
+          inline={inline}
+          sdkConnection={currentConnection}
+          secondaryCTA={secondaryCTA}
+          submit={() => setShowTestModal(true)}
+        />
+        {showTestModal && (
+          <CheckSDKConnectionModal
+            close={() => setShowTestModal(false)}
+            connection={currentConnection}
+            mutate={mutate}
+            goToNextStep={goToNextStep}
+          />
+        )}
+      </>
     );
   }
 

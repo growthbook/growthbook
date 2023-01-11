@@ -48,7 +48,7 @@ export default function CodeSnippetModal({
   defaultLanguage?: SDKLanguage;
   inline?: boolean;
   cta?: string;
-  submit?: () => Promise<void>;
+  submit?: () => void;
   secondaryCTA?: ReactElement;
   sdkConnection?: SDKConnectionInterface;
   allowChangingLanguage?: boolean;

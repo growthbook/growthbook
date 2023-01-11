@@ -1,11 +1,5 @@
 @import "../../styles/colors.scss";
 
-.wrapper {
-  border: 1px solid var(--border-color-300);
-  border-radius: 5px;
-  background: var(--surface-background-color);
-}
-
 .connectedBubble {
   color: green;
   background-color: lightgreen;
