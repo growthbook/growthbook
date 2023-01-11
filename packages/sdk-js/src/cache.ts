@@ -21,14 +21,10 @@ export class Cache {
         set: (key: string, payload: CacheEntry) => void;
       }
     | undefined;
-  private staleTTL: number = 60;
+  private staleTTL = 60;
   private expiresTTL: number = 10 * 60;
 
-  public initialize({
-    engine = "memory",
-    staleTTL,
-    expiresTTL,
-  }: Settings) {
+  public initialize({ engine = "memory", staleTTL, expiresTTL }: Settings) {
     this.engine = engine;
     this.staleTTL = (staleTTL || this.staleTTL) * 1000;
     this.expiresTTL = (expiresTTL || this.expiresTTL) * 1000;
@@ -43,8 +39,8 @@ export class Cache {
               `${this.localStoragePrefix}_${key}`
             );
             return res ? JSON.parse(res) : undefined;
-          } catch(e) {
-            console.error('cache get error', e);
+          } catch (e) {
+            console.error("cache get error", e);
             return undefined;
           }
         },
