@@ -56,6 +56,19 @@ export default function ScheduleInputs(props: Props) {
           value={props.scheduleToggleEnabled}
           setValue={(v) => {
             props.setScheduleToggleEnabled(v);
+
+            if (!rules.length) {
+              setRules([
+                {
+                  enabled: true,
+                  timestamp: null,
+                },
+                {
+                  enabled: false,
+                  timestamp: null,
+                },
+              ]);
+            }
           }}
           disabled={!canScheduleFeatureFlags}
           type="featureValue"

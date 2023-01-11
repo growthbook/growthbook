@@ -143,9 +143,10 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
+  statsEngine?: "bayesian" | "frequentist";
+  pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
-  statsEngine?: "bayesian" | "frequentist";
 }
 
 export interface SubscriptionQuote {

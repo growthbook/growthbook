@@ -1431,6 +1431,7 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
+  const statsEngine = org.settings?.statsEngine;
 
   const useCache = !req.query["force"];
 
@@ -1466,7 +1467,13 @@ export async function postSnapshot(
     }
 
     try {
-      const snapshot = await createManualSnapshot(exp, phase, users, metrics);
+      const snapshot = await createManualSnapshot(
+        exp,
+        phase,
+        users,
+        metrics,
+        statsEngine
+      );
       res.status(200).json({
         status: 200,
         snapshot,

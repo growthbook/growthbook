@@ -148,7 +148,7 @@ const DataSources: FC = () => {
           data={{
             name: "My Datasource",
             settings: {},
-            projects: project ? [project] : []
+            projects: project ? [project] : [],
           }}
           source="datasource-list"
           onSuccess={async (id) => {
