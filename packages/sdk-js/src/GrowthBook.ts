@@ -117,6 +117,11 @@ export class GrowthBook {
         }
       })
       .catch((e: Error) => console.error("Failed to fetch features", e));
+    await this.featuresLoadedPromise;
+  }
+
+  public async featuresLoaded() {
+    return this.featuresLoadedPromise;
   }
 
   // eslint-disable-next-line

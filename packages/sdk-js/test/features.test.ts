@@ -5,6 +5,9 @@ const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
+
+const { MockEvent, EventSource } = require('mocksse');
+global.EventSource = EventSource;
 /* eslint-enable */
 
 const mockCallback = (context: Context) => {
@@ -483,5 +486,95 @@ describe("features", () => {
 
     expect(mock.mock.calls.length).toEqual(0);
     window.fetch = f;
+  });
+
+  it("sets and gets features using in-memory cache", async () => {
+    let fooVal = "initial";
+    const f = jest.fn(() => {
+      return Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            features: {
+              foo: {
+                defaultValue: fooVal,
+              },
+            },
+          }),
+      });
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      useCache: "memory",
+      cacheExpiresTTL: 0.1,
+      fetch: f,
+    });
+    await growthbook.loadFeatures();
+    const foo1 = growthbook.evalFeature("foo");
+    expect(foo1.value).toEqual("initial");
+
+    // Value changes, refetch
+    fooVal = "changed";
+    await growthbook.loadFeatures();
+    const foo2 = growthbook.evalFeature("foo");
+    // Should get cached value
+    expect(foo2.value).toEqual("initial");
+
+    // Wait a bit for cache to expire...
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await growthbook.loadFeatures();
+    const foo3 = growthbook.evalFeature("foo");
+    // Past the cache TTL period, should get new value
+    expect(foo3.value).toEqual("changed");
+
+    growthbook.destroy();
+  });
+
+  it("updates features based on SSE data", async () => {
+    // tslint:disable-next-line
+    const f = jest.fn(() => {
+      return Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            features: {
+              foo: {
+                defaultValue: "initial",
+              },
+            },
+          }),
+      });
+    });
+
+    // Simulate SSE data
+    new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify({
+            features: {
+              foo: {
+                defaultValue: "changed",
+              },
+            },
+          }),
+        },
+      ],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      fetch: f,
+      streaming: true,
+    });
+    await growthbook.loadFeatures();
+    const foo1 = growthbook.evalFeature("foo");
+    expect(foo1.value).toEqual("initial");
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const foo2 = growthbook.evalFeature("foo");
+    expect(foo2.value).toEqual("changed");
   });
 });

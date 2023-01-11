@@ -38,7 +38,7 @@ export class StreamManager {
     const url = `${this.apiHost}/sub/${key}`;
     const channel: ScopedChannel = {
       key,
-      connection: new EventSource(url),
+      connection: new this.eventSource(url),
       callbacks: [],
     };
     this.scopedChannels.set(key, channel);
