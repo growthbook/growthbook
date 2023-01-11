@@ -2,22 +2,34 @@ import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { datetime } from "@/services/dates";
-import { hasFileConfig } from "@/services/env";
+import ProjectBadges from "@/components/ProjectBadges";
+import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
-import { GBAddCircle } from "../Icons";
-import LoadingOverlay from "../LoadingOverlay";
-import { DocLink } from "../DocLink";
-import Tooltip from "../Tooltip/Tooltip";
-import NewDataSourceForm from "./NewDataSourceForm";
+import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
+import { ago } from "@/services/dates";
+import { DocLink } from "@/components/DocLink";
+import { hasFileConfig } from "@/services/env";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
 
   const router = useRouter();
 
-  const { datasources, error, mutateDefinitions, ready } = useDefinitions();
+  const {
+    datasources,
+    project,
+    error,
+    mutateDefinitions,
+    ready,
+  } = useDefinitions();
+  const filteredDatasources = datasources.filter((ds) => {
+    if (!project) return true;
+    if (!ds?.projects?.length) return true;
+    return ds?.projects?.includes(project);
+  });
 
   const permissions = usePermissions();
 
@@ -30,18 +42,19 @@ const DataSources: FC = () => {
 
   return (
     <div>
-      {datasources.length > 0 ? (
+      {filteredDatasources.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th className="col-3">Display Name</th>
+              <th className="col-2">Display Name</th>
               <th className="col-auto">Description</th>
               <th className="col-2">Type</th>
-              {!hasFileConfig() && <th className="col-2">Date Added</th>}
+              <td className="col-2">Projects</td>
+              {!hasFileConfig() && <th className="col-2">Last Updated</th>}
             </tr>
           </thead>
           <tbody>
-            {datasources.map((d, i) => (
+            {filteredDatasources.map((d, i) => (
               <tr
                 className="nav-item"
                 key={i}
@@ -70,7 +83,17 @@ const DataSources: FC = () => {
                   {d.description}
                 </td>
                 <td>{d.type}</td>
-                {!hasFileConfig() && <td>{datetime(d.dateCreated)}</td>}
+                <td>
+                  {d?.projects?.length > 0 ? (
+                    <ProjectBadges
+                      projectIds={d.projects}
+                      className="badge-ellipsis short align-middle"
+                    />
+                  ) : (
+                    <ProjectBadges className="badge-ellipsis short align-middle" />
+                  )}
+                </td>
+                {!hasFileConfig() && <td>{ago(d.dateUpdated)}</td>}
               </tr>
             ))}
           </tbody>
@@ -104,7 +127,7 @@ const DataSources: FC = () => {
         </div>
       )}
 
-      {!hasFileConfig() && permissions.createDatasources && (
+      {!hasFileConfig() && permissions.check("createDatasources", project) && (
         <button
           className="btn btn-primary"
           onClick={(e) => {
@@ -125,6 +148,7 @@ const DataSources: FC = () => {
           data={{
             name: "My Datasource",
             settings: {},
+            projects: project ? [project] : [],
           }}
           source="datasource-list"
           onSuccess={async (id) => {

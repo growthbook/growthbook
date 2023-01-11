@@ -1,19 +1,18 @@
 import { useState, FC } from "react";
 import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
-import DeleteButton from "../components/DeleteButton/DeleteButton";
-import ProjectModal from "../components/Projects/ProjectModal";
-import { useAuth } from "../services/auth";
-import { date } from "../services/dates";
-import { useDefinitions } from "../services/DefinitionsContext";
-import usePermissions from "../hooks/usePermissions";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ProjectModal from "@/components/Projects/ProjectModal";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { date } from "@/services/dates";
 
 const ProjectsPage: FC = () => {
   const permissions = usePermissions();
-
   const { projects, mutateDefinitions } = useDefinitions();
-
   const { apiCall } = useAuth();
+
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null
   );
@@ -46,8 +45,8 @@ const ProjectsPage: FC = () => {
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Project Id</th>
               <th>Project Name</th>
+              <th>Project Id</th>
               <th>Date Created</th>
               <th>Date Updated</th>
               <th></th>
@@ -56,8 +55,8 @@ const ProjectsPage: FC = () => {
           <tbody>
             {projects.map((p) => (
               <tr key={p.id}>
-                <td>{p.id}</td>
                 <td>{p.name}</td>
+                <td>{p.id}</td>
                 <td>{date(p.dateCreated)}</td>
                 <td>{date(p.dateUpdated)}</td>
                 <td>

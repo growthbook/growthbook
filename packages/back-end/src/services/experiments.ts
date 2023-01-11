@@ -45,8 +45,10 @@ import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
 } from "../../types/organization";
 import { logger } from "../util/logger";
+import { getSDKPayloadKeys } from "../util/features";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -175,6 +177,16 @@ export async function removeMetricFromExperiments(
   await ExperimentModel.updateMany(
     { organization: orgId, activationMetric: metricId },
     { $set: { activationMetric: "" } }
+  );
+}
+
+export async function removeProjectFromExperiments(
+  project: string,
+  organization: string
+) {
+  await ExperimentModel.updateMany(
+    { organization, project },
+    { $set: { project: "" } }
   );
 }
 
@@ -320,6 +332,7 @@ export async function refreshMetric(
     const from = new Date();
     from.setDate(from.getDate() - days);
     const to = new Date();
+    to.setDate(to.getDate() + 1);
 
     const baseParams: Omit<MetricValueParams, "metric"> = {
       from,
@@ -512,7 +525,8 @@ export async function createManualSnapshot(
   users: number[],
   metrics: {
     [key: string]: MetricStats[];
-  }
+  },
+  statsEngine?: OrganizationSettings["statsEngine"]
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -538,6 +552,7 @@ export async function createManualSnapshot(
         variations,
       },
     ],
+    statsEngine,
   };
 
   const snapshot = await ExperimentSnapshotModel.create(data);
@@ -606,7 +621,8 @@ export async function createSnapshot(
   phaseIndex: number,
   organization: OrganizationInterface,
   dimensionId: string | null,
-  useCache: boolean = false
+  useCache: boolean = false,
+  statsEngine: OrganizationSettings["statsEngine"]
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -633,6 +649,7 @@ export async function createSnapshot(
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
+    statsEngine,
   };
 
   const nextUpdate = determineNextDate(
@@ -656,7 +673,8 @@ export async function createSnapshot(
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
-    useCache
+    useCache,
+    statsEngine
   );
 
   data.queries = queries;
@@ -803,13 +821,13 @@ export async function experimentUpdated(
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) {
-  // fire the webhook:
-  await queueWebhook(
-    experiment.organization,
-    ["dev", "production"],
-    [previousProject || "", experiment.project || ""],
-    false
+  const payloadKeys = getSDKPayloadKeys(
+    new Set(["dev", "production"]),
+    new Set(["", previousProject || "", experiment.project || ""])
   );
+
+  // fire the webhook:
+  await queueWebhook(experiment.organization, payloadKeys, false);
 
   // invalidate the CDN
   await queueCDNInvalidate(experiment.organization, (key) => {

@@ -26,10 +26,10 @@ import {
   useState,
 } from "react";
 import * as Sentry from "@sentry/react";
-import useApi from "../hooks/useApi";
-import { useAuth, UserOrganizations } from "./auth";
-import { isCloud, isSentryEnabled } from "./env";
-import track from "./track";
+import { isCloud, isSentryEnabled } from "@/services/env";
+import useApi from "@/hooks/useApi";
+import { useAuth, UserOrganizations } from "@/services/auth";
+import track from "@/services/track";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -39,9 +39,10 @@ type OrgSettingsResponse = {
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
+  licenseKey?: string;
 };
 
-interface PermissionFunctions {
+export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,
@@ -55,13 +56,9 @@ interface PermissionFunctions {
 }
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
-  runQueries: false,
-  createDatasources: false,
   createDimensions: false,
-  createMetrics: false,
   createPresentations: false,
   createSegments: false,
-  editDatasourceSettings: false,
   manageApiKeys: false,
   manageBilling: false,
   manageNamespaces: false,
@@ -222,7 +219,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   // Refresh organization data when switching orgs
   useEffect(() => {
     if (orgId) {
-      refreshOrganization();
+      void refreshOrganization();
       track("Organization Loaded");
     }
   }, [orgId, refreshOrganization]);
@@ -232,8 +229,24 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated) {
       return;
     }
-    updateUser();
+    void updateUser();
   }, [isAuthenticated, updateUser]);
+
+  // Refresh user and org after loading license
+  useEffect(() => {
+    if (orgId) {
+      void refreshOrganization();
+    }
+    if (isAuthenticated) {
+      void updateUser();
+    }
+  }, [
+    orgId,
+    isAuthenticated,
+    currentOrg?.organization?.licenseKey,
+    refreshOrganization,
+    updateUser,
+  ]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook();

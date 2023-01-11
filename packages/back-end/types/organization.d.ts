@@ -36,7 +36,8 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
-  | "override-metrics";
+  | "override-metrics"
+  | "schedule-feature-flag";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -142,6 +143,8 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
+  statsEngine?: "bayesian" | "frequentist";
+  pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
@@ -199,6 +202,7 @@ export interface OrganizationInterface {
     planNickname: string | null;
     priceId?: string;
   };
+  licenseKey?: string;
   members: Member[];
   invites: Invite[];
   connections?: OrganizationConnections;

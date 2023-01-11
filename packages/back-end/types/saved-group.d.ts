@@ -8,3 +8,5 @@ export interface SavedGroupInterface {
   dateUpdated: Date;
   dateCreated: Date;
 }
+
+export type GroupMap = Map<string, string[] | number[]>;

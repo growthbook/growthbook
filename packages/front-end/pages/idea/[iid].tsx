@@ -166,7 +166,7 @@ const IdeaPage = (): ReactElement => {
           )}
         {canEdit && (
           <div className="col-auto">
-            <MoreMenu id="idea-more-menu">
+            <MoreMenu>
               <a
                 href="#"
                 className="dropdown-item"
@@ -395,7 +395,7 @@ const IdeaPage = (): ReactElement => {
               </div>
 
               {(!idea.estimateParams || !estimate) &&
-                permissions.runQueries &&
+                permissions.check("runQueries", "") &&
                 canEdit && (
                   <div className="mt-2 text-center">
                     <button
@@ -422,7 +422,7 @@ const IdeaPage = (): ReactElement => {
                   <RightRailSection
                     title="Parameters"
                     open={() => setImpactOpen(true)}
-                    canOpen={permissions.runQueries && canEdit}
+                    canOpen={permissions.check("runQueries", "") && canEdit}
                   >
                     <RightRailSectionGroup title="Metric" type="badge">
                       {getMetricById(estimate?.metric)?.name}

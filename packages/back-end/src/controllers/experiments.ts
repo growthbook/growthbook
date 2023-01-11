@@ -1363,7 +1363,8 @@ export async function getSnapshotStatus(
         org.id,
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
-        queryData
+        queryData,
+        org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await ExperimentSnapshotModel.updateOne(
@@ -1392,7 +1393,7 @@ export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1427,9 +1428,10 @@ export async function postSnapshot(
   >,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
+  const statsEngine = org.settings?.statsEngine;
 
   const useCache = !req.query["force"];
 
@@ -1465,7 +1467,13 @@ export async function postSnapshot(
     }
 
     try {
-      const snapshot = await createManualSnapshot(exp, phase, users, metrics);
+      const snapshot = await createManualSnapshot(
+        exp,
+        phase,
+        users,
+        metrics,
+        statsEngine
+      );
       res.status(200).json({
         status: 200,
         snapshot,
@@ -1509,7 +1517,8 @@ export async function postSnapshot(
       phase,
       org,
       dimension || null,
-      useCache
+      useCache,
+      org.settings?.statsEngine
     );
     await req.audit({
       event: "experiment.refresh",
@@ -1706,7 +1715,7 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1778,8 +1787,6 @@ export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
-
   const { org } = getOrgFromReq(req);
   const { datasource, force } = req.body;
 
@@ -1787,6 +1794,10 @@ export async function postPastExperiments(
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+  );
 
   const integration = getSourceIntegrationObject(datasourceObj);
   if (integration.decryptionError) {

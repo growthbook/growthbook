@@ -1,7 +1,7 @@
 import { createHmac } from "crypto";
 import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { OrganizationInterface } from "../../../../types/organization";
-import { getApiFeatureObj, GroupMap } from "../../../services/features";
+import { getApiFeatureObj } from "../../../services/features";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
@@ -15,6 +15,7 @@ import {
 } from "../../base-types";
 import { ApiFeatureInterface } from "../../../../types/api";
 import { logger } from "../../../util/logger";
+import { GroupMap } from "../../../../types/saved-group";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -107,7 +108,7 @@ const getPayloadForFeatureCreated = ({
   ...event,
   data: {
     ...event.data,
-    feature: getApiFeatureObj(event.data, organization, savedGroupMap),
+    feature: getApiFeatureObj(event.data.current, organization, savedGroupMap),
   },
 });
 

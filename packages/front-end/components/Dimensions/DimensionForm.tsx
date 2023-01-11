@@ -1,14 +1,14 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
+import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
-import { validateSQL } from "@/services/datasources";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
+import SQLInputField from "@/components/SQLInputField";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -21,6 +21,7 @@ const DimensionForm: FC<{
     datasources,
     mutateDefinitions,
   } = useDefinitions();
+
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -38,11 +39,15 @@ const DimensionForm: FC<{
   const dsProps = dsObj?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
+  const requiredColumns = useMemo(() => {
+    return new Set([userIdType, "value"]);
+  }, [userIdType]);
+
   return (
     <Modal
       close={close}
       open={true}
-      header={current ? "Edit Dimension" : "New Dimension"}
+      header={current.id ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
           validateSQL(value.sql, [value.userIdType, "value"]);
@@ -92,12 +97,11 @@ const DimensionForm: FC<{
         />
       )}
       {sql ? (
-        <CodeTextArea
-          label="SQL"
-          required
-          language="sql"
-          value={form.watch("sql")}
-          setValue={(sql) => form.setValue("sql", sql)}
+        <SQLInputField
+          userEnteredQuery={form.watch("sql")}
+          datasourceId={dsObj.id}
+          form={form}
+          requiredColumns={requiredColumns}
           placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
           helpText={
             <>
@@ -105,6 +109,7 @@ const DimensionForm: FC<{
               <code>value</code>
             </>
           }
+          queryType="dimension"
         />
       ) : (
         <Field

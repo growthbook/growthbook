@@ -1,6 +1,7 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import cloneDeep from "lodash/cloneDeep";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -37,15 +38,17 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { metrics: metricDefinitions, getDatasourceById } = useDefinitions();
+  const { metrics, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metricDefinitions.filter(
-    (m) => m.datasource === datasource?.id
-  );
+  const filteredMetrics = metrics
+    .filter((m) => m.datasource === datasource?.id)
+    .filter((m) => {
+      if (!experiment.project) return true;
+      if (!m?.projects?.length) return true;
+      return m.projects.includes(experiment.project);
+    });
 
-  const defaultMetricOverrides = structuredClone(
-    experiment.metricOverrides || []
-  );
+  const defaultMetricOverrides = cloneDeep(experiment.metricOverrides || []);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
@@ -90,7 +93,7 @@ const EditMetricsForm: FC<{
       close={cancel}
       ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        const payload = structuredClone(value) as EditMetricsFormInterface;
+        const payload = cloneDeep<EditMetricsFormInterface>(value);
         for (let i = 0; i < payload.metricOverrides.length; i++) {
           for (const key in payload.metricOverrides[i]) {
             if (key === "id") continue;
@@ -129,6 +132,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
+          project={experiment.project}
           autoFocus={true}
         />
       </div>
@@ -143,6 +147,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
+          project={experiment.project}
         />
       </div>
 

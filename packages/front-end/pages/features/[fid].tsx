@@ -42,6 +42,7 @@ import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import FeatureModal from "@/components/Features/FeatureModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export default function FeaturePage() {
   const [edit, setEdit] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
+  const [duplicateModal, setDuplicateModal] = useState(false);
   const permissions = usePermissions();
 
   const [env, setEnv] = useEnvironmentState();
@@ -190,6 +192,17 @@ export default function FeaturePage() {
           mutate={mutate}
         />
       )}
+      {duplicateModal && (
+        <FeatureModal
+          cta={"Duplicate"}
+          close={() => setDuplicateModal(false)}
+          onSuccess={async (feature) => {
+            const url = `/features/${feature.id}`;
+            router.push(url);
+          }}
+          featureToDuplicate={data.feature}
+        />
+      )}
 
       {isDraft && (
         <div
@@ -230,7 +243,7 @@ export default function FeaturePage() {
           />
         </div>
         <div className="col-auto">
-          <MoreMenu id="feature-more-menu">
+          <MoreMenu>
             <a
               className="dropdown-item"
               href="#"
@@ -241,6 +254,19 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
+            {permissions.check("manageFeatures", project) &&
+              permissions.check("publishFeatures", project, enabledEnvs) && (
+                <a
+                  className="dropdown-item"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setDuplicateModal(true);
+                  }}
+                >
+                  Duplicate feature
+                </a>
+              )}
             {permissions.check("manageFeatures", project) &&
               permissions.check("publishFeatures", project, enabledEnvs) && (
                 <DeleteButton

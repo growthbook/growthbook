@@ -23,18 +23,21 @@ export const accountFeatures: CommercialFeaturesMap = {
   pro: new Set<CommercialFeature>([
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "schedule-feature-flag",
     "override-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "schedule-feature-flag",
     "override-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
     "encrypt-features-endpoint",
+    "schedule-feature-flag",
     "override-metrics",
   ]),
 };
@@ -73,17 +76,17 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageFeatures",
   "createAnalyses",
   "createIdeas",
+  "createMetrics",
+  "createDatasources",
+  "editDatasourceSettings",
+  "runQueries",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
-  "runQueries",
   "createPresentations",
-  "createMetrics",
   "createDimensions",
   "createSegments",
-  "editDatasourceSettings",
   "organizationSettings",
-  "createDatasources",
   "superDelete",
   "manageTeam",
   "manageTags",
@@ -173,6 +176,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "createAnalyses",
         "createDimensions",
+        "createSegments",
         "createMetrics",
         "runQueries",
         "editDatasourceSettings",

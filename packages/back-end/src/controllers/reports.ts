@@ -185,7 +185,7 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -197,7 +197,7 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  await runReport(report, useCache);
+  await runReport(report, useCache, org.settings?.statsEngine);
 
   return res.status(200).json({
     status: 200,
@@ -209,7 +209,7 @@ export async function putReport(
   res: Response
 ) {
   req.checkPermissions("createAnalyses", "");
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -243,7 +243,8 @@ export async function putReport(
         ...report,
         ...updates,
       },
-      true
+      true,
+      org.settings?.statsEngine
     );
   }
 
@@ -271,7 +272,8 @@ export async function getReportStatus(
           org.id,
           report.args.variations,
           report.args.dimension || "",
-          queryData
+          queryData,
+          org.settings?.statsEngine
         );
       }
       throw new Error("Unsupported report type");
@@ -292,7 +294,7 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;

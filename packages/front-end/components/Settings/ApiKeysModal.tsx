@@ -1,10 +1,12 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import track from "../../services/track";
 import Field from "../Forms/Field";
 import { useEnvironments } from "../../services/features";
+import SelectField from "../Forms/SelectField";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
 
@@ -17,20 +19,18 @@ const ApiKeysModal: FC<{
   const { apiCall } = useAuth();
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const { projects, project } = useDefinitions();
 
   const form = useForm({
     defaultValues: {
       description: defaultDescription,
       environment: environments[0]?.id || "dev",
+      project: project || "",
       encryptSDK: false,
     },
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    if (!secret && !value.description) {
-      value.description = value.environment;
-    }
-
     await apiCall("/keys", {
       method: "POST",
       body: JSON.stringify({
@@ -63,6 +63,18 @@ const ApiKeysModal: FC<{
       submit={onSubmit}
       cta="Create"
     >
+      {!secret && projects.length > 0 && (
+        <SelectField
+          label="Project"
+          initialOption="All Projects"
+          value={form.watch("project")}
+          onChange={(v) => form.setValue("project", v)}
+          options={projects.map((p) => ({
+            label: p.name,
+            value: p.id,
+          }))}
+        />
+      )}
       {!secret && (
         <Field
           label="Environment"
@@ -78,7 +90,7 @@ const ApiKeysModal: FC<{
       <Field
         label="Description"
         required={secret}
-        placeholder={secret ? "" : form.watch("environment")}
+        placeholder={secret ? "" : "(optional)"}
         {...form.register("description")}
       />
       {!secret && (

@@ -40,6 +40,7 @@ router.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword
 );
+router.put("/organization/license", organizationsController.putLicenseKey);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);

@@ -39,11 +39,12 @@ import {
 } from "../models/MetricModel";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
-  req.checkPermissions("createMetrics");
+  req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;
+  const statsEngine = org.settings?.statsEngine;
 
   const existingMetrics = await getSampleMetrics(orgId);
 
@@ -157,36 +158,42 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
     };
     await ExperimentModel.create(experiment);
 
-    await createManualSnapshot(experiment, 0, [15500, 15400], {
-      [metric1.id]: [
-        {
-          users: 15500,
-          count: 950,
-          mean: 1,
-          stddev: 1,
-        },
-        {
-          users: 15400,
-          count: 1025,
-          mean: 1,
-          stddev: 1,
-        },
-      ],
-      [metric2.id]: [
-        {
-          users: 15500,
-          count: 950,
-          mean: 26.54,
-          stddev: 16.75,
-        },
-        {
-          users: 15400,
-          count: 1025,
-          mean: 25.13,
-          stddev: 16.87,
-        },
-      ],
-    });
+    await createManualSnapshot(
+      experiment,
+      0,
+      [15500, 15400],
+      {
+        [metric1.id]: [
+          {
+            users: 15500,
+            count: 950,
+            mean: 1,
+            stddev: 1,
+          },
+          {
+            users: 15400,
+            count: 1025,
+            mean: 1,
+            stddev: 1,
+          },
+        ],
+        [metric2.id]: [
+          {
+            users: 15500,
+            count: 950,
+            mean: 26.54,
+            stddev: 16.75,
+          },
+          {
+            users: 15400,
+            count: 1025,
+            mean: 25.13,
+            stddev: 16.87,
+          },
+        ],
+      },
+      statsEngine
+    );
   }
 
   res.status(200).json({
@@ -199,8 +206,6 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createDatasources");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -208,6 +213,10 @@ export async function deleteDataSource(
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
+  req.checkPermissions(
+    "createDatasources",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   // Make sure there are no metrics
   const metrics = await getMetricsByDatasource(
@@ -267,8 +276,10 @@ export async function getDataSources(req: AuthRequest, res: Response) {
       return {
         id: d.id,
         name: d.name,
+        description: d.description,
         type: d.type,
         settings: d.settings,
+        projects: d.projects ?? [],
         params: getNonSensitiveParams(integration),
       };
     }),
@@ -300,6 +311,7 @@ export async function getDataSource(
     type: datasource.type,
     params: getNonSensitiveParams(integration),
     settings: datasource.settings,
+    projects: datasource.projects,
   });
 }
 
@@ -310,14 +322,15 @@ export async function postDataSources(
     type: DataSourceType;
     params: DataSourceParams;
     settings: DataSourceSettings;
+    projects?: string[];
   }>,
   res: Response
 ) {
-  req.checkPermissions("createDatasources");
-
   const { org } = getOrgFromReq(req);
-  const { name, description, type, params } = req.body;
+  const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
+
+  req.checkPermissions("createDatasources", projects?.length ? projects : "");
 
   try {
     // Set default event properties and queries
@@ -335,7 +348,8 @@ export async function postDataSources(
       params,
       settings,
       undefined,
-      description
+      description,
+      projects
     );
 
     res.status(200).json({
@@ -358,6 +372,7 @@ export async function putDataSource(
       type: DataSourceType;
       params: DataSourceParams;
       settings: DataSourceSettings;
+      projects?: string[];
     },
     { id: string }
   >,
@@ -365,14 +380,7 @@ export async function putDataSource(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { name, description, type, params, settings } = req.body;
-
-  // Require higher permissions to change connection settings vs updating query settings
-  if (params) {
-    req.checkPermissions("createDatasources");
-  } else {
-    req.checkPermissions("editDatasourceSettings");
-  }
+  const { name, description, type, params, settings, projects } = req.body;
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
@@ -382,6 +390,14 @@ export async function putDataSource(
     });
     return;
   }
+  // Require higher permissions to change connection settings vs updating query settings
+  const permissionLevel = params
+    ? "createDatasources"
+    : "editDatasourceSettings";
+  req.checkPermissions(
+    permissionLevel,
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   if (type && type !== datasource.type) {
     res.status(400).json({
@@ -406,6 +422,9 @@ export async function putDataSource(
     if (settings) {
       updates.settings = settings;
     }
+    if (projects) {
+      updates.projects = projects;
+    }
 
     if (
       type === "google_analytics" &&
@@ -418,6 +437,10 @@ export async function putDataSource(
       );
       (params as GoogleAnalyticsParams).refreshToken =
         tokens.refresh_token || "";
+    }
+
+    if (updates?.projects?.length) {
+      req.checkPermissions(permissionLevel, updates.projects);
     }
 
     // If the connection params changed, re-validate the connection
@@ -444,7 +467,7 @@ export async function putDataSource(
 }
 
 export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
-  req.checkPermissions("createDatasources");
+  req.checkPermissions("createDatasources", "");
 
   const oauth2Client = getOauth2Client();
 
@@ -506,8 +529,6 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  req.checkPermissions("editDatasourceSettings");
-
   const { org } = getOrgFromReq(req);
 
   const { query, datasourceId } = req.body;
@@ -519,6 +540,10 @@ export async function testLimitedQuery(
       message: "Cannot find data source",
     });
   }
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   const { results, sql, duration, error } = await testQuery(datasource, query);
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
+import cloneDeep from "lodash/cloneDeep";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
@@ -53,6 +54,31 @@ export function isBelowMinChange(
     metric.minPercentChange || metricDefaults.minPercentageChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+}
+
+export function shouldHighlight({
+  metric,
+  baseline,
+  stats,
+  hasEnoughData,
+  suspiciousChange,
+  belowMinChange,
+}: {
+  metric: MetricInterface;
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
+  hasEnoughData: boolean;
+  suspiciousChange: boolean;
+  belowMinChange: boolean;
+}): boolean {
+  return (
+    metric &&
+    baseline?.value &&
+    stats?.value &&
+    hasEnoughData &&
+    !suspiciousChange &&
+    !belowMinChange
+  );
 }
 
 export function getRisk(
@@ -195,7 +221,7 @@ export function applyMetricOverrides(
       overrideFields: [],
     };
   }
-  const newMetric = structuredClone(metric) as MetricInterface;
+  const newMetric = cloneDeep<MetricInterface>(metric);
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
@@ -217,4 +243,8 @@ export function applyMetricOverrides(
     }
   }
   return { newMetric, overrideFields };
+}
+
+export function pValueFormatter(pValue: number) {
+  return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }

@@ -49,6 +49,7 @@ export interface MetricInterface {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
   tags?: string[];
+  projects?: string[];
   winRisk?: number;
   loseRisk?: number;
   maxPercentChange?: number;

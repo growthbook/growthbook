@@ -369,7 +369,7 @@ export async function addSampleData(
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, org, null);
+      await createSnapshot(exp, 0, org, null, false, org.settings?.statsEngine);
     })
   );
 

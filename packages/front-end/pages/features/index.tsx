@@ -26,6 +26,7 @@ import {
   useRealtimeData,
   useEnvironments,
 } from "@/services/features";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import TagsFilter, {
@@ -48,6 +49,10 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
+  const [
+    featureToDuplicate,
+    setFeatureToDuplicate,
+  ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -94,6 +99,12 @@ export default function FeaturesPage() {
     setCurrentPage(1);
   }, [items.length]);
 
+  // Reset featureToDuplicate when modal is closed
+  useEffect(() => {
+    if (modalOpen) return;
+    setFeatureToDuplicate(null);
+  }, [modalOpen]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -120,6 +131,7 @@ export default function FeaturesPage() {
     <div className="contents container pagecontents">
       {modalOpen && (
         <FeatureModal
+          cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
@@ -130,6 +142,7 @@ export default function FeaturesPage() {
               features: [...features, feature],
             });
           }}
+          featureToDuplicate={featureToDuplicate}
         />
       )}
       <div className="row mb-3">
@@ -243,6 +256,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
+                <th style={{ width: 30 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -336,6 +350,19 @@ export default function FeaturesPage() {
                         />
                       </td>
                     )}
+                    <td>
+                      <MoreMenu>
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            setFeatureToDuplicate(feature);
+                            setModalOpen(true);
+                          }}
+                        >
+                          Duplicate
+                        </button>
+                      </MoreMenu>
+                    </td>
                   </tr>
                 );
               })}
