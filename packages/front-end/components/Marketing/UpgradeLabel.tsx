@@ -21,8 +21,9 @@ export default function UpgradeLabel({
 
   const { hasCommercialFeature } = useUser();
 
+  // Only show if they don't have the feature and they don't have the env variable to hide it
   const showUpgradeCTA =
-    !hasCommercialFeature(commercialFeature) ||
+    !hasCommercialFeature(commercialFeature) &&
     !process.env.HIDE_GROWTHBOOK_UPGRADE_CTAS;
 
   const headerMessage = isCloud()
