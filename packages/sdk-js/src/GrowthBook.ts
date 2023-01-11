@@ -66,9 +66,15 @@ export class GrowthBook {
     }
 
     if (context.apiHost) {
-      streamManager.initialize({ apiHost: context.apiHost, eventSource: context.eventSource });
+      streamManager.initialize({
+        apiHost: context.apiHost,
+        eventSource: context.eventSource,
+      });
       if (context.streaming && this.context.clientKey) {
-        streamManager.startStream(this.context.clientKey, this.onStreamMessage.bind(this));
+        streamManager.startStream(
+          this.context.clientKey,
+          this.onStreamMessage.bind(this)
+        );
       }
     }
 
@@ -115,10 +121,12 @@ export class GrowthBook {
 
   // eslint-disable-next-line
   private onStreamMessage(event: string, data: any) {
-    if (event === "features" && data) {
-      this.context.encryptionKey ? this.setEncryptedFeatures(data, this.context.encryptionKey) : this.setFeatures(data);
+    if (event === "features" && data?.features) {
+      this.context.encryptionKey
+        ? this.setEncryptedFeatures(data.features, this.context.encryptionKey)
+        : this.setFeatures(data.features);
       if (this.context.useCache && this.context.clientKey) {
-        featuresCache.set(this.context.clientKey, data);
+        featuresCache.set(this.context.clientKey, data.features);
       }
     }
   }
