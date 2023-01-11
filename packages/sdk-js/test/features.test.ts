@@ -8,6 +8,8 @@ global.TextEncoder = TextEncoder;
 
 const { MockEvent, EventSource } = require('mocksse');
 global.EventSource = EventSource;
+
+require('jest-localstorage-mock');
 /* eslint-enable */
 
 const mockCallback = (context: Context) => {
@@ -507,6 +509,49 @@ describe("features", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       useCache: "memory",
+      cacheExpiresTTL: 0.1,
+      fetch: f,
+    });
+    await growthbook.loadFeatures();
+    const foo1 = growthbook.evalFeature("foo");
+    expect(foo1.value).toEqual("initial");
+
+    // Value changes, refetch
+    fooVal = "changed";
+    await growthbook.loadFeatures();
+    const foo2 = growthbook.evalFeature("foo");
+    // Should get cached value
+    expect(foo2.value).toEqual("initial");
+
+    // Wait a bit for cache to expire...
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await growthbook.loadFeatures();
+    const foo3 = growthbook.evalFeature("foo");
+    // Past the cache TTL period, should get new value
+    expect(foo3.value).toEqual("changed");
+
+    growthbook.destroy();
+  });
+
+  it("sets and gets features using localStorage cache", async () => {
+    let fooVal = "initial";
+    const f = jest.fn(() => {
+      return Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            features: {
+              foo: {
+                defaultValue: fooVal,
+              },
+            },
+          }),
+      });
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      useCache: "localStorage",
       cacheExpiresTTL: 0.1,
       fetch: f,
     });

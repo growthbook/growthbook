@@ -38,7 +38,12 @@ export class Cache {
             const res = window.localStorage.getItem(
               `${this.localStoragePrefix}_${key}`
             );
-            return res ? JSON.parse(res) : undefined;
+            const parsed = res ? JSON.parse(res) : undefined;
+            if (parsed) {
+              (parsed as CacheEntry).staleOn = new Date(parsed.staleOn);
+              (parsed as CacheEntry).expiresOn = new Date(parsed.expiresOn);
+            }
+            return parsed;
           } catch (e) {
             console.error("cache get error", e);
             return undefined;
