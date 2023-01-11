@@ -44,7 +44,7 @@ export default function (ag: Agenda) {
       .digest("hex");
 
     const { responseWithoutBody: res } = await cancellableFetch(
-      connection.proxy.host,
+      `${connection.proxy.host}/proxy/features`,
       {
         headers: {
           "Content-Type": "application/json",
