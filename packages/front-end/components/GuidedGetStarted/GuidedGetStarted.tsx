@@ -1,10 +1,11 @@
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import ReactPlayer from "react-player";
 import Link from "next/link";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { SDKConnectionInterface } from "@/../back-end/types/sdk-connection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -12,11 +13,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { hasFileConfig } from "@/services/env";
 import track from "@/services/track";
-import MetricForm from "../Metrics/MetricForm";
+import useApi from "@/hooks/useApi";
 import FeatureModal from "../Features/FeatureModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
+import TestConnectionCard from "./TestConnectionCard";
 import styles from "./GuidedGetStarted.module.scss";
 import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
@@ -24,7 +26,7 @@ import SuccessCard from "./SuccessCard";
 export type Task = {
   blackTitle: string;
   purpleTitle: string;
-  text: string;
+  text?: string;
   learnMoreLink?: string;
   docSection?: DocSection;
   completed?: boolean;
@@ -47,6 +49,27 @@ export default function GuidedGetStarted({
     [key: string]: boolean;
   }>("onboarding-steps-skipped", {});
   const [showVideo, setShowVideo] = useState(false);
+  const [sdkConnected, setSdkConnected] = useState(false);
+
+  //TODO: Should we destructure error and pass that to TestConnectionCard?
+  const { data: SDKData, mutate: mutateSDKData } = useApi<{
+    connections: SDKConnectionInterface[];
+  }>(`/sdk-connections`);
+
+  useEffect(() => {
+    // Determine if any SDK Connections have been connected
+    if (SDKData?.connections?.length) {
+      SDKData.connections.forEach((connection) => {
+        if (connection.connected === true) {
+          setSdkConnected(true);
+        }
+      });
+    }
+  }, [SDKData]);
+
+  setInterval(() => {
+    mutateSDKData();
+  }, 1000);
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
@@ -147,37 +170,6 @@ export default function GuidedGetStarted({
       ),
     },
     {
-      alwaysShowHelperText: true,
-      blackTitle: "Install an ",
-      purpleTitle: "SDK",
-      text:
-        "Integrate GrowthBook into your front-end, back-end, or mobile application.",
-      learnMoreLink: "Learn more about our SDKs.",
-      docSection: "sdks",
-      completed:
-        settings?.sdkInstructionsViewed || skippedSteps["install-sdk"] || false,
-      render: (
-        <InitialSDKConnectionForm
-          inline={true}
-          cta={"Next: Create Feature Flag"}
-          submit={async () => {
-            setCurrentStep(currentStep + 1);
-          }}
-          secondaryCTA={
-            <button
-              onClick={() => {
-                setSkippedSteps({ ...skippedSteps, "install-sdk": true });
-                setCurrentStep(currentStep + 1);
-              }}
-              className="btn btn-link"
-            >
-              Skip Step
-            </button>
-          }
-        />
-      ),
-    },
-    {
       blackTitle: "Create a ",
       purpleTitle: "Feature Flag",
       text:
@@ -192,12 +184,12 @@ export default function GuidedGetStarted({
               feature="feature flag"
               href="/features"
               onClick={async () => setCurrentStep(currentStep + 1)}
-              nextStep="Next: Add a Data Source"
+              nextStep="Next: Install an SDK"
             />
           ) : (
             <FeatureModal
               inline={true}
-              cta={"Next: Add a Data Source"}
+              cta={"Next: Install an SDK"}
               onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
@@ -218,6 +210,50 @@ export default function GuidedGetStarted({
       ),
     },
     {
+      alwaysShowHelperText: true,
+      blackTitle: "Install an ",
+      purpleTitle: "SDK",
+      text:
+        "Integrate GrowthBook into your front-end, back-end, or mobile application.",
+      learnMoreLink: "Learn more about our SDKs.",
+      docSection: "sdks",
+      completed:
+        SDKData?.connections.length > 0 || skippedSteps["install-sdk"] || false,
+      render: (
+        <InitialSDKConnectionForm
+          inline={true}
+          cta={"Next: Test Your Connection"}
+          submit={async () => {
+            setCurrentStep(currentStep + 1);
+          }}
+          secondaryCTA={
+            <button
+              onClick={() => {
+                setSkippedSteps({ ...skippedSteps, "install-sdk": true });
+                setCurrentStep(currentStep + 1);
+              }}
+              className="btn btn-link"
+            >
+              Skip Step
+            </button>
+          }
+        />
+      ),
+    },
+    {
+      blackTitle: "Test Your ",
+      purpleTitle: "Feature Flag",
+      docSection: "sdks",
+      completed: sdkConnected,
+      render: (
+        <TestConnectionCard
+          connections={SDKData?.connections}
+          handleNextStep={() => setCurrentStep(currentStep + 1)}
+          handlePreviousStep={() => setCurrentStep(currentStep - 1)}
+        />
+      ),
+    },
+    {
       blackTitle: "Add a ",
       purpleTitle: "Data Source",
       text:
@@ -232,7 +268,7 @@ export default function GuidedGetStarted({
               feature="data source"
               href="/datasources"
               onClick={async () => setCurrentStep(currentStep + 1)}
-              nextStep="Next: Add a Metric"
+              nextStep="Next: Continue Setting up Account"
             />
           ) : (
             <NewDataSourceForm
@@ -269,52 +305,6 @@ export default function GuidedGetStarted({
       ),
     },
     {
-      blackTitle: "Define a ",
-      purpleTitle: "Metric",
-      text:
-        "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
-      learnMoreLink: "Learn more about how to use metrics.",
-      docSection: "metrics",
-      completed: metrics.length > 0 || skippedSteps["metric-definition"],
-      render: (
-        <>
-          {metrics.length > 0 ? (
-            <SuccessCard
-              feature="metric"
-              href="/metrics"
-              onClick={async () => setCurrentStep(currentStep + 1)}
-              nextStep="Next: Continue Setting up Account"
-            />
-          ) : (
-            <MetricForm
-              inline={true}
-              cta={"Finish"}
-              current={{}}
-              edit={false}
-              source="get-started"
-              onSuccess={() => {
-                setCurrentStep(currentStep + 1);
-              }}
-              secondaryCTA={
-                <button
-                  onClick={() => {
-                    setSkippedSteps({
-                      ...skippedSteps,
-                      "metric-definition": true,
-                    });
-                    setCurrentStep(currentStep + 1);
-                  }}
-                  className="btn btn-link"
-                >
-                  Skip Step
-                </button>
-              }
-            />
-          )}
-        </>
-      ),
-    },
-    {
       alwaysShowHelperText: true,
       blackTitle: "Great ",
       purpleTitle: "Work!",
@@ -323,12 +313,12 @@ export default function GuidedGetStarted({
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
-          <Link href="/settings/team" className={styles.nextStepWrapper}>
+          <Link href="/metrics" className={styles.nextStepWrapper}>
             <h2
               role="button"
               className={clsx("text-center p-4 m-1", styles.nextStepLink)}
             >
-              Invite your Teammates
+              Define Your Metrics
             </h2>
           </Link>
           <Link href="/experiments" className={styles.nextStepWrapper}>
@@ -382,7 +372,7 @@ export default function GuidedGetStarted({
               {steps[currentStep].purpleTitle}
             </span>
           </h1>
-          {(!steps[currentStep].completed ||
+          {((steps[currentStep].text && !steps[currentStep].completed) ||
             steps[currentStep].alwaysShowHelperText) && (
             <p className="text-center col-10">
               {`${steps[currentStep].text} `}

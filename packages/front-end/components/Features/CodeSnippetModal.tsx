@@ -4,22 +4,21 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { getApiHost, isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { getApiHost, isCloud } from "@/services/env";
 import Modal from "../Modal";
 import { DocLink } from "../DocLink";
 import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
-import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import ClickToCopy from "../Settings/ClickToCopy";
 import TargetingAttributeCodeSnippet from "../SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
-import SDKEndpointSelector from "./SDKEndpointSelector";
-import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
+import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
+import SDKEndpointSelector from "./SDKEndpointSelector";
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   if (connection?.proxy?.enabled && connection?.proxy?.host) {
@@ -62,7 +61,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
-  const [attributesOpen, setAttributesOpen] = useState(true);
+  const [attributesOpen, setAttributesOpen] = useState(false);
 
   const [apiKey, setApiKey] = useState("");
 
@@ -247,12 +246,14 @@ export default function CodeSnippetModal({
               setAttributesOpen(!attributesOpen);
             }}
           >
-            Targeting Attributes{" "}
+            Targeting Attributes (Optional){" "}
             {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
           </h4>
           {attributesOpen && (
             <div className="appbox bg-light p-3">
-              Replace the placeholders with your real targeting attribute values
+              Replace the placeholders with your real targeting attribute
+              values. This enables you to target feature flags based on user
+              attributes.
               <TargetingAttributeCodeSnippet language={language} />
             </div>
           )}
@@ -274,12 +275,6 @@ export default function CodeSnippetModal({
               <BooleanFeatureCodeSnippet
                 language={language}
                 featureId={featureId}
-              />
-              String Feature:
-              <MultivariateFeatureCodeSnippet
-                language={language}
-                featureId={featureId}
-                valueType={"string"}
               />
             </div>
           )}
