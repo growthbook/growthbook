@@ -21,9 +21,7 @@ export default function UpgradeLabel({
 
   const { hasCommercialFeature } = useUser();
 
-  const showUpgradeCTA =
-    !hasCommercialFeature(commercialFeature) ||
-    !process.env.HIDE_GROWTHBOOK_UPGRADE_CTAS;
+  const showUpgradeCTA = !hasCommercialFeature(commercialFeature);
 
   const headerMessage = isCloud()
     ? `Please upgrade your plan to ${upgradeMessage}.`
