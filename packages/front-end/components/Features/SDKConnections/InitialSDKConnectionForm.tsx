@@ -93,7 +93,10 @@ export default function InitialSDKConnectionForm({
         />
         {showTestModal && (
           <CheckSDKConnectionModal
-            close={() => setShowTestModal(false)}
+            close={() => {
+              mutate();
+              setShowTestModal(false);
+            }}
             connection={currentConnection}
             mutate={mutate}
             goToNextStep={goToNextStep}

@@ -88,6 +88,13 @@ export default function CodeSnippetModal({
     })();
   }, [settings]);
 
+  useEffect(() => {
+    // connection changes & current language isn't included in new connection, reset to default
+    if (!limitLanguages.includes(language)) {
+      setLanguage(defaultLanguage);
+    }
+  }, [limitLanguages]);
+
   const { docs, label, usesEntireEndpoint } = languageMapping[language];
   const apiHost = getApiBaseUrl(sdkConnection);
   const clientKey = sdkConnection ? sdkConnection.key : apiKey;
@@ -118,7 +125,9 @@ export default function CodeSnippetModal({
         >
           <SDKLanguageSelector
             value={[language]}
-            setValue={([language]) => setLanguage(language)}
+            setValue={([language]) => {
+              setLanguage(language);
+            }}
             multiple={false}
             includeOther={false}
             limitLanguages={limitLanguages}

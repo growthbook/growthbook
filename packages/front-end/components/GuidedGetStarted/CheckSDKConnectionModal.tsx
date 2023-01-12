@@ -1,5 +1,4 @@
 import { SDKConnectionInterface } from "@/../back-end/types/sdk-connection";
-import { useEffect, useState } from "react";
 import Modal from "../Modal";
 import CheckSDKConnectionResults from "./CheckSDKConnectionResults";
 
@@ -16,28 +15,6 @@ export default function CheckSDKConnectionModal({
   mutate,
   goToNextStep,
 }: Props) {
-  const [fetchingConnectionStatus, setFetchingConnectionStatus] = useState(
-    true
-  );
-
-  useEffect(() => {
-    let numberOfChecks = 0;
-    const refetch = setInterval(() => {
-      // We'll check for an updated status for 10 seconds
-      if (numberOfChecks >= 10) {
-        clearInterval(refetch);
-        setFetchingConnectionStatus(false);
-      } else {
-        numberOfChecks++;
-        mutate();
-      }
-    }, 1000);
-
-    if (fetchingConnectionStatus === false) {
-      clearInterval(refetch);
-    }
-  }, [fetchingConnectionStatus, mutate]);
-
   return (
     <Modal
       open={true}
@@ -52,8 +29,6 @@ export default function CheckSDKConnectionModal({
     >
       <CheckSDKConnectionResults
         connection={connection}
-        fetchingConnectionStatus={fetchingConnectionStatus}
-        setFetchingConnectionStatus={setFetchingConnectionStatus}
         mutate={mutate}
         close={close}
       />
