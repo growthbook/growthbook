@@ -22,6 +22,7 @@ import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import VariationsInput from "../Features/VariationsInput";
+import { DraggableVariation } from "../Features/Variation";
 import MetricsSelector from "./MetricsSelector";
 import VariationDataInput from "./VariationDataInput";
 
@@ -359,7 +360,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               form.setValue(`phases.0.variationWeights.${i}`, weight)
             }
             valueAsId={true}
-            setVariations={(v) => {
+            setVariations={(v: DraggableVariation[]) => {
               const existing = form.watch("variations");
               form.setValue(
                 "variations",
@@ -383,14 +384,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               );
             }}
             variations={
-              form.watch("variations").map((v, i) => {
-                return {
-                  value: v.key || "",
-                  name: v.name,
-                  weight: form.watch(`phases.0.variationWeights.${i}`),
-                  id: v.id || "",
-                };
-              }) || []
+              form
+                .watch("variations")
+                .map((v: Variation & { id?: string }, i) => {
+                  return {
+                    value: v.key || "",
+                    name: v.name,
+                    weight: form.watch(`phases.0.variationWeights.${i}`),
+                    id: v.id || "",
+                  };
+                }) || []
             }
             coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
             showPreview={false}

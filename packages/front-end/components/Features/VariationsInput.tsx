@@ -23,13 +23,13 @@ import {
 import { getDefaultVariationValue } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
-import { SortableVariationRow } from "./Variation";
+import { DraggableVariation, SortableVariationRow } from "./Variation";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
-  variations: ExperimentValue[];
+  variations: ExperimentValue[] | DraggableVariation[];
   setWeight: (i: number, weight: number) => void;
   setVariations?: (variations: ExperimentValue[]) => void;
   coverage: number;
@@ -55,8 +55,9 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
 
-  const items = variations.map(
-    (variation: ExperimentValue & { id: string }, i) => {
+  // In order to use drag and drop, each variation must have an id. This creates temp id's.
+  const draggableVariations = variations.map(
+    (variation: DraggableVariation, i) => {
       if (!variation.id) {
         return {
           ...variation,
@@ -80,13 +81,6 @@ export default function VariationsInput({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  function getVariationIndex(id: string) {
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].id === id) return i;
-    }
-    return -1;
-  }
 
   return (
     <div className="form-group">
@@ -181,31 +175,38 @@ export default function VariationsInput({
               collisionDetection={closestCenter}
               onDragEnd={({ active, over }) => {
                 if (active.id !== over.id) {
-                  const oldIndex = getVariationIndex(active.id);
-                  const newIndex = getVariationIndex(over.id);
+                  const oldIndex = draggableVariations
+                    .map((variation) => variation.id)
+                    .indexOf(active.id);
+                  const newIndex = draggableVariations
+                    .map((variation) => variation.id)
+                    .indexOf(over.id);
 
                   if (oldIndex === -1 || newIndex === -1) return;
 
-                  const newVariations = arrayMove(items, oldIndex, newIndex);
+                  const newVariations = arrayMove(
+                    draggableVariations,
+                    oldIndex,
+                    newIndex
+                  );
 
                   setVariations(newVariations);
                 }
               }}
             >
               <SortableContext
-                items={items}
+                items={draggableVariations}
                 strategy={verticalListSortingStrategy}
               >
-                {items.map(({ ...variation }, i) => (
+                {draggableVariations.map((draggableVariation, i) => (
                   <SortableVariationRow
                     i={i}
-                    id={variation.id}
-                    variation={variation}
-                    variations={variations}
+                    variation={draggableVariation}
+                    variations={draggableVariations}
                     setVariations={setVariations}
                     setWeight={setWeight}
                     customSplit={customSplit}
-                    key={variation.id}
+                    key={draggableVariation.id}
                     valueType={valueType}
                     valueAsId={valueAsId}
                   />

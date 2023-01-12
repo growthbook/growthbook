@@ -19,11 +19,13 @@ import Field from "../Forms/Field";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
+export type DraggableVariation = ExperimentValue & {
+  id: string;
+};
 interface SortableProps {
   i: number;
-  id: string;
-  variation: ExperimentValue & { id?: string };
-  variations: ExperimentValue[] & { id?: string };
+  variation: DraggableVariation;
+  variations: DraggableVariation[];
   key: string;
   valueType: FeatureValueType;
   setVariations: (value: ExperimentValue[]) => void;
