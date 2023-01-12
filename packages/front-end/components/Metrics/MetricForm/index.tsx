@@ -7,6 +7,7 @@ import {
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -148,6 +149,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
+  const settings = useOrgSettings();
 
   const {
     getMinSampleSizeForMetric,
@@ -926,13 +928,15 @@ const MetricForm: FC<MetricFormProps> = ({
                 </small>
               </div>
             )}
-            <RiskThresholds
-              winRisk={value.winRisk}
-              loseRisk={value.loseRisk}
-              winRiskRegisterField={form.register("winRisk")}
-              loseRiskRegisterField={form.register("loseRisk")}
-              riskError={riskError}
-            />
+            {settings.statsEngine !== "frequentist" && (
+              <RiskThresholds
+                winRisk={value.winRisk}
+                loseRisk={value.loseRisk}
+                winRiskRegisterField={form.register("winRisk")}
+                loseRiskRegisterField={form.register("loseRisk")}
+                riskError={riskError}
+              />
+            )}
             <div className="form-group">
               <label>Minimum Sample Size</label>
               <input

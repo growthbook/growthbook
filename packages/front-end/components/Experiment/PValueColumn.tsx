@@ -1,32 +1,21 @@
 import clsx from "clsx";
+import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import {
   hasEnoughData,
   isBelowMinChange,
   isSuspiciousUplift,
   shouldHighlight as _shouldHighlight,
+  pValueFormatter,
 } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import NotEnoughData from "./NotEnoughData";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
-export default function ChanceToWinColumn({
-  metric,
-  status,
-  isLatestPhase,
-  startDate,
-  snapshotDate,
-  baseline,
-  stats,
-}: {
+const PValueColumn: FC<{
   metric: MetricInterface;
   status: ExperimentStatus;
   isLatestPhase: boolean;
@@ -34,14 +23,21 @@ export default function ChanceToWinColumn({
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
-}) {
+}> = ({
+  metric,
+  status,
+  isLatestPhase,
+  startDate,
+  snapshotDate,
+  baseline,
+  stats,
+}) => {
   const {
     getMinSampleSizeForMetric,
     metricDefaults,
   } = useOrganizationMetricDefaults();
-
+  const pValueThreshold = usePValueThreshold();
   const minSampleSize = getMinSampleSizeForMetric(metric);
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,
@@ -54,8 +50,7 @@ export default function ChanceToWinColumn({
     metric,
     metricDefaults
   );
-  const { ciUpper, ciLower } = useConfidenceLevels();
-
+  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const shouldHighlight = _shouldHighlight({
     metric,
     baseline,
@@ -64,23 +59,26 @@ export default function ChanceToWinColumn({
     suspiciousChange,
     belowMinChange,
   });
+  const expectedDirection = metric.inverse
+    ? stats.expected < 0
+    : stats.expected > 0;
+  const statSig = stats.pValue < pValueThreshold;
 
-  const chanceToWin = stats?.chanceToWin ?? 0;
-
-  let sigText = "";
+  let sigText: string | JSX.Element = "";
   let className = "";
-  if (shouldHighlight && chanceToWin > ciUpper) {
-    sigText = `Significant win as the chance to win is above the ${percentFormatter.format(
-      ciUpper
-    )} threshold`;
+
+  if (shouldHighlight && statSig && expectedDirection) {
+    sigText = `Significant win as the p-value is below ${pValueThreshold} and the change is in the desired direction.`;
     className = "won";
-  } else if (shouldHighlight && chanceToWin < ciLower) {
-    sigText = `Significant loss as the chance to win is below the ${percentFormatter.format(
-      ciLower
-    )} threshold`;
+  } else if (shouldHighlight && statSig && !expectedDirection) {
+    sigText = (
+      <>
+        Significant loss as the p-value is below {pValueThreshold} and the
+        change is <em>not</em> in the desired direction.
+      </>
+    );
     className = "lost";
-  }
-  if (belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower)) {
+  } else if (belowMinChange && statSig) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
     className += " draw";
@@ -127,9 +125,11 @@ export default function ChanceToWinColumn({
             phaseStart={startDate}
           />
         ) : (
-          <>{percentFormatter.format(chanceToWin)}</>
+          <>{pValueFormatter(stats.pValue)}</>
         )}
       </Tooltip>
     </td>
   );
-}
+};
+
+export default PValueColumn;
