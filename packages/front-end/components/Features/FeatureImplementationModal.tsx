@@ -5,9 +5,9 @@ import Modal from "../Modal";
 import { DocLink } from "../DocLink";
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
-import CodeSnippetModal from "./CodeSnippetModal";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
+import InitialSDKConnectionForm from "./SDKConnections/InitialSDKConnectionForm";
 
 export interface Props {
   feature: FeatureInterface;
@@ -26,13 +26,7 @@ export default function FeatureImplementationModal({
   const codeType = feature.valueType === "boolean" ? "boolean" : "multivariate";
 
   if (fullSnippet) {
-    return (
-      <CodeSnippetModal
-        close={close}
-        featureId={feature.id}
-        defaultLanguage={language}
-      />
-    );
+    return <InitialSDKConnectionForm close={close} feature={feature} />;
   }
 
   const data = languageMapping[language];

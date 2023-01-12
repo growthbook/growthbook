@@ -5,6 +5,7 @@ import {
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
+import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -31,6 +32,7 @@ export default function SDKConnectionForm({
   const environments = useEnvironments();
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
+  const router = useRouter();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -76,6 +78,7 @@ export default function SDKConnectionForm({
             method: "PUT",
             body: JSON.stringify(body),
           });
+          mutate();
         } else {
           // Make sure encryption is disabled if they selected at least 1 language that's not supported
           // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
@@ -89,12 +92,17 @@ export default function SDKConnectionForm({
           const body: Omit<CreateSDKConnectionParams, "organization"> = {
             ...value,
           };
-          await apiCall(`/sdk-connections`, {
-            method: "POST",
-            body: JSON.stringify(body),
-          });
+          const res = await apiCall<{ connection: SDKConnectionInterface }>(
+            `/sdk-connections`,
+            {
+              method: "POST",
+              body: JSON.stringify(body),
+            }
+          );
+
+          mutate();
+          await router.push(`/sdks/${res.connection.id}`);
         }
-        mutate();
       })}
       close={close}
       open={true}

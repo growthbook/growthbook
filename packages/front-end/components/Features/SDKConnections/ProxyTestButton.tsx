@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { MdNetworkCheck } from "react-icons/md";
 import { ProxyTestResult } from "back-end/types/sdk-connection";
+import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
@@ -77,8 +77,8 @@ export default function ProxyTestButton({
       )}
       {showButton && (
         <Button
-          color="outline-primary"
-          className="btn-sm"
+          color="link"
+          className="btn-smk"
           title="Test connection"
           onClick={async () => {
             const res = await apiCall<{
@@ -93,7 +93,7 @@ export default function ProxyTestButton({
             }
           }}
         >
-          <MdNetworkCheck /> Test Connection
+          <BsArrowRepeat />
         </Button>
       )}
     </>

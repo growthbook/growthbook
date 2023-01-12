@@ -16,6 +16,7 @@ export default function GrowthBookSetupCodeSnippet({
   encryptionKey?: string;
 }) {
   const featuresEndpoint = apiHost + "api/features/" + apiKey;
+  const trackingComment = "TODO: Use your real analytics tracking system";
 
   if (language === "javascript") {
     return (
@@ -37,8 +38,8 @@ const growthbook = new GrowthBook({
           }
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
-    // TODO: use your real analytics tracking system
-    analytics.track("Viewed Experiment", {
+    // ${trackingComment}
+    console.log("Viewed Experiment", {
       experimentId: experiment.key,
       variationId: result.variationId
     });
@@ -69,8 +70,8 @@ const growthbook = new GrowthBook({
           }
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
-    // TODO: use your real analytics tracking system
-    analytics.track("Viewed Experiment", {
+    // ${trackingComment}
+    console.log("Viewed Experiment", {
       experimentId: experiment.key,
       variationId: result.variationId
     });
@@ -122,8 +123,8 @@ app.use(function(req, res, next) {
     enableDevMode: true,
     fetch: fetch,
     trackingCallback: (experiment, result) => {
-      // TODO: use your real analytics tracking system
-      analytics.track("Viewed Experiment", {
+      // ${trackingComment}
+      console.log("Viewed Experiment", {
         experimentId: experiment.key,
         variationId: result.variationId
       });
@@ -159,11 +160,10 @@ val gb = GBSDKBuilder(
   apiKey = "${apiKey || "MY_SDK_KEY"}",
   hostURL = "${apiHost}",
   trackingCallback = { gbExperiment, gbExperimentResult ->
-    // TODO: Use your real analytics tracking system
-    analytics.track("Viewed Experiment", buildJsonObject {
-      put("experimentId", gbExperiment.key)
-      put("variationId" gbExperimentResult.variationId)
-    })
+    // ${trackingComment}
+    println("Viewed Experiment")
+    println("Experiment Id: " + gbExperiment.key)
+    println("Variation Id: " + gbExperimentResult.variationId)
   }
 ).initialize()`.trim()}
         />
@@ -180,8 +180,10 @@ val gb = GBSDKBuilder(
 var gb: GrowthBookSDK = GrowthBookBuilder(
   url: "${featuresEndpoint}",
   trackingCallback: { experiment, experimentResult in 
-    // TODO: track in your analytics system
-    print("Viewed Experiment", experiment.key, experimentResult.variationId)
+    // ${trackingComment}
+    print("Viewed Experiment")
+    print("Experiment Id: ", experiment.key)
+    print("Variation Id: ", experimentResult.variationId)
 }
 ).initializer()
     `.trim()}
@@ -243,9 +245,11 @@ func main() {
 
 	context := growthbook.NewContext().
 		WithFeatures(features).
-		// TODO: Track in your analytics system
+		// ${trackingComment}
 		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
-			log.Println("Viewed Experiment", experiment.Key, result.VariationID)
+			log.Println("Viewed Experiment")
+      log.Println("Experiment Id", experiment.Key)
+      log.Println("Variation Id", result.VariationID)
 		})
 	gb := growthbook.New(context)
 }
@@ -276,14 +280,10 @@ features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
           code={`
 class MyImpressionListener
   def on_experiment_viewed(experiment, result)
-    # TODO: track in your real analytics system
-    Analytics.track(
-      user_id: '123abc',
-      event: 'Viewed Experiment',
-      properties: { 
-        variationId: result.variation_id,
-        experimentId: experiment.key
-      })
+    # ${trackingComment}
+    puts "Viewed Experiment"
+    puts "Experiment Id: #{experiment.key}"
+    puts "Variation Id: #{result.variationId}"
   end
 end
             `.trim()}
@@ -325,13 +325,12 @@ use Growthbook\\Growthbook;
 $growthbook = Growthbook::create()
   ->withFeatures($features)
   ->withTrackingCallback(function ($experiment, $result) {
-    // TODO: track in your real analytics system
-    Segment::track([
-      "userId" => "abc123",
+    // ${trackingComment}
+    print_r([
       "event" => "Viewed Experiment",
       "properties" => [
-        "variationId" => $result->variationId,
-        "experimentId" => $experiment->key
+        "experimentId" => $experiment->key,
+        "variationId" => $result->variationId
       ]
     ]);
   });
@@ -358,11 +357,10 @@ features = apiResp.json()["features"]
           language="python"
           code={`
 def on_experiment_viewed(experiment, result):
-  # Use whatever event tracking system you want
-  analytics.track('usr_123abc', 'Viewed Experiment', {
-    'experimentId': experiment.key,
-    'variationId': result.variationId
-  })
+  // ${trackingComment}
+  print("Viewed Experiment")
+  print("Experiment Id: " + experiment.key)
+  print("Variation Id: " + result.variationId)
             `.trim()}
         />
         Create a GrowthBook instance
@@ -403,15 +401,10 @@ TrackingCallback trackingCallback = new TrackingCallback() {
       Experiment<ValueType> experiment,
       ExperimentResult<ValueType> experimentResult
   ) {
-    // TODO: Use your real analytics tracking system
-    analytics.enqueue(TrackMessage.builder("Viewed Experiment")
-      .userId("usr_abc123")
-      .properties(ImmutableMap.builder()
-          .put("experimentId", experiment.key)
-          .put("variationId", experimentResult.variationId)
-          .build()
-      )
-    );
+    // ${trackingComment}
+    System.out.println("Viewed Experiment")
+    System.out.println("Experiment Id: " + experiment.key)
+    System.out.println("Variation Id: " + experimentResult.variationId)
   }
 };
 
@@ -442,14 +435,10 @@ final GrowthBookSDK gb = GBSDKBuilderApp(
   hostURL: '${apiHost}',
   apiKey: "${apiKey}",
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {
-    // TODO: Use your real analytics tracking system
-    Analytics.track(
-      eventName: 'Viewed Experiment',
-      properties: {
-        'experimentId': gbExperiment.key,
-        'variationId': gbExperimentResult.variationId,
-      },
-    );
+    // ${trackingComment}
+    print("Viewed Experiment")
+    print("Experiment Id: " + gbExperiment.key)
+    print("Variation Id: " + gbExperimentResult.variationId)
   },
 ).initialize();
 `.trim()}

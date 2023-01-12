@@ -16,8 +16,14 @@ function javaType(type: FeatureValueType): string {
 function javaDefaultValue(type: FeatureValueType) {
   if (type === "boolean") return "true";
   if (type === "number") return "1.0f";
-  if (type === "string") return '"fallback value"';
+  if (type === "string") return '"fallback"';
   return "new Object()";
+}
+
+function getDefaultValue(type: FeatureValueType, emptyObj: string = "{}") {
+  if (type === "number") return "0.0";
+  if (type === "string") return '"fallback"';
+  return emptyObj;
 }
 
 export default function MultivariateFeatureCodeSnippet({
@@ -36,7 +42,7 @@ export default function MultivariateFeatureCodeSnippet({
         code={`
 const value = growthbook.getFeatureValue(
   ${JSON.stringify(featureId)},
-  "fallback"
+  ${getDefaultValue(valueType)}
 );
 console.log(value);
 `.trim()}
@@ -54,7 +60,7 @@ function MyComponent() {
   const feature = useFeature(${JSON.stringify(featureId)});
   
   return (
-    <div>{feature.value ?? "fallback"}</div>
+    <div>{feature.value ?? ${getDefaultValue(valueType)}}</div>
   )
 }
 `.trim()}
@@ -69,7 +75,7 @@ function MyComponent() {
 app.get("/", (req, res) => {
   const value = req.growthbook.getFeatureValue(
     ${JSON.stringify(featureId)},
-    "fallback"
+    ${getDefaultValue(valueType)}
   );
   
   res.send("The feature value is: " + value);
@@ -84,7 +90,7 @@ app.get("/", (req, res) => {
         language="kotlin"
         code={`
 val feature = gb.feature(${JSON.stringify(featureId)})
-println(feature.value ?: "fallback")
+println(feature.value ?: ${getDefaultValue(valueType)})
 `.trim()}
       />
     );
@@ -94,7 +100,9 @@ println(feature.value ?: "fallback")
       <Code
         language="swift"
         code={`
-var value = gb.getFeatureValue(${JSON.stringify(featureId)}, "fallback")
+var value = gb.getFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
+          valueType
+        )})
 print(value)
     `.trim()}
       />
@@ -107,7 +115,7 @@ print(value)
         code={`
 value := gb.Feature(${JSON.stringify(
           featureId
-        )}).GetValueWithDefault("fallback")
+        )}).GetValueWithDefault(${getDefaultValue(valueType)})
 fmt.Println(value)
             `.trim()}
       />
@@ -118,7 +126,9 @@ fmt.Println(value)
       <Code
         language="ruby"
         code={`
-value = gb.feature_value(${rubySymbol(featureId)}, 'fallback')
+value = gb.feature_value(${rubySymbol(featureId)}, ${getDefaultValue(
+          valueType
+        )})
 puts(value)
             `.trim()}
       />
@@ -129,7 +139,10 @@ puts(value)
       <Code
         language="php"
         code={`
-$value = $growthbook->getValue(${JSON.stringify(featureId)}, "fallback");
+$value = $growthbook->getValue(${JSON.stringify(featureId)}, ${getDefaultValue(
+          valueType,
+          "[]"
+        )});
 echo $value;
             `.trim()}
       />
@@ -140,7 +153,9 @@ echo $value;
       <Code
         language="python"
         code={`
-value = gb.getFeatureValue(${JSON.stringify(featureId)}, "fallback")
+value = gb.getFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
+          valueType
+        )})
 print(value)
             `.trim()}
       />
@@ -176,7 +191,7 @@ Println(feature.value)
         code={`
 var value = gb.GetFeatureValue<string>(${JSON.stringify(
           featureId
-        )}, "fallback");
+        )}, ${getDefaultValue(valueType)});
 Console.WriteLine(value);
     `.trim()}
       />

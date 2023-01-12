@@ -4,6 +4,7 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -16,12 +17,14 @@ import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBoo
 import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import ClickToCopy from "../Settings/ClickToCopy";
 import TargetingAttributeCodeSnippet from "../SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
+import SelectField from "../Forms/SelectField";
+import CheckSDKConnectionModal from "../GuidedGetStarted/CheckSDKConnectionModal";
+import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
-import SDKEndpointSelector from "./SDKEndpointSelector";
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
-  if (connection?.proxy?.enabled && connection?.proxy?.host) {
+  if (connection && connection.proxy.enabled && connection.proxy.host) {
     return connection.proxy.host.replace(/\/*$/, "") + "/";
   }
 
@@ -34,27 +37,44 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
 
 export default function CodeSnippetModal({
   close,
-  featureId = "my-feature",
-  defaultLanguage = "javascript",
+  feature,
   inline,
   cta = "Finish",
   submit,
   secondaryCTA,
   sdkConnection,
-  limitLanguages,
+  connections,
+  mutateConnections,
+  includeCheck,
+  allowChangingConnection,
 }: {
   close?: () => void;
+  feature?: FeatureInterface;
   featureId?: string;
-  defaultLanguage?: SDKLanguage;
   inline?: boolean;
   cta?: string;
   submit?: () => void;
   secondaryCTA?: ReactElement;
   sdkConnection?: SDKConnectionInterface;
-  allowChangingLanguage?: boolean;
-  limitLanguages?: SDKLanguage[];
+  connections: SDKConnectionInterface[];
+  mutateConnections: () => void;
+  includeCheck?: boolean;
+  allowChangingConnection?: boolean;
 }) {
-  const [language, setLanguage] = useState<SDKLanguage>(defaultLanguage);
+  const [
+    currentConnection,
+    setCurrentConnection,
+  ] = useState<SDKConnectionInterface | null>(null);
+
+  useEffect(() => {
+    setCurrentConnection(
+      currentConnection || sdkConnection || connections?.[0] || null
+    );
+  }, [connections]);
+
+  const [showTestModal, setShowTestModal] = useState(false);
+
+  const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const permissions = usePermissions();
 
   const [configOpen, setConfigOpen] = useState(true);
@@ -62,8 +82,6 @@ export default function CodeSnippetModal({
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(false);
-
-  const [apiKey, setApiKey] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -74,6 +92,7 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!settings) return;
     if (settings.sdkInstructionsViewed) return;
+    if (!connections.length) return;
     if (!permissions.check("manageEnvironments", "", [])) return;
     (async () => {
       await apiCall(`/organization`, {
@@ -86,209 +105,277 @@ export default function CodeSnippetModal({
       });
       await refreshOrganization();
     })();
-  }, [settings]);
+  }, [settings, connections.length]);
 
   useEffect(() => {
+    if (!currentConnection) return;
+
     // connection changes & current language isn't included in new connection, reset to default
-    if (!limitLanguages.includes(language)) {
-      setLanguage(defaultLanguage);
+    if (!currentConnection.languages.includes(language)) {
+      setLanguage(currentConnection.languages[0] || "javascript");
     }
-  }, [limitLanguages]);
+  }, [currentConnection]);
+
+  if (!currentConnection) {
+    return null;
+  }
 
   const { docs, label, usesEntireEndpoint } = languageMapping[language];
-  const apiHost = getApiBaseUrl(sdkConnection);
-  const clientKey = sdkConnection ? sdkConnection.key : apiKey;
+  const apiHost = getApiBaseUrl(currentConnection);
+  const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "api/features/" + clientKey;
   const encryptionKey =
-    sdkConnection &&
-    sdkConnection.encryptPayload &&
-    sdkConnection.encryptionKey;
+    currentConnection &&
+    currentConnection.encryptPayload &&
+    currentConnection.encryptionKey;
 
   return (
-    <Modal
-      close={close}
-      secondaryCTA={secondaryCTA}
-      bodyClassName="p-0"
-      open={true}
-      inline={inline}
-      size={"lg"}
-      header="Implementation Instructions"
-      submit={async () => {
-        if (submit) await submit();
-      }}
-      cta={cta}
-    >
-      {(!limitLanguages || limitLanguages.length > 1) && (
+    <>
+      {showTestModal && setShowTestModal && (
+        <CheckSDKConnectionModal
+          close={() => {
+            mutateConnections();
+            setShowTestModal(false);
+          }}
+          connection={currentConnection}
+          mutate={mutateConnections}
+          goToNextStep={submit}
+        />
+      )}
+      <Modal
+        close={close}
+        secondaryCTA={secondaryCTA}
+        bodyClassName="p-0"
+        open={true}
+        inline={inline}
+        size={"lg"}
+        header="Implementation Instructions"
+        autoCloseOnSubmit={false}
+        submit={
+          includeCheck
+            ? async () => {
+                setShowTestModal(true);
+              }
+            : submit
+            ? async () => {
+                submit();
+                close && close();
+              }
+            : null
+        }
+        cta={cta}
+      >
         <div
           className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
           style={{ top: 0, zIndex: 999 }}
         >
-          <SDKLanguageSelector
-            value={[language]}
-            setValue={([language]) => {
-              setLanguage(language);
-            }}
-            multiple={false}
-            includeOther={false}
-            limitLanguages={limitLanguages}
-          />
+          <div className="row">
+            {connections?.length > 1 && allowChangingConnection && (
+              <div className="col-auto">
+                <SelectField
+                  label="SDK Connection"
+                  labelClassName="font-weight-bold small text-dark"
+                  options={connections.map((connection) => ({
+                    value: connection.id,
+                    label: connection.name,
+                  }))}
+                  value={currentConnection?.id}
+                  onChange={(id) => {
+                    setCurrentConnection(
+                      connections.find((conn) => conn.id === id)
+                    );
+                  }}
+                />
+              </div>
+            )}
+            <div className="col">
+              <SDKLanguageSelector
+                value={[language]}
+                setValue={([language]) => {
+                  setLanguage(language);
+                }}
+                multiple={false}
+                includeOther={false}
+                limitLanguages={currentConnection.languages}
+              />
+            </div>
+          </div>
         </div>
-      )}
-      <div className="px-3">
-        {!sdkConnection && (
-          <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
-        )}
-        <p>
-          Below is some starter code to integrate GrowthBook into your app. Read
-          the <DocLink docSection={docs}>{label} docs</DocLink> for more
-          details.
-        </p>
-        <div className="mb-3">
-          <h4
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setConfigOpen(!configOpen);
-            }}
-          >
-            {label} Config Settings{" "}
-            {configOpen ? <FaAngleDown /> : <FaAngleRight />}
-          </h4>
-          {configOpen && (
-            <div className="appbox bg-light p-3">
-              <table className="gbtable table table-bordered table-sm">
-                <tbody>
-                  {usesEntireEndpoint ? (
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        Features Endpoint
-                      </th>
-                      <td>
-                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-                      </td>
-                    </tr>
-                  ) : (
-                    <>
+
+        <div className="px-3">
+          <p>
+            Below is some starter code to integrate GrowthBook into your app.
+            Read the <DocLink docSection={docs}>{label} docs</DocLink> for more
+            details.
+          </p>
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setConfigOpen(!configOpen);
+              }}
+            >
+              {label} Config Settings{" "}
+              {configOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {configOpen && (
+              <div className="appbox bg-light p-3">
+                <table className="gbtable table table-bordered table-sm">
+                  <tbody>
+                    {usesEntireEndpoint ? (
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          API Host
+                          Features Endpoint
                         </th>
                         <td>
-                          <ClickToCopy>{apiHost}</ClickToCopy>
+                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
                         </td>
                       </tr>
+                    ) : (
+                      <>
+                        <tr>
+                          <th
+                            className="pl-3"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            API Host
+                          </th>
+                          <td>
+                            <ClickToCopy>{apiHost}</ClickToCopy>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th
+                            className="pl-3"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            Client Key
+                          </th>
+                          <td>
+                            <ClickToCopy>{clientKey}</ClickToCopy>
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                    {encryptionKey && (
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Client Key
+                          Encryption Key
                         </th>
                         <td>
-                          <ClickToCopy>{clientKey}</ClickToCopy>
+                          <ClickToCopy>{encryptionKey}</ClickToCopy>
                         </td>
                       </tr>
-                    </>
-                  )}
-                  {encryptionKey && (
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        Encryption Key
-                      </th>
-                      <td>
-                        <ClickToCopy>{encryptionKey}</ClickToCopy>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        <div className="mb-3">
-          <h4
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setInstallationOpen(!installationOpen);
-            }}
-          >
-            Installation {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
-          </h4>
-          {installationOpen && (
-            <div className="appbox bg-light p-3">
-              <InstallationCodeSnippet language={language} />
-            </div>
-          )}
-        </div>
-        <div className="mb-3">
-          <h4
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setSetupOpen(!setupOpen);
-            }}
-          >
-            Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
-          </h4>
-          {setupOpen && (
-            <div className="appbox bg-light p-3">
-              <GrowthBookSetupCodeSnippet
-                language={language}
-                apiHost={apiHost}
-                apiKey={clientKey}
-                encryptionKey={encryptionKey}
-                useStreaming={!!sdkConnection?.proxy?.enabled}
-              />
-            </div>
-          )}
-        </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setInstallationOpen(!installationOpen);
+              }}
+            >
+              Installation{" "}
+              {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {installationOpen && (
+              <div className="appbox bg-light p-3">
+                <InstallationCodeSnippet language={language} />
+              </div>
+            )}
+          </div>
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setSetupOpen(!setupOpen);
+              }}
+            >
+              Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {setupOpen && (
+              <div className="appbox bg-light p-3">
+                <GrowthBookSetupCodeSnippet
+                  language={language}
+                  apiHost={apiHost}
+                  apiKey={clientKey}
+                  encryptionKey={encryptionKey}
+                  useStreaming={currentConnection.proxy.enabled}
+                />
+              </div>
+            )}
+          </div>
 
-        <div className="mb-3">
-          <h4
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setAttributesOpen(!attributesOpen);
-            }}
-          >
-            Targeting Attributes (Optional){" "}
-            {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
-          </h4>
-          {attributesOpen && (
-            <div className="appbox bg-light p-3">
-              Replace the placeholders with your real targeting attribute
-              values. This enables you to target feature flags based on user
-              attributes.
-              <TargetingAttributeCodeSnippet language={language} />
-            </div>
-          )}
-        </div>
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setAttributesOpen(!attributesOpen);
+              }}
+            >
+              Targeting Attributes (Optional){" "}
+              {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {attributesOpen && (
+              <div className="appbox bg-light p-3">
+                Replace the placeholders with your real targeting attribute
+                values. This enables you to target feature flags based on user
+                attributes.
+                <TargetingAttributeCodeSnippet language={language} />
+              </div>
+            )}
+          </div>
 
-        <div className="mb-3">
-          <h4
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setUsageOpen(!usageOpen);
-            }}
-          >
-            Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
-          </h4>
-          {usageOpen && (
-            <div className="appbox bg-light p-3">
-              On/Off Feature:
-              <BooleanFeatureCodeSnippet
-                language={language}
-                featureId={featureId}
-              />
-            </div>
-          )}
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setUsageOpen(!usageOpen);
+              }}
+            >
+              Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {usageOpen && (
+              <div className="appbox bg-light p-3">
+                {(!feature || feature?.valueType === "boolean") && (
+                  <>
+                    On/Off feature:
+                    <BooleanFeatureCodeSnippet
+                      language={language}
+                      featureId={feature?.id || "my-feature"}
+                    />
+                  </>
+                )}
+                {(!feature || feature?.valueType !== "boolean") && (
+                  <>
+                    {feature?.valueType || "String"} feature:
+                    <MultivariateFeatureCodeSnippet
+                      valueType={feature?.valueType || "string"}
+                      language={language}
+                      featureId={feature?.id || "my-feature"}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
+    </>
   );
 }

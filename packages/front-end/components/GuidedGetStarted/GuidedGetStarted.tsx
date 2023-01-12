@@ -5,7 +5,6 @@ import ReactPlayer from "react-player";
 import Link from "next/link";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SDKConnectionInterface } from "@/../back-end/types/sdk-connection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -13,7 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { hasFileConfig } from "@/services/env";
 import track from "@/services/track";
-import useApi from "@/hooks/useApi";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import FeatureModal from "../Features/FeatureModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
@@ -50,9 +49,7 @@ export default function GuidedGetStarted({
   }>("onboarding-steps-skipped", {});
   const [showVideo, setShowVideo] = useState(false);
 
-  const { data: SDKData, mutate: mutateSDKData, error: SDKError } = useApi<{
-    connections: SDKConnectionInterface[];
-  }>(`/sdk-connections`);
+  const { data: SDKData } = useSDKConnections();
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
@@ -207,9 +204,8 @@ export default function GuidedGetStarted({
           inline={true}
           cta={"Next: Check Your Connection"}
           goToNextStep={() => setCurrentStep(currentStep + 1)}
-          mutate={mutateSDKData}
-          error={SDKError}
-          connections={SDKData?.connections}
+          feature={features?.[0]}
+          includeCheck={true}
           secondaryCTA={
             <button
               onClick={() => {

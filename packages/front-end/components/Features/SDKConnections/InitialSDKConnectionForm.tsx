@@ -1,16 +1,16 @@
 import {
   CreateSDKConnectionParams,
-  SDKConnectionInterface,
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import { ReactElement, useEffect, useState } from "react";
+import { FeatureInterface } from "back-end/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useEnvironments } from "@/services/features";
-import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import CodeSnippetModal from "../CodeSnippetModal";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 
@@ -20,22 +20,22 @@ export default function InitialSDKConnectionForm({
   inline,
   secondaryCTA,
   goToNextStep,
-  error,
-  mutate,
-  connections,
+  feature,
+  includeCheck,
 }: {
   close?: () => void;
   cta?: string;
   inline?: boolean;
+  feature?: FeatureInterface;
   secondaryCTA?: ReactElement;
-  goToNextStep: () => void;
-  error?: Error;
-  mutate: () => void;
-  connections: SDKConnectionInterface[];
+  goToNextStep?: () => void;
+  includeCheck?: boolean;
 }) {
+  const { data, error, mutate } = useSDKConnections();
+  const connections = data?.connections;
+
   const { apiCall } = useAuth();
   const [currentConnection, setCurrentConnection] = useState(null);
-  const [showTestModal, setShowTestModal] = useState(false);
 
   useEffect(() => {
     setCurrentConnection(() => {
@@ -65,44 +65,19 @@ export default function InitialSDKConnectionForm({
 
   if (currentConnection) {
     return (
-      <>
-        {connections?.length > 1 && (
-          <div className="d-flex justify-content-end">
-            <Field
-              label="Select SDK Connection"
-              options={connections.map((connection) => connection.name)}
-              onChange={(e) => {
-                const index = connections.findIndex(
-                  (connection) => connection.name === e.target.value
-                );
-                setCurrentConnection(connections[index]);
-              }}
-            />
-          </div>
-        )}
-        <CodeSnippetModal
-          allowChangingLanguage={false}
-          close={close}
-          cta={cta}
-          defaultLanguage={currentConnection.languages[0] || "javascript"}
-          limitLanguages={currentConnection.languages}
-          inline={inline}
-          sdkConnection={currentConnection}
-          secondaryCTA={secondaryCTA}
-          submit={() => setShowTestModal(true)}
-        />
-        {showTestModal && (
-          <CheckSDKConnectionModal
-            close={() => {
-              mutate();
-              setShowTestModal(false);
-            }}
-            connection={currentConnection}
-            mutate={mutate}
-            goToNextStep={goToNextStep}
-          />
-        )}
-      </>
+      <CodeSnippetModal
+        close={close}
+        cta={cta}
+        inline={inline}
+        connections={connections}
+        sdkConnection={currentConnection}
+        secondaryCTA={secondaryCTA}
+        feature={feature}
+        submit={goToNextStep}
+        includeCheck={includeCheck}
+        mutateConnections={mutate}
+        allowChangingConnection={true}
+      />
     );
   }
 
