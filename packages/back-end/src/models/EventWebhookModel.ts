@@ -3,13 +3,10 @@ import z from "zod";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
-import {
-  NotificationEventName,
-  notificationEventNames,
-} from "../events/base-types";
-import { errorStringFromZodResult } from "../util/validation";
+import { NotificationEventName } from "../events/base-types";
 import { EventWebHookInterface } from "../../types/event-webhook";
 import { logger } from "../util/logger";
+import { validateNotificationEventNames } from "./validators/validateNotificationEventNames";
 
 const eventWebHookSchema = new mongoose.Schema({
   id: {
@@ -41,18 +38,7 @@ const eventWebHookSchema = new mongoose.Schema({
     type: [String],
     required: true,
     validate: {
-      validator(value: unknown) {
-        const zodSchema = z.array(z.enum(notificationEventNames)).min(1);
-
-        const result = zodSchema.safeParse(value);
-
-        if (!result.success) {
-          const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Event name");
-        }
-
-        return result.success;
-      },
+      validator: validateNotificationEventNames,
     },
   },
   url: {
