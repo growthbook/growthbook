@@ -55,6 +55,10 @@ const slackIntegrationSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  slackSigningKey: {
+    type: String,
+    required: true,
+  },
   linkedByUserId: {
     type: String,
     required: true,
@@ -104,6 +108,7 @@ export const createSlackIntegration = async ({
   events,
   tags,
   slackAppId,
+  slackSigningKey,
   linkedByUserId,
 }: CreateOptions): Promise<SlackIntegrationInterface> => {
   const now = new Date();
@@ -120,6 +125,7 @@ export const createSlackIntegration = async ({
     events,
     tags,
     slackAppId,
+    slackSigningKey,
     linkedByUserId,
   });
 
