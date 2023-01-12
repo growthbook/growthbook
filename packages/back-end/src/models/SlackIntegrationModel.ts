@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import omit from "lodash/omit";
+import pick from "lodash/pick";
 import mongoose from "mongoose";
 
 import { SlackIntegrationInterface } from "../../types/slack-integration";
@@ -164,6 +165,58 @@ export const getSlackIntegration = async ({
 };
 
 // endregion Read
+
+// region Update
+
+type UpdateOptions = {
+  slackIntegrationId: string;
+  organizationId: string;
+};
+
+type UpdateAttributes = {
+  name: string;
+  description: string;
+  project: string | null;
+  environments: string[];
+  events: NotificationEventName[];
+  tags: string[];
+  slackAppId: string;
+  slackSigningKey: string;
+};
+
+/**
+ * Given a SlackIntegration.id, allows updating some properties
+ * @param slackIntegrationId
+ * @param organizationId
+ * @param updates
+ */
+export const updateSlackIntegration = async (
+  { slackIntegrationId, organizationId }: UpdateOptions,
+  updates: UpdateAttributes
+): Promise<boolean> => {
+  const result = await SlackIntegrationModel.updateOne(
+    { id: slackIntegrationId, organizationId },
+    {
+      $set: {
+        ...pick(updates, [
+          "name",
+          "description",
+          "project",
+          "environments",
+          "events",
+          "tags",
+          "slackAppId",
+          "slackSigningKey",
+        ]),
+        dateUpdated: new Date(),
+      },
+    }
+  );
+
+  return result.nModified === 1;
+};
+
+// endregion Update
 
 // region Delete
 
