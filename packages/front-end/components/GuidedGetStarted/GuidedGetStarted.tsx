@@ -138,7 +138,7 @@ export default function GuidedGetStarted({
             onClick={() => setCurrentStep(currentStep + 1)}
             className="btn btn-primary m-4"
           >
-            Step 1: Set Up Your SDK
+            Step 1: Create a Feature Flag
           </button>
           <button
             className="btn btn-outline-secondary btn-sm"
@@ -239,7 +239,7 @@ export default function GuidedGetStarted({
               feature="data source"
               href="/datasources"
               onClick={async () => setCurrentStep(currentStep + 1)}
-              nextStep="Next: Continue Setting up Account"
+              nextStep="Next: Define a Metric"
             />
           ) : (
             <NewDataSourceForm
@@ -290,7 +290,7 @@ export default function GuidedGetStarted({
               feature="metric"
               href="/metrics"
               onClick={async () => setCurrentStep(currentStep + 1)}
-              nextStep="Continue Setting up Account"
+              nextStep="Next: Continue Setting up Account"
             />
           ) : (
             <MetricForm
@@ -330,12 +330,12 @@ export default function GuidedGetStarted({
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
-          <Link href="/metrics" className={styles.nextStepWrapper}>
+          <Link href="/settings/team" className={styles.nextStepWrapper}>
             <h2
               role="button"
               className={clsx("text-center p-4 m-1", styles.nextStepLink)}
             >
-              Define Your Metrics
+              Invite Your Teammates
             </h2>
           </Link>
           <Link href="/experiments" className={styles.nextStepWrapper}>
