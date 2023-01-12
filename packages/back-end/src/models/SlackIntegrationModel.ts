@@ -152,6 +152,15 @@ export const createSlackIntegration = async ({
 
 // region Read
 
+export const getSlackIntegrations = async (
+  organizationId: string
+): Promise<SlackIntegrationInterface[]> => {
+  const docs = await SlackIntegrationModel.find({
+    organizationId,
+  });
+  return docs.map(toInterface);
+};
+
 type GetOptions = {
   slackIntegrationId: string;
   organizationId: string;
