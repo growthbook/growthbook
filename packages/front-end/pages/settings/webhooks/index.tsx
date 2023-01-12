@@ -1,6 +1,7 @@
 import Link from "next/link";
 import React, { FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
+import { EventWebHooksPage } from "@/components/EventWebHooks/EventWebHooksPage";
 import Webhooks from "../../../components/Settings/Webhooks";
 import usePermissions from "../../../hooks/usePermissions";
 
@@ -29,10 +30,9 @@ const WebhooksPage: FC = () => {
       <h1>SDK Endpoint Webhooks</h1>
       <Webhooks />
 
-      {/* TODO: Include this code when we are ready to launch Event-based Web Hooks */}
-      {/*<div className="mt-5">*/}
-      {/*  <EventWebHooksPage />*/}
-      {/*</div>*/}
+      <div className="mt-5">
+        <EventWebHooksPage />
+      </div>
     </div>
   );
 };

@@ -61,6 +61,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
                 },
               ],
               chanceToWin: Number,
+              pValue: Number,
             },
           },
         },
@@ -72,6 +73,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   segment: String,
   activationMetric: String,
   skipPartialData: Boolean,
+  statsEngine: String,
 });
 experimentSnapshotSchema.index({
   experiment: 1,
