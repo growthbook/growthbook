@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 
 import { SlackIntegrationInterface } from "../../types/slack-integration";
 import { NotificationEventName } from "../events/base-types";
+import { logger } from "../util/logger";
 import { validateNotificationEventNames } from "./validators/validateNotificationEventNames";
 
 const slackIntegrationSchema = new mongoose.Schema({
@@ -133,6 +134,36 @@ export const createSlackIntegration = async ({
 };
 
 // endregion Create
+
+// region Read
+
+type GetOptions = {
+  slackIntegrationId: string;
+  organizationId: string;
+};
+
+/**
+ * Retrieve a SlackIntegration
+ * @param slackIntegrationId
+ * @param organizationId
+ */
+export const getSlackIntegration = async ({
+  slackIntegrationId,
+  organizationId,
+}: GetOptions): Promise<SlackIntegrationInterface | null> => {
+  try {
+    const doc = await SlackIntegrationModel.findOne({
+      id: slackIntegrationId,
+      organizationId,
+    });
+    return !doc ? null : toInterface(doc);
+  } catch (e) {
+    logger.error(e, "getSlackIntegration");
+    return null;
+  }
+};
+
+// endregion Read
 
 // region Delete
 
