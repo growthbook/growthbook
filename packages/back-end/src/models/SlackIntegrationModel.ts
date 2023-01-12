@@ -127,3 +127,29 @@ export const createSlackIntegration = async ({
 };
 
 // endregion Create
+
+// region Delete
+
+type DeleteOptions = {
+  slackIntegrationId: string;
+  organizationId: string;
+};
+
+/**
+ * Delete a Slack integration for an organization
+ * @param slackIntegrationId
+ * @param organizationId
+ */
+export const deleteSlackIntegration = async ({
+  slackIntegrationId,
+  organizationId,
+}: DeleteOptions): Promise<boolean> => {
+  const result = await SlackIntegrationModel.deleteOne({
+    id: slackIntegrationId,
+    organizationId,
+  });
+
+  return result.deletedCount === 1;
+};
+
+// endregion Delete
