@@ -42,7 +42,7 @@ const SDKEndpoints: FC<{
   });
 
   return (
-    <div className="mt-4">
+    <div>
       {open && canManageKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}

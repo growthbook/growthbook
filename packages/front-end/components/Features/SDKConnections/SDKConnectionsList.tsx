@@ -31,7 +31,7 @@ export default function SDKConnectionsList() {
   const connections = data.connections;
 
   return (
-    <div className="mt-4">
+    <div>
       {modalOpen && (
         <SDKConnectionForm
           close={() => setModalOpen(false)}
@@ -104,16 +104,37 @@ export default function SDKConnectionsList() {
         </table>
       )}
 
-      {permissions.check("manageEnvironments", "", [])}
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setModalOpen(true);
-        }}
-      >
-        <GBAddCircle /> Create New SDK Connection
-      </button>
+      {permissions.check("manageEnvironments", "", []) && (
+        <>
+          {connections.length === 0 ? (
+            <div className="appbox p-5 text-align-center">
+              <p>
+                <strong>SDK Connections</strong> make it easy to integrate
+                GrowthBook into your front-end, back-end, or mobile application.
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalOpen(true);
+                }}
+              >
+                <GBAddCircle /> Create New SDK Connection
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
+              }}
+            >
+              <GBAddCircle /> Create New SDK Connection
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
