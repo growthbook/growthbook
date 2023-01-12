@@ -84,7 +84,7 @@ type CompressedExperimentOptions = {
 const baseScript = fs
   .readFileSync(path.join(__dirname, "..", "templates", "javascript.js"))
   .toString("utf-8")
-  .replace(/.*eslint-.*\n/g, "")
+  .replace(/\/\*\s*eslint-.*\*\//, "")
   .replace(/\n\/\/.*/g, "");
 
 export async function getExperimentsScript(
