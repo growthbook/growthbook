@@ -1,6 +1,6 @@
 import Link from "next/link";
 import React, { FC } from "react";
-import { FaAngleLeft } from "react-icons/fa";
+import { FaAngleLeft, FaAngleRight } from "react-icons/fa";
 import { EventWebHooksPage } from "@/components/EventWebHooks/EventWebHooksPage";
 import usePermissions from "../../../hooks/usePermissions";
 
@@ -29,6 +29,18 @@ const WebhooksPage: FC = () => {
 
       <div className="mt-5">
         <EventWebHooksPage />
+      </div>
+
+      <div className="alert alert-info">
+        Looking for SDK Webhooks? They moved to the new{" "}
+        <Link href="/sdks">
+          <a>
+            Features <FaAngleRight /> SDKs
+          </a>
+        </Link>{" "}
+        tab. Also, make sure to check out the new{" "}
+        <strong>SDK Connections</strong>, which make it easier to sync feature
+        changes from GrowthBook to your SDKs.
       </div>
     </div>
   );
