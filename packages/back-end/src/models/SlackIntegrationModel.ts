@@ -1,12 +1,15 @@
 import { randomUUID } from "crypto";
+import mongoose from "mongoose";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
-import mongoose from "mongoose";
-
+import { z } from "zod";
 import { SlackIntegrationInterface } from "../../types/slack-integration";
-import { NotificationEventName } from "../events/base-types";
+import {
+  NotificationEventName,
+  notificationEventNames,
+} from "../events/base-types";
 import { logger } from "../util/logger";
-import { validateNotificationEventNames } from "./validators/validateNotificationEventNames";
+import { errorStringFromZodResult } from "../util/validation";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {
@@ -46,7 +49,18 @@ const slackIntegrationSchema = new mongoose.Schema({
     type: [String],
     required: true,
     validate: {
-      validator: validateNotificationEventNames,
+      validator(value: unknown) {
+        const zodSchema = z.array(z.enum(notificationEventNames));
+
+        const result = zodSchema.safeParse(value);
+
+        if (!result.success) {
+          const errorString = errorStringFromZodResult(result);
+          logger.error(errorString, "Invalid Event name");
+        }
+
+        return result.success;
+      },
     },
   },
   tags: {
