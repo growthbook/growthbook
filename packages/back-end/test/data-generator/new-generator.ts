@@ -27,7 +27,7 @@ type ExperimentTableData = TableData & {
   variationId: number;
 };
 type PurchaseTableData = TableData & {
-  amount: number;
+  amount: string; // to allow for null values as '\N'
   qty: number;
 };
 type EventTableData = TableData & {
@@ -271,7 +271,15 @@ function viewCheckout(data: TableData, gb: GrowthBook) {
   });
   trackExperiment(data, res, "checkout-layout");
   advanceTime(30);
-  return Math.random() < res.value;
+
+  // add activation metric that the checkout layout actually loads
+  // (and is unaffected by experiment, which otherwise would cause bias)
+  if (Math.random() < 0.9) {
+    trackEvent(data, "Cart Loaded");
+    return Math.random() < res.value;
+  }
+  // bounce all those not activated
+  return true;
 }
 
 function purchase(data: TableData, gb: GrowthBook, qty: number, price: number) {
@@ -279,10 +287,16 @@ function purchase(data: TableData, gb: GrowthBook, qty: number, price: number) {
     ...data,
     path: `/success`,
   });
+  // Pretend we gift people items randomly and the price is then 0, but
+  // we set it to NULL (just as a way to simulate NULL values in data)
+  let final_price: string = price.toString();
+  if (Math.random() < 0.15) {
+    final_price = "\\N";
+  }
   trackPurchase({
     ...data,
     qty: qty,
-    amount: price,
+    amount: final_price,
   });
   advanceTime(30);
 
@@ -446,7 +460,6 @@ simulate().then(async () => {
 
   console.log(`Writing CSVs to '${OUTPUT_DIR}'...`);
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  writeCSV(sessions, "sessions.csv");
   writeCSV(sessions, "sessions.csv");
   writeCSV(pageViews, "pageViews.csv");
   writeCSV(experimentViews, "experimentViews.csv");
