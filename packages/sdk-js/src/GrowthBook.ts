@@ -22,8 +22,8 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
-import featuresCache from "./cache";
-import streamManager from "./stream";
+// import streamManager from "./stream";
+import { FeatureApiResponse, loadFeatures } from "./featuresRepository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -52,31 +52,31 @@ export class GrowthBook {
   // eslint-disable-next-line
   private _forcedFeatureValues = new Map<string, any>();
   private _attributeOverrides: Attributes = {};
-  private featuresLoadedPromise: Promise<void> | null = null;
+  private featuresLoadedPromise: Promise<FeatureApiResponse | null> | null = null;
 
   constructor(context: Context = {}) {
     this.context = context;
 
-    if (context.useCache) {
-      featuresCache.initialize({
-        engine: context.useCache,
-        staleTTL: context.cacheStaleTTL,
-        expiresTTL: context.cacheExpiresTTL,
-      });
-    }
+    // if (context.useCache) {
+    //   featuresCache.initialize({
+    //     engine: context.useCache,
+    //     staleTTL: context.cacheStaleTTL,
+    //     expiresTTL: context.cacheExpiresTTL,
+    //   });
+    // }
 
-    if (context.apiHost) {
-      streamManager.initialize({
-        apiHost: context.apiHost,
-        eventSource: context.eventSource,
-      });
-      if (context.streaming && this.context.clientKey) {
-        streamManager.startStream(
-          this.context.clientKey,
-          this.onStreamMessage.bind(this)
-        );
-      }
-    }
+    // if (context.apiHost) {
+    //   streamManager.initialize({
+    //     apiHost: context.apiHost,
+    //     eventSource: context.eventSource,
+    //   });
+    //   if (context.streaming && this.context.clientKey) {
+    //     streamManager.startStream(
+    //       this.context.clientKey,
+    //       this.onStreamMessage.bind(this)
+    //     );
+    //   }
+    // }
 
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
@@ -89,55 +89,42 @@ export class GrowthBook {
       console.error("No API host or client key");
       return;
     }
-    if (this.context.useCache && this.context.clientKey) {
-      const cachedRes = await featuresCache.get(this.context.clientKey);
-      if (cachedRes) {
-        // eslint-disable-next-line
-        this.context.encryptionKey ? await this.setEncryptedFeatures(cachedRes.payload.encryptedFeatures, this.context.encryptionKey) : this.setFeatures(cachedRes.payload.features);
-        if (cachedRes.staleOn > new Date()) {
-          return;
-          // otherwise, re-fetch in background
-        }
+
+    this.featuresLoadedPromise = loadFeatures(
+      this.context.apiHost,
+      this.context.clientKey
+    );
+    const resp = await this.featuresLoadedPromise;
+    if (resp) {
+      if (resp.encryptedFeatures && this.context.encryptionKey) {
+        await this.setEncryptedFeatures(
+          resp.encryptedFeatures,
+          this.context.encryptionKey
+        );
+      } else if (resp.features) {
+        this.setFeatures(resp.features);
       }
     }
-    this.featuresLoadedPromise = (this.context.fetch || fetch)(
-      `${this.context.apiHost}/api/features/${this.context.clientKey}`
-    )
-      .then((res: Response) => res.json())
-      // eslint-disable-next-line
-      .then((json: any) => {
-        this.context.encryptionKey
-          ? this.setEncryptedFeatures(
-              json.encryptedFeatures,
-              this.context.encryptionKey
-            )
-          : this.setFeatures(json.features);
-        if (this.context.useCache && this.context.clientKey) {
-          featuresCache.set(this.context.clientKey, json);
-        }
-      })
-      .catch((e: Error) => console.error("Failed to fetch features", e));
-    await this.featuresLoadedPromise;
   }
 
   public async featuresLoaded() {
     return this.featuresLoadedPromise;
   }
 
-  // eslint-disable-next-line
-  private onStreamMessage(event: string, data: any) {
-    if (event === "features" && data) {
-      this.context.encryptionKey
-        ? this.setEncryptedFeatures(
-            data.encryptedFeatures,
-            this.context.encryptionKey
-          )
-        : this.setFeatures(data.features);
-      if (this.context.useCache && this.context.clientKey) {
-        featuresCache.set(this.context.clientKey, data);
-      }
-    }
-  }
+  // // eslint-disable-next-line
+  // private onStreamMessage(event: string, data: any) {
+  //   if (event === "features" && data) {
+  //     this.context.encryptionKey
+  //       ? this.setEncryptedFeatures(
+  //           data.encryptedFeatures,
+  //           this.context.encryptionKey
+  //         )
+  //       : this.setFeatures(data.features);
+  //     if (this.context.useCache && this.context.clientKey) {
+  //       featuresCache.set(this.context.clientKey, data);
+  //     }
+  //   }
+  // }
 
   private render() {
     if (this._renderer) {
