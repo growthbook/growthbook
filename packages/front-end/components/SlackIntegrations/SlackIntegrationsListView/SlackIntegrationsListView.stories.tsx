@@ -94,6 +94,11 @@ export const Default = () => {
         errorMessage={null}
         createError={null}
         isModalOpen={false}
+        onDelete={async () => {
+          action("onDelete")();
+        }}
+        onEditModalOpen={action("onEditModalOpen")}
+        onEdit={action("onEdit")}
         onAdd={action("onAdd")}
       />
     </>
@@ -110,6 +115,11 @@ export const EmptyState = () => {
         createError={null}
         isModalOpen={false}
         onAdd={action("onAdd")}
+        onDelete={async () => {
+          action("onDelete")();
+        }}
+        onEditModalOpen={action("onEditModalOpen")}
+        onEdit={action("onEdit")}
         slackIntegrations={[]}
       />
     </>

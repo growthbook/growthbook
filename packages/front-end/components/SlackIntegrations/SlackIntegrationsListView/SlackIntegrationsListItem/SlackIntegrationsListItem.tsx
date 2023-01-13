@@ -1,17 +1,47 @@
 import React, { FC } from "react";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { FaPencilAlt } from "react-icons/fa";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 type SlackIntegrationsListItemProps = {
   slackIntegration: SlackIntegrationInterface;
+  onDelete: () => Promise<void>;
+  onEditModalOpen: () => void;
 };
 
 export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
   slackIntegration,
+  onDelete,
+  onEditModalOpen,
 }) => {
   return (
     <div className="card p-3">
       <div>
-        <h2 className="text-main">{slackIntegration.name}</h2>
+        <div className="d-sm-flex justify-content-between">
+          {/* Title */}
+          <div>
+            <h2 className="text-main">{slackIntegration.name}</h2>
+          </div>
+
+          <div className="mb-3 mb-sm-0">
+            {/* Actions */}
+            <button
+              onClick={onEditModalOpen}
+              className="btn btn-sm btn-outline-primary mr-1"
+            >
+              <FaPencilAlt className="mr-1" />
+              Edit
+            </button>
+
+            <DeleteButton
+              displayName={slackIntegration.name}
+              onClick={onDelete}
+              outline={true}
+              className="btn-sm"
+              text="Delete"
+            />
+          </div>
+        </div>
         <p className="text-muted mb-0">
           {slackIntegration.description || <em>(no description)</em>}
         </p>

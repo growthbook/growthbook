@@ -1,14 +1,17 @@
 import React, { FC, PropsWithChildren } from "react";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { SlackIntegrationEditParams } from "@/components/SlackIntegrations/slack-integrations-utils";
-import { FaBolt, FaPlug } from "react-icons/fa";
+import { FaPlug } from "react-icons/fa";
 import { SlackIntegrationsListItem } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListItem/SlackIntegrationsListItem";
 
 type SlackIntegrationsListViewProps = {
+  onEditModalOpen: () => void;
   onCreateModalOpen: () => void;
   onModalClose: () => void;
   isModalOpen: boolean;
   onAdd: (data: SlackIntegrationEditParams) => void;
+  onDelete: () => Promise<void>;
+  onEdit: (data: SlackIntegrationEditParams) => void;
   slackIntegrations: SlackIntegrationInterface[];
   errorMessage: string | null;
   createError: string | null;
@@ -20,6 +23,9 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
   onModalClose,
   createError,
   isModalOpen,
+  onEditModalOpen,
+  onDelete,
+  onEdit,
   slackIntegrations,
   errorMessage,
 }) => {
@@ -61,7 +67,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
           {slackIntegrations.map((slackIntegration) => (
             <div key={slackIntegration.id} className="mb-3">
               <SlackIntegrationsListItem
-                href={`/integrations/slack/${slackIntegration.id}`}
+                onDelete={onDelete}
+                onEditModalOpen={onEditModalOpen}
                 slackIntegration={slackIntegration}
               />
             </div>
