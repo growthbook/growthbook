@@ -490,8 +490,13 @@ describe("features", () => {
     window.fetch = f;
   });
 
-  it("sets and gets features using in-memory cache", async () => {
+  it("sets and gets features using cache", async () => {
+    if (typeof window?.localStorage !== "undefined") {
+      window.localStorage.clear();
+    }
     let fooVal = "initial";
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     const f = jest.fn(() => {
       return Promise.resolve({
         json: () =>
@@ -509,7 +514,9 @@ describe("features", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       useCache: "memory",
-      cacheExpiresTTL: 0.1,
+      cacheTTL: 0.1,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       fetch: f,
     });
     await growthbook.loadFeatures();
@@ -524,51 +531,10 @@ describe("features", () => {
     expect(foo2.value).toEqual("initial");
 
     // Wait a bit for cache to expire...
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 120));
     await growthbook.loadFeatures();
-    const foo3 = growthbook.evalFeature("foo");
-    // Past the cache TTL period, should get new value
-    expect(foo3.value).toEqual("changed");
-
-    growthbook.destroy();
-  });
-
-  it("sets and gets features using localStorage cache", async () => {
-    let fooVal = "initial";
-    const f = jest.fn(() => {
-      return Promise.resolve({
-        json: () =>
-          Promise.resolve({
-            features: {
-              foo: {
-                defaultValue: fooVal,
-              },
-            },
-          }),
-      });
-    });
-
-    const growthbook = new GrowthBook({
-      apiHost: "https://fakeapi.sample.io",
-      clientKey: "qwerty1234",
-      useCache: "localStorage",
-      cacheExpiresTTL: 0.1,
-      fetch: f,
-    });
-    await growthbook.loadFeatures();
-    const foo1 = growthbook.evalFeature("foo");
-    expect(foo1.value).toEqual("initial");
-
-    // Value changes, refetch
-    fooVal = "changed";
-    await growthbook.loadFeatures();
-    const foo2 = growthbook.evalFeature("foo");
-    // Should get cached value
-    expect(foo2.value).toEqual("initial");
-
-    // Wait a bit for cache to expire...
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await growthbook.loadFeatures();
+    // Wait for SWR to revalidate
+    await new Promise((resolve) => setTimeout(resolve, 20));
     const foo3 = growthbook.evalFeature("foo");
     // Past the cache TTL period, should get new value
     expect(foo3.value).toEqual("changed");
@@ -577,7 +543,8 @@ describe("features", () => {
   });
 
   it("updates features based on SSE data", async () => {
-    // tslint:disable-next-line
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     const f = jest.fn(() => {
       return Promise.resolve({
         json: () =>
@@ -611,6 +578,8 @@ describe("features", () => {
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       fetch: f,
       streaming: true,
     });

@@ -27,20 +27,23 @@ const activeFetches: Map<
 
 type CallbackRegistry = Map<
   GrowthBook,
-  [RepositoryKey, (resp: FeatureApiResponse) => void]
+  [RepositoryKey, (resp: FeatureApiResponse) => Promise<void>]
 >;
 const onChangeCallbackRegistry: CallbackRegistry = new Map();
 
 // Request features from server or cache. Upon success, start SSE stream for realtime updates.
 export async function loadFeatures(
-  context: Context
+  context: Context,
+  featuresLoaded?: boolean,
 ): Promise<FeatureApiResponse | null> {
   const key: RepositoryKey = `${context.apiHost}||${context.clientKey}`;
-  let entry = cache.get(key);
+  let entry = !featuresLoaded ? cache.get(key) : undefined;
   if (!entry) {
     const data = await fetchFeatures(key, context);
     if (!data) return null;
-    entry = updateCacheFromPayload(key, data, context);
+    entry = await updateCacheFromPayload(key, data, context);
+  } else {
+    await triggerCallbacks(key, entry);
   }
 
   if (context?.streaming) {
@@ -116,7 +119,7 @@ function savePersistentCache() {
   }
 }
 
-function updateCacheFromPayload(
+async function updateCacheFromPayload(
   key: RepositoryKey,
   // eslint-disable-next-line
   data: any,
@@ -128,15 +131,11 @@ function updateCacheFromPayload(
   };
   cache.set(key, entry);
   savePersistentCache();
-  onChangeCallbackRegistry.forEach(([cbKey, cb]) => {
-    if (cbKey === key) {
-      cb(data);
-    }
-  });
+  await triggerCallbacks(key, entry);
 
   // Refresh in the background if stale
   if (entry.staleAt < new Date()) {
-    fetchFeatures(key).catch((e) => {
+    fetchFeatures(key, context).catch((e) => {
       console.error(e);
     });
   }
@@ -144,10 +143,20 @@ function updateCacheFromPayload(
   return entry;
 }
 
+async function triggerCallbacks(key: RepositoryKey, entry: CacheEntry) {
+  const promises = Array.from(onChangeCallbackRegistry).map(([_, [cbKey, cb]]) => {
+    if (cbKey === key) {
+      return cb(entry.data);
+    }
+  }).filter(v => v !== undefined);
+  await Promise.all(promises);
+  return;
+}
+
 export function registerOnChangeCallback(
   context: Context,
   that: GrowthBook,
-  cb: (resp: FeatureApiResponse) => void
+  cb: (resp: FeatureApiResponse) => Promise<void>
 ) {
   const key: RepositoryKey = `${context.apiHost}||${context.clientKey}`;
   onChangeCallbackRegistry.set(that, [key, cb]);

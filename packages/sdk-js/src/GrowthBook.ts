@@ -58,6 +58,7 @@ export class GrowthBook {
   private _forcedFeatureValues = new Map<string, any>();
   private _attributeOverrides: Attributes = {};
   private featuresLoadedPromise: Promise<FeatureApiResponse | null> | null = null;
+  private _featuresLoaded: boolean = false;
 
   constructor(context: Context = {}) {
     this.context = context;
@@ -88,7 +89,9 @@ export class GrowthBook {
       this.onFeaturesChange.bind(this)
     );
 
-    this.featuresLoadedPromise = loadFeatures(this.context,);
+    this.featuresLoadedPromise = loadFeatures(this.context, this._featuresLoaded);
+    await this.featuresLoadedPromise;
+    this._featuresLoaded = true;
   }
 
   public async featuresLoaded() {
