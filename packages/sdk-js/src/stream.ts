@@ -1,45 +1,52 @@
+import { RepositoryKey } from "./featuresRepository";
+
 interface ScopedChannel {
-  key: string;
+  key: RepositoryKey;
   connection: EventSource;
   // eslint-disable-next-line
-  callbacks: ((event: string, payload: any) => void)[];
-}
-
-export interface Settings {
-  apiHost: string;
-  // eslint-disable-next-line
-  eventSource?: any;
+  callbacks: Map<string, (event: string, payload: any) => void>;
 }
 
 export class StreamManager {
-  private apiHost = "";
+  private initialized = false;
   // eslint-disable-next-line
-  private eventSource: any;
+  private eventSource: typeof EventSource | undefined;
   private scopedChannels: Map<string, ScopedChannel> = new Map();
 
   // eslint-disable-next-line
-  public initialize({apiHost, eventSource}: Settings) {
-    this.apiHost = apiHost;
+  public initialize(eventSource?: typeof EventSource) {
+    if (this.initialized) return;
+    this.initialized = true;
     this.eventSource = eventSource || globalThis.EventSource || undefined;
   }
 
-  // eslint-disable-next-line
-  public startStream(key: string, callback: (event: string, payload: any) => void) {
+  public startStream(
+    key: RepositoryKey,
+    sdkUid: string,
+    // eslint-disable-next-line
+    callback: (event: string, payload: any) => void
+  ) {
     if (this.eventSource) {
       let scopedChannel = this.scopedChannels.get(key);
       if (!scopedChannel) {
         scopedChannel = this.createScopedChannel(key);
       }
-      scopedChannel.callbacks.push(callback);
+      if (scopedChannel) {
+        scopedChannel.callbacks.set(sdkUid, callback);
+      }
     }
   }
 
-  private createScopedChannel(key: string): ScopedChannel {
-    const url = `${this.apiHost}/sub/${key}`;
+  private createScopedChannel(key: RepositoryKey): ScopedChannel | undefined {
+    if (!this.eventSource) {
+      return undefined;
+    }
+    const [apiHost, clientKey] = key.split("||");
+    const url = `${apiHost}/sub/${clientKey}`;
     const channel: ScopedChannel = {
       key,
       connection: new this.eventSource(url),
-      callbacks: [],
+      callbacks: new Map(),
     };
     this.scopedChannels.set(key, channel);
 

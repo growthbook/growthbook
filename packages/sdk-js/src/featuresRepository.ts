@@ -1,5 +1,6 @@
 // feature-repo.ts
-import { FeatureDefinition } from ".";
+import streamManager from "./stream";
+import { Context, FeatureDefinition } from ".";
 
 export type ApiHost = string;
 export type ClientKey = string;
@@ -16,11 +17,7 @@ type CacheEntry = {
 };
 
 const cacheTTL = 1000 * 60; // 1 minute
-
 const cache: Map<RepositoryKey, CacheEntry> = new Map();
-loadPersistentCache();
-
-// TODO: populate initial cache from localStorage (if available)
 
 // Fetch with debouncing
 const activeFetches: Map<
@@ -28,16 +25,15 @@ const activeFetches: Map<
   Promise<FeatureApiResponse>
 > = new Map();
 async function fetchFeatures(
-  key: RepositoryKey
+  key: RepositoryKey,
+  context?: Context
 ): Promise<FeatureApiResponse | null> {
   let promise = activeFetches.get(key);
   if (!promise) {
     const [apiHost, clientKey] = key.split("||");
     const url = `${apiHost}/api/features/${clientKey}`;
-    // TODO: allow configuring which 'fetch' implementation is used
-    promise = globalThis
-      // TODO: timeout using AbortController
-      .fetch(url)
+    // TODO: timeout using AbortController
+    promise = (context?.fetch ?? globalThis.fetch)(url)
       // TODO: auto-retry if status code indicates a temporary error
       .then((res) => res.json())
       .catch((e) => {
@@ -54,16 +50,17 @@ async function fetchFeatures(
 
 export async function loadFeatures(
   apiHost: string,
-  clientKey: string
+  clientKey: string,
+  context?: Context
 ): Promise<FeatureApiResponse | null> {
   const key: RepositoryKey = `${apiHost}||${clientKey}`;
   let entry = cache.get(key);
   if (!entry) {
-    const data = await fetchFeatures(key);
+    const data = await fetchFeatures(key, context);
     if (!data) return null;
     entry = {
       data,
-      staleAt: new Date(Date.now() + cacheTTL),
+      staleAt: new Date(Date.now() + (context?.cacheTTL ?? cacheTTL)),
     };
     cache.set(key, entry);
     savePersistentCache();
@@ -79,7 +76,7 @@ export async function loadFeatures(
   return entry.data;
 }
 
-function loadPersistentCache() {
+export function loadPersistentCache() {
   if (typeof globalThis?.localStorage === "object") {
     const lsCacheEntry = globalThis.localStorage.getItem(
       "growthbook:cache:features"
@@ -110,5 +107,30 @@ function savePersistentCache() {
       "growthbook:cache:features",
       JSON.stringify(cacheObj)
     );
+  }
+}
+
+export function bindStream(
+  apiHost: string,
+  clientKey: string,
+  sdkUid: string,
+  //eslint-disable-next-line
+  eventCallback: (event: string, resp: FeatureApiResponse) => void,
+  context: Context
+) {
+  // After features are set, bind additional updates from EventSource
+  if (streamManager && context?.streaming) {
+    const key: RepositoryKey = `${apiHost}||${clientKey}`;
+    //eslint-disable-next-line
+    const cb = (event: string, resp: any) => {
+      const entry: CacheEntry = {
+        data: resp as FeatureApiResponse,
+        staleAt: new Date(Date.now() + (context?.cacheTTL ?? cacheTTL)),
+      };
+      cache.set(key, entry);
+      savePersistentCache();
+      eventCallback(event, resp);
+    };
+    streamManager.startStream(key, sdkUid, cb);
   }
 }

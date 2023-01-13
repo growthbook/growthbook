@@ -22,8 +22,8 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
-// import streamManager from "./stream";
-import { FeatureApiResponse, loadFeatures } from "./featuresRepository";
+import streamManager from "./stream";
+import { bindStream, FeatureApiResponse, loadFeatures, loadPersistentCache } from "./featuresRepository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -57,26 +57,13 @@ export class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
-    // if (context.useCache) {
-    //   featuresCache.initialize({
-    //     engine: context.useCache,
-    //     staleTTL: context.cacheStaleTTL,
-    //     expiresTTL: context.cacheExpiresTTL,
-    //   });
-    // }
-
-    // if (context.apiHost) {
-    //   streamManager.initialize({
-    //     apiHost: context.apiHost,
-    //     eventSource: context.eventSource,
-    //   });
-    //   if (context.streaming && this.context.clientKey) {
-    //     streamManager.startStream(
-    //       this.context.clientKey,
-    //       this.onStreamMessage.bind(this)
-    //     );
-    //   }
-    // }
+    if (!context.enableDevMode) {
+      // Seed feature repository cache from localStorage
+      loadPersistentCache();
+    }
+    if (context.streaming && context.apiHost) {
+      streamManager.initialize(context?.eventSource);
+    }
 
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
@@ -92,7 +79,8 @@ export class GrowthBook {
 
     this.featuresLoadedPromise = loadFeatures(
       this.context.apiHost,
-      this.context.clientKey
+      this.context.clientKey,
+      this.context,
     );
     const resp = await this.featuresLoadedPromise;
     if (resp) {
@@ -105,26 +93,33 @@ export class GrowthBook {
         this.setFeatures(resp.features);
       }
     }
+    if (this.context.streaming) {
+      bindStream(
+        this.context.apiHost,
+        this.context.clientKey,
+        "FOO",
+        this.onStreamMessage.bind(this),
+        this.context
+      );
+    }
   }
 
   public async featuresLoaded() {
     return this.featuresLoadedPromise;
   }
 
-  // // eslint-disable-next-line
-  // private onStreamMessage(event: string, data: any) {
-  //   if (event === "features" && data) {
-  //     this.context.encryptionKey
-  //       ? this.setEncryptedFeatures(
-  //           data.encryptedFeatures,
-  //           this.context.encryptionKey
-  //         )
-  //       : this.setFeatures(data.features);
-  //     if (this.context.useCache && this.context.clientKey) {
-  //       featuresCache.set(this.context.clientKey, data);
-  //     }
-  //   }
-  // }
+  private onStreamMessage(event: string, resp: FeatureApiResponse) {
+    if (event === "features" && resp) {
+      if (resp.encryptedFeatures && this.context.encryptionKey) {
+        this.setEncryptedFeatures(
+          resp.encryptedFeatures,
+          this.context.encryptionKey
+        )
+      } else if (resp.features) {
+        this.setFeatures(resp.features);
+      }
+    }
+  }
 
   private render() {
     if (this._renderer) {
