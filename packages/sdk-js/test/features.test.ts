@@ -35,6 +35,7 @@ describe("features", () => {
     growthbook.setFeatures({ id: {} });
     expect(called).toEqual(true);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -68,6 +69,7 @@ describe("features", () => {
       },
     });
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
     globalThis.crypto = originalCrypto;
   });
@@ -95,6 +97,8 @@ describe("features", () => {
         ],
       },
     });
+
+    growthbook.forceClearRepository();
     growthbook.destroy();
 
     // Reset
@@ -116,6 +120,7 @@ describe("features", () => {
       )
     ).rejects.toThrow("Failed to decrypt features");
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -134,6 +139,7 @@ describe("features", () => {
       )
     ).rejects.toThrow("Failed to decrypt features");
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -152,7 +158,9 @@ describe("features", () => {
       growthbook.setEncryptedFeatures(encrypedFeatures, keyString)
     ).rejects.toThrow("No SubtleCrypto implementation found");
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
+
     globalThis.crypto = originalCrypto;
   });
 
@@ -174,6 +182,8 @@ describe("features", () => {
       ruleId: "",
       source: "defaultValue",
     });
+
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -192,6 +202,8 @@ describe("features", () => {
       },
     });
     expect(growthbook.evalFeature("feature").ruleId).toEqual("foo");
+
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -250,6 +262,7 @@ describe("features", () => {
       }).hashValue
     ).toEqual("bar");
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -283,6 +296,7 @@ describe("features", () => {
     expect(growthbook.feature("feature2").value).toEqual(0);
     expect(growthbook.feature("feature3").value).toEqual(null);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -296,6 +310,7 @@ describe("features", () => {
 
     expect(growthbook.getFeatures()).toEqual(features);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -330,6 +345,7 @@ describe("features", () => {
     expect(mock.calls[0]).toEqual(["feature1", res1]);
     expect(mock.calls[1]).toEqual(["feature2", res2]);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -367,6 +383,7 @@ describe("features", () => {
     expect(mock.calls[0]).toEqual(["feature", res1]);
     expect(mock.calls[1]).toEqual(["feature", res2]);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -439,6 +456,7 @@ describe("features", () => {
       },
     ]);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
     window.fetch = f;
   });
@@ -456,6 +474,7 @@ describe("features", () => {
     expect(growthbook.getFeatureValue("unknown", "green")).toEqual("green");
     expect(growthbook.getFeatureValue("testing", null)).toEqual(null);
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -478,6 +497,8 @@ describe("features", () => {
     });
 
     expect(growthbook.isOn("feature1")).toEqual(true);
+
+    growthbook.forceClearRepository();
     growthbook.destroy();
 
     await new Promise<void>((resolve) => {
@@ -491,8 +512,8 @@ describe("features", () => {
   });
 
   it("sets and gets features using cache", async () => {
-    if (typeof window?.localStorage !== "undefined") {
-      window.localStorage.clear();
+    if (typeof globalThis?.localStorage !== "undefined") {
+      globalThis.localStorage.removeItem("growthbook:cache:features");
     }
     let fooVal = "initial";
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -513,8 +534,7 @@ describe("features", () => {
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      useCache: "memory",
-      cacheTTL: 0.1,
+      cacheTTL: 1000,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       fetch: f,
@@ -531,14 +551,15 @@ describe("features", () => {
     expect(foo2.value).toEqual("initial");
 
     // Wait a bit for cache to expire...
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     await growthbook.loadFeatures();
     // Wait for SWR to revalidate
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const foo3 = growthbook.evalFeature("foo");
     // Past the cache TTL period, should get new value
     expect(foo3.value).toEqual("changed");
 
+    growthbook.forceClearRepository();
     growthbook.destroy();
   });
 
@@ -590,5 +611,8 @@ describe("features", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     const foo2 = growthbook.evalFeature("foo");
     expect(foo2.value).toEqual("changed");
+
+    growthbook.forceClearRepository();
+    growthbook.destroy();
   });
 });

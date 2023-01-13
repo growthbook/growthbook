@@ -33,17 +33,17 @@ const onChangeCallbackRegistry: CallbackRegistry = new Map();
 
 // Request features from server or cache. Upon success, start SSE stream for realtime updates.
 export async function loadFeatures(
-  context: Context,
-  featuresLoaded?: boolean,
+  context: Context
 ): Promise<FeatureApiResponse | null> {
   const key: RepositoryKey = `${context.apiHost}||${context.clientKey}`;
-  let entry = !featuresLoaded ? cache.get(key) : undefined;
+  let entry = cache.get(key);
   if (!entry) {
     const data = await fetchFeatures(key, context);
     if (!data) return null;
     entry = await updateCacheFromPayload(key, data, context);
   } else {
     await triggerCallbacks(key, entry);
+    refetchCacheIfStale(key, entry, context).catch((e) => console.error(e));
   }
 
   if (context?.streaming) {
@@ -133,24 +133,33 @@ async function updateCacheFromPayload(
   savePersistentCache();
   await triggerCallbacks(key, entry);
 
-  // Refresh in the background if stale
-  if (entry.staleAt < new Date()) {
-    fetchFeatures(key, context).catch((e) => {
-      console.error(e);
-    });
-  }
-
   return entry;
 }
 
 async function triggerCallbacks(key: RepositoryKey, entry: CacheEntry) {
-  const promises = Array.from(onChangeCallbackRegistry).map(([_, [cbKey, cb]]) => {
-    if (cbKey === key) {
-      return cb(entry.data);
-    }
-  }).filter(v => v !== undefined);
+  const promises = Array.from(onChangeCallbackRegistry)
+    .map(([_, [cbKey, cb]]) => {
+      if (cbKey === key) {
+        return cb(entry.data);
+      }
+    })
+    .filter((v) => v !== undefined);
   await Promise.all(promises);
   return;
+}
+
+async function refetchCacheIfStale(
+  key: RepositoryKey,
+  entry: CacheEntry,
+  context?: Context
+) {
+  // Refresh in the background if stale
+  if (entry.staleAt < new Date()) {
+    const data = await fetchFeatures(key, context);
+    if (data) {
+      await updateCacheFromPayload(key, data, context);
+    }
+  }
 }
 
 export function registerOnChangeCallback(
@@ -158,10 +167,20 @@ export function registerOnChangeCallback(
   that: GrowthBook,
   cb: (resp: FeatureApiResponse) => Promise<void>
 ) {
+  if (onChangeCallbackRegistry.has(that)) {
+    return;
+  }
   const key: RepositoryKey = `${context.apiHost}||${context.clientKey}`;
   onChangeCallbackRegistry.set(that, [key, cb]);
 }
 
 export function unregisterOnChangeCallback(that: GrowthBook) {
   onChangeCallbackRegistry.delete(that);
+}
+
+export function forceClearRepository() {
+  cache.clear();
+  activeFetches.clear();
+  onChangeCallbackRegistry.clear();
+  savePersistentCache();
 }

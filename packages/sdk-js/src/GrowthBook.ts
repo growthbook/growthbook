@@ -25,9 +25,11 @@ import { evalCondition } from "./mongrule";
 import streamManager from "./stream";
 import {
   FeatureApiResponse,
+  forceClearRepository,
   loadFeatures,
   loadPersistentCache,
-  registerOnChangeCallback, unregisterOnChangeCallback
+  registerOnChangeCallback,
+  unregisterOnChangeCallback,
 } from "./featuresRepository";
 
 const isBrowser =
@@ -58,7 +60,6 @@ export class GrowthBook {
   private _forcedFeatureValues = new Map<string, any>();
   private _attributeOverrides: Attributes = {};
   private featuresLoadedPromise: Promise<FeatureApiResponse | null> | null = null;
-  private _featuresLoaded: boolean = false;
 
   constructor(context: Context = {}) {
     this.context = context;
@@ -89,9 +90,8 @@ export class GrowthBook {
       this.onFeaturesChange.bind(this)
     );
 
-    this.featuresLoadedPromise = loadFeatures(this.context, this._featuresLoaded);
+    this.featuresLoadedPromise = loadFeatures(this.context);
     await this.featuresLoadedPromise;
-    this._featuresLoaded = true;
   }
 
   public async featuresLoaded() {
@@ -103,7 +103,7 @@ export class GrowthBook {
       await this.setEncryptedFeatures(
         resp.encryptedFeatures,
         this.context.encryptionKey
-      )
+      );
     } else if (resp.features) {
       this.setFeatures(resp.features);
     }
@@ -207,6 +207,10 @@ export class GrowthBook {
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
     }
+  }
+
+  public forceClearRepository() {
+    forceClearRepository();
   }
 
   public setRenderer(renderer: () => void) {
