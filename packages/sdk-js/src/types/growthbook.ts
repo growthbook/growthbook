@@ -122,7 +122,7 @@ export interface Context {
   crypto?: any;
   eventSource?: typeof EventSource;
   cacheTTL?: number;
-  apiHost?: string; // todo: add backup url?
+  apiHost?: string;
   clientKey?: string;
   encryptionKey?: string;
   streaming?: boolean;

@@ -23,7 +23,12 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import streamManager from "./stream";
-import { bindStream, FeatureApiResponse, loadFeatures, loadPersistentCache } from "./featuresRepository";
+import {
+  FeatureApiResponse,
+  loadFeatures,
+  loadPersistentCache,
+  registerOnChangeCallback, unregisterOnChangeCallback
+} from "./featuresRepository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -61,7 +66,7 @@ export class GrowthBook {
       // Seed feature repository cache from localStorage
       loadPersistentCache();
     }
-    if (context.streaming && context.apiHost) {
+    if (context.streaming) {
       streamManager.initialize(context?.eventSource);
     }
 
@@ -77,47 +82,27 @@ export class GrowthBook {
       return;
     }
 
-    this.featuresLoadedPromise = loadFeatures(
-      this.context.apiHost,
-      this.context.clientKey,
+    registerOnChangeCallback(
       this.context,
+      this,
+      this.onFeaturesChange.bind(this)
     );
-    const resp = await this.featuresLoadedPromise;
-    if (resp) {
-      if (resp.encryptedFeatures && this.context.encryptionKey) {
-        await this.setEncryptedFeatures(
-          resp.encryptedFeatures,
-          this.context.encryptionKey
-        );
-      } else if (resp.features) {
-        this.setFeatures(resp.features);
-      }
-    }
-    if (this.context.streaming) {
-      bindStream(
-        this.context.apiHost,
-        this.context.clientKey,
-        "FOO",
-        this.onStreamMessage.bind(this),
-        this.context
-      );
-    }
+
+    this.featuresLoadedPromise = loadFeatures(this.context,);
   }
 
   public async featuresLoaded() {
     return this.featuresLoadedPromise;
   }
 
-  private onStreamMessage(event: string, resp: FeatureApiResponse) {
-    if (event === "features" && resp) {
-      if (resp.encryptedFeatures && this.context.encryptionKey) {
-        this.setEncryptedFeatures(
-          resp.encryptedFeatures,
-          this.context.encryptionKey
-        )
-      } else if (resp.features) {
-        this.setFeatures(resp.features);
-      }
+  private async onFeaturesChange(resp: FeatureApiResponse) {
+    if (resp.encryptedFeatures && this.context.encryptionKey) {
+      await this.setEncryptedFeatures(
+        resp.encryptedFeatures,
+        this.context.encryptionKey
+      )
+    } else if (resp.features) {
+      this.setFeatures(resp.features);
     }
   }
 
@@ -214,6 +199,7 @@ export class GrowthBook {
     if (this._rtTimer) {
       clearTimeout(this._rtTimer);
     }
+    unregisterOnChangeCallback(this);
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;

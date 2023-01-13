@@ -1,6 +1,6 @@
 // feature-repo.ts
 import streamManager from "./stream";
-import { Context, FeatureDefinition } from ".";
+import { Context, FeatureDefinition, GrowthBook } from ".";
 
 export type ApiHost = string;
 export type ClientKey = string;
@@ -24,6 +24,40 @@ const activeFetches: Map<
   RepositoryKey,
   Promise<FeatureApiResponse>
 > = new Map();
+
+type CallbackRegistry = Map<
+  GrowthBook,
+  [RepositoryKey, (resp: FeatureApiResponse) => void]
+>;
+const onChangeCallbackRegistry: CallbackRegistry = new Map();
+
+// Request features from server or cache. Upon success, start SSE stream for realtime updates.
+export async function loadFeatures(
+  context: Context
+): Promise<FeatureApiResponse | null> {
+  const key: RepositoryKey = `${context.apiHost}||${context.clientKey}`;
+  let entry = cache.get(key);
+  if (!entry) {
+    const data = await fetchFeatures(key, context);
+    if (!data) return null;
+    entry = updateCacheFromPayload(key, data, context);
+  }
+
+  if (context?.streaming) {
+    // Create stream manager if not already created
+    streamManager.initialize(context?.eventSource);
+    // Start a key-scoped stream if not already started
+    streamManager.startStream(key, (event, payload) => {
+      if (event === "features") {
+        updateCacheFromPayload(key, payload, context);
+      }
+    });
+  }
+
+  // legacy: return the data directly
+  return entry.data;
+}
+
 async function fetchFeatures(
   key: RepositoryKey,
   context?: Context
@@ -46,34 +80,6 @@ async function fetchFeatures(
     activeFetches.set(key, promise);
   }
   return await promise;
-}
-
-export async function loadFeatures(
-  apiHost: string,
-  clientKey: string,
-  context?: Context
-): Promise<FeatureApiResponse | null> {
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
-  let entry = cache.get(key);
-  if (!entry) {
-    const data = await fetchFeatures(key, context);
-    if (!data) return null;
-    entry = {
-      data,
-      staleAt: new Date(Date.now() + (context?.cacheTTL ?? cacheTTL)),
-    };
-    cache.set(key, entry);
-    savePersistentCache();
-  }
-
-  // Refresh in the background if stale
-  if (entry.staleAt < new Date()) {
-    fetchFeatures(key).catch((e) => {
-      console.error(e);
-    });
-  }
-
-  return entry.data;
 }
 
 export function loadPersistentCache() {
@@ -110,27 +116,43 @@ function savePersistentCache() {
   }
 }
 
-export function bindStream(
-  apiHost: string,
-  clientKey: string,
-  sdkUid: string,
-  //eslint-disable-next-line
-  eventCallback: (event: string, resp: FeatureApiResponse) => void,
-  context: Context
+function updateCacheFromPayload(
+  key: RepositoryKey,
+  // eslint-disable-next-line
+  data: any,
+  context?: Context
 ) {
-  // After features are set, bind additional updates from EventSource
-  if (streamManager && context?.streaming) {
-    const key: RepositoryKey = `${apiHost}||${clientKey}`;
-    //eslint-disable-next-line
-    const cb = (event: string, resp: any) => {
-      const entry: CacheEntry = {
-        data: resp as FeatureApiResponse,
-        staleAt: new Date(Date.now() + (context?.cacheTTL ?? cacheTTL)),
-      };
-      cache.set(key, entry);
-      savePersistentCache();
-      eventCallback(event, resp);
-    };
-    streamManager.startStream(key, sdkUid, cb);
+  const entry = {
+    data: data as FeatureApiResponse,
+    staleAt: new Date(Date.now() + (context?.cacheTTL ?? cacheTTL)),
+  };
+  cache.set(key, entry);
+  savePersistentCache();
+  onChangeCallbackRegistry.forEach(([cbKey, cb]) => {
+    if (cbKey === key) {
+      cb(data);
+    }
+  });
+
+  // Refresh in the background if stale
+  if (entry.staleAt < new Date()) {
+    fetchFeatures(key).catch((e) => {
+      console.error(e);
+    });
   }
+
+  return entry;
+}
+
+export function registerOnChangeCallback(
+  context: Context,
+  that: GrowthBook,
+  cb: (resp: FeatureApiResponse) => void
+) {
+  const key: RepositoryKey = `${context.apiHost}||${context.clientKey}`;
+  onChangeCallbackRegistry.set(that, [key, cb]);
+}
+
+export function unregisterOnChangeCallback(that: GrowthBook) {
+  onChangeCallbackRegistry.delete(that);
 }

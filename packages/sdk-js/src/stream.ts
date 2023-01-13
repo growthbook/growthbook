@@ -22,22 +22,22 @@ export class StreamManager {
 
   public startStream(
     key: RepositoryKey,
-    sdkUid: string,
     // eslint-disable-next-line
     callback: (event: string, payload: any) => void
   ) {
     if (this.eventSource) {
-      let scopedChannel = this.scopedChannels.get(key);
+      const scopedChannel = this.scopedChannels.get(key);
       if (!scopedChannel) {
-        scopedChannel = this.createScopedChannel(key);
-      }
-      if (scopedChannel) {
-        scopedChannel.callbacks.set(sdkUid, callback);
+        this.createScopedChannel(key, callback);
       }
     }
   }
 
-  private createScopedChannel(key: RepositoryKey): ScopedChannel | undefined {
+  private createScopedChannel(
+    key: RepositoryKey,
+    // eslint-disable-next-line
+    callback: (event: string, payload: any) => void,
+  ): ScopedChannel | undefined {
     if (!this.eventSource) {
       return undefined;
     }
@@ -53,9 +53,9 @@ export class StreamManager {
     channel.connection.addEventListener("features", (event: MessageEvent) => {
       try {
         const json = JSON.parse(event.data);
-        channel.callbacks.forEach((cb) => cb("features", json));
+        callback("features", json);
       } catch (e) {
-        console.error("Failed to parse features from SSE", e);
+        console.error(e);
       }
     });
     return channel;
