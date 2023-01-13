@@ -1,0 +1,9 @@
+[
+  {
+    "id": "base",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "dimension": null,
+    "attributionModel": "firstExposure"
+  }
+]
