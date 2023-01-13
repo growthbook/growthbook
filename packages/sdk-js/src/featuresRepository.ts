@@ -18,6 +18,8 @@ type CacheEntry = {
 const cacheTTL = 1000 * 60; // 1 minute
 
 const cache: Map<RepositoryKey, CacheEntry> = new Map();
+loadPersistentCache();
+
 // TODO: populate initial cache from localStorage (if available)
 
 // Fetch with debouncing
@@ -64,7 +66,7 @@ export async function loadFeatures(
       staleAt: new Date(Date.now() + cacheTTL),
     };
     cache.set(key, entry);
-    // TODO: update localStorage if available
+    savePersistentCache();
   }
 
   // Refresh in the background if stale
@@ -75,4 +77,38 @@ export async function loadFeatures(
   }
 
   return entry.data;
+}
+
+function loadPersistentCache() {
+  if (typeof globalThis?.localStorage === "object") {
+    const lsCacheEntry = globalThis.localStorage.getItem(
+      "growthbook:cache:features"
+    );
+    if (lsCacheEntry) {
+      try {
+        const cacheObj = new Map(JSON.parse(lsCacheEntry));
+        // eslint-disable-next-line
+        cacheObj.forEach((value: any, key: any) => {
+          value.staleAt = new Date(value.staleAt);
+          if (value.staleAt >= new Date()) {
+            cache.set(key as RepositoryKey, value as CacheEntry);
+          } else {
+            cache.delete(key as RepositoryKey);
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+}
+
+function savePersistentCache() {
+  if (typeof globalThis?.localStorage === "object") {
+    const cacheObj = Array.from(cache.entries());
+    globalThis.localStorage.setItem(
+      "growthbook:cache:features",
+      JSON.stringify(cacheObj)
+    );
+  }
 }
