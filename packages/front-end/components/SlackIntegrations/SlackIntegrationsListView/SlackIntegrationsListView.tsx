@@ -1,8 +1,10 @@
-import React, { FC, PropsWithChildren } from "react";
+import React, { FC, PropsWithChildren, useCallback } from "react";
+import { FaPlug } from "react-icons/fa";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { SlackIntegrationEditParams } from "@/components/SlackIntegrations/slack-integrations-utils";
-import { FaPlug } from "react-icons/fa";
 import { SlackIntegrationsListItem } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListItem/SlackIntegrationsListItem";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: () => void;
@@ -10,7 +12,7 @@ type SlackIntegrationsListViewProps = {
   onModalClose: () => void;
   isModalOpen: boolean;
   onAdd: (data: SlackIntegrationEditParams) => void;
-  onDelete: () => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onEdit: (data: SlackIntegrationEditParams) => void;
   slackIntegrations: SlackIntegrationInterface[];
   errorMessage: string | null;
@@ -67,7 +69,9 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
           {slackIntegrations.map((slackIntegration) => (
             <div key={slackIntegration.id} className="mb-3">
               <SlackIntegrationsListItem
-                onDelete={onDelete}
+                onDelete={async () => {
+                  await onDelete(slackIntegration.id);
+                }}
                 onEditModalOpen={onEditModalOpen}
                 slackIntegration={slackIntegration}
               />
@@ -75,7 +79,10 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
           ))}
 
           <div className="mt-4">
-            <button className="btn btn-primary" onClick={onCreateModalOpen}>
+            <button
+              className="btn btn-primary mb-5"
+              onClick={onCreateModalOpen}
+            >
               <FaPlug className="mr-2" />
               Create a Slack integration
             </button>
@@ -97,8 +104,29 @@ const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
   </div>
 );
 
-/*export const SlackIntegrationsListViewContainer = () => {
+export const SlackIntegrationsListViewContainer = () => {
+  const { apiCall } = useAuth();
+
+  const { data } = useApi<{
+    slackIntegrations: SlackIntegrationInterface[];
+  }>("/integrations/slack");
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const response = await apiCall<{
+        error?: string;
+        slackIntegration?: SlackIntegrationInterface;
+      }>(`/integrations/slack/${id}`, {
+        method: "DELETE",
+      });
+    },
+    [apiCall]
+  );
+
   return (
-    <SlackIntegrationsListView />
-  )
-}*/
+    <SlackIntegrationsListView
+      slackIntegrations={data.slackIntegrations}
+      onDelete={handleDelete}
+    />
+  );
+};
