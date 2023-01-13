@@ -55,28 +55,31 @@
     "id": "dimension_date",
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
-    "dimension": "date",
+    "dimensionType": "date",
     "attributionModel": "firstExposure"
   },
   {
     "id": "dimension_activation",
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
-    "dimension": "cart_loaded",
+    "dimensionType": "activation",
+    "activationMetric": "cart_loaded",
     "attributionModel": "firstExposure"
   },
   {
     "id": "dimension_experiment",
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
-    "dimension": "browser",
+    "dimensionType": "experiment",
+    "dimensionMetric": "browser",
     "attributionModel": "firstExposure"
   },
   {
     "id": "dimension_user",
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
-    "dimension": "country",
+    "dimensionType": "user",
+    "dimensionMetric": "country",
     "attributionModel": "firstExposure"
   },
   {
@@ -84,13 +87,13 @@
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
     "attributionModel": "firstExposure",
-    "queryFilter": "TODOREALFILTER"
+    "queryFilter": "browser = 'Chrome'"
   },
   {
     "id": "filter_segment",
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
     "attributionModel": "firstExposure",
-    "segment": "TODOREALSEGMENT"
+    "segment": "chrome_only"
   }
 ]
