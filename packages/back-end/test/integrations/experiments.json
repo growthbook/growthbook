@@ -3,7 +3,94 @@
     "id": "base",
     "conversionWindowHours": 72,
     "conversionDelayHour": 0,
-    "dimension": null,
     "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposure",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "attributionModel": "allExposure"
+  },
+  {
+    "id": "activation",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposure",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "activationMetric": "cart_loaded",
+    "attributionModel": "allExposure"
+  },
+  {
+    "id": "negativeconversion",
+    "conversionWindowHours": 48,
+    "conversionDelayHour": -24,
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposure_negativeconversion",
+    "conversionWindowHours": 48,
+    "conversionDelayHour": -24,
+    "attributionModel": "allExposure"
+  },
+  {
+    "id": "activation_negativeconversion",
+    "conversionWindowHours": 48,
+    "conversionDelayHour": -24,
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposure_negativeconversion",
+    "conversionWindowHours": 48,
+    "conversionDelayHour": -24,
+    "activationMetric": "cart_loaded",
+    "attributionModel": "allExposure"
+  },
+  {
+    "id": "dimension_date",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "dimension": "date",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_activation",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "dimension": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_experiment",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "dimension": "browser",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_user",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "dimension": "country",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "filter_sql",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "attributionModel": "firstExposure",
+    "queryFilter": "TODOREALFILTER"
+  },
+  {
+    "id": "filter_segment",
+    "conversionWindowHours": 72,
+    "conversionDelayHour": 0,
+    "attributionModel": "firstExposure",
+    "segment": "TODOREALSEGMENT"
   }
 ]

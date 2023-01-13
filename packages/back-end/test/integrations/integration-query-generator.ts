@@ -16,11 +16,12 @@ const currentDate = new Date();
 
 // import experimentOverrides
 import experimentOverridesData from "./experiments.json";
+// TODO fix interface below
 interface ExperimentOverrideInterface {
   id: string;
   conversionWindowHours: number;
   conversionDelayHour: number;
-  dimension: null;
+  dimension?: string;
   attributionModel: AttributionModel;
 }
 const experimentOverrides: ExperimentOverrideInterface[] = experimentOverridesData as ExperimentOverrideInterface[];
