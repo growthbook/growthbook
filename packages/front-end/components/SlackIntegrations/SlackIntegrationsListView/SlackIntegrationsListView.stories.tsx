@@ -1,4 +1,3 @@
-import { number, text } from "@storybook/addon-knobs";
 import { action } from "@storybook/addon-actions";
 import { SlackIntegrationsListView } from "./SlackIntegrationsListView";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
@@ -83,7 +82,6 @@ export const Default = () => {
       linkedByUserId: "u_sktwi1id9l7z9xkis",
     },
   ];
-  const onClick = action("clicked!");
 
   return (
     <>
