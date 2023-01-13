@@ -10,3 +10,12 @@ export type SlackIntegrationEditParams = {
   slackAppId: string;
   slackSigningKey: string;
 };
+
+export type SlackIntegrationModalMode =
+  | {
+      mode: "create";
+    }
+  | {
+      mode: "edit";
+      data: SlackIntegrationEditParams;
+    };
