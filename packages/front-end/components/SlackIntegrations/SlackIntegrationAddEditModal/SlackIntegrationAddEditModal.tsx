@@ -14,14 +14,16 @@ import Modal from "@/components/Modal";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import TagsInput from "@/components/Tags/TagsInput";
 import { TagInterface } from "back-end/types/tag";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
+import { FeatureEnvironment } from "back-end/types/feature";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
     id: string;
     name: string;
   }[];
-  environments: string[];
-  tags: TagInterface[];
+  environmentSettings: Record<string, FeatureEnvironment>;
+  tagOptions: TagInterface[];
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: SlackIntegrationEditParams) => void;
@@ -31,8 +33,8 @@ type SlackIntegrationAddEditModalProps = {
 
 export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps> = ({
   projects,
-  environments,
-  tags,
+  environmentSettings,
+  tagOptions,
   isOpen,
   mode,
   error,
@@ -172,7 +174,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         <label className="d-block">Tag filters</label>
         <div className="mt-1">
           <TagsInput
-            tagOptions={tags}
+            tagOptions={tagOptions}
             value={form.watch("tags")}
             onChange={(selected: string[]) => {
               form.setValue(
@@ -185,6 +187,20 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
           <small className="text-muted">
             Only receive notifications for matching tags.
           </small>
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label className="d-block">Environment filters</label>
+        <div className="mt-1">
+          {/* TODO: presentational environment select similar to TagsInput */}
+          {/*<EnvironmentSelect*/}
+          {/*  environmentSettings={environmentSettings}*/}
+          {/*  setValue={(env, on) => {*/}
+          {/*    // environmentSettings[env.id].enabled = on;*/}
+          {/*    // form.setValue("environmentSettings", environmentSettings);*/}
+          {/*  }}*/}
+          {/*/>*/}
         </div>
       </div>
     </Modal>
