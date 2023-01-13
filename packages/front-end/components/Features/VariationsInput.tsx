@@ -82,6 +82,13 @@ export default function VariationsInput({
     })
   );
 
+  function getVariationIndex(id: string) {
+    for (let i = 0; i < draggableVariations.length; i++) {
+      if (draggableVariations[i].id === id) return i;
+    }
+    return -1;
+  }
+
   return (
     <div className="form-group">
       {setVariations ? (
@@ -175,12 +182,8 @@ export default function VariationsInput({
               collisionDetection={closestCenter}
               onDragEnd={({ active, over }) => {
                 if (active.id !== over.id) {
-                  const oldIndex = draggableVariations
-                    .map((variation) => variation.id)
-                    .indexOf(active.id);
-                  const newIndex = draggableVariations
-                    .map((variation) => variation.id)
-                    .indexOf(over.id);
+                  const oldIndex = getVariationIndex(active.id);
+                  const newIndex = getVariationIndex(over.id);
 
                   if (oldIndex === -1 || newIndex === -1) return;
 

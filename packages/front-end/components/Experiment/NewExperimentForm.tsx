@@ -168,6 +168,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       throw new Error("Experiment Name must not be empty");
     }
 
+    // Remove temp id's that were added for drag and drop
+    value.variations.forEach((variation) => delete variation.id);
+
     // TODO: more validation?
 
     const data = { ...value };

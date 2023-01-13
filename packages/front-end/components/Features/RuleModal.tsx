@@ -25,6 +25,7 @@ import FeatureValueField from "./FeatureValueField";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
+import { DraggableVariation } from "./Variation";
 
 export interface Props {
   close: () => void;
@@ -117,6 +118,13 @@ export default function RuleModal({
           ) {
             values.scheduleRules = [];
           }
+        }
+
+        // Remove temp id's that were set to support drag and drop
+        if (values.type === "experiment") {
+          values.values.forEach(
+            (variation: DraggableVariation) => delete variation.id
+          );
         }
 
         const rule = values as FeatureRule;

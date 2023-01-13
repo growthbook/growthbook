@@ -24,6 +24,7 @@ export interface Variation {
   screenshots: Screenshot[];
   css?: string;
   dom?: DomChange[];
+  id?: string; //this is temporarily set on the front-end to support drag and drop sorting
 }
 
 export interface ExperimentPhase {
