@@ -27,7 +27,7 @@ const slackIntegrationSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true,
+    required: false,
   },
   dateCreated: {
     type: Date,
