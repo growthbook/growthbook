@@ -42,27 +42,34 @@ export default function TagsModal({
     <Modal
       open={true}
       close={close}
+      cta={existing?.id ? "Update" : "Create"}
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/tag`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        if (existing?.id) {
+          await apiCall(`/tag/${existing.id}`, {
+            method: "PUT",
+            body: JSON.stringify(value),
+          });
+        } else {
+          await apiCall(`/tag`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+        }
         await onSuccess();
       })}
     >
       <div className="colorpicker tagmodal">
-        {!existing?.id && (
-          <Field
-            name="Name"
-            label="Name"
-            minLength={2}
-            maxLength={64}
-            className=""
-            required
-            {...form.register("id")}
-          />
-        )}
+        <Field
+          name="Name"
+          label="Name"
+          minLength={2}
+          maxLength={64}
+          className=""
+          required
+          {...form.register("id")}
+        />
+
         <label>Color:</label>
         <div className={styles.picker}>
           <HexColorPicker

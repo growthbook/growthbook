@@ -7,7 +7,6 @@
     <a href="https://slack.growthbook.io?ref=readme-badge"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
 </p>
 
-
 Get up and running in 1 minute with:
 
 ```sh

@@ -447,6 +447,19 @@ export async function removeProjectFromFeatures(
   });
 }
 
+export async function updateTagInFeature(
+  organization: string,
+  originalTag: string,
+  newTag: string
+) {
+  const query = { organization, tags: originalTag };
+  await FeatureModel.updateMany(query, {
+    $set: { "tags.$": newTag },
+    arrayFilters: [{ tags: originalTag }],
+  });
+  return;
+}
+
 export async function setDefaultValue(
   org: OrganizationInterface,
   feature: FeatureInterface,

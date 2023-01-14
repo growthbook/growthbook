@@ -22,6 +22,18 @@ router.post(
   tagController.postTag
 );
 
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  tagController.putTag
+);
+
 router.delete(
   "/:id",
   validateRequestMiddleware({

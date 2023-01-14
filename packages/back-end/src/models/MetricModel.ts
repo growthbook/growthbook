@@ -316,3 +316,19 @@ export async function removeTagInMetrics(organization: string, tag: string) {
   });
   return;
 }
+
+export async function updateTagInMetrics(
+  organization: string,
+  originalTag: string,
+  newTag: string
+) {
+  if (usingFileConfig()) {
+    return;
+  }
+  const query = { organization, tags: originalTag };
+  await MetricModel.updateMany(query, {
+    $set: { "tags.$": newTag },
+    arrayFilters: [{ tags: originalTag }],
+  });
+  return;
+}
