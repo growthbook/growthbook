@@ -2,6 +2,8 @@ import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Typeahead } from "react-bootstrap-typeahead";
 import z from "zod";
+import { NotificationEventName } from "back-end/src/events/base-types";
+import { TagInterface } from "back-end/types/tag";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
@@ -11,9 +13,7 @@ import {
   SlackIntegrationModalMode,
 } from "@/components/SlackIntegrations/slack-integrations-utils";
 import Modal from "@/components/Modal";
-import { NotificationEventName } from "back-end/src/events/base-types";
 import TagsInput from "@/components/Tags/TagsInput";
-import { TagInterface } from "back-end/types/tag";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 

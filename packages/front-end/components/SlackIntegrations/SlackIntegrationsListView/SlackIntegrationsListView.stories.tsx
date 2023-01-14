@@ -1,6 +1,6 @@
 import { action } from "@storybook/addon-actions";
-import { SlackIntegrationsListView } from "./SlackIntegrationsListView";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { SlackIntegrationsListView } from "./SlackIntegrationsListView";
 
 export default {
   component: SlackIntegrationsListView,
@@ -16,7 +16,7 @@ export const Default = () => {
       organizationId: "org_sktwi1id9l7z9xkjb",
       name: "My First Slack Integration",
       description: "Alerts in the #general channel",
-      project: null,
+      projects: [],
       environments: [],
       events: ["feature.updated"],
       tags: [],
@@ -31,7 +31,7 @@ export const Default = () => {
       organizationId: "org_sktwi1id9l7z9xkjb",
       name: "My 2nd Slack Integration",
       description: "",
-      project: "prj_sktwi76klbcpsjzu",
+      projects: ["prj_sktwi76klbcpsjzu"],
       environments: ["staging", "production"],
       events: ["feature.updated", "feature.created", "feature.deleted"],
       tags: ["funnel"],
@@ -46,7 +46,7 @@ export const Default = () => {
       organizationId: "org_sktwi1id9l7z9xkjb",
       name: "My 3rd Slack Integration",
       description: "",
-      project: "prj_sktwi76klbcpsjzu",
+      projects: ["prj_sktwi76klbcpsjzu"],
       environments: ["staging", "production"],
       events: [],
       tags: [
@@ -98,6 +98,9 @@ export const Default = () => {
         onEditModalOpen={action("onEditModalOpen")}
         onUpdate={action("onUpdate")}
         onCreate={action("onCreate")}
+        environments={["staging", "production"]}
+        projects={[]}
+        tagOptions={[]}
       />
     </>
   );
@@ -119,6 +122,9 @@ export const EmptyState = () => {
         onEditModalOpen={action("onEditModalOpen")}
         onUpdate={action("onUpdate")}
         slackIntegrations={[]}
+        environments={["staging", "production"]}
+        projects={[]}
+        tagOptions={[]}
       />
     </>
   );

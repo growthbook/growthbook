@@ -1,6 +1,6 @@
 import { action } from "@storybook/addon-actions";
-import { SlackIntegrationAddEditModal } from "./SlackIntegrationAddEditModal";
 import { TagInterface } from "back-end/types/tag";
+import { SlackIntegrationAddEditModal } from "./SlackIntegrationAddEditModal";
 
 export default {
   component: SlackIntegrationAddEditModal,
