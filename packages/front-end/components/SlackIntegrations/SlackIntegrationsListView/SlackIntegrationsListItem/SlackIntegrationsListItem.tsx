@@ -8,12 +8,14 @@ type SlackIntegrationsListItemProps = {
   slackIntegration: SlackIntegrationInterface;
   onDelete: () => Promise<void>;
   onEditModalOpen: (data: SlackIntegrationEditParams) => void;
+  projectsMap: Record<string, string>;
 };
 
 export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
   slackIntegration,
   onDelete,
   onEditModalOpen,
+  projectsMap,
 }) => {
   const onEdit = useCallback(() => {
     onEditModalOpen(slackIntegration);
@@ -117,7 +119,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
               ) : (
                 slackIntegration.projects.map((project) => (
                   <span key={project} className="mr-2 badge badge-purple">
-                    {project}
+                    {projectsMap[project] || project}
                   </span>
                 ))
               )}

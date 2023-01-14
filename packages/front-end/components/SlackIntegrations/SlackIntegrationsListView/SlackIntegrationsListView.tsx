@@ -1,6 +1,13 @@
-import React, { FC, PropsWithChildren, useCallback, useState } from "react";
+import React, {
+  FC,
+  PropsWithChildren,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { FaPlug } from "react-icons/fa";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
+import { TagInterface } from "back-end/types/tag";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
@@ -9,7 +16,6 @@ import { SlackIntegrationsListItem } from "@/components/SlackIntegrations/SlackI
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
-import { TagInterface } from "back-end/types/tag";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -47,6 +53,13 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
   tagOptions,
   projects,
 }) => {
+  const projectsMap: Record<string, string> = useMemo(() => {
+    return projects.reduce((acc, curr) => {
+      acc[curr.id] = curr.name;
+      return acc;
+    }, {});
+  }, [projects]);
+
   return (
     <div>
       {/* Add/Edit modal */}
@@ -101,6 +114,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
                 onDelete={async () => {
                   await onDelete(slackIntegration.id);
                 }}
+                projectsMap={projectsMap}
                 onEditModalOpen={onEditModalOpen}
                 slackIntegration={slackIntegration}
               />
