@@ -1,40 +1,69 @@
-import React, { FC, PropsWithChildren, useCallback } from "react";
+import React, { FC, PropsWithChildren, useCallback, useState } from "react";
 import { FaPlug } from "react-icons/fa";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
-import { SlackIntegrationEditParams } from "@/components/SlackIntegrations/slack-integrations-utils";
+import {
+  SlackIntegrationEditParams,
+  SlackIntegrationModalMode,
+} from "@/components/SlackIntegrations/slack-integrations-utils";
 import { SlackIntegrationsListItem } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListItem/SlackIntegrationsListItem";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
+import { TagInterface } from "back-end/types/tag";
+import { useEnvironments } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 type SlackIntegrationsListViewProps = {
-  onEditModalOpen: () => void;
+  onEditModalOpen: (data: SlackIntegrationEditParams) => void;
   onCreateModalOpen: () => void;
   onModalClose: () => void;
-  isModalOpen: boolean;
-  onAdd: (data: SlackIntegrationEditParams) => void;
+  modalMode: SlackIntegrationModalMode | null;
+  onCreate: (data: SlackIntegrationEditParams) => void;
+  onUpdate: (data: SlackIntegrationEditParams) => void;
   onDelete: (id: string) => Promise<void>;
-  onEdit: (data: SlackIntegrationEditParams) => void;
   slackIntegrations: SlackIntegrationInterface[];
+  modalError: string | null;
   errorMessage: string | null;
-  createError: string | null;
+  tagOptions: TagInterface[];
+  environments: string[];
+  projects: {
+    id: string;
+    name: string;
+  }[];
 };
 
 export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
-  onAdd,
-  onCreateModalOpen,
-  onModalClose,
-  createError,
-  isModalOpen,
-  onEditModalOpen,
+  onCreate,
+  onUpdate,
   onDelete,
-  onEdit,
+  onCreateModalOpen,
+  onEditModalOpen,
+  modalMode,
+  onModalClose,
+  modalError,
   slackIntegrations,
   errorMessage,
+  environments,
+  tagOptions,
+  projects,
 }) => {
   return (
     <div>
-      {/* TODO: Add/Edit modal */}
+      {/* Add/Edit modal */}
+      {modalMode ? (
+        <SlackIntegrationAddEditModal
+          mode={modalMode}
+          isOpen={true}
+          onSubmit={modalMode.mode === "create" ? onCreate : onUpdate}
+          error={modalError}
+          onClose={onModalClose}
+          tagOptions={tagOptions}
+          projects={projects}
+          environments={environments}
+        />
+      ) : null}
 
+      {/* Heading w/ beta messaging */}
       <div className="mb-4">
         <div className="d-flex justify-space-between align-items-center">
           <span className="badge badge-purple text-uppercase mr-2">Beta</span>
@@ -58,7 +87,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       {/* Empty state */}
       {slackIntegrations.length === 0 ? (
         <SlackIntegrationsEmptyState>
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={onCreateModalOpen}>
             <FaPlug className="mr-2" />
             Create a Slack integration
           </button>
@@ -107,26 +136,106 @@ const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
 export const SlackIntegrationsListViewContainer = () => {
   const { apiCall } = useAuth();
 
-  const { data } = useApi<{
+  const [
+    modalMode,
+    setModalMode,
+  ] = useState<SlackIntegrationModalMode | null>();
+
+  const handleOnEditModalOpen = useCallback(
+    (data: SlackIntegrationEditParams) => {
+      setModalMode({
+        mode: "edit",
+        data,
+      });
+    },
+    []
+  );
+
+  const handleOnCreateModalOpen = useCallback(() => {
+    setModalMode({
+      mode: "create",
+    });
+  }, []);
+
+  const [addEditError, setAddEditError] = useState<null | string>(null);
+
+  const { data, mutate, error: loadError } = useApi<{
     slackIntegrations: SlackIntegrationInterface[];
   }>("/integrations/slack");
 
+  const errorMessage = loadError?.message || null;
+
+  const slackIntegrations = data?.slackIntegrations || [];
+
   const handleDelete = useCallback(
     async (id: string) => {
-      const response = await apiCall<{
+      await apiCall<{
         error?: string;
         slackIntegration?: SlackIntegrationInterface;
       }>(`/integrations/slack/${id}`, {
         method: "DELETE",
       });
+
+      await mutate();
     },
-    [apiCall]
+    [apiCall, mutate]
   );
+
+  const handleCreate = useCallback(
+    async (data: SlackIntegrationEditParams) => {
+      setAddEditError(null);
+
+      try {
+        const response = await apiCall<{
+          error?: string;
+          slackIntegration?: SlackIntegrationInterface;
+        }>("/integrations/slack", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+
+        if (response.error) {
+          setAddEditError(
+            `Failed to create Slack integration: ${
+              response.error || "Unknown error"
+            }`
+          );
+        } else {
+          setAddEditError(null);
+          setModalMode(null);
+          mutate();
+        }
+      } catch (e) {
+        setAddEditError(`Failed to create Slack integration: ${e.message}`);
+      }
+    },
+    [apiCall, mutate]
+  );
+
+  const handleUpdate = useCallback(async (data: SlackIntegrationEditParams) => {
+    console.log("TODO: update", data);
+  }, []);
+
+  const environmentSettings = useEnvironments();
+  const environments = environmentSettings.map((env) => env.id);
+
+  const { projects, tags } = useDefinitions();
 
   return (
     <SlackIntegrationsListView
-      slackIntegrations={data.slackIntegrations}
+      slackIntegrations={slackIntegrations}
+      modalMode={modalMode}
       onDelete={handleDelete}
+      modalError={addEditError}
+      onEditModalOpen={handleOnEditModalOpen}
+      onCreateModalOpen={handleOnCreateModalOpen}
+      errorMessage={errorMessage}
+      environments={environments}
+      projects={projects}
+      tagOptions={tags}
+      onUpdate={handleUpdate}
+      onCreate={handleCreate}
+      onModalClose={() => setModalMode(null)}
     />
   );
 };

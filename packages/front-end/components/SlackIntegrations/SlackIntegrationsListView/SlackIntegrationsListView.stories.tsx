@@ -90,14 +90,14 @@ export const Default = () => {
         onCreateModalOpen={action("onCreateModalOpen")}
         onModalClose={action("onCreateModalOpen")}
         errorMessage={null}
-        createError={null}
-        isModalOpen={false}
+        modalError={null}
+        modalMode={null}
         onDelete={async () => {
           action("onDelete")();
         }}
         onEditModalOpen={action("onEditModalOpen")}
-        onEdit={action("onEdit")}
-        onAdd={action("onAdd")}
+        onUpdate={action("onUpdate")}
+        onCreate={action("onCreate")}
       />
     </>
   );
@@ -110,14 +110,14 @@ export const EmptyState = () => {
         onCreateModalOpen={action("onCreateModalOpen")}
         onModalClose={action("onCreateModalOpen")}
         errorMessage={null}
-        createError={null}
-        isModalOpen={false}
-        onAdd={action("onAdd")}
+        modalError={null}
+        modalMode={null}
+        onCreate={action("onCreate")}
         onDelete={async () => {
           action("onDelete")();
         }}
         onEditModalOpen={action("onEditModalOpen")}
-        onEdit={action("onEdit")}
+        onUpdate={action("onUpdate")}
         slackIntegrations={[]}
       />
     </>

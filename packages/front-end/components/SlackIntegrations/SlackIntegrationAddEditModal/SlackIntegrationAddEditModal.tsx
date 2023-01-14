@@ -15,6 +15,7 @@ import { NotificationEventName } from "back-end/src/events/base-types";
 import TagsInput from "@/components/Tags/TagsInput";
 import { TagInterface } from "back-end/types/tag";
 import Field from "@/components/Forms/Field";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
@@ -52,7 +53,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
             description: "",
             slackAppId: "",
             environments: [],
-            project: "",
+            projects: [],
             slackSigningKey: "",
             tags: [],
           },
@@ -71,12 +72,10 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
   const handleFormValidation = useCallback(() => {
     const formValues = form.getValues();
 
-    console.log(">>> form values", formValues);
-
     const schema = z.object({
       name: z.string().trim().min(2),
       description: z.string().trim().min(0),
-      project: z.string().trim().min(0),
+      projects: z.array(z.string()),
       environments: z.array(z.string()),
       events: z.array(z.enum(notificationEventNames)),
       tags: z.array(z.string()),
@@ -95,10 +94,22 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       cta={buttonText}
       close={onClose}
       open={isOpen}
+      autoCloseOnSubmit={false}
       submit={handleSubmit}
       error={error}
       ctaEnabled={ctaEnabled}
     >
+      <p>
+        Create an app in Slack and add the information here. For help, please{" "}
+        <a
+          target="_blank"
+          rel="noreferrer noopener"
+          href="https://docs.growthbook.io/integrations/slack"
+        >
+          see the documentation
+        </a>
+        .
+      </p>
       <Field
         label="Name"
         placeholder="My Slack integration"
@@ -118,30 +129,6 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         {...form.register("description")}
         onChange={(evt) => {
           form.setValue("description", evt.target.value);
-          handleFormValidation();
-        }}
-      />
-
-      <Field
-        label="Slack App ID"
-        autoComplete="off"
-        helpText="Copy the Slack App ID from the app's Basic Information page"
-        required
-        {...form.register("slackAppId")}
-        onChange={(evt) => {
-          form.setValue("slackAppId", evt.target.value);
-          handleFormValidation();
-        }}
-      />
-
-      <Field
-        label="Slack Signing Key"
-        autoComplete="off"
-        required
-        helpText="Copy the signing key from the app's Basic Information page"
-        {...form.register("slackSigningKey")}
-        onChange={(evt) => {
-          form.setValue("slackSigningKey", evt.target.value);
           handleFormValidation();
         }}
       />
@@ -182,62 +169,65 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         </div>
       </div>
 
+      <Field
+        label="Slack App ID"
+        autoComplete="off"
+        helpText="Copy the Slack App ID from the app's Basic Information page"
+        required
+        {...form.register("slackAppId")}
+        onChange={(evt) => {
+          form.setValue("slackAppId", evt.target.value);
+          handleFormValidation();
+        }}
+      />
+
+      <Field
+        label="Slack Signing Key"
+        autoComplete="off"
+        required
+        helpText="Copy the signing key from the app's Basic Information page"
+        {...form.register("slackSigningKey")}
+        onChange={(evt) => {
+          form.setValue("slackSigningKey", evt.target.value);
+          handleFormValidation();
+        }}
+      />
+
       <div className="form-group">
         <label className="d-block">Environment filters</label>
         <div className="mt-1">
-          <Typeahead
-            id="events-input"
-            labelKey="name"
-            multiple={true}
-            allowNew={false}
-            options={environments.map((env) => {
-              return {
-                id: env,
-                name: env,
-              };
-            })}
-            onChange={(selected: { id: string; name: string }[]) => {
-              form.setValue(
-                "environments",
-                selected.map((v) => v.id)
-              );
+          <MultiSelectField
+            helpText="Only receive notifications for matching environments."
+            value={form.watch("environments")}
+            options={environments.map((env) => ({
+              label: env,
+              value: env,
+            }))}
+            onChange={(value: string[]) => {
+              form.setValue("environments", value);
               handleFormValidation();
             }}
-            selected={form
-              .watch("environments")
-              .map((v) => ({ id: v, name: v }))}
-            placeholder="Choose environments"
-            positionFixed={true}
           />
-          <small className="text-muted">
-            Only receive notifications for matching environments.
-          </small>
         </div>
       </div>
 
-      {/* TODO: Make projects plural */}
-      {/*<div className="form-group">*/}
-      {/*  <label className="d-block">Project filters</label>*/}
-      {/*  <div className="mt-1">*/}
-      {/*    <Typeahead*/}
-      {/*      id="project-input"*/}
-      {/*      labelKey="name"*/}
-      {/*      multiple={false}*/}
-      {/*      allowNew={false}*/}
-      {/*      options={projects}*/}
-      {/*      onChange={(selected: { id: string; name: string }[]) => {*/}
-      {/*        form.setValue("project", selected.map((v) => v.id)[0] || "");*/}
-      {/*        handleFormValidation();*/}
-      {/*      }}*/}
-      {/*      selected={form.watch("projects").map((v) => ({ id: v, name: v }))}*/}
-      {/*      placeholder="Choose project"*/}
-      {/*      positionFixed={true}*/}
-      {/*    />*/}
-      {/*    <small className="text-muted">*/}
-      {/*      Only receive notifications for matching projects.*/}
-      {/*    </small>*/}
-      {/*  </div>*/}
-      {/*</div>*/}
+      <div className="form-group">
+        <label className="d-block">Project filters</label>
+        <div className="mt-1">
+          <MultiSelectField
+            helpText="Only receive notifications for matching projects."
+            value={form.watch("projects")}
+            options={projects.map(({ name, id }) => ({
+              label: name,
+              value: id,
+            }))}
+            onChange={(value: string[]) => {
+              form.setValue("projects", value);
+              handleFormValidation();
+            }}
+          />
+        </div>
+      </div>
 
       <div className="form-group">
         <label className="d-block">Tag filters</label>
