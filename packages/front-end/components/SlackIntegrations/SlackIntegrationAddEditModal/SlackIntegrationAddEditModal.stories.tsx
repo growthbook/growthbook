@@ -64,3 +64,41 @@ export const Create = () => {
     />
   );
 };
+
+export const Edit = () => {
+  return (
+    <SlackIntegrationAddEditModal
+      environments={["staging", "production", "development"]}
+      isOpen={true}
+      mode={{
+        mode: "edit",
+        id: "sli-abc123",
+        data: {
+          name: "My 2nd Integration",
+          description: "Alerts in the #general channel",
+          environments: ["production"],
+          events: ["feature.created"],
+          projects: ["prj_abc123"],
+          tags: ["red", "purple"],
+          slackAppId: "A04***",
+          slackSigningKey: "abc**********",
+        },
+      }}
+      onCreate={action("onCreate")}
+      onUpdate={action("onUpdate")}
+      onClose={action("onClose")}
+      tagOptions={tagOptions}
+      projects={[
+        {
+          id: "prj_abc123",
+          name: "Onboarding v2",
+        },
+        {
+          id: "prj_xyz987",
+          name: "Checkout v5",
+        },
+      ]}
+      error={null}
+    />
+  );
+};

@@ -6,9 +6,9 @@ import React, {
   useState,
 } from "react";
 import { FaPlug } from "react-icons/fa";
+import pick from "lodash/pick";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { TagInterface } from "back-end/types/tag";
-import { pick } from "next/dist/lib/pick";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
