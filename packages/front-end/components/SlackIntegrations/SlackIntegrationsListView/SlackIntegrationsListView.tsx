@@ -8,6 +8,7 @@ import React, {
 import { FaPlug } from "react-icons/fa";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { TagInterface } from "back-end/types/tag";
+import { pick } from "next/dist/lib/pick";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
@@ -20,12 +21,12 @@ import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 type SlackIntegrationsListViewProps = {
-  onEditModalOpen: (data: SlackIntegrationEditParams) => void;
+  onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
   onCreateModalOpen: () => void;
   onModalClose: () => void;
   modalMode: SlackIntegrationModalMode | null;
   onCreate: (data: SlackIntegrationEditParams) => void;
-  onUpdate: (data: SlackIntegrationEditParams) => void;
+  onUpdate: (id: string, data: SlackIntegrationEditParams) => void;
   onDelete: (id: string) => Promise<void>;
   slackIntegrations: SlackIntegrationInterface[];
   modalError: string | null;
@@ -67,7 +68,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
         <SlackIntegrationAddEditModal
           mode={modalMode}
           isOpen={true}
-          onSubmit={modalMode.mode === "create" ? onCreate : onUpdate}
+          onCreate={onCreate}
+          onUpdate={onUpdate}
           error={modalError}
           onClose={onModalClose}
           tagOptions={tagOptions}
@@ -156,10 +158,11 @@ export const SlackIntegrationsListViewContainer = () => {
   ] = useState<SlackIntegrationModalMode | null>();
 
   const handleOnEditModalOpen = useCallback(
-    (data: SlackIntegrationEditParams) => {
+    (id: string, data: SlackIntegrationEditParams) => {
       setModalMode({
         mode: "edit",
         data,
+        id,
       });
     },
     []
@@ -226,9 +229,47 @@ export const SlackIntegrationsListViewContainer = () => {
     [apiCall, mutate]
   );
 
-  const handleUpdate = useCallback(async (data: SlackIntegrationEditParams) => {
-    console.log("TODO: update", data);
-  }, []);
+  const handleUpdate = useCallback(
+    async (id: string, data: SlackIntegrationEditParams) => {
+      setAddEditError(null);
+
+      try {
+        const response = await apiCall<{
+          error?: string;
+          slackIntegration?: SlackIntegrationInterface;
+        }>(`/integrations/slack/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(
+            pick(data, [
+              "name",
+              "description",
+              "projects",
+              "environments",
+              "events",
+              "tags",
+              "slackAppId",
+              "slackSigningKey",
+            ])
+          ),
+        });
+
+        if (response.error) {
+          setAddEditError(
+            `Failed to update Slack integration: ${
+              response.error || "Unknown error"
+            }`
+          );
+        } else {
+          setAddEditError(null);
+          setModalMode(null);
+          mutate();
+        }
+      } catch (e) {
+        setAddEditError(`Failed to update Slack integration: ${e.message}`);
+      }
+    },
+    [apiCall, mutate]
+  );
 
   const environmentSettings = useEnvironments();
   const environments = environmentSettings.map((env) => env.id);

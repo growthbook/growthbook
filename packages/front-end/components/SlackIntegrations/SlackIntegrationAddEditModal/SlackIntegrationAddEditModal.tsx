@@ -26,7 +26,8 @@ type SlackIntegrationAddEditModalProps = {
   tagOptions: TagInterface[];
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: SlackIntegrationEditParams) => void;
+  onCreate: (data: SlackIntegrationEditParams) => void;
+  onUpdate: (id: string, data: SlackIntegrationEditParams) => void;
   mode: SlackIntegrationModalMode;
   error: string | null;
 };
@@ -39,7 +40,8 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
   mode,
   error,
   onClose,
-  onSubmit,
+  onCreate,
+  onUpdate,
 }) => {
   const [ctaEnabled, setCtaEnabled] = useState(false);
 
@@ -60,7 +62,11 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
   });
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    onSubmit(values);
+    if (mode.mode === "edit") {
+      onUpdate(mode.id, values);
+    } else {
+      onCreate(values);
+    }
   });
 
   const modalTitle =

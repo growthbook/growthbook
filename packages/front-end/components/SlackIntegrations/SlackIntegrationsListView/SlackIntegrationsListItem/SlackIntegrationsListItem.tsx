@@ -7,7 +7,7 @@ import { SlackIntegrationEditParams } from "@/components/SlackIntegrations/slack
 type SlackIntegrationsListItemProps = {
   slackIntegration: SlackIntegrationInterface;
   onDelete: () => Promise<void>;
-  onEditModalOpen: (data: SlackIntegrationEditParams) => void;
+  onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
   projectsMap: Record<string, string>;
 };
 
@@ -18,7 +18,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
   projectsMap,
 }) => {
   const onEdit = useCallback(() => {
-    onEditModalOpen(slackIntegration);
+    onEditModalOpen(slackIntegration.id, slackIntegration);
   }, [slackIntegration, onEditModalOpen]);
 
   return (

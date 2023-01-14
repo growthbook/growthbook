@@ -17,5 +17,6 @@ export type SlackIntegrationModalMode =
     }
   | {
       mode: "edit";
+      id: string;
       data: SlackIntegrationEditParams;
     };

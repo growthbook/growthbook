@@ -46,7 +46,8 @@ export const Create = () => {
       environments={["staging", "production", "development"]}
       isOpen={true}
       mode={{ mode: "create" }}
-      onSubmit={action("onSubmit")}
+      onCreate={action("onCreate")}
+      onUpdate={action("onUpdate")}
       onClose={action("onClose")}
       tagOptions={tagOptions}
       projects={[
