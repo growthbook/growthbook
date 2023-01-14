@@ -1,27 +1,10 @@
-import { number, text } from "@storybook/addon-knobs";
 import { action } from "@storybook/addon-actions";
 import { SlackIntegrationAddEditModal } from "./SlackIntegrationAddEditModal";
-import { FeatureEnvironment } from "back-end/types/feature";
 import { TagInterface } from "back-end/types/tag";
 
 export default {
   component: SlackIntegrationAddEditModal,
   title: "SlackIntegration/SlackIntegrationAddEditModal",
-};
-
-const environmentSettings: Record<string, FeatureEnvironment> = {
-  production: {
-    enabled: true,
-    rules: [],
-  },
-  staging: {
-    enabled: false,
-    rules: [],
-  },
-  development: {
-    enabled: true,
-    rules: [],
-  },
 };
 
 const tagOptions: TagInterface[] = [
@@ -60,7 +43,7 @@ const tagOptions: TagInterface[] = [
 export const Create = () => {
   return (
     <SlackIntegrationAddEditModal
-      environmentSettings={environmentSettings}
+      environments={["staging", "production", "development"]}
       isOpen={true}
       mode={{ mode: "create" }}
       onSubmit={action("onSubmit")}

@@ -14,15 +14,14 @@ import Modal from "@/components/Modal";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import TagsInput from "@/components/Tags/TagsInput";
 import { TagInterface } from "back-end/types/tag";
-import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
-import { FeatureEnvironment } from "back-end/types/feature";
+import Field from "@/components/Forms/Field";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
     id: string;
     name: string;
   }[];
-  environmentSettings: Record<string, FeatureEnvironment>;
+  environments: string[];
   tagOptions: TagInterface[];
   isOpen: boolean;
   onClose: () => void;
@@ -33,7 +32,7 @@ type SlackIntegrationAddEditModalProps = {
 
 export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps> = ({
   projects,
-  environmentSettings,
+  environments,
   tagOptions,
   isOpen,
   mode,
@@ -72,6 +71,8 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
   const handleFormValidation = useCallback(() => {
     const formValues = form.getValues();
 
+    console.log(">>> form values", formValues);
+
     const schema = z.object({
       name: z.string().trim().min(2),
       description: z.string().trim().min(0),
@@ -98,41 +99,52 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       error={error}
       ctaEnabled={ctaEnabled}
     >
-      <div className="form-group">
-        <label htmlFor="SlackIntegrationAddEditModal-name">Name</label>
+      <Field
+        label="Name"
+        placeholder="My Slack integration"
+        autoComplete="off"
+        required
+        {...form.register("name")}
+        onChange={(evt) => {
+          form.setValue("name", evt.target.value);
+          handleFormValidation();
+        }}
+      />
 
-        <input
-          className="form-control"
-          type="text"
-          autoComplete="off"
-          placeholder="My Slack integration"
-          id="SlackIntegrationAddEditModal-name"
-          {...form.register("name")}
-          onChange={(evt) => {
-            form.setValue("name", evt.target.value);
-            handleFormValidation();
-          }}
-        />
-      </div>
+      <Field
+        label="Description"
+        placeholder="(optional description)"
+        autoComplete="off"
+        {...form.register("description")}
+        onChange={(evt) => {
+          form.setValue("description", evt.target.value);
+          handleFormValidation();
+        }}
+      />
 
-      <div className="form-group">
-        <label htmlFor="SlackIntegrationAddEditModal-description">
-          Description
-        </label>
+      <Field
+        label="Slack App ID"
+        autoComplete="off"
+        helpText="Copy the Slack App ID from the app's Basic Information page"
+        required
+        {...form.register("slackAppId")}
+        onChange={(evt) => {
+          form.setValue("slackAppId", evt.target.value);
+          handleFormValidation();
+        }}
+      />
 
-        <input
-          className="form-control"
-          type="text"
-          autoComplete="off"
-          placeholder="Notifies about feature changes in #general"
-          id="SlackIntegrationAddEditModal-description"
-          {...form.register("description")}
-          onChange={(evt) => {
-            form.setValue("description", evt.target.value);
-            handleFormValidation();
-          }}
-        />
-      </div>
+      <Field
+        label="Slack Signing Key"
+        autoComplete="off"
+        required
+        helpText="Copy the signing key from the app's Basic Information page"
+        {...form.register("slackSigningKey")}
+        onChange={(evt) => {
+          form.setValue("slackSigningKey", evt.target.value);
+          handleFormValidation();
+        }}
+      />
 
       <div className="form-group">
         <label className="d-block">Event filters</label>
@@ -171,6 +183,63 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       </div>
 
       <div className="form-group">
+        <label className="d-block">Environment filters</label>
+        <div className="mt-1">
+          <Typeahead
+            id="events-input"
+            labelKey="name"
+            multiple={true}
+            allowNew={false}
+            options={environments.map((env) => {
+              return {
+                id: env,
+                name: env,
+              };
+            })}
+            onChange={(selected: { id: string; name: string }[]) => {
+              form.setValue(
+                "environments",
+                selected.map((v) => v.id)
+              );
+              handleFormValidation();
+            }}
+            selected={form
+              .watch("environments")
+              .map((v) => ({ id: v, name: v }))}
+            placeholder="Choose environments"
+            positionFixed={true}
+          />
+          <small className="text-muted">
+            Only receive notifications for matching environments.
+          </small>
+        </div>
+      </div>
+
+      {/* TODO: Make projects plural */}
+      {/*<div className="form-group">*/}
+      {/*  <label className="d-block">Project filters</label>*/}
+      {/*  <div className="mt-1">*/}
+      {/*    <Typeahead*/}
+      {/*      id="project-input"*/}
+      {/*      labelKey="name"*/}
+      {/*      multiple={false}*/}
+      {/*      allowNew={false}*/}
+      {/*      options={projects}*/}
+      {/*      onChange={(selected: { id: string; name: string }[]) => {*/}
+      {/*        form.setValue("project", selected.map((v) => v.id)[0] || "");*/}
+      {/*        handleFormValidation();*/}
+      {/*      }}*/}
+      {/*      selected={form.watch("projects").map((v) => ({ id: v, name: v }))}*/}
+      {/*      placeholder="Choose project"*/}
+      {/*      positionFixed={true}*/}
+      {/*    />*/}
+      {/*    <small className="text-muted">*/}
+      {/*      Only receive notifications for matching projects.*/}
+      {/*    </small>*/}
+      {/*  </div>*/}
+      {/*</div>*/}
+
+      <div className="form-group">
         <label className="d-block">Tag filters</label>
         <div className="mt-1">
           <TagsInput
@@ -187,20 +256,6 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
           <small className="text-muted">
             Only receive notifications for matching tags.
           </small>
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label className="d-block">Environment filters</label>
-        <div className="mt-1">
-          {/* TODO: presentational environment select similar to TagsInput */}
-          {/*<EnvironmentSelect*/}
-          {/*  environmentSettings={environmentSettings}*/}
-          {/*  setValue={(env, on) => {*/}
-          {/*    // environmentSettings[env.id].enabled = on;*/}
-          {/*    // form.setValue("environmentSettings", environmentSettings);*/}
-          {/*  }}*/}
-          {/*/>*/}
         </div>
       </div>
     </Modal>
