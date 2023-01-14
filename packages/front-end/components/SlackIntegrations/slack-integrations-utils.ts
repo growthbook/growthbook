@@ -3,7 +3,7 @@ import { NotificationEventName } from "back-end/src/events/base-types";
 export type SlackIntegrationEditParams = {
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
