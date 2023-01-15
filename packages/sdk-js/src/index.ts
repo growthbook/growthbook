@@ -11,8 +11,20 @@ export type {
   FeatureResultSource,
   JSONValue,
   SubscriptionFunction,
+  FeatureApiResponse,
+  FeatureDefinitions,
+  LoadFeaturesOptions,
+  Polyfills,
+  CacheSettings,
 } from "./types/growthbook";
 
 export type { ConditionInterface } from "./types/mongrule";
+
+export {
+  setPolyfills,
+  resetFeatureRepository,
+  disableBackgroundSync,
+  configureCache,
+} from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";

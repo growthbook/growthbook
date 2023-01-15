@@ -10,6 +10,7 @@ import type {
   JSONValue,
   WidenPrimitives,
   RealtimeUsageData,
+  LoadFeaturesOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -22,6 +23,7 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
+import { loadFeatures, primeCache, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -58,6 +60,17 @@ export class GrowthBook {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
+
+    if (this.context.clientKey) {
+      primeCache(this);
+    }
+  }
+
+  public async loadFeatures(options: LoadFeaturesOptions = {}): Promise<void> {
+    if (!this.context.clientKey) {
+      throw new Error("Missing clientKey");
+    }
+    await loadFeatures(this, options);
   }
 
   private render() {
@@ -73,9 +86,10 @@ export class GrowthBook {
 
   public async setEncryptedFeatures(
     encryptedString: string,
-    encryptionKey: string,
+    encryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
+    encryptionKey = encryptionKey || this.context.encryptionKey || "";
     subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
     if (!subtle) {
       throw new Error("No SubtleCrypto implementation found");
@@ -150,6 +164,7 @@ export class GrowthBook {
     if (this._rtTimer) {
       clearTimeout(this._rtTimer);
     }
+    unsubscribe(this);
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
