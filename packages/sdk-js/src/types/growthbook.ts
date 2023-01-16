@@ -164,12 +164,18 @@ export type Polyfills = {
   SubtleCrypto: any;
   // eslint-disable-next-line
   EventSource: any;
+  localStorage: LocalStorageCompat;
 };
 
+export interface LocalStorageCompat {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+}
+
 export type CacheSettings = {
-  localStorageKey?: string;
-  staleTTL?: number;
-  pollingInterval?: number;
+  backgroundSync: boolean;
+  cacheKey: string;
+  staleTTL: number;
 };
 
 export type ApiHost = string;
@@ -177,6 +183,11 @@ export type ClientKey = string;
 export type RepositoryKey = `${ApiHost}||${ClientKey}`;
 
 export type LoadFeaturesOptions = {
-  autoUpdate?: boolean;
+  autoRefresh?: boolean;
   timeout?: number;
+};
+
+export type RefreshFeaturesOptions = {
+  timeout?: number;
+  skipCache?: boolean;
 };

@@ -11,6 +11,7 @@ import type {
   WidenPrimitives,
   RealtimeUsageData,
   LoadFeaturesOptions,
+  RefreshFeaturesOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -23,7 +24,12 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
-import { loadFeatures, primeCache, unsubscribe } from "./feature-repository";
+import {
+  loadFeatures,
+  primeCache,
+  refreshFeatures,
+  unsubscribe,
+} from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -71,6 +77,15 @@ export class GrowthBook {
       throw new Error("Missing clientKey");
     }
     await loadFeatures(this, options);
+  }
+
+  public async refreshFeatures(
+    options: RefreshFeaturesOptions = {}
+  ): Promise<void> {
+    if (!this.context.clientKey) {
+      throw new Error("Missing clientKey");
+    }
+    await refreshFeatures(this, options);
   }
 
   private render() {

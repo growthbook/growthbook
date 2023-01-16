@@ -1,12 +1,14 @@
 import {
   ApiHost,
+  CacheSettings,
   ClientKey,
   FeatureApiResponse,
   LoadFeaturesOptions,
   Polyfills,
+  RefreshFeaturesOptions,
   RepositoryKey,
 } from "./types/growthbook";
-import type { CacheSettings, Context, GrowthBook } from ".";
+import type { Context, GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -18,17 +20,17 @@ type ScopedChannel = {
   listener: (event: MessageEvent<string>) => void;
 };
 
-// Config settings that can be set via exported functions
-let backgroundSyncEnabled = true;
+// Config settings
+const cacheSettings: CacheSettings = {
+  staleTTL: 1000 * 60,
+  cacheKey: "gbFeaturesCache",
+  backgroundSync: true,
+};
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
   SubtleCrypto: globalThis.crypto?.subtle,
   EventSource: globalThis.EventSource,
-};
-const cacheSettings = {
-  localStorageKey: "growthbook:cache:features",
-  staleTTL: 1000 * 60, // 1 minute
-  pollingInterval: 5000,
+  localStorage: globalThis.localStorage,
 };
 
 // Global state
@@ -40,34 +42,107 @@ const activeFetches: Map<
   Promise<FeatureApiResponse>
 > = new Map();
 const streams: Map<RepositoryKey, ScopedChannel> = new Map();
-const autoUpdateKeys: Set<RepositoryKey> = new Set();
 const supportsSSE: Set<RepositoryKey> = new Set();
-// eslint-disable-next-line
-let pollingTimer: any;
 
 // Public functions
-export function setPolyfills(overrides: Partial<Polyfills>) {
+export function setPolyfills(overrides: Partial<Polyfills>): void {
   Object.assign(polyfills, overrides);
 }
-export function configureCache(overrides: CacheSettings) {
+export function configureCache(overrides: Partial<CacheSettings>): void {
   Object.assign(cacheSettings, overrides);
+  if (!cacheSettings.backgroundSync) {
+    clearAutoRefresh();
+  }
 }
-export function disableBackgroundSync() {
-  backgroundSyncEnabled = false;
-  clearAutoUpdates();
-}
-export function resetFeatureRepository() {
-  cache.clear();
-  cacheInitialized = false;
-  activeFetches.clear();
-  clearAutoUpdates();
 
-  if (globalThis.localStorage) {
-    try {
-      globalThis.localStorage.removeItem(cacheSettings.localStorageKey);
-    } catch (e) {
-      // Ignore localStorage errors
+export async function clearCache(): Promise<void> {
+  cache.clear();
+  activeFetches.clear();
+  clearAutoRefresh();
+  cacheInitialized = false;
+  await updatePersistentCache();
+}
+
+export async function primeCache(
+  instance: GrowthBook
+): Promise<FeatureApiResponse | null> {
+  const [apiHost, clientKey, enableDevMode] = getApiHostAndKey(instance);
+  if (!clientKey) return null;
+  const key: RepositoryKey = `${apiHost}||${clientKey}`;
+  await initializeCache();
+  const existing = cache.get(key);
+  if (existing && !enableDevMode) {
+    // Reload features in the backgroud if stale
+    if (existing.staleAt < new Date()) {
+      fetchFeatures(apiHost, clientKey);
     }
+    // Otherwise, if we don't need to refresh now, start a background sync
+    else {
+      startAutoRefresh(apiHost, clientKey, key);
+    }
+    return existing.data;
+  } else {
+    const data = await fetchFeatures(apiHost, clientKey);
+    return data;
+  }
+}
+
+export async function refreshFeatures(
+  instance: GrowthBook,
+  options: RefreshFeaturesOptions = {}
+): Promise<void> {
+  const [apiHost, clientKey, enableDevMode] = getApiHostAndKey(instance);
+  if (!clientKey) return;
+  const key: RepositoryKey = `${apiHost}||${clientKey}`;
+
+  // If we're ok using a fresh cached value (not stale)
+  await initializeCache();
+  if (!enableDevMode && !options.skipCache) {
+    const existing = cache.get(key);
+    if (existing && existing.staleAt > new Date()) {
+      await setFeaturesOnInstance(instance, existing.data);
+      return;
+    }
+  }
+
+  const data = await promiseTimeout(
+    fetchFeatures(apiHost, clientKey),
+    options.timeout
+  );
+  data && (await setFeaturesOnInstance(instance, data));
+}
+
+export async function loadFeatures(
+  instance: GrowthBook,
+  options: LoadFeaturesOptions = {}
+): Promise<void> {
+  const [apiHost, clientKey] = getApiHostAndKey(instance);
+  if (!clientKey) return;
+  const key: RepositoryKey = `${apiHost}||${clientKey}`;
+  if (!key) return;
+
+  // Fetch features with an optional timeout
+  const data = await promiseTimeout(primeCache(instance), options.timeout);
+  if (data) {
+    await setFeaturesOnInstance(instance, data);
+  }
+  if (options.autoRefresh) {
+    subscribe(key, instance);
+  }
+}
+export function unsubscribe(instance: GrowthBook): void {
+  subscribedInstances.forEach((s) => s.delete(instance));
+}
+
+// Private functions
+async function updatePersistentCache() {
+  try {
+    await polyfills.localStorage.setItem(
+      cacheSettings.cacheKey,
+      JSON.stringify(Array.from(cache.entries()))
+    );
+  } catch (e) {
+    // Ignore localStorage errors
   }
 }
 
@@ -78,55 +153,6 @@ function getApiHostAndKey(instance: GrowthBook): [ApiHost, ClientKey, boolean] {
   const clientKey = ctx.clientKey || "";
   return [apiHost.replace(/\/*$/, ""), clientKey, !!ctx.enableDevMode];
 }
-
-export async function primeCache(
-  instance: GrowthBook
-): Promise<FeatureApiResponse | null> {
-  const [apiHost, clientKey, enableDevMode] = getApiHostAndKey(instance);
-  if (!clientKey) return null;
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
-  initializeCache();
-  const existing = cache.get(key);
-  if (existing && !enableDevMode) {
-    // Reload features in the backgroud if stale
-    if (existing.staleAt < new Date()) {
-      fetchFeatures(apiHost, clientKey);
-    }
-    // Otherwise, if we don't need to refresh now, start a background sync
-    else if (backgroundSyncEnabled) {
-      startAutoUpdate(apiHost, clientKey, key);
-    }
-    return existing.data;
-  } else {
-    const data = await fetchFeatures(apiHost, clientKey);
-    return data;
-  }
-}
-
-export async function loadFeatures(
-  instance: GrowthBook,
-  options: LoadFeaturesOptions = {}
-) {
-  const [apiHost, clientKey] = getApiHostAndKey(instance);
-  if (!clientKey) return [null, null];
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
-  if (!key) return;
-
-  // Fetch features with an optional timeout
-  const data = await promiseTimeout(primeCache(instance), options.timeout);
-
-  if (data) {
-    await setFeaturesOnInstance(instance, data);
-  }
-  if (options.autoUpdate) {
-    subscribe(key, instance);
-  }
-}
-export function unsubscribe(instance: GrowthBook) {
-  subscribedInstances.forEach((s) => s.delete(instance));
-}
-
-// Private functions
 
 // Guarantee the promise always resolves within {timeout} ms
 // Resolved value will be `null` when there's an error or it takes too long
@@ -155,21 +181,20 @@ function promiseTimeout<T>(
 }
 
 // Subscribe a GrowthBook instance to feature changes
-function subscribe(key: RepositoryKey, instance: GrowthBook) {
+function subscribe(key: RepositoryKey, instance: GrowthBook): void {
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
 }
 
 // Populate cache from localStorage (if available)
-function initializeCache() {
+async function initializeCache(): Promise<void> {
   if (cacheInitialized) return;
   cacheInitialized = true;
-
-  if (globalThis.localStorage) {
+  if (polyfills.localStorage) {
     try {
-      const value = globalThis.localStorage.getItem(
-        cacheSettings.localStorageKey
+      const value = await polyfills.localStorage.getItem(
+        cacheSettings.cacheKey
       );
       if (value) {
         const parsed: [RepositoryKey, CacheEntry][] = JSON.parse(value);
@@ -189,7 +214,7 @@ function initializeCache() {
 }
 
 // Called whenever new features are fetched from the API
-function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse) {
+function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
@@ -205,17 +230,8 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse) {
     version,
     staleAt,
   });
-  // Update local storage
-  if (globalThis.localStorage) {
-    try {
-      globalThis.localStorage.setItem(
-        cacheSettings.localStorageKey,
-        JSON.stringify(Array.from(cache.entries()))
-      );
-    } catch (e) {
-      // Ignore localStorage errors
-    }
-  }
+  // Update local storage (don't await this, just update asynchronously)
+  updatePersistentCache();
 
   // Update features for all subscribed GrowthBook instances
   subscribedInstances
@@ -226,7 +242,7 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse) {
 async function setFeaturesOnInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
-) {
+): Promise<void> {
   await (data.encryptedFeatures
     ? instance.setEncryptedFeatures(
         data.encryptedFeatures,
@@ -236,7 +252,10 @@ async function setFeaturesOnInstance(
     : instance.setFeatures(data.features));
 }
 
-async function fetchFeatures(apiHost: ApiHost, clientKey: ClientKey) {
+async function fetchFeatures(
+  apiHost: ApiHost,
+  clientKey: ClientKey
+): Promise<FeatureApiResponse> {
   const key: RepositoryKey = `${apiHost}||${clientKey}`;
   const endpoint = apiHost + "/api/features/" + clientKey;
 
@@ -252,9 +271,7 @@ async function fetchFeatures(apiHost: ApiHost, clientKey: ClientKey) {
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        if (backgroundSyncEnabled) {
-          startAutoUpdate(apiHost, clientKey, key);
-        }
+        startAutoRefresh(apiHost, clientKey, key);
         return data;
       })
       .catch((e) => {
@@ -269,33 +286,18 @@ async function fetchFeatures(apiHost: ApiHost, clientKey: ClientKey) {
   return await promise;
 }
 
-// Update any expired cache entries, repeat every 5 seconds
-function pollForFeatureChanges() {
-  const now = new Date();
-  autoUpdateKeys.forEach((key) => {
-    // Don't need to poll if this key supports SSE
-    if (supportsSSE.has(key)) return;
-    const existing = cache.get(key);
-    if (existing && existing.staleAt < now) {
-      const [apiHost, clientKey] = key.split("||");
-      fetchFeatures(apiHost, clientKey);
-    }
-  });
-  pollingTimer = setTimeout(
-    pollForFeatureChanges,
-    cacheSettings.pollingInterval
-  );
-}
-
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoUpdate(
+function startAutoRefresh(
   apiHost: ApiHost,
   clientKey: ClientKey,
   key: RepositoryKey
 ) {
-  autoUpdateKeys.add(key);
-  if (supportsSSE.has(key) && polyfills.EventSource) {
+  if (
+    cacheSettings.backgroundSync &&
+    supportsSSE.has(key) &&
+    polyfills.EventSource
+  ) {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
       connection: new polyfills.EventSource(`${apiHost}/sub/${clientKey}`),
@@ -310,20 +312,11 @@ function startAutoUpdate(
     };
     streams.set(key, channel);
     channel.connection.addEventListener("features", channel.listener);
-  } else {
-    // Ensure polling process is running in the background
-    if (!pollingTimer) {
-      pollingTimer = setTimeout(
-        pollForFeatureChanges,
-        cacheSettings.pollingInterval
-      );
-    }
   }
 }
 
-function clearAutoUpdates() {
+function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
-  autoUpdateKeys.clear();
   supportsSSE.clear();
 
   // Stop listening for any SSE events
@@ -337,10 +330,4 @@ function clearAutoUpdates() {
 
   // Remove all references to GrowthBook instances
   subscribedInstances.clear();
-
-  // Stop the polling process
-  if (pollingTimer) {
-    clearTimeout(pollingTimer);
-    pollingTimer = null;
-  }
 }

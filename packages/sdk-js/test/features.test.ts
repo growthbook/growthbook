@@ -2,7 +2,7 @@ import {
   configureCache,
   Context,
   GrowthBook,
-  resetFeatureRepository,
+  clearCache,
   setPolyfills,
 } from "../src";
 
@@ -17,6 +17,12 @@ require("jest-localstorage-mock");
 
 setPolyfills({
   EventSource,
+  localStorage,
+});
+const localStorageCacheKey = "growthbook:cache:features";
+configureCache({
+  staleTTL: 500,
+  cacheKey: localStorageCacheKey,
 });
 
 const mockCallback = (context: Context) => {
@@ -26,6 +32,10 @@ const mockCallback = (context: Context) => {
   context.onFeatureUsage = onFeatureUsage;
   return onFeatureUsage.mock;
 };
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 describe("features", () => {
   it("renders when features are set", () => {
@@ -413,11 +423,7 @@ describe("features", () => {
     expect(growthbook.isOff("feature2")).toEqual(true);
     expect(growthbook.getFeatureValue("feature3", "default")).toEqual("a");
 
-    await new Promise<void>((resolve) => {
-      window.setTimeout(() => {
-        resolve();
-      }, 100);
-    });
+    await sleep(100);
 
     const events = [
       {
@@ -487,18 +493,14 @@ describe("features", () => {
     expect(growthbook.isOn("feature1")).toEqual(true);
     growthbook.destroy();
 
-    await new Promise<void>((resolve) => {
-      window.setTimeout(() => {
-        resolve();
-      }, 100);
-    });
+    await sleep(100);
 
     expect(mock.mock.calls.length).toEqual(0);
     window.fetch = f;
   });
 
   it("debounces fetch requests", async () => {
-    resetFeatureRepository();
+    await clearCache();
 
     // Value from api is "initial"
     const fooVal = "initial";
@@ -547,18 +549,17 @@ describe("features", () => {
     ]);
 
     expect(f.mock.calls.length).toEqual(2);
-    expect(f.mock.calls[0][0]).toEqual(
-      "https://fakeapi.sample.io/api/features/qwerty1234"
-    );
-    expect(f.mock.calls[1][0]).toEqual(
-      "https://fakeapi.sample.io/api/features/other"
-    );
+    const urls = [f.mock.calls[0][0], f.mock.calls[1][0]].sort();
+    expect(urls).toEqual([
+      "https://fakeapi.sample.io/api/features/other",
+      "https://fakeapi.sample.io/api/features/qwerty1234",
+    ]);
 
     expect(growthbook1.evalFeature("foo").value).toEqual("initial");
     expect(growthbook2.evalFeature("foo").value).toEqual("initial");
     expect(growthbook3.evalFeature("foo").value).toEqual("initial");
 
-    resetFeatureRepository();
+    await clearCache();
     growthbook1.destroy();
     growthbook2.destroy();
     growthbook3.destroy();
@@ -568,8 +569,8 @@ describe("features", () => {
     });
   });
 
-  it("uses cache and updates via polling", async () => {
-    resetFeatureRepository();
+  it("uses cache and can refresh manually", async () => {
+    await clearCache();
 
     // Value from api is "initial"
     let fooVal = "initial";
@@ -592,22 +593,17 @@ describe("features", () => {
       fetch: f,
     });
 
-    configureCache({
-      pollingInterval: 100,
-      staleTTL: 500,
-    });
-
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
     });
+    await sleep(100);
     // Initial value of feature should be null
     expect(growthbook.evalFeature("foo").value).toEqual(null);
-
     expect(f.mock.calls.length).toEqual(1);
 
     // Once features are loaded, value should be from the fetch request
-    await growthbook.loadFeatures({ autoUpdate: true });
+    await growthbook.loadFeatures();
     expect(growthbook.evalFeature("foo").value).toEqual("initial");
 
     expect(f.mock.calls.length).toEqual(1);
@@ -621,40 +617,57 @@ describe("features", () => {
       clientKey: "qwerty1234",
     });
     expect(growthbook2.evalFeature("foo").value).toEqual(null);
-    await growthbook2.loadFeatures();
+    await growthbook2.loadFeatures({ autoRefresh: true });
     expect(growthbook2.evalFeature("foo").value).toEqual("initial");
 
-    expect(f.mock.calls.length).toEqual(1);
-
-    // Old instances should also get cached value
-    expect(growthbook.evalFeature("foo").value).toEqual("initial");
-
-    // Wait a bit for cache to expire and polling to update
-    await new Promise((resolve) => setTimeout(resolve, 750));
-
-    expect(f.mock.calls.length).toEqual(2);
-
-    // The instance with `autoUpdate` should now have the new value
-    expect(growthbook.evalFeature("foo").value).toEqual("changed");
-
-    // The instance without `autoUpdate` should continue to have the old value
-    expect(growthbook2.evalFeature("foo").value).toEqual("initial");
-
-    // New instances should get the new value
+    // Instance without autoRefresh
     const growthbook3 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
     });
     expect(growthbook3.evalFeature("foo").value).toEqual(null);
     await growthbook3.loadFeatures();
-    expect(growthbook3.evalFeature("foo").value).toEqual("changed");
+    expect(growthbook3.evalFeature("foo").value).toEqual("initial");
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Old instances should also get cached value
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // Refreshing while cache is fresh should not cause a new network request
+    await growthbook.refreshFeatures();
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Wait a bit for cache to become stale and refresh again
+    await sleep(750);
+    await growthbook.refreshFeatures();
+    expect(f.mock.calls.length).toEqual(2);
+
+    // The instance being updated should get the new value
+    expect(growthbook.evalFeature("foo").value).toEqual("changed");
+
+    // The instance with `autoRefresh` should now have the new value
+    expect(growthbook2.evalFeature("foo").value).toEqual("changed");
+
+    // The instance without `autoRefresh` should continue to have the old value
+    expect(growthbook3.evalFeature("foo").value).toEqual("initial");
+
+    // New instances should get the new value
+    const growthbook4 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    expect(growthbook4.evalFeature("foo").value).toEqual(null);
+    await growthbook4.loadFeatures();
+    expect(growthbook4.evalFeature("foo").value).toEqual("changed");
 
     expect(f.mock.calls.length).toEqual(2);
 
-    resetFeatureRepository();
+    await clearCache();
     growthbook.destroy();
     growthbook2.destroy();
     growthbook3.destroy();
+    growthbook4.destroy();
 
     setPolyfills({
       fetch: null,
@@ -662,10 +675,9 @@ describe("features", () => {
   });
 
   it("uses localStorage cache", async () => {
-    resetFeatureRepository();
-
+    await clearCache();
     localStorage.setItem(
-      "growthbook:cache:features",
+      localStorageCacheKey,
       JSON.stringify([
         [
           "https://fakeapi.sample.io||qwerty1234",
@@ -701,13 +713,8 @@ describe("features", () => {
           }),
       });
     });
-
     setPolyfills({
       fetch: f,
-    });
-    configureCache({
-      pollingInterval: 100,
-      staleTTL: 500,
     });
 
     const growthbook = new GrowthBook({
@@ -718,24 +725,27 @@ describe("features", () => {
     expect(growthbook.evalFeature("foo").value).toEqual(null);
 
     // Once features are loaded, value should be from localStorage
-    await growthbook.loadFeatures({ autoUpdate: true });
+    await growthbook.loadFeatures({ autoRefresh: true });
     expect(growthbook.evalFeature("foo").value).toEqual("localstorage");
 
     expect(f.mock.calls.length).toEqual(0);
 
-    // Wait for localStorage entry to expire and background sync to pick up api value
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    // Wait for localStorage entry to expire and refresh features
+    await sleep(600);
+    await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(1);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
 
+    // If api has a new version, refreshFeatures should pick it up
     apiValue = "new";
     apiVersion = "2020-02-01T00:00:00Z";
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await sleep(600);
+    await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(2);
     expect(growthbook.evalFeature("foo").value).toEqual("new");
 
     const lsValue = JSON.parse(
-      localStorage.getItem("growthbook:cache:features") || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]"
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
@@ -746,7 +756,7 @@ describe("features", () => {
       },
     });
 
-    resetFeatureRepository();
+    await clearCache();
     growthbook.destroy();
 
     setPolyfills({
@@ -755,7 +765,7 @@ describe("features", () => {
   });
 
   it("updates features based on SSE", async () => {
-    resetFeatureRepository();
+    await clearCache();
 
     const f = jest.fn(() => {
       return Promise.resolve({
@@ -810,7 +820,7 @@ describe("features", () => {
 
     await Promise.all([
       growthbook.loadFeatures(),
-      growthbook2.loadFeatures({ autoUpdate: true }),
+      growthbook2.loadFeatures({ autoRefresh: true }),
     ]);
 
     expect(f.mock.calls.length).toEqual(1);
@@ -819,14 +829,14 @@ describe("features", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("initial");
     expect(growthbook2.evalFeature("foo").value).toEqual("initial");
 
-    // After SSE update received, instance with autoUpdate should have new value
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // After SSE update received, instance with autoRefresh should have new value
+    await sleep(1000);
     expect(growthbook.evalFeature("foo").value).toEqual("initial");
     expect(growthbook2.evalFeature("foo").value).toEqual("changed");
 
     expect(f.mock.calls.length).toEqual(1);
 
-    resetFeatureRepository();
+    await clearCache();
     growthbook.destroy();
     growthbook2.destroy();
 

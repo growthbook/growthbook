@@ -15,16 +15,12 @@ export type {
   FeatureDefinitions,
   LoadFeaturesOptions,
   Polyfills,
+  LocalStorageCompat,
   CacheSettings,
 } from "./types/growthbook";
 
 export type { ConditionInterface } from "./types/mongrule";
 
-export {
-  setPolyfills,
-  resetFeatureRepository,
-  disableBackgroundSync,
-  configureCache,
-} from "./feature-repository";
+export { setPolyfills, clearCache, configureCache } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
