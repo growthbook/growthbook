@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import {
   DataSourceBase,
   DataSourceInterface,
@@ -16,7 +18,13 @@ import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
 
 const currentDate = new Date();
+const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter
+const startDate = new Date(endDateString);
+startDate.setDate(startDate.getDate() - 90); // its ok if start date is "too early" for sample data
+const endDate = new Date(endDateString); // but end it a bit early so we know it is actually filtering
+
 const USER_ID_TYPE = "user_id";
+const OUTPUT_DIR = "/tmp/json";
 
 // import experimentOverrides
 import experimentOverridesData from "./experiments.json";
@@ -61,8 +69,8 @@ const engines: DataSourceType[] = [
 ];
 
 const baseExperimentPhase: ExperimentPhase = {
-  dateStarted: currentDate, // TODO: change date
-  dateEnded: currentDate, // TODO: change date
+  dateStarted: startDate,
+  dateEnded: endDate,
   phase: "main",
   reason: "",
   coverage: 1,
@@ -150,7 +158,7 @@ const allActivationMetrics: MetricInterface[] = [
     type: "binomial",
     ignoreNulls: false,
     sql:
-      "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM sample.events\nWHERE event = 'Cart Loaded'",
+      "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
 ];
 
@@ -178,7 +186,7 @@ function buildDimension(exp: TestExperimentOverride): Dimension | null {
         datasource: "",
         userIdType: USER_ID_TYPE,
         name: exp.dimensionMetric,
-        sql: `SELECT DISTINCT user_id, ${exp.dimensionMetric} FROM sample.orders`, // lazy way to build user table
+        sql: `SELECT DISTINCT user_id, ${exp.dimensionMetric} FROM orders`, // lazy way to build user table
         dateCreated: null,
         dateUpdated: null,
       },
@@ -202,7 +210,7 @@ function buildSegment(exp: TestExperimentOverride): SegmentInterface | null {
       userIdType: USER_ID_TYPE,
       name: exp.segment,
       // TODO: fake date trunc just to avoid exporting dateTrunc from SqlIntegration
-      sql: `SELECT DISTINCT\nuserid as user_id,'2022-01-01' as date\nFROM sample.experiment_viewed\nWHERE browser = 'Chrome'`,
+      sql: `SELECT DISTINCT\nuserid as user_id,'2022-01-01' as date\nFROM experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
       dateUpdated: currentDate,
     };
@@ -260,5 +268,6 @@ engines.forEach((engine) => {
   });
 });
 
-// TODO: output in a way to pass into Python script
-console.log(JSON.stringify(testCases, null, 2));
+console.log(`Writing queries.json to '${OUTPUT_DIR}'...`);
+fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+fs.writeFileSync(`${OUTPUT_DIR}/queries.json`, JSON.stringify(testCases));
