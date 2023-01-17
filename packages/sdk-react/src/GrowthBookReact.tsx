@@ -7,6 +7,7 @@ import type {
   JSONValue,
   FeatureDefinition,
   Context,
+  WidenPrimitives,
 } from "@growthbook/growthbook";
 import { GrowthBook } from "@growthbook/growthbook";
 
@@ -99,8 +100,23 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
 export function useFeature<T extends JSONValue = any>(
   id: string
 ): FeatureResult<T | null> {
-  const { growthbook } = React.useContext(GrowthBookContext);
+  const growthbook = useGrowthBook();
   return feature(id, growthbook);
+}
+
+export function useFeatureIsOn(id: string): boolean {
+  const growthbook = useGrowthBook();
+  return growthbook ? growthbook.isOn(id) : false;
+}
+
+export function useFeatureValue<T extends JSONValue = any>(
+  id: string,
+  fallback: T
+): WidenPrimitives<T> {
+  const growthbook = useGrowthBook();
+  return growthbook
+    ? growthbook.getFeatureValue(id, fallback)
+    : (fallback as WidenPrimitives<T>);
 }
 
 export function useGrowthBook() {

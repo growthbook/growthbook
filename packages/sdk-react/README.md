@@ -74,17 +74,17 @@ export default function App() {
 
 There are a few ways to use feature flags in GrowthBook:
 
-#### useFeature hook
+#### Feature Hooks
 
 ```tsx
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeatureValue, useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export default function OtherComponent() {
-  // Boolean on/off flags
-  const newLogin = useFeature("new-login-form").on;
+  // Boolean on/off features
+  const newLogic = useFeatureIsOn("new-login-form");
 
-  // Multivariate or string/JSON values with a fallback
-  const buttonColor = useFeature("login-button-color").value ?? "blue";
+  // String/Number/JSON features with a fallback value
+  const buttonColor = useFeatureValue("login-button-color", "blue");
 
   if (newLogin) {
     return <NewLogin color={buttonColor} />;
@@ -94,15 +94,17 @@ export default function OtherComponent() {
 }
 ```
 
-#### IfFeatureEnabled component
+#### Feature Wrapper Components
 
 ```tsx
-import { IfFeatureEnabled } from "@growthbook/growthbook-react";
+import { IfFeatureEnabled, FeatureString } from "@growthbook/growthbook-react";
 
 export default function OtherComponent() {
   return (
     <div>
-      <h1>Hello!</h1>
+      <h1>
+        <FeatureString feature="site-h1" default="My Site" />
+      </h1>
       <IfFeatureEnabled feature="welcome-message">
         <p>Welcome to our site!</p>
       </IfFeatureEnabled>
@@ -111,33 +113,30 @@ export default function OtherComponent() {
 }
 ```
 
-#### FeatureString component
-
-```tsx
-import { FeatureString } from "@growthbook/growthbook-react";
-
-export default function OtherComponent() {
-  return (
-    <div>
-      <h1>
-        <FeatureString feature="site-h1" default="My Site" />
-      </h1>
-    </div>
-  );
-}
-```
-
 #### useGrowthBook hook
 
-If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook:
+If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook.
 
-```tsx
+One example is updating targeting attributes when a user logs in:
+
+```jsx
 import { useGrowthBook } from "@growthbook/growthbook-react";
 
-export default function OtherComponent() {
-  // Identical to: const feature = useFeature("my-feature")
-  const gb = useGrowthBook();
-  const feature = gb.evalFeature("my-feature");
+export default function Auth() {
+  const growthbook = useGrowthBook();
+
+  const user = useUser();
+  useEffect(() => {
+    if (!user || !growthbook) return;
+    growthbook.setAttributes({
+      loggedIn: true,
+      id: user.id,
+      company: user.company,
+      isPro: user.plan === "pro"
+    })
+  }, [user, growthbook])
+
+  ...
 }
 ```
 

@@ -18,6 +18,7 @@ export type {
   JSONValue,
   SubscriptionFunction,
   LocalStorageCompat,
+  WidenPrimitives,
 } from "./types/growthbook";
 
 export type { ConditionInterface } from "./types/mongrule";
