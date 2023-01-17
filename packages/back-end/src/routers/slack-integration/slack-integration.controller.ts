@@ -88,7 +88,7 @@ export const getSlackIntegration = async (
 type CreateSlackIntegrationRequest = AuthRequest<{
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
@@ -118,7 +118,7 @@ export const postSlackIntegration = async (
     events,
     description,
     environments,
-    project,
+    projects,
     slackAppId,
     slackSigningKey,
     tags,
@@ -130,7 +130,7 @@ export const postSlackIntegration = async (
     events,
     description,
     environments,
-    project,
+    projects,
     slackAppId,
     slackSigningKey,
     tags,
@@ -148,7 +148,7 @@ type PutSlackIntegrationRequest = AuthRequest<
   {
     name: string;
     description: string;
-    project: string | null;
+    projects: string[];
     environments: string[];
     events: NotificationEventName[];
     tags: string[];
@@ -180,7 +180,7 @@ export const putSlackIntegration = async (
     events,
     description,
     environments,
-    project,
+    projects,
     slackAppId,
     slackSigningKey,
     tags,
@@ -196,7 +196,7 @@ export const putSlackIntegration = async (
       events,
       description,
       environments,
-      project,
+      projects,
       slackAppId,
       slackSigningKey,
       tags,

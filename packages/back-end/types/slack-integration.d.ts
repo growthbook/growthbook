@@ -7,7 +7,7 @@ export interface SlackIntegrationInterface {
   description: string;
   dateCreated: Date;
   dateUpdated: Date;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];

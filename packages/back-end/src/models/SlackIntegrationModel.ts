@@ -37,9 +37,9 @@ const slackIntegrationSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
-  project: {
-    type: String,
-    required: false,
+  projects: {
+    type: [String],
+    required: true,
   },
   environments: {
     type: [String],
@@ -106,7 +106,7 @@ type CreateOptions = {
   organizationId: string;
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
@@ -119,7 +119,7 @@ export const createSlackIntegration = async ({
   organizationId,
   name,
   description,
-  project,
+  projects,
   environments,
   events,
   tags,
@@ -136,7 +136,7 @@ export const createSlackIntegration = async ({
     organizationId,
     name,
     description,
-    project,
+    projects,
     environments,
     events,
     tags,
@@ -315,7 +315,7 @@ type UpdateOptions = {
 type UpdateAttributes = {
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
@@ -340,7 +340,7 @@ export const updateSlackIntegration = async (
         ...pick(updates, [
           "name",
           "description",
-          "project",
+          "projects",
           "environments",
           "events",
           "tags",
