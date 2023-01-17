@@ -18,7 +18,7 @@ export const handleFeatureEventForSlack = async (
 
   const tags = getTagsForFeatureEvent(featureEvent);
   const environments = getEnvironmentsForFeatureEvent(featureEvent);
-  const projects = getProjectForFeatureEvent(featureEvent);
+  const projects = getProjectsForFeatureEvent(featureEvent);
 
   const slackIntegrations = await getSlackIntegrationsForFilters({
     organizationId,
@@ -35,7 +35,11 @@ export const handleFeatureEventForSlack = async (
   console.log("🔵 handleFeatureEvent -> slackIntegrations", slackIntegrations);
 };
 
-const getProjectForFeatureEvent = (
+/**
+ * Gets current and previous projects
+ * @param featureEvent
+ */
+const getProjectsForFeatureEvent = (
   featureEvent:
     | FeatureCreatedNotificationEvent
     | FeatureUpdatedNotificationEvent
