@@ -5,6 +5,7 @@ import {
 } from "../../base-events";
 import uniq from "lodash/uniq";
 import { getSlackIntegrationsForFilters } from "../../../models/SlackIntegrationModel";
+import { FeatureEnvironment } from "../../../../types/feature";
 
 export const handleFeatureEventForSlack = async (
   organizationId: string,
@@ -70,6 +71,10 @@ const getProjectsForFeatureEvent = (
   }
 };
 
+/**
+ * Gets all current and previous tags for the event
+ * @param featureEvent
+ */
 const getTagsForFeatureEvent = (
   featureEvent:
     | FeatureCreatedNotificationEvent
@@ -92,8 +97,27 @@ const getTagsForFeatureEvent = (
   }
 };
 
-// TODO: Update to include environment changed OR environment enabled
+/**
+ * The relevant environments are any environments that are either currently enabled
+ * or were previously enabled
+ * @param featureEvent
+ */
 const getEnvironmentsForFeatureEvent = (
+  featureEvent:
+    | FeatureCreatedNotificationEvent
+    | FeatureUpdatedNotificationEvent
+    | FeatureDeletedNotificationEvent
+): string[] => {
+  return getEnabledEnvironmentsForEvent(featureEvent);
+};
+
+/**
+ * Returns a list of the environments that are enabled for the event.
+ * For events with multiple states (e.g. "feature.updated"), it will include environments
+ * that are enabled in any of the available states (e.g. both `previous` and `current`)
+ * @param featureEvent
+ */
+const getEnabledEnvironmentsForEvent = (
   featureEvent:
     | FeatureCreatedNotificationEvent
     | FeatureUpdatedNotificationEvent
@@ -101,14 +125,36 @@ const getEnvironmentsForFeatureEvent = (
 ): string[] => {
   switch (featureEvent.event) {
     case "feature.created":
+      return getEnabledEnvironmentsForEnvironmentSettings(
+        featureEvent.data.current.environmentSettings
+      );
+
     case "feature.updated":
-      return (
-        Object.keys(featureEvent.data.current.environmentSettings || {}) || []
+      return uniq(
+        getEnabledEnvironmentsForEnvironmentSettings(
+          featureEvent.data.previous.environmentSettings
+        ).concat(
+          getEnabledEnvironmentsForEnvironmentSettings(
+            featureEvent.data.current.environmentSettings
+          )
+        )
       );
 
     case "feature.deleted":
-      return (
-        Object.keys(featureEvent.data.previous.environmentSettings || {}) || []
+      return getEnabledEnvironmentsForEnvironmentSettings(
+        featureEvent.data.previous.environmentSettings
       );
   }
+};
+
+const getEnabledEnvironmentsForEnvironmentSettings = (
+  environmentSettings: Record<string, FeatureEnvironment>
+): string[] => {
+  if (!environmentSettings) {
+    return [];
+  }
+
+  return Object.keys(environmentSettings).filter(
+    (env) => environmentSettings[env]?.enabled
+  );
 };
