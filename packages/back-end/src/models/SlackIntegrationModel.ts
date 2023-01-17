@@ -187,6 +187,122 @@ export const getSlackIntegration = async ({
   }
 };
 
+type GetForEventOptions = {
+  organizationId: string;
+  eventName: NotificationEventName;
+  environments: string[];
+  tags: string[];
+  projects: string[];
+};
+
+/**
+ * Filters by the following:
+ *  eventName:
+ *    If the integration's events includes the provided event, or
+ *    if the integration does not specify events,
+ *    it will be included.
+ *  environments:
+ *    If the integration's environments intersects with the integration's environments, or
+ *    if the integration does not specify environments,
+ *    it will be included.
+ *  tags:
+ *    If the integration's tags intersects with the integration's tags, or
+ *    if the integration does not specify tags,
+ *    it will be included.
+ *  projects:
+ *    If the integration's projects intersects with the integration's projects, or
+ *    if the integration does not specify projects,
+ *    it will be included.
+ * @param organizationId
+ * @param eventName
+ * @param environments
+ * @param tags
+ * @param projects
+ */
+export const getSlackIntegrationsForFilters = async ({
+  organizationId,
+  eventName,
+  environments,
+  tags,
+  projects,
+}: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
+  try {
+    const docs = await SlackIntegrationModel.find({
+      organizationId,
+      $and: [
+        // Provided event or empty event filters
+        {
+          $or: [
+            {
+              events: {
+                $in: [eventName],
+              },
+            },
+            {
+              events: {
+                $size: 0,
+              },
+            },
+          ],
+        },
+
+        // intersecting environments or empty environment filters
+        {
+          $or: [
+            {
+              environments: {
+                $in: environments,
+              },
+            },
+            {
+              environments: {
+                $size: 0,
+              },
+            },
+          ],
+        },
+
+        // intersecting tags or empty tags filters
+        {
+          $or: [
+            {
+              tags: {
+                $in: tags,
+              },
+            },
+            {
+              tags: {
+                $size: 0,
+              },
+            },
+          ],
+        },
+
+        // intersecting projects or empty projects filters
+        {
+          $or: [
+            {
+              projects: {
+                $in: projects,
+              },
+            },
+            {
+              projects: {
+                $size: 0,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    return docs.map(toInterface);
+  } catch (e) {
+    logger.error(e, "getSlackIntegrationsForEvent");
+    return null;
+  }
+};
+
 // endregion Read
 
 // region Update
