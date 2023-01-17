@@ -46,6 +46,7 @@ export class GrowthBook {
   private subscriptions = new Set<SubscriptionFunction>();
   private _rtQueue: RealtimeUsageData[] = [];
   private _rtTimer = 0;
+  public ready = false;
   private assigned = new Map<
     string,
     {
@@ -61,6 +62,10 @@ export class GrowthBook {
 
   constructor(context: Context = {}) {
     this.context = context;
+
+    if (this.context.features) {
+      this.ready = true;
+    }
 
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
@@ -96,6 +101,7 @@ export class GrowthBook {
 
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this.context.features = features;
+    this.ready = true;
     this.render();
   }
 

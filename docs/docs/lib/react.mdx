@@ -181,6 +181,30 @@ Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - 
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
+### Waiting for Features to Load
+
+There is a helper component `<FeaturesReady>` that lets you render a fallback component until features are done loading. This works for both built-in fetching and custom integrations.
+
+```jsx
+<FeaturesReady timeout={500} fallback={<LoadingSpinner/>}>
+  <ComponentThatUsesFeatures/>
+</FeaturesReady>
+```
+
+`timeout` is the max time you want to wait for features to load (in ms). The default is `0` (no timeout).
+
+`fallback` is the component you want to display before features are loaded. The default is `null`.
+
+If you want more control, you can use the `useGrowthBook()` hook and the `ready` flag:
+
+```ts
+const gb = useGrowthBook();
+
+if (gb.ready) {
+  // Do something
+}
+```
+
 ## The GrowthBook Instance
 
 The `GrowthBook` constructor takes a number of optional settings.

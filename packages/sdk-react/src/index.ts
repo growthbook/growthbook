@@ -19,10 +19,12 @@ export type {
 export type {
   WithRunExperimentProps,
   GrowthBookContextValue,
+  GrowthBookSSRData,
 } from "./GrowthBookReact";
 
 export {
   FeatureString,
+  FeaturesReady,
   GrowthBookContext,
   GrowthBookProvider,
   IfFeatureEnabled,
@@ -30,4 +32,8 @@ export {
   useFeature,
   useGrowthBook,
   withRunExperiment,
+  getGrowthBookSSRData,
+  useGrowthBookSSR,
+  useFeatureIsOn,
+  useFeatureValue,
 } from "./GrowthBookReact";

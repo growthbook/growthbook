@@ -175,6 +175,7 @@ If you want to refresh the features at any time (e.g. when a navigation event oc
 If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.
 
 ```ts
+// If you have features at the start:
 const gb = new GrowthBook({
   features: {
     "feature-1": {...},
@@ -182,11 +183,40 @@ const gb = new GrowthBook({
     "another-feature": {...},
   }
 })
+
+// If you are loading features asynchronously or need to update features later
+onLoad(() => {
+  gb.setFeatures({
+    "feature-1": {...}
+  })
+})
 ```
 
 Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in.
 
-You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
+### Waiting for Features to Load
+
+There is a helper component `<FeaturesReady>` that lets you render a fallback component until features are done loading. This works for both built-in fetching and custom integrations.
+
+```jsx
+<FeaturesReady timeout={500} fallback={<LoadingSpinner />}>
+  <ComponentThatUsesFeatures />
+</FeaturesReady>
+```
+
+`timeout` is the max time you want to wait for features to load (in ms). The default is `0` (no timeout).
+
+`fallback` is the component you want to display before features are loaded. The default is `null`.
+
+If you want more control, you can use the `useGrowthBook()` hook and the `ready` flag:
+
+```ts
+const gb = useGrowthBook();
+
+if (gb.ready) {
+  // Do something
+}
+```
 
 ## The GrowthBook Instance
 

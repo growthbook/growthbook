@@ -53,7 +53,7 @@ function feature<T extends JSONValue = any>(
       ruleId: "",
     };
   }
-  return growthbook.feature<T>(id);
+  return growthbook.evalFeature<T>(id);
 }
 
 // Get features from API and targeting attributes during SSR
@@ -122,6 +122,29 @@ export function useFeatureValue<T extends JSONValue = any>(
 export function useGrowthBook() {
   const { growthbook } = React.useContext(GrowthBookContext);
   return growthbook;
+}
+
+export function FeaturesReady({
+  children,
+  timeout,
+  fallback,
+}: {
+  children: React.ReactNode;
+  timeout?: number;
+  fallback?: React.ReactNode;
+}) {
+  const gb = useGrowthBook();
+  const [ready, setReady] = React.useState(gb?.ready || false);
+  React.useEffect(() => {
+    if (timeout && !ready) {
+      const timer = setTimeout(() => {
+        setReady(true);
+      }, timeout);
+      return () => clearTimeout(timer);
+    }
+  }, [timeout, ready]);
+
+  return ready ? children : fallback || null;
 }
 
 export function IfFeatureEnabled({
