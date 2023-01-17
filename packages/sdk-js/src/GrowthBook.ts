@@ -101,10 +101,10 @@ export class GrowthBook {
 
   public async setEncryptedFeatures(
     encryptedString: string,
-    encryptionKey?: string,
+    decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    encryptionKey = encryptionKey || this.context.encryptionKey || "";
+    decryptionKey = decryptionKey || this.context.decryptionKey || "";
     subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
     if (!subtle) {
       throw new Error("No SubtleCrypto implementation found");
@@ -112,7 +112,7 @@ export class GrowthBook {
     try {
       const key = await subtle.importKey(
         "raw",
-        base64ToBuf(encryptionKey),
+        base64ToBuf(decryptionKey),
         { name: "AES-CBC", length: 128 },
         true,
         ["encrypt", "decrypt"]

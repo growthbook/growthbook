@@ -5,8 +5,10 @@ import type {
   Result,
   FeatureResult,
   JSONValue,
-  GrowthBook,
+  FeatureDefinition,
+  Context,
 } from "@growthbook/growthbook";
+import { GrowthBook } from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
   growthbook?: GrowthBook;
@@ -14,6 +16,10 @@ export type GrowthBookContextValue = {
 export interface WithRunExperimentProps {
   runExperiment: <T>(exp: Experiment<T>) => Result<T>;
 }
+export type GrowthBookSSRData = {
+  attributes: Record<string, any>;
+  features: Record<string, FeatureDefinition>;
+};
 
 export const GrowthBookContext = React.createContext<GrowthBookContextValue>(
   {}
@@ -47,6 +53,42 @@ function feature<T extends JSONValue = any>(
     };
   }
   return growthbook.feature<T>(id);
+}
+
+// Get features from API and targeting attributes during SSR
+export async function getGrowthBookSSRData(
+  context: Context
+): Promise<GrowthBookSSRData> {
+  // Server-side GrowthBook instance
+  const gb = new GrowthBook({
+    ...context,
+  });
+
+  // Load feature flags from network if needed
+  if (context.clientKey) {
+    await gb.loadFeatures();
+  }
+
+  const data: GrowthBookSSRData = {
+    attributes: gb.getAttributes(),
+    features: gb.getFeatures(),
+  };
+  gb.destroy();
+
+  return data;
+}
+
+// Populate the GrowthBook instance in context from the SSR props
+export function useGrowthBookSSR(data: GrowthBookSSRData) {
+  const gb = useGrowthBook();
+
+  // Only do this once to avoid infinite loops
+  const isFirst = React.useRef(true);
+  if (gb && isFirst.current) {
+    gb.setFeatures(data.features);
+    gb.setAttributes(data.attributes);
+    isFirst.current = false;
+  }
 }
 
 export function useExperiment<T>(exp: Experiment<T>): Result<T> {

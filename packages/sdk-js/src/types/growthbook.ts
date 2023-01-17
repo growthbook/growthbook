@@ -120,7 +120,7 @@ export interface Context {
   groups?: Record<string, boolean>;
   apiHost?: string;
   clientKey?: string;
-  encryptionKey?: string;
+  decryptionKey?: string;
 }
 
 export type SubscriptionFunction = (
