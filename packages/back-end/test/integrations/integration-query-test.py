@@ -2,10 +2,13 @@ from abc import ABC, abstractmethod
 import json
 from decimal import Decimal
 from pprint import pprint
+import os
 
 import sqlfluff
 import mysql.connector
 
+with open(os.path.expanduser('~/db_credentials.json')) as f:
+    PASSWORDS = json.load(f)
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -24,7 +27,7 @@ class mysqlRunner(sqlRunner):
         with mysql.connector.connect(
             host="localhost",
             user="root",
-            password=PASSWORD,
+            password=PASSWORDS["MYSQL_PASSWORD"],
             database="sample"
         ) as connection:
             with connection.cursor(dictionary=True) as cursor:
@@ -46,12 +49,13 @@ def insert_line_numbers(txt):
     return "\n".join([f"{n+1:03d} {line}" for n, line in enumerate(txt.split("\n"))])
 
 def read_queries_cache() -> dict:
-    try:
-        with open("/tmp/cache.json", "r") as f:
-            return json.load(f)
-    except:
-        print("FAILED TO LOAD")
-        return {}
+    return {}
+    # try:
+    #     with open("/tmp/cache.json", "r") as f:
+    #         return json.load(f)
+    # except:
+    #     print("FAILED TO LOAD")
+    #     return {}
 
 def write_cache(cache):
     cache_string = json.dumps(cache, cls=DecimalEncoder)
@@ -119,6 +123,7 @@ def main():
         key = test_case['engine'] + '::' + test_case['sql']
         if key in cache:
             print("FOUND IN CACHE")
+            print(cache[key]["sql"])
             result.append(cache[key])
         else:
             if test_case["engine"] != "mysql":

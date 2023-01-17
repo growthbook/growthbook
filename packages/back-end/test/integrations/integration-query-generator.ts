@@ -26,13 +26,11 @@ const endDate = new Date(endDateString); // but end it a bit early so we know it
 const USER_ID_TYPE = "user_id";
 const OUTPUT_DIR = "/tmp/json";
 
-// import experimentOverrides
-import experimentOverridesData from "./experiments.json";
+// import experimentConfigs
+import experimentConfigData from "./experiments.json";
 type DimensionType = "user" | "experiment" | "date" | "activation";
-type TestExperimentOverride = {
+type TestExperimentConfig = {
   id: string;
-  conversionWindowHours: number;
-  conversionDelayHour: number;
   dimensionType?: DimensionType;
   dimensionMetric?: string;
   attributionModel: AttributionModel;
@@ -42,18 +40,18 @@ type TestExperimentOverride = {
   metricOverrides?: MetricOverride[];
   guardrails?: string[];
 };
-const experimentOverrides = experimentOverridesData as TestExperimentOverride[];
+const experimentConfigs = experimentConfigData as TestExperimentConfig[];
 
-// import metricOverrides
-import metricOverridesData from "./metrics.json";
-type TestMetricOverride = {
+// import metricConfigs
+import metricConfigData from "./metrics.json";
+type TestMetricConfig = {
   id: string;
   type: MetricType;
   ignoreNulls: boolean;
   sql: string;
   denominator?: string;
 };
-const metricOverrides = metricOverridesData as TestMetricOverride[];
+const metricConfigs = metricConfigData as TestMetricConfig[];
 
 // All SQL DB engines are listed here
 const engines: DataSourceType[] = [
@@ -79,7 +77,7 @@ const baseExperimentPhase: ExperimentPhase = {
 
 const baseExperiment: ExperimentInterface = {
   id: "BASE_ID_TO_BE_REPLACED",
-  metrics: metricOverrides.map((m) => m.id),
+  metrics: metricConfigs.map((m) => m.id),
   exposureQueryId: USER_ID_TYPE,
   trackingKey: "checkout-layout",
   datasource: "",
@@ -128,14 +126,14 @@ const baseInterface: DataSourceBase = {
   },
 };
 
-// Pseudo-MetricInterface, missing the fields in TestMetricOverride
+// Pseudo-MetricInterface, missing the fields in TestMetricConfig
 const baseMetric = {
   organization: "",
   owner: "",
   datasource: "",
   name: "",
-  conversionWindowHours: 0,
-  conversionDelayHours: 72,
+  conversionWindowHours: 72,
+  conversionDelayHours: 0,
   description: "",
   inverse: false,
   dateCreated: null,
@@ -163,13 +161,13 @@ const allActivationMetrics: MetricInterface[] = [
 ];
 
 // Build full metric objects
-const analysisMetrics: MetricInterface[] = metricOverrides.map(
-  (metricOverride) => ({ ...baseMetric, ...metricOverride })
+const analysisMetrics: MetricInterface[] = metricConfigs.map(
+  (metricConfig) => ({ ...baseMetric, ...metricConfig })
 );
 
 const testCases: { name: string; engine: string; sql: string }[] = [];
 
-function buildDimension(exp: TestExperimentOverride): Dimension | null {
+function buildDimension(exp: TestExperimentConfig): Dimension | null {
   if (!exp.dimensionType) {
     return null;
   }
@@ -200,7 +198,7 @@ function buildDimension(exp: TestExperimentOverride): Dimension | null {
   }
 }
 
-function buildSegment(exp: TestExperimentOverride): SegmentInterface | null {
+function buildSegment(exp: TestExperimentConfig): SegmentInterface | null {
   if (exp.segment) {
     return {
       id: exp.segment,
@@ -227,12 +225,17 @@ engines.forEach((engine) => {
   };
   const integration = getSourceIntegrationObject(engineInterface);
 
-  experimentOverrides.forEach((experimentOverride) => {
+  experimentConfigs.forEach((experimentConfig) => {
     const experiment: ExperimentInterface = {
       ...baseExperiment,
-      ...experimentOverride,
+      ...experimentConfig,
     };
     analysisMetrics.forEach((metric) => {
+      // if override in experiment config, have to set it to the right id
+      if (experiment.metricOverrides) {
+        experiment.metricOverrides[0].id = metric.id;
+      }
+
       let activationMetrics: MetricInterface[] = [];
       if (experiment.activationMetric) {
         activationMetrics = allActivationMetrics.filter(
@@ -246,8 +249,8 @@ engines.forEach((engine) => {
         );
       }
 
-      const dimension: Dimension | null = buildDimension(experimentOverride);
-      const segment: SegmentInterface | null = buildSegment(experimentOverride);
+      const dimension: Dimension | null = buildDimension(experimentConfig);
+      const segment: SegmentInterface | null = buildSegment(experimentConfig);
 
       const sql = integration.getExperimentMetricQuery({
         experiment: experiment,
