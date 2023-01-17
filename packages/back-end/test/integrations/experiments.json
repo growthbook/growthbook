@@ -69,12 +69,6 @@
     "attributionModel": "firstExposure"
   },
   {
-    "id": "dimension_activation",
-    "dimensionType": "activation",
-    "activationMetric": "cart_loaded",
-    "attributionModel": "firstExposure"
-  },
-  {
     "id": "dimension_experiment",
     "dimensionType": "experiment",
     "dimensionMetric": "browser",

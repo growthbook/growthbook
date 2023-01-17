@@ -41,6 +41,13 @@ type TestExperimentConfig = {
   guardrails?: string[];
 };
 const experimentConfigs = experimentConfigData as TestExperimentConfig[];
+// missing following config for now
+//  {
+//   "id": "dimension_activation",
+//   "dimensionType": "activation",
+//   "activationMetric": "cart_loaded",
+//   "attributionModel": "firstExposure"
+// },
 
 // import metricConfigs
 import metricConfigData from "./metrics.json";
@@ -118,8 +125,8 @@ const baseInterface: DataSourceBase = {
           name: "",
           userIdType: USER_ID_TYPE,
           query:
-            "SELECT\nuserid as user_id,timestamp as timestamp,experimentid as experiment_id,variationid as variation_id\nFROM experiment_viewed",
-          dimensions: [],
+            "SELECT\nuserid as user_id,timestamp as timestamp,experimentid as experiment_id,variationid as variation_id,browser\nFROM experiment_viewed",
+          dimensions: ["browser"],
         },
       ],
     },
@@ -184,7 +191,7 @@ function buildDimension(exp: TestExperimentConfig): Dimension | null {
         datasource: "",
         userIdType: USER_ID_TYPE,
         name: exp.dimensionMetric,
-        sql: `SELECT DISTINCT user_id, ${exp.dimensionMetric} FROM orders`, // lazy way to build user table
+        sql: `SELECT DISTINCT userId AS user_id, ${exp.dimensionMetric} AS value FROM orders`, // lazy way to build user table
         dateCreated: null,
         dateUpdated: null,
       },

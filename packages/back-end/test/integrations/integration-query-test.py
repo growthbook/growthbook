@@ -7,8 +7,9 @@ import os
 import sqlfluff
 import mysql.connector
 
-with open(os.path.expanduser('~/db_credentials.json')) as f:
-    PASSWORDS = json.load(f)
+import os
+
+
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -17,24 +18,39 @@ class DecimalEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 class sqlRunner(ABC):
+    def __init__(self):
+        self.open_connection()
+
     @abstractmethod
     class run_query():
         pass
 
+    @abstractmethod
+    class open_connection():
+        pass
+
+    @abstractmethod
+    class close_connection():
+        pass
+
 class mysqlRunner(sqlRunner):
 
-    def run_query(self, sql: str) -> list:
-        with mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password=PASSWORDS["MYSQL_PASSWORD"],
-            database="sample"
-        ) as connection:
-            with connection.cursor(dictionary=True) as cursor:
-                print("Executing...")
+    def open_connection(self):
+        self.connection = mysql.connector.connect(
+            host=os.getenv('MYSQL_TEST_HOST', ''),
+            user=os.getenv('MYSQL_TEST_USER', ''),
+            database=os.getenv('MYSQL_TEST_DATABASE', ''),
+            password=os.getenv('MYSQL_TEST_PASSWORD', '')
+        )
+    
+    def close_connection(self):
+        self.connection.close()
 
-                cursor.execute(sql)
-                return cursor.fetchall()
+    def run_query(self, sql: str) -> list:
+        with self.connection.cursor(dictionary=True, buffered=True) as cursor:
+            print("Executing...")
+            cursor.execute(sql)
+            return cursor.fetchall()
 
 class postgresRunner(sqlRunner):
     def run_query(self, sql: str) -> str:
@@ -49,13 +65,12 @@ def insert_line_numbers(txt):
     return "\n".join([f"{n+1:03d} {line}" for n, line in enumerate(txt.split("\n"))])
 
 def read_queries_cache() -> dict:
-    return {}
-    # try:
-    #     with open("/tmp/cache.json", "r") as f:
-    #         return json.load(f)
-    # except:
-    #     print("FAILED TO LOAD")
-    #     return {}
+    try:
+        with open("/tmp/cache.json", "r") as f:
+            return json.load(f)
+    except:
+        print("FAILED TO LOAD")
+        return {}
 
 def write_cache(cache):
     cache_string = json.dumps(cache, cls=DecimalEncoder)
@@ -115,26 +130,34 @@ def main():
     
     cache = read_queries_cache()
     result = []
+    runners = {}
     
     for test_case in test_cases:
-        
+        engine = test_case["engine"]
+        if engine != "mysql":
+            continue
+        if engine not in runners:
+            runners[engine] = get_sql_runner(engine)
+
+        runner = runners[engine]
         print("====")
         print(test_case["name"])
-        key = test_case['engine'] + '::' + test_case['sql']
+        key = engine + '::' + test_case['sql']
         if key in cache:
             print("FOUND IN CACHE")
             print(cache[key]["sql"])
             result.append(cache[key])
         else:
-            if test_case["engine"] != "mysql":
-                continue
             validate(test_case)
-            test_case["rows"] = execute_query(test_case["sql"], test_case["engine"])
+            test_case["rows"] = execute_query(test_case["sql"], engine)
             cache[key] = test_case
             write_cache(cache)
             result.append(test_case)
 
         print("====")
+
+    for engine, runner in runners.items():
+        runner.close_connection()
     
     # TODO: output result in a format that's easy to diff
     print(result)
