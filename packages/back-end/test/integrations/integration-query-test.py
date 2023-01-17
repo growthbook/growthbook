@@ -6,6 +6,8 @@ import os
 
 import sqlfluff
 import mysql.connector
+import psycopg2
+
 
 import os
 
@@ -29,12 +31,10 @@ class sqlRunner(ABC):
     class open_connection():
         pass
 
-    @abstractmethod
-    class close_connection():
-        pass
+    def close_connection(self):
+        self.connection.close()
 
 class mysqlRunner(sqlRunner):
-
     def open_connection(self):
         self.connection = mysql.connector.connect(
             host=os.getenv('MYSQL_TEST_HOST', ''),
@@ -43,18 +43,41 @@ class mysqlRunner(sqlRunner):
             password=os.getenv('MYSQL_TEST_PASSWORD', '')
         )
     
-    def close_connection(self):
-        self.connection.close()
 
-    def run_query(self, sql: str) -> list:
+    def run_query(self,  sql: str) -> list:
         with self.connection.cursor(dictionary=True, buffered=True) as cursor:
             print("Executing...")
             cursor.execute(sql)
             return cursor.fetchall()
 
 class postgresRunner(sqlRunner):
-    def run_query(self, sql: str) -> str:
-        raise NotImplementedError()
+    def open_connection(self):
+        self.connection = psycopg2.connector.connect(
+            host=os.getenv('POSTGRES_TEST_HOST', ''),
+            user=os.getenv('POSTGRES_TEST_USER', ''),
+            database=os.getenv('POSTGRES_TEST_DATABASE', ''),
+            password=os.getenv('POSTGRES_L_TEST_PASSWORD', '')
+        )
+    
+
+    def run_query(self,  sql: str) -> list:
+        with self.connection.cursor(dictionary=True, buffered=True) as cursor:
+            print("Executing...")
+            cursor.execute(sql)
+            return cursor.fetchall()
+
+
+# Connect to your postgres DB
+conn = psycopg2.connect("dbname=test user=postgres")
+
+# Open a cursor to perform database operations
+cur = conn.cursor()
+
+# Execute a query
+cur.execute("SELECT * FROM my_data")
+
+# Retrieve query results
+records = cur.fetchall()
 
 def read_queries_json() -> dict:
     with open('/tmp/json/queries.json') as f:
