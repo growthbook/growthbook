@@ -52,6 +52,9 @@ const EditVariationsForm: FC<{
         const data = { ...value };
         data.variations = [...data.variations];
 
+        // Remove temp id's that were set to support drag and drop
+        data.variations.forEach((variation) => delete variation.id);
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(data),
@@ -60,7 +63,10 @@ const EditVariationsForm: FC<{
       })}
       cta="Save"
     >
-      <VariationDataInput form={form} />
+      <VariationDataInput
+        variations={form.watch("variations")}
+        setVariations={(variations) => form.setValue("variations", variations)}
+      />
     </Modal>
   );
 };

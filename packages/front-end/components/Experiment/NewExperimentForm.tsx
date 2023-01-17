@@ -402,7 +402,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             showPreview={false}
           />
         ) : (
-          <VariationDataInput form={form} />
+          <VariationDataInput
+            variations={form.watch("variations")}
+            setVariations={(variations) =>
+              form.setValue("variations", variations)
+            }
+          />
         )}
       </Page>
       <Page display="Goals">

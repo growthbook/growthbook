@@ -55,6 +55,18 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
 
+  function generateUniqueId() {
+    let currentHighestId = 0;
+
+    draggableVariations.forEach((variation) => {
+      if (variation.id && parseInt(variation.id) > currentHighestId) {
+        currentHighestId = parseInt(variation.id);
+      }
+    });
+
+    return (currentHighestId + 1).toString();
+  }
+
   // In order to use drag and drop, each variation must have an id. This creates temp id's.
   const draggableVariations = variations.map(
     (variation: DraggableVariation, i) => {
@@ -239,6 +251,7 @@ export default function VariationsInput({
                               value: getDefaultVariationValue(defaultValue),
                               name: "",
                               weight: 0,
+                              id: generateUniqueId(),
                             },
                           ];
                           newValues.forEach((v, i) => {
