@@ -27,7 +27,6 @@ export default function VariationDataInput({
   setVariations,
   className = "",
 }: Props) {
-  // Can confirm variations come in as type Variation[]
   function generateUniqueId() {
     let currentHighestId = 0;
 
