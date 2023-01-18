@@ -4,6 +4,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
+import { StatsEngine } from "back-end/types/stats";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -61,6 +62,7 @@ const AnalysisForm: FC<{
         .substr(0, 16),
       dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
       variations: experiment.variations || [],
+      statsEngine: experiment.statsEngine || undefined,
     },
   });
   const { apiCall } = useAuth();
@@ -322,6 +324,30 @@ const AnalysisForm: FC<{
           ]}
         />
       )}
+
+      <SelectField
+        label="Stats Engine"
+        value={form.watch("statsEngine")}
+        onChange={(value: StatsEngine | undefined) =>
+          form.setValue("statsEngine", value)
+        }
+        options={[
+          {
+            label: "Default for organization",
+            value: undefined,
+          },
+          {
+            label: "Bayesian",
+            value: "bayesian",
+          },
+          {
+            label: "Frequentist",
+            value: "frequentist",
+          },
+        ]}
+        sort={false}
+      />
+
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
           <div className="col">

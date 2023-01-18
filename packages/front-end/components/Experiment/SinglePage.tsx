@@ -8,10 +8,12 @@ import {
   FaLink,
   FaQuestionCircle,
 } from "react-icons/fa";
+import { capitalize } from "lodash";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
@@ -142,6 +144,7 @@ export default function SinglePage({
   } = useDefinitions();
 
   const router = useRouter();
+  const orgSettings = useOrgSettings();
 
   const { phase: phaseIndex } = useSnapshot();
 
@@ -570,6 +573,14 @@ export default function SinglePage({
                   </strong>{" "}
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup title="Stats Engine" type="custom">
+                {capitalize(
+                  experiment.statsEngine ||
+                    orgSettings.statsEngine ||
+                    "bayesian"
+                )}
               </RightRailSectionGroup>
             </div>
           </RightRailSection>
