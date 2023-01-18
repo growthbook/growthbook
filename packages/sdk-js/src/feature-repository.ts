@@ -22,6 +22,7 @@ type ScopedChannel = {
 
 // Config settings
 const cacheSettings: CacheSettings = {
+  // Consider a fetch stale after 1 minute
   staleTTL: 1000 * 60,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,

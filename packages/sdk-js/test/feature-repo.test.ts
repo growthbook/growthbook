@@ -20,6 +20,7 @@ require("jest-localstorage-mock");
 setPolyfills({
   EventSource,
   localStorage,
+  SubtleCrypto: webcrypto.subtle,
 });
 const localStorageCacheKey = "growthbook:cache:features";
 configureCache({
@@ -305,7 +306,7 @@ describe("feature-repo", () => {
     );
 
     // Simulate SSE data
-    new MockEvent({
+    const event = new MockEvent({
       url: "https://fakeapi.sample.io/sub/qwerty1234",
       setInterval: 50,
       responses: [
@@ -356,6 +357,7 @@ describe("feature-repo", () => {
     growthbook.destroy();
     growthbook2.destroy();
     cleanup();
+    event.clear();
   });
 
   it("doesn't cache when `enableDevMode` is on", async () => {
@@ -523,5 +525,216 @@ describe("feature-repo", () => {
     await clearCache();
     growthbook.destroy();
     cleanup();
+  });
+
+  it("Handles SSE errors gracefuly", async () => {
+    await clearCache();
+
+    const [f, cleanup] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "initial",
+          },
+        },
+      },
+      true
+    );
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: "broken(response",
+        },
+      ],
+    });
+
+    // eslint-disable-next-line
+    const log = jest.fn((msg: string, ctx: Record<string, unknown>) => {
+      // Do nothing
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      log,
+    });
+
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+
+    await growthbook.loadFeatures({ autoRefresh: true });
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Initial value from API
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // After SSE fired, should log an error and feature value should remain the same
+    growthbook.debug = true;
+    await sleep(100);
+    expect(log.mock.calls.length).toEqual(1);
+    expect(log.mock.calls[0][0]).toEqual("SSE Error");
+    growthbook.debug = false;
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    await clearCache();
+    growthbook.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("handles localStorage errors gracefully", async () => {
+    clearCache();
+    setPolyfills({
+      localStorage: {
+        setItem() {
+          throw new Error("Localstorage disabled");
+        },
+        getItem() {
+          throw new Error("Localstorage disabled");
+        },
+      },
+    });
+    const [f, cleanup] = mockApi({
+      features: {
+        foo: {
+          defaultValue: "initial",
+        },
+      },
+    });
+
+    // No errors are thrown initializing the cache
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    // No errors are thrown writing to cache
+    await growthbook.loadFeatures();
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+    expect(f.mock.calls.length).toEqual(1);
+
+    // No errors are thrown clearing the cache
+    await clearCache();
+
+    growthbook.destroy();
+    cleanup();
+
+    // Restore localStorage polyfill
+    setPolyfills({
+      localStorage: globalThis.localStorage,
+    });
+  });
+
+  it("doesn't do background sync when disabled", async () => {
+    await clearCache();
+    configureCache({
+      backgroundSync: false,
+    });
+
+    const [f, cleanup] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "initial",
+          },
+        },
+      },
+      true
+    );
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify({
+            features: {
+              foo: {
+                defaultValue: "changed",
+              },
+            },
+          }),
+        },
+      ],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+    expect(growthbook2.evalFeature("foo").value).toEqual(null);
+
+    await Promise.all([
+      growthbook.loadFeatures(),
+      growthbook2.loadFeatures({ autoRefresh: true }),
+    ]);
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Initial value from API
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+    expect(growthbook2.evalFeature("foo").value).toEqual("initial");
+
+    // SSE update is ignored
+    await sleep(100);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+    expect(growthbook2.evalFeature("foo").value).toEqual("initial");
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    await clearCache();
+    growthbook.destroy();
+    growthbook2.destroy();
+    cleanup();
+    event.clear();
+
+    configureCache({
+      backgroundSync: true,
+    });
+  });
+
+  it("decrypts features correctly", async () => {
+    await clearCache();
+    const [f, cleanup] = mockApi({
+      features: {},
+      encryptedFeatures:
+        "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx",
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      decryptionKey: "Ns04T5n9+59rl2x3SlNHtQ==",
+    });
+
+    await growthbook.loadFeatures();
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    expect(growthbook.getFeatures()).toEqual({
+      testfeature1: {
+        defaultValue: true,
+        rules: [
+          {
+            condition: { id: "1234" },
+            force: false,
+          },
+        ],
+      },
+    });
+    growthbook.destroy();
+    cleanup();
+    await clearCache();
   });
 });

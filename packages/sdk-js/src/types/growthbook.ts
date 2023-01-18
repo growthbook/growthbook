@@ -152,7 +152,6 @@ export type FeatureApiResponse = {
   features: FeatureDefinitions;
   dateUpdated?: string;
   encryptedFeatures?: string;
-  enableSSE?: boolean;
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
