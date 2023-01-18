@@ -22,6 +22,8 @@ export const Default = () => {
       tags: [],
       slackAppId: "A04JDLXRT9A",
       slackSigningKey: "502b5a************f2d",
+      slackIncomingWebHook:
+        "https://hooks.slack.com/services/:someid:/:someotherid:/:somethingelse",
       linkedByUserId: "u_sktwi1id9l7z9xkis",
     },
     {
@@ -37,6 +39,8 @@ export const Default = () => {
       tags: ["funnel"],
       slackAppId: "A04JDLXRT9A",
       slackSigningKey: "502b5a************f2d",
+      slackIncomingWebHook:
+        "https://hooks.slack.com/services/:someid:/:someotherid:/:somethingelse",
       linkedByUserId: "u_sktwi1id9l7z9xkis",
     },
     {
@@ -79,6 +83,8 @@ export const Default = () => {
       ],
       slackAppId: "A04JDLXRT9A",
       slackSigningKey: "502b5a************f2d",
+      slackIncomingWebHook:
+        "https://hooks.slack.com/services/:someid:/:someotherid:/:somethingelse",
       linkedByUserId: "u_sktwi1id9l7z9xkis",
     },
   ];

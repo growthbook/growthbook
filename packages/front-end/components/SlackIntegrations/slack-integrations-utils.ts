@@ -9,6 +9,7 @@ export type SlackIntegrationEditParams = {
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;
+  slackIncomingWebHook: string;
 };
 
 export type SlackIntegrationModalMode =

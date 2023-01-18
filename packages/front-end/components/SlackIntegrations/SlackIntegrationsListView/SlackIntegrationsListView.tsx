@@ -249,6 +249,7 @@ export const SlackIntegrationsListViewContainer = () => {
               "tags",
               "slackAppId",
               "slackSigningKey",
+              "slackIncomingWebHook",
             ])
           ),
         });

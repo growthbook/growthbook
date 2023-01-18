@@ -57,6 +57,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
             environments: [],
             projects: [],
             slackSigningKey: "",
+            slackIncomingWebHook: "",
             tags: [],
           },
   });
@@ -87,6 +88,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       tags: z.array(z.string()),
       slackAppId: z.string().trim().min(2),
       slackSigningKey: z.string().trim().min(2),
+      slackIncomingWebHook: z.string().url(),
     });
 
     setCtaEnabled(schema.safeParse(formValues).success);
@@ -183,6 +185,18 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         {...form.register("slackAppId")}
         onChange={(evt) => {
           form.setValue("slackAppId", evt.target.value);
+          handleFormValidation();
+        }}
+      />
+
+      <Field
+        label="Slack App Incoming Webhook URL"
+        autoComplete="off"
+        helpText="Copy the Incoming Webhook URL for your Slack App. This can be found on the Incoming Webhooks page under Features for your Slack app configuration"
+        required
+        {...form.register("slackIncomingWebHook")}
+        onChange={(evt) => {
+          form.setValue("slackIncomingWebHook", evt.target.value);
           handleFormValidation();
         }}
       />

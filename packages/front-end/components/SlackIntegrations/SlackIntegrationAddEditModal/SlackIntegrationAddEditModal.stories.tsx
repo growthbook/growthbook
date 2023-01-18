@@ -82,6 +82,8 @@ export const Edit = () => {
           tags: ["red", "purple"],
           slackAppId: "A04***",
           slackSigningKey: "abc**********",
+          slackIncomingWebHook:
+            "https://hooks.slack.com/services/:someid:/:someotherid:/:somethingelse",
         },
       }}
       onCreate={action("onCreate")}
