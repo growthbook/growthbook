@@ -1,5 +1,5 @@
 import uniq from "lodash/uniq";
-import { KnownBlock } from "@slack/web-api";
+import { Button, KnownBlock } from "@slack/web-api";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
@@ -226,14 +226,36 @@ const getIntegrationContextBlock = (
   };
 };
 
+const getFeatureUrlButtonLink = (featureId: string): Button => {
+  const featureUrl = `${APP_ORIGIN}/features/${featureId}`;
+  return {
+    type: "button",
+    text: {
+      type: "plain_text",
+      text: "View Feature",
+    },
+    url: featureUrl,
+  };
+};
+
+const getEventUrlButtonLink = (eventId: string): Button => {
+  const eventUrl = `${APP_ORIGIN}/events/${eventId}`;
+  return {
+    type: "button",
+    text: {
+      type: "plain_text",
+      text: "View event",
+    },
+    url: eventUrl,
+  };
+};
+
 const buildCreatedEvent = (
   featureEvent: FeatureCreatedNotificationEvent,
   slackIntegration: SlackIntegrationInterface,
   eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.current.id;
-  const featureUrl = `${APP_ORIGIN}/features/${featureId}`;
-  const eventUrl = `${APP_ORIGIN}/events/${eventId}`;
 
   const text = `The feature ${featureId} has been created`;
 
@@ -250,56 +272,10 @@ const buildCreatedEvent = (
       {
         type: "actions",
         elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "View Feature",
-            },
-            url: featureUrl,
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "View event",
-            },
-            url: eventUrl,
-          },
+          getFeatureUrlButtonLink(featureId),
+          getEventUrlButtonLink(eventId),
         ],
       },
-      //
-      // {
-      //   type: "section",
-      //   text: {
-      //     type: "mrkdwn",
-      //     text: "View the changes",
-      //   },
-      //   accessory: {
-      //     type: "button",
-      //     text: {
-      //       type: "plain_text",
-      //       text: "View event",
-      //       emoji: true,
-      //     },
-      //     url: eventUrl,
-      //   },
-      // },
-      // {
-      //   type: "section",
-      //   text: {
-      //     type: "mrkdwn",
-      //     text: "View the feature",
-      //   },
-      //   accessory: {
-      //     type: "button",
-      //     text: {
-      //       type: "plain_text",
-      //       text: "View feature",
-      //     },
-      //     url: featureUrl,
-      //   },
-      // },
       getIntegrationContextBlock(slackIntegration),
     ],
   };
@@ -310,15 +286,26 @@ const buildUpdatedEvent = (
   slackIntegration: SlackIntegrationInterface,
   eventId: string
 ): SlackMessage => {
+  const featureId = featureEvent.data.current.id;
+
+  const text = `The feature ${featureId} has been updated`;
+
   return {
-    text: "todo: feature.updated",
+    text,
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "*todo*: feature.updated",
+          text: `The feature *${featureId}* has been updated.`,
         },
+      },
+      {
+        type: "actions",
+        elements: [
+          getFeatureUrlButtonLink(featureId),
+          getEventUrlButtonLink(eventId),
+        ],
       },
       getIntegrationContextBlock(slackIntegration),
     ],
@@ -330,7 +317,8 @@ const buildDeletedEvent = (
   slackIntegration: SlackIntegrationInterface,
   eventId: string
 ): SlackMessage => {
-  const text = `The feature ${featureEvent.data.previous.id} has been deleted from GrowthBook`;
+  const featureId = featureEvent.data.previous.id;
+  const text = `The feature ${featureId} has been deleted.`;
 
   return {
     text,
@@ -339,14 +327,12 @@ const buildDeletedEvent = (
         type: "section",
         text: {
           type: "mrkdwn",
-          text:
-            "The feature *" +
-            featureEvent.data.previous.id +
-            "* has been deleted from GrowthBook.\nThis is what it used to look like:\n" +
-            "```" +
-            JSON.stringify(featureEvent.data.previous, null, 2) +
-            "```",
+          text: `The feature *${featureId}* has been deleted.`,
         },
+      },
+      {
+        type: "actions",
+        elements: [getEventUrlButtonLink(eventId)],
       },
       getIntegrationContextBlock(slackIntegration),
     ],
