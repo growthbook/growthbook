@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
 import { wrapController } from "../wrapController";
-import * as rawEventsController from "./events.controller";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import * as rawEventsController from "./events.controller";
 
 const router = express.Router();
 

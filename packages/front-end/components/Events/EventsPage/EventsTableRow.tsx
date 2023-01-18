@@ -1,12 +1,12 @@
+import React, { FC, useState } from "react";
 import {
   EventInterface,
   NotificationEventName,
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
-import React, { FC, useState } from "react";
 import { datetime } from "@/services/dates";
-import Code from "../SyntaxHighlighting/Code";
+import Code from "../../SyntaxHighlighting/Code";
 import { getEventText } from "./utils";
 
 type EventsTableRowProps = {
