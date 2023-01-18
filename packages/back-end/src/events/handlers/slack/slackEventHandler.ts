@@ -7,8 +7,6 @@ import { handleFeatureEventForSlack } from "./handleFeatureEventForSlack";
  * handle Slack events. Can be handled individually or with a common handler, depending on needs.
  */
 export const slackEventHandler: NotificationEventHandler = async (eventId) => {
-  console.log("🔵 slackEventHandler", eventId);
-
   const event = await getEvent(eventId);
   if (!event) {
     // We should never get here
