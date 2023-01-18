@@ -71,6 +71,10 @@ const slackIntegrationSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  slackIncomingWebHook: {
+    type: String,
+    required: true,
+  },
   slackSigningKey: {
     type: String,
     required: true,
@@ -111,6 +115,7 @@ type CreateOptions = {
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
+  slackIncomingWebHook: string;
   slackSigningKey: string;
   linkedByUserId: string;
 };
@@ -124,6 +129,7 @@ export const createSlackIntegration = async ({
   events,
   tags,
   slackAppId,
+  slackIncomingWebHook,
   slackSigningKey,
   linkedByUserId,
 }: CreateOptions): Promise<SlackIntegrationInterface> => {
@@ -142,6 +148,7 @@ export const createSlackIntegration = async ({
     tags,
     slackAppId,
     slackSigningKey,
+    slackIncomingWebHook,
     linkedByUserId,
   });
 
@@ -321,6 +328,7 @@ type UpdateAttributes = {
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;
+  slackIncomingWebHook: string;
 };
 
 /**
@@ -345,6 +353,7 @@ export const updateSlackIntegration = async (
           "events",
           "tags",
           "slackAppId",
+          "slackIncomingWebHook",
           "slackSigningKey",
         ]),
         dateUpdated: new Date(),
