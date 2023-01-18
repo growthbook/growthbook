@@ -16,8 +16,9 @@ type CacheEntry = {
   staleAt: Date;
 };
 type ScopedChannel = {
-  connection: EventSource;
-  listener: (event: MessageEvent<string>) => void;
+  src: EventSource;
+  cb: (event: MessageEvent<string>) => void;
+  errors: number;
 };
 
 // Config settings
@@ -310,11 +311,13 @@ function startAutoRefresh(
   ) {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
-      connection: new polyfills.EventSource(`${apiHost}/sub/${clientKey}`),
-      listener: (event: MessageEvent<string>) => {
+      src: new polyfills.EventSource(`${apiHost}/sub/${clientKey}`),
+      cb: (event: MessageEvent<string>) => {
         try {
           const json: FeatureApiResponse = JSON.parse(event.data);
           onNewFeatureData(key, json);
+          // Reset error count on success
+          channel.errors = 0;
         } catch (e) {
           process.env.NODE_ENV !== "production" &&
             instance.log("SSE Error", {
@@ -322,12 +325,34 @@ function startAutoRefresh(
               clientKey,
               error: (e as Error)?.message || e,
             });
+          onSSEError(key, channel);
         }
       },
+      errors: 0,
     };
     streams.set(key, channel);
-    channel.connection.addEventListener("features", channel.listener);
+    channel.src.addEventListener("features", channel.cb);
+
+    channel.src.onerror = () => {
+      onSSEError(key, channel);
+    };
   }
+}
+
+function onSSEError(key: RepositoryKey, channel: ScopedChannel) {
+  channel.errors++;
+  if (channel.errors > 3 || channel.src.readyState === 2) {
+    destroyChannel(channel, key);
+  }
+}
+
+function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
+  if (channel.src.removeEventListener) {
+    channel.src.removeEventListener("features", channel.cb);
+  }
+  channel.src.onerror = null;
+  channel.src.close();
+  streams.delete(key);
 }
 
 function clearAutoRefresh() {
@@ -335,13 +360,7 @@ function clearAutoRefresh() {
   supportsSSE.clear();
 
   // Stop listening for any SSE events
-  streams.forEach((c) => {
-    if (c.connection.removeEventListener) {
-      c.connection.removeEventListener("features", c.listener);
-    }
-    c.connection.close();
-  });
-  streams.clear();
+  streams.forEach(destroyChannel);
 
   // Remove all references to GrowthBook instances
   subscribedInstances.clear();
