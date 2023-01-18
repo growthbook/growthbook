@@ -74,15 +74,15 @@ export async function primeCache(
   if (existing && !enableDevMode) {
     // Reload features in the backgroud if stale
     if (existing.staleAt < new Date()) {
-      fetchFeatures(apiHost, clientKey);
+      fetchFeatures(instance, apiHost, clientKey);
     }
     // Otherwise, if we don't need to refresh now, start a background sync
     else {
-      startAutoRefresh(apiHost, clientKey, key);
+      startAutoRefresh(instance, apiHost, clientKey, key);
     }
     return existing.data;
   } else {
-    const data = await fetchFeatures(apiHost, clientKey);
+    const data = await fetchFeatures(instance, apiHost, clientKey);
     return data;
   }
 }
@@ -106,7 +106,7 @@ export async function refreshFeatures(
   }
 
   const data = await promiseTimeout(
-    fetchFeatures(apiHost, clientKey),
+    fetchFeatures(instance, apiHost, clientKey),
     options.timeout
   );
   data && (await setFeaturesOnInstance(instance, data));
@@ -253,6 +253,7 @@ async function setFeaturesOnInstance(
 }
 
 async function fetchFeatures(
+  instance: GrowthBook,
   apiHost: ApiHost,
   clientKey: ClientKey
 ): Promise<FeatureApiResponse> {
@@ -271,11 +272,16 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        startAutoRefresh(apiHost, clientKey, key);
+        startAutoRefresh(instance, apiHost, clientKey, key);
         return data;
       })
       .catch((e) => {
-        console.error("Error fetching features", e);
+        process.env.NODE_ENV !== "production" &&
+          instance.log("Error fetching features", {
+            apiHost,
+            clientKey,
+            error: e?.message || e,
+          });
         return Promise.resolve({ features: {} });
       })
       .finally(() => {
@@ -289,6 +295,7 @@ async function fetchFeatures(
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(
+  instance: GrowthBook,
   apiHost: ApiHost,
   clientKey: ClientKey,
   key: RepositoryKey
@@ -306,7 +313,12 @@ function startAutoRefresh(
           const json: FeatureApiResponse = JSON.parse(event.data);
           onNewFeatureData(key, json);
         } catch (e) {
-          console.error("SSE Error", e);
+          process.env.NODE_ENV !== "production" &&
+            instance.log("SSE Error", {
+              apiHost,
+              clientKey,
+              error: (e as Error)?.message || e,
+            });
         }
       },
     };

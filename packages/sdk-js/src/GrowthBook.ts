@@ -638,8 +638,7 @@ export class GrowthBook {
     return result;
   }
 
-  // eslint-disable-next-line
-  private log(msg: string, ctx: Record<string, any>) {
+  log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
     if (this.context.log) this.context.log(msg, ctx);
     else console.log(msg, ctx);
