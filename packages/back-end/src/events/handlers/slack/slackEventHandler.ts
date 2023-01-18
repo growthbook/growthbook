@@ -22,7 +22,11 @@ export const slackEventHandler: NotificationEventHandler = async (eventId) => {
     case "feature.created":
     case "feature.updated":
     case "feature.deleted":
-      return await handleFeatureEventForSlack(event.organizationId, event.data);
+      return await handleFeatureEventForSlack({
+        organizationId: event.organizationId,
+        featureEvent: event.data,
+        eventId: event.id,
+      });
 
     default:
       logger.error(`Unsupported event: ${event.event}`);

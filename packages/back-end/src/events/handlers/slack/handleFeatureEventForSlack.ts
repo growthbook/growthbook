@@ -10,17 +10,21 @@ import { FeatureEnvironment } from "../../../../types/feature";
 import { sendSlackMessage, SlackMessage } from "./slack-event-handler-utils";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { logger } from "../../../util/logger";
+import { APP_ORIGIN } from "../../../util/secrets";
 
-export const handleFeatureEventForSlack = async (
-  organizationId: string,
+type HandleFeatureEventOptions = {
+  organizationId: string;
+  eventId: string;
   featureEvent:
     | FeatureCreatedNotificationEvent
     | FeatureUpdatedNotificationEvent
-    | FeatureDeletedNotificationEvent
-) => {
-  // Get related feature.
-  // console.log("🔵 handleFeatureEvent", featureEvent);
-
+    | FeatureDeletedNotificationEvent;
+};
+export const handleFeatureEventForSlack = async ({
+  organizationId,
+  eventId,
+  featureEvent,
+}: HandleFeatureEventOptions) => {
   // Build filtering query and get relevant SlackIntegration records
   const tags = getTagsForFeatureEvent(featureEvent);
   const environments = getEnvironmentsForFeatureEvent(featureEvent);
@@ -34,20 +38,13 @@ export const handleFeatureEventForSlack = async (
     projects,
   });
 
-  // console.log("🔵 handleFeatureEvent -> query", {
-  //   tags,
-  //   environments,
-  //   projects,
-  // });
-  // console.log("🔵 handleFeatureEvent -> slackMessage", slackMessage);
-  // console.log("🔵 handleFeatureEvent -> slackIntegrations", slackIntegrations);
-
   slackIntegrations?.forEach((slackIntegration) => {
     // Build the Slack message for the given event
-    const slackMessage = buildSlackMessageForEvent(
+    const slackMessage = buildSlackMessageForEvent({
+      eventId,
+      slackIntegration,
       featureEvent,
-      slackIntegration
-    );
+    });
 
     sendSlackMessage(slackMessage, slackIntegration.slackIncomingWebHook).then(
       (isSuccessful) => {
@@ -184,27 +181,34 @@ const getEnabledEnvironmentsForEnvironmentSettings = (
   );
 };
 
+type BuildSlackMessageOptions = {
+  featureEvent:
+    | FeatureCreatedNotificationEvent
+    | FeatureUpdatedNotificationEvent
+    | FeatureDeletedNotificationEvent;
+  slackIntegration: SlackIntegrationInterface;
+  eventId: string;
+};
 /**
  * Given an event, will build the desired Slack message
  * @param featureEvent
  * @param slackIntegration
+ * @param eventId
  */
-const buildSlackMessageForEvent = (
-  featureEvent:
-    | FeatureCreatedNotificationEvent
-    | FeatureUpdatedNotificationEvent
-    | FeatureDeletedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface
-): SlackMessage => {
+const buildSlackMessageForEvent = ({
+  featureEvent,
+  slackIntegration,
+  eventId,
+}: BuildSlackMessageOptions): SlackMessage => {
   switch (featureEvent.event) {
     case "feature.created":
-      return buildCreatedEvent(featureEvent, slackIntegration);
+      return buildCreatedEvent(featureEvent, slackIntegration, eventId);
 
     case "feature.updated":
-      return buildUpdatedEvent(featureEvent, slackIntegration);
+      return buildUpdatedEvent(featureEvent, slackIntegration, eventId);
 
     case "feature.deleted":
-      return buildDeletedEvent(featureEvent, slackIntegration);
+      return buildDeletedEvent(featureEvent, slackIntegration, eventId);
   }
 };
 
@@ -224,9 +228,14 @@ const getIntegrationContextBlock = (
 
 const buildCreatedEvent = (
   featureEvent: FeatureCreatedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface
+  slackIntegration: SlackIntegrationInterface,
+  eventId: string
 ): SlackMessage => {
-  const text = `The feature ${featureEvent.event} has been created in GrowthBook`;
+  const featureId = featureEvent.data.current.id;
+  const featureUrl = `${APP_ORIGIN}/features/${featureId}`;
+  const eventUrl = `${APP_ORIGIN}/events/${eventId}`;
+
+  const text = `The feature ${featureId} has been created`;
 
   return {
     text,
@@ -235,9 +244,62 @@ const buildCreatedEvent = (
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `The feature *${featureEvent.event}* has been created in GrowthBook`,
+          text: `The feature *${featureId}* has been created.`,
         },
       },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "View Feature",
+            },
+            url: featureUrl,
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "View event",
+            },
+            url: eventUrl,
+          },
+        ],
+      },
+      //
+      // {
+      //   type: "section",
+      //   text: {
+      //     type: "mrkdwn",
+      //     text: "View the changes",
+      //   },
+      //   accessory: {
+      //     type: "button",
+      //     text: {
+      //       type: "plain_text",
+      //       text: "View event",
+      //       emoji: true,
+      //     },
+      //     url: eventUrl,
+      //   },
+      // },
+      // {
+      //   type: "section",
+      //   text: {
+      //     type: "mrkdwn",
+      //     text: "View the feature",
+      //   },
+      //   accessory: {
+      //     type: "button",
+      //     text: {
+      //       type: "plain_text",
+      //       text: "View feature",
+      //     },
+      //     url: featureUrl,
+      //   },
+      // },
       getIntegrationContextBlock(slackIntegration),
     ],
   };
@@ -245,7 +307,8 @@ const buildCreatedEvent = (
 
 const buildUpdatedEvent = (
   featureEvent: FeatureUpdatedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface
+  slackIntegration: SlackIntegrationInterface,
+  eventId: string
 ): SlackMessage => {
   return {
     text: "todo: feature.updated",
@@ -264,16 +327,25 @@ const buildUpdatedEvent = (
 
 const buildDeletedEvent = (
   featureEvent: FeatureDeletedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface
+  slackIntegration: SlackIntegrationInterface,
+  eventId: string
 ): SlackMessage => {
+  const text = `The feature ${featureEvent.data.previous.id} has been deleted from GrowthBook`;
+
   return {
-    text: "todo: feature.deleted",
+    text,
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "*todo*: feature.deleted",
+          text:
+            "The feature *" +
+            featureEvent.data.previous.id +
+            "* has been deleted from GrowthBook.\nThis is what it used to look like:\n" +
+            "```" +
+            JSON.stringify(featureEvent.data.previous, null, 2) +
+            "```",
         },
       },
       getIntegrationContextBlock(slackIntegration),
