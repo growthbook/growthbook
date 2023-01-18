@@ -1,10 +1,6 @@
 import fs from "fs";
 
-import {
-  DataSourceBase,
-  DataSourceInterface,
-  DataSourceType,
-} from "../../types/datasource";
+import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
   AttributionModel,
   ExperimentInterface,
@@ -41,7 +37,7 @@ type TestExperimentConfig = {
   guardrails?: string[];
 };
 const experimentConfigs = experimentConfigData as TestExperimentConfig[];
-// missing following config for now
+// missing following experiment config for now
 //  {
 //   "id": "dimension_activation",
 //   "dimensionType": "activation",
@@ -109,30 +105,6 @@ const baseExperiment: ExperimentInterface = {
   autoSnapshots: false,
 };
 
-const baseInterface: DataSourceBase = {
-  id: "",
-  name: "",
-  description: "",
-  organization: "",
-  dateCreated: null,
-  dateUpdated: null,
-  params: "",
-  settings: {
-    queries: {
-      exposure: [
-        {
-          id: "user_id",
-          name: "",
-          userIdType: USER_ID_TYPE,
-          query:
-            "SELECT\nuserid as user_id,timestamp as timestamp,experimentid as experiment_id,variationid as variation_id,browser\nFROM experiment_viewed",
-          dimensions: ["browser"],
-        },
-      ],
-    },
-  },
-};
-
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
 const baseMetric = {
   organization: "",
@@ -174,7 +146,39 @@ const analysisMetrics: MetricInterface[] = metricConfigs.map(
 
 const testCases: { name: string; engine: string; sql: string }[] = [];
 
-function buildDimension(exp: TestExperimentConfig): Dimension | null {
+function buildInterface(engine: string): DataSourceInterface {
+  const engineInterface: DataSourceInterface = {
+    id: "",
+    name: "",
+    description: "",
+    organization: "",
+    dateCreated: null,
+    dateUpdated: null,
+    params: "",
+    settings: {
+      queries: {
+        exposure: [
+          {
+            id: "user_id",
+            name: "",
+            userIdType: USER_ID_TYPE,
+            query: `SELECT\nuserid as user_id,timestamp as timestamp,experimentid as experiment_id,variationid as variation_id,browser\nFROM ${
+              engine === "bigquery" ? "sample." : ""
+            }experiment_viewed`,
+            dimensions: ["browser"],
+          },
+        ],
+      },
+    },
+    type: engine as DataSourceType,
+  };
+  return engineInterface;
+}
+
+function buildDimension(
+  exp: TestExperimentConfig,
+  engine: string
+): Dimension | null {
   if (!exp.dimensionType) {
     return null;
   }
@@ -191,7 +195,10 @@ function buildDimension(exp: TestExperimentConfig): Dimension | null {
         datasource: "",
         userIdType: USER_ID_TYPE,
         name: exp.dimensionMetric,
-        sql: `SELECT DISTINCT userId AS user_id, ${exp.dimensionMetric} AS value FROM orders`, // lazy way to build user table
+        // lazy way to build user table
+        sql: `SELECT DISTINCT userId AS user_id, ${
+          exp.dimensionMetric
+        } AS value FROM ${engine === "bigquery" ? "sample." : ""}orders`,
         dateCreated: null,
         dateUpdated: null,
       },
@@ -205,7 +212,10 @@ function buildDimension(exp: TestExperimentConfig): Dimension | null {
   }
 }
 
-function buildSegment(exp: TestExperimentConfig): SegmentInterface | null {
+function buildSegment(
+  exp: TestExperimentConfig,
+  engine: string
+): SegmentInterface | null {
   if (exp.segment) {
     return {
       id: exp.segment,
@@ -215,7 +225,9 @@ function buildSegment(exp: TestExperimentConfig): SegmentInterface | null {
       userIdType: USER_ID_TYPE,
       name: exp.segment,
       // TODO: fake date trunc just to avoid exporting dateTrunc from SqlIntegration
-      sql: `SELECT DISTINCT\nuserid as user_id,'2022-01-01' as date\nFROM experiment_viewed\nWHERE browser = 'Chrome'`,
+      sql: `SELECT DISTINCT\nuserid as user_id,DATE('2022-01-01') as date\nFROM ${
+        engine === "bigquery" ? "sample." : ""
+      }experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
       dateUpdated: currentDate,
     };
@@ -224,12 +236,15 @@ function buildSegment(exp: TestExperimentConfig): SegmentInterface | null {
   }
 }
 
+function addDatabaseToMetric(metric: MetricInterface): MetricInterface {
+  const newMetric = { ...metric };
+  newMetric.sql = newMetric.sql?.replace("FROM ", "FROM sample.");
+  return newMetric;
+}
+
 engines.forEach((engine) => {
   // TODO: get integration object
-  const engineInterface: DataSourceInterface = {
-    ...baseInterface,
-    type: engine as DataSourceType,
-  };
+  const engineInterface = buildInterface(engine);
   const integration = getSourceIntegrationObject(engineInterface);
 
   experimentConfigs.forEach((experimentConfig) => {
@@ -256,8 +271,19 @@ engines.forEach((engine) => {
         );
       }
 
-      const dimension: Dimension | null = buildDimension(experimentConfig);
-      const segment: SegmentInterface | null = buildSegment(experimentConfig);
+      if (engine === "bigquery") {
+        activationMetrics = activationMetrics.map(addDatabaseToMetric);
+        denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
+        metric = addDatabaseToMetric(metric);
+      }
+      const dimension: Dimension | null = buildDimension(
+        experimentConfig,
+        engine
+      );
+      const segment: SegmentInterface | null = buildSegment(
+        experimentConfig,
+        engine
+      );
 
       const sql = integration.getExperimentMetricQuery({
         experiment: experiment,

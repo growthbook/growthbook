@@ -1,16 +1,13 @@
 from abc import ABC, abstractmethod
 import json
 from decimal import Decimal
-from pprint import pprint
 import os
 
-import sqlfluff
 import mysql.connector
 import psycopg2
-
-
-import os
-
+import psycopg2.extras
+from google.cloud import bigquery
+import sqlfluff
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -22,10 +19,6 @@ class DecimalEncoder(json.JSONEncoder):
 class sqlRunner(ABC):
     def __init__(self):
         self.open_connection()
-
-    @abstractmethod
-    class run_query():
-        pass
 
     @abstractmethod
     class open_connection():
@@ -42,42 +35,38 @@ class mysqlRunner(sqlRunner):
             database=os.getenv('MYSQL_TEST_DATABASE', ''),
             password=os.getenv('MYSQL_TEST_PASSWORD', '')
         )
-    
+        self.cursor_kwargs = {'dictionary': True, 'buffered': True}
 
     def run_query(self,  sql: str) -> list:
-        with self.connection.cursor(dictionary=True, buffered=True) as cursor:
-            print("Executing...")
+        with self.connection.cursor(**self.cursor_kwargs) as cursor:
             cursor.execute(sql)
             return cursor.fetchall()
 
 class postgresRunner(sqlRunner):
     def open_connection(self):
-        self.connection = psycopg2.connector.connect(
+        self.connection = psycopg2.connect(
             host=os.getenv('POSTGRES_TEST_HOST', ''),
             user=os.getenv('POSTGRES_TEST_USER', ''),
-            database=os.getenv('POSTGRES_TEST_DATABASE', ''),
-            password=os.getenv('POSTGRES_L_TEST_PASSWORD', '')
+            dbname=os.getenv('POSTGRES_TEST_DATABASE', ''),
         )
+        self.cursor_kwargs = {"cursor_factory": psycopg2.extras.RealDictCursor}
     
-
     def run_query(self,  sql: str) -> list:
-        with self.connection.cursor(dictionary=True, buffered=True) as cursor:
-            print("Executing...")
+        with self.connection.cursor(**self.cursor_kwargs) as cursor:
             cursor.execute(sql)
-            return cursor.fetchall()
+            res = []
+            for row in cursor.fetchall():
+                res.append(dict(row))
+            return res
 
-
-# Connect to your postgres DB
-conn = psycopg2.connect("dbname=test user=postgres")
-
-# Open a cursor to perform database operations
-cur = conn.cursor()
-
-# Execute a query
-cur.execute("SELECT * FROM my_data")
-
-# Retrieve query results
-records = cur.fetchall()
+class bigqueryRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = bigquery.Client()
+    
+    def run_query(self, sql: str) -> list:
+        query_job = self.connection.query(query=sql)
+        res = query_job.result()
+        return [dict(row) for row in res]
 
 def read_queries_json() -> dict:
     with open('/tmp/json/queries.json') as f:
@@ -92,7 +81,7 @@ def read_queries_cache() -> dict:
         with open("/tmp/cache.json", "r") as f:
             return json.load(f)
     except:
-        print("FAILED TO LOAD")
+        print("Failed to load query cache, creating a new one...")
         return {}
 
 def write_cache(cache):
@@ -105,6 +94,8 @@ def get_sql_runner(engine) -> sqlRunner:
         return mysqlRunner()
     elif engine == 'postgres':
         return postgresRunner()
+    elif engine == 'bigquery':
+        return bigqueryRunner()
     else:
         raise ValueError()
 
@@ -125,6 +116,7 @@ def validate(test_case):
             "L011",
             "L014",
             "L016",
+            "L017",
             "L022",
             "L027", # allows potentially ambiguous column references
             "L028",
@@ -152,38 +144,36 @@ def main():
     test_cases = read_queries_json()
     
     cache = read_queries_cache()
-    result = []
+    results = []
     runners = {}
     
     for test_case in test_cases:
         engine = test_case["engine"]
-        if engine != "mysql":
+        if engine not in ["postgres", 'mysql', 'bigquery']:
             continue
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
 
         runner = runners[engine]
-        print("====")
-        print(test_case["name"])
         key = engine + '::' + test_case['sql']
         if key in cache:
-            print("FOUND IN CACHE")
-            print(cache[key]["sql"])
-            result.append(cache[key])
+            results.append(cache[key])
         else:
             validate(test_case)
             test_case["rows"] = execute_query(test_case["sql"], engine)
-            cache[key] = test_case
+            # TODO also save sql somewhere else?
+            result = {k: v for k, v in test_case.items() if k != 'sql'}
+            cache[key] = result
             write_cache(cache)
-            result.append(test_case)
-
-        print("====")
+            results.append(result)
 
     for engine, runner in runners.items():
         runner.close_connection()
     
-    # TODO: output result in a format that's easy to diff
-    print(result)
+    # Learn what branch and write out results
+    with open('/tmp/json/query_results.json', 'w') as f:
+        f.write(json.dumps(results, cls=DecimalEncoder, indent=2))
+    return results
 
 if __name__ == "__main__":
     main()
