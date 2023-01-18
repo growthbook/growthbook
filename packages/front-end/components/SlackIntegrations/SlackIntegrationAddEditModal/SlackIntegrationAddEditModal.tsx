@@ -213,41 +213,33 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         }}
       />
 
-      <div className="form-group">
-        <label className="d-block">Environment filters</label>
-        <div className="mt-1">
-          <MultiSelectField
-            helpText="Only receive notifications for matching environments."
-            value={form.watch("environments")}
-            options={environments.map((env) => ({
-              label: env,
-              value: env,
-            }))}
-            onChange={(value: string[]) => {
-              form.setValue("environments", value);
-              handleFormValidation();
-            }}
-          />
-        </div>
-      </div>
+      <MultiSelectField
+        label="Environment filters"
+        helpText="Only receive notifications for matching environments."
+        value={form.watch("environments")}
+        options={environments.map((env) => ({
+          label: env,
+          value: env,
+        }))}
+        onChange={(value: string[]) => {
+          form.setValue("environments", value);
+          handleFormValidation();
+        }}
+      />
 
-      <div className="form-group">
-        <label className="d-block">Project filters</label>
-        <div className="mt-1">
-          <MultiSelectField
-            helpText="Only receive notifications for matching projects."
-            value={form.watch("projects")}
-            options={projects.map(({ name, id }) => ({
-              label: name,
-              value: id,
-            }))}
-            onChange={(value: string[]) => {
-              form.setValue("projects", value);
-              handleFormValidation();
-            }}
-          />
-        </div>
-      </div>
+      <MultiSelectField
+        label="Project filters"
+        helpText="Only receive notifications for matching projects."
+        value={form.watch("projects")}
+        options={projects.map(({ name, id }) => ({
+          label: name,
+          value: id,
+        }))}
+        onChange={(value: string[]) => {
+          form.setValue("projects", value);
+          handleFormValidation();
+        }}
+      />
 
       <div className="form-group">
         <label className="d-block">Tag filters</label>
