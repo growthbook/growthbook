@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import json
 from decimal import Decimal
 import os
+import sys
 
 import mysql.connector
 import psycopg2
@@ -171,7 +172,10 @@ def main():
         runner.close_connection()
     
     # Learn what branch and write out results
-    with open('/tmp/json/query_results.json', 'w') as f:
+    branch_name = sys.argv[1].replace("/", "") if len(sys.argv) > 1 else ''
+    res_filename = f'/tmp/json/query_results_{branch_name}.json'
+    print(f"Writing query result json to {res_filename}...")
+    with open(res_filename, 'w') as f:
         f.write(json.dumps(results, cls=DecimalEncoder, indent=2))
     return results
 

@@ -16,7 +16,7 @@
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
-    "generate-integration-queries": "source ~/.env && ts-node --swc ./test/integrations/integration-query-generator.ts && python3 ./test/integrations/integration-query-test.py",
+    "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js"
