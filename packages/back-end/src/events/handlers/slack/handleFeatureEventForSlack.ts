@@ -7,10 +7,10 @@ import {
 } from "../../base-events";
 import { getSlackIntegrationsForFilters } from "../../../models/SlackIntegrationModel";
 import { FeatureEnvironment } from "../../../../types/feature";
-import { sendSlackMessage, SlackMessage } from "./slack-event-handler-utils";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { logger } from "../../../util/logger";
 import { APP_ORIGIN } from "../../../util/secrets";
+import { sendSlackMessage, SlackMessage } from "./slack-event-handler-utils";
 
 type HandleFeatureEventOptions = {
   organizationId: string;
