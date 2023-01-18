@@ -73,7 +73,7 @@ export class GrowthBook {
     }
 
     if (this.context.clientKey) {
-      fetchFeaturesWithCache(this);
+      fetchFeaturesWithCache(this, true);
     }
   }
 

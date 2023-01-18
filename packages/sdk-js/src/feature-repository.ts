@@ -30,7 +30,7 @@ const cacheSettings: CacheSettings = {
 };
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
-  SubtleCrypto: globalThis.crypto?.subtle,
+  SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
   EventSource: globalThis.EventSource,
   localStorage: globalThis.localStorage,
 };
@@ -67,9 +67,9 @@ export async function clearCache(): Promise<void> {
 
 export async function fetchFeaturesWithCache(
   instance: GrowthBook,
-  timeout: number = 0,
-  skipCache: boolean = false,
-  allowStale: boolean = true
+  allowStale?: boolean,
+  timeout?: number,
+  skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
   const [key, apiHost, clientKey, enableDevMode] = getKey(instance);
   if (!clientKey) return null;
@@ -102,23 +102,25 @@ export async function fetchFeaturesWithCache(
 
 export async function refreshFeatures(
   instance: GrowthBook,
-  options: RefreshFeaturesOptions = {}
+  options?: RefreshFeaturesOptions
 ): Promise<void> {
+  options = options || {};
   const data = await fetchFeaturesWithCache(
     instance,
+    false,
     options.timeout,
-    options.skipCache,
-    false
+    options.skipCache
   );
   data && (await setFeaturesOnInstance(instance, data));
 }
 
 export async function loadFeatures(
   instance: GrowthBook,
-  options: LoadFeaturesOptions = {}
+  options?: LoadFeaturesOptions
 ): Promise<void> {
+  options = options || {};
   // Fetch features with an optional timeout
-  const data = await fetchFeaturesWithCache(instance, options.timeout);
+  const data = await fetchFeaturesWithCache(instance, true, options.timeout);
   if (data) {
     await setFeaturesOnInstance(instance, data);
   }
@@ -238,9 +240,9 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
   updatePersistentCache();
 
   // Update features for all subscribed GrowthBook instances
-  subscribedInstances
-    .get(key)
-    ?.forEach((instance) => setFeaturesOnInstance(instance, data));
+  const instances = subscribedInstances.get(key);
+  instances &&
+    instances.forEach((instance) => setFeaturesOnInstance(instance, data));
 }
 
 async function setFeaturesOnInstance(
@@ -277,6 +279,7 @@ async function fetchFeatures(
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
         startAutoRefresh(instance, apiHost, clientKey, key);
+        activeFetches.delete(key);
         return data;
       })
       .catch((e) => {
@@ -284,12 +287,10 @@ async function fetchFeatures(
           instance.log("Error fetching features", {
             apiHost,
             clientKey,
-            error: e?.message || e,
+            error: e ? e.message : null,
           });
-        return Promise.resolve({ features: {} });
-      })
-      .finally(() => {
         activeFetches.delete(key);
+        return Promise.resolve({ features: {} });
       });
     activeFetches.set(key, promise);
   }
@@ -323,7 +324,7 @@ function startAutoRefresh(
             instance.log("SSE Error", {
               apiHost,
               clientKey,
-              error: (e as Error)?.message || e,
+              error: e ? (e as Error).message : null,
             });
           onSSEError(key, channel);
         }
@@ -347,9 +348,6 @@ function onSSEError(key: RepositoryKey, channel: ScopedChannel) {
 }
 
 function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
-  if (channel.src.removeEventListener) {
-    channel.src.removeEventListener("features", channel.cb);
-  }
   channel.src.onerror = null;
   channel.src.close();
   streams.delete(key);
