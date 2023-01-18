@@ -279,7 +279,7 @@ type RemoveTagOptions = {
   tag: string;
 };
 
-export const removeTagInSlackIntegration = async ({
+export const removeTagFromSlackIntegration = async ({
   organizationId,
   tag,
 }: RemoveTagOptions): Promise<void> => {
