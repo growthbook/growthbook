@@ -271,16 +271,17 @@ Note: If you evaluate the same feature multiple times (and the value doesn't cha
 
 ### Dev Mode
 
-You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
 
-Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
 
 ```js
 const gb = new GrowthBook({
-  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
   enableDevMode: true,
 });
 ```
+
+To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
 
 ### evalFeature
 
