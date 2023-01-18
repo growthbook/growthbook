@@ -1,11 +1,15 @@
+import uniq from "lodash/uniq";
+import { KnownBlock } from "@slack/web-api";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
 } from "../../base-events";
-import uniq from "lodash/uniq";
 import { getSlackIntegrationsForFilters } from "../../../models/SlackIntegrationModel";
 import { FeatureEnvironment } from "../../../../types/feature";
+import { sendSlackMessage, SlackMessage } from "./slack-event-handler-utils";
+import { SlackIntegrationInterface } from "../../../../types/slack-integration";
+import { logger } from "../../../util/logger";
 
 export const handleFeatureEventForSlack = async (
   organizationId: string,
@@ -17,6 +21,7 @@ export const handleFeatureEventForSlack = async (
   // Get related feature.
   // console.log("🔵 handleFeatureEvent", featureEvent);
 
+  // Build filtering query and get relevant SlackIntegration records
   const tags = getTagsForFeatureEvent(featureEvent);
   const environments = getEnvironmentsForFeatureEvent(featureEvent);
   const projects = getProjectsForFeatureEvent(featureEvent);
@@ -28,12 +33,32 @@ export const handleFeatureEventForSlack = async (
     environments,
     projects,
   });
+
   // console.log("🔵 handleFeatureEvent -> query", {
   //   tags,
   //   environments,
   //   projects,
   // });
-  console.log("🔵 handleFeatureEvent -> slackIntegrations", slackIntegrations);
+  // console.log("🔵 handleFeatureEvent -> slackMessage", slackMessage);
+  // console.log("🔵 handleFeatureEvent -> slackIntegrations", slackIntegrations);
+
+  slackIntegrations?.forEach((slackIntegration) => {
+    // Build the Slack message for the given event
+    const slackMessage = buildSlackMessageForEvent(
+      featureEvent,
+      slackIntegration
+    );
+
+    sendSlackMessage(slackMessage, slackIntegration.slackIncomingWebHook).then(
+      (isSuccessful) => {
+        if (!isSuccessful) {
+          logger.warn("Failed to notify for Slack integration", {
+            id: slackIntegration.id,
+          });
+        }
+      }
+    );
+  });
 };
 
 /**
@@ -157,4 +182,101 @@ const getEnabledEnvironmentsForEnvironmentSettings = (
   return Object.keys(environmentSettings).filter(
     (env) => environmentSettings[env]?.enabled
   );
+};
+
+/**
+ * Given an event, will build the desired Slack message
+ * @param featureEvent
+ * @param slackIntegration
+ */
+const buildSlackMessageForEvent = (
+  featureEvent:
+    | FeatureCreatedNotificationEvent
+    | FeatureUpdatedNotificationEvent
+    | FeatureDeletedNotificationEvent,
+  slackIntegration: SlackIntegrationInterface
+): SlackMessage => {
+  switch (featureEvent.event) {
+    case "feature.created":
+      return buildCreatedEvent(featureEvent, slackIntegration);
+
+    case "feature.updated":
+      return buildUpdatedEvent(featureEvent, slackIntegration);
+
+    case "feature.deleted":
+      return buildDeletedEvent(featureEvent, slackIntegration);
+  }
+};
+
+const getIntegrationContextBlock = (
+  slackIntegration: SlackIntegrationInterface
+): KnownBlock => {
+  return {
+    type: "context",
+    elements: [
+      {
+        type: "plain_text",
+        text: `This was sent from your Slack integration: ${slackIntegration.name}`,
+      },
+    ],
+  };
+};
+
+const buildCreatedEvent = (
+  featureEvent: FeatureCreatedNotificationEvent,
+  slackIntegration: SlackIntegrationInterface
+): SlackMessage => {
+  const text = `The feature ${featureEvent.event} has been created in GrowthBook`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `The feature *${featureEvent.event}* has been created in GrowthBook`,
+        },
+      },
+      getIntegrationContextBlock(slackIntegration),
+    ],
+  };
+};
+
+const buildUpdatedEvent = (
+  featureEvent: FeatureUpdatedNotificationEvent,
+  slackIntegration: SlackIntegrationInterface
+): SlackMessage => {
+  return {
+    text: "todo: feature.updated",
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "*todo*: feature.updated",
+        },
+      },
+      getIntegrationContextBlock(slackIntegration),
+    ],
+  };
+};
+
+const buildDeletedEvent = (
+  featureEvent: FeatureDeletedNotificationEvent,
+  slackIntegration: SlackIntegrationInterface
+): SlackMessage => {
+  return {
+    text: "todo: feature.deleted",
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "*todo*: feature.deleted",
+        },
+      },
+      getIntegrationContextBlock(slackIntegration),
+    ],
+  };
 };
