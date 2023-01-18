@@ -45,8 +45,8 @@ import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  OrganizationSettings,
 } from "../../types/organization";
+import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
 import {
@@ -519,7 +519,7 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  statsEngine?: OrganizationSettings["statsEngine"]
+  statsEngine?: StatsEngine
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -615,7 +615,7 @@ export async function createSnapshot(
   organization: OrganizationInterface,
   dimensionId: string | null,
   useCache: boolean = false,
-  statsEngine: OrganizationSettings["statsEngine"]
+  statsEngine: StatsEngine | undefined
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
