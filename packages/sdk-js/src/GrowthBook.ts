@@ -26,7 +26,7 @@ import {
 import { evalCondition } from "./mongrule";
 import {
   loadFeatures,
-  primeCache,
+  fetchFeaturesWithCache,
   refreshFeatures,
   unsubscribe,
 } from "./feature-repository";
@@ -73,7 +73,7 @@ export class GrowthBook {
     }
 
     if (this.context.clientKey) {
-      primeCache(this);
+      fetchFeaturesWithCache(this);
     }
   }
 

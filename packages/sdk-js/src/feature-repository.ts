@@ -64,17 +64,25 @@ export async function clearCache(): Promise<void> {
   await updatePersistentCache();
 }
 
-export async function primeCache(
-  instance: GrowthBook
+export async function fetchFeaturesWithCache(
+  instance: GrowthBook,
+  timeout: number = 0,
+  skipCache: boolean = false,
+  allowStale: boolean = true
 ): Promise<FeatureApiResponse | null> {
-  const [apiHost, clientKey, enableDevMode] = getApiHostAndKey(instance);
+  const [key, apiHost, clientKey, enableDevMode] = getKey(instance);
   if (!clientKey) return null;
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
+  const now = new Date();
   await initializeCache();
   const existing = cache.get(key);
-  if (existing && !enableDevMode) {
+  if (
+    existing &&
+    !enableDevMode &&
+    !skipCache &&
+    (allowStale || existing.staleAt > now)
+  ) {
     // Reload features in the backgroud if stale
-    if (existing.staleAt < new Date()) {
+    if (existing.staleAt < now) {
       fetchFeatures(instance, apiHost, clientKey);
     }
     // Otherwise, if we don't need to refresh now, start a background sync
@@ -83,7 +91,10 @@ export async function primeCache(
     }
     return existing.data;
   } else {
-    const data = await fetchFeatures(instance, apiHost, clientKey);
+    const data = await promiseTimeout(
+      fetchFeatures(instance, apiHost, clientKey),
+      timeout
+    );
     return data;
   }
 }
@@ -92,23 +103,11 @@ export async function refreshFeatures(
   instance: GrowthBook,
   options: RefreshFeaturesOptions = {}
 ): Promise<void> {
-  const [apiHost, clientKey, enableDevMode] = getApiHostAndKey(instance);
-  if (!clientKey) return;
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
-
-  // If we're ok using a fresh cached value (not stale)
-  await initializeCache();
-  if (!enableDevMode && !options.skipCache) {
-    const existing = cache.get(key);
-    if (existing && existing.staleAt > new Date()) {
-      await setFeaturesOnInstance(instance, existing.data);
-      return;
-    }
-  }
-
-  const data = await promiseTimeout(
-    fetchFeatures(instance, apiHost, clientKey),
-    options.timeout
+  const data = await fetchFeaturesWithCache(
+    instance,
+    options.timeout,
+    options.skipCache,
+    false
   );
   data && (await setFeaturesOnInstance(instance, data));
 }
@@ -117,18 +116,13 @@ export async function loadFeatures(
   instance: GrowthBook,
   options: LoadFeaturesOptions = {}
 ): Promise<void> {
-  const [apiHost, clientKey] = getApiHostAndKey(instance);
-  if (!clientKey) return;
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
-  if (!key) return;
-
   // Fetch features with an optional timeout
-  const data = await promiseTimeout(primeCache(instance), options.timeout);
+  const data = await fetchFeaturesWithCache(instance, options.timeout);
   if (data) {
     await setFeaturesOnInstance(instance, data);
   }
   if (options.autoRefresh) {
-    subscribe(key, instance);
+    subscribe(instance);
   }
 }
 export function unsubscribe(instance: GrowthBook): void {
@@ -147,12 +141,19 @@ async function updatePersistentCache() {
   }
 }
 
-function getApiHostAndKey(instance: GrowthBook): [ApiHost, ClientKey, boolean] {
+function getKey(
+  instance: GrowthBook
+): [RepositoryKey, ApiHost, ClientKey, boolean] {
   // eslint-disable-next-line
   const ctx = (instance as any).context as Context;
   const apiHost = ctx.apiHost || "";
   const clientKey = ctx.clientKey || "";
-  return [apiHost.replace(/\/*$/, ""), clientKey, !!ctx.enableDevMode];
+  return [
+    `${apiHost}||${clientKey}`,
+    apiHost.replace(/\/*$/, ""),
+    clientKey,
+    !!ctx.enableDevMode,
+  ];
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -182,7 +183,8 @@ function promiseTimeout<T>(
 }
 
 // Subscribe a GrowthBook instance to feature changes
-function subscribe(key: RepositoryKey, instance: GrowthBook): void {
+function subscribe(instance: GrowthBook): void {
+  const [key] = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
