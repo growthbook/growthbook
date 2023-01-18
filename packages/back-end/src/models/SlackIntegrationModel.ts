@@ -308,4 +308,21 @@ export const removeProjectFromSlackIntegration = async ({
   );
 };
 
+type RemoveEnvironmentOptions = {
+  organizationId: string;
+  envId: string;
+};
+
+export const removeEnvironmentFromSlackIntegration = async ({
+  organizationId,
+  envId,
+}: RemoveEnvironmentOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, environments: envId },
+    {
+      $pull: { environments: envId },
+    }
+  );
+};
+
 // endregion Delete
