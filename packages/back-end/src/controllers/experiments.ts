@@ -1431,7 +1431,6 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
-  const statsEngine = org.settings?.statsEngine;
 
   const useCache = !req.query["force"];
 
@@ -1450,6 +1449,10 @@ export async function postSnapshot(
     });
     return;
   }
+
+  // TODO
+  // const statsEngine = exp.statsEngine ?? org.settings?.statsEngine;
+  const statsEngine = org.settings?.statsEngine;
 
   if (!exp.phases[phase]) {
     res.status(404).json({
