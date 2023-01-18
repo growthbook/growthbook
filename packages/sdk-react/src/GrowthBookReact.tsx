@@ -134,7 +134,7 @@ export function FeaturesReady({
   fallback?: React.ReactNode;
 }) {
   const gb = useGrowthBook();
-  const [ready, setReady] = React.useState(gb?.ready || false);
+  const [ready, setReady] = React.useState(gb ? gb.ready : false);
   React.useEffect(() => {
     if (timeout && !ready) {
       const timer = setTimeout(() => {
