@@ -1,5 +1,5 @@
 import uniq from "lodash/uniq";
-import { Button, KnownBlock } from "@slack/web-api";
+import { KnownBlock } from "@slack/web-api";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
@@ -226,29 +226,11 @@ const getIntegrationContextBlock = (
   };
 };
 
-const getFeatureUrlButtonLink = (featureId: string): Button => {
-  const featureUrl = `${APP_ORIGIN}/features/${featureId}`;
-  return {
-    type: "button",
-    text: {
-      type: "plain_text",
-      text: "View Feature",
-    },
-    url: featureUrl,
-  };
-};
+const getFeatureUrlFormatted = (featureId: string): string =>
+  `\n• <${APP_ORIGIN}/features/${featureId}|View Feature>`;
 
-const getEventUrlButtonLink = (eventId: string): Button => {
-  const eventUrl = `${APP_ORIGIN}/events/${eventId}`;
-  return {
-    type: "button",
-    text: {
-      type: "plain_text",
-      text: "View event",
-    },
-    url: eventUrl,
-  };
-};
+const getEventUrlFormatted = (eventId: string): string =>
+  `\n• <${APP_ORIGIN}/events/${eventId}|View Event>`;
 
 const buildCreatedEvent = (
   featureEvent: FeatureCreatedNotificationEvent,
@@ -266,15 +248,11 @@ const buildCreatedEvent = (
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `The feature *${featureId}* has been created.`,
+          text:
+            `The feature *${featureId}* has been created.\n\n` +
+            getFeatureUrlFormatted(featureId) +
+            getEventUrlFormatted(eventId),
         },
-      },
-      {
-        type: "actions",
-        elements: [
-          getFeatureUrlButtonLink(featureId),
-          getEventUrlButtonLink(eventId),
-        ],
       },
       getIntegrationContextBlock(slackIntegration),
     ],
@@ -297,15 +275,11 @@ const buildUpdatedEvent = (
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `The feature *${featureId}* has been updated.`,
+          text:
+            `The feature *${featureId}* has been updated.\n\n` +
+            getFeatureUrlFormatted(featureId) +
+            getEventUrlFormatted(eventId),
         },
-      },
-      {
-        type: "actions",
-        elements: [
-          getFeatureUrlButtonLink(featureId),
-          getEventUrlButtonLink(eventId),
-        ],
       },
       getIntegrationContextBlock(slackIntegration),
     ],
@@ -327,12 +301,10 @@ const buildDeletedEvent = (
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `The feature *${featureId}* has been deleted.`,
+          text:
+            `The feature *${featureId}* has been deleted.\n\n` +
+            getEventUrlFormatted(eventId),
         },
-      },
-      {
-        type: "actions",
-        elements: [getEventUrlButtonLink(eventId)],
       },
       getIntegrationContextBlock(slackIntegration),
     ],
