@@ -88,12 +88,13 @@ export const getSlackIntegration = async (
 type CreateSlackIntegrationRequest = AuthRequest<{
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;
+  slackIncomingWebHook: string;
 }>;
 
 type CreateSlackIntegrationResponse = {
@@ -118,9 +119,10 @@ export const postSlackIntegration = async (
     events,
     description,
     environments,
-    project,
+    projects,
     slackAppId,
     slackSigningKey,
+    slackIncomingWebHook,
     tags,
   } = req.body;
 
@@ -130,9 +132,10 @@ export const postSlackIntegration = async (
     events,
     description,
     environments,
-    project,
+    projects,
     slackAppId,
     slackSigningKey,
+    slackIncomingWebHook,
     tags,
     linkedByUserId: req.userId as string,
   });
@@ -148,12 +151,13 @@ type PutSlackIntegrationRequest = AuthRequest<
   {
     name: string;
     description: string;
-    project: string | null;
+    projects: string[];
     environments: string[];
     events: NotificationEventName[];
     tags: string[];
     slackAppId: string;
     slackSigningKey: string;
+    slackIncomingWebHook: string;
   },
   { id: string }
 >;
@@ -180,9 +184,10 @@ export const putSlackIntegration = async (
     events,
     description,
     environments,
-    project,
+    projects,
     slackAppId,
     slackSigningKey,
+    slackIncomingWebHook,
     tags,
   } = req.body;
 
@@ -196,9 +201,10 @@ export const putSlackIntegration = async (
       events,
       description,
       environments,
-      project,
+      projects,
       slackAppId,
       slackSigningKey,
+      slackIncomingWebHook,
       tags,
     }
   );
