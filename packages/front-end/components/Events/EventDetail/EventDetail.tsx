@@ -8,6 +8,8 @@ import {
 } from "back-end/types/event";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { datetime } from "@/services/dates";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 type EventDetailProps = {
   event: EventInterface<
@@ -23,6 +25,13 @@ export const EventDetail: FC<EventDetailProps> = ({ event }) => {
   return (
     <div>
       <h1>{event.event}</h1>
+      <h2 className="text-muted mb-3">{datetime(event.dateCreated)}</h2>
+      <Code
+        language="json"
+        filename={event.data.event}
+        code={JSON.stringify(event.data, null, 2)}
+        expandable={false}
+      />
     </div>
   );
 };
