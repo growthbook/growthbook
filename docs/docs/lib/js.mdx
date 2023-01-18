@@ -11,14 +11,10 @@ Supports both browser and NodeJS environments.
 
 ## Installation
 
-```
-yarn add @growthbook/growthbook
-```
+Install with a package manager
 
-or
-
-```
-npm i --save @growthbook/growthbook
+```bash npm2yarn
+npm install --save @growthbook/growthbook
 ```
 
 or use directly in your HTML without installing first:
@@ -47,6 +43,8 @@ const gb = new GrowthBook({
 
 // Wait for features to be available
 await gb.loadFeatures();
+
+const color = gb.getFeatureValue("button-color");
 ```
 
 #### Node.js Configuration
