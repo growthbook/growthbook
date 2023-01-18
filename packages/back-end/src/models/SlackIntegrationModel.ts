@@ -274,4 +274,21 @@ export const deleteSlackIntegration = async ({
   return result.deletedCount === 1;
 };
 
+type RemoveTagOptions = {
+  organizationId: string;
+  tag: string;
+};
+
+export const removeTagInSlackIntegration = async ({
+  organizationId,
+  tag,
+}: RemoveTagOptions): Promise<void> => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, tags: tag },
+    {
+      $pull: { tags: tag },
+    }
+  );
+};
+
 // endregion Delete
