@@ -291,4 +291,21 @@ export const removeTagFromSlackIntegration = async ({
   );
 };
 
+type RemoveProjectOptions = {
+  organizationId: string;
+  projectId: string;
+};
+
+export const removeProjectFromSlackIntegration = async ({
+  organizationId,
+  projectId,
+}: RemoveProjectOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, projects: projectId },
+    {
+      $pull: { projects: projectId },
+    }
+  );
+};
+
 // endregion Delete
