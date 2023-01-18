@@ -74,7 +74,7 @@ import { useFeatureValue, useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export default function OtherComponent() {
   // Boolean on/off features
-  const newLogic = useFeatureIsOn("new-login-form");
+  const newLogin = useFeatureIsOn("new-login-form");
 
   // String/Number/JSON features with a fallback value
   const buttonColor = useFeatureValue("login-button-color", "blue");
@@ -191,9 +191,8 @@ There is a helper component `<FeaturesReady>` that lets you render a fallback co
 </FeaturesReady>
 ```
 
-`timeout` is the max time you want to wait for features to load (in ms). The default is `0` (no timeout).
-
-`fallback` is the component you want to display before features are loaded. The default is `null`.
+- `timeout` is the max time you want to wait for features to load (in ms). The default is `0` (no timeout).
+- `fallback` is the component you want to display before features are loaded. The default is `null`.
 
 If you want more control, you can use the `useGrowthBook()` hook and the `ready` flag:
 
@@ -205,9 +204,183 @@ if (gb.ready) {
 }
 ```
 
-## The GrowthBook Instance
+## Experimentation (A/B Testing)
 
-The `GrowthBook` constructor takes a number of optional settings.
+In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result) => {
+    // Example using Segment
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+Once you set that up, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+
+```js
+// If this has an active experiment, it will call trackingCallback automatically
+const newLogin = useFeatureIsOn("new-signup-form");
+```
+
+## Server Side Rendering (SSR)
+
+This SDK fully supports server side rendering. The below examples use Next.js, but other frameworks should be similar.
+
+There are 2 ways to use GrowthBook for SSR.
+
+### SSR Only
+
+With this approach, feature flags are evaluated once when the page is rendered. If a feature flag changes, the user would need to refresh the page to see it.
+
+```js
+export async function getServerSideProps(context) {
+  // Create a GrowthBook instance and load features from the API
+  const gb = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    attributes: {
+      // TODO: get more targeting attributes from request context
+      id: context.req.cookies.DEVICE_ID
+    }
+  });
+  await gb.loadFeatures();
+
+  return {
+    props: {
+      title: gb.getFeatureValue("site-title", "fallback"),
+      showBanner: gb.isOn("sale-banner")
+    }
+  }
+}
+
+export default function MyPage({ title, showBanner }) {
+  return (
+    <div>
+      <h1>{title}</h1>
+      {showBanner && (
+        <div className="sale">There's a Sale!</div>
+      )}
+    </div>
+  )
+}
+```
+
+### Hybrid (SSR + Client-side)
+
+With this approach, you use the client-side hooks and components (e.g. `useFeatureValue`) and simply use SSR to make sure the initial load already has the latest features from the API.
+
+You get the benefits of client-side rendering (interactivity, realtime feature flag updates) plus the benefits of SSR (no flickering, improved SEO). It does require a little more setup to get working though.
+
+First, create a helper function to generate GrowthBook SSR props from an incoming request
+
+```js
+// util/gb-server.js
+import { getGrowthBookSSRData } from "@growthbook/growthbook-react";
+
+export async function generateGrowthBookSSRProps(context) {
+  return getGrowthBookSSRData({
+    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+    attributes: {
+      // TODO: get more targeting attributes from request context
+      id: context.req.cookies.DEVICE_ID
+    }
+  })
+}
+```
+
+Then, follow the same steps as client-side rendering to wrap your app in a GrowthBookProvider:
+
+```jsx
+// pages/_app.jsx
+import { useEffect } from "react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+
+// Create a client-side GrowthBook instance
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Enable easier debugging of feature flags during development
+  enableDevMode: true,
+});
+
+export default function App() {
+  useEffect(() => {
+    // Load features from the GrowthBook API and keep them up-to-date
+    gb.loadFeatures({ autoRefresh: true })
+  }, []);
+
+  useEffect(() => {
+    // Set user attributes for targeting (use the same values as SSR when possible)
+    gb.setAttributes({
+      id: user.id,
+    });
+  }, [user])
+
+  return (
+    <GrowthBookProvider growthbook={gb}>
+      <OtherComponent />
+    </GrowthBookProvider>
+  );
+}
+```
+
+Now, on a server rendered page, call the helper you made and pass it into the `useGrowthBookSSR` hook:
+
+```jsx
+// pages/server.jsx
+import MyComponent from "../components/MyComponent";
+import { generateGrowthBookSSRProps } from "../util/gb-server";
+import { useGrowthBookSSR } from "@growthbook/growthbook-react";
+
+export async function getServerSideProps(context) {
+  const gbData = await generateGrowthBookSSRProps(context);
+  return {
+    props: {
+      gbData,
+    },
+  };
+}
+
+export default function ServerPage({ gbData }) {
+  // This is required once at the top of the SSR page
+  useGrowthBookSSR(gbData);
+
+  return <MyComponent />;
+}
+```
+
+Lastly, in the rest of your app, use the client-side hooks and components just as you would if you weren't using SSR.
+
+```jsx
+// components/MyComponent.jsx
+export default function MyComponent() {
+  // Boolean on/off features
+  const newLogin = useFeatureIsOn("new-login-form");
+
+  // String/Number/JSON features with a fallback value
+  const buttonColor = useFeatureValue("login-button-color", "blue");
+
+  if (newLogin) {
+    return <NewLogin color={buttonColor} />;
+  } else {
+    return <Login color={buttonColor} />;
+  }
+}
+```
+
+If you weren't using SSR, the initial render would use fallback values for the features, then after React hydrates the page, the proper values would pop in, potentially causing a flicker on slow connections. This approach solves that issue by ensuring the features have the proper values from the start.
+
+## API Reference
+
+There are a number of configuration options and settings that control how GrowthBook behaves.
 
 ### Attributes
 
@@ -234,22 +407,16 @@ new GrowthBook({
 });
 ```
 
-If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+#### Updating Attributes
 
-### Tracking Callback
+If attributes change, you can call `setAttributes()` to update. This will completely overwrite any existing attributes. To do a partial update, use the following pattern:
 
-Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
-
-```ts
-new GrowthBook({
-  trackingCallback: (experiment, result) => {
-    // Example using Segment.io
-    analytics.track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
-  },
-});
+```js
+gb.setAttributes({
+  // Only update the `url` attribute, keep the rest the same
+  ...gb.getAttributes(),
+  url: "/new-page"
+})
 ```
 
 ### Feature Usage Callback
@@ -264,79 +431,29 @@ new GrowthBook({
 });
 ```
 
-The `result` argument is the same thing returned from the `useFeature` hook.
-
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
 ### Dev Mode
 
-You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
 
-Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
 
 ```js
 const gb = new GrowthBook({
-  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
   enableDevMode: true,
 });
 ```
 
-## Server Side Rendering (SSR)
+To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
 
-This SDK fully supports server side rendering. The below example is using Next.js, but other frameworks should be similar.
-
-First, create a helper function to generate GrowthBook SSR props from an incoming request
-
-```js
-// util/gb-server.js
-import { getGrowthBookSSRData } from "@growthbook/growthbook-react";
-
-export async function generateGrowthBookSSRProps(context) {
-  return getGrowthBookSSRData({
-	  apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
-	  clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
-    attributes: {
-      // TODO: get more targeting attributes from request context
-      id: context.req.cookies.DEVICE_ID
-    }
-  })
-}
-```
-
-Then, on a server rendered page, call this helper and pass it into the `useGrowthBookSSR` hook:
-
-```jsx
-// pages/server.jsx
-import MyComponent from "../components/MyComponent";
-import { generateGrowthBookSSRProps } from "../util/gb-server";
-import { useGrowthBookSSR } from "@growthbook/growthbook-react";
-
-export async function getServerSideProps(context) {
-  const gbData = await generateGrowthBookSSRProps(context);
-  return {
-    props: {
-      gbData,
-    },
-  };
-}
-
-export default function ServerPage({ gbData }) {
-  // This is required once at the top of the SSR page
-  useGrowthBookSSR(gbData);
-
-  return <MyComponent />;
-}
-```
-
-In the rest of your app, just use the same hooks and components as client-side rendering (`useFeature`, `<IfFeatureEnabled>`, etc.)
-
-## Inline Experiments
+### Inline Experiments
 
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
 
-### useExperiment hook
+#### useExperiment hook
 
 ```tsx
 import { useExperiment } from "@growthbook/growthbook-react";
@@ -351,7 +468,7 @@ export default function OtherComponent() {
 }
 ```
 
-### Class Components
+#### withRunExperiment (class components)
 
 **Note:** This library uses hooks internally, so still requires React 16.8 or above.
 

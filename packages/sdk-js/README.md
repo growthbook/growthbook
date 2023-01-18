@@ -39,7 +39,9 @@ or use directly in your HTML without installing first:
 
 ## Quick Usage
 
-```ts
+### Step 1: Configure your app
+
+```js
 import { GrowthBook } from "@growthbook/growthbook";
 
 // Create a GrowthBook instance
@@ -52,19 +54,11 @@ const gb = new GrowthBook({
 
 // Wait for features to be available
 await gb.loadFeatures();
-
-// Simple boolean (on/off) feature flag
-if (gb.isOn("my-feature")) {
-  console.log("Feature enabled!");
-}
-
-// Get the value of a non-boolean feature with a fallback
-const color = gb.getFeatureValue("button-color", "blue");
 ```
 
-## Using in Node.js
+#### Node.js Configuration
 
-This SDK can be used in a Node.js environment, however you may need to specify a few polyfills for missing browser APIs.
+If using this SDK in a server-side environment, you may need to configure some polyfills for missing browser APIs.
 
 ```js
 const { setPolyfills } = require("@growthbook/growthbook");
@@ -83,6 +77,20 @@ setPolyfills({
     setItem: (key, value) => redisClient.set(key, value),
   },
 });
+```
+
+### Step 2: Start Feature Flagging!
+
+There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+
+```js
+// Simple boolean (on/off) feature flag
+if (gb.isOn("my-feature")) {
+  console.log("Feature enabled!");
+}
+
+// Get the value of a string/JSON/number feature with a fallback
+const color = gb.getFeatureValue("button-color", "blue");
 ```
 
 ## Loading Features
@@ -144,45 +152,16 @@ gb.setRenderer(() => {
 });
 ```
 
-## The GrowthBook Instance
+## Experimentation (A/B Testing)
 
-The `GrowthBook` constructor takes a number of optional settings.
+In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
-### Attributes
-
-You can specify attributes about the current user and request. These are used for two things:
-
-1.  Feature targeting (e.g. paid users get one value, free users get another)
-2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
-
-The following are some comonly used attributes, but use whatever makes sense for your application.
-
-```ts
-new GrowthBook({
-  attributes: {
-    id: "123",
-    loggedIn: true,
-    deviceId: "abc123def456",
-    company: "acme",
-    paid: false,
-    url: "/pricing",
-    browser: "chrome",
-    mobile: false,
-    country: "US",
-  },
-});
-```
-
-If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
-
-### Tracking Callback
-
-Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
-
-```ts
-new GrowthBook({
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
   trackingCallback: (experiment, result) => {
-    // Example using Segment.io
+    // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.variationId,
@@ -193,64 +172,12 @@ new GrowthBook({
 
 If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
 
-### Feature Usage Callback
-
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
-
-```ts
-new GrowthBook({
-  onFeatureUsage: (featureKey, result) => {
-    console.log("feature", featureKey, "has value", result.value);
-  },
-});
-```
-
-The `result` argument is the same thing returned from `gb.evalFeature`.
-
-Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
-
-### Dev Mode
-
-You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
-
-Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+Once you define the callback, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
 
 ```js
-const gb = new GrowthBook({
-  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
-  enableDevMode: true,
-});
+// If this has an active experiment, it will call trackingCallback automatically
+const newLogin = gb.isOn("new-signup-form");
 ```
-
-## Using Features
-
-Every feature has a "value" which is assigned to a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
-
-There are 4 main methods for evaluating features:
-
-```ts
-if (gb.isOn("my-feature")) {
-  // Value is truthy
-}
-
-if (gb.isOff("my-feature")) {
-  // Value is falsy (null, 0, "", or false)
-}
-
-// Get the value with a fallback for when it's null
-const value = gb.getFeatureValue("my-feature", 123);
-
-// Get detailed information about the feature evaluation
-const result = gb.evalFeature("my-feature");
-```
-
-The `evalFeature` method returns a `FeatureResult` object with more info about why the feature was assigned to the user. It has the following properties:
-
-- **value** - The value of the feature (or `null` if not defined)
-- **source** - Why the value was assigned to the user. One of `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
-- **ruleId** - The string id of the rule (if any) which was used to assign the value to the user
-- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
-- **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
 
 ## Typescript
 
@@ -304,7 +231,90 @@ import type {
 } from "@growthbook/growthbook";
 ```
 
-## Inline Experiments
+## GrowthBook Instance (reference)
+
+### Attributes
+
+You can specify attributes about the current user and request. These are used for two things:
+
+1.  Feature targeting (e.g. paid users get one value, free users get another)
+2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
+
+The following are some comonly used attributes, but use whatever makes sense for your application.
+
+```ts
+new GrowthBook({
+  attributes: {
+    id: "123",
+    loggedIn: true,
+    deviceId: "abc123def456",
+    company: "acme",
+    paid: false,
+    url: "/pricing",
+    browser: "chrome",
+    mobile: false,
+    country: "US",
+  },
+});
+```
+
+If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+### Feature Usage Callback
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+```ts
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
+```
+
+The `result` argument is the same thing returned from `gb.evalFeature`.
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+
+Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+
+```js
+const gb = new GrowthBook({
+  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+  enableDevMode: true,
+});
+```
+
+### evalFeature
+
+In addition to the `isOn` and `getFeatureValue` helper methods, there is the `evalFeature` method that gives you more detailed information about why the value was assigned to the user.
+
+```ts
+// Get detailed information about the feature evaluation
+const result = gb.evalFeature("my-feature");
+
+// The value of the feature (or `null` if not defined)
+console.log(result.value);
+
+// Why the value was assigned to the user
+// One of: `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
+console.log(result.source);
+
+// The string id of the rule (if any) which was used
+console.log(result.ruleId);
+
+// Information about the experiment (if any) which was used
+console.log(result.experiment);
+
+// The result of the experiment (or `undefined`)
+console.log(result.experimentResult);
+```
+
+### Inline Experiments
 
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
 
@@ -322,7 +332,7 @@ In addition, there are a few other settings that only really make sense for inli
 - `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
 - `active` can be set to false to disable the experiment and return the control for everyone
 
-### Inline Experiment Return Value
+#### Inline Experiment Return Value
 
 A call to `gb.run(experiment)` returns an object with a few useful properties:
 
