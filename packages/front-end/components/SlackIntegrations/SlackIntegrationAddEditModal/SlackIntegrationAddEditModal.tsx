@@ -1,6 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Typeahead } from "react-bootstrap-typeahead";
 import z from "zod";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import { TagInterface } from "back-end/types/tag";
@@ -141,41 +140,19 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         }}
       />
 
-      <div className="form-group">
-        <label className="d-block">Event filters</label>
-        <div className="mt-1">
-          <Typeahead
-            id="events-input"
-            labelKey="name"
-            multiple={true}
-            allowNew={false}
-            options={eventWebHookEventOptions.map(({ id }) => {
-              return {
-                id: id,
-                name: id,
-              };
-            })}
-            onChange={(
-              selected: {
-                id: NotificationEventName;
-                name: NotificationEventName;
-              }[]
-            ) => {
-              form.setValue(
-                "events",
-                selected.map((item) => item.id)
-              );
-              handleFormValidation();
-            }}
-            selected={form.watch("events").map((v) => ({ id: v, name: v }))}
-            placeholder="Choose events"
-            positionFixed={true}
-          />
-          <small className="text-muted">
-            Only receive notifications for matching events.
-          </small>
-        </div>
-      </div>
+      <MultiSelectField
+        label="Event filters"
+        helpText="Only receive notifications for matching events."
+        value={form.watch("events")}
+        options={eventWebHookEventOptions.map(({ id }) => ({
+          label: id,
+          value: id,
+        }))}
+        onChange={(value: string[]) => {
+          form.setValue("events", value as NotificationEventName[]);
+          handleFormValidation();
+        }}
+      />
 
       <Field
         label="Slack App ID"
