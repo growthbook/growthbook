@@ -38,6 +38,8 @@ type TestExperimentConfig = {
 };
 const experimentConfigs = experimentConfigData as TestExperimentConfig[];
 // missing following experiment config for now
+// as it hangs on MySQL. May require fixing the actual
+// query generated for this use case.
 //  {
 //   "id": "dimension_activation",
 //   "dimensionType": "activation",
@@ -103,6 +105,7 @@ const baseExperiment: ExperimentInterface = {
   archived: false,
   phases: [baseExperimentPhase],
   autoSnapshots: false,
+  removeMultipleExposures: true,
 };
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig

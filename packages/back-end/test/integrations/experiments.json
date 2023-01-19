@@ -89,5 +89,10 @@
     "id": "filter_segment",
     "attributionModel": "firstExposure",
     "segment": "chrome_only"
+  },
+  {
+    "id": "keepmultipleexposures",
+    "attributionModel": "firstExposure",
+    "removeMultipleExposures": false
   }
 ]
