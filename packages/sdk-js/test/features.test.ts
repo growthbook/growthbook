@@ -15,6 +15,10 @@ const mockCallback = (context: Context) => {
   return onFeatureUsage.mock;
 };
 
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe("features", () => {
   it("renders when features are set", () => {
     const context: Context = {
@@ -401,11 +405,7 @@ describe("features", () => {
     expect(growthbook.isOff("feature2")).toEqual(true);
     expect(growthbook.getFeatureValue("feature3", "default")).toEqual("a");
 
-    await new Promise<void>((resolve) => {
-      window.setTimeout(() => {
-        resolve();
-      }, 100);
-    });
+    await sleep(100);
 
     const events = [
       {
@@ -475,11 +475,7 @@ describe("features", () => {
     expect(growthbook.isOn("feature1")).toEqual(true);
     growthbook.destroy();
 
-    await new Promise<void>((resolve) => {
-      window.setTimeout(() => {
-        resolve();
-      }, 100);
-    });
+    await sleep(100);
 
     expect(mock.mock.calls.length).toEqual(0);
     window.fetch = f;
