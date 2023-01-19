@@ -219,6 +219,12 @@ const getIntegrationContextBlock = (
     type: "context",
     elements: [
       {
+        type: "image",
+        image_url:
+          "https://github.com/growthbook/growthbook/blob/main/packages/front-end/public/logo/Logo-mark.png?raw=true",
+        alt_text: "GrowthBook logo",
+      },
+      {
         type: "plain_text",
         text: `This was sent from your Slack integration: ${slackIntegration.name}`,
       },
