@@ -87,7 +87,10 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       tags: z.array(z.string()),
       slackAppId: z.string().trim().min(2),
       slackSigningKey: z.string().trim().min(2),
-      slackIncomingWebHook: z.string().url(),
+      slackIncomingWebHook: z
+        .string()
+        .url()
+        .startsWith("https://hooks.slack.com/services/"),
     });
 
     setCtaEnabled(schema.safeParse(formValues).success);
