@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.2.3 [View Changelog](#changelog)**
+**Latest spec version: 0.3.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -75,6 +75,9 @@ The syntax is inspired by MongoDB queries. Here is an example:
 **Context** object passed into the GrowthBook constructor. Has a number of optional properties:
 
 - **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
+- **apiHost** (`string`) - The GrowthBook API Host. Optional
+- **clientKey** (`string`) - The key used to fetch features from the GrowthBook API. Optional
+- **decryptionKey** (`string`) - The key used to decrypt encrypted features from the API. Optional
 - **attributes** (`Attributes`) - Map of user attributes that are used to assign variations
 - **url** (`string`) - The URL of the current page
 - **features** (`FeatureMap`) - Feature definitions (usually pulled from an API or cache)
@@ -493,9 +496,7 @@ The GrowthBook class is the main export of the SDK.
 
 The constructor takes a Context object and stores the properties for later. Nothing else needs to be done during initialization.
 
-The main export of the libraries is a simple `GrowthBook` wrapper class that takes a `Context` object in the constructor.
-
-This class has a few helper methods as well as 2 main public methods - `feature` and `run`.
+This class has a few helper methods as well as 2 main public methods - `evalFeature` and `run`.
 
 ### Getters and Setters
 
@@ -701,6 +702,55 @@ public getFeatureValue(key, fallback) {
 
 For strongly typed languages, you can use generics (if supported) for `getFeatureValue` and coerce the return value to always match the data type of fallback. If generics are not supported, you can use type-specific versions of the function such as `getFeatureValueAsString`.
 
+## Fetching and Caching Features
+
+When the Context contains a `clientKey`, the SDK should fetch and cache features automatically.
+
+If `apiHost` is not specified, default to `https://cdn.growthbook.io`. Make sure to strip and trailing slashes on user-entered hosts (e.g. `http://example.com/` becomes `http://example.com`).
+
+Features should be fetched from `{apiHost}/api/features/{clientKey}` and all errors should be handled gracefully. A network error while fetching features should never be a fatal error that stops execution.
+
+The API responses should be parsed and cached so future GrowthBook instances with the same clientKey can avoid a duplicate network request. The standard cache TTL to use is 60 seconds.
+
+For best performance, a stale-while-revalidate pattern should be used. If a cache entry is older than the TTL, return the cached value immediately and start a background process to update the cache from the API.
+
+The initial download should be intiated by a `growthbook.loadFeatures()` method call. This method may take optional parameters, such as `timeout` or `skipCache`, if it makes sense.
+
+There should be an easy way for the user to wait until features finish loading. Depending on the language, this might be an event emitter, a Promise, a callback, or something similar. Use whatever method is standard for the language.
+
+### Server Sent Events
+
+The API response (`/api/features/{clientKey}`) may contain a response header:
+
+> x-sse-support: enabled
+
+If set to "enabled", you are able to subscribe to the API for realtime changes to feature definitions. This will let you update the cache immediately when a feature changes instead of waiting for the 60s TTL to expire.
+
+The URL for subscribing to changes is `{apiHost}/sub/{clientKey}`. An example implementation in Javascript is below:
+
+```js
+const channel = new EventSource(`${apiHost}/sub/${clientKey}`);
+channel.addEventListener("features", (event) => {
+  const data = JSON.parse(event.data);
+  cache.set(clientKey, data.features);
+})
+```
+
+### Encrypted Features
+
+The `/api/features/{clientKey}` endpoint can have encryption enabled (128-bit AES-CBC). When this is the case, the API response will look like this:
+
+```js
+{
+  "features": {},
+  "encryptedFeatures": "abcdef123456.ghijklmnop789jksdkfaksfadfasdfkahsfa"
+}
+```
+
+Before you can use this response, you will need to decrypt it. This requires the user to set `Context.decryptionKey` with creating the GrowthBook instance.
+
+Look at the Javascript SDK for an example decryption implementation.
+
 ## Type Hinting
 
 Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for SDKs.
@@ -827,3 +877,7 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Add test case for when an experiment's hashAttribute is an integer
 - **v0.2.3** 2022-12-06
   - Add test case for when an experiment's coverage is set to 0
+- **v0.3.0** 2023-01-18
+  - New `apiHost`, `clientKey`, and `decryptionKey` Context properties
+  - Built-in fetching and caching
+  - Server Sent Events (SSE) support for realtime feature updates
