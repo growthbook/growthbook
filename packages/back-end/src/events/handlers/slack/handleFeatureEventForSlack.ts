@@ -249,7 +249,7 @@ const buildCreatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been created.\n\n` +
+            `The feature *${featureId}* has been created.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -276,7 +276,7 @@ const buildUpdatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been updated.\n\n` +
+            `The feature *${featureId}* has been updated.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -302,7 +302,7 @@ const buildDeletedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been deleted.\n\n` +
+            `The feature *${featureId}* has been deleted.` +
             getEventUrlFormatted(eventId),
         },
       },
