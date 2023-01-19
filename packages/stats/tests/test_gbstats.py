@@ -396,7 +396,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.234544126)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.145108427)
 
 
 class TestAdjustedStats(TestCase):

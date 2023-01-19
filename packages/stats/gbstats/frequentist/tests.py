@@ -50,11 +50,7 @@ class TTest(BaseABTest):
 
     @property
     def dof(self) -> int:
-        # welch-satterthwaite approx (probably overkill)
-        return pow(self.variance, 2) / (
-            pow(self.stat_b.variance / self.stat_b.n, 2) / (self.stat_b.n - 1)
-            + pow(self.stat_a.variance / self.stat_a.n, 2) / (self.stat_a.n - 1)
-        )
+        return self.stat_a.n + self.stat_b.n - 2
 
     @property
     @abstractmethod
