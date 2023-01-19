@@ -38,7 +38,6 @@ import {
   findByEntityParent,
   getWatchedAudits,
 } from "../../services/audit";
-import { ExperimentModel } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { SegmentModel } from "../../models/SegmentModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
@@ -80,6 +79,7 @@ import {
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
+import { getExperimentsByQuery } from "../../models/ExperimentModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -153,7 +153,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
     }
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
-    const experiments = await ExperimentModel.find(
+    const experiments = await getExperimentsByQuery(
       {
         id: {
           $in: experimentIds,

@@ -32,11 +32,11 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
+import { ensureWatching } from "../services/experiments";
 import {
+  ExperimentDocument,
   getExperimentByTrackingKey,
-  ensureWatching,
-} from "../services/experiments";
-import { ExperimentDocument } from "../models/ExperimentModel";
+} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,

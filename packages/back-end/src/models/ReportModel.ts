@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { ReportInterface } from "../../types/report";
-import { getExperimentsByOrganization } from "../services/experiments";
+import { getExperimentsByOrganization } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
 const reportSchema = new mongoose.Schema({

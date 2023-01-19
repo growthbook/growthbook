@@ -12,10 +12,10 @@ import {
   getMetricsUsingSegment,
   updateMetricsByQuery,
 } from "../../models/MetricModel";
-import { getExperimentsUsingSegment } from "../../services/experiments";
 import {
   ExperimentDocument,
-  ExperimentModel,
+  getExperimentsUsingSegment,
+  updateExperimentByQuery,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
 
@@ -300,7 +300,7 @@ export const deleteSegment = async (
 
   const exps = await getExperimentsUsingSegment(id, org.id);
   if (exps.length > 0) {
-    await ExperimentModel.updateMany(
+    await updateExperimentByQuery(
       { organization: org.id, segment: id },
       {
         $set: { segment: "" },

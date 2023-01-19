@@ -6,14 +6,12 @@ import {
   createPresentation,
   deletePresentationById,
 } from "../services/presentations";
-import {
-  getExperimentsByIds,
-  getLatestSnapshot,
-} from "../services/experiments";
+import { getLatestSnapshot } from "../services/experiments";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
+import { getExperimentsByIds } from "../models/ExperimentModel";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);

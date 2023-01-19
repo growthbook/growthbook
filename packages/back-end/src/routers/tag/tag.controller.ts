@@ -4,7 +4,7 @@ import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { TagInterface } from "../../../types/tag";
 import { addTag, removeTag } from "../../models/TagModel";
-import { ExperimentModel } from "../../models/ExperimentModel";
+import { updateExperimentByQuery } from "../../models/ExperimentModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 
@@ -64,7 +64,7 @@ export const deleteTag = async (
   const { id } = req.params;
 
   // experiments
-  await ExperimentModel.updateMany(
+  await updateExperimentByQuery(
     { organization: org.id, tags: id },
     {
       $pull: { tags: id },

@@ -41,13 +41,14 @@ import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { getDefaultRole } from "../util/organization.util";
+import { getExperimentsByOrganization } from "../models/ExperimentModel";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
   getSourceIntegrationObject,
   mergeParams,
 } from "./datasource";
-import { createMetric, getExperimentsByOrganization } from "./experiments";
+import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 
 export async function getOrganizationById(id: string) {

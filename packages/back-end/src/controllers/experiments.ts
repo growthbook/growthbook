@@ -3,22 +3,24 @@ import uniqid from "uniqid";
 import format from "date-fns/format";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
-  getExperimentsByOrganization,
-  getExperimentById,
   getLatestSnapshot,
-  createExperiment,
-  createSnapshot,
-  deleteExperimentById,
   createManualSnapshot,
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
   experimentUpdated,
   getExperimentWatchers,
-  getExperimentByTrackingKey,
+  createSnapshot,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  createExperiment,
+  deleteExperimentById,
+  getExperimentById,
+  getExperimentByTrackingKey,
+  getExperimentsByOrganization,
+  getExperimentsByQuery,
+} from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
@@ -1348,9 +1350,8 @@ export async function getSnapshotStatus(
   if (snapshot.organization !== org?.id)
     throw new Error("You don't have access to that snapshot");
 
-  const experiment = await ExperimentModel.findOne({
-    id: snapshot.experiment,
-  });
+  const experiment = await getExperimentById(snapshot.experiment);
+
   if (!experiment) throw new Error("Invalid experiment id");
 
   const phase = experiment.phases[snapshot.phase];
@@ -1750,7 +1751,7 @@ export async function getPastExperimentsList(
     throw new Error("Invalid import id");
   }
 
-  const experiments = await ExperimentModel.find(
+  const experiments = await getExperimentsByQuery(
     {
       organization: org.id,
       datasource: model.datasource,
