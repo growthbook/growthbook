@@ -40,7 +40,7 @@ const gb = new GrowthBook({
 export default function App() {
   useEffect(() => {
     // Load features from the GrowthBook API
-    gb.loadFeatures()
+    gb.loadFeatures({ autoRefresh: true })
   }, []);
 
   useEffect(() => {
@@ -229,24 +229,43 @@ const newLogin = useFeatureIsOn("new-signup-form");
 
 This SDK fully supports server side rendering. The below examples use Next.js, but other frameworks should be similar.
 
+First, create a helper function:
+
+```js
+import { setPolyfills } from "@growthbook/growthbook-react";
+
+export function getServerSideGrowthBookContext(req) {
+  // Set GrowthBook polyfills for server environments
+  setPolyfills({
+    fetch: globalThis.fetch || require("cross-fetch"),
+    EventSource: globalThis.EventSource || require("eventsource"),
+    SubtleCrypto: globalThis.crypto?.subtle || require("node:crypto")?.webcrypto?.subtle
+  });
+
+  return {
+    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+    decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
+    attributes: {
+      // TODO: get more targeting attributes from request context
+      id: (req && req.cookies.DEVICE_ID) ?? null,
+    },
+  }
+}
+```
+
 There are 2 ways to use GrowthBook for SSR.
 
-### SSR Only
+### Pure SSR
 
 With this approach, feature flags are evaluated once when the page is rendered. If a feature flag changes, the user would need to refresh the page to see it.
 
 ```js
-export async function getServerSideProps(context) {
+export const getServerSideProps = async (context) => {
   // Create a GrowthBook instance and load features from the API
-  const gb = new GrowthBook({
-    apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abc123",
-    attributes: {
-      // TODO: get more targeting attributes from request context
-      id: context.req.cookies.DEVICE_ID
-    }
-  });
-  await gb.loadFeatures();
+  const gbContext = getServerSideGrowthBookContext(context);
+  const gb = new GrowthBook(gbContext);
+  await gb.loadFeatures({ timeout: 1000 });
 
   return {
     props: {
@@ -272,27 +291,9 @@ export default function MyPage({ title, showBanner }) {
 
 With this approach, you use the client-side hooks and components (e.g. `useFeatureValue`) and simply use SSR to make sure the initial load already has the latest features from the API.
 
-You get the benefits of client-side rendering (interactivity, realtime feature flag updates) plus the benefits of SSR (no flickering, improved SEO). It does require a little more setup to get working though.
+You get the benefits of client-side rendering (interactivity, realtime feature flag updates) plus the benefits of SSR (no flickering, improved SEO).
 
-First, create a helper function to generate GrowthBook SSR props from an incoming request
-
-```js
-// util/gb-server.js
-import { getGrowthBookSSRData } from "@growthbook/growthbook-react";
-
-export async function generateGrowthBookSSRProps(context) {
-  return getGrowthBookSSRData({
-    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
-    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
-    attributes: {
-      // TODO: get more targeting attributes from request context
-      id: context.req.cookies.DEVICE_ID
-    }
-  })
-}
-```
-
-Then, follow the same steps as client-side rendering to wrap your app in a GrowthBookProvider:
+First, follow the normal setup steps for client-side rendering:
 
 ```jsx
 // pages/_app.jsx
@@ -301,9 +302,9 @@ import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a client-side GrowthBook instance
 const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+  clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+  decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
   enableDevMode: true,
 });
 
@@ -320,6 +321,7 @@ export default function App() {
     });
   }, [user])
 
+  // Wrap your app in a GrowthBookProvider
   return (
     <GrowthBookProvider growthbook={gb}>
       <OtherComponent />
@@ -328,7 +330,7 @@ export default function App() {
 }
 ```
 
-Now, on a server rendered page, call the helper you made and pass it into the `useGrowthBookSSR` hook:
+Then, use the `useGrowthBookSSR` hook to enable server side rendering:
 
 ```jsx
 // pages/server.jsx
@@ -336,14 +338,17 @@ import MyComponent from "../components/MyComponent";
 import { generateGrowthBookSSRProps } from "../util/gb-server";
 import { useGrowthBookSSR } from "@growthbook/growthbook-react";
 
-export async function getServerSideProps(context) {
-  const gbData = await generateGrowthBookSSRProps(context);
+
+export const getServerSideProps = async (context) => {
+  const gbContext = getServerSideGrowthBookContext(context);
+  const gbData = await getGrowthBookSSRData(gbContext);
+
   return {
     props: {
       gbData,
     },
   };
-}
+};
 
 export default function ServerPage({ gbData }) {
   // This is required once at the top of the SSR page
@@ -372,7 +377,7 @@ export default function MyComponent() {
 }
 ```
 
-If you weren't using SSR, the initial render would use fallback values for the features, then after React hydrates the page, the proper values would pop in, potentially causing a flicker on slow connections. This approach solves that issue by ensuring the features have the proper values from the start.
+These exact same approaches work for static pages as well!
 
 ## API Reference
 
@@ -487,4 +492,5 @@ export default withRunExperiment(OtherComponent);
 
 ## Examples
 
+- [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)

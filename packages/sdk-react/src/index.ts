@@ -1,4 +1,9 @@
-export { GrowthBook } from "@growthbook/growthbook";
+export {
+  GrowthBook,
+  setPolyfills,
+  configureCache,
+  clearCache,
+} from "@growthbook/growthbook";
 
 export type {
   Context,
