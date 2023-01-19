@@ -1,6 +1,6 @@
 import { KnownBlock } from "@slack/web-api";
-import fetch from "node-fetch";
 import { logger } from "../../../util/logger";
+import { cancellableFetch } from "../../../util/http.util";
 
 export type SlackMessage = {
   text: string;
@@ -18,17 +18,25 @@ export const sendSlackMessage = async (
   webHookEndpoint: string
 ): Promise<boolean> => {
   try {
-    const response = await fetch(webHookEndpoint, {
-      method: "POST",
-      body: JSON.stringify(slackMessage),
-    });
+    const { stringBody, responseWithoutBody } = await cancellableFetch(
+      webHookEndpoint,
+      {
+        method: "POST",
+        body: JSON.stringify(slackMessage),
+      },
+      {
+        maxTimeMs: 15000,
+        maxContentSize: 500,
+      }
+    );
 
-    if (!response.ok) {
-      const text = await response.text();
-      logger.error("Failed to send Slack integration message", { text });
+    if (!responseWithoutBody.ok) {
+      logger.error("Failed to send Slack integration message", {
+        text: stringBody,
+      });
     }
 
-    return response.ok;
+    return responseWithoutBody.ok;
   } catch (e) {
     logger.error(e);
     return false;
