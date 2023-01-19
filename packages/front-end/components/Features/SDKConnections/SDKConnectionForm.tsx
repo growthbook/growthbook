@@ -15,6 +15,7 @@ import SelectField from "@/components/Forms/SelectField";
 import EncryptionToggle from "@/components/Settings/EncryptionToggle";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
+import { isCloud } from "@/services/env";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
 
@@ -145,27 +146,31 @@ export default function SDKConnectionForm({
         />
       )}
 
-      <div className="mb-3">
-        <label htmlFor="sdk-connection-proxy-toggle">
-          Use GrowthBook Proxy
-        </label>
-        <div>
-          <Toggle
-            id="sdk-connection-proxy-toggle"
-            value={form.watch("proxyEnabled")}
-            setValue={(val) => form.setValue("proxyEnabled", val)}
-          />
-        </div>
-      </div>
+      {isCloud() && (
+        <>
+          <div className="mb-3">
+            <label htmlFor="sdk-connection-proxy-toggle">
+              Use GrowthBook Proxy
+            </label>
+            <div>
+              <Toggle
+                id="sdk-connection-proxy-toggle"
+                value={form.watch("proxyEnabled")}
+                setValue={(val) => form.setValue("proxyEnabled", val)}
+              />
+            </div>
+          </div>
 
-      {form.watch("proxyEnabled") && (
-        <Field
-          label="GrowthBook Proxy Host"
-          required
-          placeholder="https://"
-          type="url"
-          {...form.register("proxyHost")}
-        />
+          {form.watch("proxyEnabled") && (
+            <Field
+              label="GrowthBook Proxy Host"
+              required
+              placeholder="https://"
+              type="url"
+              {...form.register("proxyHost")}
+            />
+          )}
+        </>
       )}
 
       {!edit && !hasSDKsWithoutEncryptionSupport && (

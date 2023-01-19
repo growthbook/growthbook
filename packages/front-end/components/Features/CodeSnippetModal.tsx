@@ -25,7 +25,12 @@ import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   if (connection && connection.proxy.enabled && connection.proxy.host) {
-    return connection.proxy.host.replace(/\/*$/, "") + "/";
+    return (
+      (connection.proxy.hostExternal || connection.proxy.host).replace(
+        /\/*$/,
+        ""
+      ) + "/"
+    );
   }
 
   if (isCloud()) {
@@ -313,7 +318,6 @@ export default function CodeSnippetModal({
                   apiHost={apiHost}
                   apiKey={clientKey}
                   encryptionKey={encryptionKey}
-                  useStreaming={currentConnection.proxy.enabled}
                 />
               </div>
             )}

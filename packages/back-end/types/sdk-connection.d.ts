@@ -2,6 +2,7 @@
 export interface ProxyConnection {
   enabled: boolean;
   host: string;
+  hostExternal?: string;
   signingKey: string;
   connected: boolean;
   proxyVersion: string;

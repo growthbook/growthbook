@@ -5,11 +5,18 @@ import { ApiSDKConnectionInterface } from "../../types/api";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
+  ProxyConnection,
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
 } from "../../types/sdk-connection";
 import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
+import {
+  IS_CLOUD,
+  PROXY_ENABLED,
+  PROXY_HOST_INTERNAL,
+  PROXY_HOST_PUBLIC,
+} from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
@@ -38,6 +45,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   proxy: {
     enabled: Boolean,
     host: String,
+    hostExternal: String,
     signingKey: String,
     connected: Boolean,
     proxyVersion: String,
@@ -53,8 +61,21 @@ const SDKConnectionModel = mongoose.model<SDKConnectionDocument>(
   sdkConnectionSchema
 );
 
+function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
+  if (IS_CLOUD) return proxy;
+
+  return {
+    ...proxy,
+    enabled: PROXY_ENABLED,
+    host: PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
+    hostExternal: PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
+  };
+}
+
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
-  return doc.toJSON();
+  const conn = doc.toJSON();
+  conn.proxy = addEnvProxySettings(conn.proxy);
+  return conn;
 }
 
 export async function findSDKConnectionById(id: string) {
@@ -84,8 +105,8 @@ export const createSDKConnectionValidator = z
     environment: z.string(),
     project: z.string(),
     encryptPayload: z.boolean(),
-    proxyEnabled: z.boolean(),
-    proxyHost: z.string(),
+    proxyEnabled: z.boolean().optional(),
+    proxyHost: z.string().optional(),
   })
   .strict();
 
@@ -114,18 +135,19 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     connected: false,
     // This is not for cryptography, it just needs to be long enough to be unique
     key: generateSDKConnectionKey(),
-    proxy: {
-      enabled: proxyEnabled,
-      host: proxyHost,
+    proxy: addEnvProxySettings({
+      enabled: !!proxyEnabled,
+      host: proxyHost || "",
+      hostExternal: proxyHost || "",
       signingKey: generateSigningKey(),
       connected: false,
       lastError: null,
       proxyVersion: "",
       error: "",
-    },
+    }),
   };
 
-  if (proxyEnabled && proxyHost) {
+  if (connection.proxy.enabled && connection.proxy.host) {
     const res = await testProxyConnection(connection, false);
     connection.proxy.connected = !res.error;
     connection.proxy.proxyVersion = res.version || "";
@@ -167,7 +189,7 @@ export async function editSDKConnection(
     const res = await testProxyConnection(
       {
         ...connection,
-        proxy: newProxy,
+        proxy: addEnvProxySettings(newProxy),
       },
       false
     );
@@ -183,7 +205,7 @@ export async function editSDKConnection(
     {
       $set: {
         ...otherChanges,
-        proxy: newProxy,
+        proxy: addEnvProxySettings(newProxy),
         dateUpdated: new Date(),
       },
     }

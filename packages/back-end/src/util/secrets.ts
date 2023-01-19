@@ -2,6 +2,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
 import { SSOConnectionInterface } from "../../types/sso-connection";
+import { logger } from "./logger";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -157,3 +158,17 @@ export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
+
+// Add a default secret access key via an environment variable
+//
+let secretAccessKey = IS_CLOUD ? "" : process.env.SECRET_ACCESS_KEY || "";
+if ((prod || !isLocalhost) && secretAccessKey === "dev") {
+  secretAccessKey = "";
+  logger.error(
+    "SECRET_ACCESS_KEY must be set to a secure value in production. Disabling access."
+  );
+}
+export const SECRET_ACCESS_KEY = secretAccessKey;
+export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
+export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
+export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";

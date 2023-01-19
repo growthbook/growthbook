@@ -6,13 +6,11 @@ export default function GrowthBookSetupCodeSnippet({
   language,
   apiKey,
   apiHost,
-  useStreaming = false,
   encryptionKey,
 }: {
   language: SDKLanguage;
   apiKey: string;
   apiHost: string;
-  useStreaming?: boolean;
   encryptionKey?: string;
 }) {
   const featuresEndpoint = apiHost + "api/features/" + apiKey;
@@ -30,10 +28,8 @@ import { GrowthBook } from "@growthbook/growthbook";
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-            useStreaming ? `\n  streaming: true,` : ""
-          }${
             encryptionKey
-              ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
+              ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }
   enableDevMode: true,
@@ -45,6 +41,9 @@ const growthbook = new GrowthBook({
     });
   }
 });
+
+// Wait for features to be available
+await growthbook.loadFeatures({ autoRefresh: true });
 `.trim()}
         />
       </>
@@ -62,10 +61,8 @@ import { GrowthBook } from "@growthbook/growthbook-react";
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-            useStreaming ? `\n  streaming: true,` : ""
-          }${
             encryptionKey
-              ? `\n  encryptionKey: ${JSON.stringify(encryptionKey)},`
+              ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }
   enableDevMode: true,
@@ -83,11 +80,17 @@ const growthbook = new GrowthBook({
         <Code
           language="tsx"
           code={`
+import { useEffect } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 
 export default function MyApp() {
+  useEffect(() => {
+    // Load features asynchronously when the app renders
+    growthbook.loadFeatures();
+  }, []);
+
   return (
-    <GrowthBookProvider growthbook={growtbook}>
+    <GrowthBookProvider growthbook={growthbook}>
       <MyComponent/>
     </GrowthBookProvider>
   )
@@ -100,28 +103,41 @@ export default function MyApp() {
   if (language === "nodejs") {
     return (
       <>
+        Add some polyfills for missing browser APIs
+        <Code
+          language="javascript"
+          code={`
+const { setPolyfills } = require("@growthbook/growthbook");
+setPolyfills({
+  // Required for Node 17 or earlier
+  fetch: require("cross-fetch"),${
+    encryptionKey
+      ? `
+  // Required for Node 18 or earlier
+  SubtleCrypto: require("node:crypto").webcrypto.subtle,`
+      : ""
+  }
+  // Optional, can make feature rollouts faster
+  EventSource: require("eventsource")
+})
+        `.trim()}
+        />
         Add a middleware before any routes that will use GrowthBook
         <Code
           language="javascript"
           code={`
 const { GrowthBook } = require("@growthbook/growthbook");
-const fetch = require("node-fetch");
-${encryptionKey ? `const subtleCrypto = require('node:crypto')\n` : ""}
+
 app.use(function(req, res, next) {
   // Create a GrowthBook Context
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
-            useStreaming ? `\n    streaming: true,` : ""
-          }${
             encryptionKey
-              ? `\n    encryptionKey: ${JSON.stringify(
-                  encryptionKey
-                )},\n    crypto: subtleCrypto,`
+              ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)}`
               : ""
           }
     enableDevMode: true,
-    fetch: fetch,
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
@@ -135,10 +151,10 @@ app.use(function(req, res, next) {
   res.on('close', () => req.growthbook.destroy());
 
   // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.waitForFeatures()
+  req.growthbook.loadFeatures()
     .then(() => next())
     .catch((e) => {
-      console.error("Failed to load features from GrowthBook", e));
+      console.error("Failed to load features from GrowthBook", e);
       next();
     })
 })
