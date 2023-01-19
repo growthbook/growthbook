@@ -6,10 +6,11 @@ import {
   FeatureUpdatedNotificationEvent,
 } from "../../base-events";
 import { getSlackIntegrationsForFilters } from "../../../models/SlackIntegrationModel";
-import { FeatureEnvironment } from "../../../../types/feature";
+import { FeatureInterface } from "../../../../types/feature";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { logger } from "../../../util/logger";
 import { APP_ORIGIN } from "../../../util/secrets";
+import { getEnabledEnvironments } from "../../../util/features";
 import { sendSlackMessage, SlackMessage } from "./slack-event-handler-utils";
 
 type HandleFeatureEventOptions = {
@@ -130,55 +131,23 @@ const getEnvironmentsForFeatureEvent = (
     | FeatureUpdatedNotificationEvent
     | FeatureDeletedNotificationEvent
 ): string[] => {
-  return getEnabledEnvironmentsForEvent(featureEvent);
-};
+  const features: FeatureInterface[] = [];
 
-/**
- * Returns a list of the environments that are enabled for the event.
- * For events with multiple states (e.g. "feature.updated"), it will include environments
- * that are enabled in any of the available states (e.g. both `previous` and `current`)
- * @param featureEvent
- */
-const getEnabledEnvironmentsForEvent = (
-  featureEvent:
-    | FeatureCreatedNotificationEvent
-    | FeatureUpdatedNotificationEvent
-    | FeatureDeletedNotificationEvent
-): string[] => {
   switch (featureEvent.event) {
     case "feature.created":
-      return getEnabledEnvironmentsForEnvironmentSettings(
-        featureEvent.data.current.environmentSettings
-      );
-
+      features.push(featureEvent.data.current);
+      break;
     case "feature.updated":
-      return uniq(
-        getEnabledEnvironmentsForEnvironmentSettings(
-          featureEvent.data.previous.environmentSettings
-        ).concat(
-          getEnabledEnvironmentsForEnvironmentSettings(
-            featureEvent.data.current.environmentSettings
-          )
-        )
-      );
-
+      features.push(featureEvent.data.current);
+      features.push(featureEvent.data.previous);
+      break;
     case "feature.deleted":
-      return getEnabledEnvironmentsForEnvironmentSettings(
-        featureEvent.data.previous.environmentSettings
-      );
+      features.push(featureEvent.data.previous);
+      break;
   }
-};
+  const enabledEnvironments = getEnabledEnvironments(features);
 
-const getEnabledEnvironmentsForEnvironmentSettings = (
-  environmentSettings: Record<string, FeatureEnvironment>
-): string[] => {
-  if (!environmentSettings) {
-    return [];
-  }
-
-  return Object.keys(environmentSettings).filter(
-    (env) => environmentSettings[env]?.enabled
-  );
+  return Array.from(enabledEnvironments);
 };
 
 type BuildSlackMessageOptions = {
