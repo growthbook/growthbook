@@ -86,6 +86,7 @@ import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
+import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 
 const app = express();
 
@@ -457,6 +458,9 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 // Events
 app.use("/events", eventsRouter);
 app.use(eventWebHooksRouter);
+
+// Slack integration
+app.use("/integrations/slack", slackIntegrationRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
