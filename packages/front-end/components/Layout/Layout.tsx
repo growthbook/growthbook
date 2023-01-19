@@ -3,7 +3,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
+import { FaArrowRight, FaPlug } from "react-icons/fa";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
@@ -114,6 +114,20 @@ const navlinks: SidebarLinkProps[] = [
         name: "Presentations",
         href: "/presentations",
         path: /^presentation/,
+      },
+    ],
+  },
+  {
+    name: "Integrations",
+    href: "/integrations",
+    Icon: FaPlug,
+    path: /^(integrations)/,
+    autoClose: true,
+    subLinks: [
+      {
+        name: "Slack",
+        href: "/integrations/slack",
+        path: /^integrations\/slack/,
       },
     ],
   },
