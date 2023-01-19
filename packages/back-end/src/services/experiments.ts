@@ -487,11 +487,14 @@ export async function getManualSnapshotData(
             users: s.count,
             count: s.count,
             statistic_type: "mean", // ratio not supported for now
-            numerator_type: metric.type,
-            numerator_sum: s.mean * s.count,
-            numerator_sum_squares:
-              Math.pow(s.stddev, 2) * (s.count - 1) +
-              (s.mean * s.count) / s.count,
+            main_metric_stats: {
+              metric_type: metric.type,
+              count: s.count,
+              sum: s.mean * s.count,
+              sum_squares:
+                Math.pow(s.stddev, 2) * (s.count - 1) +
+                (s.mean * s.count) / s.count,
+            },
           };
         });
 

@@ -445,13 +445,14 @@ export default abstract class SqlIntegration
         users: parseInt(row.users) || 0,
         count: parseInt(row.count) || 0,
         statistic_type: row.statistic_type ?? "",
-        numerator_type: row.numerator_type ?? "",
-        numerator_sum: parseFloat(row.numerator_sum) ?? 0,
-        numerator_sum_squares: parseFloat(row.numerator_sum_squares) ?? 0,
-        denominator_type: row.denominator_type ?? "",
+        main_metric_type: row.main_metric_type ?? "",
+        main_sum: parseFloat(row.main_sum) ?? 0,
+        main_sum_squares: parseFloat(row.main_sum_squares) ?? 0,
+        denominator_metric_type: row.denominator_metric_type ?? "",
         denominator_sum: parseFloat(row.denominator_sum) ?? 0,
         denominator_sum_squares: parseFloat(row.denominator_sum_squares) ?? 0,
-        num_denom_sum_product: parseFloat(row.num_denom_sum_product) ?? 0,
+        main_denominator_sum_product:
+          parseFloat(row.main_denominator_sum_product) ?? 0,
       };
     });
   }
@@ -1019,16 +1020,18 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
           ${this.ensureFloat("COUNT(*)")} as count,
-          ${this.ensureFloat("SUM(m.value)")} as m_sum,
-          ${this.ensureFloat("SUM(POWER(m.value, 2))")} as m_sum_squares
+          ${this.ensureFloat("SUM(m.value)")} as main_sum,
+          ${this.ensureFloat("SUM(POWER(m.value, 2))")} as main_sum_squares
           ${
             isRatio
               ? `,
-            ${this.ensureFloat("SUM(d.value)")} as d_sum,
-            ${this.ensureFloat("SUM(POWER(d.value, 2))")} as d_sum_squares,
+            ${this.ensureFloat("SUM(d.value)")} as denominator_sum,
+            ${this.ensureFloat(
+              "SUM(POWER(d.value, 2))"
+            )} as denominator_sum_squares,
             ${this.ensureFloat(
               "SUM(coalesce(d.value,0) * coalesce(m.value,0))"
-            )} AS m_d_sum_product
+            )} AS main_denominator_sum_product
           `
               : ""
           }
@@ -1051,16 +1054,16 @@ export default abstract class SqlIntegration
         ${this.getVariationUsers(metric)} as users,
         ${this.getVariationUsers(metric)} as count,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
-        '${metric.type}' as numerator_type,
-        s.m_sum AS numerator_sum,
-        s.m_sum_squares AS numerator_sum_squares
+        '${metric.type}' as main_metric_type,
+        s.main_sum,
+        s.main_sum_squares
         ${
           isRatio
             ? `,
-          '${denominator?.type}' as denominator_type,
-          s.d_sum as denominator_sum,
-          s.d_sum_squares AS denominator_sum_squares,
-          s.m_d_sum_product AS num_denom_sum_product
+          '${denominator?.type}' as denominator_metric_type,
+          s.denominator_sum,
+          s.denominator_sum_squares,
+          s.main_denominator_sum_product
           `
             : ""
         }

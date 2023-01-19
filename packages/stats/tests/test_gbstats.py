@@ -20,58 +20,58 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
         {
             "dimension": "one",
             "variation": "one",
-            "numerator_sum": 300,
-            "numerator_sum_squares": 869,
+            "main_sum": 300,
+            "main_sum_squares": 869,
             "users": 120,
             "count": 120,
         },
         {
             "dimension": "one",
             "variation": "zero",
-            "numerator_sum": 270,
-            "numerator_sum_squares": 848.79,
+            "main_sum": 270,
+            "main_sum_squares": 848.79,
             "users": 100,
             "count": 100,
         },
         {
             "dimension": "two",
             "variation": "one",
-            "numerator_sum": 770,
-            "numerator_sum_squares": 3571,
+            "main_sum": 770,
+            "main_sum_squares": 3571,
             "users": 220,
             "count": 220,
         },
         {
             "dimension": "two",
             "variation": "zero",
-            "numerator_sum": 740,
-            "numerator_sum_squares": 3615.59,
+            "main_sum": 740,
+            "main_sum_squares": 3615.59,
             "users": 200,
             "count": 200,
         },
     ]
-).assign(statistic_type="mean", numerator_type="count")
+).assign(statistic_type="mean", main_metric_type="count")
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
         {
             "dimension": "three",
             "variation": "one",
-            "numerator_sum": 222,
-            "numerator_sum_squares": 555,
+            "main_sum": 222,
+            "main_sum_squares": 555,
             "users": 3000,
             "count": 3000,
         },
         {
             "dimension": "three",
             "variation": "zero",
-            "numerator_sum": 333,
-            "numerator_sum_squares": 999,
+            "main_sum": 333,
+            "main_sum_squares": 999,
             "users": 3001,
             "count": 3001,
         },
     ]
-).assign(statistic_type="mean", numerator_type="count")
+).assign(statistic_type="mean", main_metric_type="count")
 
 RATIO_STATISTICS_DF = pd.DataFrame(
     [
@@ -80,25 +80,25 @@ RATIO_STATISTICS_DF = pd.DataFrame(
             "variation": "one",
             "users": 120,
             "count": 120,
-            "numerator_sum": 300,
-            "numerator_sum_squares": 869,
+            "main_sum": 300,
+            "main_sum_squares": 869,
             "denominator_sum": 500,
             "denominator_sum_squares": 800,
-            "num_denom_sum_product": -905,
+            "main_denominator_sum_product": -905,
         },
         {
             "dimension": "one",
             "variation": "zero",
-            "numerator_sum": 270,
+            "main_sum": 270,
             "users": 100,
             "count": 100,
-            "numerator_sum_squares": 848.79,
+            "main_sum_squares": 848.79,
             "denominator_sum": 510,
             "denominator_sum_squares": 810,
-            "num_denom_sum_product": -900,
+            "main_denominator_sum_product": -900,
         },
     ]
-).assign(statistic_type="ratio", numerator_type="count", denominator_type="count")
+).assign(statistic_type="ratio", main_metric_type="count", denominator_metric_type="count")
 
 
 class TestDetectVariations(TestCase):
@@ -121,8 +121,8 @@ class TestDetectVariations(TestCase):
                         {
                             "dimension": "All",
                             "variation": "__multiple__",
-                            "numerator_sum": 99,
-                            "numerator_sum_squares": 9999,
+                            "main_sum": 99,
+                            "main_sum_squares": 9999,
                             "users": 500,
                         }
                     ]
@@ -148,18 +148,18 @@ class TestReduceDimensionality(TestCase):
         reduced = reduce_dimensionality(df, 3)
         self.assertEqual(len(reduced.index), 3)
         self.assertEqual(reduced.at[0, "dimension"], "three")
-        self.assertEqual(reduced.at[0, "v1_numerator_sum"], 222)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 222)
 
         reduced = reduce_dimensionality(df, 2)
         self.assertEqual(len(reduced.index), 2)
         self.assertEqual(reduced.at[1, "dimension"], "(other)")
         self.assertEqual(reduced.at[1, "total_users"], 640)
-        self.assertEqual(reduced.at[1, "v1_numerator_sum"], 1070)
-        self.assertEqual(reduced.at[1, "v1_numerator_sum_squares"], 4440)
+        self.assertEqual(reduced.at[1, "v1_main_sum"], 1070)
+        self.assertEqual(reduced.at[1, "v1_main_sum_squares"], 4440)
         self.assertEqual(reduced.at[1, "v1_users"], 340)
         self.assertEqual(reduced.at[1, "baseline_users"], 300)
-        self.assertEqual(reduced.at[1, "baseline_numerator_sum"], 1010)
-        self.assertEqual(reduced.at[1, "baseline_numerator_sum_squares"], 4464.38)
+        self.assertEqual(reduced.at[1, "baseline_main_sum"], 1010)
+        self.assertEqual(reduced.at[1, "baseline_main_sum_squares"], 4464.38)
 
 
 class TestAnalyzeMetricDfBayesian(TestCase):

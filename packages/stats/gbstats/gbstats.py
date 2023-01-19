@@ -45,8 +45,10 @@ def get_metric_df(
                 "dimension": dim,
                 "variations": len(var_names),
                 "statistic_type": row.statistic_type,
-                "numerator_type": row.numerator_type,
-                "denominator_type": getattr(row, "denominator_type", None),
+                "main_metric_type": row.main_metric_type,
+                "denominator_metric_type": getattr(
+                    row, "denominator_metric_type", None
+                ),
                 "total_users": 0,
             }
             # Add columns for each variation (including baseline)
@@ -57,11 +59,11 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 dimensions[dim][f"{prefix}_users"] = 0
                 dimensions[dim][f"{prefix}_count"] = 0
-                dimensions[dim][f"{prefix}_numerator_sum"] = 0
-                dimensions[dim][f"{prefix}_numerator_sum_squares"] = 0
+                dimensions[dim][f"{prefix}_main_sum"] = 0
+                dimensions[dim][f"{prefix}_main_sum_squares"] = 0
                 dimensions[dim][f"{prefix}_denominator_sum"] = 0
                 dimensions[dim][f"{prefix}_denominator_sum_squares"] = 0
-                dimensions[dim][f"{prefix}_num_denom_sum_product"] = 0
+                dimensions[dim][f"{prefix}_main_denominator_sum_product"] = 0
 
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
@@ -72,18 +74,16 @@ def get_metric_df(
             prefix = f"v{i}" if i > 0 else "baseline"
             dimensions[dim][f"{prefix}_users"] = row.users
             dimensions[dim][f"{prefix}_count"] = row.count
-            dimensions[dim][f"{prefix}_numerator_sum"] = row.numerator_sum
-            dimensions[dim][
-                f"{prefix}_numerator_sum_squares"
-            ] = row.numerator_sum_squares
+            dimensions[dim][f"{prefix}_main_sum"] = row.main_sum
+            dimensions[dim][f"{prefix}_main_sum_squares"] = row.main_sum_squares
             dimensions[dim][f"{prefix}_denominator_sum"] = getattr(
                 row, "denominator_sum", 0
             )
             dimensions[dim][f"{prefix}_denominator_sum_squares"] = getattr(
                 row, "denominator_sum_squares", 0
             )
-            dimensions[dim][f"{prefix}_num_denom_sum_product"] = getattr(
-                row, "num_denom_sum_product", 0
+            dimensions[dim][f"{prefix}_main_denominator_sum_product"] = getattr(
+                row, "main_denominator_sum_product", 0
             )
 
     return pd.DataFrame(dimensions.values())
@@ -112,16 +112,16 @@ def reduce_dimensionality(df, max=20):
                 prefix = f"v{v}" if v > 0 else "baseline"
                 current[f"{prefix}_users"] += row[f"{prefix}_users"]
                 current[f"{prefix}_count"] += row[f"{prefix}_count"]
-                current[f"{prefix}_numerator_sum"] += row[f"{prefix}_numerator_sum"]
-                current[f"{prefix}_numerator_sum_squares"] += row[
-                    f"{prefix}_numerator_sum_squares"
+                current[f"{prefix}_main_sum"] += row[f"{prefix}_main_sum"]
+                current[f"{prefix}_main_sum_squares"] += row[
+                    f"{prefix}_main_sum_squares"
                 ]
                 current[f"{prefix}_denominator_sum"] += row[f"{prefix}_denominator_sum"]
                 current[f"{prefix}_denominator_sum_squares"] += row[
                     f"{prefix}_denominator_sum_squares"
                 ]
-                current[f"{prefix}_num_denom_sum_product"] += row[
-                    f"{prefix}_num_denom_sum_product"
+                current[f"{prefix}_main_denominator_sum_product"] += row[
+                    f"{prefix}_main_denominator_sum_product"
                 ]
 
     return pd.DataFrame(newrows)
@@ -236,7 +236,7 @@ def format_results(df):
                 dim["variations"].append(
                     {
                         "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_numerator_sum"],
+                        "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
                         "denominator": row[f"{prefix}_count"],
                         "stats": stats,
@@ -246,7 +246,7 @@ def format_results(df):
                 dim["variations"].append(
                     {
                         "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_numerator_sum"],
+                        "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
                         "denominator": row[f"{prefix}_count"],
                         "expected": row[f"{prefix}_expected"],
@@ -266,13 +266,13 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
     statistic_type = row["statistic_type"]
     if statistic_type == "ratio":
         return RatioStatistic(
-            m_statistic=base_statistic_from_metric_row(row, prefix, "numerator"),
+            m_statistic=base_statistic_from_metric_row(row, prefix, "main"),
             d_statistic=base_statistic_from_metric_row(row, prefix, "denominator"),
-            m_d_sum_of_products=row[f"{prefix}_num_denom_sum_product"],
+            m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
             n=row[f"{prefix}_users"],
         )
     elif statistic_type == "mean":
-        return base_statistic_from_metric_row(row, prefix, "numerator")
+        return base_statistic_from_metric_row(row, prefix, "main")
     else:
         raise ValueError(
             f"Unexpected statistic_type {statistic_type}' found in experiment data."
@@ -282,7 +282,7 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
 def base_statistic_from_metric_row(
     row: pd.DataFrame, prefix: str, component: str
 ) -> Statistic:
-    metric_type = row[f"{component}_type"]
+    metric_type = row[f"{component}_metric_type"]
     if metric_type == "binomial":
         return ProportionStatistic(
             sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]

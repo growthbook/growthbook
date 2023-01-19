@@ -130,13 +130,13 @@ export type ExperimentMetricQueryResponse = {
   users: number;
   count: number;
   statistic_type: "ratio" | "mean";
-  numerator_type: MetricType;
-  numerator_sum: number;
-  numerator_sum_squares: number;
-  denominator_type?: MetricType;
+  main_metric_type: MetricType;
+  main_sum: number;
+  main_sum_squares: number;
+  denominator_metric_type?: MetricType;
   denominator_sum?: number;
   denominator_sum_squares?: number;
-  num_denom_sum_product?: number;
+  main_denominator_sum_product?: number;
 }[];
 export interface SourceIntegrationConstructor {
   new (
