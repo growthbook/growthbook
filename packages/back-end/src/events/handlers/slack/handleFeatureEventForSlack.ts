@@ -1,4 +1,6 @@
 import uniq from "lodash/uniq";
+import isEqual from "lodash/isEqual";
+import intersection from "lodash/intersection";
 import { KnownBlock } from "@slack/web-api";
 import {
   FeatureCreatedNotificationEvent,
@@ -10,7 +12,6 @@ import { FeatureInterface } from "../../../../types/feature";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { logger } from "../../../util/logger";
 import { APP_ORIGIN } from "../../../util/secrets";
-import { getEnabledEnvironments } from "../../../util/features";
 import { sendSlackMessage, SlackMessage } from "./slack-event-handler-utils";
 
 type HandleFeatureEventOptions = {
@@ -28,16 +29,20 @@ export const handleFeatureEventForSlack = async ({
 }: HandleFeatureEventOptions) => {
   // Build filtering query and get relevant SlackIntegration records
   const tags = getTagsForFeatureEvent(featureEvent);
-  const environments = getEnvironmentsForFeatureEvent(featureEvent);
   const projects = getProjectsForFeatureEvent(featureEvent);
 
-  const slackIntegrations = await getSlackIntegrationsForFilters({
-    organizationId,
-    eventName: featureEvent.event,
-    tags,
-    environments,
-    projects,
-  });
+  // Environment filtering will be handled outside of the Mongo query
+  const allEnvironments = getAllEnvironmentsForFeatureEvent(featureEvent);
+
+  const slackIntegrations = (
+    await getSlackIntegrationsForFilters({
+      organizationId,
+      eventName: featureEvent.event,
+      tags,
+      environments: allEnvironments,
+      projects,
+    })
+  )?.filter((int) => filterForRelevance(int, featureEvent));
 
   slackIntegrations?.forEach((slackIntegration) => {
     // Build the Slack message for the given event
@@ -57,6 +62,97 @@ export const handleFeatureEventForSlack = async ({
       }
     );
   });
+};
+
+/**
+ * All created and deleted events are relevant but only some update events are.
+ * @param slackIntegration
+ * @param featureEvent
+ * @return boolean should include
+ */
+const filterForRelevance = (
+  slackIntegration: SlackIntegrationInterface,
+  featureEvent:
+    | FeatureCreatedNotificationEvent
+    | FeatureUpdatedNotificationEvent
+    | FeatureDeletedNotificationEvent
+): boolean => {
+  switch (featureEvent.event) {
+    case "feature.created":
+    case "feature.deleted":
+      return true;
+    case "feature.updated":
+      return filterFeatureUpdateEventForRelevance(
+        slackIntegration,
+        featureEvent
+      );
+  }
+};
+
+/**
+ * Filters the update event, considering environments and relevant keys that impact all environments.
+ * @param slackIntegration
+ * @param featureEvent
+ * @return boolean should include
+ */
+const filterFeatureUpdateEventForRelevance = (
+  slackIntegration: SlackIntegrationInterface,
+  featureEvent: FeatureUpdatedNotificationEvent
+): boolean => {
+  const { previous, current } = featureEvent.data;
+
+  if (previous.archived && current.archived) {
+    // Do not notify for archived features
+    return false;
+  }
+
+  // Manual environment filtering
+  const changedEnvironments = new Set<string>();
+
+  // Some of the feature keys that change affect all enabled environments
+  const relevantKeysForAllEnvs: (keyof FeatureInterface)[] = [
+    "archived",
+    "defaultValue",
+    "project",
+    "valueType",
+    "nextScheduledUpdate",
+  ];
+  if (relevantKeysForAllEnvs.some((k) => !isEqual(previous[k], current[k]))) {
+    // Some of the relevant keys for all environments has changed.
+    return true;
+  }
+
+  const allEnvs = new Set([
+    ...Object.keys(previous.environmentSettings),
+    ...Object.keys(current.environmentSettings),
+  ]);
+
+  // Add in environments if their specific settings changed
+  allEnvs.forEach((env) => {
+    const previousEnvSettings = previous.environmentSettings[env];
+    const currentEnvSettings = current.environmentSettings[env];
+
+    // If the environment is disabled both before and after the change, ignore changes
+    if (!previousEnvSettings?.enabled && !currentEnvSettings?.enabled) {
+      return;
+    }
+
+    // the environment has changed
+    if (!isEqual(previousEnvSettings, currentEnvSettings)) {
+      changedEnvironments.add(env);
+    }
+  });
+
+  const environmentChangesAreRelevant = changedEnvironments.size > 0;
+  if (!environmentChangesAreRelevant) {
+    return false;
+  }
+
+  return (
+    slackIntegration.environments.length === 0 ||
+    intersection(Array.from(changedEnvironments), slackIntegration.environments)
+      .length > 0
+  );
 };
 
 /**
@@ -120,34 +216,24 @@ const getTagsForFeatureEvent = (
   }
 };
 
-/**
- * The relevant environments are any environments that are either currently enabled
- * or were previously enabled
- * @param featureEvent
- */
-const getEnvironmentsForFeatureEvent = (
+const getAllEnvironmentsForFeatureEvent = (
   featureEvent:
     | FeatureCreatedNotificationEvent
     | FeatureUpdatedNotificationEvent
     | FeatureDeletedNotificationEvent
 ): string[] => {
-  const features: FeatureInterface[] = [];
-
   switch (featureEvent.event) {
     case "feature.created":
-      features.push(featureEvent.data.current);
-      break;
-    case "feature.updated":
-      features.push(featureEvent.data.current);
-      features.push(featureEvent.data.previous);
-      break;
-    case "feature.deleted":
-      features.push(featureEvent.data.previous);
-      break;
-  }
-  const enabledEnvironments = getEnabledEnvironments(features);
+      return Object.keys(featureEvent.data.current.environmentSettings);
 
-  return Array.from(enabledEnvironments);
+    case "feature.updated":
+      return Object.keys(featureEvent.data.current.environmentSettings).concat(
+        Object.keys(featureEvent.data.previous.environmentSettings)
+      );
+
+    case "feature.deleted":
+      return Object.keys(featureEvent.data.previous.environmentSettings);
+  }
 };
 
 type BuildSlackMessageOptions = {
