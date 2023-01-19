@@ -11,6 +11,7 @@ import {
 
 export interface EventInterface<T> {
   id: string;
+  event: NotificationEventName;
   dateCreated: Date;
   data: T;
   organizationId: string;

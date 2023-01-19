@@ -6,7 +6,7 @@ import {
   NotificationEventResource,
 } from "back-end/types/event";
 import useApi from "@/hooks/useApi";
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {
