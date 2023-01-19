@@ -10,6 +10,8 @@ import type {
   JSONValue,
   WidenPrimitives,
   RealtimeUsageData,
+  LoadFeaturesOptions,
+  RefreshFeaturesOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -22,6 +24,12 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
+import {
+  loadFeatures,
+  fetchFeaturesWithCache,
+  refreshFeatures,
+  unsubscribe,
+} from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -38,6 +46,7 @@ export class GrowthBook {
   private subscriptions = new Set<SubscriptionFunction>();
   private _rtQueue: RealtimeUsageData[] = [];
   private _rtTimer = 0;
+  public ready = false;
   private assigned = new Map<
     string,
     {
@@ -54,10 +63,34 @@ export class GrowthBook {
   constructor(context: Context = {}) {
     this.context = context;
 
+    if (this.context.features) {
+      this.ready = true;
+    }
+
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
+
+    if (this.context.clientKey) {
+      fetchFeaturesWithCache(this, true);
+    }
+  }
+
+  public async loadFeatures(options: LoadFeaturesOptions = {}): Promise<void> {
+    if (!this.context.clientKey) {
+      throw new Error("Missing clientKey");
+    }
+    await loadFeatures(this, options);
+  }
+
+  public async refreshFeatures(
+    options: RefreshFeaturesOptions = {}
+  ): Promise<void> {
+    if (!this.context.clientKey) {
+      throw new Error("Missing clientKey");
+    }
+    await refreshFeatures(this, options);
   }
 
   private render() {
@@ -68,14 +101,16 @@ export class GrowthBook {
 
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this.context.features = features;
+    this.ready = true;
     this.render();
   }
 
   public async setEncryptedFeatures(
     encryptedString: string,
-    encryptionKey: string,
+    decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
+    decryptionKey = decryptionKey || this.context.decryptionKey || "";
     subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
     if (!subtle) {
       throw new Error("No SubtleCrypto implementation found");
@@ -83,7 +118,7 @@ export class GrowthBook {
     try {
       const key = await subtle.importKey(
         "raw",
-        base64ToBuf(encryptionKey),
+        base64ToBuf(decryptionKey),
         { name: "AES-CBC", length: 128 },
         true,
         ["encrypt", "decrypt"]
@@ -150,6 +185,7 @@ export class GrowthBook {
     if (this._rtTimer) {
       clearTimeout(this._rtTimer);
     }
+    unsubscribe(this);
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
@@ -602,8 +638,7 @@ export class GrowthBook {
     return result;
   }
 
-  // eslint-disable-next-line
-  private log(msg: string, ctx: Record<string, any>) {
+  log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
     if (this.context.log) this.context.log(msg, ctx);
     else console.log(msg, ctx);
