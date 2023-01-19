@@ -2,7 +2,6 @@ import fs from "fs";
 import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
 import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "./logger";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -164,7 +163,8 @@ export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 let secretAccessKey = IS_CLOUD ? "" : process.env.SECRET_ACCESS_KEY || "";
 if ((prod || !isLocalhost) && secretAccessKey === "dev") {
   secretAccessKey = "";
-  logger.error(
+  // eslint-disable-next-line
+  console.error(
     "SECRET_ACCESS_KEY must be set to a secure value in production. Disabling access."
   );
 }
