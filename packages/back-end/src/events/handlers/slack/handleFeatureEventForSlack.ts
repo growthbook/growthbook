@@ -42,7 +42,9 @@ export const handleFeatureEventForSlack = async ({
       environments: allEnvironments,
       projects,
     })
-  )?.filter((int) => filterForRelevance(int, featureEvent));
+  )?.filter((slackIntegration) =>
+    filterForRelevance(slackIntegration, featureEvent)
+  );
 
   slackIntegrations?.forEach((slackIntegration) => {
     // Build the Slack message for the given event
