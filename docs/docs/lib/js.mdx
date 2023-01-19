@@ -60,7 +60,7 @@ setPolyfills({
   // Required when using encrypted feature flags and Node 18 or lower
   SubtleCrypto: require("node:crypto").webcrypto.subtle,
   // Optional, can make feature rollouts faster
-  EventStream: require("eventstream"),
+  EventSource: require("eventsource"),
   // Optional, can reduce startup times by persisting cached feature flags
   localStorage: {
     // Example using Redis
