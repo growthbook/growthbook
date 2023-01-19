@@ -235,21 +235,19 @@ export const getSlackIntegrationsForFilters = async ({
   projects,
 }: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
   const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.events.length === 0 ||
     slackIntegration.events.includes(eventName);
 
   const includesEnvironments = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.environments.length === 0 ||
-    environments.length === 0 ||
     intersection(slackIntegration.environments, environments).length > 0;
 
   const includesTags = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.tags.length === 0 ||
-    tags.length === 0 ||
     intersection(slackIntegration.tags, tags).length > 0;
 
   const includesProjects = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.projects.length === 0 ||
-    projects.length === 0 ||
     intersection(slackIntegration.projects, projects).length > 0;
 
   try {
