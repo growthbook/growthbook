@@ -229,8 +229,10 @@ const getAllEnvironmentsForFeatureEvent = (
       return Object.keys(featureEvent.data.current.environmentSettings);
 
     case "feature.updated":
-      return Object.keys(featureEvent.data.current.environmentSettings).concat(
-        Object.keys(featureEvent.data.previous.environmentSettings)
+      return uniq(
+        Object.keys(featureEvent.data.current.environmentSettings).concat(
+          Object.keys(featureEvent.data.previous.environmentSettings)
+        )
       );
 
     case "feature.deleted":
