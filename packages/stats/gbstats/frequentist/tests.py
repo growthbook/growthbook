@@ -49,8 +49,16 @@ class TTest(BaseABTest):
         return (self.point_estimate - self.test_value) / np.sqrt(self.variance)
 
     @property
-    def dof(self) -> int:
-        return self.stat_a.n + self.stat_b.n - 2
+    def dof(self) -> float:
+        # welch-satterthwaite approx
+        return pow(
+            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n,
+            2,
+        ) / (
+            pow(self.stat_b.variance, 2) / (pow(self.stat_b.n, 2) * (self.stat_b.n - 1))
+            + pow(self.stat_a.variance, 2)
+            / (pow(self.stat_a.n, 2) * (self.stat_a.n - 1))
+        )
 
     @property
     @abstractmethod
