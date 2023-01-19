@@ -38,7 +38,7 @@ type EventTableData = TableData & {
 const userRetention: Record<string, number> = {};
 
 // use fixed startDate so that integration tests can filter reliably
-const startDate = new Date('2022-02-01T00:00:00');  
+const startDate = new Date("2022-02-01T00:00:00");
 startDate.setDate(startDate.getDate() - 90);
 function getDateRangeCondition(start: number, end: number) {
   const s = new Date(startDate);
@@ -271,6 +271,15 @@ function viewCheckout(data: TableData, gb: GrowthBook) {
     condition: getDateRangeCondition(50, 100),
   });
   trackExperiment(data, res, "checkout-layout");
+  // add second "error" exposure with different value
+  // for 10% of users. Used to test multiple exposures.
+  if (Math.random() < 0.1) {
+    trackExperiment(
+      data,
+      { inExperiment: true, variationId: 0 },
+      "checkout-layout"
+    );
+  }
   advanceTime(30);
 
   // add activation metric that the checkout layout actually loads
