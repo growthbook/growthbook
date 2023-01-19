@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
+import intersection from "lodash/intersection";
 import { z } from "zod";
 import { SlackIntegrationInterface } from "../../types/slack-integration";
 import {
@@ -233,77 +234,35 @@ export const getSlackIntegrationsForFilters = async ({
   tags,
   projects,
 }: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
+  const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.events.includes(eventName);
+
+  const includesEnvironments = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.environments.length === 0 ||
+    environments.length === 0 ||
+    intersection(slackIntegration.environments, environments).length > 0;
+
+  const includesTags = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.tags.length === 0 ||
+    tags.length === 0 ||
+    intersection(slackIntegration.tags, tags).length > 0;
+
+  const includesProjects = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.projects.length === 0 ||
+    projects.length === 0 ||
+    intersection(slackIntegration.projects, projects).length > 0;
+
   try {
     const docs = await SlackIntegrationModel.find({
       organizationId,
-      $and: [
-        // Provided event or empty event filters
-        {
-          $or: [
-            {
-              events: {
-                $in: [eventName],
-              },
-            },
-            {
-              events: {
-                $size: 0,
-              },
-            },
-          ],
-        },
-
-        // intersecting environments or empty environment filters
-        {
-          $or: [
-            {
-              environments: {
-                $in: environments,
-              },
-            },
-            {
-              environments: {
-                $size: 0,
-              },
-            },
-          ],
-        },
-
-        // intersecting tags or empty tags filters
-        {
-          $or: [
-            {
-              tags: {
-                $in: tags,
-              },
-            },
-            {
-              tags: {
-                $size: 0,
-              },
-            },
-          ],
-        },
-
-        // intersecting projects or empty projects filters
-        {
-          $or: [
-            {
-              projects: {
-                $in: projects,
-              },
-            },
-            {
-              projects: {
-                $size: 0,
-              },
-            },
-          ],
-        },
-      ],
     });
 
-    return docs.map(toInterface);
+    return docs
+      .filter(includesEvent)
+      .filter(includesEnvironments)
+      .filter(includesTags)
+      .filter(includesProjects)
+      .map(toInterface);
   } catch (e) {
     logger.error(e, "getSlackIntegrationsForEvent");
     return null;
