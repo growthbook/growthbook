@@ -2,6 +2,7 @@ import Agenda, { Job } from "agenda";
 import {
   getExperimentById,
   getExperimentsByQuery,
+  updateExperimentById,
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
@@ -15,7 +16,7 @@ import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
+import { ChangeLog, ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
@@ -142,6 +143,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   if (!experimentId) return;
 
+  const changes: ChangeLog = {};
+
   const log = logger.child({
     cron: "updateSingleExperiment",
     experimentId,
@@ -236,8 +239,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       experiment.autoSnapshots = false;
-      experiment.markModified("autoSnapshots");
-      await experiment.save();
+      changes.autoSnapshots = false;
+      await updateExperimentById(experiment, changes);
       // TODO: email user and let them know it failed
     } catch (e) {
       log.error("Failed to turn off autoSnapshots - " + e.message);

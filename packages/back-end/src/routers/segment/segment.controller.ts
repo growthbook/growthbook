@@ -13,11 +13,11 @@ import {
   updateMetricsByQuery,
 } from "../../models/MetricModel";
 import {
-  ExperimentDocument,
   getExperimentsUsingSegment,
   updateExperimentByQuery,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
+import { ExperimentInterface } from "../../../types/experiment";
 
 // region GET /segments
 
@@ -61,7 +61,7 @@ type GetSegmentUsageRequest = AuthRequest<
 type GetSegmentUsageResponse = {
   ideas: IdeaDocument[];
   metrics: MetricInterface[];
-  experiments: ExperimentDocument[];
+  experiments: ExperimentInterface[];
   total: number;
   status: 200;
 };

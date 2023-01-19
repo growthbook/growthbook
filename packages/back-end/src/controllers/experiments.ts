@@ -18,8 +18,9 @@ import {
   deleteExperimentById,
   getExperimentById,
   getExperimentByTrackingKey,
-  getExperimentsByOrganization,
+  getAllExperiments,
   getExperimentsByQuery,
+  updateExperimentById,
 } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
@@ -37,6 +38,7 @@ import {
 } from "../services/queries";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
+  ChangeLog,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
@@ -77,7 +79,7 @@ export async function getExperiments(
     project = req.query.project;
   }
 
-  const experiments = await getExperimentsByOrganization(org.id, project);
+  const experiments = await getAllExperiments(org.id, project);
 
   res.status(200).json({
     status: 200,
@@ -96,7 +98,7 @@ export async function getExperimentsFrequencyMonth(
   }
 
   const { num } = req.params;
-  const experiments = await getExperimentsByOrganization(org.id, project);
+  const experiments = await getAllExperiments(org.id, project);
 
   const allData: { name: string; numExp: number }[] = [];
 
@@ -328,7 +330,7 @@ export async function getNewFeatures(
     project = req.query.project;
   }
 
-  const allExperiments = await getExperimentsByOrganization(org.id);
+  const allExperiments = await getAllExperiments(org.id);
   const projectFeatures = await getAllFeatures(org.id, project);
 
   const expMap = new Map();
@@ -532,7 +534,7 @@ export async function postExperiments(
         object: "experiment",
         id: experiment.id,
       },
-      details: auditDetailsCreate(experiment.toJSON()),
+      details: auditDetailsCreate(experiment),
     });
 
     await ensureWatching(userId, org.id, experiment.id, "experiments");
@@ -674,8 +676,9 @@ export async function postExperiment(
     "targetURLRegex",
     "project",
   ];
-  const existing: ExperimentInterface = exp.toJSON();
+  const existing: ExperimentInterface = exp;
   let requiresWebhook = false;
+  const changes: ChangeLog = {};
   keys.forEach((key) => {
     if (!(key in data)) {
       return;
@@ -692,7 +695,7 @@ export async function postExperiment(
     }
 
     if (hasChanges) {
-      exp.set(key, data[key]);
+      changes[key] = data[key];
       if (keysRequiringWebhook.includes(key)) {
         requiresWebhook = true;
       }
@@ -706,7 +709,7 @@ export async function postExperiment(
     exp.phases?.[currentPhase] &&
     (phaseStartDate || phaseEndDate)
   ) {
-    const phases = [...exp.toJSON().phases];
+    const phases = [...exp.phases];
     const phaseClone = { ...phases[currentPhase] };
     phases[Math.floor(currentPhase * 1)] = phaseClone;
 
@@ -716,10 +719,10 @@ export async function postExperiment(
     if (exp.status === "stopped" && phaseEndDate) {
       phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
     }
-    exp.set("phases", phases);
+    changes.phases = phases;
   }
 
-  await exp.save();
+  await updateExperimentById(exp, changes);
 
   await req.audit({
     event: "experiment.update",
@@ -727,7 +730,7 @@ export async function postExperiment(
       object: "experiment",
       id: exp.id,
     },
-    details: auditDetailsUpdate(existing, exp.toJSON()),
+    details: auditDetailsUpdate(existing, exp),
   });
 
   // If there are new tags to add
@@ -754,6 +757,8 @@ export async function postExperimentArchive(
 
   const exp = await getExperimentById(id);
 
+  const changes: ChangeLog = {};
+
   if (!exp) {
     res.status(403).json({
       status: 404,
@@ -772,10 +777,10 @@ export async function postExperimentArchive(
 
   req.checkPermissions("createAnalyses", exp.project);
 
-  exp.set("archived", true);
+  changes.archived = true;
 
   try {
-    await exp.save();
+    await updateExperimentById(exp, changes);
 
     await experimentUpdated(exp);
 
@@ -807,6 +812,7 @@ export async function postExperimentUnarchive(
   const { id } = req.params;
 
   const exp = await getExperimentById(id);
+  const changes: ChangeLog = {};
 
   if (!exp) {
     res.status(403).json({
@@ -826,10 +832,10 @@ export async function postExperimentUnarchive(
 
   req.checkPermissions("createAnalyses", exp.project);
 
-  exp.set("archived", false);
+  changes.archived = false;
 
   try {
-    await exp.save();
+    await updateExperimentById(exp, changes);
 
     await experimentUpdated(exp);
 
@@ -867,6 +873,7 @@ export async function postExperimentStatus(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
+  const changes: ChangeLog = {};
 
   const exp = await getExperimentById(id);
   if (!exp) {
@@ -877,7 +884,7 @@ export async function postExperimentStatus(
   }
   req.checkPermissions("createAnalyses", exp.project);
 
-  const existing = exp.toJSON();
+  const existing = exp;
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...existing.phases];
@@ -892,12 +899,12 @@ export async function postExperimentStatus(
       reason,
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
     };
-    exp.set("phases", phases);
+    changes.phases = phases;
   }
 
-  exp.set("status", status);
+  changes.status = status;
 
-  await exp.save();
+  await updateExperimentById(exp, changes);
 
   await req.audit({
     event: "experiment.status",
@@ -905,7 +912,7 @@ export async function postExperimentStatus(
       object: "experiment",
       id: exp.id,
     },
-    details: auditDetailsUpdate(existing, exp.toJSON()),
+    details: auditDetailsUpdate(existing, exp),
   });
 
   await experimentUpdated(exp);
@@ -927,6 +934,7 @@ export async function postExperimentStop(
   const { reason, results, analysis, winner, dateEnded } = req.body;
 
   const exp = await getExperimentById(id);
+  const changes: ChangeLog = {};
 
   if (!exp) {
     res.status(403).json({
@@ -945,9 +953,9 @@ export async function postExperimentStop(
   }
   req.checkPermissions("createAnalyses", exp.project);
 
-  const existing = exp.toJSON();
+  const existing = exp;
 
-  const phases = [...exp.toJSON().phases];
+  const phases = [...exp.phases];
   // Already has phases
   if (phases.length) {
     phases[phases.length - 1] = {
@@ -955,23 +963,23 @@ export async function postExperimentStop(
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
       reason,
     };
-    exp.set("phases", phases);
+    changes.phases = phases;
   }
 
   // Make sure experiment is stopped
   let isEnding = false;
   if (exp.status === "running") {
-    exp.set("status", "stopped");
+    changes.status = "stopped";
     isEnding = true;
   }
 
   // TODO: validation
-  exp.set("winner", winner);
-  exp.set("results", results);
-  exp.set("analysis", analysis);
+  changes.winner = winner;
+  changes.results = results;
+  changes.analysis = analysis;
 
   try {
-    await exp.save();
+    await updateExperimentById(exp, changes);
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -979,7 +987,7 @@ export async function postExperimentStop(
         object: "experiment",
         id: exp.id,
       },
-      details: auditDetailsUpdate(existing, exp.toJSON()),
+      details: auditDetailsUpdate(existing, exp),
     });
 
     await experimentUpdated(exp);
@@ -1004,6 +1012,7 @@ export async function deleteExperimentPhase(
   const phaseIndex = parseInt(phase);
 
   const exp = await getExperimentById(id);
+  const changes: ChangeLog = {};
 
   if (!exp) {
     res.status(404).json({
@@ -1027,16 +1036,16 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
-  const existing = exp.toJSON();
+  const existing = exp;
 
   // Remove phase from experiment and revert to draft if no more phases left
   exp.phases.splice(phaseIndex, 1);
-  exp.markModified("phases");
+  changes.phases = exp.phases;
 
   if (!exp.phases.length) {
-    exp.set("status", "draft");
+    changes.status = "draft";
   }
-  await exp.save();
+  await updateExperimentById(exp, changes);
 
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
@@ -1068,7 +1077,7 @@ export async function deleteExperimentPhase(
       object: "experiment",
       id: exp.id,
     },
-    details: auditDetailsUpdate(existing, exp.toJSON()),
+    details: auditDetailsUpdate(existing, exp),
   });
 
   res.status(200).json({
@@ -1084,6 +1093,7 @@ export async function putExperimentPhase(
   const { id } = req.params;
   const i = parseInt(req.params.phase);
   const phase = req.body;
+  const changes: ChangeLog = {};
 
   const exp = await getExperimentById(id);
 
@@ -1097,7 +1107,7 @@ export async function putExperimentPhase(
 
   req.checkPermissions("createAnalyses", exp.project);
 
-  const existing = exp.toJSON();
+  const existing = exp;
 
   if (!existing.phases?.[i]) {
     throw new Error("Invalid phase");
@@ -1115,8 +1125,8 @@ export async function putExperimentPhase(
     ...phases[i],
     ...phase,
   };
-  exp.set("phases", phases);
-  await exp.save();
+  changes.phases = phases;
+  await updateExperimentById(exp, changes);
 
   await req.audit({
     event: "experiment.phase",
@@ -1124,7 +1134,7 @@ export async function putExperimentPhase(
       object: "experiment",
       id: exp.id,
     },
-    details: auditDetailsUpdate(existing, exp.toJSON()),
+    details: auditDetailsUpdate(existing, exp),
   });
 
   await experimentUpdated(exp);
@@ -1141,6 +1151,7 @@ export async function postExperimentPhase(
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
+  const changes: ChangeLog = {};
 
   const exp = await getExperimentById(id);
 
@@ -1163,9 +1174,9 @@ export async function postExperimentPhase(
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
-  const existing = exp.toJSON();
+  const existing = exp;
 
-  const phases = [...exp.toJSON().phases];
+  const phases = [...exp.phases];
   // Already has phases
   if (phases.length) {
     phases[phases.length - 1] = {
@@ -1178,7 +1189,7 @@ export async function postExperimentPhase(
   // Make sure experiment is running
   let isStarting = false;
   if (exp.status === "draft") {
-    exp.set("status", "running");
+    changes.status = "running";
     isStarting = true;
   }
 
@@ -1191,8 +1202,8 @@ export async function postExperimentPhase(
 
   // TODO: validation
   try {
-    exp.set("phases", phases);
-    await exp.save();
+    changes.phases = phases;
+    await updateExperimentById(exp, changes);
 
     await addGroupsDiff(org.id, [], data.groups || []);
 
@@ -1202,7 +1213,7 @@ export async function postExperimentPhase(
         object: "experiment",
         id: exp.id,
       },
-      details: auditDetailsUpdate(existing, exp.toJSON()),
+      details: auditDetailsUpdate(existing, exp),
     });
 
     await ensureWatching(userId, org.id, exp.id, "experiments");
@@ -1273,7 +1284,7 @@ export async function deleteExperiment(
       object: "experiment",
       id: exp.id,
     },
-    details: auditDetailsDelete(exp.toJSON()),
+    details: auditDetailsDelete(exp),
   });
 
   await experimentUpdated(exp);
@@ -1554,6 +1565,7 @@ export async function deleteScreenshot(
   const { org } = getOrgFromReq(req);
   const { id, variation } = req.params;
   const { url } = req.body;
+  const changes: ChangeLog = {};
 
   const exp = await getExperimentById(id);
 
@@ -1589,8 +1601,8 @@ export async function deleteScreenshot(
   exp.variations[variation].screenshots = exp.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  exp.markModified(`variations[${variation}]`);
-  await exp.save();
+  changes.variations = exp.variations;
+  await updateExperimentById(exp, changes);
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1621,6 +1633,7 @@ export async function addScreenshot(
   const { org, userId } = getOrgFromReq(req);
   const { id, variation } = req.params;
   const { url, description } = req.body;
+  const changes: ChangeLog = {};
 
   const exp = await getExperimentById(id);
 
@@ -1655,8 +1668,10 @@ export async function addScreenshot(
     path: url,
     description: description,
   });
-  exp.markModified(`variations[${variation}]`);
-  await exp.save();
+
+  changes.variations = exp.variations;
+
+  await updateExperimentById(exp, changes);
 
   await req.audit({
     event: "experiment.screenshot.create",

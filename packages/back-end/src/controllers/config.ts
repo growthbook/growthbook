@@ -6,7 +6,7 @@ import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentInterface } from "../../types/experiment";
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
-import { getExperimentsByOrganization } from "../models/ExperimentModel";
+import { getAllExperiments } from "../models/ExperimentModel";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -108,7 +108,7 @@ export async function getExperimentsScript(
           "Must use a Publishable API key to load the visual editor script",
       });
     }
-    const experiments = await getExperimentsByOrganization(organization);
+    const experiments = await getAllExperiments(organization);
 
     const experimentData: ExperimentData[] = [];
 

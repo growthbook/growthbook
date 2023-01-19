@@ -33,10 +33,7 @@ import {
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
-import {
-  ExperimentDocument,
-  getExperimentByTrackingKey,
-} from "../models/ExperimentModel";
+import { getExperimentByTrackingKey } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -45,6 +42,7 @@ import {
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
+import { ExperimentInterface } from "../../types/experiment";
 
 export async function getFeaturesPublic(req: Request, res: Response) {
   const { key } = req.params;
@@ -682,7 +680,7 @@ export async function getFeatureById(
     });
   }
 
-  const experiments: { [key: string]: ExperimentDocument } = {};
+  const experiments: { [key: string]: ExperimentInterface } = {};
   if (expIds.size > 0) {
     await Promise.all(
       Array.from(expIds).map(async (id) => {

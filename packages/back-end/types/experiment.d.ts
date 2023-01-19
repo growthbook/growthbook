@@ -115,3 +115,20 @@ export type ExperimentInterfaceStringDates = Omit<
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
 };
+
+export type ChangeLog = {
+  [key: string]:
+    | Variation[]
+    | boolean
+    | ExperimentPhase[]
+    | ExperimentStatus
+    | number
+    | string
+    | undefined
+    | ExperimentResultsType
+    | string[]
+    | Date
+    | MetricOverride[]
+    | ExperimentPhaseStringDates[]
+    | null;
+};
