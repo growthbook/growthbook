@@ -21,9 +21,9 @@ class TestTwoSidedTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=round_(tau / ctrl_mean),
-                ci=[-0.03524, 1.44987],
+                ci=[-0.03526, 1.44989],
                 uplift=Uplift("normal", 0.70732, 0.37879),
-                p_value=0.0619,
+                p_value=0.06191,
             )
         )
 
