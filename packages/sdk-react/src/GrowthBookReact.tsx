@@ -5,8 +5,11 @@ import type {
   Result,
   FeatureResult,
   JSONValue,
-  GrowthBook,
+  FeatureDefinition,
+  Context,
+  WidenPrimitives,
 } from "@growthbook/growthbook";
+import { GrowthBook } from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
   growthbook?: GrowthBook;
@@ -14,6 +17,10 @@ export type GrowthBookContextValue = {
 export interface WithRunExperimentProps {
   runExperiment: <T>(exp: Experiment<T>) => Result<T>;
 }
+export type GrowthBookSSRData = {
+  attributes: Record<string, any>;
+  features: Record<string, FeatureDefinition>;
+};
 
 export const GrowthBookContext = React.createContext<GrowthBookContextValue>(
   {}
@@ -46,7 +53,43 @@ function feature<T extends JSONValue = any>(
       ruleId: "",
     };
   }
-  return growthbook.feature<T>(id);
+  return growthbook.evalFeature<T>(id);
+}
+
+// Get features from API and targeting attributes during SSR
+export async function getGrowthBookSSRData(
+  context: Context
+): Promise<GrowthBookSSRData> {
+  // Server-side GrowthBook instance
+  const gb = new GrowthBook({
+    ...context,
+  });
+
+  // Load feature flags from network if needed
+  if (context.clientKey) {
+    await gb.loadFeatures();
+  }
+
+  const data: GrowthBookSSRData = {
+    attributes: gb.getAttributes(),
+    features: gb.getFeatures(),
+  };
+  gb.destroy();
+
+  return data;
+}
+
+// Populate the GrowthBook instance in context from the SSR props
+export function useGrowthBookSSR(data: GrowthBookSSRData) {
+  const gb = useGrowthBook();
+
+  // Only do this once to avoid infinite loops
+  const isFirst = React.useRef(true);
+  if (gb && isFirst.current) {
+    gb.setFeatures(data.features);
+    gb.setAttributes(data.attributes);
+    isFirst.current = false;
+  }
 }
 
 export function useExperiment<T>(exp: Experiment<T>): Result<T> {
@@ -57,13 +100,51 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
 export function useFeature<T extends JSONValue = any>(
   id: string
 ): FeatureResult<T | null> {
-  const { growthbook } = React.useContext(GrowthBookContext);
+  const growthbook = useGrowthBook();
   return feature(id, growthbook);
+}
+
+export function useFeatureIsOn(id: string): boolean {
+  const growthbook = useGrowthBook();
+  return growthbook ? growthbook.isOn(id) : false;
+}
+
+export function useFeatureValue<T extends JSONValue = any>(
+  id: string,
+  fallback: T
+): WidenPrimitives<T> {
+  const growthbook = useGrowthBook();
+  return growthbook
+    ? growthbook.getFeatureValue(id, fallback)
+    : (fallback as WidenPrimitives<T>);
 }
 
 export function useGrowthBook() {
   const { growthbook } = React.useContext(GrowthBookContext);
   return growthbook;
+}
+
+export function FeaturesReady({
+  children,
+  timeout,
+  fallback,
+}: {
+  children: React.ReactNode;
+  timeout?: number;
+  fallback?: React.ReactNode;
+}) {
+  const gb = useGrowthBook();
+  const [ready, setReady] = React.useState(gb ? gb.ready : false);
+  React.useEffect(() => {
+    if (timeout && !ready) {
+      const timer = setTimeout(() => {
+        setReady(true);
+      }, timeout);
+      return () => clearTimeout(timer);
+    }
+  }, [timeout, ready]);
+
+  return ready ? children : fallback || null;
 }
 
 export function IfFeatureEnabled({
