@@ -3,6 +3,8 @@ import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import { jStat } from "jstat";
 
+// TODO: set seeds to enable replicable data
+
 const NUM_USERS = 10000;
 const OUTPUT_DIR = "/tmp/csv";
 
@@ -27,7 +29,7 @@ type ExperimentTableData = TableData & {
   variationId: number;
 };
 type PurchaseTableData = TableData & {
-  amount: string; // to allow for null values as '\N'
+  amount: number | null; // null will get written as \N to file
   qty: number;
 };
 type EventTableData = TableData & {
@@ -292,21 +294,25 @@ function viewCheckout(data: TableData, gb: GrowthBook) {
   return true;
 }
 
-function purchase(data: TableData, gb: GrowthBook, qty: number, price: number) {
+function purchase(
+  data: TableData,
+  gb: GrowthBook,
+  qty: number,
+  price: number | null
+) {
   trackPageView({
     ...data,
     path: `/success`,
   });
   // Pretend we gift people items randomly and the price is then 0, but
   // we set it to NULL (just as a way to simulate NULL values in data)
-  let final_price: string = price.toString();
   if (Math.random() < 0.15) {
-    final_price = "\\N";
+    price = null;
   }
   trackPurchase({
     ...data,
     qty: qty,
-    amount: final_price,
+    amount: price,
   });
   advanceTime(30);
 
@@ -440,7 +446,7 @@ function writeCSV(objs: Record<string, unknown>[], filename: string) {
   for (let i = 0; i < objs.length; i++) {
     const row: string[] = [];
     for (let j = 0; j < headers.length; j++) {
-      row.push(String(objs[i][headers[j]] ?? ""));
+      row.push(String(objs[i][headers[j]] ?? "\\N"));
     }
     rows.push(row);
   }
