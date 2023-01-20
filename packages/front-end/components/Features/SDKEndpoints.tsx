@@ -71,7 +71,7 @@ const SDKEndpoints: FC<{
           <tbody>
             {publishableKeys.map((key) => {
               const env = key.environment ?? "production";
-              const endpoint = getApiBaseUrl() + "api/features/" + key.key;
+              const endpoint = getApiBaseUrl() + "/api/features/" + key.key;
               const envExists = environments?.some((e) => e.id === env);
 
               return (

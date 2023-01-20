@@ -13,7 +13,7 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost: string;
   encryptionKey?: string;
 }) {
-  const featuresEndpoint = apiHost + "api/features/" + apiKey;
+  const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
 
   if (language === "javascript") {
@@ -174,7 +174,7 @@ import com.sdk.growthbook.GBSDKBuilder
 
 val gb = GBSDKBuilder(
   apiKey = "${apiKey || "MY_SDK_KEY"}",
-  hostURL = "${apiHost}",
+  hostURL = "${apiHost}/",
   trackingCallback = { gbExperiment, gbExperimentResult ->
     // ${trackingComment}
     println("Viewed Experiment")
@@ -448,7 +448,7 @@ GrowthBook growthBook = new GrowthBook(context);
           language="dart"
           code={`
 final GrowthBookSDK gb = GBSDKBuilderApp(
-  hostURL: '${apiHost}',
+  hostURL: '${apiHost}/',
   apiKey: "${apiKey}",
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {
     // ${trackingComment}

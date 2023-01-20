@@ -71,6 +71,7 @@ export async function fetchFeaturesWithCache(
   timeout?: number,
   skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
+  // eslint-disable-next-line
   const [key, apiHost, clientKey, enableDevMode] = getKey(instance);
   if (!clientKey) return null;
   const now = new Date();
@@ -84,18 +85,15 @@ export async function fetchFeaturesWithCache(
   ) {
     // Reload features in the backgroud if stale
     if (existing.staleAt < now) {
-      fetchFeatures(instance, apiHost, clientKey);
+      fetchFeatures(instance);
     }
     // Otherwise, if we don't need to refresh now, start a background sync
     else {
-      startAutoRefresh(instance, apiHost, clientKey, key);
+      startAutoRefresh(instance);
     }
     return existing.data;
   } else {
-    const data = await promiseTimeout(
-      fetchFeatures(instance, apiHost, clientKey),
-      timeout
-    );
+    const data = await promiseTimeout(fetchFeatures(instance), timeout);
     return data;
   }
 }
@@ -149,14 +147,9 @@ function getKey(
 ): [RepositoryKey, ApiHost, ClientKey, boolean] {
   // eslint-disable-next-line
   const ctx = (instance as any).context as Context;
-  const apiHost = ctx.apiHost || "";
+  const apiHost = (ctx.apiHost || "").replace(/\/*$/, "");
   const clientKey = ctx.clientKey || "";
-  return [
-    `${apiHost}||${clientKey}`,
-    apiHost.replace(/\/*$/, ""),
-    clientKey,
-    !!ctx.enableDevMode,
-  ];
+  return [`${apiHost}||${clientKey}`, apiHost, clientKey, !!ctx.enableDevMode];
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -255,15 +248,13 @@ async function setFeaturesOnInstance(
         undefined,
         polyfills.SubtleCrypto
       )
-    : instance.setFeatures(data.features));
+    : instance.setFeatures(data.features || instance.getFeatures()));
 }
 
 async function fetchFeatures(
-  instance: GrowthBook,
-  apiHost: ApiHost,
-  clientKey: ClientKey
+  instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
+  const [key, apiHost, clientKey] = getKey(instance);
   const endpoint = apiHost + "/api/features/" + clientKey;
 
   let promise = activeFetches.get(key);
@@ -278,7 +269,7 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        startAutoRefresh(instance, apiHost, clientKey, key);
+        startAutoRefresh(instance);
         activeFetches.delete(key);
         return data;
       })
@@ -290,7 +281,7 @@ async function fetchFeatures(
             error: e ? e.message : null,
           });
         activeFetches.delete(key);
-        return Promise.resolve({ features: {} });
+        return Promise.resolve({});
       });
     activeFetches.set(key, promise);
   }
@@ -299,12 +290,8 @@ async function fetchFeatures(
 
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(
-  instance: GrowthBook,
-  apiHost: ApiHost,
-  clientKey: ClientKey,
-  key: RepositoryKey
-) {
+function startAutoRefresh(instance: GrowthBook) {
+  const [key, apiHost, clientKey] = getKey(instance);
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&
@@ -326,7 +313,7 @@ function startAutoRefresh(
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(key, channel);
+          onSSEError(channel, key);
         }
       },
       errors: 0,
@@ -335,12 +322,12 @@ function startAutoRefresh(
     channel.src.addEventListener("features", channel.cb);
 
     channel.src.onerror = () => {
-      onSSEError(key, channel);
+      onSSEError(channel, key);
     };
   }
 }
 
-function onSSEError(key: RepositoryKey, channel: ScopedChannel) {
+function onSSEError(channel: ScopedChannel, key: RepositoryKey) {
   channel.errors++;
   if (channel.errors > 3 || channel.src.readyState === 2) {
     destroyChannel(channel, key);

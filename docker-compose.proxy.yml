@@ -20,7 +20,7 @@ services:
       - PROXY_HOST_INTERNAL=http://proxy:3300
       - PROXY_HOST_PUBLIC=http://localhost:3300
       # Change this to something secure in production!
-      - SECRET_ACCESS_KEY=dev
+      - SECRET_API_KEY=dev
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
 
@@ -32,8 +32,8 @@ services:
       - growthbook
     environment:
       - GROWTHBOOK_API_HOST=http://growthbook:3100
-      # This must match the SECRET_ACCESS_KEY above
-      - SECRET_ACCESS_KEY=dev
+      # This must match the SECRET_API_KEY above
+      - SECRET_API_KEY=dev
 
 volumes:
   uploads:

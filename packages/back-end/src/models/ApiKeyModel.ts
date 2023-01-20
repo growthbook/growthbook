@@ -7,7 +7,7 @@ import {
   PublishableApiKey,
   SecretApiKey,
 } from "../../types/apikey";
-import { IS_CLOUD, SECRET_ACCESS_KEY } from "../util/secrets";
+import { IS_CLOUD, SECRET_API_KEY } from "../util/secrets";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -133,12 +133,12 @@ export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<Partial<ApiKeyInterface>> {
   // If self-hosting and using a hardcoded secret key
-  if (!IS_CLOUD && SECRET_ACCESS_KEY && key === SECRET_ACCESS_KEY) {
+  if (!IS_CLOUD && SECRET_API_KEY && key === SECRET_API_KEY) {
     const orgs = await findAllOrganizations();
     if (orgs.length === 1) {
       return {
-        id: "SECRET_ACCESS_KEY",
-        key: SECRET_ACCESS_KEY,
+        id: "SECRET_API_KEY",
+        key: SECRET_API_KEY,
         secret: true,
         organization: orgs[0].id,
       };

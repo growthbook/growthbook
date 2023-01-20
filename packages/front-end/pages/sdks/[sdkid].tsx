@@ -319,7 +319,9 @@ export default function SDKConnectionPage() {
                 </>
               }
             >
-              <code className="text-muted">{connection.proxy.host}</code>
+              <code className="text-muted">
+                {connection.proxy.hostExternal || connection.proxy.host}
+              </code>
             </ConnectionNode>
 
             <ConnectionStatus

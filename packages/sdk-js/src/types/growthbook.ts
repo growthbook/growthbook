@@ -149,7 +149,7 @@ export type WidenPrimitives<T> = T extends string
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
 export type FeatureApiResponse = {
-  features: FeatureDefinitions;
+  features?: FeatureDefinitions;
   dateUpdated?: string;
   encryptedFeatures?: string;
 };

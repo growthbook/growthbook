@@ -23,21 +23,22 @@ import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/Multi
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
+function trimTrailingSlash(str) {
+  return str.replace(/\/*$/, "");
+}
+
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   if (connection && connection.proxy.enabled && connection.proxy.host) {
-    return (
-      (connection.proxy.hostExternal || connection.proxy.host).replace(
-        /\/*$/,
-        ""
-      ) + "/"
+    return trimTrailingSlash(
+      connection.proxy.hostExternal || connection.proxy.host
     );
   }
 
   if (isCloud()) {
-    return `https://cdn.growthbook.io/`;
+    return `https://cdn.growthbook.io`;
   }
 
-  return getApiHost() + "/";
+  return trimTrailingSlash(getApiHost());
 }
 
 export default function CodeSnippetModal({
@@ -128,7 +129,7 @@ export default function CodeSnippetModal({
   const { docs, label, usesEntireEndpoint } = languageMapping[language];
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
-  const featuresEndpoint = apiHost + "api/features/" + clientKey;
+  const featuresEndpoint = apiHost + "/api/features/" + clientKey;
   const encryptionKey =
     currentConnection &&
     currentConnection.encryptPayload &&
