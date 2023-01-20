@@ -92,6 +92,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageTags",
   "manageProjects",
   "manageApiKeys",
+  "manageIntegrations",
   "manageWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
