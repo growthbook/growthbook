@@ -27,11 +27,11 @@ const WebhooksPage: FC = () => {
         </Link>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-3">
         <EventWebHooksPage />
       </div>
 
-      <div className="alert alert-info">
+      <div className="alert alert-info mt-5">
         Looking for SDK Webhooks? They moved to the new{" "}
         <Link href="/sdks">
           <a>

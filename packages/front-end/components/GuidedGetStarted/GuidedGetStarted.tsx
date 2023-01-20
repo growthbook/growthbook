@@ -173,6 +173,7 @@ export default function GuidedGetStarted({
               onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
+              initialRule={false}
               secondaryCTA={
                 <button
                   onClick={() => {
