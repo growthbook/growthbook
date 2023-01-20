@@ -1,13 +1,13 @@
 import { SDKConnectionInterface } from "@/../back-end/types/sdk-connection";
 import clsx from "clsx";
-import { useState } from "react";
-import { FaCheck, FaRetweet } from "react-icons/fa";
-import LoadingSpinner from "../LoadingSpinner";
+import { BsArrowRepeat } from "react-icons/bs";
+import { FaCheck } from "react-icons/fa";
+import Button from "../Button";
 import styles from "./CheckSDKConnectionResults.module.scss";
 
 type Props = {
   connection: SDKConnectionInterface;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
   close: () => void;
 };
 
@@ -16,9 +16,6 @@ export default function TestConnectionResults({
   mutate,
   close,
 }: Props) {
-  const [fetchingConnectionStatus, setFetchingConnectionStatus] = useState(
-    false
-  );
   if (!connection)
     return (
       <p className="alert alert-danger">
@@ -48,23 +45,15 @@ export default function TestConnectionResults({
       ) : (
         <>
           <div className="p-3">
-            {fetchingConnectionStatus ? (
-              <LoadingSpinner />
-            ) : (
-              <button
-                className="btn btn-outline-primary align-self-center m-2"
-                onClick={() => {
-                  setFetchingConnectionStatus(true);
-                  mutate();
-                  setTimeout(() => {
-                    setFetchingConnectionStatus(false);
-                  }, 1000);
-                }}
-              >
-                <FaRetweet className="mr-2" />
-                Check Again
-              </button>
-            )}
+            <Button
+              color="outline-primary"
+              className="align-self-center m-2"
+              onClick={async () => {
+                await mutate();
+              }}
+            >
+              <BsArrowRepeat /> Check Again
+            </Button>
           </div>
           <h2 className={styles.notConnected}>Status: Not Connected</h2>
           <p>

@@ -63,20 +63,20 @@ export default function CodeSnippetModal({
   secondaryCTA?: ReactElement;
   sdkConnection?: SDKConnectionInterface;
   connections: SDKConnectionInterface[];
-  mutateConnections: () => void;
+  mutateConnections: () => Promise<unknown>;
   includeCheck?: boolean;
   allowChangingConnection?: boolean;
 }) {
-  const [
-    currentConnection,
-    setCurrentConnection,
-  ] = useState<SDKConnectionInterface | null>(null);
+  const [currentConnectionId, setCurrentConnectionId] = useState("");
 
   useEffect(() => {
-    setCurrentConnection(
-      currentConnection || sdkConnection || connections?.[0] || null
+    setCurrentConnectionId(
+      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || ""
     );
   }, [connections]);
+
+  const currentConnection: SDKConnectionInterface | null =
+    connections.find((c) => c.id === currentConnectionId) || null;
 
   const [showTestModal, setShowTestModal] = useState(false);
 
@@ -187,9 +187,7 @@ export default function CodeSnippetModal({
                   }))}
                   value={currentConnection?.id}
                   onChange={(id) => {
-                    setCurrentConnection(
-                      connections.find((conn) => conn.id === id)
-                    );
+                    setCurrentConnectionId(id);
                   }}
                 />
               </div>

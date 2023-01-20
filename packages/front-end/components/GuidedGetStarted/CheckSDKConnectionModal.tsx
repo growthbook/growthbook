@@ -5,7 +5,7 @@ import CheckSDKConnectionResults from "./CheckSDKConnectionResults";
 type Props = {
   close: () => void;
   connection: SDKConnectionInterface;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
   goToNextStep: () => void;
 };
 
