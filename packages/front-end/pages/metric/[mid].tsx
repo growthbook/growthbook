@@ -9,6 +9,7 @@ import { BsGear } from "react-icons/bs";
 import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "@/hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -63,6 +64,7 @@ const MetricPage: FC = () => {
     getMetricById,
     segments,
   } = useDefinitions();
+  const settings = useOrgSettings();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
@@ -920,22 +922,31 @@ const MetricPage: FC = () => {
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled">
-                  <li className="mb-2">
-                    <span className="uppercase-title">Thresholds</span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
-                      %
-                    </span>
-                  </li>
+                  {settings.statsEngine !== "frequentist" && (
+                    <>
+                      <li className="mb-2">
+                        <span className="uppercase-title">Thresholds</span>
+                      </li>
+                      <li className="mb-2">
+                        <span className="text-gray">Acceptable risk &lt;</span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.winRisk * 100 ||
+                            defaultWinRiskThreshold * 100}
+                          %
+                        </span>
+                      </li>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Unacceptable risk &gt;
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.loseRisk * 100 ||
+                            defaultLoseRiskThreshold * 100}
+                          %
+                        </span>
+                      </li>
+                    </>
+                  )}
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">

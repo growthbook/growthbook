@@ -7,6 +7,7 @@ import {
   hasEnoughData,
   isBelowMinChange,
   isSuspiciousUplift,
+  shouldHighlight as _shouldHighlight,
 } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Tooltip from "../Tooltip/Tooltip";
@@ -55,13 +56,14 @@ export default function ChanceToWinColumn({
   );
   const { ciUpper, ciLower } = useConfidenceLevels();
 
-  const shouldHighlight =
-    metric &&
-    baseline?.value &&
-    stats?.value &&
-    enoughData &&
-    !suspiciousChange &&
-    !belowMinChange;
+  const shouldHighlight = _shouldHighlight({
+    metric,
+    baseline,
+    stats,
+    hasEnoughData: enoughData,
+    suspiciousChange,
+    belowMinChange,
+  });
 
   const chanceToWin = stats?.chanceToWin ?? 0;
 

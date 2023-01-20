@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
@@ -29,6 +30,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -53,6 +55,8 @@ export default function ReportPage() {
       status: data?.report?.status ? data.report.status : "private",
     },
   });
+
+  const settings = useOrgSettings();
 
   useEffect(() => {
     if (data?.report) {
@@ -135,7 +139,7 @@ export default function ReportPage() {
         {report?.experimentId && (
           <Link href={`/experiment/${report.experimentId}#results`}>
             <a>
-              <GBCircleArrowLeft /> go to experiment results
+              <GBCircleArrowLeft /> Go to experiment results
             </a>
           </Link>
         )}
@@ -387,11 +391,19 @@ export default function ReportPage() {
 
                       return (
                         <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
-                          <GuardrailResults
-                            data={data}
-                            variations={variations}
-                            metric={metric}
-                          />
+                          {settings.statsEngine === "frequentist" ? (
+                            <PValueGuardrailResults
+                              data={data}
+                              variations={variations}
+                              metric={metric}
+                            />
+                          ) : (
+                            <GuardrailResults
+                              data={data}
+                              variations={variations}
+                              metric={metric}
+                            />
+                          )}
                         </div>
                       );
                     })}
