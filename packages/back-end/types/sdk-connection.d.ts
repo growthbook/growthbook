@@ -15,6 +15,9 @@ export type EditSDKConnectionParams = {
   languages?: SDKLanguage[];
   proxyEnabled?: boolean;
   proxyHost?: string;
+  environment?: string;
+  project?: string;
+  encryptPayload?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;

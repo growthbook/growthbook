@@ -1,6 +1,5 @@
 import {
   CreateSDKConnectionParams,
-  EditSDKConnectionParams,
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
@@ -68,31 +67,26 @@ export default function SDKConnectionForm({
       header={edit ? "Edit SDK COnnection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
+        // Make sure encryption is disabled if they selected at least 1 language that's not supported
+        // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
+        // For example, toggling encryption ON and then selecting an unsupported language
+        if (
+          value.languages.some((l) => !languageMapping[l].supportsEncryption)
+        ) {
+          value.encryptPayload = false;
+        }
+
+        const body: Omit<CreateSDKConnectionParams, "organization"> = {
+          ...value,
+        };
+
         if (edit) {
-          const body: EditSDKConnectionParams = {
-            name: value.name,
-            languages: value.languages,
-            proxyEnabled: value.proxyEnabled,
-            proxyHost: value.proxyHost,
-          };
           await apiCall(`/sdk-connections/${initialValue.id}`, {
             method: "PUT",
             body: JSON.stringify(body),
           });
           mutate();
         } else {
-          // Make sure encryption is disabled if they selected at least 1 language that's not supported
-          // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
-          // For example, toggling encryption ON and then selecting an unsupported language
-          if (
-            value.languages.some((l) => !languageMapping[l].supportsEncryption)
-          ) {
-            value.encryptPayload = false;
-          }
-
-          const body: Omit<CreateSDKConnectionParams, "organization"> = {
-            ...value,
-          };
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
             {
@@ -100,7 +94,6 @@ export default function SDKConnectionForm({
               body: JSON.stringify(body),
             }
           );
-
           mutate();
           await router.push(`/sdks/${res.connection.id}`);
         }
@@ -122,7 +115,7 @@ export default function SDKConnectionForm({
         />
       </div>
 
-      {!edit && projects.length > 0 && (
+      {projects.length > 0 && (
         <SelectField
           label="Project"
           initialOption="All Projects"
@@ -135,16 +128,14 @@ export default function SDKConnectionForm({
         />
       )}
 
-      {!edit && (
-        <SelectField
-          label="Environment"
-          required
-          placeholder="Choose one..."
-          value={form.watch("environment")}
-          onChange={(env) => form.setValue("environment", env)}
-          options={environments.map((e) => ({ label: e.id, value: e.id }))}
-        />
-      )}
+      <SelectField
+        label="Environment"
+        required
+        placeholder="Choose one..."
+        value={form.watch("environment")}
+        onChange={(env) => form.setValue("environment", env)}
+        options={environments.map((e) => ({ label: e.id, value: e.id }))}
+      />
 
       {isCloud() && (
         <>
@@ -173,12 +164,12 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {!edit && !hasSDKsWithoutEncryptionSupport && (
+      {!hasSDKsWithoutEncryptionSupport && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           value={form.watch("encryptPayload")}
           setValue={(value) => form.setValue("encryptPayload", value)}
-          showRequiresChangesWarning={false}
+          showRequiresChangesWarning={edit}
         />
       )}
     </Modal>

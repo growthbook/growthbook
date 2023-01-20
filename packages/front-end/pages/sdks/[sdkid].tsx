@@ -104,9 +104,9 @@ function ConnectionStatus({
               <FaQuestionCircle className="ml-1" /> not connected
             </span>
           )}
-          {canRefresh && refresh}
         </>
       )}
+      {canRefresh && refresh}
     </div>
   );
 }
@@ -172,51 +172,54 @@ export default function SDKConnectionPage() {
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>
-        <div className="col-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalState({
-                mode: "edit",
-                initialValue: connection,
-              });
-            }}
-          >
-            <GBEdit />
-          </a>
-        </div>
-        <div className="col-auto ml-auto">
-          {hasPermission && (
-            <MoreMenu>
-              <button
-                className="dropdown-item"
+        {hasPermission && (
+          <>
+            <div className="col-auto ml-auto">
+              <a
+                href="#"
+                className="btn btn-outline-primary"
                 onClick={(e) => {
                   e.preventDefault();
                   setModalState({
-                    mode: "create",
+                    mode: "edit",
                     initialValue: connection,
                   });
                 }}
               >
-                Duplicate
-              </button>
-              <DeleteButton
-                className="dropdown-item"
-                displayName="SDK Connection"
-                text="Delete"
-                useIcon={false}
-                onClick={async () => {
-                  await apiCall(`/sdk-connections/${connection.id}`, {
-                    method: "DELETE",
-                  });
-                  mutate();
-                  router.push(`/sdks`);
-                }}
-              />
-            </MoreMenu>
-          )}
-        </div>
+                <GBEdit /> Edit
+              </a>
+            </div>
+            <div className="col-auto">
+              <MoreMenu>
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setModalState({
+                      mode: "create",
+                      initialValue: connection,
+                    });
+                  }}
+                >
+                  Duplicate
+                </button>
+                <DeleteButton
+                  className="dropdown-item"
+                  displayName="SDK Connection"
+                  text="Delete"
+                  useIcon={false}
+                  onClick={async () => {
+                    await apiCall(`/sdk-connections/${connection.id}`, {
+                      method: "DELETE",
+                    });
+                    mutate();
+                    router.push(`/sdks`);
+                  }}
+                />
+              </MoreMenu>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mb-4 row" style={{ fontSize: "0.8em" }}>
@@ -251,22 +254,6 @@ export default function SDKConnectionPage() {
         <div className="col-auto">
           <h2 className="mb-0">Connection</h2>
         </div>
-        {hasPermission && (
-          <div className="col-auto">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalState({
-                  mode: "edit",
-                  initialValue: connection,
-                });
-              }}
-            >
-              <GBEdit />
-            </a>
-          </div>
-        )}
       </div>
       <div
         className="d-flex align-items-center mb-4 position-relative"

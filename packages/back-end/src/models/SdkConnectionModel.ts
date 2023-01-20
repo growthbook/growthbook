@@ -11,6 +11,7 @@ import {
   SDKLanguage,
 } from "../../types/sdk-connection";
 import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
+import { queueSingleProxyUpdate } from "../jobs/proxyUpdate";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
@@ -164,6 +165,9 @@ export const editSDKConnectionValidator = z
     languages: z.array(z.string()).optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
+    environment: z.string().optional(),
+    project: z.string().optional(),
+    encryptPayload: z.boolean(),
   })
   .strict();
 
@@ -177,7 +181,7 @@ export async function editSDKConnection(
     ...otherChanges
   } = editSDKConnectionValidator.parse(updates);
 
-  const newProxy = {
+  let newProxy = {
     ...connection.proxy,
   };
   if (proxyEnabled !== undefined && proxyEnabled !== connection.proxy.enabled) {
@@ -196,6 +200,23 @@ export async function editSDKConnection(
     newProxy.connected = !res.error;
     newProxy.proxyVersion = res.version;
   }
+  newProxy = addEnvProxySettings(newProxy);
+
+  // If we're changing the filter for which features are included, we should ping any
+  // connected proxies to update their cache immediately instead of waiting for the TTL
+  let needsProxyUpdate = false;
+  if (newProxy.enabled && newProxy.host) {
+    const keysRequiringProxyUpdate = [
+      "project",
+      "environment",
+      "encryptPayload",
+    ] as const;
+    keysRequiringProxyUpdate.forEach((key) => {
+      if (key in otherChanges && otherChanges[key] !== connection[key]) {
+        needsProxyUpdate = true;
+      }
+    });
+  }
 
   await SDKConnectionModel.updateOne(
     {
@@ -205,11 +226,19 @@ export async function editSDKConnection(
     {
       $set: {
         ...otherChanges,
-        proxy: addEnvProxySettings(newProxy),
+        proxy: newProxy,
         dateUpdated: new Date(),
       },
     }
   );
+
+  if (needsProxyUpdate) {
+    await queueSingleProxyUpdate({
+      ...connection,
+      ...otherChanges,
+      proxy: newProxy,
+    } as SDKConnectionInterface);
+  }
 }
 
 export async function deleteSDKConnectionById(
@@ -267,7 +296,6 @@ export async function testProxyConnection(
     };
   }
 
-  // TODO: Is this the real endpoint we want to use?
   const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
   let statusCode = 0,
     body = "";
@@ -295,7 +323,6 @@ export async function testProxyConnection(
       };
     }
 
-    // TODO: Is this the actual response format we want to use?
     const validator = z.object({
       proxyVersion: z.string(),
     });

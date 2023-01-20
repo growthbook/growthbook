@@ -9,6 +9,7 @@ import {
   setProxyError,
 } from "../models/SdkConnectionModel";
 import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
+import { SDKConnectionInterface } from "../../types/sdk-connection";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -92,6 +93,21 @@ export default function (ag: Agenda) {
   );
 }
 
+export async function queueSingleProxyUpdate(
+  connection: SDKConnectionInterface
+) {
+  if (!connection.proxy.enabled || !connection.proxy.host) return;
+  const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
+    connectionId: connection.id,
+    retryCount: 0,
+  }) as ProxyUpdateJob;
+  job.unique({
+    "data.connectionId": connection.id,
+  });
+  job.schedule(new Date());
+  await job.save();
+}
+
 export async function queueProxyUpdate(
   orgId: string,
   payloadKeys: SDKPayloadKey[]
@@ -105,7 +121,6 @@ export async function queueProxyUpdate(
 
   for (let i = 0; i < connections.length; i++) {
     const connection = connections[i];
-    if (!connection.proxy.enabled || !connection.proxy.host) continue;
 
     // Skip if this SDK Connection isn't affected by the changes
     if (
@@ -118,14 +133,6 @@ export async function queueProxyUpdate(
       continue;
     }
 
-    const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
-      connectionId: connection.id,
-      retryCount: 0,
-    }) as ProxyUpdateJob;
-    job.unique({
-      "data.connectionId": connection.id,
-    });
-    job.schedule(new Date());
-    await job.save();
+    await queueSingleProxyUpdate(connection);
   }
 }
