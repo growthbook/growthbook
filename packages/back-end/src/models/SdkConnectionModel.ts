@@ -49,7 +49,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     hostExternal: String,
     signingKey: String,
     connected: Boolean,
-    proxyVersion: String,
+    version: String,
     error: String,
     lastError: Date,
   },
@@ -143,7 +143,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       signingKey: generateSigningKey(),
       connected: false,
       lastError: null,
-      proxyVersion: "",
+      version: "",
       error: "",
     }),
   };
@@ -151,7 +151,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   if (connection.proxy.enabled && connection.proxy.host) {
     const res = await testProxyConnection(connection, false);
     connection.proxy.connected = !res.error;
-    connection.proxy.proxyVersion = res.version || "";
+    connection.proxy.version = res.version || "";
   }
 
   const doc = await SDKConnectionModel.create(connection);
@@ -198,7 +198,7 @@ export async function editSDKConnection(
       false
     );
     newProxy.connected = !res.error;
-    newProxy.proxyVersion = res.version;
+    newProxy.version = res.version;
   }
   newProxy = addEnvProxySettings(newProxy);
 

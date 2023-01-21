@@ -3,12 +3,10 @@ import {
   CacheSettings,
   ClientKey,
   FeatureApiResponse,
-  LoadFeaturesOptions,
   Polyfills,
-  RefreshFeaturesOptions,
   RepositoryKey,
 } from "./types/growthbook";
-import type { Context, GrowthBook } from ".";
+import type { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -65,68 +63,28 @@ export async function clearCache(): Promise<void> {
   await updatePersistentCache();
 }
 
-export async function fetchFeaturesWithCache(
-  instance: GrowthBook,
-  allowStale?: boolean,
-  timeout?: number,
-  skipCache?: boolean
-): Promise<FeatureApiResponse | null> {
-  // We don't need the 2nd array item (apiHost) in this method, so we're ignoring it
-  // Having `getKey()` return an array like this makes the bundle size smallest
-  // eslint-disable-next-line
-  const [key, _, clientKey, enableDevMode] = getKey(instance);
-  if (!clientKey) return null;
-  const now = new Date();
-  await initializeCache();
-  const existing = cache.get(key);
-  if (
-    existing &&
-    !enableDevMode &&
-    !skipCache &&
-    (allowStale || existing.staleAt > now)
-  ) {
-    // Reload features in the backgroud if stale
-    if (existing.staleAt < now) {
-      fetchFeatures(instance);
-    }
-    // Otherwise, if we don't need to refresh now, start a background sync
-    else {
-      startAutoRefresh(instance);
-    }
-    return existing.data;
-  } else {
-    const data = await promiseTimeout(fetchFeatures(instance), timeout);
-    return data;
-  }
-}
-
 export async function refreshFeatures(
   instance: GrowthBook,
-  options?: RefreshFeaturesOptions
+  timeout?: number,
+  skipCache?: boolean,
+  allowStale?: boolean,
+  updateInstance?: boolean
 ): Promise<void> {
-  options = options || {};
   const data = await fetchFeaturesWithCache(
     instance,
-    false,
-    options.timeout,
-    options.skipCache
+    allowStale,
+    timeout,
+    skipCache
   );
-  data && (await setFeaturesOnInstance(instance, data));
+  updateInstance && data && (await setFeaturesOnInstance(instance, data));
 }
 
-export async function loadFeatures(
-  instance: GrowthBook,
-  options?: LoadFeaturesOptions
-): Promise<void> {
-  options = options || {};
-  // Fetch features with an optional timeout
-  const data = await fetchFeaturesWithCache(instance, true, options.timeout);
-  if (data) {
-    await setFeaturesOnInstance(instance, data);
-  }
-  if (options.autoRefresh) {
-    subscribe(instance);
-  }
+// Subscribe a GrowthBook instance to feature changes
+export function subscribe(instance: GrowthBook): void {
+  const [key] = getKey(instance);
+  const subs = subscribedInstances.get(key) || new Set();
+  subs.add(instance);
+  subscribedInstances.set(key, subs);
 }
 export function unsubscribe(instance: GrowthBook): void {
   subscribedInstances.forEach((s) => s.delete(instance));
@@ -144,17 +102,35 @@ async function updatePersistentCache() {
   }
 }
 
-function getKey(
-  instance: GrowthBook
-): [RepositoryKey, ApiHost, ClientKey, boolean] {
-  // instance.context is marked as private, but still technically accessible
-  // We generally want people to use the helper methods instead of directly accessing context
-  // This is a one-off exception and doing it this way keeps the bundle size smallest
-  // eslint-disable-next-line
-  const ctx = (instance as any).context as Context;
-  const apiHost = (ctx.apiHost || "").replace(/\/*$/, "");
-  const clientKey = ctx.clientKey || "";
-  return [`${apiHost}||${clientKey}`, apiHost, clientKey, !!ctx.enableDevMode];
+async function fetchFeaturesWithCache(
+  instance: GrowthBook,
+  allowStale?: boolean,
+  timeout?: number,
+  skipCache?: boolean
+): Promise<FeatureApiResponse | null> {
+  const [key] = getKey(instance);
+  const now = new Date();
+  await initializeCache();
+  const existing = cache.get(key);
+  if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+    // Reload features in the backgroud if stale
+    if (existing.staleAt < now) {
+      fetchFeatures(instance);
+    }
+    // Otherwise, if we don't need to refresh now, start a background sync
+    else {
+      startAutoRefresh(instance);
+    }
+    return existing.data;
+  } else {
+    const data = await promiseTimeout(fetchFeatures(instance), timeout);
+    return data;
+  }
+}
+
+function getKey(instance: GrowthBook): [RepositoryKey, ApiHost, ClientKey] {
+  const [apiHost, clientKey] = instance.getApiInfo();
+  return [`${apiHost}||${clientKey}`, apiHost, clientKey];
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -166,14 +142,11 @@ function promiseTimeout<T>(
 ): Promise<T | null> {
   return new Promise((resolve) => {
     let resolved = false;
-    // Node.js and browsers have different signatures for clearTimeout
-    // This is an easy way to not have Typescript complain
-    // eslint-disable-next-line
-    let timer: any;
+    let timer: unknown;
     const finish = (data?: T) => {
       if (resolved) return;
       resolved = true;
-      timer && clearTimeout(timer);
+      timer && clearTimeout(timer as NodeJS.Timer);
       resolve(data || null);
     };
 
@@ -183,14 +156,6 @@ function promiseTimeout<T>(
 
     promise.then((data) => finish(data)).catch(() => finish());
   });
-}
-
-// Subscribe a GrowthBook instance to feature changes
-function subscribe(instance: GrowthBook): void {
-  const [key] = getKey(instance);
-  const subs = subscribedInstances.get(key) || new Set();
-  subs.add(instance);
-  subscribedInstances.set(key, subs);
 }
 
 // Populate cache from localStorage (if available)

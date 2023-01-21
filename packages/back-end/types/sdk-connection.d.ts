@@ -5,7 +5,7 @@ export interface ProxyConnection {
   hostExternal?: string;
   signingKey: string;
   connected: boolean;
-  proxyVersion: string;
+  version: string;
   error: string;
   lastError: Date | null;
 }

@@ -184,6 +184,7 @@ export type RepositoryKey = `${ApiHost}||${ClientKey}`;
 export type LoadFeaturesOptions = {
   autoRefresh?: boolean;
   timeout?: number;
+  skipCache?: boolean;
 };
 
 export type RefreshFeaturesOptions = {
