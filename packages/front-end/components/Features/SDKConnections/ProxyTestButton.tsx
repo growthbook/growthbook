@@ -78,7 +78,7 @@ export default function ProxyTestButton({
       {showButton && (
         <Button
           color="link"
-          className="btn-smk"
+          className="btn-sm"
           title="Test connection"
           onClick={async () => {
             const res = await apiCall<{
@@ -93,7 +93,7 @@ export default function ProxyTestButton({
             }
           }}
         >
-          <BsArrowRepeat />
+          <BsArrowRepeat /> re-check
         </Button>
       )}
     </>

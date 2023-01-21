@@ -177,9 +177,9 @@ const EnvironmentsPage: FC = () => {
         )}
       </div>
       <div className="alert alert-info">
-        Looking for SDK Endpoints? They moved to the new{" "}
+        Looking for SDK Endpoints? They have moved to the new{" "}
         <Link href="/sdks">SDKs</Link> tab. Also, make sure to check out the new{" "}
-        <strong>SDK Connections</strong>, which make it easier to configure and
+        <strong>SDK Connections</strong>, which makes it easier to configure and
         test your integrations.
       </div>
     </div>

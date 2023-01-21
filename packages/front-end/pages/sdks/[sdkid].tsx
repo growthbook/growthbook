@@ -84,29 +84,31 @@ function ConnectionStatus({
 }) {
   return (
     <div
-      className="mx-3 text-align-center"
-      style={{ zIndex: 10, marginTop: -40, whiteSpace: "nowrap" }}
+      className="mx-3 text-center"
+      style={{ zIndex: 10, marginTop: -8, whiteSpace: "nowrap" }}
     >
       {connected ? (
         <>
           <span className="text-success">
-            <FaCheckCircle className="ml-1" /> connected
+            <FaCheckCircle /> connected
           </span>
         </>
       ) : (
         <>
           {error ? (
             <span className="text-danger">
-              <FaExclamationTriangle className="ml-1" /> error
+              <FaExclamationTriangle /> error
             </span>
           ) : (
             <span className="text-secondary">
-              <FaQuestionCircle className="ml-1" /> not connected
+              <FaQuestionCircle /> not connected
             </span>
           )}
         </>
       )}
-      {canRefresh && refresh}
+      <div style={{ marginTop: 10, textAlign: "center" }}>
+        {canRefresh ? refresh : <>&nbsp;</>}
+      </div>
     </div>
   );
 }
@@ -284,7 +286,7 @@ export default function SDKConnectionPage() {
 
         <ConnectionStatus
           connected={connection.connected}
-          canRefresh={true}
+          canRefresh={hasPermission && !connection.connected}
           refresh={
             <Button
               color="link"
@@ -293,7 +295,7 @@ export default function SDKConnectionPage() {
                 await mutate();
               }}
             >
-              <BsArrowRepeat />
+              <BsArrowRepeat /> re-check
             </Button>
           }
         />
@@ -320,7 +322,7 @@ export default function SDKConnectionPage() {
                   host={connection.proxy.host}
                   id={connection.id}
                   mutate={mutate}
-                  showButton={!connection.proxy.connected}
+                  showButton={true}
                 />
               }
             />

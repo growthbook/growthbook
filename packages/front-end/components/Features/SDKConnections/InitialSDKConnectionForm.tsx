@@ -114,7 +114,7 @@ export default function InitialSDKConnectionForm({
       <Field label="Name of your app" {...form.register("name")} required />
 
       <div className="form-group">
-        <label>Tell us a little about your tech stack</label>
+        <label>Tech Stack</label>
         <small className="text-muted ml-3">(Select all that apply)</small>
         <SDKLanguageSelector
           value={form.watch("languages")}
@@ -122,6 +122,9 @@ export default function InitialSDKConnectionForm({
           multiple={true}
           includeOther={true}
         />
+        <small className="form-text text-muted">
+          This helps us give you personalized setup instructions
+        </small>
       </div>
     </Modal>
   );

@@ -107,7 +107,7 @@ export default function SDKConnectionsList() {
       {permissions.check("manageEnvironments", "", []) && (
         <>
           {connections.length === 0 ? (
-            <div className="appbox p-5 text-align-center">
+            <div className="appbox p-5 text-center">
               <p>
                 <strong>SDK Connections</strong> make it easy to integrate
                 GrowthBook into your front-end, back-end, or mobile application.

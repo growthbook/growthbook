@@ -32,14 +32,14 @@ const WebhooksPage: FC = () => {
       </div>
 
       <div className="alert alert-info mt-5">
-        Looking for SDK Webhooks? They moved to the new{" "}
+        Looking for SDK Webhooks? They have moved to the new{" "}
         <Link href="/sdks">
           <a>
             Features <FaAngleRight /> SDKs
           </a>
         </Link>{" "}
         tab. Also, make sure to check out the new{" "}
-        <strong>SDK Connections</strong>, which make it easier to sync feature
+        <strong>SDK Connections</strong>, which makes it easier to sync feature
         changes from GrowthBook to your SDKs.
       </div>
     </div>

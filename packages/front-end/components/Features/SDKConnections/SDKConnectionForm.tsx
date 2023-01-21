@@ -58,9 +58,11 @@ export default function SDKConnectionForm({
     );
   }
 
-  const hasSDKsWithoutEncryptionSupport = form
-    .watch("languages")
-    .some((l) => !languageMapping[l].supportsEncryption);
+  const languages = form.watch("languages");
+
+  const hasSDKsWithoutEncryptionSupport = languages.some(
+    (l) => !languageMapping[l].supportsEncryption
+  );
 
   return (
     <Modal
@@ -113,6 +115,9 @@ export default function SDKConnectionForm({
           multiple={true}
           includeOther={true}
         />
+        <small className="form-text text-muted">
+          This helps us give you personalized setup instructions
+        </small>
       </div>
 
       {projects.length > 0 && (
@@ -164,7 +169,7 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {!hasSDKsWithoutEncryptionSupport && (
+      {languages.length > 0 && !hasSDKsWithoutEncryptionSupport && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
           value={form.watch("encryptPayload")}

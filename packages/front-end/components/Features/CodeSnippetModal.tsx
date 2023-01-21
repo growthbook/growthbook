@@ -205,13 +205,28 @@ export default function CodeSnippetModal({
             </div>
           </div>
         </div>
-
         <div className="px-3">
-          <p>
-            Below is some starter code to integrate GrowthBook into your app.
-            Read the <DocLink docSection={docs}>{label} docs</DocLink> for more
-            details.
-          </p>
+          {language === "other" ? (
+            <div className="mb-4">
+              <p>
+                We don&apos;t have an SDK for your language yet, but we do have
+                extensive documentation if you want to build your own and
+                contribute it back to the community!{" "}
+              </p>
+              <DocLink
+                docSection="buildYourOwn"
+                className="btn btn-outline-primary"
+              >
+                View Documentation
+              </DocLink>
+            </div>
+          ) : (
+            <p>
+              Below is some starter code to integrate GrowthBook into your app.
+              Read the <DocLink docSection={docs}>{label} docs</DocLink> for
+              more details.
+            </p>
+          )}
           <div className="mb-3">
             <h4
               className="cursor-pointer"
@@ -283,100 +298,108 @@ export default function CodeSnippetModal({
               </div>
             )}
           </div>
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setInstallationOpen(!installationOpen);
-              }}
-            >
-              Installation{" "}
-              {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {installationOpen && (
-              <div className="appbox bg-light p-3">
-                <InstallationCodeSnippet language={language} />
-              </div>
-            )}
-          </div>
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setSetupOpen(!setupOpen);
-              }}
-            >
-              Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {setupOpen && (
-              <div className="appbox bg-light p-3">
-                <GrowthBookSetupCodeSnippet
-                  language={language}
-                  apiHost={apiHost}
-                  apiKey={clientKey}
-                  encryptionKey={encryptionKey}
-                />
-              </div>
-            )}
-          </div>
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setInstallationOpen(!installationOpen);
+                }}
+              >
+                Installation{" "}
+                {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {installationOpen && (
+                <div className="appbox bg-light p-3">
+                  <InstallationCodeSnippet language={language} />
+                </div>
+              )}
+            </div>
+          )}
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSetupOpen(!setupOpen);
+                }}
+              >
+                Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {setupOpen && (
+                <div className="appbox bg-light p-3">
+                  <GrowthBookSetupCodeSnippet
+                    language={language}
+                    apiHost={apiHost}
+                    apiKey={clientKey}
+                    encryptionKey={encryptionKey}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setAttributesOpen(!attributesOpen);
-              }}
-            >
-              Targeting Attributes (Optional){" "}
-              {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {attributesOpen && (
-              <div className="appbox bg-light p-3">
-                Replace the placeholders with your real targeting attribute
-                values. This enables you to target feature flags based on user
-                attributes.
-                <TargetingAttributeCodeSnippet language={language} />
-              </div>
-            )}
-          </div>
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAttributesOpen(!attributesOpen);
+                }}
+              >
+                Targeting Attributes (Optional){" "}
+                {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {attributesOpen && (
+                <div className="appbox bg-light p-3">
+                  Replace the placeholders with your real targeting attribute
+                  values. This enables you to target feature flags based on user
+                  attributes.
+                  <TargetingAttributeCodeSnippet language={language} />
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setUsageOpen(!usageOpen);
-              }}
-            >
-              Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {usageOpen && (
-              <div className="appbox bg-light p-3">
-                {(!feature || feature?.valueType === "boolean") && (
-                  <>
-                    On/Off feature:
-                    <BooleanFeatureCodeSnippet
-                      language={language}
-                      featureId={feature?.id || "my-feature"}
-                    />
-                  </>
-                )}
-                {(!feature || feature?.valueType !== "boolean") && (
-                  <>
-                    {feature?.valueType || "String"} feature:
-                    <MultivariateFeatureCodeSnippet
-                      valueType={feature?.valueType || "string"}
-                      language={language}
-                      featureId={feature?.id || "my-feature"}
-                    />
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setUsageOpen(!usageOpen);
+                }}
+              >
+                Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {usageOpen && (
+                <div className="appbox bg-light p-3">
+                  {(!feature || feature?.valueType === "boolean") && (
+                    <>
+                      On/Off feature:
+                      <BooleanFeatureCodeSnippet
+                        language={language}
+                        featureId={feature?.id || "my-feature"}
+                      />
+                    </>
+                  )}
+                  {(!feature || feature?.valueType !== "boolean") && (
+                    <>
+                      {feature?.valueType || "String"} feature:
+                      <MultivariateFeatureCodeSnippet
+                        valueType={feature?.valueType || "string"}
+                        language={language}
+                        featureId={feature?.id || "my-feature"}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
     </>
