@@ -71,8 +71,10 @@ export async function fetchFeaturesWithCache(
   timeout?: number,
   skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
+  // We don't need the 2nd array item (apiHost) in this method, so we're ignoring it
+  // Having `getKey()` return an array like this makes the bundle size smallest
   // eslint-disable-next-line
-  const [key, apiHost, clientKey, enableDevMode] = getKey(instance);
+  const [key, _, clientKey, enableDevMode] = getKey(instance);
   if (!clientKey) return null;
   const now = new Date();
   await initializeCache();
@@ -145,6 +147,9 @@ async function updatePersistentCache() {
 function getKey(
   instance: GrowthBook
 ): [RepositoryKey, ApiHost, ClientKey, boolean] {
+  // instance.context is marked as private, but still technically accessible
+  // We generally want people to use the helper methods instead of directly accessing context
+  // This is a one-off exception and doing it this way keeps the bundle size smallest
   // eslint-disable-next-line
   const ctx = (instance as any).context as Context;
   const apiHost = (ctx.apiHost || "").replace(/\/*$/, "");
@@ -161,6 +166,8 @@ function promiseTimeout<T>(
 ): Promise<T | null> {
   return new Promise((resolve) => {
     let resolved = false;
+    // Node.js and browsers have different signatures for clearTimeout
+    // This is an easy way to not have Typescript complain
     // eslint-disable-next-line
     let timer: any;
     const finish = (data?: T) => {
