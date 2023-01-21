@@ -5,6 +5,7 @@ import {
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -33,6 +34,8 @@ export default function SDKConnectionForm({
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const router = useRouter();
+
+  const gb = useGrowthBook();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -142,7 +145,7 @@ export default function SDKConnectionForm({
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
 
-      {isCloud() && (
+      {isCloud() && gb.isOn("proxy-cloud") && (
         <>
           <div className="mb-3">
             <label htmlFor="sdk-connection-proxy-toggle">
