@@ -9,6 +9,8 @@ import psycopg2
 import psycopg2.extras
 from google.cloud import bigquery
 import sqlfluff
+import snowflake.connector
+
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -60,6 +62,22 @@ class postgresRunner(sqlRunner):
                 res.append(dict(row))
             return res
 
+class snowflakeRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = snowflake.connector.connect(
+            user=os.getenv('SNOWFLAKE_TEST_USER', ''),
+            password=os.getenv('SNOWFLAKE_TEST_PASSWORD', ''),
+            account=os.getenv('SNOWFLAKE_TEST_ACCOUNT', ''),
+            database=os.getenv('SNOWFLAKE_TEST_DATABASE', ''),
+            schema=os.getenv('SNOWFLAKE_TEST_SCHEMA', '')
+        )
+        self.cursor_kwargs = {'cursor_class': snowflake.connector.DictCursor}
+
+    def run_query(self,  sql: str) -> list:
+        with self.connection.cursor(**self.cursor_kwargs) as cursor:
+            res = cursor.execute(sql).fetchall()
+            return res
+
 class bigqueryRunner(sqlRunner):
     def open_connection(self):
         self.connection = bigquery.Client()
@@ -97,6 +115,8 @@ def get_sql_runner(engine) -> sqlRunner:
         return postgresRunner()
     elif engine == 'bigquery':
         return bigqueryRunner()
+    elif engine == 'snowflake':
+        return snowflakeRunner()
     else:
         raise ValueError()
 
@@ -150,7 +170,7 @@ def main():
     
     for test_case in test_cases:
         engine = test_case["engine"]
-        if engine not in ["postgres", 'mysql', 'bigquery']:
+        if engine not in ["postgres", 'mysql', 'bigquery', 'snowflake']:
             continue
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
