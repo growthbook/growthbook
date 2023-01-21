@@ -71,8 +71,14 @@ export const getPayloadForNotificationEvent = ({
   NotificationEventName,
   NotificationEventResource,
   unknown
-> => {
+> | null => {
   switch (event.event) {
+    case "experiment.created":
+    case "experiment.updated":
+    case "experiment.deleted":
+      logger.warn("getPayloadForNotificationEvent -> experiment not supported");
+      return null;
+
     case "feature.created":
       return getPayloadForFeatureCreated({
         event,
