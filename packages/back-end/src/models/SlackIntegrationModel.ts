@@ -274,4 +274,55 @@ export const deleteSlackIntegration = async ({
   return result.deletedCount === 1;
 };
 
+type RemoveTagOptions = {
+  organizationId: string;
+  tag: string;
+};
+
+export const removeTagFromSlackIntegration = async ({
+  organizationId,
+  tag,
+}: RemoveTagOptions): Promise<void> => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, tags: tag },
+    {
+      $pull: { tags: tag },
+    }
+  );
+};
+
+type RemoveProjectOptions = {
+  organizationId: string;
+  projectId: string;
+};
+
+export const removeProjectFromSlackIntegration = async ({
+  organizationId,
+  projectId,
+}: RemoveProjectOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, projects: projectId },
+    {
+      $pull: { projects: projectId },
+    }
+  );
+};
+
+type RemoveEnvironmentOptions = {
+  organizationId: string;
+  envId: string;
+};
+
+export const removeEnvironmentFromSlackIntegration = async ({
+  organizationId,
+  envId,
+}: RemoveEnvironmentOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, environments: envId },
+    {
+      $pull: { environments: envId },
+    }
+  );
+};
+
 // endregion Delete
