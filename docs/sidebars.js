@@ -55,7 +55,6 @@ const sidebars = {
           type: "doc",
           id: "app/visual-editor",
           label: "Visual Editor",
-          className: "beta",
         },
         { type: "doc", id: "app/api", label: "API" },
         { type: "doc", id: "app/webhooks", label: "Webhooks" },

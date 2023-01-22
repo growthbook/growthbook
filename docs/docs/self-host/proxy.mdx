@@ -107,5 +107,5 @@ In high-traffic production scenarios, there are a few best practices to follow
 - Auto-scale GrowthBook Proxy instances based on number of active connections or memory
 - Run the instances in the same region as your application servers for the lowest latency
 - Add a load balancer in-front that supports HTTP/2 and streaming responses (AWS ALB, HAProxy, etc.)
-- Use Redis (or MongoDB) as the cache engine for faster feature rollouts
+- Use Redis (or MongoDB) as the cache engine for more consistent feature releases
 - Use the `/healthcheck` endpoint to determine if the instances are running correctly
