@@ -330,11 +330,14 @@ export default function SDKConnectionPage() {
         )}
         <ConnectionNode
           title={
-            <img
-              src="/logo/growthbook-logo.png"
-              style={{ width: 130 }}
-              alt="GrowthBook"
-            />
+            <>
+              <img
+                src="/logo/growthbook-logo.png"
+                style={{ width: 130 }}
+                alt="GrowthBook"
+              />
+              <span style={{ verticalAlign: "sub", marginLeft: 3 }}>API</span>
+            </>
           }
           last
         >
