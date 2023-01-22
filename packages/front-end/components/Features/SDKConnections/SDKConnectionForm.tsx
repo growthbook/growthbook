@@ -3,7 +3,7 @@ import {
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,6 +16,7 @@ import EncryptionToggle from "@/components/Settings/EncryptionToggle";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
+import track from "@/services/track";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
 
@@ -34,6 +35,11 @@ export default function SDKConnectionForm({
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (edit) return;
+    track("View SDK Connection Form");
+  }, [edit]);
 
   const gb = useGrowthBook();
 
@@ -92,6 +98,11 @@ export default function SDKConnectionForm({
           });
           mutate();
         } else {
+          track("Create SDK Connection", {
+            languages: value.languages,
+            encryptPayload: value.encryptPayload,
+            proxyEnabled: value.proxyEnabled,
+          });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
             {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaAngleRight, FaLock } from "react-icons/fa";
+import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -7,6 +7,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import StatusCircle from "@/components/Helpers/StatusCircle";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
@@ -44,14 +45,22 @@ export default function SDKConnectionsList() {
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
             <tr>
+              <th style={{ width: 25 }}></th>
               <th>Name</th>
-              <th>Features</th>
+              {projects.length > 0 && <th>Project</th>}
+              <th>Environment</th>
               <th>Languages</th>
-              <th></th>
+              <th style={{ width: 25 }}></th>
             </tr>
           </thead>
           <tbody>
             {connections.map((connection) => {
+              const hasProxy =
+                connection.proxy.enabled && connection.proxy.host;
+              const connected =
+                connection.connected &&
+                (!hasProxy || connection.proxy.connected);
+
               return (
                 <tr
                   key={connection.id}
@@ -61,23 +70,37 @@ export default function SDKConnectionsList() {
                     router.push(`/sdks/${connection.id}`);
                   }}
                 >
+                  <td style={{ verticalAlign: "middle", width: 20 }}>
+                    <Tooltip
+                      body={
+                        connected
+                          ? "Connected successfully"
+                          : "Could not verify the connection"
+                      }
+                    >
+                      {connected ? (
+                        <StatusCircle className="bg-success" />
+                      ) : (
+                        <FaExclamationTriangle className="text-warning" />
+                      )}
+                    </Tooltip>
+                  </td>
                   <td className="text-break">
                     <Link href={`/sdks/${connection.id}`}>
                       {connection.name}
                     </Link>
                   </td>
+                  {projects.length > 0 && (
+                    <td>
+                      {connection.project ? (
+                        getProjectById(connection.project)?.name ||
+                        connection.project
+                      ) : (
+                        <em>All Projects</em>
+                      )}{" "}
+                    </td>
+                  )}
                   <td>
-                    {projects.length > 0 && (
-                      <>
-                        {connection.project ? (
-                          getProjectById(connection.project)?.name ||
-                          connection.project
-                        ) : (
-                          <em>All Projects</em>
-                        )}{" "}
-                        <FaAngleRight />
-                      </>
-                    )}
                     {connection.environment}{" "}
                     {connection.encryptPayload && (
                       <Tooltip body="This feature payload is encrypted">
@@ -94,7 +117,7 @@ export default function SDKConnectionsList() {
                       ))}
                     </div>
                   </td>
-                  <td>
+                  <td style={{ width: 25 }}>
                     <FaAngleRight />
                   </td>
                 </tr>
