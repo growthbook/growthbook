@@ -22,7 +22,7 @@ services:
       # Change this to something secure in production!
       - SECRET_API_KEY=dev
     volumes:
-      - ./packages:/usr/local/src/app/packages
+      - uploads:/usr/local/src/app/packages/back-end/uploads
 
   proxy:
     image: "growthbook/proxy:latest"
