@@ -1,4 +1,5 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
+import { useState } from "react";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 
 function LanguageOption({
@@ -60,7 +61,29 @@ export default function SDKLanguageSelector({
 }) {
   const selected = new Set(value);
 
+  // If no languages are selected, select "other"
+  if (!multiple && !selected.size) {
+    selected.add("other");
+  }
+
+  // If the selected language(s) are not in the "limitLanguages" list, add them
+  if (limitLanguages) {
+    limitLanguages = Array.from(new Set([...limitLanguages, ...value]));
+  }
+
+  // If "other" is the only one selected and the props say to hide "other", show it anyway
+  if (
+    limitLanguages &&
+    limitLanguages.length === 1 &&
+    limitLanguages[0] === "other"
+  ) {
+    includeOther = true;
+  }
+
+  const [includeAll, setIncludeAll] = useState(false);
+
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
+    if (includeAll) return languages;
     return languages.filter(
       (language) => !limitLanguages || limitLanguages.includes(language)
     );
@@ -146,6 +169,19 @@ export default function SDKLanguageSelector({
               selected={selected}
               multiple={multiple}
             />
+          </div>
+        )}
+        {!includeAll && limitLanguages && (
+          <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setIncludeAll(true);
+              }}
+            >
+              Show All Languages
+            </a>
           </div>
         )}
       </div>

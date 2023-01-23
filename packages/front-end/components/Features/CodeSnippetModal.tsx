@@ -154,7 +154,7 @@ export default function CodeSnippetModal({
         bodyClassName="p-0"
         open={true}
         inline={inline}
-        size={"lg"}
+        size={"max"}
         header="Implementation Instructions"
         autoCloseOnSubmit={false}
         submit={

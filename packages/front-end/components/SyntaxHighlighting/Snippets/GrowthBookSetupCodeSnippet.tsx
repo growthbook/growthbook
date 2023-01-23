@@ -97,6 +97,16 @@ export default function MyApp() {
 }
 `.trim()}
         />
+        If you are using <strong>Next.js</strong>,{" "}
+        <a
+          href="https://github.com/growthbook/examples/tree/main/next-js"
+          target="_blank"
+          rel="noreferrer"
+        >
+          check out our sample app on GitHub
+        </a>{" "}
+        with examples of using GrowthBook with SSR, API routes, static pages,
+        and more.
       </>
     );
   }
@@ -264,8 +274,8 @@ func main() {
 		// ${trackingComment}
 		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
 			log.Println("Viewed Experiment")
-      log.Println("Experiment Id", experiment.Key)
-      log.Println("Variation Id", result.VariationID)
+			log.Println("Experiment Id", experiment.Key)
+			log.Println("Variation Id", result.VariationID)
 		})
 	gb := growthbook.New(context)
 }
@@ -373,7 +383,7 @@ features = apiResp.json()["features"]
           language="python"
           code={`
 def on_experiment_viewed(experiment, result):
-  // ${trackingComment}
+  # ${trackingComment}
   print("Viewed Experiment")
   print("Experiment Id: " + experiment.key)
   print("Variation Id: " + result.variationId)

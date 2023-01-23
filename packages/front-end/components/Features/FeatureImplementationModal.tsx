@@ -39,10 +39,7 @@ export default function FeatureImplementationModal({
       closeCta="Close"
       header="Feature Implementation"
     >
-      <p>
-        {first && <>Congratulations on adding your first feature! </>}
-        Here is the example code on how to add it to your project
-      </p>
+      {first && <p>Congratulations on adding your first feature!</p>}
       <div>
         <SDKLanguageSelector
           value={[language]}
@@ -50,6 +47,9 @@ export default function FeatureImplementationModal({
           multiple={false}
           includeOther={false}
         />
+        <h3 className="mt-4">
+          {languageMapping[language]?.label} Usage Instructions
+        </h3>
         <p>
           Read the{" "}
           <DocLink docSection={data.docs}>{data.label} SDK docs</DocLink> or

@@ -29,12 +29,12 @@ if (growthbook.isOn(${JSON.stringify(featureId)})) {
       <Code
         language="tsx"
         code={`
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 
 function MyComponent() {
-  const feature = useFeature(${JSON.stringify(featureId)});
+  const enabled = useFeatureIsOn(${JSON.stringify(featureId)});
   
-  if (feature.on) {
+  if (enabled) {
     return <div>On!</div>
   } else {
     return <div>Off!</div>

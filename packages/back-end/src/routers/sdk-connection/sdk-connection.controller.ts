@@ -65,9 +65,11 @@ export const putSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  req.checkPermissions("manageEnvironments", connection.project, [
-    connection.environment,
-  ]);
+  req.checkPermissions(
+    "manageEnvironments",
+    [connection.project, req.body.project || ""],
+    [connection.environment]
+  );
 
   await editSDKConnection(connection, req.body);
 

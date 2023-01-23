@@ -54,13 +54,14 @@ console.log(value);
       <Code
         language="tsx"
         code={`
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 
 function MyComponent() {
-  const feature = useFeature(${JSON.stringify(featureId)});
-  
+  const value = useFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
+          valueType
+        )});
   return (
-    <div>{feature.value ?? ${getDefaultValue(valueType)}}</div>
+    <div>{value}</div>
   )
 }
 `.trim()}
