@@ -1,6 +1,7 @@
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import uniqBy from "lodash/uniqBy";
+import cloneDeep from "lodash/cloneDeep";
 import cronParser from "cron-parser";
 import {
   ExperimentDocument,
@@ -8,6 +9,7 @@ import {
   findExperiment,
   logExperimentCreated,
   logExperimentDeleted,
+  logExperimentUpdated,
 } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
@@ -645,6 +647,8 @@ export async function createSnapshot(
   useCache: boolean = false,
   statsEngine: OrganizationSettings["statsEngine"]
 ) {
+  const previousExperiment = cloneDeep(experiment);
+
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -673,9 +677,9 @@ export async function createSnapshot(
     statsEngine,
   };
 
-  const nextUpdate = determineNextDate(
-    organization.settings?.updateSchedule || null
-  );
+  const nextUpdate =
+    determineNextDate(organization.settings?.updateSchedule || null) ||
+    undefined;
 
   await ExperimentModel.updateOne(
     {
@@ -690,6 +694,23 @@ export async function createSnapshot(
       },
     }
   );
+
+  try {
+    const updatedExperiment = await findExperiment({
+      organizationId: experiment.organization,
+      experimentId: experiment.id,
+    });
+
+    if (updatedExperiment) {
+      await logExperimentUpdated({
+        organization,
+        previous: previousExperiment,
+        current: updatedExperiment,
+      });
+    }
+  } catch (e) {
+    logger.error(e);
+  }
 
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
