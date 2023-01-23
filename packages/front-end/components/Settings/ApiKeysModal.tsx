@@ -96,7 +96,8 @@ const ApiKeysModal: FC<{
       {!secret && (
         <EncryptionToggle
           showUpgradeModal={() => setUpgradeModal(true)}
-          form={form}
+          value={form.watch("encryptSDK")}
+          setValue={(value) => form.setValue("encryptSDK", value)}
         />
       )}
     </Modal>

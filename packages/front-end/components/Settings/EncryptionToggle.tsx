@@ -1,23 +1,23 @@
-import { UseFormReturn } from "react-hook-form";
+import React from "react";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "../DocLink";
 import Toggle from "../Forms/Toggle";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 
-type FormKeys = {
-  description: string;
-  environment: string;
-  project: string;
-  encryptSDK: boolean;
-};
-
 type Props = {
-  form: UseFormReturn<FormKeys>;
+  value: boolean;
+  setValue: (value: boolean) => void;
   showUpgradeModal: () => void;
+  showRequiresChangesWarning?: boolean;
 };
 
-export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
+export default function EncryptionToggle({
+  value,
+  setValue,
+  showUpgradeModal,
+  showRequiresChangesWarning = true,
+}: Props) {
   const { hasCommercialFeature } = useUser();
 
   const hasFeature = hasCommercialFeature("encrypt-features-endpoint");
@@ -34,20 +34,20 @@ export default function EncryptionToggle({ form, showUpgradeModal }: Props) {
           <div className="col-md-3 mt-1">
             <Toggle
               id={"encryptSDK"}
-              value={!!form.watch("encryptSDK")}
-              setValue={(value) => {
-                form.setValue("encryptSDK", value);
-              }}
+              value={!!value}
+              setValue={setValue}
               disabled={!hasFeature}
             />
           </div>
-          <div
-            className="col-md-9 text-gray text-right pt-2"
-            style={{ fontSize: 11 }}
-          >
-            Requires changes to your implementation.{" "}
-            <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
-          </div>
+          {showRequiresChangesWarning && (
+            <div
+              className="col-md-9 text-gray text-right pt-2"
+              style={{ fontSize: 11 }}
+            >
+              Requires changes to your implementation.{" "}
+              <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
+            </div>
+          )}
         </div>
       </div>
       <UpgradeMessage
