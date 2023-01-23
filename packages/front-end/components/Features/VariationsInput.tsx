@@ -20,7 +20,10 @@ import {
   getEqualWeights,
   percentToDecimal,
 } from "@/services/utils";
-import { getDefaultVariationValue } from "@/services/features";
+import {
+  generateVariationId,
+  getDefaultVariationValue,
+} from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
 import { DraggableVariation, SortableVariationRow } from "./Variation";
@@ -55,32 +58,6 @@ export default function VariationsInput({
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(!isEqualWeights);
 
-  function generateUniqueId() {
-    let currentHighestId = 0;
-
-    draggableVariations.forEach((variation) => {
-      if (variation.id && parseInt(variation.id) > currentHighestId) {
-        currentHighestId = parseInt(variation.id);
-      }
-    });
-
-    return (currentHighestId + 1).toString();
-  }
-
-  // In order to use drag and drop, each variation must have an id. This creates temp id's.
-  const draggableVariations = variations.map(
-    (variation: DraggableVariation, i) => {
-      if (!variation.id) {
-        return {
-          ...variation,
-          id: i.toString(),
-        };
-      } else {
-        return variation;
-      }
-    }
-  );
-
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
       setWeight(i, w);
@@ -95,8 +72,8 @@ export default function VariationsInput({
   );
 
   function getVariationIndex(id: string) {
-    for (let i = 0; i < draggableVariations.length; i++) {
-      if (draggableVariations[i].id === id) return i;
+    for (let i = 0; i < variations.length; i++) {
+      if (variations[i].id === id) return i;
     }
     return -1;
   }
@@ -200,7 +177,7 @@ export default function VariationsInput({
                   if (oldIndex === -1 || newIndex === -1) return;
 
                   const newVariations = arrayMove(
-                    draggableVariations,
+                    variations,
                     oldIndex,
                     newIndex
                   );
@@ -210,14 +187,14 @@ export default function VariationsInput({
               }}
             >
               <SortableContext
-                items={draggableVariations}
+                items={variations}
                 strategy={verticalListSortingStrategy}
               >
-                {draggableVariations.map((draggableVariation, i) => (
+                {variations.map((draggableVariation, i) => (
                   <SortableVariationRow
                     i={i}
                     variation={draggableVariation}
-                    variations={draggableVariations}
+                    variations={variations}
                     setVariations={setVariations}
                     setWeight={setWeight}
                     customSplit={customSplit}
@@ -251,7 +228,7 @@ export default function VariationsInput({
                               value: getDefaultVariationValue(defaultValue),
                               name: "",
                               weight: 0,
-                              id: generateUniqueId(),
+                              id: generateVariationId(),
                             },
                           ];
                           newValues.forEach((v, i) => {

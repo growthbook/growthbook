@@ -15,6 +15,7 @@ import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getEqualWeights } from "@/services/utils";
+import { generateVariationId } from "@/services/features";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -55,6 +56,7 @@ function getDefaultVariations(num: number) {
       description: "",
       key: "",
       screenshots: [],
+      id: generateVariationId(),
     });
   }
   return variations;

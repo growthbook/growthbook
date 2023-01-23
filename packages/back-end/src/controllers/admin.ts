@@ -264,6 +264,7 @@ export async function addSampleData(
       data.activationMetric = viewedSignup.id;
       data.variations = [
         {
+          id: "variation-exl5j200hld8sdfr",
           name: "Control",
           screenshots: [
             {
@@ -273,6 +274,7 @@ export async function addSampleData(
           ],
         },
         {
+          id: "variation-exl5j200hld8wert",
           name: "Google Login",
           screenshots: [
             {
@@ -295,6 +297,7 @@ export async function addSampleData(
         "Adding a dollar amount to the buy button will remove uncertainty from users and cause them to convert at a higher rate.";
       data.variations = [
         {
+          id: "variation-exl5j200hld8updfd",
           name: "Control",
           screenshots: [
             {
@@ -304,6 +307,7 @@ export async function addSampleData(
           ],
         },
         {
+          id: "variation-exl5j200hld8dlfr",
           name: "Price in CTA",
           screenshots: [
             {
@@ -323,6 +327,7 @@ export async function addSampleData(
         "Removing everything except email and password will reduce friction and increase signups.";
       data.variations = [
         {
+          id: "variation-exl5j200hld8dlcf",
           name: "Control",
           screenshots: [
             {
@@ -332,6 +337,7 @@ export async function addSampleData(
           ],
         },
         {
+          id: "variation-exl5j200hld8wpck",
           name: "Shorter Reg Modal",
           screenshots: [
             {

@@ -26,6 +26,7 @@ import Toggle from "@/components/Forms/Toggle";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { generateVariationId } from "@/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -409,6 +410,7 @@ const ImportExperimentList: FC<{
                                   screenshots: [],
                                   description: "",
                                   key: vKey,
+                                  id: generateVariationId(), //MKTODO: Double check this is accurate
                                 };
                               }),
                               phases: [

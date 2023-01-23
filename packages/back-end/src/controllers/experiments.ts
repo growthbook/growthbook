@@ -189,6 +189,10 @@ export async function getExperiment(
     return;
   }
 
+  experiment.variations?.forEach((variation) => {
+    variation.id = variation.id || uniqid("variation-");
+  });
+
   if (!(await userHasAccess(req, experiment.organization))) {
     res.status(403).json({
       status: 403,
@@ -391,6 +395,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name,
         screenshots: [],
         description: v.value,
+        id: v.id || uniqid("variation-"), //MKTODO: Double check this logic - should I create a method within the model to getVariationId
       };
     }),
     phases: [

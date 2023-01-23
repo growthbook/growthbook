@@ -18,6 +18,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
+import { uniqueId } from "lodash";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
@@ -205,6 +206,10 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
+export function generateVariationId() {
+  return uniqueId("variation-");
+}
+
 export function useAttributeSchema(showArchived = false) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
   return useMemo(() => {
@@ -386,11 +391,13 @@ export function getDefaultRuleValue({
           value: defaultValue,
           weight: 0.5,
           name: "",
+          id: generateVariationId(),
         },
         {
           value: value,
           weight: 0.5,
           name: "",
+          id: generateVariationId(),
         },
       ],
       coverage: 1,
@@ -726,6 +733,7 @@ export function getExperimentDefinitionFromFeature(
         name,
         screenshots: [],
         description: v.value,
+        id: v.id, //MKTODO: This might need to be v.id || generateVariationId()
       };
     }),
     phases: [

@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
@@ -157,6 +158,7 @@ export async function startExperimentAnalysis(
         name: v.name,
         key: v.id,
         screenshots: [],
+        id: v.id || uniqid("variation-"),
       };
     }),
   };

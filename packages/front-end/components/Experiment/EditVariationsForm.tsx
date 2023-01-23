@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
+import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
 import VariationDataInput from "./VariationDataInput";
 
@@ -29,6 +30,7 @@ const EditVariationsForm: FC<{
               description: "",
               key: "",
               screenshots: [],
+              id: generateVariationId(),
             },
             {
               name: "Variation",
@@ -36,6 +38,7 @@ const EditVariationsForm: FC<{
               value: "",
               key: "",
               screenshots: [],
+              id: generateVariationId(),
             },
           ],
     },
@@ -51,9 +54,6 @@ const EditVariationsForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
-
-        // Remove temp id's that were set to support drag and drop
-        data.variations.forEach((variation) => delete variation.id);
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import uniqid from "uniqid";
 import {
   FeatureDraftChanges,
   FeatureInterface,
@@ -733,6 +734,11 @@ export async function getFeatureById(
       env.rules?.forEach((r) => {
         if (r.type === "experiment") {
           expIds.add(r.trackingKey || feature.id);
+          if (r.values.length) {
+            r.values.forEach((value) => {
+              value.id = value.id || uniqid("variation-"); //MKTODO: Create method in services/features.ts to handle this?
+            });
+          }
         }
       });
     });

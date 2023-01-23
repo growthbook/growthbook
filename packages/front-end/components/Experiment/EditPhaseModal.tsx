@@ -108,6 +108,7 @@ export default function EditPhaseModal({
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }

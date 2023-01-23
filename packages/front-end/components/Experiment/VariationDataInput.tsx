@@ -13,6 +13,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
+import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import { DraggableVariationData } from "./DraggableVariationData";
 
@@ -27,32 +28,6 @@ export default function VariationDataInput({
   setVariations,
   className = "",
 }: Props) {
-  function generateUniqueId() {
-    let currentHighestId = 0;
-
-    draggableVariations.forEach((variation) => {
-      if (variation.id && parseInt(variation.id) > currentHighestId) {
-        currentHighestId = parseInt(variation.id);
-      }
-    });
-
-    return (currentHighestId + 1).toString();
-  }
-
-  // In order to use drag and drop, each variation must have an id. This creates temp id's.
-  const draggableVariations = variations.map(
-    (variation: Variation & { id: string }, i) => {
-      if (!variation.id || variation.id === "") {
-        return {
-          ...variation,
-          id: i.toString(),
-        };
-      } else {
-        return variation;
-      }
-    }
-  );
-
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -61,8 +36,8 @@ export default function VariationDataInput({
   );
 
   function getVariationIndex(id: string) {
-    for (let i = 0; i < draggableVariations.length; i++) {
-      if (draggableVariations[i].id === id) return i;
+    for (let i = 0; i < variations.length; i++) {
+      if (variations[i].id === id) return i;
     }
     return -1;
   }
@@ -81,25 +56,18 @@ export default function VariationDataInput({
 
               if (oldIndex === -1 || newIndex === -1) return;
 
-              const newVariations = arrayMove(
-                draggableVariations,
-                oldIndex,
-                newIndex
-              );
+              const newVariations = arrayMove(variations, oldIndex, newIndex);
 
               setVariations(newVariations);
             }
           }}
         >
-          <SortableContext
-            items={draggableVariations}
-            strategy={rectSortingStrategy}
-          >
-            {draggableVariations.map((draggableVariation, i) => (
+          <SortableContext items={variations} strategy={rectSortingStrategy}>
+            {variations.map((draggableVariation, i) => (
               <DraggableVariationData
                 i={i}
                 variation={draggableVariation}
-                variations={draggableVariations}
+                variations={variations}
                 setVariations={setVariations}
                 key={draggableVariation.id}
               />
@@ -118,14 +86,14 @@ export default function VariationDataInput({
               className="btn btn-outline-primary"
               onClick={(e) => {
                 e.preventDefault();
-                const newVariations = [...draggableVariations];
+                const newVariations = [...variations];
                 newVariations.push({
-                  name: `Variation ${draggableVariations.length}`,
+                  name: `Variation ${variations.length}`,
                   description: "",
                   key: "",
                   value: "",
                   screenshots: [],
-                  id: generateUniqueId(),
+                  id: generateVariationId(),
                 });
                 setVariations(newVariations);
               }}

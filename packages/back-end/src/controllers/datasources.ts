@@ -108,6 +108,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       targetURLRegex: "",
       variations: [
         {
+          id: "variation-exl5j200hlccd",
           name: "Control",
           value: `{"color": "blue"}`,
           screenshots: [
@@ -117,6 +118,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
           ],
         },
         {
+          id: "variation-exl5j200helcd",
           name: "Variation",
           value: `{"color": "green"}`,
           screenshots: [
