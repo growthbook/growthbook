@@ -204,13 +204,15 @@ val gb = GBSDKBuilder(
           language="swift"
           code={`
 var gb: GrowthBookSDK = GrowthBookBuilder(
-  url: "${featuresEndpoint}",
+  url: "${featuresEndpoint}",${
+            encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
+          }
   trackingCallback: { experiment, experimentResult in 
     // ${trackingComment}
     print("Viewed Experiment")
     print("Experiment Id: ", experiment.key)
     print("Variation Id: ", experimentResult.variationId)
-}
+  }
 ).initializer()
     `.trim()}
         />

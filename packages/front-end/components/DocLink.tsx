@@ -23,6 +23,7 @@ const docSections = {
   tsx: "/lib/react",
   go: "/lib/go",
   kotlin: "/lib/kotlin",
+  swift: "/lib/swift",
   ruby: "/lib/ruby",
   php: "/lib/php",
   python: "/lib/python",

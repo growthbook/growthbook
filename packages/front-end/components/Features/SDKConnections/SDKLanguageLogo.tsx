@@ -82,8 +82,8 @@ export const languageMapping: Record<
     Icon: FaApple,
     color: "#000000",
     label: "Swift",
-    docs: "sdks",
-    supportsEncryption: false,
+    docs: "swift",
+    supportsEncryption: true,
     usesEntireEndpoint: true,
   },
   java: {
