@@ -7,7 +7,7 @@ slug: features
 
 # Features
 
-Features enable you to change your app's behavior from within the
+Feature Flags enable you to change your application's behavior from within the
 GrowthBook UI. For example, turn on/off a sales banner or change the
 title of your pricing page.
 
@@ -15,15 +15,22 @@ You can set a global value for everyone, use advanced targeting to
 assign values to users, and run experiments to see which value is
 better.
 
+Feature flags aren't limited to front-end changes. Use them on your back-end
+to gradually release a new ML model or enable new fields in an API response.
+
 ## Environments
 
-GrowthBook comes with one environment by default (**production**), but you can add as many as you need. Each environment has its own unique SDK Endpoint for getting a list of features.
+GrowthBook comes with one environment by default (**production**), but you can add as many as you need.
 
-Features can be enabled and disabled on a per-environment basis.
+Feature flags can be enabled and disabled on a per-environment basis.
 
 When a feature is disabled in an environment, it will always evaluate to `null` and ignore any other targeting or override rules.
 
-**Note:** It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+:::note
+
+It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+
+:::
 
 ## Feature Keys
 
@@ -34,7 +41,7 @@ Feature keys must be all lowercase and include only letters, numbers, hyphens, a
 Some examples of good feature keys:
 
 - `onboarding-checklist` - ON/OFF flag for a feature
-- `checkout-button-color` - The color of the checkout button
+- `checkout_button_color` - The color of the checkout button
 - `results-per-page` - Number of search results to show per page
 
 ## Feature Types
@@ -73,7 +80,12 @@ You can update the attributes in the GrowthBook App under **Settings** > **Attri
 
 ![List of targeting attributes](/images/edit-targeting-attributes.png)
 
-**Note**: The actual values of the targeting attributes (e.g. the user ids, emails, etc.) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture eliminates huge potential security holes and keeps your user's PII safe and secure.
+:::note
+
+The actual values of the targeting attributes (e.g. the user ids, emails, etc.) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture
+eliminates huge potential security holes and keeps your user's PII safe and secure.
+
+:::
 
 Each attribute has 3 parts:
 
@@ -179,55 +191,21 @@ You can view a revision history for your feature and revert to a past version by
 
 ![Feature Revisions](/images/feature-revisions.png)
 
-## Integration Options
+## SDK Connections
 
-There are few ways to integrate GrowthBook features into your application.
+In order to use feature flags in your application, you need to create an **SDK Connection** in GrowthBook.
 
-At a high level, the features you create in the GrowthBook UI can be rendered as a single JSON feature definitions file for each environment (e.g. dev and production). The contents of this JSON file must be passed into the SDK. Any feature flags evaluated before the JSON file loads will have a value of `null`, so it's important to load the features quickly.
+At a high level, the SDK Connection generates a unique clientKey which grants read-only access to feature flags in a specific environment. The SDKs use this to fetch feature flag states and override rules from the GrowthBook API.
 
-There is a public GrowthBook [SDK Endpoint](/app/api) for the feature definitions JSON:
+On GrowthBook Cloud, we have a global CDN in front of the API (https://cdn.growthbook.io) to ensure low latency responses from anywhere in the world. The CDN has a 30-second TTL, so changes to a feature may take a little time to be reflected.
 
-- https://cdn.growthbook.io/api/features/{SDK_KEY} (GrowthBook Cloud)
-- http://localhost:3100/api/features/{SDK_KEY} (Self-hosted)
+### GrowthBook Proxy
 
-The endpoint response includes a cache header with a 30-second TTL (plus stale-while-revalidate and stale-if-error headers).
+We also offer a pre-built proxy server you can deploy on your own infrastructure.
+This can be put in front of either GrowthBook Cloud or a self-hosted GrowthBook instance.
 
-**Note:** There are separate SDK Endpoints for each environment (e.g. dev and production). Make sure you are using the right one for your environment.
+The GrowthBook Proxy offers the following benefits:
 
-### Load directly (client-side rendering)
-
-You can use `window.fetch` (or similar) to fetch from the API when your app first loads on the client:
-
-```js
-fetch(`https://cdn.growthbook.io/api/features/${MY_API_KEY}`)
-  .then((res) => res.json())
-  .then((json) => {
-    growthbook.setFeatures(json.features);
-  });
-```
-
-For self-hosted deployments, we highly recommend using a CDN like Fastly or CloudFlare. The GrowthBook API alone is not meant to serve large amounts of production traffic. The API returns standard cache headers (max-age, stale-while-revalidate, and stale-if-error) so no special CDN configuration is required most of the time.
-
-The downside of this approach is that you're adding a network request into your critical rendering path. If the HTTP request is slow (or if the API crashes) for whatever reason, your user experience will suffer.
-
-### Cache in memory (server-side rendering)
-
-One option for server-side integration is to fetch the features once when your application starts up, cache the JSON in memory in the server, and re-use the cached copy for subsequent requests.
-
-If your servers are long-lived, you may want to build in some logic to refetch the JSON periodically to pick up any new changes.
-
-The benefit of this approach is the simplicity (no additional dependencies) and the speed (once loaded, feature evaluations are almost instant). The downside is that this may lead to longer cold start times and you need to handle the refresh logic yourself.
-
-### Cache in a distributed store (server-side rendering)
-
-Another option for server-side rendering is to use a distributed cache store like Redis or Memcached, or even a full database like Postgres.
-
-The main difference between this and the in-memory approach is in how you load and keep the feature definitions up-to-date. With a distributed system, you can have an external process like a cron job or [webhook](/app/webhooks) listener update the cache. This keeps your application logic simple and eliminates the cold start problem.
-
-### Load at build-time (static generation)
-
-Another approach is to fetch the feature definitions JSON once at build time and bundle them with your app.
-
-This is the fastest approach since it avoids all 3rd party requests entirely. Once your app is built, loading features for each request is almost instant.
-
-The downside is that in order to update feature defintiions, you need to create a new build of your app. If you need to turn off a feature quickly (in case of a bug) this may be a problem.
+- Fast - Requests served from an in-memory cache close to your app servers
+- Scalable - A single Proxy server can handle over 10,000 reqs/second. Horizontally scale for more
+- Responsive - Changes in GrowthBook are rolled out to users in under a second

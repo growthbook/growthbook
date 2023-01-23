@@ -1,0 +1,111 @@
+---
+title: GrowthBook Proxy
+description: Turbocharge your GrowthBook deployment with the GrowthBook Proxy server
+sidebar_label: GrowthBook Proxy
+slug: proxy
+---
+
+# GrowthBook Proxy
+
+The GrowthBook Proxy server sits between your application and GrowthBook. It turbocharges your GrowthBook implementation by providing **speed**, **scalability**, **security**, and **real-time** feature rollouts.
+
+## Features
+
+- **Caching** - Significantly faster feature lookups!
+  - In-memory cache plus an optional distributed layer (Redis or MongoDB)
+  - Automatic cache invalidation when features change in GrowthBook (using WebHooks)
+- **Streaming** - Updates your application in real-time as features are changed or toggled in GrowthBook (Javascript and React only)
+- **Security** - Private-key authentication between GrowthBook and GrowthBook Proxy
+- **Scalability** - Horizontally scale to support millions of concurrent users
+
+## Installation
+
+### Using docker-compose
+
+If you are already using `docker-compose` to run GrowthBook, we have a pre-configured setup that includes a GrowthBook Proxy instance.
+
+Just run
+
+```bash
+docker-compose -f docker-compose.proxy.yml up -d
+```
+
+This will start the proxy server on port 3300. Check out the health check endpoint to ensure it's working correctly - http://localhost:3300/healthcheck
+
+### Standalone
+
+You can also run the GrowthBook Proxy as a standalone Docker container.
+
+First, pull the latest image
+
+```bash
+docker pull growthbook/proxy:latest
+```
+
+Then, run a GrowthBook Proxy instance on port 3300
+
+```bash
+docker run -d -p 3300:3300 \
+  -e "GROWTHBOOK_API_HOST=https://growthbook-api.example.com" \
+  -e "SECRET_API_KEY=something_secret" \
+  --name gbproxy growthbook/proxy
+```
+
+Check http://localhost:3300/healthcheck to ensure it's running correctly.
+
+Lastly, on your main GrowthBook instance, add environment variables to enable the proxy:
+
+```yml
+PROXY_ENABLED=1
+# The public URL of your proxy server
+PROXY_HOST_PUBLIC=https://growthbook-proxy.example.com
+# Must match the SECRET_API_KEY used above
+# You can either define the secret key here or create one in the GrowthBook UI
+SECRET_API_KEY=something_secret
+```
+
+## Using with the SDKs
+
+The GrowtBook Proxy has the same public feature endpoints as GrowthBook, so all you need to do is change the API host your SDK clients connect to:
+
+```ts
+// Before
+const gb = new GrowthBook({
+  apiHost: "https://growthbook-api.example.com",
+  clientKey: "sdk-abc123"
+});
+
+// After (clientKey remains the same)
+const gb = new GrowthBook({
+  apiHost: "https://growthbook-proxy.example.com",
+  clientKey: "sdk-abc123"
+});
+```
+
+## Configuration
+
+The GrowthBook Proxy supports a number of configuration options available via environment variables:
+
+- `GROWTHBOOK_API_HOST` - Set this to the host and port of your GrowthBook API instance
+- `SECRET_API_KEY` - Create a secret API key in GrowthBook by going to **Settings -> API Keys**
+- `NODE_ENV` - Set to "production" to hide debug and informational log messages
+- `CACHE_ENGINE` - One of - `memory`, `redis`, or `mongo`
+- `CACHE_CONNECTION_URL` - The URL of your redis or mongo cluster (if using)
+- `CACHE_STALE_TTL` - Number of seconds until a cache entry is considered stale
+- `CACHE_EXPIRES_TTL` - Number of seconds until a cache entry is expired
+
+You can also configure the GrowthBook Proxy to handle SSL termination. It supports HTTP/2 by default, which is required for high performance streaming.
+
+- `USE_HTTP2` - Set to "true" or "1" to enable
+- `HTTPS_CERT` - The SSL certificate
+- `HTTPS_KEY` - The SSL key
+
+## Best Practices
+
+In high-traffic production scenarios, there are a few best practices to follow
+
+- Auto-scale GrowthBook Proxy instances based on number of active connections or memory
+- Run the instances in the same region as your application servers for the lowest latency
+- Add a load balancer in-front that supports HTTP/2 and streaming responses (AWS ALB, HAProxy, etc.)
+- Use Redis (or MongoDB) as the cache engine for more consistent feature releases
+- Use the `/healthcheck` endpoint to determine if the instances are running correctly

@@ -27,7 +27,7 @@ const slackIntegrationSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true,
+    required: false,
   },
   dateCreated: {
     type: Date,
@@ -37,9 +37,9 @@ const slackIntegrationSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
-  project: {
-    type: String,
-    required: false,
+  projects: {
+    type: [String],
+    required: true,
   },
   environments: {
     type: [String],
@@ -68,6 +68,10 @@ const slackIntegrationSchema = new mongoose.Schema({
     required: true,
   },
   slackAppId: {
+    type: String,
+    required: true,
+  },
+  slackIncomingWebHook: {
     type: String,
     required: true,
   },
@@ -106,11 +110,12 @@ type CreateOptions = {
   organizationId: string;
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
+  slackIncomingWebHook: string;
   slackSigningKey: string;
   linkedByUserId: string;
 };
@@ -119,11 +124,12 @@ export const createSlackIntegration = async ({
   organizationId,
   name,
   description,
-  project,
+  projects,
   environments,
   events,
   tags,
   slackAppId,
+  slackIncomingWebHook,
   slackSigningKey,
   linkedByUserId,
 }: CreateOptions): Promise<SlackIntegrationInterface> => {
@@ -136,12 +142,13 @@ export const createSlackIntegration = async ({
     organizationId,
     name,
     description,
-    project,
+    projects,
     environments,
     events,
     tags,
     slackAppId,
     slackSigningKey,
+    slackIncomingWebHook,
     linkedByUserId,
   });
 
@@ -199,12 +206,13 @@ type UpdateOptions = {
 type UpdateAttributes = {
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;
+  slackIncomingWebHook: string;
 };
 
 /**
@@ -224,11 +232,12 @@ export const updateSlackIntegration = async (
         ...pick(updates, [
           "name",
           "description",
-          "project",
+          "projects",
           "environments",
           "events",
           "tags",
           "slackAppId",
+          "slackIncomingWebHook",
           "slackSigningKey",
         ]),
         dateUpdated: new Date(),
@@ -263,6 +272,57 @@ export const deleteSlackIntegration = async ({
   });
 
   return result.deletedCount === 1;
+};
+
+type RemoveTagOptions = {
+  organizationId: string;
+  tag: string;
+};
+
+export const removeTagFromSlackIntegration = async ({
+  organizationId,
+  tag,
+}: RemoveTagOptions): Promise<void> => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, tags: tag },
+    {
+      $pull: { tags: tag },
+    }
+  );
+};
+
+type RemoveProjectOptions = {
+  organizationId: string;
+  projectId: string;
+};
+
+export const removeProjectFromSlackIntegration = async ({
+  organizationId,
+  projectId,
+}: RemoveProjectOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, projects: projectId },
+    {
+      $pull: { projects: projectId },
+    }
+  );
+};
+
+type RemoveEnvironmentOptions = {
+  organizationId: string;
+  envId: string;
+};
+
+export const removeEnvironmentFromSlackIntegration = async ({
+  organizationId,
+  envId,
+}: RemoveEnvironmentOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, environments: envId },
+    {
+      $pull: { environments: envId },
+    }
+  );
 };
 
 // endregion Delete

@@ -36,25 +36,23 @@ Using features in your code is easy. Here's an example from our Javascript SDK:
 
 ```js
 // For boolean features
-if (growthbook.feature("my-feature").on) {
+if (growthbook.isOn("my-feature")) {
   // ... Do something
 }
 
 // For number, string, and JSON features
-const value = growthbook.feature("other-feature").value;
+const value = growthbook.getFeatureValue("other-feature", "fallback");
 ```
 
 GrowthBook also supports multiple environments, so you can, for example, have a feature enabled in **dev** but not **production**.
 
 You can also change the value of a feature with **Override Rules**. The following types of rules are supported:
 
-- **Targeted** - Choose a subset of users based on targeting attributes and assign them all the same value
+- **Forced Value** - Choose a subset of users based on targeting attributes and assign them all the same value
 - **Percentage Rollout** - Use random sampling to roll out a new feature value to a percent of users
-- **A/B Experiment** - Run an A/B test between different feature values
+- **A/B Experiment** - Run a controlled A/B test between 2 or more feature values
 
-You can pull feature definitions as a JSON file from the [API](/app/api) or setup a [Webhook](/app/webhooks) to push the same JSON to your servers automatically when something changes.
-
-This feature definitions JSON is passed into our [SDKs](/lib) along with [user targeting attributes](/app/features#targeting-attributes).
+All features for an environment are packaged together into a single JSON file. All you need to do is pass this into our [SDKs](/lib) along with [user targeting attributes](/app/features#targeting-attributes).
 
 Read more about [features here](/app/features).
 

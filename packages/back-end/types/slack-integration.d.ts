@@ -7,11 +7,12 @@ export interface SlackIntegrationInterface {
   description: string;
   dateCreated: Date;
   dateUpdated: Date;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
+  slackIncomingWebHook: string;
   linkedByUserId: string;
   slackSigningKey: string;
 }
