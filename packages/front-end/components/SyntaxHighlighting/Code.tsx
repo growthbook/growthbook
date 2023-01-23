@@ -39,6 +39,7 @@ export type Language =
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",
+  bash: "Terminal",
   tsx: "JSX",
   none: "Code",
 };
