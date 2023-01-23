@@ -5,7 +5,9 @@ import cronParser from "cron-parser";
 import {
   ExperimentDocument,
   ExperimentModel,
+  findExperiment,
   logExperimentCreated,
+  logExperimentDeleted,
 } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
@@ -194,7 +196,27 @@ export async function removeProjectFromExperiments(
   );
 }
 
-export function deleteExperimentById(id: string) {
+/**
+ * Deletes an experiment by ID and logs the event for the organization
+ * @param id
+ * @param organization
+ */
+export async function deleteExperimentByIdForOrganization(
+  id: string,
+  organization: OrganizationInterface
+) {
+  try {
+    const previous = await findExperiment({
+      experimentId: id,
+      organizationId: organization.id,
+    });
+    if (previous) {
+      await logExperimentDeleted(organization, previous);
+    }
+  } catch (e) {
+    logger.error(e);
+  }
+
   return ExperimentModel.deleteOne({
     id,
   });
