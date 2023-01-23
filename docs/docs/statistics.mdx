@@ -7,30 +7,31 @@ slug: statistics
 
 # GrowthBook's Statistics
 
-This page is a summary verison of the statistical methods used by GrowthBook. If you
-want to read more detail, you can see the [full white paper PDF](/GrowthBookStatsEngine.pdf).
+This page is a summary verison of the statistical methods used by GrowthBook. GrowthBook primarily relies
+on Bayesian statistics to power experimental analysis, but also provides an option to perform frequentist tests.
+If you want to read more detail on the Bayesian approach, see our [white paper](/GrowthBookStatsEngine.pdf).
 
 ## Bayesian Statistics
 
-Bayesian methods offers some distinct advantages over the frequentist approach. With
-frequentist methods, you must decide on
-the sample size in advance before running an experiment, which is known as a fixed horizon. This
-means you cannot stop a test early, nor run it for longer. If you do look at the test
-and decide to act upon it, you run into the peeking problem, which drastically increases your
-chances of Type I errors (false positives). Furthermore the results of a frequentist
-experiment are p-values and confidence intervals. These measures are very difficult to
-interpret correctly, and even harder to explain to others.
+Bayesian methods offer some distinct advantages over the frequentist approach. In order for
+frequentist methods to be valid, you must decide on
+the sample size in advance before running an experiment---a fixed horizon.
+Under the frequentist framework, if you peek at experimental results and make a decision
+before it has finished running, or even decide to run an experiment for longer, your false positive
+rates will no longer be controlled at the level you expect. This issue--commonly referred to as "peeking"---
+will inflate your false positive rates (Type I errors) and decision making is likely to suffer.
+In addition to being prone to the peeking problem, frequentist methods also provide p-values
+and confidence intervals, both of which can be difficult to interpret and explain to others.
 
-Bayesian methods help with both of these issues. There are no fixed horizons, and although
-Bayesian methods are not completely immune to the peeking problem, it is much less of a concern.
-You can generally stop an experiment whenever you want without a huge Type I error increase.
-In addition, the results are very easy to explain and interpret. Everything
+Bayesian methods help with both of these issues. There are no fixed horizons, and peeking problems are
+less of a concern, although not completely resolved. You can generally stop an experiment whenever you want
+without a huge increase in Type I errors. In addition, the results are very easy to explain and interpret. Everything
 has some probability of being true and you adjust the probabilities as you gather data
 and learn more about the world. This matches up with how most people think about
 experiments - _"there’s a 95% chance this new button is better and a 5% chance it’s
 worse."_
 
-## Priors and Posteriors.
+### Priors and Posteriors
 
 At GrowthBook, we use an Uninformative Prior. This simply means that before an
 experiment runs, we assume both variations have an equal chance of
@@ -39,7 +40,7 @@ Prior is updated to create a Posterior distribution. For Binomial metrics (simpl
 use a Beta-Binomial Prior. For count, duration, and revenue metrics, we use a Gaussian
 (or Normal) Prior.
 
-## Inferential Statistics
+### Inferential Statistics
 
 GrowthBook uses fast estimation techniques to quickly generate inferential statistics at scale for every metric in an experiment -
 Chance to Beat Control, Relative Uplift, and Risk (or expected loss).
@@ -62,6 +63,20 @@ a 10% risk equates to losing $0.50. You can specify your risk tolerance threshol
 
 GrowthBook gives the human decision maker everything they need to weigh the results against
 external factors to determine when to stop an experiment and which variation to declare the winner.
+
+## Frequentist Statistics
+
+While frequentist statistics have the aforementioned issues, they also are familiar to many practitioners and have
+certain advantages. Their widespread adoption has spurred important developments in variance reduction, heterogeneous treatment
+effect detection, and indeed corrections to peeking issues (e.g. sequential testing) that make frequentist statistics
+less problematic and, at times, more valuable.
+
+GrowthBook has begun also investing in developing a frequentist statistics engine, and users can now select which approach
+fits their use case best under their organization settings. The current frequentist engine computes simple two-sample t-tests for
+relative percent change, but future extensions to implement sequential testing, variance reduction, and more are possible.
+
+Because our default results and confidence intervals display relative percent change, we use a delta
+method corrected variance for our p-values and confidence intervals that correctly incorporates uncertainty from the control variation mean.
 
 ## Data Quality Checks
 
@@ -100,6 +115,8 @@ We have found this to be a good trade-off between false positives and false nega
 
 GrowthBook utilizes a combination of Bayesian statistics, fast estimation techniques,
 and data quality checks to robustly analyze A/B tests at scale and provide intuitive
-results to decision makers. The implementation is fully open source under an MIT license
+results to decision makers. GrowthBook also provides a frequentist statistics engine
+for customers who prefer operating in that paradigm.
+The implementation is fully open source under an MIT license
 and available on GitHub. You can also read more about the statistics and equations used
 in the [white paper PDF](/GrowthBookStatsEngine.pdf).
