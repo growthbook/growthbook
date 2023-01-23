@@ -55,7 +55,7 @@ export async function generateExperimentNotebook(
   }
 
   // Get experiment
-  const experiment = await getExperimentById(snapshot.experiment);
+  const experiment = await getExperimentById(organization, snapshot.experiment);
   if (!experiment) {
     throw new Error("Cannot find snapshot");
   }

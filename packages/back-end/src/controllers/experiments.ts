@@ -19,8 +19,8 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   getAllExperiments,
-  getExperimentsByQuery,
   updateExperimentById,
+  getPastExperimentsByDatasource,
 } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
@@ -177,9 +177,10 @@ export async function getExperiment(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const experiment = await getExperimentById(id);
+  const experiment = await getExperimentById(org.id, id);
 
   if (!experiment) {
     res.status(403).json({
@@ -220,7 +221,7 @@ async function _getSnapshot(
   dimension?: string,
   withResults: boolean = true
 ) {
-  const experiment = await getExperimentById(id);
+  const experiment = await getExperimentById(organization, id);
 
   if (!experiment) {
     throw new Error("Experiment not found");
@@ -573,7 +574,7 @@ export async function postExperiment(
   const { id } = req.params;
   const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -722,7 +723,7 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  await updateExperimentById(exp, changes);
+  await updateExperimentById(org.id, exp, changes);
 
   await req.audit({
     event: "experiment.update",
@@ -755,7 +756,7 @@ export async function postExperimentArchive(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   const changes: ChangeLog = {};
 
@@ -780,7 +781,7 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
-    await updateExperimentById(exp, changes);
+    await updateExperimentById(org.id, exp, changes);
 
     await experimentUpdated(exp);
 
@@ -811,7 +812,7 @@ export async function postExperimentUnarchive(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
   const changes: ChangeLog = {};
 
   if (!exp) {
@@ -835,7 +836,7 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperimentById(exp, changes);
+    await updateExperimentById(org.id, exp, changes);
 
     await experimentUpdated(exp);
 
@@ -875,7 +876,7 @@ export async function postExperimentStatus(
   const { status, reason, dateEnded } = req.body;
   const changes: ChangeLog = {};
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
   if (!exp) {
     throw new Error("Experiment not found");
   }
@@ -904,7 +905,7 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  await updateExperimentById(exp, changes);
+  await updateExperimentById(org.id, exp, changes);
 
   await req.audit({
     event: "experiment.status",
@@ -933,7 +934,7 @@ export async function postExperimentStop(
   const { id } = req.params;
   const { reason, results, analysis, winner, dateEnded } = req.body;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
   const changes: ChangeLog = {};
 
   if (!exp) {
@@ -979,7 +980,7 @@ export async function postExperimentStop(
   changes.analysis = analysis;
 
   try {
-    await updateExperimentById(exp, changes);
+    await updateExperimentById(org.id, exp, changes);
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -1011,7 +1012,7 @@ export async function deleteExperimentPhase(
   const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
   const changes: ChangeLog = {};
 
   if (!exp) {
@@ -1045,7 +1046,7 @@ export async function deleteExperimentPhase(
   if (!exp.phases.length) {
     changes.status = "draft";
   }
-  await updateExperimentById(exp, changes);
+  await updateExperimentById(org.id, exp, changes);
 
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
@@ -1095,7 +1096,7 @@ export async function putExperimentPhase(
   const phase = req.body;
   const changes: ChangeLog = {};
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     throw new Error("Experiment not found");
@@ -1126,7 +1127,7 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  await updateExperimentById(exp, changes);
+  await updateExperimentById(org.id, exp, changes);
 
   await req.audit({
     event: "experiment.phase",
@@ -1153,7 +1154,7 @@ export async function postExperimentPhase(
   const { reason, dateStarted, ...data } = req.body;
   const changes: ChangeLog = {};
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
@@ -1203,7 +1204,7 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    await updateExperimentById(exp, changes);
+    await updateExperimentById(org.id, exp, changes);
 
     await addGroupsDiff(org.id, [], data.groups || []);
 
@@ -1252,7 +1253,7 @@ export async function deleteExperiment(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -1274,7 +1275,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentById(exp.id),
+    deleteExperimentById(org.id, exp.id),
     removeExperimentFromPresentations(exp.id),
   ]);
 
@@ -1305,8 +1306,9 @@ export async function previewManualSnapshot(
   res: Response
 ) {
   const { id, phase } = req.params;
+  const { org } = getOrgFromReq(req);
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
@@ -1361,7 +1363,7 @@ export async function getSnapshotStatus(
   if (snapshot.organization !== org?.id)
     throw new Error("You don't have access to that snapshot");
 
-  const experiment = await getExperimentById(snapshot.experiment);
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
 
   if (!experiment) throw new Error("Invalid experiment id");
 
@@ -1453,7 +1455,7 @@ export async function postSnapshot(
 
   const { id } = req.params;
   const { phase, dimension } = req.body;
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(404).json({
@@ -1567,7 +1569,7 @@ export async function deleteScreenshot(
   const { url } = req.body;
   const changes: ChangeLog = {};
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -1602,7 +1604,7 @@ export async function deleteScreenshot(
     variation
   ].screenshots.filter((s) => s.path !== url);
   changes.variations = exp.variations;
-  await updateExperimentById(exp, changes);
+  await updateExperimentById(org.id, exp, changes);
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1635,7 +1637,7 @@ export async function addScreenshot(
   const { url, description } = req.body;
   const changes: ChangeLog = {};
 
-  const exp = await getExperimentById(id);
+  const exp = await getExperimentById(org.id, id);
 
   if (!exp) {
     res.status(403).json({
@@ -1671,7 +1673,7 @@ export async function addScreenshot(
 
   changes.variations = exp.variations;
 
-  await updateExperimentById(exp, changes);
+  await updateExperimentById(org.id, exp, changes);
 
   await req.audit({
     event: "experiment.screenshot.create",
@@ -1766,16 +1768,20 @@ export async function getPastExperimentsList(
     throw new Error("Invalid import id");
   }
 
-  const experiments = await getExperimentsByQuery(
-    {
-      organization: org.id,
-      datasource: model.datasource,
-    },
-    {
-      _id: false,
-      id: true,
-      trackingKey: true,
-    }
+  // const experiments = await getExperimentsByQuery(
+  //   {
+  //     organization: org.id,
+  //     datasource: model.datasource,
+  //   },
+  //   {
+  //     _id: false,
+  //     id: true,
+  //     trackingKey: true,
+  //   }
+  // );
+  const experiments = await getPastExperimentsByDatasource(
+    org.id,
+    model.datasource
   );
 
   const experimentMap = new Map<string, string>();

@@ -7,8 +7,8 @@ import {
 } from "../services/experiments";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import {
+  getRecentExperimentsUsingMetric,
   getExperimentsByMetric,
-  getExperimentsByQuery,
   removeMetricFromExperiments,
 } from "../models/ExperimentModel";
 import { addTagsDiff } from "../models/TagModel";
@@ -255,34 +255,7 @@ export async function getMetric(
     });
   }
 
-  const experiments = await getExperimentsByQuery(
-    {
-      organization: org.id,
-      $or: [
-        {
-          metrics: metric.id,
-        },
-        {
-          guardrails: metric.id,
-        },
-      ],
-      archived: {
-        $ne: true,
-      },
-    },
-    {
-      _id: false,
-      id: true,
-      name: true,
-      status: true,
-      phases: true,
-      results: true,
-      analysis: true,
-    },
-    10,
-    "_id",
-    false
-  );
+  const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
 
   res.status(200).json({
     status: 200,

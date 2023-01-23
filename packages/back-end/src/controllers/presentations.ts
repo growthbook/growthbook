@@ -28,6 +28,7 @@ export async function getPresentation(
   res: Response
 ) {
   const { id } = req.params;
+  const { org } = getOrgFromReq(req);
 
   const pres = await getPresentationById(id);
 
@@ -55,7 +56,7 @@ export async function getPresentation(
       .map((o) => o.id);
   }
 
-  const experiments = await getExperimentsByIds(expIds);
+  const experiments = await getExperimentsByIds(org.id, expIds);
 
   const withSnapshots: {
     experiment: ExperimentInterface;
@@ -87,6 +88,7 @@ export async function getPresentation(
 
 export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const { expIds } = req.query as { expIds: string };
+  const { org } = getOrgFromReq(req);
 
   if (!expIds) {
     res.status(403).json({
@@ -97,7 +99,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
   }
   const expIdsArr = expIds.split(",");
 
-  const experiments = await getExperimentsByIds(expIdsArr);
+  const experiments = await getExperimentsByIds(org.id, expIdsArr);
   // getExperimentsByIds returns experiments in any order, we want to put it
   // back into the order that was requested in the API call.
   const sortedExps = expIdsArr.map((id) => {

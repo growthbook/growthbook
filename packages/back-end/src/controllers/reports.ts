@@ -36,7 +36,7 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
 
-  const experiment = await getExperimentById(snapshot.experiment);
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -114,7 +114,7 @@ export async function getReports(
   }
 
   const experiments = experimentsIds.length
-    ? await getExperimentsByIds(experimentsIds)
+    ? await getExperimentsByIds(org.id, experimentsIds)
     : [];
 
   res.status(200).json({

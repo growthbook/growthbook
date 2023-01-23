@@ -63,11 +63,9 @@ export async function getReportsByOrg(
   if (reports && project) {
     const allExperiments = await getAllExperiments(organization, project);
     const expIds = new Set(allExperiments.map((e) => e.id));
-    reports = reports.filter((r) => {
-      if (r.experimentId) {
-        expIds.has(r.experimentId);
-      }
-    });
+    reports = reports.filter(
+      (r) => r.experimentId && expIds.has(r.experimentId)
+    );
   }
   return reports;
 }

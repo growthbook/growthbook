@@ -1,7 +1,8 @@
 import Agenda, { Job } from "agenda";
 import {
   getExperimentById,
-  getExperimentsByQuery,
+  getExperimentsToUpdate,
+  getExperimentsToUpdateLegacy,
   updateExperimentById,
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -16,7 +17,7 @@ import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { ChangeLog, ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
@@ -32,6 +33,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
+  organization: string;
   experimentId: string;
 }>;
 
@@ -42,34 +44,13 @@ export default async function (agenda: Agenda) {
     const ids = await legacyQueueExperimentUpdates();
 
     // New way, based on dynamic schedules
-    const experimentIds = (
-      await getExperimentsByQuery(
-        {
-          datasource: {
-            $exists: true,
-            $ne: "",
-          },
-          status: "running",
-          autoSnapshots: true,
-          nextSnapshotAttempt: {
-            $exists: true,
-            $lte: new Date(),
-          },
-          id: {
-            $nin: ids,
-          },
-        },
-        {
-          id: true,
-        },
-        100,
-        "nextSnapshotAttempt",
-        true
-      )
-    ).map((e) => e.id);
+    const experiments = await getExperimentsToUpdate(ids);
 
-    for (let i = 0; i < experimentIds.length; i++) {
-      await queueExerimentUpdate(experimentIds[i]);
+    for (let i = 0; i < experiments.length; i++) {
+      await queueExerimentUpdate(
+        experiments[i].organization,
+        experiments[i].id
+      );
     }
   });
 
@@ -87,36 +68,16 @@ export default async function (agenda: Agenda) {
     // All experiments that haven't been updated in at least UPDATE_EVERY ms
     const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
-    const experimentIds = (
-      await getExperimentsByQuery(
-        {
-          datasource: {
-            $exists: true,
-            $ne: "",
-          },
-          status: "running",
-          autoSnapshots: true,
-          nextSnapshotAttempt: {
-            $exists: false,
-          },
-          lastSnapshotAttempt: {
-            $lte: latestDate,
-          },
-        },
-        {
-          id: true,
-        },
-        100,
-        "lastSnapshotAttempt",
-        true
-      )
-    ).map((e) => e.id);
+    const experiments = await await getExperimentsToUpdateLegacy(latestDate);
 
-    for (let i = 0; i < experimentIds.length; i++) {
-      await queueExerimentUpdate(experimentIds[i]);
+    for (let i = 0; i < experiments.length; i++) {
+      await queueExerimentUpdate(
+        experiments[i].organization,
+        experiments[i].id
+      );
     }
 
-    return experimentIds;
+    return experiments.map((e) => e.id);
   }
 
   async function startUpdateJob() {
@@ -126,8 +87,12 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueExerimentUpdate(experimentId: string) {
+  async function queueExerimentUpdate(
+    organization: string,
+    experimentId: string
+  ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
+      organization,
       experimentId,
     }) as UpdateSingleExpJob;
 
@@ -141,16 +106,15 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
+  const organization = job.attrs.data?.organization;
   if (!experimentId) return;
-
-  const changes: ChangeLog = {};
 
   const log = logger.child({
     cron: "updateSingleExperiment",
     experimentId,
   });
 
-  const experiment = await getExperimentById(experimentId);
+  const experiment = await getExperimentById(organization, experimentId); //MKTODO: Need to figure out how to access org here
   if (!experiment) return;
 
   let lastSnapshot: ExperimentSnapshotDocument;
@@ -238,9 +202,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      experiment.autoSnapshots = false;
-      changes.autoSnapshots = false;
-      await updateExperimentById(experiment, changes);
+      await updateExperimentById(organization, experiment, {
+        autoSnapShots: false,
+      });
       // TODO: email user and let them know it failed
     } catch (e) {
       log.error("Failed to turn off autoSnapshots - " + e.message);
