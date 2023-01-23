@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "@/../back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Modal from "../Modal";
 import CheckSDKConnectionResults from "./CheckSDKConnectionResults";
 

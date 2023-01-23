@@ -279,7 +279,7 @@ export default function GuidedGetStarted({
         "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
       learnMoreLink: "Learn more about how to use metrics.",
       docSection: "metrics",
-      completed: metrics.length > 0 || skippedSteps["metrics-definitions"],
+      completed: metrics.length > 0 || skippedSteps["metric-definition"],
       render: (
         <>
           {metrics.length > 0 ? (

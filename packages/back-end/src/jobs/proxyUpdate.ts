@@ -18,7 +18,7 @@ type ProxyUpdateJob = Job<{
 }>;
 
 let agenda: Agenda;
-export default function (ag: Agenda) {
+export default function addProxyUpdateJob(ag: Agenda) {
   agenda = ag;
 
   // Fire webhooks

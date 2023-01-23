@@ -99,27 +99,6 @@ export const deleteSDKConnection = async (
   });
 };
 
-export const checkSDKConnectionStatus = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{
-    status: 200;
-    connected: boolean;
-  }>
-) => {
-  const { id } = req.params;
-  const { org } = getOrgFromReq(req);
-  const connection = await findSDKConnectionById(id);
-
-  if (!connection || connection.organization !== org.id) {
-    throw new Error("Could not find SDK Connection");
-  }
-
-  res.status(200).json({
-    status: 200,
-    connected: connection.connected,
-  });
-};
-
 export const checkSDKConnectionProxyStatus = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{

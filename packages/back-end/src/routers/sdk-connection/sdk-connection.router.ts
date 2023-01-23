@@ -14,8 +14,6 @@ router.put("/:id", sdkConnectionController.putSDKConnection);
 
 router.delete("/:id", sdkConnectionController.deleteSDKConnection);
 
-router.get("/:id/check", sdkConnectionController.checkSDKConnectionStatus);
-
 router.post(
   "/:id/check-proxy",
   sdkConnectionController.checkSDKConnectionProxyStatus

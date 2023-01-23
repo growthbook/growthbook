@@ -159,7 +159,7 @@ export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 // Add a default secret access key via an environment variable
-//
+// Only allowed while self-hosting, don't allow using "dev" (default value) in prod
 let secretAPIKey = IS_CLOUD ? "" : process.env.SECRET_API_KEY || "";
 if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   secretAPIKey = "";
