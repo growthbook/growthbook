@@ -1,5 +1,9 @@
 import Agenda, { Job } from "agenda";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsByQuery,
+  updateExperimentById,
+} from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
@@ -12,7 +16,7 @@ import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
 } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
+import { ChangeLog, ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
@@ -39,7 +43,7 @@ export default async function (agenda: Agenda) {
 
     // New way, based on dynamic schedules
     const experimentIds = (
-      await ExperimentModel.find(
+      await getExperimentsByQuery(
         {
           datasource: {
             $exists: true,
@@ -57,12 +61,11 @@ export default async function (agenda: Agenda) {
         },
         {
           id: true,
-        }
+        },
+        100,
+        "nextSnapshotAttempt",
+        true
       )
-        .limit(100)
-        .sort({
-          nextSnapshotAttempt: 1,
-        })
     ).map((e) => e.id);
 
     for (let i = 0; i < experimentIds.length; i++) {
@@ -85,7 +88,7 @@ export default async function (agenda: Agenda) {
     const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
     const experimentIds = (
-      await ExperimentModel.find(
+      await getExperimentsByQuery(
         {
           datasource: {
             $exists: true,
@@ -102,12 +105,11 @@ export default async function (agenda: Agenda) {
         },
         {
           id: true,
-        }
+        },
+        100,
+        "lastSnapshotAttempt",
+        true
       )
-        .limit(100)
-        .sort({
-          lastSnapshotAttempt: 1,
-        })
     ).map((e) => e.id);
 
     for (let i = 0; i < experimentIds.length; i++) {
@@ -141,14 +143,14 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   if (!experimentId) return;
 
+  const changes: ChangeLog = {};
+
   const log = logger.child({
     cron: "updateSingleExperiment",
     experimentId,
   });
 
-  const experiment = await ExperimentModel.findOne({
-    id: experimentId,
-  });
+  const experiment = await getExperimentById(experimentId);
   if (!experiment) return;
 
   let lastSnapshot: ExperimentSnapshotDocument;
@@ -237,8 +239,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       experiment.autoSnapshots = false;
-      experiment.markModified("autoSnapshots");
-      await experiment.save();
+      changes.autoSnapshots = false;
+      await updateExperimentById(experiment, changes);
       // TODO: email user and let them know it failed
     } catch (e) {
       log.error("Failed to turn off autoSnapshots - " + e.message);

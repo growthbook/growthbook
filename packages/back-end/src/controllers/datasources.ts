@@ -16,12 +16,12 @@ import {
   testQuery,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
-import { ExperimentModel } from "../models/ExperimentModel";
-import { QueryModel } from "../models/QueryModel";
 import {
-  createManualSnapshot,
+  createExperiment,
   getSampleExperiment,
-} from "../services/experiments";
+} from "../models/ExperimentModel";
+import { QueryModel } from "../models/QueryModel";
+import { createManualSnapshot } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
 import {
@@ -156,7 +156,8 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         },
       ],
     };
-    await ExperimentModel.create(experiment);
+
+    await createExperiment(experiment, org);
 
     await createManualSnapshot(
       experiment,

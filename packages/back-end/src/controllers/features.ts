@@ -31,11 +31,8 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import {
-  getExperimentByTrackingKey,
-  ensureWatching,
-} from "../services/experiments";
-import { ExperimentDocument } from "../models/ExperimentModel";
+import { ensureWatching } from "../services/experiments";
+import { getExperimentByTrackingKey } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -49,6 +46,7 @@ import {
   markSDKConnectionUsed,
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
+import { ExperimentInterface } from "../../types/experiment";
 
 class ApiKeyError extends Error {
   constructor(message: string) {
@@ -740,7 +738,7 @@ export async function getFeatureById(
     });
   }
 
-  const experiments: { [key: string]: ExperimentDocument } = {};
+  const experiments: { [key: string]: ExperimentInterface } = {};
   if (expIds.size > 0) {
     await Promise.all(
       Array.from(expIds).map(async (id) => {

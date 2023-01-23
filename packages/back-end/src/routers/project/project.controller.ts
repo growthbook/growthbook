@@ -12,9 +12,9 @@ import {
 import { removeProjectFromDatasources } from "../../models/DataSourceModel";
 import { removeProjectFromMetrics } from "../../models/MetricModel";
 import { removeProjectFromFeatures } from "../../models/FeatureModel";
-import { removeProjectFromExperiments } from "../../services/experiments";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 import { removeProjectFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import { removeProjectFromExperiments } from "../../models/ExperimentModel";
 
 // region POST /projects
 
