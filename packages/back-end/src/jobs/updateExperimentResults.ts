@@ -175,8 +175,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.phases.length - 1,
       organization,
       null,
-      false,
-      organization.settings?.statsEngine
+      false
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -195,6 +194,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               getReportVariations(experiment, phase),
               undefined,
               queryData,
+              // TODO determine stats engine: experiment > project > org
               organization.settings?.statsEngine
             );
           },

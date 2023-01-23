@@ -1,3 +1,5 @@
+import { StatsEngine } from "./stats";
+
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
@@ -105,6 +107,7 @@ export interface ExperimentInterface {
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
+  statsEngine?: StatsEngine;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

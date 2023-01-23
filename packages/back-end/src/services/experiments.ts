@@ -614,8 +614,7 @@ export async function createSnapshot(
   phaseIndex: number,
   organization: OrganizationInterface,
   dimensionId: string | null,
-  useCache: boolean = false,
-  statsEngine: StatsEngine | undefined
+  useCache: boolean = false
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -642,7 +641,7 @@ export async function createSnapshot(
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
-    statsEngine,
+    statsEngine: experiment.statsEngine,
   };
 
   const nextUpdate = determineNextDate(
@@ -667,6 +666,7 @@ export async function createSnapshot(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
     useCache,
+    // TODO determine stats engine: experiment > project > org
     statsEngine
   );
 

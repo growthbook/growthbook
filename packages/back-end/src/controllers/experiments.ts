@@ -1313,6 +1313,7 @@ export async function previewManualSnapshot(
   }
 
   try {
+    // TODO determine stats engine: experiment > project > org
     const data = await getManualSnapshotData(
       exp,
       phaseIndex,
@@ -1364,6 +1365,7 @@ export async function getSnapshotStatus(
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
         queryData,
+        // TODO determine stats engine: experiment > project > org
         org.settings?.statsEngine
       ),
     async (updates, results, error) => {
@@ -1450,8 +1452,7 @@ export async function postSnapshot(
     return;
   }
 
-  // TODO
-  // const statsEngine = exp.statsEngine ?? org.settings?.statsEngine;
+  // TODO determine stats engine: experiment > project > org
   const statsEngine = org.settings?.statsEngine;
 
   if (!exp.phases[phase]) {
@@ -1475,6 +1476,7 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
+        // TODO determine stats engine: experiment > project > org
         statsEngine
       );
       res.status(200).json({
@@ -1520,8 +1522,7 @@ export async function postSnapshot(
       phase,
       org,
       dimension || null,
-      useCache,
-      org.settings?.statsEngine
+      useCache
     );
     await req.audit({
       event: "experiment.refresh",

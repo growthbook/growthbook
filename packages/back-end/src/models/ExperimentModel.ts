@@ -96,6 +96,7 @@ const experimentSchema = new mongoose.Schema({
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
   ideaSource: String,
+  statsEngine: String,
 });
 
 export const ExperimentModel = mongoose.model<ExperimentDocument>(
