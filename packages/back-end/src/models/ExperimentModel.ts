@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 import { ExperimentInterface } from "../../types/experiment";
+import { OrganizationInterface } from "../../types/organization";
+import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
+} from "../events/base-events";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { createEvent } from "./EventModel";
 
 export type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -102,3 +110,82 @@ export const ExperimentModel = mongoose.model<ExperimentDocument>(
   "Experiment",
   experimentSchema
 );
+
+// region Events
+
+/**
+ * @param organization
+ * @param experiment
+ * @return event.id
+ */
+export const logExperimentCreated = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): Promise<string> => {
+  const payload: ExperimentCreatedNotificationEvent = {
+    object: "experiment",
+    event: "experiment.created",
+    data: {
+      current: experiment,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+};
+
+/**
+ * @param organization
+ * @param experiment
+ * @return event.id
+ */
+export const logExperimentUpdated = async ({
+  organization,
+  current,
+  previous,
+}: {
+  organization: OrganizationInterface;
+  current: ExperimentInterface;
+  previous: ExperimentInterface;
+}): Promise<string> => {
+  const payload: ExperimentUpdatedNotificationEvent = {
+    object: "experiment",
+    event: "experiment.updated",
+    data: {
+      previous,
+      current,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+};
+
+/**
+ * @param organization
+ * @param experiment
+ * @return event.id
+ */
+export const logExperimentDeleted = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): Promise<string> => {
+  const payload: ExperimentDeletedNotificationEvent = {
+    object: "experiment",
+    event: "experiment.deleted",
+    data: {
+      previous: experiment,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+};
+
+// endregion Events
