@@ -6,56 +6,21 @@ slug: webhooks
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import Pill from '@site/src/components/Pill';
 
-# Webhooks
+# Webhooks <Pill>beta</Pill>
 
-Webhooks are one way to keep cached feature definitions up-to-date on your servers.
+GrowthBook has event-based webhooks that trigger a script on your server whenever something changes within GrowthBook. It is currently in beta as we add support for more event types and create better documentation and examples.
 
-With **Webhooks**, GrowthBook pushes feature definitions to your servers as soon as they change.
-
-The other way is with the [API](/app/api), where your servers pull feature definitions from GrowthBook in a cronjob (or similar).
-
-## Adding a Webhook Endpoint
+## Adding a Webhook
 
 When logged into GrowthBook as an admin, navigate to **Settings -> Webhooks**.
 
-There you can add a webhook endpoint.
+There you can add a webhook endpoint and select which events you want to be notified about.
 
 This page is also where you can view the shared secret used to verify requests (see below) and see the status of your webhook and any errors.
 
-## Environment and Project Filters
-
-You can optionally filter your webhook to a specific environment and/or project. If specified, only matching features will trigger the webhook and be included in the payload.
-
-## Payload
-
-Webhooks will do a `POST` to the endpoint you provide. The body is a JSON object containing feature definitions in the same format as the API returns.
-
-Here's an example payload:
-
-```json
-{
-  "timestamp": 1625098156,
-  "features": {
-    "feature1": {
-      "defaultValue": true
-    }
-  }
-}
-```
-
-The `features` field has one entry per feature definition. Features can have the following properties:
-
-- **defaultValue**
-- **rules[]** - Array of feature rules
-  - **condition** - A JSON condition using MongoDB query syntax
-  - **force** - Force a specific value, takes precedence over all other rules besides `condition`
-  - **variations[]** - Run an experiment and randomly assign one of the specified variations
-  - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
-  - **weights[]** - Determines how traffic is split between variations in an experiment
-  - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.
-
-## VPCs and Firewalls
+### VPCs and Firewalls
 
 If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
 
@@ -92,8 +57,8 @@ app.post(
       throw new Error("Signatures do not match!");
     }
 
-    const { features } = JSON.parse(payload);
-    // TODO: Store in a cache or database
+    const data = JSON.parse(payload);
+    // TODO: Do something with the webhook data
 
     // Make sure to respond with a 200 status code
     res.status(200).send("");
@@ -113,6 +78,46 @@ Failed webhooks are tried a total of 3 times using an exponential back-off betwe
 
 You can view the status of your webhooks in the GrowthBook app under **Settings &rarr; Webhooks**.
 
+## Supported Event Types
+
+We currently only support 3 event types:
+
+- **feature.created**
+- **feature.updated**
+- **feature.deleted**
+
 ## Examples
 
 - [Web hooks implementation example <ExternalLink />](https://github.com/growthbook/examples/tree/main/webhooks-impl)
+
+## SDK Webhooks (deprecated)
+
+GrowthBook has another type of webhook, meant specifically to keep SDKs up-to-date with the latest feature flag states. These have been deprecated in favor of SDK Connections and the GrowthBook Proxy Server. The payload for these legacy webhooks are described below for reference.
+
+### Payload
+
+SDK Webhooks will do a `POST` to the endpoint you provide. The body is a JSON object containing feature definitions in the same format that SDKs are expecting.
+
+Here's an example payload:
+
+```json
+{
+  "timestamp": 1625098156,
+  "features": {
+    "feature1": {
+      "defaultValue": true
+    }
+  }
+}
+```
+
+The `features` field has one entry per feature definition. Features can have the following properties:
+
+- **defaultValue**
+- **rules[]** - Array of feature rules
+  - **condition** - A JSON condition using MongoDB query syntax
+  - **force** - Force a specific value, takes precedence over all other rules besides `condition`
+  - **variations[]** - Run an experiment and randomly assign one of the specified variations
+  - **key** - When running an experiment, this is the experiment key that will be passed to the tracking callback function
+  - **weights[]** - Determines how traffic is split between variations in an experiment
+  - **coverage** - Specifies what sampling rate (0 to 1) to use for including users in an experiment. A rate of `1` means everyone is included. A rate of `0` means no one is.

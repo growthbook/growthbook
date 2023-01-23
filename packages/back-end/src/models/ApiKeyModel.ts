@@ -7,6 +7,8 @@ import {
   PublishableApiKey,
   SecretApiKey,
 } from "../../types/apikey";
+import { IS_CLOUD, SECRET_API_KEY } from "../util/secrets";
+import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
   id: String,
@@ -28,7 +30,7 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
-async function generateEncryptionKey(): Promise<string> {
+export async function generateEncryptionKey(): Promise<string> {
   const key = await webcrypto.subtle.generateKey(
     {
       name: "AES-CBC",
@@ -54,6 +56,12 @@ function getShortEnvName(env: string) {
   return env.substring(0, 4);
 }
 
+export function generateSigningKey(prefix: string = "", bytes = 32): string {
+  return (
+    prefix + crypto.randomBytes(bytes).toString("base64").replace(/[=/+]/g, "")
+  );
+}
+
 export async function createApiKey({
   environment,
   project,
@@ -74,8 +82,7 @@ export async function createApiKey({
   }
 
   const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
-  const key =
-    prefix + crypto.randomBytes(32).toString("base64").replace(/[=/+]/g, "");
+  const key = generateSigningKey(prefix);
 
   const id = uniqid("key_");
 
@@ -125,6 +132,19 @@ export async function getApiKeyByIdOrKey(
 export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<Partial<ApiKeyInterface>> {
+  // If self-hosting and using a hardcoded secret key
+  if (!IS_CLOUD && SECRET_API_KEY && key === SECRET_API_KEY) {
+    const orgs = await findAllOrganizations();
+    if (orgs.length === 1) {
+      return {
+        id: "SECRET_API_KEY",
+        key: SECRET_API_KEY,
+        secret: true,
+        organization: orgs[0].id,
+      };
+    }
+  }
+
   const doc = await ApiKeyModel.findOne({
     key,
   });
