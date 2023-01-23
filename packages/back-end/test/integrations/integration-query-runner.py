@@ -3,11 +3,13 @@ import json
 from decimal import Decimal
 import os
 import sys
+from pprint import pprint
 
+from google.cloud import bigquery
+import prestodb
 import mysql.connector
 import psycopg2
 import psycopg2.extras
-from google.cloud import bigquery
 import sqlfluff
 import snowflake.connector
 
@@ -78,6 +80,25 @@ class snowflakeRunner(sqlRunner):
             res = cursor.execute(sql).fetchall()
             return res
 
+class prestoRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = prestodb.dbapi.connect(
+            host='localhost',
+            port=8080,
+            user='myuser',
+            catalog='mysql',
+            schema='sample',
+        )
+        self.cursor_kwargs = {}
+    
+    def run_query(self,  sql: str) -> list:
+        cursor = self.connection.cursor(**self.cursor_kwargs)
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        colnames = [col[0] for col in cursor.description]
+        res = [dict(zip(colnames, row)) for row in rows]
+        return res
+
 class bigqueryRunner(sqlRunner):
     def open_connection(self):
         self.connection = bigquery.Client()
@@ -92,8 +113,12 @@ def read_queries_json() -> dict:
         data = json.load(f)
     return data
 
-def insert_line_numbers(txt):
-    return "\n".join([f"{n+1:03d} {line}" for n, line in enumerate(txt.split("\n"))])
+def print_sql(txt, insert_line_numbers=False):
+    if insert_line_numbers:
+        sql_string = "\n".join([f"{n+1:03d} {line}" for n, line in enumerate(txt.split("\n"))])
+    else:
+        sql_string = "\n".join([f"{line}" for n, line in enumerate(txt.split("\n"))])
+    print(sql_string)
 
 def read_queries_cache() -> dict:
     try:
@@ -117,18 +142,21 @@ def get_sql_runner(engine) -> sqlRunner:
         return bigqueryRunner()
     elif engine == 'snowflake':
         return snowflakeRunner()
+    elif engine == 'presto':
+        return prestoRunner()
     else:
         raise ValueError()
 
-def execute_query(sql, engine) -> str:
+def execute_query(sql, engine) -> list[dict]:
     runner = get_sql_runner(engine)
     return runner.run_query(sql)
 
 
 def validate(test_case):
+    dialect = 'ansi' if test_case['engine'] == 'presto' else test_case['engine']
     errors = sqlfluff.lint(
         test_case['sql'], 
-        dialect=test_case['engine'],
+        dialect=dialect,
         exclude_rules=[
             "L003",
             "L006",
@@ -155,7 +183,7 @@ def validate(test_case):
     if len(errors) > 0:
         print(test_case["name"])
         print(test_case["engine"])
-        print(insert_line_numbers(test_case["sql"]))
+        print(print_sql(test_case["sql"], insert_line_numbers=True))
         for error in errors:
             print(error)
         raise ValueError("sqlfluff error")
@@ -170,18 +198,21 @@ def main():
     
     for test_case in test_cases:
         engine = test_case["engine"]
-        if engine not in ["postgres", 'mysql', 'bigquery', 'snowflake']:
-            continue
-        if engine not in runners:
+        if engine not in runners and engine in ['mysql', 'postgres', 'bigquery', 'snowflake', 'presto']:
             runners[engine] = get_sql_runner(engine)
-
-        runner = runners[engine]
+        else:
+            continue
+        
         key = engine + '::' + test_case['sql']
         if key in cache:
             results.append(cache[key])
         else:
-            validate(test_case)
-            test_case["rows"] = execute_query(test_case["sql"], engine)
+            if engine != 'presto':
+                validate(test_case)
+            if engine in runners:
+                test_case["rows"] = execute_query(test_case["sql"], engine)
+            else:
+                test_case["rows"] = [{'missing_reason': 'not executed, only linted'}]
             # TODO also save sql somewhere else?
             result = {k: v for k, v in test_case.items() if k != 'sql'}
             cache[key] = result
