@@ -2,7 +2,11 @@ import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import uniqBy from "lodash/uniqBy";
 import cronParser from "cron-parser";
-import { ExperimentDocument, ExperimentModel } from "../models/ExperimentModel";
+import {
+  ExperimentDocument,
+  ExperimentModel,
+  logExperimentCreated,
+} from "../models/ExperimentModel";
 import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
@@ -444,6 +448,8 @@ export async function createExperiment(
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
   });
+
+  await logExperimentCreated(organization, exp);
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
