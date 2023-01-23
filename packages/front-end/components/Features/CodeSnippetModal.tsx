@@ -1,130 +1,104 @@
-import stringify from "json-stringify-pretty-compact";
 import { useState, useEffect, ReactElement } from "react";
-import { SDKAttributeSchema } from "back-end/types/organization";
-import { getTrackingCallback, TrackingType } from "@/services/codegen";
-import { getApiHost, isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "back-end/types/sdk-connection";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { getApiHost, isCloud } from "@/services/env";
 import Modal from "../Modal";
-import Code, { Language } from "../SyntaxHighlighting/Code";
-import ControlledTabs from "../Tabs/ControlledTabs";
-import Tab from "../Tabs/Tab";
 import { DocLink } from "../DocLink";
-import SDKEndpointSelector from "./SDKEndpointSelector";
+import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
+import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
+import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
+import ClickToCopy from "../Settings/ClickToCopy";
+import TargetingAttributeCodeSnippet from "../SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
+import SelectField from "../Forms/SelectField";
+import CheckSDKConnectionModal from "../GuidedGetStarted/CheckSDKConnectionModal";
+import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
+import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
-function phpArrayFormat(json: unknown) {
-  return stringify(json)
-    .replace(/\{/g, "[")
-    .replace(/\}/g, "]")
-    .replace(/:/g, " =>");
+function trimTrailingSlash(str) {
+  return str.replace(/\/*$/, "");
 }
 
-function swiftArrayFormat(json: unknown) {
-  return stringify(json).replace(/\{/, "[").replace(/\}/g, "]");
-}
-
-function indentLines(code: string, indent: number | string = 2) {
-  const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
-  return code.split("\n").join("\n" + spaces);
-}
-
-function rubySymbol(name: string): string {
-  return name.match(/[^a-zA-Z0-9_]+/) ? `'${name}'` : `:${name}`;
-}
-
-function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
-  if (!attributeSchema?.length) return {};
-
-  // eslint-disable-next-line
-  const exampleAttributes: any = {};
-  attributeSchema.forEach(({ property, datatype, enum: enumList }) => {
-    const parts = property.split(".");
-    const last = parts.pop();
-    let current = exampleAttributes;
-    for (let i = 0; i < parts.length; i++) {
-      current[parts[i]] = current[parts[i]] || {};
-      current = current[parts[i]];
-    }
-
-    // eslint-disable-next-line
-    let value: any = null;
-    if (datatype === "boolean") {
-      value = true;
-    } else if (datatype === "number") {
-      value = 123;
-    } else if (datatype === "string") {
-      value = "foo";
-    } else if (datatype === "number[]") {
-      value = [1, 2, 3];
-    } else if (datatype === "string[]") {
-      value = ["foo", "bar"];
-    } else if (datatype === "enum") {
-      value = enumList.split(",").map((v) => v.trim())[0] ?? null;
-    }
-
-    current[last] = value;
-  });
-
-  return exampleAttributes;
-}
-
-function getApiBaseUrl(): string {
-  if (isCloud()) {
-    return `https://cdn.growthbook.io/`;
+export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
+  if (connection && connection.proxy.enabled && connection.proxy.host) {
+    return trimTrailingSlash(
+      connection.proxy.hostExternal || connection.proxy.host
+    );
   }
-  return getApiHost() + "/";
-}
 
-export function getSDKEndpoint(apiKey: string) {
-  return getApiBaseUrl() + `api/features/${apiKey || "MY_SDK_KEY"}`;
+  if (isCloud()) {
+    return `https://cdn.growthbook.io`;
+  }
+
+  return trimTrailingSlash(getApiHost());
 }
 
 export default function CodeSnippetModal({
   close,
-  featureId = "my-feature",
-  defaultLanguage = "javascript",
+  feature,
   inline,
   cta = "Finish",
   submit,
   secondaryCTA,
+  sdkConnection,
+  connections,
+  mutateConnections,
+  includeCheck,
+  allowChangingConnection,
 }: {
   close?: () => void;
+  feature?: FeatureInterface;
   featureId?: string;
-  defaultLanguage?: Language;
   inline?: boolean;
   cta?: string;
-  submit?: () => Promise<void>;
+  submit?: () => void;
   secondaryCTA?: ReactElement;
+  sdkConnection?: SDKConnectionInterface;
+  connections: SDKConnectionInterface[];
+  mutateConnections: () => Promise<unknown>;
+  includeCheck?: boolean;
+  allowChangingConnection?: boolean;
 }) {
-  const [language, setLanguage] = useState<Language>(defaultLanguage);
+  const [currentConnectionId, setCurrentConnectionId] = useState("");
+
+  useEffect(() => {
+    setCurrentConnectionId(
+      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || ""
+    );
+  }, [connections]);
+
+  const currentConnection: SDKConnectionInterface | null =
+    connections.find((c) => c.id === currentConnectionId) || null;
+
+  const [showTestModal, setShowTestModal] = useState(false);
+
+  const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const permissions = usePermissions();
-  const [state, setState] = useState<{
-    tracking: TrackingType;
-    gaDimension?: string;
-  }>({
-    tracking: "custom",
-    gaDimension: "1",
-  });
-  const [apiKey, setApiKey] = useState("");
+
+  const [configOpen, setConfigOpen] = useState(true);
+  const [installationOpen, setInstallationOpen] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(true);
+  const [usageOpen, setUsageOpen] = useState(true);
+  const [attributesOpen, setAttributesOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
   const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
 
-  const attributeSchema = useAttributeSchema();
-
-  const { datasources } = useDefinitions();
-  const exampleAttributes = getExampleAttributes(attributeSchema);
-
   // Record the fact that the SDK instructions have been seen
   useEffect(() => {
     if (!settings) return;
     if (settings.sdkInstructionsViewed) return;
+    if (!connections.length) return;
     if (!permissions.check("manageEnvironments", "", [])) return;
     (async () => {
       await apiCall(`/organization`, {
@@ -137,559 +111,297 @@ export default function CodeSnippetModal({
       });
       await refreshOrganization();
     })();
-  }, [settings]);
+  }, [settings, connections.length]);
 
   useEffect(() => {
-    const ds = datasources?.[0];
-    if (!ds) return;
-    if (ds.type === "mixpanel") {
-      setState({
-        ...state,
-        tracking: "mixpanel",
-      });
-    } else if (ds.type === "google_analytics") {
-      setState({
-        ...state,
-        tracking: "ga",
-        gaDimension: ds.params.customDimension,
-      });
-    } else {
-      setState({
-        ...state,
-        tracking: "custom",
-      });
+    if (!currentConnection) return;
+
+    // connection changes & current language isn't included in new connection, reset to default
+    if (!currentConnection.languages.includes(language)) {
+      setLanguage(currentConnection.languages[0] || "javascript");
     }
-  }, [datasources?.[0]?.type]);
+  }, [currentConnection]);
+
+  if (!currentConnection) {
+    return null;
+  }
+
+  const { docs, label, usesEntireEndpoint } = languageMapping[language];
+  const apiHost = getApiBaseUrl(currentConnection);
+  const clientKey = currentConnection.key;
+  const featuresEndpoint = apiHost + "/api/features/" + clientKey;
+  const encryptionKey =
+    currentConnection &&
+    currentConnection.encryptPayload &&
+    currentConnection.encryptionKey;
 
   return (
-    <Modal
-      close={close}
-      secondaryCTA={secondaryCTA}
-      open={true}
-      inline={inline}
-      size={"lg"}
-      header="Implementation Instructions"
-      submit={async () => {
-        if (submit) await submit();
-      }}
-      cta={cta}
-    >
-      <SDKEndpointSelector apiKey={apiKey} setApiKey={setApiKey} />
-      <p>
-        Below is some starter code to integrate GrowthBook into your app. More
-        languages coming soon!
-      </p>
-      <ControlledTabs
-        active={language}
-        setActive={(language) => setLanguage(language as Language)}
+    <>
+      {showTestModal && setShowTestModal && (
+        <CheckSDKConnectionModal
+          close={() => {
+            mutateConnections();
+            setShowTestModal(false);
+          }}
+          connection={currentConnection}
+          mutate={mutateConnections}
+          goToNextStep={submit}
+        />
+      )}
+      <Modal
+        close={close}
+        secondaryCTA={secondaryCTA}
+        bodyClassName="p-0"
+        open={true}
+        inline={inline}
+        size={"max"}
+        header="Implementation Instructions"
+        autoCloseOnSubmit={false}
+        submit={
+          includeCheck
+            ? async () => {
+                setShowTestModal(true);
+              }
+            : submit
+            ? async () => {
+                submit();
+                close && close();
+              }
+            : null
+        }
+        cta={cta}
       >
-        <Tab display="Javascript" id="javascript">
-          <p>
-            Read the{" "}
-            <DocLink docSection="javascript">full Javascript docs</DocLink> for
-            more details.
-          </p>
-          <Code language="sh" code="npm i --save @growthbook/growthbook" />
-          <Code
-            language="javascript"
-            code={`
-import { GrowthBook } from "@growthbook/growthbook";
-
-// Create a GrowthBook instance
-const growthbook = new GrowthBook({
-  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
-  enableDevMode: true,
-  trackingCallback: (experiment, result) => {
-    ${indentLines(
-      getTrackingCallback(
-        state.tracking,
-        state.gaDimension + "",
-        "experiment.key",
-        "result.variationId"
-      ),
-      4
-    )}
-  }
-});
-
-// Load feature definitions from API${
-              isCloud()
-                ? ""
-                : `\n// In production, we recommend putting a CDN in front of the API endpoint`
-            }
-const FEATURES_ENDPOINT = "${getSDKEndpoint(apiKey)}";
-fetch(FEATURES_ENDPOINT)
-  .then((res) => res.json())
-  .then((json) => {
-    growthbook.setFeatures(json.features);
-  })
-  .catch(() => {
-    console.log("Failed to fetch feature definitions from GrowthBook");
-  });
-
-// TODO: replace with real targeting attributes
-growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
-
-// Use a feature!
-if (growthbook.isOn(${JSON.stringify(featureId)})) {
-  // ...
-}
-`.trim()}
-          />
-        </Tab>
-        <Tab display="React" id="tsx">
-          <p>
-            Read the <DocLink docSection="tsx">full React docs</DocLink> for
-            more details.
-          </p>
-          <Code
-            language="sh"
-            code="npm i --save @growthbook/growthbook-react"
-          />
-          <Code
-            language="tsx"
-            code={`
-import { GrowthBook, GrowthBookProvider, useFeature } from "@growthbook/growthbook-react";
-import { useEffect } from "react";
-
-// Create a GrowthBook instance
-const growthbook = new GrowthBook({
-  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
-  enableDevMode: true,
-  trackingCallback: (experiment, result) => {
-    ${indentLines(
-      getTrackingCallback(
-        state.tracking,
-        state.gaDimension + "",
-        "experiment.key",
-        "result.variationId"
-      ),
-      4
-    )}
-  }
-});
-
-export default function MyApp() {
-  useEffect(() => {
-    // Load feature definitions from API${
-      isCloud()
-        ? ""
-        : `\n    // In production, we recommend putting a CDN in front of the API endpoint`
-    }
-    fetch("${getSDKEndpoint(apiKey)}")
-      .then((res) => res.json())
-      .then((json) => {
-        growthbook.setFeatures(json.features);
-      });
-
-    // TODO: replace with real targeting attributes
-    growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 4)})
-  }, [])
-
-  return (
-    <GrowthBookProvider growthbook={growthbook}>
-      <MyComponent/>
-    </GrowthBookProvider>
-  )
-}
-
-// Use a feature!
-function MyComponent() {
-  const feature = useFeature(${JSON.stringify(featureId)})
-  return feature.on ? "New version" : "Old version"
-}
-            `.trim()}
-          />
-        </Tab>
-        <Tab display="Kotlin (Android)" id="kotlin">
-          <p>
-            Read the{" "}
-            <DocLink docSection="kotlin">
-              full Kotlin (Android) SDK docs
-            </DocLink>{" "}
-            for more details.
-          </p>
-          <Code
-            language="javascript"
-            filename="build.gradle"
-            code={`repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.+'
-}`}
-          />
-          <Code
-            language="kotlin"
-            code={`
-import com.sdk.growthbook.GBSDKBuilder
-
-// TODO: Real user attributes
-val attrs = HashMap<String, Any>()
-${Object.keys(exampleAttributes)
-  .map((k) => {
-    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
-  })
-  .join("\n")}
-
-val gb = GBSDKBuilder(
-  // Fetch and cache feature definitions from GrowthBook API${
-    !isCloud() ? "\n  // We recommend using a CDN in production" : ""
-  }
-  apiKey = "${apiKey || "MY_SDK_KEY"}",
-  hostURL = "${getApiBaseUrl()}",
-  attributes = attrs,
-  trackingCallback = { gbExperiment, gbExperimentResult ->
-    // TODO: track in your analytics system
-  }
-).initialize()
-
-if (gb.feature(${JSON.stringify(featureId)}).on) {
-  // Feature is enabled!
-}
-            `.trim()}
-          />
-        </Tab>
-        <Tab display="Swift (iOS)" id="swift">
-          <p>
-            View the{" "}
-            <a
-              href="https://github.com/growthbook/growthbook-swift"
-              target="_blank"
-              rel="noreferrer"
+        <div
+          className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
+          style={{ top: 0, zIndex: 999 }}
+        >
+          <div className="row">
+            {connections?.length > 1 && allowChangingConnection && (
+              <div className="col-auto">
+                <SelectField
+                  label="SDK Connection"
+                  labelClassName="font-weight-bold small text-dark"
+                  options={connections.map((connection) => ({
+                    value: connection.id,
+                    label: connection.name,
+                  }))}
+                  value={currentConnection?.id}
+                  onChange={(id) => {
+                    setCurrentConnectionId(id);
+                  }}
+                />
+              </div>
+            )}
+            <div className="col">
+              <SDKLanguageSelector
+                value={[language]}
+                setValue={([language]) => {
+                  setLanguage(language);
+                }}
+                multiple={false}
+                includeOther={false}
+                limitLanguages={currentConnection.languages}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="px-3">
+          {language === "other" ? (
+            <div className="mb-4">
+              <p>
+                We don&apos;t have an SDK for your language yet, but we do have
+                extensive documentation if you want to build your own and
+                contribute it back to the community!{" "}
+              </p>
+              <DocLink
+                docSection="buildYourOwn"
+                className="btn btn-outline-primary"
+              >
+                View Documentation
+              </DocLink>
+            </div>
+          ) : (
+            <p>
+              Below is some starter code to integrate GrowthBook into your app.
+              Read the <DocLink docSection={docs}>{label} docs</DocLink> for
+              more details.
+            </p>
+          )}
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setConfigOpen(!configOpen);
+              }}
             >
-              GitHub repo
-            </a>{" "}
-            for more details.
-          </p>
-          <div className="mb-3">
-            <strong>Cocoapods Installation</strong>
-            <Code
-              language="javascript"
-              filename="Podfile"
-              code={`
-source 'https://github.com/CocoaPods/Specs.git'
-
-target 'MyApp' do
-  pod 'GrowthBook-IOS'
-end
-          `.trim()}
-            />
-            <Code language="sh" code={"pod install"} />
+              {label} Config Settings{" "}
+              {configOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {configOpen && (
+              <div className="appbox bg-light p-3">
+                <table className="gbtable table table-bordered table-sm">
+                  <tbody>
+                    {usesEntireEndpoint ? (
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          Features Endpoint
+                        </th>
+                        <td>
+                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        <tr>
+                          <th
+                            className="pl-3"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            API Host
+                          </th>
+                          <td>
+                            <ClickToCopy>{apiHost}</ClickToCopy>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th
+                            className="pl-3"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            Client Key
+                          </th>
+                          <td>
+                            <ClickToCopy>{clientKey}</ClickToCopy>
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                    {encryptionKey && (
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          Encryption Key
+                        </th>
+                        <td>
+                          <ClickToCopy>{encryptionKey}</ClickToCopy>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          <div className="mb-3">
-            <strong>Swift Package Manager (SPM) Installation</strong>
-            <Code
-              language="swift"
-              filename="Package.swift"
-              code={`
-dependencies: [
-  .package(url: "https://github.com/growthbook/growthbook-swift.git")
-]
-            `.trim()}
-            />
-          </div>
-          <strong>Usage Instructions</strong>
-          <Code
-            language="swift"
-            code={`
-// TODO: Real user attributes
-var attrs = ${swiftArrayFormat(exampleAttributes)}
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setInstallationOpen(!installationOpen);
+                }}
+              >
+                Installation{" "}
+                {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {installationOpen && (
+                <div className="appbox bg-light p-3">
+                  <InstallationCodeSnippet language={language} />
+                </div>
+              )}
+            </div>
+          )}
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSetupOpen(!setupOpen);
+                }}
+              >
+                Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {setupOpen && (
+                <div className="appbox bg-light p-3">
+                  <GrowthBookSetupCodeSnippet
+                    language={language}
+                    apiHost={apiHost}
+                    apiKey={clientKey}
+                    encryptionKey={encryptionKey}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
-// Fetch and cache feature definitions from GrowthBook API${
-              !isCloud() ? "\n// We recommend using a CDN in production" : ""
-            }
-var gb: GrowthBookSDK = GrowthBookBuilder(
-  url: "${getSDKEndpoint(apiKey)}",
-  attributes: attrs,
-  trackingCallback: { experiment, experimentResult in 
-    // TODO: track in your analytics system
-  }
-).initializer()
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAttributesOpen(!attributesOpen);
+                }}
+              >
+                Targeting Attributes (Optional){" "}
+                {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {attributesOpen && (
+                <div className="appbox bg-light p-3">
+                  Replace the placeholders with your real targeting attribute
+                  values. This enables you to target feature flags based on user
+                  attributes.
+                  <TargetingAttributeCodeSnippet language={language} />
+                </div>
+              )}
+            </div>
+          )}
 
-if (gb.isOn(${JSON.stringify(featureId)})) {
-  // Feature is enabled!
-}
-          `.trim()}
-          />
-        </Tab>
-        <Tab display="Go" id="go">
-          <p>
-            Read the <DocLink docSection="go">full Golang SDK docs</DocLink> for
-            more details.
-          </p>
-          <Code
-            language="sh"
-            code="go get github.com/growthbook/growthbook-golang"
-          />
-          <Code
-            language="go"
-            code={`
-package main
-
-import (
-	"encoding/json"
-	"fmt"
-	growthbook "github.com/growthbook/growthbook-golang"
-	"io"
-	"log"
-	"net/http"
-)
-
-// Features API response
-type GrowthBookApiResp struct {
-	Features json.RawMessage
-	Status   int
-}
-
-func GetFeatureMap() []byte {
-	// Fetch features JSON from api
-	// In production, we recommend adding a db or cache layer
-	resp, err := http.Get("${getSDKEndpoint(apiKey)}")
-	if err != nil {
-		log.Println(err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	// Just return the features map from the API response
-	apiResp := &GrowthBookApiResp{}
-	_ = json.Unmarshal(body, apiResp)
-	return apiResp.Features
-}
-
-func main() {
-	featureMap := GetFeatureMap()
-	features := growthbook.ParseFeatureMap(featureMap)
-
-	context := growthbook.NewContext().
-		WithFeatures(features).
-		// TODO: Real user attributes
-		WithAttributes(growthbook.Attributes${indentLines(
-      JSON.stringify(exampleAttributes, null, "\t"),
-      "\t\t"
-    )
-      .replace(/null/g, "nil")
-      .replace(/\n(\t+)\}/, ",\n$1}")}).
-		// TODO: Track in your analytics system
-		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
-			log.Println("Experiment:", experiment.Key, "Variation:", result.VariationID)
-		})
-	gb := growthbook.New(context)
-
-	// Use a feature!
-	if gb.Feature(${JSON.stringify(featureId)}).On {
-		// ...
-	}
-}
-            `.trim()}
-          />
-        </Tab>
-        <Tab display="Ruby" id="ruby">
-          <p>
-            Read the <DocLink docSection="ruby">full Ruby SDK docs</DocLink> for
-            more details.
-          </p>
-          <Code language="sh" code={`gem install growthbook`} />
-          <Code
-            language="ruby"
-            code={`
-require 'growthbook'
-require 'uri'
-require 'net/http'
-require 'json'
-
-# Fetch features from GrowthBook API
-# TODO: In production, we recommend adding a caching layer (Redis, etc.)
-uri = URI('${getSDKEndpoint(apiKey)}')
-res = Net::HTTP.get_response(uri)
-features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
-
-# Tracking callback when users are put into an experiment
-class MyImpressionListener
-  def on_experiment_viewed(experiment, result)
-    puts "Assigned variation #{result.variation_id} in experiment #{experiment.key}"
-  end
-end
-
-# Create a context for the current user/request
-gb = Growthbook::Context.new(
-  features: features,
-  # TODO: Real user attributes for targeting
-  attributes: ${indentLines(stringify(exampleAttributes), 4).replace(
-    /: null/g,
-    ": nil"
-  )},
-  listener: MyImpressionListener.new
-)
-
-if gb.on? ${rubySymbol(featureId)}
-  puts 'My feature is on!'
-end
-            `.trim()}
-          />
-        </Tab>
-        <Tab display="PHP" id="php">
-          <p>
-            Read the <DocLink docSection="php">full PHP SDK docs</DocLink> for
-            more details.
-          </p>
-          <Code language="sh" code={`composer require growthbook/growthbook`} />
-          <Code
-            language="php"
-            code={`
-use Growthbook\\Growthbook;
-
-// TODO: Real user attributes
-$attributes = ${phpArrayFormat(exampleAttributes)};
-
-// Fetch feature definitions from GrowthBook API
-// In production, we recommend adding a db or cache layer
-const FEATURES_ENDPOINT = '${getSDKEndpoint(apiKey)}';
-$apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
-$features = $apiResponse["features"];
-
-// Create a GrowthBook instance
-$growthbook = Growthbook::create()
-  ->withAttributes($attributes)
-  ->withFeatures($features)
-  ->withTrackingCallback(function ($experiment, $result) {
-    // TODO: track in your analytics system
-  });
-
-if ($growthbook->isOn(${JSON.stringify(featureId)})) {
-  // Feature is enabled!
-}
-            `.trim()}
-          />
-        </Tab>
-        <Tab display="Python" id="python">
-          <p>
-            Read the <DocLink docSection="python">full Python SDK docs</DocLink>{" "}
-            for more details.
-          </p>
-          <Code language="sh" code={`pip install growthbook`} />
-          <Code
-            language="python"
-            code={`
-import requests
-from growthbook import GrowthBook
-
-# Fetch feature definitions from GrowthBook API
-# In production, we recommend adding a db or cache layer
-apiResp = requests.get("${getSDKEndpoint(apiKey)}")
-features = apiResp.json()["features"]
-
-# TODO: Real user attributes
-attributes = ${stringify(exampleAttributes)
-              .replace(/: true/g, ": True")
-              .replace(/: false/g, ": False")
-              .replace(/: null/g, ": None")}
-
-# Tracking callback when someone is put in an experiment
-def on_experiment_viewed(experiment, result):
-  # Use whatever event tracking system you want
-  print({
-    'experimentId': experiment.key,
-    'variationId': result.variationId
-  })
-
-# Create a GrowthBook instance
-gb = GrowthBook(
-  attributes = attributes,
-  features = features,
-  trackingCallback = on_experiment_viewed
-)
-
-# Use a feature
-if gb.isOn(${JSON.stringify(featureId)}):
-  print("Feature is enabled!")
-            `.trim()}
-          />
-        </Tab>
-        <Tab display="Java" id="java">
-          <p>
-            Read the <DocLink docSection="java">full Java SDK docs</DocLink> for
-            more details.
-          </p>
-          <strong>Maven Installation</strong>
-          <Code
-            language="xml"
-            code={`<repositories>
-  <repository>
-    <id>jitpack.io</id>
-    <url>https://jitpack.io</url>
-  </repository>
-</repositories>
-
-<dependency>
-  <groupId>com.github.growthbook</groupId>
-  <artifactId>growthbook-sdk-java</artifactId>
-  <version>0.2.2</version>
-</dependency>`}
-          />
-          <strong>Gradle Installation</strong>
-          <Code
-            language="javascript"
-            filename="build.gradle"
-            code={`allprojects {
-    repositories {
-        maven { url 'https://jitpack.io' }
-    }
-}
-dependencies {
-    implementation 'com.github.growthbook:growthbook-sdk-java:0.2.2'
-}`}
-          />
-          <strong>Usage Instructions</strong>
-          <Code
-            language="java"
-            code={`
-// Fetch feature definitions from GrowthBook API
-// We recommend adding a caching layer in production
-URI featuresEndpoint = new URI("${getSDKEndpoint(apiKey)}");
-HttpRequest request = HttpRequest.newBuilder().uri(featuresEndpoint).GET().build();
-HttpResponse<String> response = HttpClient.newBuilder().build()
-    .send(request, HttpResponse.BodyHandlers.ofString());
-String featuresJson = new JSONObject(response.body()).get("features").toString();
-
-// Get user attributes as a JSON string
-JSONObject userAttributesObj = new JSONObject();
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
-      value
-    )});`;
-  })
-  .join("\n")}
-String userAttributesJson = userAttributesObj.toString();
-
-// Experiment tracking callback
-TrackingCallback trackingCallback = new TrackingCallback() {
-  public <ValueType> void onTrack(
-      Experiment<ValueType> experiment,
-      ExperimentResult<ValueType> experimentResult
-  ) {
-      // TODO: Log to event tracking system
-  }
-};
-
-// Create a GrowthBook instance
-GBContext context = GBContext.builder()
-    .featuresJson(featuresJson)
-    .attributesJson(userAttributesJson)
-    .trackingCallback(trackingCallback)
-    .build();
-GrowthBook growthBook = new GrowthBook(context);
-
-// Evaluate a feature flag
-if (growthBook.isOn(${JSON.stringify(featureId)})) {
-  // Do something!
-}
-            `.trim()}
-          />
-        </Tab>
-      </ControlledTabs>
-    </Modal>
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setUsageOpen(!usageOpen);
+                }}
+              >
+                Usage {usageOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {usageOpen && (
+                <div className="appbox bg-light p-3">
+                  {(!feature || feature?.valueType === "boolean") && (
+                    <>
+                      On/Off feature:
+                      <BooleanFeatureCodeSnippet
+                        language={language}
+                        featureId={feature?.id || "my-feature"}
+                      />
+                    </>
+                  )}
+                  {(!feature || feature?.valueType !== "boolean") && (
+                    <>
+                      {feature?.valueType || "String"} feature:
+                      <MultivariateFeatureCodeSnippet
+                        valueType={feature?.valueType || "string"}
+                        language={language}
+                        featureId={feature?.id || "my-feature"}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Modal>
+    </>
   );
 }

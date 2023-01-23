@@ -11,7 +11,7 @@ import Tooltip from "../Tooltip/Tooltip";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "../Settings/ClickToReveal";
 import ClickToCopy from "../Settings/ClickToCopy";
-import { getSDKEndpoint } from "./CodeSnippetModal";
+import { getApiBaseUrl } from "./CodeSnippetModal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -42,7 +42,7 @@ const SDKEndpoints: FC<{
   });
 
   return (
-    <div className="mt-4">
+    <div>
       {open && canManageKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}
@@ -71,8 +71,7 @@ const SDKEndpoints: FC<{
           <tbody>
             {publishableKeys.map((key) => {
               const env = key.environment ?? "production";
-              const endpoint = getSDKEndpoint(key.key);
-
+              const endpoint = getApiBaseUrl() + "/api/features/" + key.key;
               const envExists = environments?.some((e) => e.id === env);
 
               return (
@@ -100,9 +99,7 @@ const SDKEndpoints: FC<{
                   </td>
                   <td>{key.description}</td>
                   <td>
-                    <ClickToCopy valueToCopy={endpoint}>
-                      <span style={{ wordBreak: "break-all" }}>{endpoint}</span>
-                    </ClickToCopy>
+                    <ClickToCopy>{endpoint}</ClickToCopy>
                   </td>
                   <td style={{ width: 295 }}>
                     {canManageKeys && key.encryptSDK ? (

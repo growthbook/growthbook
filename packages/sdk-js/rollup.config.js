@@ -12,6 +12,11 @@ const terserSettings = terser({
     pure_getters: true,
     passes: 10,
   },
+  mangle: {
+    properties: {
+      regex: /^_/,
+    },
+  },
   ecma: 5,
 });
 

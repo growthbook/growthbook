@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useFeature } from "@growthbook/growthbook-react";
 import { FaPencilAlt } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
@@ -50,8 +49,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const permissions = usePermissions();
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-
-  const setStatsEngineEnabled = useFeature("stats-engine-setting").on;
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
@@ -574,23 +571,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   )}
                 </div>
 
-                {setStatsEngineEnabled && (
-                  <Field
-                    label="Statistics Engine"
-                    className="ml-2"
-                    options={[
-                      {
-                        display: "Bayesian",
-                        value: "bayesian",
-                      },
-                      {
-                        display: "Frequentist",
-                        value: "frequentist",
-                      },
-                    ]}
-                    {...form.register("statsEngine")}
-                  />
-                )}
+                <Field
+                  label="Statistics Engine"
+                  className="ml-2"
+                  options={[
+                    {
+                      display: "Bayesian",
+                      value: "bayesian",
+                    },
+                    {
+                      display: "Frequentist",
+                      value: "frequentist",
+                    },
+                  ]}
+                  {...form.register("statsEngine")}
+                />
               </div>
             </div>
 
