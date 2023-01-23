@@ -111,11 +111,7 @@ const sidebars = {
         { type: "doc", id: "lib/go", label: "Go" },
         { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
         { type: "doc", id: "lib/flutter", label: "Flutter" },
-        {
-          type: "link",
-          label: "Swift (iOS)",
-          href: "https://github.com/growthbook/growthbook-swift",
-        },
+        { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },
