@@ -59,7 +59,7 @@ CREATE TABLE sessions (
 
 
 
-\copy orders from '/tmp/csv/purchases.csv' WITH DELIMITER ',' CSV HEADER;
+\copy orders from '/tmp/csv/purchases.csv' WITH DELIMITER ',' CSV HEADER NULL AS '\N';
 \copy sessions from '/tmp/csv/sessions.csv' WITH DELIMITER ',' CSV HEADER;
 \copy events from '/tmp/csv/events.csv' WITH DELIMITER ',' CSV HEADER;
 \copy experiment_viewed from '/tmp/csv/experimentViews.csv' WITH DELIMITER ',' CSV HEADER;

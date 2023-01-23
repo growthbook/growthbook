@@ -3,12 +3,10 @@ import {
   CacheSettings,
   ClientKey,
   FeatureApiResponse,
-  LoadFeaturesOptions,
   Polyfills,
-  RefreshFeaturesOptions,
   RepositoryKey,
 } from "./types/growthbook";
-import type { Context, GrowthBook } from ".";
+import type { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -65,68 +63,28 @@ export async function clearCache(): Promise<void> {
   await updatePersistentCache();
 }
 
-export async function fetchFeaturesWithCache(
-  instance: GrowthBook,
-  allowStale?: boolean,
-  timeout?: number,
-  skipCache?: boolean
-): Promise<FeatureApiResponse | null> {
-  const [key, apiHost, clientKey, enableDevMode] = getKey(instance);
-  if (!clientKey) return null;
-  const now = new Date();
-  await initializeCache();
-  const existing = cache.get(key);
-  if (
-    existing &&
-    !enableDevMode &&
-    !skipCache &&
-    (allowStale || existing.staleAt > now)
-  ) {
-    // Reload features in the backgroud if stale
-    if (existing.staleAt < now) {
-      fetchFeatures(instance, apiHost, clientKey);
-    }
-    // Otherwise, if we don't need to refresh now, start a background sync
-    else {
-      startAutoRefresh(instance, apiHost, clientKey, key);
-    }
-    return existing.data;
-  } else {
-    const data = await promiseTimeout(
-      fetchFeatures(instance, apiHost, clientKey),
-      timeout
-    );
-    return data;
-  }
-}
-
 export async function refreshFeatures(
   instance: GrowthBook,
-  options?: RefreshFeaturesOptions
+  timeout?: number,
+  skipCache?: boolean,
+  allowStale?: boolean,
+  updateInstance?: boolean
 ): Promise<void> {
-  options = options || {};
   const data = await fetchFeaturesWithCache(
     instance,
-    false,
-    options.timeout,
-    options.skipCache
+    allowStale,
+    timeout,
+    skipCache
   );
-  data && (await setFeaturesOnInstance(instance, data));
+  updateInstance && data && (await setFeaturesOnInstance(instance, data));
 }
 
-export async function loadFeatures(
-  instance: GrowthBook,
-  options?: LoadFeaturesOptions
-): Promise<void> {
-  options = options || {};
-  // Fetch features with an optional timeout
-  const data = await fetchFeaturesWithCache(instance, true, options.timeout);
-  if (data) {
-    await setFeaturesOnInstance(instance, data);
-  }
-  if (options.autoRefresh) {
-    subscribe(instance);
-  }
+// Subscribe a GrowthBook instance to feature changes
+export function subscribe(instance: GrowthBook): void {
+  const [key] = getKey(instance);
+  const subs = subscribedInstances.get(key) || new Set();
+  subs.add(instance);
+  subscribedInstances.set(key, subs);
 }
 export function unsubscribe(instance: GrowthBook): void {
   subscribedInstances.forEach((s) => s.delete(instance));
@@ -144,19 +102,35 @@ async function updatePersistentCache() {
   }
 }
 
-function getKey(
-  instance: GrowthBook
-): [RepositoryKey, ApiHost, ClientKey, boolean] {
-  // eslint-disable-next-line
-  const ctx = (instance as any).context as Context;
-  const apiHost = ctx.apiHost || "";
-  const clientKey = ctx.clientKey || "";
-  return [
-    `${apiHost}||${clientKey}`,
-    apiHost.replace(/\/*$/, ""),
-    clientKey,
-    !!ctx.enableDevMode,
-  ];
+async function fetchFeaturesWithCache(
+  instance: GrowthBook,
+  allowStale?: boolean,
+  timeout?: number,
+  skipCache?: boolean
+): Promise<FeatureApiResponse | null> {
+  const [key] = getKey(instance);
+  const now = new Date();
+  await initializeCache();
+  const existing = cache.get(key);
+  if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+    // Reload features in the backgroud if stale
+    if (existing.staleAt < now) {
+      fetchFeatures(instance);
+    }
+    // Otherwise, if we don't need to refresh now, start a background sync
+    else {
+      startAutoRefresh(instance);
+    }
+    return existing.data;
+  } else {
+    const data = await promiseTimeout(fetchFeatures(instance), timeout);
+    return data;
+  }
+}
+
+function getKey(instance: GrowthBook): [RepositoryKey, ApiHost, ClientKey] {
+  const [apiHost, clientKey] = instance.getApiInfo();
+  return [`${apiHost}||${clientKey}`, apiHost, clientKey];
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -168,12 +142,11 @@ function promiseTimeout<T>(
 ): Promise<T | null> {
   return new Promise((resolve) => {
     let resolved = false;
-    // eslint-disable-next-line
-    let timer: any;
+    let timer: unknown;
     const finish = (data?: T) => {
       if (resolved) return;
       resolved = true;
-      timer && clearTimeout(timer);
+      timer && clearTimeout(timer as NodeJS.Timer);
       resolve(data || null);
     };
 
@@ -183,14 +156,6 @@ function promiseTimeout<T>(
 
     promise.then((data) => finish(data)).catch(() => finish());
   });
-}
-
-// Subscribe a GrowthBook instance to feature changes
-function subscribe(instance: GrowthBook): void {
-  const [key] = getKey(instance);
-  const subs = subscribedInstances.get(key) || new Set();
-  subs.add(instance);
-  subscribedInstances.set(key, subs);
 }
 
 // Populate cache from localStorage (if available)
@@ -255,15 +220,13 @@ async function setFeaturesOnInstance(
         undefined,
         polyfills.SubtleCrypto
       )
-    : instance.setFeatures(data.features));
+    : instance.setFeatures(data.features || instance.getFeatures()));
 }
 
 async function fetchFeatures(
-  instance: GrowthBook,
-  apiHost: ApiHost,
-  clientKey: ClientKey
+  instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const key: RepositoryKey = `${apiHost}||${clientKey}`;
+  const [key, apiHost, clientKey] = getKey(instance);
   const endpoint = apiHost + "/api/features/" + clientKey;
 
   let promise = activeFetches.get(key);
@@ -278,7 +241,7 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        startAutoRefresh(instance, apiHost, clientKey, key);
+        startAutoRefresh(instance);
         activeFetches.delete(key);
         return data;
       })
@@ -290,7 +253,7 @@ async function fetchFeatures(
             error: e ? e.message : null,
           });
         activeFetches.delete(key);
-        return Promise.resolve({ features: {} });
+        return Promise.resolve({});
       });
     activeFetches.set(key, promise);
   }
@@ -299,12 +262,8 @@ async function fetchFeatures(
 
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(
-  instance: GrowthBook,
-  apiHost: ApiHost,
-  clientKey: ClientKey,
-  key: RepositoryKey
-) {
+function startAutoRefresh(instance: GrowthBook) {
+  const [key, apiHost, clientKey] = getKey(instance);
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&
@@ -326,7 +285,7 @@ function startAutoRefresh(
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(key, channel);
+          onSSEError(channel, key);
         }
       },
       errors: 0,
@@ -335,12 +294,12 @@ function startAutoRefresh(
     channel.src.addEventListener("features", channel.cb);
 
     channel.src.onerror = () => {
-      onSSEError(key, channel);
+      onSSEError(channel, key);
     };
   }
 }
 
-function onSSEError(key: RepositoryKey, channel: ScopedChannel) {
+function onSSEError(channel: ScopedChannel, key: RepositoryKey) {
   channel.errors++;
   if (channel.errors > 3 || channel.src.readyState === 2) {
     destroyChannel(channel, key);

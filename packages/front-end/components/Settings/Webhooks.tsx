@@ -154,7 +154,7 @@ const Webhooks: FC = () => {
           setOpen({});
         }}
       >
-        <FaBolt /> Create an SDK Endpoint Webhook
+        <FaBolt /> Create New SDK Webhook
       </button>
     </div>
   );

@@ -6,10 +6,10 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import CodeSnippetModal from "../Features/CodeSnippetModal";
 import EditAttributesModal from "../Features/EditAttributesModal";
 import FeatureModal from "../Features/FeatureModal";
 import { DocLink } from "../DocLink";
+import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 
@@ -52,7 +52,10 @@ export default function FeaturesGetStarted({ features }: Props) {
         <EditAttributesModal close={() => setAttributeModalOpen(false)} />
       )}
       {codeModalOpen && (
-        <CodeSnippetModal close={() => setCodeModalOpen(false)} />
+        <InitialSDKConnectionForm
+          close={() => setCodeModalOpen(false)}
+          feature={features[0]}
+        />
       )}
       <div className="row getstarted mb-3">
         <div className="col-12 col-lg-8 ">
