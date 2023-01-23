@@ -42,12 +42,12 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be available
-await gb.loadFeatures();
+await gb.loadFeatures({ autoRefresh: true });
 
 const color = gb.getFeatureValue("button-color");
 ```
 
-#### Node.js Configuration
+#### Node.js
 
 If using this SDK in a server-side environment, you may need to configure some polyfills for missing browser APIs.
 
@@ -67,6 +67,39 @@ setPolyfills({
     getItem: (key) => redisClient.get(key),
     setItem: (key, value) => redisClient.set(key, value),
   }
+})
+```
+
+It's also recommended to create a separate GrowthBook instance in a middleware for every request:
+
+```js
+app.use(function(req, res, next) {
+  // Create a GrowthBook Context
+  req.growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+  });
+
+  // Clean up at the end of the request
+  res.on('close', () => req.growthbook.destroy());
+
+  // Wait for features to load (will be cached in-memory for future requests)
+  req.growthbook.loadFeatures()
+    .then(() => next())
+    .catch((e) => {
+      console.error("Failed to load features from GrowthBook", e);
+      next();
+    })
+})
+```
+
+Then, you can access the GrowthBook instance from any route:
+
+```js
+app.get("/", (req, res) => {
+  const gb = req.growthbook;
+  // ...
 })
 ```
 
