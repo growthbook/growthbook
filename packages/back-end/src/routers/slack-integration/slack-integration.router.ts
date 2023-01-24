@@ -38,7 +38,10 @@ router.post(
         tags: z.array(z.string()),
         slackAppId: z.string(),
         slackSigningKey: z.string(),
-        slackIncomingWebHook: z.string().url(),
+        slackIncomingWebHook: z
+          .string()
+          .url()
+          .startsWith("https://hooks.slack.com/services/"),
       })
       .strict(),
   }),
@@ -63,7 +66,10 @@ router.put(
         tags: z.array(z.string()),
         slackAppId: z.string(),
         slackSigningKey: z.string(),
-        slackIncomingWebHook: z.string().url(),
+        slackIncomingWebHook: z
+          .string()
+          .url()
+          .startsWith("https://hooks.slack.com/services/"),
       })
       .strict(),
   }),
