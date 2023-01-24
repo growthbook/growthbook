@@ -1,6 +1,7 @@
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import uniqBy from "lodash/uniqBy";
+import each from "lodash/each";
 import cloneDeep from "lodash/cloneDeep";
 import cronParser from "cron-parser";
 import {
@@ -167,25 +168,81 @@ export async function getExperimentsByMetric(
 
 export async function removeMetricFromExperiments(
   metricId: string,
-  orgId: string
+  organization: OrganizationInterface
 ) {
+  const oldExperiments: Record<
+    string,
+    {
+      previous: ExperimentInterface | null;
+      current: ExperimentInterface | null;
+    }
+  > = {};
+
+  const orgId = organization.id;
+
+  const addExperimentToOldExperiments = (experiment: ExperimentDocument) => {
+    if (!oldExperiments[experiment.id]) {
+      oldExperiments[experiment.id] = { previous: experiment, current: null };
+    }
+  };
+
   // Remove from metrics
-  await ExperimentModel.updateMany(
-    { organization: orgId, metrics: metricId },
-    { $pull: { metrics: metricId } }
+  const metricQuery = { organization: orgId, metrics: metricId };
+  // Save previous state for experiment updates
+  (await ExperimentModel.find(metricQuery)).forEach(
+    addExperimentToOldExperiments
   );
+  // Update records for metric change
+  await ExperimentModel.updateMany(metricQuery, {
+    $pull: { metrics: metricId },
+  });
 
   // Remove from guardrails
-  await ExperimentModel.updateMany(
-    { organization: orgId, guardrails: metricId },
-    { $pull: { guardrails: metricId } }
+  const guardRailsQuery = { organization: orgId, guardrails: metricId };
+  // Save previous state for experiment updates
+  (await ExperimentModel.find(guardRailsQuery)).forEach(
+    addExperimentToOldExperiments
   );
+  // Update records for guardrails change
+  await ExperimentModel.updateMany(guardRailsQuery, {
+    $pull: { guardrails: metricId },
+  });
 
   // Remove from activationMetric
-  await ExperimentModel.updateMany(
-    { organization: orgId, activationMetric: metricId },
-    { $set: { activationMetric: "" } }
+  const activationMetricQuery = {
+    organization: orgId,
+    activationMetric: metricId,
+  };
+  // Save previous state for experiment updates
+  (await ExperimentModel.find(activationMetricQuery)).forEach(
+    addExperimentToOldExperiments
   );
+  // Update records for activation metric query changes
+  await ExperimentModel.updateMany(activationMetricQuery, {
+    $set: { activationMetric: "" },
+  });
+
+  const ids = Object.keys(oldExperiments);
+  const updatedExperiments = await ExperimentModel.find({ id: { $in: ids } });
+  // Populate updated experiments
+  updatedExperiments.forEach((experiment) => {
+    const changeSet = oldExperiments[experiment.id];
+    if (changeSet) {
+      changeSet.current = experiment;
+    }
+  });
+
+  // Log all the changes
+  each(oldExperiments, async (changeSet) => {
+    const { previous, current } = changeSet;
+    if (current && previous) {
+      await logExperimentUpdated({
+        organization,
+        current,
+        previous,
+      });
+    }
+  });
 }
 
 export async function removeProjectFromExperiments(
