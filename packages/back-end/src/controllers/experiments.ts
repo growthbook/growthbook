@@ -1768,17 +1768,6 @@ export async function getPastExperimentsList(
     throw new Error("Invalid import id");
   }
 
-  // const experiments = await getExperimentsByQuery(
-  //   {
-  //     organization: org.id,
-  //     datasource: model.datasource,
-  //   },
-  //   {
-  //     _id: false,
-  //     id: true,
-  //     trackingKey: true,
-  //   }
-  // );
   const experiments = await getPastExperimentsByDatasource(
     org.id,
     model.datasource

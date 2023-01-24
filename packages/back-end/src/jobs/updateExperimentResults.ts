@@ -114,7 +114,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     experimentId,
   });
 
-  const experiment = await getExperimentById(organization, experimentId); //MKTODO: Need to figure out how to access org here
+  const experiment = await getExperimentById(organization, experimentId);
   if (!experiment) return;
 
   let lastSnapshot: ExperimentSnapshotDocument;
