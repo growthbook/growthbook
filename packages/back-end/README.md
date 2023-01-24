@@ -139,6 +139,8 @@ We have a sample data generator script you can use to seed a database with reali
 
 We have SQL scripts set up to work with both Postgres and MySQL, but you could modify the SQL scripts to work with another system.
 
+WARNING: the purchases.csv file contains `'\N'` to represent null values which may need to be handled differently depending on the DB engine you are using. It works with both provided scripts for Postgres and MySQL.
+
 **Postgres**
 
 For postgres, launch your connection using `psql` and run this script `packages/back-end/test/data-generator/sql_scripts/create_postgres.sql` to create the tables and upload the csvs.

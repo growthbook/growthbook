@@ -1,7 +1,7 @@
 import { ReactNode, FC, ReactElement } from "react";
 
 const Tab: FC<{
-  display: string;
+  display: ReactNode;
   id?: string;
   count?: number;
   anchor?: string;

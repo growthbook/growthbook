@@ -12,6 +12,8 @@ import type {
   RealtimeUsageData,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
+  ApiHost,
+  ClientKey,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -24,12 +26,7 @@ import {
   inNamespace,
 } from "./util";
 import { evalCondition } from "./mongrule";
-import {
-  loadFeatures,
-  fetchFeaturesWithCache,
-  refreshFeatures,
-  unsubscribe,
-} from "./feature-repository";
+import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -38,16 +35,21 @@ const base64ToBuf = (b: string) =>
   Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
 export class GrowthBook {
+  // context is technically private, but some tools depend on it so we can't mangle the name
+  // _ctx below is a clone of this property that we use internally
   private context: Context;
-  private _renderer: null | (() => void) = null;
-  private _trackedExperiments = new Set();
-  private _trackedFeatures: Record<string, string> = {};
-  public debug = false;
-  private subscriptions = new Set<SubscriptionFunction>();
-  private _rtQueue: RealtimeUsageData[] = [];
-  private _rtTimer = 0;
-  public ready = false;
-  private assigned = new Map<
+  public debug: boolean;
+  public ready: boolean;
+
+  // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
+  private _ctx: Context;
+  private _renderer: null | (() => void);
+  private _trackedExperiments: Set<unknown>;
+  private _trackedFeatures: Record<string, string>;
+  private _subscriptions: Set<SubscriptionFunction>;
+  private _rtQueue: RealtimeUsageData[];
+  private _rtTimer: number;
+  private _assigned: Map<
     string,
     {
       // eslint-disable-next-line
@@ -55,15 +57,29 @@ export class GrowthBook {
       // eslint-disable-next-line
       result: Result<any>;
     }
-  >();
+  >;
   // eslint-disable-next-line
-  private _forcedFeatureValues = new Map<string, any>();
-  private _attributeOverrides: Attributes = {};
+  private _forcedFeatureValues: Map<string, any>;
+  private _attributeOverrides: Attributes;
 
-  constructor(context: Context = {}) {
-    this.context = context;
+  constructor(context?: Context) {
+    context = context || {};
+    // These properties are all initialized in the constructor instead of above
+    // This saves ~80 bytes in the final output
+    this._ctx = this.context = context;
+    this._renderer = null;
+    this._trackedExperiments = new Set();
+    this._trackedFeatures = {};
+    this.debug = false;
+    this._subscriptions = new Set();
+    this._rtQueue = [];
+    this._rtTimer = 0;
+    this.ready = false;
+    this._assigned = new Map();
+    this._forcedFeatureValues = new Map();
+    this._attributeOverrides = {};
 
-    if (this.context.features) {
+    if (context.features) {
       this.ready = true;
     }
 
@@ -72,37 +88,59 @@ export class GrowthBook {
       document.dispatchEvent(new Event("gbloaded"));
     }
 
-    if (this.context.clientKey) {
-      fetchFeaturesWithCache(this, true);
+    if (context.clientKey) {
+      this._refresh({}, true, false);
     }
   }
 
-  public async loadFeatures(options: LoadFeaturesOptions = {}): Promise<void> {
-    if (!this.context.clientKey) {
-      throw new Error("Missing clientKey");
+  public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
+    await this._refresh(options, true, true);
+    if (options && options.autoRefresh) {
+      subscribe(this);
     }
-    await loadFeatures(this, options);
   }
 
   public async refreshFeatures(
-    options: RefreshFeaturesOptions = {}
+    options?: RefreshFeaturesOptions
   ): Promise<void> {
-    if (!this.context.clientKey) {
-      throw new Error("Missing clientKey");
-    }
-    await refreshFeatures(this, options);
+    await this._refresh(options, false, true);
   }
 
-  private render() {
+  public getApiInfo(): [ApiHost, ClientKey] {
+    return [
+      (this._ctx.apiHost || "https://cdn.growthbook.io").replace(/\/*$/, ""),
+      this._ctx.clientKey || "",
+    ];
+  }
+
+  private async _refresh(
+    options?: RefreshFeaturesOptions,
+    allowStale?: boolean,
+    updateInstance?: boolean
+  ) {
+    options = options || {};
+    if (!this._ctx.clientKey) {
+      throw new Error("Missing clientKey");
+    }
+    await refreshFeatures(
+      this,
+      options.timeout,
+      options.skipCache || this._ctx.enableDevMode,
+      allowStale,
+      updateInstance
+    );
+  }
+
+  private _render() {
     if (this._renderer) {
       this._renderer();
     }
   }
 
   public setFeatures(features: Record<string, FeatureDefinition>) {
-    this.context.features = features;
+    this._ctx.features = features;
     this.ready = true;
-    this.render();
+    this._render();
   }
 
   public async setEncryptedFeatures(
@@ -110,7 +148,7 @@ export class GrowthBook {
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    decryptionKey = decryptionKey || this.context.decryptionKey || "";
+    decryptionKey = decryptionKey || this._ctx.decryptionKey || "";
     subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
     if (!subtle) {
       throw new Error("No SubtleCrypto implementation found");
@@ -137,48 +175,48 @@ export class GrowthBook {
   }
 
   public setAttributes(attributes: Attributes) {
-    this.context.attributes = attributes;
-    this.render();
+    this._ctx.attributes = attributes;
+    this._render();
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
-    this.render();
+    this._render();
   }
   public setForcedVariations(vars: Record<string, number>) {
-    this.context.forcedVariations = vars || {};
-    this.render();
+    this._ctx.forcedVariations = vars || {};
+    this._render();
   }
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._forcedFeatureValues = map;
-    this.render();
+    this._render();
   }
 
   public getAttributes() {
-    return { ...this.context.attributes, ...this._attributeOverrides };
+    return { ...this._ctx.attributes, ...this._attributeOverrides };
   }
 
   public getFeatures() {
-    return this.context.features || {};
+    return this._ctx.features || {};
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
-    this.subscriptions.add(cb);
+    this._subscriptions.add(cb);
 
     return () => {
-      this.subscriptions.delete(cb);
+      this._subscriptions.delete(cb);
     };
   }
 
   public getAllResults() {
-    return new Map(this.assigned);
+    return new Map(this._assigned);
   }
 
   public destroy() {
     // Release references to save memory
-    this.subscriptions.clear();
-    this.assigned.clear();
+    this._subscriptions.clear();
+    this._assigned.clear();
     this._trackedExperiments.clear();
     this._trackedFeatures = {};
     this._rtQueue = [];
@@ -197,30 +235,30 @@ export class GrowthBook {
   }
 
   public forceVariation(key: string, variation: number) {
-    this.context.forcedVariations = this.context.forcedVariations || {};
-    this.context.forcedVariations[key] = variation;
-    this.render();
+    this._ctx.forcedVariations = this._ctx.forcedVariations || {};
+    this._ctx.forcedVariations[key] = variation;
+    this._render();
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
     const result = this._run(experiment, null);
-    this.fireSubscriptions(experiment, result);
+    this._fireSubscriptions(experiment, result);
     return result;
   }
 
-  private fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
+  private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
     const key = experiment.key;
 
     // If assigned variation has changed, fire subscriptions
-    const prev = this.assigned.get(key);
+    const prev = this._assigned.get(key);
     // TODO: what if the experiment definition has changed?
     if (
       !prev ||
       prev.result.inExperiment !== result.inExperiment ||
       prev.result.variationId !== result.variationId
     ) {
-      this.assigned.set(key, { experiment, result });
-      this.subscriptions.forEach((cb) => {
+      this._assigned.set(key, { experiment, result });
+      this._subscriptions.forEach((cb) => {
         try {
           cb(experiment, result);
         } catch (e) {
@@ -230,7 +268,7 @@ export class GrowthBook {
     }
   }
 
-  private trackFeatureUsage(key: string, res: FeatureResult): void {
+  private _trackFeatureUsage(key: string, res: FeatureResult): void {
     // Don't track feature usage that was forced via an override
     if (res.source === "override") return;
 
@@ -240,9 +278,9 @@ export class GrowthBook {
     this._trackedFeatures[key] = stringifiedValue;
 
     // Fire user-supplied callback
-    if (this.context.onFeatureUsage) {
+    if (this._ctx.onFeatureUsage) {
       try {
-        this.context.onFeatureUsage(key, res);
+        this._ctx.onFeatureUsage(key, res);
       } catch (e) {
         // Ignore feature usage callback errors
       }
@@ -262,12 +300,12 @@ export class GrowthBook {
         this._rtQueue = [];
 
         // Skip logging if a real-time usage key is not configured
-        if (!this.context.realtimeKey) return;
+        if (!this._ctx.realtimeKey) return;
 
         window
           .fetch(
             `https://rt.growthbook.io/?key=${
-              this.context.realtimeKey
+              this._ctx.realtimeKey
             }&events=${encodeURIComponent(JSON.stringify(q))}`,
 
             {
@@ -278,17 +316,17 @@ export class GrowthBook {
           .catch(() => {
             // TODO: retry in case of network errors?
           });
-      }, this.context.realtimeInterval || 2000);
+      }, this._ctx.realtimeInterval || 2000);
     }
   }
 
-  private getFeatureResult<T>(
+  private _getFeatureResult<T>(
     key: string,
     value: T,
     source: FeatureResultSource,
     ruleId?: string,
-    experiment: Experiment<T> | null = null,
-    result: Result<T> | null = null
+    experiment?: Experiment<T>,
+    result?: Result<T>
   ): FeatureResult<T> {
     const ret: FeatureResult = {
       value,
@@ -301,7 +339,7 @@ export class GrowthBook {
     if (result) ret.experimentResult = result;
 
     // Track the usage of this feature in real-time
-    this.trackFeatureUsage(key, ret);
+    this._trackFeatureUsage(key, ret);
 
     return ret;
   }
@@ -340,7 +378,7 @@ export class GrowthBook {
           id,
           value: this._forcedFeatureValues.get(id),
         });
-      return this.getFeatureResult(
+      return this._getFeatureResult(
         id,
         this._forcedFeatureValues.get(id),
         "override"
@@ -348,20 +386,20 @@ export class GrowthBook {
     }
 
     // Unknown feature id
-    if (!this.context.features || !this.context.features[id]) {
+    if (!this._ctx.features || !this._ctx.features[id]) {
       process.env.NODE_ENV !== "production" &&
         this.log("Unknown feature", { id });
-      return this.getFeatureResult(id, null, "unknownFeature");
+      return this._getFeatureResult(id, null, "unknownFeature");
     }
 
     // Get the feature
-    const feature: FeatureDefinition<T> = this.context.features[id];
+    const feature: FeatureDefinition<T> = this._ctx.features[id];
 
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
         // If it's a conditional rule, skip if the condition doesn't pass
-        if (rule.condition && !this.conditionPasses(rule.condition)) {
+        if (rule.condition && !this._conditionPasses(rule.condition)) {
           process.env.NODE_ENV !== "production" &&
             this.log("Skip rule because of condition", {
               id,
@@ -373,7 +411,7 @@ export class GrowthBook {
         if ("force" in rule) {
           // Skip if coverage is reduced and user not included
           if ("coverage" in rule) {
-            const { hashValue } = this.getHashAttribute(rule.hashAttribute);
+            const { hashValue } = this._getHashAttribute(rule.hashAttribute);
             if (!hashValue) {
               process.env.NODE_ENV !== "production" &&
                 this.log("Skip rule because of missing hashAttribute", {
@@ -399,8 +437,7 @@ export class GrowthBook {
               rule,
             });
 
-          // eslint-disable-next-line
-          return this.getFeatureResult(id, rule.force as T, "force", rule.id);
+          return this._getFeatureResult(id, rule.force as T, "force", rule.id);
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
@@ -423,9 +460,9 @@ export class GrowthBook {
 
         // Only return a value if the user is part of the experiment
         const res = this._run(exp, id);
-        this.fireSubscriptions(exp, res);
+        this._fireSubscriptions(exp, res);
         if (res.inExperiment) {
-          return this.getFeatureResult(
+          return this._getFeatureResult(
             id,
             res.value,
             "experiment",
@@ -444,14 +481,14 @@ export class GrowthBook {
       });
 
     // Fall back to using the default value
-    return this.getFeatureResult(
+    return this._getFeatureResult(
       id,
       feature.defaultValue ?? null,
       "defaultValue"
     );
   }
 
-  private conditionPasses(condition: ConditionInterface): boolean {
+  private _conditionPasses(condition: ConditionInterface): boolean {
     return evalCondition(this.getAttributes(), condition);
   }
 
@@ -466,23 +503,23 @@ export class GrowthBook {
     if (numVariations < 2) {
       process.env.NODE_ENV !== "production" &&
         this.log("Invalid experiment", { id: key });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 2. If the context is disabled, return immediately
-    if (this.context.enabled === false) {
+    if (this._ctx.enabled === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Context disabled", { id: key });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 2.5. Merge in experiment overrides from the context
-    experiment = this.mergeOverrides(experiment);
+    experiment = this._mergeOverrides(experiment);
 
     // 3. If a variation is forced from a querystring, return the forced variation
     const qsOverride = getQueryStringOverride(
       key,
-      this.getContextUrl(),
+      this._getContextUrl(),
       numVariations
     );
     if (qsOverride !== null) {
@@ -491,18 +528,18 @@ export class GrowthBook {
           id: key,
           variation: qsOverride,
         });
-      return this.getResult(experiment, qsOverride, false, featureId);
+      return this._getResult(experiment, qsOverride, false, featureId);
     }
 
     // 4. If a variation is forced in the context, return the forced variation
-    if (this.context.forcedVariations && key in this.context.forcedVariations) {
-      const variation = this.context.forcedVariations[key];
+    if (this._ctx.forcedVariations && key in this._ctx.forcedVariations) {
+      const variation = this._ctx.forcedVariations[key];
       process.env.NODE_ENV !== "production" &&
         this.log("Force via dev tools", {
           id: key,
           variation,
         });
-      return this.getResult(experiment, variation, false, featureId);
+      return this._getResult(experiment, variation, false, featureId);
     }
 
     // 5. Exclude if a draft experiment or not active
@@ -511,17 +548,17 @@ export class GrowthBook {
         this.log("Skip because inactive", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 6. Get the hash attribute and return if empty
-    const { hashValue } = this.getHashAttribute(experiment.hashAttribute);
+    const { hashValue } = this._getHashAttribute(experiment.hashAttribute);
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because missing hashAttribute", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 7. Exclude if user not in experiment.namespace
@@ -530,7 +567,7 @@ export class GrowthBook {
         this.log("Skip because of namespace", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 7.5. Exclude if experiment.include returns false or throws
@@ -539,37 +576,37 @@ export class GrowthBook {
         this.log("Skip because of include function", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 8. Exclude if condition is false
-    if (experiment.condition && !this.conditionPasses(experiment.condition)) {
+    if (experiment.condition && !this._conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of condition", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 8.1. Exclude if user is not in a required group
     if (
       experiment.groups &&
-      !this.hasGroupOverlap(experiment.groups as string[])
+      !this._hasGroupOverlap(experiment.groups as string[])
     ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of groups", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 8.2. Exclude if not on a targeted url
-    if (experiment.url && !this.urlIsValid(experiment.url as RegExp)) {
+    if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of url", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 9. Get bucket ranges and choose variation
@@ -587,7 +624,7 @@ export class GrowthBook {
         this.log("Skip because of coverage", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 11. Experiment has a forced variation
@@ -597,7 +634,7 @@ export class GrowthBook {
           id: key,
           variation: experiment.force,
         });
-      return this.getResult(
+      return this._getResult(
         experiment,
         experiment.force ?? -1,
         false,
@@ -606,12 +643,12 @@ export class GrowthBook {
     }
 
     // 12. Exclude if in QA mode
-    if (this.context.qaMode) {
+    if (this._ctx.qaMode) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because QA mode", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 12.5. Exclude if experiment is stopped
@@ -620,14 +657,14 @@ export class GrowthBook {
         this.log("Skip because stopped", {
           id: key,
         });
-      return this.getResult(experiment, -1, false, featureId);
+      return this._getResult(experiment, -1, false, featureId);
     }
 
     // 13. Build the result object
-    const result = this.getResult(experiment, assigned, true, featureId);
+    const result = this._getResult(experiment, assigned, true, featureId);
 
     // 14. Fire the tracking callback
-    this.track(experiment, result);
+    this._track(experiment, result);
 
     // 15. Return the result
     process.env.NODE_ENV !== "production" &&
@@ -640,12 +677,12 @@ export class GrowthBook {
 
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
-    if (this.context.log) this.context.log(msg, ctx);
+    if (this._ctx.log) this._ctx.log(msg, ctx);
     else console.log(msg, ctx);
   }
 
-  private track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this.context.trackingCallback) return;
+  private _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    if (!this._ctx.trackingCallback) return;
 
     const key = experiment.key;
 
@@ -656,15 +693,15 @@ export class GrowthBook {
     this._trackedExperiments.add(k);
 
     try {
-      this.context.trackingCallback(experiment, result);
+      this._ctx.trackingCallback(experiment, result);
     } catch (e) {
       console.error(e);
     }
   }
 
-  private mergeOverrides<T>(experiment: Experiment<T>): Experiment<T> {
+  private _mergeOverrides<T>(experiment: Experiment<T>): Experiment<T> {
     const key = experiment.key;
-    const o = this.context.overrides;
+    const o = this._ctx.overrides;
     if (o && o[key]) {
       experiment = Object.assign({}, experiment, o[key]);
       if (typeof experiment.url === "string") {
@@ -678,22 +715,22 @@ export class GrowthBook {
     return experiment;
   }
 
-  private getHashAttribute(attr?: string) {
+  private _getHashAttribute(attr?: string) {
     const hashAttribute = attr || "id";
 
     let hashValue = "";
     if (this._attributeOverrides[hashAttribute]) {
       hashValue = this._attributeOverrides[hashAttribute];
-    } else if (this.context.attributes) {
-      hashValue = this.context.attributes[hashAttribute] || "";
-    } else if (this.context.user) {
-      hashValue = this.context.user[hashAttribute] || "";
+    } else if (this._ctx.attributes) {
+      hashValue = this._ctx.attributes[hashAttribute] || "";
+    } else if (this._ctx.user) {
+      hashValue = this._ctx.user[hashAttribute] || "";
     }
 
     return { hashAttribute, hashValue };
   }
 
-  private getResult<T>(
+  private _getResult<T>(
     experiment: Experiment<T>,
     variationIndex: number,
     hashUsed: boolean,
@@ -706,7 +743,7 @@ export class GrowthBook {
       inExperiment = false;
     }
 
-    const { hashAttribute, hashValue } = this.getHashAttribute(
+    const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute
     );
 
@@ -721,12 +758,12 @@ export class GrowthBook {
     };
   }
 
-  private getContextUrl() {
-    return this.context.url || (isBrowser ? window.location.href : "");
+  private _getContextUrl() {
+    return this._ctx.url || (isBrowser ? window.location.href : "");
   }
 
-  private urlIsValid(urlRegex: RegExp): boolean {
-    const url = this.getContextUrl();
+  private _urlIsValid(urlRegex: RegExp): boolean {
+    const url = this._getContextUrl();
     if (!url) return false;
 
     const pathOnly = url.replace(/^https?:\/\//, "").replace(/^[^/]*\//, "/");
@@ -736,8 +773,8 @@ export class GrowthBook {
     return false;
   }
 
-  private hasGroupOverlap(expGroups: string[]): boolean {
-    const groups = this.context.groups || {};
+  private _hasGroupOverlap(expGroups: string[]): boolean {
+    const groups = this._ctx.groups || {};
     for (let i = 0; i < expGroups.length; i++) {
       if (groups[expGroups[i]]) return true;
     }
