@@ -76,7 +76,7 @@ export const getPayloadForNotificationEvent = ({
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
-      logger.warn("getPayloadForNotificationEvent -> experiment not supported");
+      // TODO: https://linear.app/growthbook/issue/GB-18
       return null;
 
     case "feature.created":
