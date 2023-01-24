@@ -165,7 +165,7 @@ def read_queries_cache() -> dict:
     try:
         with open(CACHE_FILE, "r") as f:
             return json.load(f)
-    except:
+    except FileNotFoundError:
         print("Failed to load query cache, creating a new one...")
         return {}
 
@@ -212,7 +212,9 @@ def validate(test_case):
             "L022",
             "L027",  # allows potentially ambiguous column references
             "L028",
-            "L029",  # Keywords should not be used as identifiers. Ignored bc timestamp is used as col
+            # Keywords should not be used as identifiers error
+            # Ignored bc timestamp is used as col. Could fix.
+            "L029",
             "L030",
             "L031",
             "L034",
@@ -264,8 +266,7 @@ def main():
             if engine not in nonlinted_engines:
                 validate(test_case)
             result = execute_query(test_case["sql"], engine)
-            result
-            result = {k: v for k, v in test_case.items() if k != "sql"}
+            result.update(test_case)
             cache[key] = result
             write_cache(cache)
             results.append(result)

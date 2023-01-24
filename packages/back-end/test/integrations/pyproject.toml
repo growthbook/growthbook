@@ -17,6 +17,8 @@ snowflake-connector-python = "^2.9.0"
 
 [tool.poetry.dev-dependencies]
 black = "22.3.0"
+flake8 = "3.8.4"
+flake8-docstrings = "^1.6.0"
 
 [build-system]
 requires = ["poetry-core"]

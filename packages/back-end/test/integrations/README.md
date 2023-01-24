@@ -6,13 +6,20 @@ Therefore, this folder contains scripts to generate experiment metric queries fo
 
 ## How to use it
 
+If you satisfy the (hefty) pre-requisites below, you can simply run the following once in the main git branch and whatever branch you wish to test:
 `yarn workspace back-end test-integration-queries`
 
-This for now just runs `integration-query-test.sh` which itself:
+Once that script runs, you can use a [notebook like this one](https://colab.research.google.com/drive/1J-VBFGQ2a_7cyarrNRPXuHlQXVfB55yy?usp=sharing) to compare two sets of results across the main and dev branch from which you ran the above script.
+
+The `test-integration-queries` command runs `integration-query-test.sh` which itself:
 
 1. Loads environment via `source ~/.env`
 2. Generates the queries using `integration-query-generator.ts`
-3. Lints and executes the queries, storing results and using a cache, using `integration-query-runner.py`
+3. Lints and executes the queries, storing results using the current git branch as part of the file name, using `integration-query-runner.py`
+
+Note a shared cache is used for each run. If the combination of SQL engine and SQL query itself is identical, the results should be pulled directly from the cache rather than re-generated.
+
+### Pre-requisites
 
 You will need:
 
@@ -44,4 +51,10 @@ export PRESTO_TEST_SCHEMA=XXX
 export GOOGLE_APPLICATION_CREDENTIALS="XXX.json"
 ```
 
-3. The requisite python connectors in `integration-query-runner.py` installed on your machine.
+3. The requisite python connectors in `integration-query-runner.py` installed on your machine. These are specified in this folder's pyproject.tomlm file. You can install these by changing to this directory and running `poetry install`.
+
+## Other notes
+
+If contributing to this python script, please consider linting with `black` and `flake8`.
+
+GrowthBook team members can read more documentation and which integrations/configurations are covered in this doc: https://www.notion.so/growthbook/Testing-Stats-Integrations-4e549c1591de444ea0f19473d3257f7d#24e7d771aece432f9aeeaad9e8aabfa7
