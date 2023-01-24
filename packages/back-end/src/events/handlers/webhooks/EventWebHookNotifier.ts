@@ -10,8 +10,8 @@ import { getSavedGroupMap } from "../../../services/features";
 import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
+import { cancellableFetch } from "../../../util/http.util";
 import {
-  cancellableFetch,
   EventWebHookErrorResult,
   EventWebHookResult,
   EventWebHookSuccessResult,

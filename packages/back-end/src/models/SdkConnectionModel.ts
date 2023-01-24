@@ -10,8 +10,8 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "../../types/sdk-connection";
-import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
 import { queueSingleProxyUpdate } from "../jobs/proxyUpdate";
+import { cancellableFetch } from "../util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
