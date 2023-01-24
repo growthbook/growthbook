@@ -938,3 +938,35 @@ export async function experimentUpdated(
       : `/config/${key}`;
   });
 }
+
+/**
+ * Removes the tag from any experiments that have it
+ * and logs the experiment.updated event
+ * @param organization
+ * @param tag
+ */
+export const removeTagFromExperiments = async ({
+  organization,
+  tag,
+}: {
+  organization: OrganizationInterface;
+  tag: string;
+}): Promise<void> => {
+  const query = { organization: organization.id, tags: tag };
+  const previousExperiments = await ExperimentModel.find(query);
+
+  await ExperimentModel.updateMany(query, {
+    $pull: { tags: tag },
+  });
+
+  previousExperiments.forEach((previous) => {
+    const current = cloneDeep(previous);
+    current.tags = current.tags.filter((t) => t != tag);
+
+    logExperimentUpdated({
+      organization,
+      previous,
+      current,
+    });
+  });
+};
