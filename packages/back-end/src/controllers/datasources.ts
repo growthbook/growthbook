@@ -37,6 +37,7 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
+import { generateVariationId } from "../services/features";
 
 export async function postSampleData(req: AuthRequest, res: Response) {
   req.checkPermissions("createMetrics", "");
@@ -108,7 +109,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       targetURLRegex: "",
       variations: [
         {
-          id: "variation-exl5j200hlccd",
+          id: generateVariationId(),
           name: "Control",
           value: `{"color": "blue"}`,
           screenshots: [
@@ -118,7 +119,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
           ],
         },
         {
-          id: "variation-exl5j200helcd",
+          id: generateVariationId(),
           name: "Variation",
           value: `{"color": "green"}`,
           screenshots: [

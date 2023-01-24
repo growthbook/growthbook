@@ -1,4 +1,3 @@
-import uniqid from "uniqid";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
@@ -19,6 +18,7 @@ import { analyzeExperimentResults } from "./stats";
 import { parseDimensionId } from "./experiments";
 import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
+import { generateVariationId } from "./features";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -158,7 +158,7 @@ export async function startExperimentAnalysis(
         name: v.name,
         key: v.id,
         screenshots: [],
-        id: v.id || uniqid("variation-"),
+        id: v.id || generateVariationId(),
       };
     }),
   };

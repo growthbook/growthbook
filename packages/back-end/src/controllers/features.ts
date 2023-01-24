@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import uniqid from "uniqid";
 import {
   FeatureDraftChanges,
   FeatureInterface,
@@ -29,6 +28,7 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
+  generateVariationId,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
@@ -736,7 +736,7 @@ export async function getFeatureById(
           expIds.add(r.trackingKey || feature.id);
           if (r.values.length) {
             r.values.forEach((value) => {
-              value.id = value.id || uniqid("variation-"); //MKTODO: Create method in services/features.ts to handle this?
+              value.id = value.id || generateVariationId();
             });
           }
         }

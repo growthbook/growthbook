@@ -62,6 +62,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import { generateVariationId } from "../services/features";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -191,7 +192,7 @@ export async function getExperiment(
   }
 
   experiment.variations?.forEach((variation) => {
-    variation.id = variation.id || uniqid("variation-");
+    variation.id = variation.id || generateVariationId();
   });
 
   if (!(await userHasAccess(req, experiment.organization))) {
@@ -396,7 +397,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name,
         screenshots: [],
         description: v.value,
-        id: v.id || uniqid("variation-"), //MKTODO: Double check this logic - should I create a method within the model to getVariationId
+        id: v.id || generateVariationId(),
       };
     }),
     phases: [

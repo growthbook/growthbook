@@ -18,7 +18,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
-import { uniqueId } from "lodash";
+import uniqid from "uniqid";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
@@ -207,7 +207,7 @@ export function getVariationColor(i: number) {
 }
 
 export function generateVariationId() {
-  return uniqueId("variation-");
+  return uniqid("variation-");
 }
 
 export function useAttributeSchema(showArchived = false) {
