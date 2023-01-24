@@ -443,7 +443,7 @@ export async function createSnapshot(
     organization.settings?.updateSchedule || null
   );
 
-  await updateExperimentById(experiment, {
+  await updateExperimentById(organization.id, experiment, {
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
     autoSnapshots: nextUpdate !== null,

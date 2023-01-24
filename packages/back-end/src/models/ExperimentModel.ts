@@ -1,6 +1,6 @@
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
-import mongoose, { FilterQuery, UpdateQuery } from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { ChangeLog, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
@@ -122,11 +122,10 @@ const toInterface = (doc: ExperimentDocument): ExperimentInterface =>
   omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function getExperimentById(
+  organization: string,
   id: string
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({
-    id,
-  });
+  const experiment = await ExperimentModel.findOne({ organization, id });
   return experiment ? toInterface(experiment) : null;
 }
 
@@ -158,28 +157,34 @@ export async function getExperimentByTrackingKey(
 }
 
 export async function getExperimentsByIds(
+  organization: string,
   ids: string[]
 ): Promise<ExperimentInterface[]> {
   const experiments = await ExperimentModel.find({
     id: { $in: ids },
+    organization,
   });
 
   return experiments.map((m) => toInterface(m));
 }
 
-export async function deleteExperimentById(id: string): Promise<void> {
+export async function deleteExperimentById(
+  organization: string,
+  id: string
+): Promise<void> {
   await ExperimentModel.deleteOne({
     id,
+    organization,
   });
 }
 
 export async function getExperimentsUsingSegment(
   id: string,
-  orgId: string
+  organization: string
 ): Promise<ExperimentInterface[]> {
   const experiments = await ExperimentModel.find(
     {
-      organization: orgId,
+      organization,
       segment: id,
     },
     { id: 1, name: 1 }
@@ -206,9 +211,8 @@ export async function createExperiment(
   if (!data.organization) {
     throw new Error("Missing organization");
   }
-  if (data.organization !== organization.id) {
-    throw new Error("Experiment and Organization must match");
-  }
+
+  data.organization = organization.id;
 
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
@@ -248,13 +252,14 @@ export async function createExperiment(
 }
 
 export async function updateExperimentById(
+  organization: string,
   experiment: ExperimentInterface,
   changes: ChangeLog
 ): Promise<void> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
-      organization: experiment.organization,
+      organization,
     },
     {
       $set: changes,
@@ -263,7 +268,7 @@ export async function updateExperimentById(
 }
 
 export async function getExperimentsByMetric(
-  orgId: string,
+  organization: string,
   metricId: string
 ): Promise<{ id: string; name: string }[]> {
   const experiments: { id: string; name: string }[] = [];
@@ -277,7 +282,7 @@ export async function getExperimentsByMetric(
   // Using as a goal metric
   const goals = await ExperimentModel.find(
     {
-      organization: orgId,
+      organization,
       metrics: metricId,
     },
     cols
@@ -292,7 +297,7 @@ export async function getExperimentsByMetric(
   // Using as a guardrail metric
   const guardrails = await ExperimentModel.find(
     {
-      organization: orgId,
+      organization,
       guardrails: metricId,
     },
     cols
@@ -307,7 +312,7 @@ export async function getExperimentsByMetric(
   // Using as an activation metric
   const activations = await ExperimentModel.find(
     {
-      organization: orgId,
+      organization,
       activationMetric: metricId,
     },
     cols
@@ -356,43 +361,178 @@ export async function removeProjectFromExperiments(
 }
 
 export async function getExperimentByIdea(
+  organization: string,
   idea: IdeaDocument
 ): Promise<ExperimentInterface | null> {
   const experiment = await ExperimentModel.findOne({
-    organization: idea.organization,
+    organization,
     ideaSource: idea.id,
   });
 
   return experiment ? toInterface(experiment) : null;
 }
 
-export async function getExperimentsByQuery(
-  query: FilterQuery<ExperimentDocument>,
-  projections: { [key: string]: boolean },
-  limit?: number,
-  sortByField?: string,
-  sortAscending?: boolean
-): Promise<ExperimentInterface[]> {
-  // If a sortByField is specified, add sort method, otherwise run query without
-  if (sortByField) {
-    const experiments = await ExperimentModel.find(query, projections)
-      .limit(limit || 0)
-      .sort({
-        sortByField: sortAscending ? 1 : -1,
-      });
-
-    return experiments.map((m) => toInterface(m));
-  } else {
-    const experiments = await ExperimentModel.find(query, projections).limit(
-      limit || 0
-    );
-    return experiments.map((m) => toInterface(m));
-  }
+export async function getExperimentsToUpdate(
+  ids: string[]
+): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
+  const experiments = await ExperimentModel.find(
+    {
+      datasource: {
+        $exists: true,
+        $ne: "",
+      },
+      status: "running",
+      autoSnapshots: true,
+      nextSnapshotAttempt: {
+        $exists: true,
+        $lte: new Date(),
+      },
+      id: {
+        $nin: ids,
+      },
+    },
+    {
+      id: true,
+      organization: true,
+    }
+  )
+    .limit(100)
+    .sort({ nextSnapShotAttempt: 1 });
+  return experiments.map((m) => toInterface(m));
 }
 
-export async function updateExperimentByQuery(
-  query: FilterQuery<ExperimentDocument>,
-  updates: UpdateQuery<ExperimentInterface>
+export async function getExperimentsToUpdateLegacy(
+  latestDate: Date
+): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
+  const experiments = await ExperimentModel.find(
+    {
+      datasource: {
+        $exists: true,
+        $ne: "",
+      },
+      status: "running",
+      autoSnapshots: true,
+      nextSnapshotAttempt: {
+        $exists: false,
+      },
+      lastSnapshotAttempt: {
+        $lte: latestDate,
+      },
+    },
+    {
+      id: true,
+      organization: true,
+    }
+  )
+    .limit(100)
+    .sort({ nextSnapShotAttempt: 1 });
+  return experiments.map((m) => toInterface(m));
+}
+
+export async function getPastExperimentsByDatasource(
+  organization: string,
+  datasource: string
+): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
+  const experiments = await ExperimentModel.find(
+    {
+      organization,
+      datasource,
+    },
+    {
+      _id: false,
+      id: true,
+      trackingKey: true,
+    }
+  );
+
+  return experiments.map((m) => toInterface(m));
+}
+
+export async function getRecentExperimentsUsingMetric(
+  organization: string,
+  metricId: string
+): Promise<
+  Pick<
+    ExperimentInterface,
+    "id" | "name" | "status" | "phases" | "results" | "analysis"
+  >[]
+> {
+  const experiments = await ExperimentModel.find(
+    {
+      organization: organization,
+      $or: [
+        {
+          metrics: metricId,
+        },
+        {
+          guardrails: metricId,
+        },
+      ],
+      archived: {
+        $ne: true,
+      },
+    },
+    {
+      _id: false,
+      id: true,
+      name: true,
+      status: true,
+      phases: true,
+      results: true,
+      analysis: true,
+    }
+  )
+    .limit(10)
+    .sort({ _id: -11 });
+  return experiments.map((m) => toInterface(m));
+}
+
+export async function deleteExperimentSegment(
+  organization: string,
+  segment: string
 ): Promise<void> {
-  await ExperimentModel.updateMany(query, updates);
+  await ExperimentModel.updateOne(
+    { organization, segment },
+    {
+      $set: { segment: "" },
+    }
+  );
+}
+
+export async function getExperimentsForActivityFeed(
+  org: string,
+  ids: string[]
+): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
+  const experiments = await ExperimentModel.find(
+    {
+      organization: org,
+      id: {
+        $in: ids,
+      },
+    },
+    {
+      _id: false,
+      id: true,
+      name: true,
+    }
+  );
+
+  return experiments.map((m) => toInterface(m));
+}
+
+export async function removeTagFromExperiment(
+  organization: string,
+  tagId: string
+): Promise<void> {
+  await ExperimentModel.updateOne(
+    {
+      organization,
+      tags: tagId,
+    },
+    {
+      $pull: {
+        tags: tagId,
+      },
+    }
+  );
 }

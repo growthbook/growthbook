@@ -80,7 +80,7 @@ import {
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { getExperimentsByQuery } from "../../models/ExperimentModel";
+import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -154,17 +154,9 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
     }
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
-    const experiments = await getExperimentsByQuery(
-      {
-        id: {
-          $in: experimentIds,
-        },
-      },
-      {
-        _id: false,
-        id: true,
-        name: true,
-      }
+    const experiments = await getExperimentsForActivityFeed(
+      org.id,
+      experimentIds
     );
 
     res.status(200).json({

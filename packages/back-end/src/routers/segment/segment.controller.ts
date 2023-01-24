@@ -13,8 +13,8 @@ import {
   updateMetricsByQuery,
 } from "../../models/MetricModel";
 import {
+  deleteExperimentSegment,
   getExperimentsUsingSegment,
-  updateExperimentByQuery,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
 import { ExperimentInterface } from "../../../types/experiment";
@@ -300,12 +300,7 @@ export const deleteSegment = async (
 
   const exps = await getExperimentsUsingSegment(id, org.id);
   if (exps.length > 0) {
-    await updateExperimentByQuery(
-      { organization: org.id, segment: id },
-      {
-        $set: { segment: "" },
-      }
-    );
+    await deleteExperimentSegment(org.id, id);
   }
 
   res.status(200).json({

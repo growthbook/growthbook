@@ -42,12 +42,12 @@ import {
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
+import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
-import { ExperimentInterface } from "../../types/experiment";
 
 class ApiKeyError extends Error {
   constructor(message: string) {

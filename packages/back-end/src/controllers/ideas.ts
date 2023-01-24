@@ -119,7 +119,7 @@ export async function getIdea(
   res: Response
 ) {
   const { id } = req.params;
-  //const data = req.body;
+  const { org } = getOrgFromReq(req);
 
   const idea = await getIdeaById(id);
 
@@ -157,7 +157,7 @@ export async function getIdea(
     }
   }
 
-  const experiment = await getExperimentByIdea(idea);
+  const experiment = await getExperimentByIdea(org.id, idea);
 
   res.status(200).json({
     status: 200,

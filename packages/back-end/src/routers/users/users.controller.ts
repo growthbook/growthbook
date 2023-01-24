@@ -134,7 +134,7 @@ export async function postWatchItem(
   if (type === "feature") {
     item = await getFeature(org.id, id);
   } else if (type === "experiment") {
-    item = await getExperimentById(id);
+    item = await getExperimentById(org.id, id);
     if (item && item.organization !== org.id) {
       res.status(403).json({
         status: 403,

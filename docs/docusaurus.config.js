@@ -142,6 +142,7 @@ const config = {
           "php",
           "java",
           "kotlin",
+          "swift",
           "dart",
           "groovy",
         ],
