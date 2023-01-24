@@ -80,6 +80,7 @@ import {
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
 import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
+import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -837,6 +838,8 @@ export async function putOrganization(
   const { org } = getOrgFromReq(req);
   const { name, settings, connections } = req.body;
 
+  const deletedEnvIds: string[] = [];
+
   if (connections || name) {
     req.checkPermissions("organizationSettings");
   }
@@ -852,6 +855,9 @@ export async function putOrganization(
           );
           if (oldHash !== newHash) {
             affectedEnvs.add(env.id);
+          }
+          if (!newHash && oldHash) {
+            deletedEnvIds.push(env.id);
           }
         });
 
@@ -920,6 +926,10 @@ export async function putOrganization(
         id: org.id,
       },
       details: auditDetailsUpdate(orig, updates),
+    });
+
+    deletedEnvIds.forEach((envId) => {
+      removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
     });
 
     res.status(200).json({

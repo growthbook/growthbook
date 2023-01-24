@@ -7,6 +7,7 @@ import { addTag, removeTag } from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromExperiment } from "../../models/ExperimentModel";
+import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
 // region POST /tag
 
@@ -71,6 +72,9 @@ export const deleteTag = async (
 
   // features
   await removeTagInFeature(org, id);
+
+  // Slack integrations
+  await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });
 
   // finally, remove the tag itself
   await removeTag(org.id, id);

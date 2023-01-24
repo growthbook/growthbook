@@ -6,7 +6,7 @@ export interface Props {
   last?: boolean;
   anchor?: string;
   onClick: () => void;
-  display: string;
+  display: string | ReactElement;
   count?: number;
   action?: ReactElement;
   newStyle?: boolean;

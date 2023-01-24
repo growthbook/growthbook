@@ -28,7 +28,6 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
-  encrypt,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
@@ -43,23 +42,60 @@ import {
 import { getRevisions } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
+import {
+  findSDKConnectionByKey,
+  markSDKConnectionUsed,
+} from "../models/SdkConnectionModel";
+import { logger } from "../util/logger";
 
-export async function getFeaturesPublic(req: Request, res: Response) {
-  const { key } = req.params;
-
-  if (!key) {
-    return res.status(400).json({
-      status: 400,
-      error: "Missing API key",
-    });
+class ApiKeyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ApiKeyError";
   }
+}
 
-  let projectFilter = "";
-  if (typeof req.query?.project === "string") {
-    projectFilter = req.query.project;
+async function getPayloadParamsFromApiKey(
+  key: string,
+  req: Request
+): Promise<{
+  organization: string;
+  project: string;
+  environment: string;
+  encrypted: boolean;
+  encryptionKey?: string;
+}> {
+  // SDK Connection key
+  if (key.match(/^sdk-/)) {
+    const connection = await findSDKConnectionByKey(key);
+    if (!connection) {
+      throw new ApiKeyError("Invalid API Key");
+    }
+
+    // If this is the first time the SDK Connection is being used, mark it as successfully connected
+    if (!connection.connected) {
+      // This is async, but we don't care about the response
+      markSDKConnectionUsed(key).catch(() => {
+        // Errors are not fatal, ignore them
+        logger.warn("Failed to mark SDK Connection as used - " + key);
+      });
+    }
+
+    return {
+      organization: connection.organization,
+      environment: connection.environment,
+      project: connection.project,
+      encrypted: connection.encryptPayload,
+      encryptionKey: connection.encryptionKey,
+    };
   }
+  // Old, legacy API Key
+  else {
+    let projectFilter = "";
+    if (typeof req.query?.project === "string") {
+      projectFilter = req.query.project;
+    }
 
-  try {
     const {
       organization,
       secret,
@@ -69,27 +105,49 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       encryptionKey,
     } = await lookupOrganizationByApiKey(key);
     if (!organization) {
-      return res.status(400).json({
-        status: 400,
-        error: "Invalid API key",
-      });
+      throw new ApiKeyError("Invalid API Key");
     }
     if (secret) {
-      return res.status(400).json({
-        status: 400,
-        error: "Must use a Publishable API key to get feature definitions",
-      });
+      throw new ApiKeyError(
+        "Must use a Publishable API key to get feature definitions"
+      );
     }
 
     if (project && !projectFilter) {
       projectFilter = project;
     }
 
-    //Archived features not to be shown
-    const { features, dateUpdated } = await getFeatureDefinitions(
+    return {
+      organization,
+      environment: environment || "production",
+      project: projectFilter,
+      encrypted: !!encryptSDK,
+      encryptionKey,
+    };
+  }
+}
+
+export async function getFeaturesPublic(req: Request, res: Response) {
+  try {
+    const { key } = req.params;
+
+    if (!key) {
+      throw new ApiKeyError("Missing API key in request");
+    }
+
+    const {
       organization,
       environment,
-      projectFilter
+      encrypted,
+      project,
+      encryptionKey,
+    } = await getPayloadParamsFromApiKey(key, req);
+
+    const defs = await getFeatureDefinitions(
+      organization,
+      environment,
+      project,
+      encrypted ? encryptionKey : ""
     );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -100,20 +158,20 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     res.status(200).json({
       status: 200,
-      features: !encryptSDK ? features : {},
-      ...(encryptSDK && {
-        encryptedFeatures: await encrypt(
-          JSON.stringify(features),
-          encryptionKey
-        ),
-      }),
-      dateUpdated,
+      ...defs,
     });
   } catch (e) {
-    req.log.error(e, "Failed to get features");
-    res.status(400).json({
+    // We don't want to expose internal errors like Mongo Connections to users, so default to a generic message
+    let error = "Failed to get features";
+
+    // Some specific error messages we whitelist to provide more detailed feedback to users
+    if (e instanceof ApiKeyError) {
+      error = e.message;
+    }
+
+    return res.status(400).json({
       status: 400,
-      error: "Failed to get features",
+      error,
     });
   }
 }
