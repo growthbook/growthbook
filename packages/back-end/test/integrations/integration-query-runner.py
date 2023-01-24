@@ -78,7 +78,8 @@ class snowflakeRunner(sqlRunner):
     def run_query(self,  sql: str) -> list:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             res = cursor.execute(sql).fetchall()
-            return res
+            # lower case col names
+            return [{k.lower(): v for k, v in row.items()} for row in res]
 
 class prestoRunner(sqlRunner):
     def open_connection(self):
@@ -198,10 +199,11 @@ def main():
     
     for test_case in test_cases:
         engine = test_case["engine"]
-        if engine not in runners and engine in ['mysql', 'postgres', 'bigquery', 'snowflake', 'presto']:
-            runners[engine] = get_sql_runner(engine)
-        else:
+
+        if engine not in ['mysql', 'postgres', 'bigquery', 'snowflake', 'presto']:
             continue
+        if engine not in runners:
+            runners[engine] = get_sql_runner(engine)
         
         key = engine + '::' + test_case['sql']
         if key in cache:
