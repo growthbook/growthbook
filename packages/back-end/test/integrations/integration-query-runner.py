@@ -5,6 +5,8 @@ import os
 import sys
 import time
 
+from dotenv import dotenv_values
+from google.oauth2 import service_account
 from google.cloud import bigquery
 import prestodb
 import mysql.connector
@@ -16,7 +18,12 @@ import snowflake.connector
 CACHE_FILE = "/tmp/json/cache.json"
 QUERIES_FILE = "/tmp/json/queries.json"
 RESULT_FILE_PREFIX = "/tmp/json/query_results"
+# .env file should be in the same folder as this script
+# path below is relative to the package where this script
+# gets executed by yarn
+ENV_FILE = "./test/integrations/.env"
 
+config = {**dotenv_values(ENV_FILE)}
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -52,10 +59,10 @@ class sqlRunner(ABC):
 class mysqlRunner(sqlRunner):
     def open_connection(self):
         self.connection = mysql.connector.connect(
-            host=os.getenv("MYSQL_TEST_HOST", ""),
-            user=os.getenv("MYSQL_TEST_USER", ""),
-            database=os.getenv("MYSQL_TEST_DATABASE", ""),
-            password=os.getenv("MYSQL_TEST_PASSWORD", ""),
+            host=config["MYSQL_TEST_HOST"],
+            user=config["MYSQL_TEST_USER"],
+            database=config["MYSQL_TEST_DATABASE"],
+            password=config["MYSQL_TEST_PASSWORD"],
         )
         self.cursor_kwargs = {"dictionary": True, "buffered": True}
 
@@ -68,9 +75,9 @@ class mysqlRunner(sqlRunner):
 class postgresRunner(sqlRunner):
     def open_connection(self):
         self.connection = psycopg2.connect(
-            host=os.getenv("POSTGRES_TEST_HOST", ""),
-            user=os.getenv("POSTGRES_TEST_USER", ""),
-            dbname=os.getenv("POSTGRES_TEST_DATABASE", ""),
+            host=config["POSTGRES_TEST_HOST"],
+            user=config["POSTGRES_TEST_USER"],
+            dbname=config["POSTGRES_TEST_DATABASE"],
         )
         self.cursor_kwargs = {"cursor_factory": psycopg2.extras.RealDictCursor}
 
@@ -86,11 +93,11 @@ class postgresRunner(sqlRunner):
 class snowflakeRunner(sqlRunner):
     def open_connection(self):
         self.connection = snowflake.connector.connect(
-            user=os.getenv("SNOWFLAKE_TEST_USER", ""),
-            password=os.getenv("SNOWFLAKE_TEST_PASSWORD", ""),
-            account=os.getenv("SNOWFLAKE_TEST_ACCOUNT", ""),
-            database=os.getenv("SNOWFLAKE_TEST_DATABASE", ""),
-            schema=os.getenv("SNOWFLAKE_TEST_SCHEMA", ""),
+            user=config["SNOWFLAKE_TEST_USER"],
+            password=config["SNOWFLAKE_TEST_PASSWORD"],
+            account=config["SNOWFLAKE_TEST_ACCOUNT"],
+            database=config["SNOWFLAKE_TEST_DATABASE"],
+            schema=config["SNOWFLAKE_TEST_SCHEMA"],
         )
         self.cursor_kwargs = {"cursor_class": snowflake.connector.DictCursor}
 
@@ -104,11 +111,11 @@ class snowflakeRunner(sqlRunner):
 class prestoRunner(sqlRunner):
     def open_connection(self):
         self.connection = prestodb.dbapi.connect(
-            host=os.getenv("PRESTO_TEST_HOST", ""),
-            port=os.getenv("PRESTO_TEST_PORT", 0),
-            user=os.getenv("PRESTO_TEST_USER", ""),
-            catalog=os.getenv("PRESTO_TEST_CATALOG", ""),
-            schema=os.getenv("PRESTO_TEST_SCHEMA", ""),
+            host=config["PRESTO_TEST_HOST"],
+            port=config["PRESTO_TEST_PORT"],
+            user=config["PRESTO_TEST_USER"],
+            catalog=config["PRESTO_TEST_CATALOG"],
+            schema=config["PRESTO_TEST_SCHEMA"],
         )
         self.cursor_kwargs = {}
 
@@ -137,7 +144,11 @@ class dummyRunner(sqlRunner):
 
 class bigqueryRunner(sqlRunner):
     def open_connection(self):
-        self.connection = bigquery.Client()
+        self.connection = bigquery.Client(
+            credentials=service_account.Credentials.from_service_account_file(
+                config["GOOGLE_APPLICATION_CREDENTIALS"]
+            )
+        )
 
     def run_query(self, sql: str) -> list:
         query_job = self.connection.query(query=sql)

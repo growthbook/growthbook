@@ -8,10 +8,12 @@ packages = [{include = "integration_query_runner"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-google-cloud-storage = "^2.7.0"
+google-auth = "^2.16.0"
+google-cloud-bigquery = "^3.4.2"
 presto-python-client = "^0.8.3"
 mysql-connector-python = "^8.0.32"
 psycopg2 = "^2.9.5"
+python-dotenv = "^0.21.1"
 sqlfluff = "^1.4.5"
 snowflake-connector-python = "^2.9.0"
 

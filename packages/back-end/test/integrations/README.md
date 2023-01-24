@@ -13,8 +13,8 @@ Once that script runs, you can use a [notebook like this one](https://colab.rese
 
 The `test-integration-queries` command runs `integration-query-test.sh` which itself:
 
-1. Loads environment via `source ~/.env`
-2. Generates the queries using `integration-query-generator.ts`
+1. Generates the queries using `integration-query-generator.ts`
+2. Gets the current git branch
 3. Lints and executes the queries, storing results using the current git branch as part of the file name, using `integration-query-runner.py`
 
 Note a shared cache is used for each run. If the combination of SQL engine and SQL query itself is identical, the results should be pulled directly from the cache rather than re-generated.
@@ -24,7 +24,7 @@ Note a shared cache is used for each run. If the combination of SQL engine and S
 You will need:
 
 1. To set up local/cloud (for now) MySQL, Postgres, Presto DBs and have BigQuery and Snowflake instances with data loaded from the back-end data generator (see the back-end README for instructions on how to create and load this data).
-2. A `.env` file that looks like the following, replacing XXX with the appropriate values for the databases you set up in step 1:
+2. A `.env` file that lives in this folder that looks like the following, replacing XXX with the appropriate values for the databases you set up in step 1:
 
 ```
 export MYSQL_TEST_HOST=XXX
@@ -51,7 +51,7 @@ export PRESTO_TEST_SCHEMA=XXX
 export GOOGLE_APPLICATION_CREDENTIALS="XXX.json"
 ```
 
-3. The requisite python connectors in `integration-query-runner.py` installed on your machine. These are specified in this folder's pyproject.tomlm file. You can install these by changing to this directory and running `poetry install`.
+3. The requisite python connectors in `integration-query-runner.py` installed on your machine. These are specified in this folder's pyproject.tomlm file. You can install these by changing to this directory and running `poetry update`.
 
 ## Other notes
 
