@@ -284,13 +284,10 @@ export async function deleteExperimentByIdForOrganization(
 }
 
 export async function getExperimentsUsingSegment(id: string, orgId: string) {
-  return ExperimentModel.find(
-    {
-      organization: orgId,
-      segment: id,
-    },
-    { id: 1, name: 1 }
-  );
+  return ExperimentModel.find({
+    organization: orgId,
+    segment: id,
+  });
 }
 
 export async function getLatestSnapshot(
