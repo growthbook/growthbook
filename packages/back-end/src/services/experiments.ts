@@ -238,12 +238,23 @@ export async function removeMetricFromExperiments(
 
 export async function removeProjectFromExperiments(
   project: string,
-  organization: string
+  organization: OrganizationInterface
 ) {
-  await ExperimentModel.updateMany(
-    { organization, project },
-    { $set: { project: "" } }
-  );
+  const query = { organization: organization.id, project };
+  const previousExperiments = await ExperimentModel.find(query);
+
+  await ExperimentModel.updateMany(query, { $set: { project: "" } });
+
+  previousExperiments.forEach((previous) => {
+    const current = cloneDeep(previous);
+    current.project = "";
+
+    logExperimentUpdated({
+      organization,
+      previous,
+      current,
+    });
+  });
 }
 
 /**
