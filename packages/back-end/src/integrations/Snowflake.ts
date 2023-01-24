@@ -28,4 +28,7 @@ export default class Snowflake extends SqlIntegration {
   castToString(col: string): string {
     return `TO_VARCHAR(${col})`;
   }
+  ensureFloat(col: string): string {
+    return `CAST(${col} AS DOUBLE)`;
+  }
 }
