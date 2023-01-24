@@ -180,44 +180,35 @@ export async function removeMetricFromExperiments(
 
   const orgId = organization.id;
 
-  const addExperimentToOldExperiments = (experiment: ExperimentDocument) => {
-    if (!oldExperiments[experiment.id]) {
-      oldExperiments[experiment.id] = { previous: experiment, current: null };
-    }
+  const metricQuery = { organization: orgId, metrics: metricId };
+  const guardRailsQuery = { organization: orgId, guardrails: metricId };
+  const activationMetricQuery = {
+    organization: orgId,
+    activationMetric: metricId,
   };
+  const docsToTrackChanges = await ExperimentModel.find({
+    $or: [metricQuery, guardRailsQuery, activationMetricQuery],
+  });
+  docsToTrackChanges.forEach((experiment: ExperimentDocument) => {
+    if (!oldExperiments[experiment.id]) {
+      oldExperiments[experiment.id] = {
+        previous: experiment,
+        current: null,
+      };
+    }
+  });
 
   // Remove from metrics
-  const metricQuery = { organization: orgId, metrics: metricId };
-  // Save previous state for experiment updates
-  (await ExperimentModel.find(metricQuery)).forEach(
-    addExperimentToOldExperiments
-  );
-  // Update records for metric change
   await ExperimentModel.updateMany(metricQuery, {
     $pull: { metrics: metricId },
   });
 
   // Remove from guardrails
-  const guardRailsQuery = { organization: orgId, guardrails: metricId };
-  // Save previous state for experiment updates
-  (await ExperimentModel.find(guardRailsQuery)).forEach(
-    addExperimentToOldExperiments
-  );
-  // Update records for guardrails change
   await ExperimentModel.updateMany(guardRailsQuery, {
     $pull: { guardrails: metricId },
   });
 
   // Remove from activationMetric
-  const activationMetricQuery = {
-    organization: orgId,
-    activationMetric: metricId,
-  };
-  // Save previous state for experiment updates
-  (await ExperimentModel.find(activationMetricQuery)).forEach(
-    addExperimentToOldExperiments
-  );
-  // Update records for activation metric query changes
   await ExperimentModel.updateMany(activationMetricQuery, {
     $set: { activationMetric: "" },
   });
