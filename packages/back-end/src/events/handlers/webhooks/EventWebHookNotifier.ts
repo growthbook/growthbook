@@ -10,6 +10,7 @@ import { getSavedGroupMap } from "../../../services/features";
 import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
+import { cancellableFetch } from "../../../util/http.util";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -17,7 +18,6 @@ import {
   getEventWebHookSignatureForPayload,
   getPayloadForNotificationEvent,
 } from "./event-webhooks-utils";
-import { cancellableFetch } from "../../../util/http.util";
 
 let jobDefined = false;
 
