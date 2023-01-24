@@ -101,7 +101,7 @@ The GrowthBook application is very lightweight and efficient. For most usecases,
 
 GrowthBook only deals with aggregate data and the bulk of the processing is offloaded to your data source. Because of this, you can easily analyze terrabytes of data from your laptop or a small container in the cloud.
 
-If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. This could either be a CDN or a local cache server like Redis. Learn more about how to keep a local cache up-to-date using [API polling](/app/api) or [Webhooks](/app/webhooks).
+If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup your own custom system using a CDN or distributed cache like Redis.
 
 ## I can't upload to S3/getting 400 error when uploading to S3?
 

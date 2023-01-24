@@ -23,3 +23,25 @@ export const getEvents = async (
 
   return res.json({ events });
 };
+
+type GetEventRequest = AuthRequest<null, { id: string }>;
+
+type GetEventResponse = {
+  event: EventInterface<unknown>;
+};
+
+export const getEventById = async (
+  req: GetEventRequest,
+  res: Response<GetEventResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("viewEvents");
+
+  const { org } = getOrgFromReq(req);
+
+  const event = await Event.getEventForOrganization(req.params.id, org.id);
+  if (!event) {
+    return res.status(404).json({ message: "Not Found" });
+  }
+
+  return res.json({ event });
+};

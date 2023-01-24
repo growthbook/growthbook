@@ -23,9 +23,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
       )}
     >
       {value ? (
-        <ClickToCopy valueToCopy={value}>
-          <span style={{ wordBreak: "break-all" }}>{value}</span>
-        </ClickToCopy>
+        <ClickToCopy>{value}</ClickToCopy>
       ) : (
         <span className={styles.blurText}>{valueWhenHidden}</span>
       )}
