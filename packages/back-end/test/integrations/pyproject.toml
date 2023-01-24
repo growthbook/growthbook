@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "integration-query-runner"
+version = "0.1.0"
+description = "Simple python package to manage dependencies for integration-query-runner.py"
+authors = ["Luke Sonnet <luke@growthbook.io>"]
+readme = "README.md"
+packages = [{include = "integration_query_runner"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+google-cloud-storage = "^2.7.0"
+presto-python-client = "^0.8.3"
+mysql-connector-python = "^8.0.32"
+psycopg2 = "^2.9.5"
+sqlfluff = "^1.4.5"
+snowflake-connector-python = "^2.9.0"
+
+[tool.poetry.dev-dependencies]
+black = "22.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

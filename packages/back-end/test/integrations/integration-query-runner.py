@@ -3,7 +3,7 @@ import json
 from decimal import Decimal
 import os
 import sys
-from pprint import pprint
+import time
 
 from google.cloud import bigquery
 import prestodb
@@ -13,6 +13,9 @@ import psycopg2.extras
 import sqlfluff
 import snowflake.connector
 
+CACHE_FILE = "/tmp/json/cache.json"
+QUERIES_FILE = "/tmp/json/queries.json"
+RESULT_FILE_PREFIX = "/tmp/json/query_results"
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -21,42 +24,57 @@ class DecimalEncoder(json.JSONEncoder):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
 
+
 class sqlRunner(ABC):
     def __init__(self):
         self.open_connection()
 
     @abstractmethod
-    class open_connection():
+    def open_connection(self):
+        pass
+
+    def get_query_result(self, sql: str) -> dict:
+        starttime = time.time()
+        rows_dict = self.run_query(sql)
+        return {
+            "walltime_seconds": time.time() - starttime,
+            "rows": rows_dict,
+        }
+
+    @abstractmethod
+    def run_query(self, sql: str) -> list[dict]:
         pass
 
     def close_connection(self):
         self.connection.close()
 
+
 class mysqlRunner(sqlRunner):
     def open_connection(self):
         self.connection = mysql.connector.connect(
-            host=os.getenv('MYSQL_TEST_HOST', ''),
-            user=os.getenv('MYSQL_TEST_USER', ''),
-            database=os.getenv('MYSQL_TEST_DATABASE', ''),
-            password=os.getenv('MYSQL_TEST_PASSWORD', '')
+            host=os.getenv("MYSQL_TEST_HOST", ""),
+            user=os.getenv("MYSQL_TEST_USER", ""),
+            database=os.getenv("MYSQL_TEST_DATABASE", ""),
+            password=os.getenv("MYSQL_TEST_PASSWORD", ""),
         )
-        self.cursor_kwargs = {'dictionary': True, 'buffered': True}
+        self.cursor_kwargs = {"dictionary": True, "buffered": True}
 
-    def run_query(self,  sql: str) -> list:
+    def run_query(self, sql: str) -> list[dict]:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             cursor.execute(sql)
             return cursor.fetchall()
 
+
 class postgresRunner(sqlRunner):
     def open_connection(self):
         self.connection = psycopg2.connect(
-            host=os.getenv('POSTGRES_TEST_HOST', ''),
-            user=os.getenv('POSTGRES_TEST_USER', ''),
-            dbname=os.getenv('POSTGRES_TEST_DATABASE', ''),
+            host=os.getenv("POSTGRES_TEST_HOST", ""),
+            user=os.getenv("POSTGRES_TEST_USER", ""),
+            dbname=os.getenv("POSTGRES_TEST_DATABASE", ""),
         )
         self.cursor_kwargs = {"cursor_factory": psycopg2.extras.RealDictCursor}
-    
-    def run_query(self,  sql: str) -> list:
+
+    def run_query(self, sql: str) -> list[dict]:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             cursor.execute(sql)
             res = []
@@ -64,35 +82,37 @@ class postgresRunner(sqlRunner):
                 res.append(dict(row))
             return res
 
+
 class snowflakeRunner(sqlRunner):
     def open_connection(self):
         self.connection = snowflake.connector.connect(
-            user=os.getenv('SNOWFLAKE_TEST_USER', ''),
-            password=os.getenv('SNOWFLAKE_TEST_PASSWORD', ''),
-            account=os.getenv('SNOWFLAKE_TEST_ACCOUNT', ''),
-            database=os.getenv('SNOWFLAKE_TEST_DATABASE', ''),
-            schema=os.getenv('SNOWFLAKE_TEST_SCHEMA', '')
+            user=os.getenv("SNOWFLAKE_TEST_USER", ""),
+            password=os.getenv("SNOWFLAKE_TEST_PASSWORD", ""),
+            account=os.getenv("SNOWFLAKE_TEST_ACCOUNT", ""),
+            database=os.getenv("SNOWFLAKE_TEST_DATABASE", ""),
+            schema=os.getenv("SNOWFLAKE_TEST_SCHEMA", ""),
         )
-        self.cursor_kwargs = {'cursor_class': snowflake.connector.DictCursor}
+        self.cursor_kwargs = {"cursor_class": snowflake.connector.DictCursor}
 
-    def run_query(self,  sql: str) -> list:
+    def run_query(self, sql: str) -> list[dict]:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             res = cursor.execute(sql).fetchall()
             # lower case col names
             return [{k.lower(): v for k, v in row.items()} for row in res]
 
+
 class prestoRunner(sqlRunner):
     def open_connection(self):
         self.connection = prestodb.dbapi.connect(
-            host='localhost',
-            port=8080,
-            user='myuser',
-            catalog='mysql',
-            schema='sample',
+            host=os.getenv("PRESTO_TEST_HOST", ""),
+            port=os.getenv("PRESTO_TEST_PORT", 0),
+            user=os.getenv("PRESTO_TEST_USER", ""),
+            catalog=os.getenv("PRESTO_TEST_CATALOG", ""),
+            schema=os.getenv("PRESTO_TEST_SCHEMA", ""),
         )
         self.cursor_kwargs = {}
-    
-    def run_query(self,  sql: str) -> list:
+
+    def run_query(self, sql: str) -> list:
         cursor = self.connection.cursor(**self.cursor_kwargs)
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -100,64 +120,86 @@ class prestoRunner(sqlRunner):
         res = [dict(zip(colnames, row)) for row in rows]
         return res
 
+
+class dummyRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = None
+
+    def get_query_result(self, sql: str) -> dict:
+        return {"error": "no runner configured"}
+
+    def run_query(self, sql: str):
+        pass
+
+    def close_connection(self):
+        pass
+
+
 class bigqueryRunner(sqlRunner):
     def open_connection(self):
         self.connection = bigquery.Client()
-    
+
     def run_query(self, sql: str) -> list:
         query_job = self.connection.query(query=sql)
         res = query_job.result()
         return [dict(row) for row in res]
 
+
 def read_queries_json() -> dict:
-    with open('/tmp/json/queries.json') as f:
+    with open(QUERIES_FILE, "r") as f:
         data = json.load(f)
     return data
 
+
 def print_sql(txt, insert_line_numbers=False):
     if insert_line_numbers:
-        sql_string = "\n".join([f"{n+1:03d} {line}" for n, line in enumerate(txt.split("\n"))])
+        sql_string = "\n".join(
+            [f"{n+1:03d} {line}" for n, line in enumerate(txt.split("\n"))]
+        )
     else:
         sql_string = "\n".join([f"{line}" for n, line in enumerate(txt.split("\n"))])
     print(sql_string)
 
+
 def read_queries_cache() -> dict:
     try:
-        with open("/tmp/cache.json", "r") as f:
+        with open(CACHE_FILE, "r") as f:
             return json.load(f)
     except:
         print("Failed to load query cache, creating a new one...")
         return {}
 
+
 def write_cache(cache):
     cache_string = json.dumps(cache, cls=DecimalEncoder)
-    with open("/tmp/cache.json", "w") as outfile:
+    with open(CACHE_FILE, "w") as outfile:
         outfile.write(cache_string)
 
+
 def get_sql_runner(engine) -> sqlRunner:
-    if engine == 'mysql':
+    if engine == "mysql":
         return mysqlRunner()
-    elif engine == 'postgres':
+    elif engine == "postgres":
         return postgresRunner()
-    elif engine == 'bigquery':
+    elif engine == "bigquery":
         return bigqueryRunner()
-    elif engine == 'snowflake':
+    elif engine == "snowflake":
         return snowflakeRunner()
-    elif engine == 'presto':
+    elif engine == "presto":
         return prestoRunner()
     else:
-        raise ValueError()
+        return dummyRunner()
 
-def execute_query(sql, engine) -> list[dict]:
+
+def execute_query(sql, engine) -> dict:
     runner = get_sql_runner(engine)
-    return runner.run_query(sql)
+    return runner.get_query_result(sql)
 
 
 def validate(test_case):
-    dialect = 'ansi' if test_case['engine'] == 'presto' else test_case['engine']
     errors = sqlfluff.lint(
-        test_case['sql'], 
-        dialect=dialect,
+        test_case["sql"],
+        dialect=test_case["engine"],
         exclude_rules=[
             "L003",
             "L006",
@@ -168,18 +210,26 @@ def validate(test_case):
             "L016",
             "L017",
             "L022",
-            "L027", # allows potentially ambiguous column references
+            "L027",  # allows potentially ambiguous column references
             "L028",
-            "L029", # Keywords should not be used as identifiers. Ignored bc timestamp is used as col
+            "L029",  # Keywords should not be used as identifiers. Ignored bc timestamp is used as col
             "L030",
             "L031",
             "L034",
-            "L051", # allows JOIN instead of INNER JOIN
+            "L051",  # allows JOIN instead of INNER JOIN
             "L063",
-            "L064", # allows " instead of ' around dates
+            "L064",  # allows " instead of ' around dates
             "L067",
-
-        ]
+            # clickhouse complained about lots of whitespace issues
+            "L001",
+            "L005",
+            "L071",
+            "L019",
+            "L008",
+            "L036",
+            "L018",
+            "L048",
+        ],
     )
     if len(errors) > 0:
         print(test_case["name"])
@@ -189,48 +239,48 @@ def validate(test_case):
             print(error)
         raise ValueError("sqlfluff error")
 
-# TODO: add local option to just use local DBs instead for faster/cheaper testing
+
 def main():
     test_cases = read_queries_json()
-    
+
     cache = read_queries_cache()
     results = []
     runners = {}
-    
+
+    # presto, redshift, athena have problems with leading __ so excluded for now
+    # mssql is not in sqlfluff
+    nonlinted_engines = ["presto", "redshift", "athena", "mssql"]
+
     for test_case in test_cases:
         engine = test_case["engine"]
 
-        if engine not in ['mysql', 'postgres', 'bigquery', 'snowflake', 'presto']:
-            continue
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
-        
-        key = engine + '::' + test_case['sql']
+
+        key = engine + "::" + test_case["sql"]
         if key in cache:
             results.append(cache[key])
         else:
-            if engine != 'presto':
+            if engine not in nonlinted_engines:
                 validate(test_case)
-            if engine in runners:
-                test_case["rows"] = execute_query(test_case["sql"], engine)
-            else:
-                test_case["rows"] = [{'missing_reason': 'not executed, only linted'}]
-            # TODO also save sql somewhere else?
-            result = {k: v for k, v in test_case.items() if k != 'sql'}
+            result = execute_query(test_case["sql"], engine)
+            result
+            result = {k: v for k, v in test_case.items() if k != "sql"}
             cache[key] = result
             write_cache(cache)
             results.append(result)
 
     for engine, runner in runners.items():
         runner.close_connection()
-    
+
     # Learn what branch and write out results
-    branch_name = sys.argv[1].replace("/", "") if len(sys.argv) > 1 else ''
-    res_filename = f'/tmp/json/query_results_{branch_name}.json'
+    branch_name = sys.argv[1].replace("/", "") if len(sys.argv) > 1 else ""
+    res_filename = f"{RESULT_FILE_PREFIX}_{branch_name}.json"
     print(f"Writing query result json to {res_filename}...")
-    with open(res_filename, 'w') as f:
+    with open(res_filename, "w") as f:
         f.write(json.dumps(results, cls=DecimalEncoder, indent=2))
     return results
+
 
 if __name__ == "__main__":
     main()
