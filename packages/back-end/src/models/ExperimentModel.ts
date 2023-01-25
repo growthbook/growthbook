@@ -2,7 +2,7 @@ import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
-import { ChangeLog, ExperimentInterface } from "../../types/experiment";
+import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import {
   determineNextDate,
@@ -253,7 +253,7 @@ export async function createExperiment(
 export async function updateExperimentById(
   organization: string,
   experiment: ExperimentInterface,
-  changes: ChangeLog
+  changes: Changeset
 ): Promise<void> {
   await ExperimentModel.updateOne(
     {
