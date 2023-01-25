@@ -16,7 +16,10 @@ import {
   testQuery,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  ExperimentModel,
+  logExperimentCreated,
+} from "../models/ExperimentModel";
 import { QueryModel } from "../models/QueryModel";
 import {
   createManualSnapshot,
@@ -156,7 +159,9 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         },
       ],
     };
-    await ExperimentModel.create(experiment);
+
+    const createdExperiment = await ExperimentModel.create(experiment);
+    await logExperimentCreated(org, createdExperiment);
 
     await createManualSnapshot(
       experiment,

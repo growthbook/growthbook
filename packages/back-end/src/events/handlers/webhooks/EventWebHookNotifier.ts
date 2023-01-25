@@ -108,6 +108,11 @@ export class EventWebHookNotifier implements Notifier {
       savedGroupMap,
     });
 
+    if (!payload) {
+      // Unsupported events return a null payload
+      return;
+    }
+
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,
       eventWebHook,

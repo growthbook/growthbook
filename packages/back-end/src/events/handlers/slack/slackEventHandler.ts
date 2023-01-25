@@ -1,12 +1,11 @@
+import cloneDeep from "lodash/cloneDeep";
 import { NotificationEventHandler } from "../../notifiers/EventNotifier";
 import { logger } from "../../../util/logger";
 import { getSlackIntegrationsForFilters } from "../../../models/SlackIntegrationModel";
 import {
-  buildSlackMessageForEvent,
   filterSlackIntegrationForRelevance,
-  getEnvironmentsForNotificationEvent,
-  getProjectsForNotificationEvent,
-  getTagsForNotificationEvent,
+  getDataForNotificationEvent,
+  getSlackIntegrationContextBlock,
   sendSlackMessage,
 } from "./slack-event-handler-utils";
 
@@ -19,9 +18,14 @@ export const slackEventHandler: NotificationEventHandler = async ({
   organizationId,
   id,
 }) => {
-  const tags = getTagsForNotificationEvent(data);
-  const projects = getProjectsForNotificationEvent(data);
-  const environments = getEnvironmentsForNotificationEvent(data);
+  const result = getDataForNotificationEvent(data, id);
+  if (!result) {
+    // Unsupported events do not return a result
+    return;
+  }
+
+  const { filterData, slackMessage } = result;
+  const { environments, tags, projects } = filterData;
 
   const slackIntegrations = (
     (await getSlackIntegrationsForFilters({
@@ -36,20 +40,22 @@ export const slackEventHandler: NotificationEventHandler = async ({
   );
 
   slackIntegrations.forEach((slackIntegration) => {
-    const slackMessage = buildSlackMessageForEvent({
-      event: data,
-      slackIntegration,
-      eventId: id,
-    });
+    const slackMessageWithContext = cloneDeep(slackMessage);
 
-    sendSlackMessage(slackMessage, slackIntegration.slackIncomingWebHook).then(
-      (isSuccessful) => {
-        if (!isSuccessful) {
-          logger.warn("Failed to notify for Slack integration", {
-            id: slackIntegration.id,
-          });
-        }
-      }
+    // Add the GrowthBook Slack integration context to all messages
+    slackMessageWithContext.blocks.push(
+      getSlackIntegrationContextBlock(slackIntegration)
     );
+
+    sendSlackMessage(
+      slackMessageWithContext,
+      slackIntegration.slackIncomingWebHook
+    ).then((isSuccessful) => {
+      if (!isSuccessful) {
+        logger.warn("Failed to notify for Slack integration", {
+          id: slackIntegration.id,
+        });
+      }
+    });
   });
 };

@@ -69,8 +69,14 @@ export const getPayloadForNotificationEvent = ({
   NotificationEventName,
   NotificationEventResource,
   unknown
-> => {
+> | null => {
   switch (event.event) {
+    case "experiment.created":
+    case "experiment.updated":
+    case "experiment.deleted":
+      // TODO: https://linear.app/growthbook/issue/GB-18
+      return null;
+
     case "feature.created":
       return getPayloadForFeatureCreated({
         event,
