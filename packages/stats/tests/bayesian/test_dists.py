@@ -84,7 +84,6 @@ class TestBeta(TestCase):
             self.assertGreaterEqual(r, 0)
 
 
-
 class TestNorm(TestCase):
     def test_posterior(self):
         prior = 0, 1, 10
