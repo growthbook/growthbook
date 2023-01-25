@@ -71,6 +71,7 @@ export const getPayloadForNotificationEvent = async ({
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
+      // TODO: We need to shape this data. BLOCKED on ApiExperimentInterface being ready
       return event;
 
     case "feature.created":
@@ -78,11 +79,13 @@ export const getPayloadForNotificationEvent = async ({
         event,
         organization,
       });
+
     case "feature.updated":
       return await getPayloadForFeatureUpdated({
         event,
         organization,
       });
+
     case "feature.deleted":
       return await getPayloadForFeatureDeleted({
         event,
