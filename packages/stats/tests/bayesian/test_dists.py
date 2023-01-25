@@ -77,6 +77,12 @@ class TestBeta(TestCase):
                 roundsum(np.log(x) * w), roundsum(digamma(a) - digamma(a + b))
             )
 
+    def test_risk_nonnegative(self):
+        # Test used to fail before solution to GH issue
+        risk = Beta.risk(5563, 1281, 4605, 2888).tolist()
+        for r in risk:
+            self.assertGreaterEqual(r, 0)
+
 
 class TestNorm(TestCase):
     def test_posterior(self):
