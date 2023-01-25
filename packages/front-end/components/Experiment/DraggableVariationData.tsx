@@ -18,7 +18,6 @@ type VariationProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-// eslint-disable-next-line
 const Card = forwardRef<HTMLDivElement, VariationProps>(
   ({ i, variations, variation, handle, setVariations, ...props }, ref) => {
     return (
@@ -98,6 +97,8 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
     );
   }
 );
+
+Card.displayName = "Card";
 
 export function DraggableVariationData(props) {
   const {

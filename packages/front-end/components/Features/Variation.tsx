@@ -39,7 +39,6 @@ type VariationProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-// eslint-disable-next-line
 export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
   (
     {
@@ -215,6 +214,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     );
   }
 );
+
+VariationRow.displayName = "VariationRow";
 
 export function SortableVariationRow(props: SortableProps) {
   const {
