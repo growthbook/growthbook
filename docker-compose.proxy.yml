@@ -1,0 +1,39 @@
+version: "3"
+services:
+  mongo:
+    image: "mongo:latest"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
+      # Proxy settings
+      - PROXY_ENABLED=1
+      - PROXY_HOST_INTERNAL=http://proxy:3300
+      - PROXY_HOST_PUBLIC=http://localhost:3300
+      # Change this to something secure in production!
+      - SECRET_API_KEY=dev
+    volumes:
+      - uploads:/usr/local/src/app/packages/back-end/uploads
+
+  proxy:
+    image: "growthbook/proxy:latest"
+    ports:
+      - "3300:3300"
+    depends_on:
+      - growthbook
+    environment:
+      - GROWTHBOOK_API_HOST=http://growthbook:3100
+      # This must match the SECRET_API_KEY above
+      - SECRET_API_KEY=dev
+
+volumes:
+  uploads:

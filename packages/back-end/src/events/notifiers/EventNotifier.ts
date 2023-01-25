@@ -1,6 +1,10 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../services/queueing";
 import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
+import { slackEventHandler } from "../handlers/slack/slackEventHandler";
+import { EventInterface } from "../../../types/event";
+import { NotificationEvent } from "../base-events";
+import { getEvent } from "../../models/EventModel";
 
 let jobDefined = false;
 
@@ -13,7 +17,7 @@ interface EventNotificationData extends JobAttributesData {
 }
 
 export interface NotificationEventHandler {
-  (eventId: string): Promise<void>;
+  (event: EventInterface<NotificationEvent>): Promise<void>;
 }
 
 export class EventNotifier implements Notifier {
@@ -31,10 +35,19 @@ export class EventNotifier implements Notifier {
     jobDefined = true;
   }
 
-  private static jobHandler(job: Job<EventNotificationData>): void {
+  private static async jobHandler(
+    job: Job<EventNotificationData>
+  ): Promise<void> {
     const { eventId } = job.attrs.data;
-    webHooksEventHandler(eventId);
-    // slackEventHandler(event);
+
+    const event = await getEvent(eventId);
+    if (!event) {
+      // We should never get here
+      throw new Error(`jobHandler -> No event for ID ${eventId}`);
+    }
+
+    webHooksEventHandler(event);
+    slackEventHandler(event);
   }
 
   async perform() {

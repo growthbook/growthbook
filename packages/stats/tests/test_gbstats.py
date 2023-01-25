@@ -230,7 +230,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.163302082)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.145219005)
 
     def test_get_metric_df_frequentist_ratio(self):
         rows = RATIO_STATISTICS_DF
@@ -247,7 +247,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.587981919)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.610663339)
 
 
 if __name__ == "__main__":

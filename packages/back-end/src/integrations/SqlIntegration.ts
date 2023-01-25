@@ -1041,6 +1041,8 @@ export default abstract class SqlIntegration
               ? `__userDenominator d
           LEFT JOIN __userMetric m ON (
             d.${baseIdType} = m.${baseIdType}
+            AND d.dimension = m.dimension
+            AND d.variation = m.variation
           )`
               : `__userMetric m`
           }

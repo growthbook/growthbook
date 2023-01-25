@@ -9,6 +9,7 @@ const FeatureKeyField: FC<{ keyField: UseFormRegisterReturn }> = ({
     label="Feature Key"
     {...keyField}
     pattern="^[a-zA-Z0-9_.:|-]+$"
+    placeholder="my-feature"
     required
     title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
     helpText={

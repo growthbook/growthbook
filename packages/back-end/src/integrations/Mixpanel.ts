@@ -140,7 +140,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         ${metrics
           .map((m, i) => this.getMetricFunction(m, `Metric${i}`))
           .join("")}
-        
+
         return ${this.getEvents(
           phase.dateStarted,
           phase.dateEnded || new Date(),
@@ -172,6 +172,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         .groupByUser(${this.getGroupByUserFields()}function(state, events) {
           state = state || {
             inExperiment: false,
+            multipleVariants: false,
             ${dimension ? "dimension: null," : ""}
             ${activationMetric ? "activated: false," : ""}
             start: null,
@@ -183,28 +184,43 @@ export default class Mixpanel implements SourceIntegrationInterface {
           for(var i=0; i<events.length; i++) {
             const event = events[i];
             // User is put into the experiment
-            if(!state.inExperiment && isExposureEvent(event)) {
-              state.inExperiment = true;
-              state.variation = ${getMixpanelPropertyColumn(
-                this.settings.events?.variationIdProperty || "Variant name"
-              )};
-              ${
-                dimension
-                  ? `state.dimension = (${this.getDimensionColumn(
-                      dimension.sql,
-                      phase.dateStarted,
-                      phase.dateEnded,
-                      experiment.trackingKey
-                    )}) || null;`
-                  : ""
+            if(isExposureEvent(event)) {
+              if(!state.inExperiment) {
+                state.inExperiment = true;
+                state.variation = ${getMixpanelPropertyColumn(
+                  this.settings.events?.variationIdProperty || "Variant name"
+                )};
+                ${
+                  dimension
+                    ? `state.dimension = (${this.getDimensionColumn(
+                        dimension.sql,
+                        phase.dateStarted,
+                        phase.dateEnded,
+                        experiment.trackingKey
+                      )}) || null;`
+                    : ""
+                }
+                ${activationMetric ? "" : onActivate}
+                continue;
               }
-              ${activationMetric ? "" : onActivate}
-              continue;
+              else if(state.variation !== ${getMixpanelPropertyColumn(
+                this.settings.events?.variationIdProperty || "Variant name"
+              )}) {
+                state.multipleVariants = true;
+                continue;
+              }
+              else {
+                continue;
+              }
             }
-  
+
             // Not in the experiment yet
             if(!state.inExperiment) {
               ${hasEarlyStartMetrics ? "state.queuedEvents.push(event);" : ""}
+              continue;
+            }
+            // Saw multiple variants so ignore
+            if(state.multipleVariants) {
               continue;
             }
             ${
@@ -230,7 +246,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
             `
                 : ""
             }
-  
+
             ${metrics
               .map(
                 (metric, i) => `// Metric - ${metric.name}
@@ -251,6 +267,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
         // Remove users that are not in the experiment
         .filter(function(ev) {
           if(!ev.value.inExperiment) return false;
+          if(ev.value.multipleVariants) return false;
           if(ev.value.variation === null || ev.value.variation === undefined) return false;
           ${activationMetric ? "if(!ev.value.activated) return false;" : ""}
           return true;

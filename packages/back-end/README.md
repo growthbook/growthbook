@@ -134,10 +134,12 @@ To use the analysis parts of GrowthBook, you need to connect to a data source wi
 We have a sample data generator script you can use to seed a database with realistic website traffic:
 
 1. Run `yarn workspace back-end generate-dummy-data`. This will create CSV files in `/tmp/csv`
-2. Start your local server (e.g. Postgres, MySQL)
-3. Connect to your local instance and run the SQL commands matching your server type in `packages/back-end/test/data-generator/sql_scripts/` to create the tables and upload the generated data
+2. Start your local server (e.g. Postgres, MySQL) or ensure your cloud service (e.g. Snowflake, BigQuery) is set up
+3. Connect to your database instance and run the SQL commands matching your server type in `packages/back-end/test/data-generator/sql_scripts/` to create the tables and upload the generated data
 
-We have SQL scripts set up to work with both Postgres and MySQL, but you could modify the SQL scripts to work with another system.
+We have SQL scripts set up to work with Postgres, MySQL, and Snowflake, but you could modify the SQL scripts to work with another system.
+
+WARNING: the purchases.csv file contains `'\N'` to represent null values which may need to be handled differently depending on the DB engine you are using. It works with both the provided scripts discussed below.
 
 **Postgres**
 
@@ -146,7 +148,7 @@ For postgres, launch your connection using `psql` and run this script `packages/
 You can do this from your terminal with the following command, if your local postgres db is running with user `postgres`, database `growthbook_db`,
 
 ```bash
-> psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/sql_scripts/create_postgres.sql
+psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/sql_scripts/create_postgres.sql
 ```
 
 **MySQL**
@@ -156,8 +158,28 @@ Once your local MySQL db is running, you have to ensure that your server allows 
 Then, you can run `packages/back-end/test/data-generator/sql_scripts/create_mysql.sql` from the mysql console or from the terminal like so (using example user `myuser` and example database `growthbook_db`):
 
 ```bash
-> mysql -u myuser -p growthbook_db --local-infile < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
+mysql -u myuser -p growthbook_db --local-infile < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
 ```
+
+**Snowflake**
+
+Create a database and a schema in your Snowflake. Then, you can run `packages/back-end/test/data-generator/sql_scripts/create_snowflake.sql` using the `snowsql` command line client (see their [docs](https://docs.snowflake.com/en/user-guide/snowsql.html)). For example, you can run the following in your Mac or Linux terminal if you have a database called `growthbook_db`, a schema called `sample`, account name called `account-name`, and you want to use user `myuser` to log in.
+
+```bash
+snowsql -d growthbook_db -s sample -a account-name -u myuser -f packages/back-end/test/data-generator/sql_scripts/create_snowflake.sql
+```
+
+Note if you're on a windows machine, you will have to modify `create_snowflake.sql` to point to the files different (see the Snowflake docs [here](https://docs.snowflake.com/en/user-guide/data-load-internal-tutorial-stage-data-files.html).)
+
+**BigQuery**
+
+We don't include a SQL script for BigQuery, but you can easily upload data by running the following kind of command for each csv file from your terminal, if you have set up the `bq` command line tool:
+
+```bash
+bq load --project_id=my-teams-project --skip_leading_rows=1 --source_format=CSV --null_marker="\N" sample.orders /tmp/csv/purchases.csv userId:STRING,anonymousId:STRING,sessionId:STRING,browser:STRING,country:STRING,timestamp:TIMESTAMP,qty:INTEGER,amount:INTEGER
+```
+
+where `my-teams-project` is your BQ project, you have created the dataset `sample`, and want to load `purchases.csv` in to the `orders` table in that dataset.
 
 ### Loading sample data in to Growthbook
 

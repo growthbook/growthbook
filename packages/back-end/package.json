@@ -16,6 +16,7 @@
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
+    "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js"
@@ -23,7 +24,7 @@
   "dependencies": {
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
-    "@growthbook/growthbook": "^0.20.0",
+    "@growthbook/growthbook": "^0.21.1",
     "@sentry/node": "^7.14.2",
     "@slack/web-api": "^5.14.0",
     "agenda": "^5.0.0",
