@@ -1,22 +1,11 @@
 import { getAllEventWebHooksForEvent } from "../../../models/EventWebhookModel";
 import { NotificationEventHandler } from "../../notifiers/EventNotifier";
-import { getEvent } from "../../../models/EventModel";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
 /**
  * Common handler that looks up the web hooks and makes a post request with the event.
  */
-export const webHooksEventHandler: NotificationEventHandler = async (
-  eventId
-) => {
-  const event = await getEvent(eventId);
-  if (!event) {
-    // We should never get here
-    throw new Error(
-      "webHooksEventHandler -> ImplementationError: No event for provided ID"
-    );
-  }
-
+export const webHooksEventHandler: NotificationEventHandler = async (event) => {
   const eventWebHooks = await getAllEventWebHooksForEvent(
     event.organizationId,
     event.data.event,
@@ -25,7 +14,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (
 
   eventWebHooks.forEach((eventWebHook) => {
     const notifier = new EventWebHookNotifier({
-      eventId,
+      eventId: event.id,
       eventWebHookId: eventWebHook.id,
     });
     notifier.enqueue();
