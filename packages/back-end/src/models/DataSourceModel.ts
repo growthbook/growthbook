@@ -20,7 +20,6 @@ const dataSourceSchema = new mongoose.Schema({
   id: String,
   name: String,
   description: String,
-  // schema: String,
   organization: {
     type: String,
     index: true,
@@ -34,7 +33,13 @@ const dataSourceSchema = new mongoose.Schema({
     index: true,
   },
   settings: {},
-  // schema: String,
+  schema: [
+    {
+      _id: false,
+      table_name: String,
+      columns: [{ _id: false, column_name: String, data_type: String }],
+    },
+  ],
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -170,7 +175,7 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
 
   // After we've confirmed the connection, generate the schema
-  datasource.settings.schema = await generateSchema(datasource);
+  // datasource.settings.schema = await generateSchema(datasource);
 
   //  Create in the database
   const model = await DataSourceModel.create(datasource);
@@ -214,4 +219,20 @@ export async function _dangerousGetAllDatasources(): Promise<
 > {
   const all = await DataSourceModel.find();
   return all.map(toInterface);
+}
+
+export async function postDataSourceSchema(
+  id: string,
+  organization: string,
+  datasourceSchema: any
+): Promise<void> {
+  await DataSourceModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    {
+      $set: { schema: datasourceSchema },
+    }
+  );
 }

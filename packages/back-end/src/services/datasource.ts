@@ -13,6 +13,7 @@ import Mixpanel from "../integrations/Mixpanel";
 import { DataSourceInterface, DataSourceParams } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
+import { postDataSourceSchema } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -82,12 +83,15 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   return obj;
 }
 
-export async function generateSchema(datasource: DataSourceInterface) {
+export async function generateSchema(
+  datasource: DataSourceInterface,
+  orgId: string
+): Promise<any> {
   const integration = getSourceIntegrationObject(datasource);
 
-  // if (!integration) {
-  //   return;
-  // }
+  if (!integration) {
+    return;
+  }
 
   // The Mixpanel integration does not support test queries
   if (!integration.runGetSchemaQuery) {
@@ -100,7 +104,36 @@ export async function generateSchema(datasource: DataSourceInterface) {
 
   try {
     const results = await integration.runGetSchemaQuery(sql);
-    return results;
+
+    //TODO: We need to loop through the results and instead of returning a row for every table and column, we want to create an array for each table that has a row for each column
+
+    // Loop through the results
+    // If current index.table_name is included, then just push current index.column_name into the array
+    // Else create an index with the name of current index.table_name
+
+    const formattedResults = [];
+
+    results.forEach((row: any) => {
+      const key = row.table_name;
+
+      if (
+        !formattedResults.length ||
+        formattedResults.findIndex((i) => i.table_name === key) === -1
+      ) {
+        formattedResults.push({ table_name: key, columns: [] });
+      }
+
+      const index = formattedResults.findIndex((e) => e.table_name === key);
+
+      formattedResults[index].columns.push({
+        column_name: row.column_name,
+        data_type: row.data_type,
+      });
+    });
+
+    await postDataSourceSchema(datasource.id, orgId, formattedResults);
+
+    return { results, formattedResults };
   } catch (e) {
     return {
       error: e.message,

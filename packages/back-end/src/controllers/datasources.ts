@@ -575,12 +575,16 @@ export async function putDataSourceSchema(
   //TODO: Should we check for permissions here?
 
   //TODO: Build
-  const results = await generateSchema(datasource);
+  const { results, formattedResults } = await generateSchema(
+    datasource,
+    org.id
+  );
 
   res.status(200).json({
     status: 200,
     message: "This thing is on",
     results,
+    formattedResults,
     //TODO: Include actual datasourceSchema here
   });
 }
