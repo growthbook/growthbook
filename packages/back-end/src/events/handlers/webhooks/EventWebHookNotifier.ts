@@ -6,7 +6,6 @@ import {
   updateEventWebHookStatus,
 } from "../../../models/EventWebhookModel";
 import { EventWebHookInterface } from "../../../../types/event-webhook";
-import { getSavedGroupMap } from "../../../services/features";
 import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
@@ -101,11 +100,9 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const savedGroupMap = await getSavedGroupMap(organization);
-    const payload = getPayloadForNotificationEvent({
+    const payload = await getPayloadForNotificationEvent({
       event: event.data,
       organization,
-      savedGroupMap,
     });
 
     if (!payload) {
