@@ -26,6 +26,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
+  console.log("dataSource", dataSource);
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"

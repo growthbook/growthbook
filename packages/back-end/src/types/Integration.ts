@@ -144,6 +144,36 @@ export interface TestQueryResult {
   duration: number;
 }
 
+interface Column {
+  name: string;
+  type: unknown; //MKTODO: Come back and update this
+  // type:
+  //   | array
+  //   | binary
+  //   | boolean
+  //   | code
+  //   | data
+  //   | decimal128
+  //   | double
+  //   | int32
+  //   | int64
+  //   | maxKey
+  //   | minKey
+  //   | null
+  //   | object
+  //   | objectId
+  //   | BSONRegExp
+  //   | string
+  //   | BSONSymbol
+  //   | timestamp
+  //   | undefined;
+}
+
+interface Table {
+  name: string;
+  columns: Column[];
+}
+
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
@@ -168,8 +198,11 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
+  runGetSchemaQuery?(query: string): Promise<any>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
+  getAllTables?(): Promise<any>; //MKTODO: Come back and update this
+  getColumnData?(tableName: string): Promise<any>; //MKTODO: Come back and update this
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;

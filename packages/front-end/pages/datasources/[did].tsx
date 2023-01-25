@@ -165,6 +165,17 @@ const DataSourcePage: FC = () => {
                 </div>
 
                 <div>
+                  <button
+                    onClick={async () => {
+                      const res = await apiCall(`/datasource/${d.id}/schema`, {
+                        method: "PUT",
+                      });
+                      console.log("res", res);
+                      // mutateDefinitions({});
+                    }}
+                  >
+                    Get Schema
+                  </button>
                   {canEdit && (
                     <DeleteButton
                       displayName={d.name}

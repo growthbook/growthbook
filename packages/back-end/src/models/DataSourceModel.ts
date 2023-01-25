@@ -10,6 +10,7 @@ import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics"
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,
+  generateSchema,
   testDataSourceConnection,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
@@ -19,6 +20,7 @@ const dataSourceSchema = new mongoose.Schema({
   id: String,
   name: String,
   description: String,
+  // schema: String,
   organization: {
     type: String,
     index: true,
@@ -32,6 +34,7 @@ const dataSourceSchema = new mongoose.Schema({
     index: true,
   },
   settings: {},
+  // schema: String,
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -131,6 +134,8 @@ export async function createDataSource(
   id = id || uniqid("ds_");
   projects = projects || [];
 
+  console.log("settings", settings);
+
   if (type === "google_analytics") {
     const oauth2Client = getOauth2Client();
     const { tokens } = await oauth2Client.getToken(
@@ -161,8 +166,13 @@ export async function createDataSource(
     projects,
   };
 
-  // Test the connection and create in the database
+  // Test the connection
   await testDataSourceConnection(datasource);
+
+  // After we've confirmed the connection, generate the schema
+  datasource.settings.schema = await generateSchema(datasource);
+
+  //  Create in the database
   const model = await DataSourceModel.create(datasource);
 
   return toInterface(model);

@@ -130,6 +130,7 @@ export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
+  schema?: string;
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];
@@ -140,6 +141,7 @@ export type DataSourceSettings = {
     identityJoins?: IdentityJoinQuery[];
     // @deprecated
     pageviewsQuery?: string;
+    schemaGenerator?: string;
   };
   events?: DataSourceEvents;
   default?: {
@@ -166,6 +168,16 @@ export type DataSourceSettings = {
   };
 };
 
+type Column = {
+  name: string;
+  type: unknown;
+};
+
+type Table = {
+  name: string;
+  columns: Column[];
+};
+
 interface DataSourceBase {
   id: string;
   name: string;
@@ -176,6 +188,8 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
+  // schema?: string; //MKTODO: Temporary while I'm testing functionality
+  // schema?: Table[];
 }
 
 interface RedshiftDataSource extends DataSourceBase {

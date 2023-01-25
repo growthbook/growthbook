@@ -82,6 +82,34 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   return obj;
 }
 
+export async function generateSchema(datasource: DataSourceInterface) {
+  const integration = getSourceIntegrationObject(datasource);
+
+  // if (!integration) {
+  //   return;
+  // }
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.runGetSchemaQuery) {
+    throw new Error("Unable to test query.");
+    //MKTODO: We'll want to change this to fail elegantly so it doesn't block creating a Mixpanel datasource
+  }
+
+  const sql =
+    "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name;";
+
+  try {
+    const results = await integration.runGetSchemaQuery(sql);
+    return results;
+  } catch (e) {
+    return {
+      error: e.message,
+    };
+  }
+
+  return datasource;
+}
+
 export async function testDataSourceConnection(
   datasource: DataSourceInterface
 ) {

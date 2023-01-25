@@ -14,6 +14,7 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
+  generateSchema,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -553,5 +554,33 @@ export async function testLimitedQuery(
     results,
     sql,
     error,
+  });
+}
+
+export async function putDataSourceSchema(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const datasource = await getDataSourceById(id, org.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  //TODO: Should we check for permissions here?
+
+  //TODO: Build
+  const results = await generateSchema(datasource);
+
+  res.status(200).json({
+    status: 200,
+    message: "This thing is on",
+    results,
+    //TODO: Include actual datasourceSchema here
   });
 }

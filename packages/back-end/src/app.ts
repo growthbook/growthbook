@@ -451,6 +451,7 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+app.put("/datasource/:id/schema", datasourcesController.putDataSourceSchema);
 
 // Events
 app.use("/events", eventsRouter);
