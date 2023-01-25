@@ -16,71 +16,74 @@ import { APP_ORIGIN } from "../../../util/secrets";
 
 // region Filtering
 
-/**
- * Gets all current and previous tags for the event
- * @param event
- */
-export const getTagsForNotificationEvent = (
-  event: NotificationEvent
-): string[] => {
-  switch (event.event) {
-    case "feature.created":
-      return event.data.current.tags || [];
-
-    case "feature.updated":
-      return uniq(
-        (event.data.current.tags || []).concat(event.data.previous.tags || [])
-      );
-
-    case "feature.deleted":
-      return event.data.previous.tags || [];
-  }
+type DataForNotificationEvent = {
+  filterData: {
+    tags: string[];
+    projects: string[];
+    environments: string[];
+  };
+  slackMessage: SlackMessage;
 };
 
-/**
- * Gets current and previous projects
- * @param event
- */
-export const getProjectsForNotificationEvent = (
-  event: NotificationEvent
-): string[] => {
+export const getDataForNotificationEvent = (
+  event: NotificationEvent,
+  eventId: string
+): DataForNotificationEvent | null => {
   switch (event.event) {
     case "feature.created":
-      return event.data.current.project ? [event.data.current.project] : [];
+      return {
+        filterData: {
+          tags: event.data.current.tags || [],
+          projects: event.data.current.project
+            ? [event.data.current.project]
+            : [],
+          environments: Object.keys(event.data.current.environmentSettings),
+        },
+        slackMessage: buildSlackMessageForFeatureCreatedEvent(event, eventId),
+      };
 
     case "feature.updated":
-      return uniq(
-        (event.data.current.project ? [event.data.current.project] : []).concat(
-          event.data.previous.project ? [event.data.previous.project] : []
-        )
-      );
+      return {
+        filterData: {
+          tags: uniq(
+            (event.data.current.tags || []).concat(
+              event.data.previous.tags || []
+            )
+          ),
+          projects: uniq(
+            (event.data.current.project
+              ? [event.data.current.project]
+              : []
+            ).concat(
+              event.data.previous.project ? [event.data.previous.project] : []
+            )
+          ),
+          environments: uniq(
+            Object.keys(event.data.current.environmentSettings).concat(
+              Object.keys(event.data.previous.environmentSettings)
+            )
+          ),
+        },
+        slackMessage: buildSlackMessageForFeatureUpdatedEvent(event, eventId),
+      };
 
     case "feature.deleted":
-      return event.data.previous.project ? [event.data.previous.project] : [];
-  }
-};
+      return {
+        filterData: {
+          tags: event.data.previous.tags || [],
+          projects: event.data.previous.project
+            ? [event.data.previous.project]
+            : [],
+          environments: Object.keys(event.data.previous.environmentSettings),
+        },
+        slackMessage: buildSlackMessageForFeatureDeletedEvent(event, eventId),
+      };
 
-/**
- * In the case of some resources, e.g. features, we want to do our own filtering for environments.
- * We need to include all environments in that case.
- * @param event
- */
-export const getEnvironmentsForNotificationEvent = (
-  event: NotificationEvent
-): string[] => {
-  switch (event.event) {
-    case "feature.created":
-      return Object.keys(event.data.current.environmentSettings);
-
-    case "feature.updated":
-      return uniq(
-        Object.keys(event.data.current.environmentSettings).concat(
-          Object.keys(event.data.previous.environmentSettings)
-        )
-      );
-
-    case "feature.deleted":
-      return Object.keys(event.data.previous.environmentSettings);
+    case "experiment.created":
+    case "experiment.updated":
+    case "experiment.deleted":
+      // TODO: https://linear.app/growthbook/issue/GB-19
+      return null;
   }
 };
 
@@ -90,6 +93,7 @@ export const getEnvironmentsForNotificationEvent = (
  * For example, for features, all created and deleted events are relevant
  * but only some update events are.
  * We filter the integration out based on resource- and event-specific requirements.
+ * We shouldn't filter for unsupported events but in case we do, we are returning false for those.
  * @param slackIntegration
  * @param event
  * @return boolean should include
@@ -99,9 +103,16 @@ export const filterSlackIntegrationForRelevance = (
   event: NotificationEvent
 ): boolean => {
   switch (event.event) {
+    case "experiment.created":
+    case "experiment.updated":
+    case "experiment.deleted":
+      // TODO: https://linear.app/growthbook/issue/GB-19
+      return false;
+
     case "feature.created":
     case "feature.deleted":
       return true;
+
     case "feature.updated":
       return filterFeatureUpdateEventForRelevance(slackIntegration, event);
   }
@@ -181,34 +192,11 @@ const filterFeatureUpdateEventForRelevance = (
 
 // region Slack API
 
-type BuildSlackMessageOptions = {
-  event: NotificationEvent;
-  slackIntegration: SlackIntegrationInterface;
-  eventId: string;
-};
-
-/**
- * Given an event, will build the desired Slack message
- * @param options
- */
-export const buildSlackMessageForEvent = (
-  options: BuildSlackMessageOptions
-): SlackMessage => {
-  const slackMessage = buildBaseSlackMessageForEvent(options);
-
-  // Add the GrowthBook Slack integration context to all messages
-  slackMessage.blocks.push(
-    getIntegrationContextBlock(options.slackIntegration)
-  );
-
-  return slackMessage;
-};
-
 /**
  * GrowthBook Slack context that should be appended to all messages
  * @param slackIntegration
  */
-const getIntegrationContextBlock = (
+export const getSlackIntegrationContextBlock = (
   slackIntegration: SlackIntegrationInterface
 ): KnownBlock => {
   return {
@@ -230,29 +218,6 @@ const getIntegrationContextBlock = (
 
 // region Event-specific messages
 
-/**
- * Builds the event-specific Slack KnownBlocks
- * @param event
- * @param slackIntegration
- * @param eventId
- */
-const buildBaseSlackMessageForEvent = ({
-  event,
-  slackIntegration,
-  eventId,
-}: BuildSlackMessageOptions): SlackMessage => {
-  switch (event.event) {
-    case "feature.created":
-      return buildFeatureCreatedEvent(event, slackIntegration, eventId);
-
-    case "feature.updated":
-      return buildFeatureUpdatedEvent(event, slackIntegration, eventId);
-
-    case "feature.deleted":
-      return buildFeatureDeletedEvent(event, slackIntegration, eventId);
-  }
-};
-
 // region Event-specific messages -> Feature
 
 const getFeatureUrlFormatted = (featureId: string): string =>
@@ -261,9 +226,8 @@ const getFeatureUrlFormatted = (featureId: string): string =>
 const getEventUrlFormatted = (eventId: string): string =>
   `\n• <${APP_ORIGIN}/events/${eventId}|View Event>`;
 
-const buildFeatureCreatedEvent = (
+const buildSlackMessageForFeatureCreatedEvent = (
   featureEvent: FeatureCreatedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface,
   eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.current.id;
@@ -287,9 +251,8 @@ const buildFeatureCreatedEvent = (
   };
 };
 
-const buildFeatureUpdatedEvent = (
+const buildSlackMessageForFeatureUpdatedEvent = (
   featureEvent: FeatureUpdatedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface,
   eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.current.id;
@@ -313,9 +276,8 @@ const buildFeatureUpdatedEvent = (
   };
 };
 
-const buildFeatureDeletedEvent = (
+const buildSlackMessageForFeatureDeletedEvent = (
   featureEvent: FeatureDeletedNotificationEvent,
-  slackIntegration: SlackIntegrationInterface,
   eventId: string
 ): SlackMessage => {
   const featureId = featureEvent.data.previous.id;
