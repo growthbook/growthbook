@@ -26,9 +26,10 @@ export async function runDatabricksQuery<T>(
     });
     client
       .on("error", (error) => {
-        if (finished) return;
-        finished = true;
-        reject(error);
+        if (!finished) {
+          finished = true;
+          reject(error);
+        }
       })
       .connect({
         token: conn.token,
@@ -47,18 +48,22 @@ export async function runDatabricksQuery<T>(
           progress: false,
         })) as unknown) as Promise<T[]>;
 
+        // As soon as we have the reuslt, return it
+        if (!finished) {
+          finished = true;
+          resolve(result);
+        }
+
+        // Do cleanup in the background and ignore errors
         await queryOperation.close();
         await session.close();
         await client.close();
-
-        if (finished) return;
-        finished = true;
-        resolve(result);
       })
       .catch((e) => {
-        if (finished) return;
-        finished = true;
-        reject(e);
+        if (!finished) {
+          finished = true;
+          reject(e);
+        }
       });
   });
   return result;
