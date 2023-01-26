@@ -1,15 +1,30 @@
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
+import each from "lodash/each";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
+import cloneDeep from "lodash/cloneDeep";
 import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import {
   determineNextDate,
   generateTrackingKey,
 } from "../services/experiments";
+import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
+} from "../events/base-events";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { logger } from "../util/logger";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
+import { createEvent } from "./EventModel";
+
+type FindOrganizationOptions = {
+  experimentId: string;
+  organizationId: string;
+};
 
 const experimentSchema = new mongoose.Schema({
   id: String,
@@ -167,31 +182,6 @@ export async function getExperimentsByIds(
   return experiments.map((m) => toInterface(m));
 }
 
-export async function deleteExperimentById(
-  organization: string,
-  id: string
-): Promise<void> {
-  await ExperimentModel.deleteOne({
-    id,
-    organization,
-  });
-}
-
-export async function getExperimentsUsingSegment(
-  id: string,
-  organization: string
-): Promise<ExperimentInterface[]> {
-  const experiments = await ExperimentModel.find(
-    {
-      organization,
-      segment: id,
-    },
-    { id: 1, name: 1 }
-  );
-
-  return experiments.map((m) => toInterface(m));
-}
-
 export async function getSampleExperiment(
   organization: string
 ): Promise<ExperimentInterface | null> {
@@ -324,39 +314,6 @@ export async function getExperimentsByMetric(
   });
 
   return uniqBy(experiments, "id");
-}
-
-export async function removeMetricFromExperiments(
-  metricId: string,
-  orgId: string
-): Promise<void> {
-  // Remove from metrics
-  await ExperimentModel.updateMany(
-    { organization: orgId, metrics: metricId },
-    { $pull: { metrics: metricId } }
-  );
-
-  // Remove from guardrails
-  await ExperimentModel.updateMany(
-    { organization: orgId, guardrails: metricId },
-    { $pull: { guardrails: metricId } }
-  );
-
-  // Remove from activationMetric
-  await ExperimentModel.updateMany(
-    { organization: orgId, activationMetric: metricId },
-    { $set: { activationMetric: "" } }
-  );
-}
-
-export async function removeProjectFromExperiments(
-  project: string,
-  organization: string
-): Promise<void> {
-  await ExperimentModel.updateMany(
-    { organization, project },
-    { $set: { project: "" } }
-  );
 }
 
 export async function getExperimentByIdea(
@@ -535,3 +492,273 @@ export async function removeTagFromExperiment(
     }
   );
 }
+
+/**
+ * Finds an experiment for an organization
+ * @param experimentId
+ * @param organizationId
+ */
+export const findExperiment = async ({
+  experimentId,
+  organizationId,
+}: FindOrganizationOptions): Promise<ExperimentInterface | null> => {
+  const doc = await ExperimentModel.findOne({
+    id: experimentId,
+    organization: organizationId,
+  });
+  return doc ? toInterface(doc) : null;
+};
+
+// region Events
+
+/**
+ * @param organization
+ * @param experiment
+ * @return event.id
+ */
+export const logExperimentCreated = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): Promise<string> => {
+  const payload: ExperimentCreatedNotificationEvent = {
+    object: "experiment",
+    event: "experiment.created",
+    data: {
+      current: experiment,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+};
+
+/**
+ * @param organization
+ * @param experiment
+ * @return event.id
+ */
+export const logExperimentUpdated = async ({
+  organization,
+  current,
+  previous,
+}: {
+  organization: OrganizationInterface;
+  current: ExperimentInterface;
+  previous: ExperimentInterface;
+}): Promise<string> => {
+  const payload: ExperimentUpdatedNotificationEvent = {
+    object: "experiment",
+    event: "experiment.updated",
+    data: {
+      previous,
+      current,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+};
+
+/**
+ * Deletes an experiment by ID and logs the event for the organization
+ * @param id
+ * @param organization
+ */
+export async function deleteExperimentByIdForOrganization(
+  id: string,
+  organization: OrganizationInterface
+) {
+  try {
+    const previous = await findExperiment({
+      experimentId: id,
+      organizationId: organization.id,
+    });
+    if (previous) {
+      await logExperimentDeleted(organization, previous);
+    }
+  } catch (e) {
+    logger.error(e);
+  }
+
+  await ExperimentModel.deleteOne({
+    id,
+  });
+}
+
+/**
+ * Removes the tag from any experiments that have it
+ * and logs the experiment.updated event
+ * @param organization
+ * @param tag
+ */
+export const removeTagFromExperiments = async ({
+  organization,
+  tag,
+}: {
+  organization: OrganizationInterface;
+  tag: string;
+}): Promise<void> => {
+  const query = { organization: organization.id, tags: tag };
+  const previousExperiments = await ExperimentModel.find(query);
+
+  await ExperimentModel.updateMany(query, {
+    $pull: { tags: tag },
+  });
+
+  previousExperiments.forEach((previous) => {
+    const current = cloneDeep(previous);
+    current.tags = current.tags.filter((t) => t != tag);
+
+    logExperimentUpdated({
+      organization,
+      previous,
+      current,
+    });
+  });
+};
+
+export async function getExperimentsByOrganization(
+  organization: string,
+  project?: string
+) {
+  const query: FilterQuery<ExperimentDocument> = {
+    organization,
+  };
+
+  if (project) {
+    query.project = project;
+  }
+
+  const experiments = await ExperimentModel.find(query);
+
+  return experiments.map((m) => toInterface(m));
+}
+
+export async function removeMetricFromExperiments(
+  metricId: string,
+  organization: OrganizationInterface
+) {
+  const oldExperiments: Record<
+    string,
+    {
+      previous: ExperimentInterface | null;
+      current: ExperimentInterface | null;
+    }
+  > = {};
+
+  const orgId = organization.id;
+
+  const metricQuery = { organization: orgId, metrics: metricId };
+  const guardRailsQuery = { organization: orgId, guardrails: metricId };
+  const activationMetricQuery = {
+    organization: orgId,
+    activationMetric: metricId,
+  };
+  const docsToTrackChanges = await ExperimentModel.find({
+    $or: [metricQuery, guardRailsQuery, activationMetricQuery],
+  });
+  docsToTrackChanges.forEach((experiment: ExperimentDocument) => {
+    if (!oldExperiments[experiment.id]) {
+      oldExperiments[experiment.id] = {
+        previous: experiment,
+        current: null,
+      };
+    }
+  });
+
+  // Remove from metrics
+  await ExperimentModel.updateMany(metricQuery, {
+    $pull: { metrics: metricId },
+  });
+
+  // Remove from guardrails
+  await ExperimentModel.updateMany(guardRailsQuery, {
+    $pull: { guardrails: metricId },
+  });
+
+  // Remove from activationMetric
+  await ExperimentModel.updateMany(activationMetricQuery, {
+    $set: { activationMetric: "" },
+  });
+
+  const ids = Object.keys(oldExperiments);
+  const updatedExperiments = await ExperimentModel.find({ id: { $in: ids } });
+  // Populate updated experiments
+  updatedExperiments.forEach((experiment) => {
+    const changeSet = oldExperiments[experiment.id];
+    if (changeSet) {
+      changeSet.current = experiment;
+    }
+  });
+
+  // Log all the changes
+  each(oldExperiments, async (changeSet) => {
+    const { previous, current } = changeSet;
+    if (current && previous) {
+      await logExperimentUpdated({
+        organization,
+        current,
+        previous,
+      });
+    }
+  });
+}
+
+export async function removeProjectFromExperiments(
+  project: string,
+  organization: OrganizationInterface
+) {
+  const query = { organization: organization.id, project };
+  const previousExperiments = await ExperimentModel.find(query);
+
+  await ExperimentModel.updateMany(query, { $set: { project: "" } });
+
+  previousExperiments.forEach((previous) => {
+    const current = cloneDeep(previous);
+    current.project = "";
+
+    logExperimentUpdated({
+      organization,
+      previous,
+      current,
+    });
+  });
+}
+
+export async function getExperimentsUsingSegment(id: string, orgId: string) {
+  const experiments = await ExperimentModel.find({
+    organization: orgId,
+    segment: id,
+  });
+
+  return experiments.map((m) => toInterface(m));
+}
+
+/**
+ * @param organization
+ * @param experiment
+ * @return event.id
+ */
+export const logExperimentDeleted = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): Promise<string> => {
+  const payload: ExperimentDeletedNotificationEvent = {
+    object: "experiment",
+    event: "experiment.deleted",
+    data: {
+      previous: experiment,
+    },
+  };
+
+  const emittedEvent = await createEvent(organization.id, payload);
+  new EventNotifier(emittedEvent.id).perform();
+
+  return emittedEvent.id;
+};
+
+// endregion Events

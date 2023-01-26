@@ -2,9 +2,14 @@
  * Supported events for event notifications
  */
 export const notificationEventNames = [
+  // Features
   "feature.created",
   "feature.updated",
   "feature.deleted",
+  // Experiments
+  "experiment.created",
+  "experiment.updated",
+  "experiment.deleted",
 ] as const;
 
 export type NotificationEventName = typeof notificationEventNames[number];

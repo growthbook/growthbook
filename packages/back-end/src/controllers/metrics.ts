@@ -65,7 +65,7 @@ export async function deleteMetric(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, org.id);
+  await removeMetricFromExperiments(metric.id, org);
 
   // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);

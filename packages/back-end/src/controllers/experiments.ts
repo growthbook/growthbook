@@ -4,23 +4,23 @@ import format from "date-fns/format";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getLatestSnapshot,
+  createSnapshot,
   createManualSnapshot,
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
   experimentUpdated,
   getExperimentWatchers,
-  createSnapshot,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
-  deleteExperimentById,
   getExperimentById,
   getExperimentByTrackingKey,
   getAllExperiments,
   updateExperimentById,
   getPastExperimentsByDatasource,
+  deleteExperimentByIdForOrganization,
 } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
@@ -1275,7 +1275,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentById(org.id, exp.id),
+    deleteExperimentByIdForOrganization(exp.id, org),
     removeExperimentFromPresentations(exp.id),
   ]);
 

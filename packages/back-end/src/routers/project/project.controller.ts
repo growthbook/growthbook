@@ -130,7 +130,7 @@ export const deleteProject = async (
   await removeProjectFromDatasources(id, org.id);
   await removeProjectFromMetrics(id, org.id);
   await removeProjectFromFeatures(id, org);
-  await removeProjectFromExperiments(id, org.id);
+  await removeProjectFromExperiments(id, org);
   await removeProjectFromProjectRoles(id, org);
   await removeProjectFromSlackIntegration({
     organizationId: org.id,

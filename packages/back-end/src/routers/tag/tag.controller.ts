@@ -6,8 +6,8 @@ import { TagInterface } from "../../../types/tag";
 import { addTag, removeTag } from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
-import { removeTagFromExperiment } from "../../models/ExperimentModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import { removeTagFromExperiments } from "../../models/ExperimentModel";
 
 // region POST /tag
 
@@ -65,7 +65,10 @@ export const deleteTag = async (
   const { id } = req.params;
 
   // experiments
-  await removeTagFromExperiment(org.id, id);
+  await removeTagFromExperiments({
+    organization: org,
+    tag: id,
+  });
 
   // metrics
   await removeTagInMetrics(org.id, id);
