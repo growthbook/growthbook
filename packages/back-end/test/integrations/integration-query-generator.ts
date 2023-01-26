@@ -70,6 +70,7 @@ const engines: DataSourceType[] = [
   "mysql",
   "mssql",
   "clickhouse",
+  "databricks",
 ];
 
 const baseExperimentPhase: ExperimentPhase = {

@@ -17,7 +17,11 @@ The `test-integration-queries` command runs `integration-query-test.sh` which it
 2. Gets the current git branch
 3. Lints and executes the queries, storing results using the current git branch as part of the file name, using `integration-query-runner.py`
 
-Note a shared cache is used for each run. If the combination of SQL engine and SQL query itself is identical, the results should be pulled directly from the cache rather than re-generated.
+### Caching
+
+Note a shared cache in your `/tmp/` folder is used for each run. If the combination of SQL engine and SQL query itself is identical, the results should be pulled directly from the cache rather than re-generated.
+
+We even cache connection/query errors to avoid re-running validation for engines that we cannot connect to. You may need to clear part of the cache file or edit one of the if statements in the `main()` method of the python script to force re-running for certain engines if they previously errored and you want them to connect and execute.
 
 ### Pre-requisites
 
@@ -47,6 +51,11 @@ export PRESTO_TEST_PORT=XXX
 export PRESTO_TEST_USER=XXX
 export PRESTO_TEST_CATALOG=XXX
 export PRESTO_TEST_SCHEMA=XXX
+
+export DATABRICKS_TEST_HOST=XXX
+export DATABRICKS_TEST_PATH=XXX
+export DATABRICKS_TEST_TOKEN=XXX
+
 
 export GOOGLE_APPLICATION_CREDENTIALS="XXX.json"
 ```
