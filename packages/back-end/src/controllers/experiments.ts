@@ -18,7 +18,10 @@ import {
   getExperimentByTrackingKey,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  ExperimentModel,
+  logExperimentUpdated,
+} from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
   ExperimentSnapshotModel,
@@ -58,6 +61,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import cloneDeep from "lodash/cloneDeep";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -579,6 +583,9 @@ export async function postExperiment(
     return;
   }
 
+  let shouldLogUpdatedEvent = false;
+  const previousExperiment = cloneDeep(exp);
+
   if (exp.organization !== org.id) {
     res.status(403).json({
       status: 403,
@@ -693,6 +700,7 @@ export async function postExperiment(
       exp.set(key, data[key]);
       if (keysRequiringWebhook.includes(key)) {
         requiresWebhook = true;
+        shouldLogUpdatedEvent = true;
       }
     }
   });
@@ -727,6 +735,14 @@ export async function postExperiment(
     },
     details: auditDetailsUpdate(existing, exp.toJSON()),
   });
+
+  if (shouldLogUpdatedEvent) {
+    await logExperimentUpdated({
+      organization: org,
+      current: exp,
+      previous: previousExperiment,
+    });
+  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, existing.tags || [], data.tags || []);
