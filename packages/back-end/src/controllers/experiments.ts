@@ -4,23 +4,23 @@ import format from "date-fns/format";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getLatestSnapshot,
+  createSnapshot,
   createManualSnapshot,
   getManualSnapshotData,
   ensureWatching,
   processPastExperiments,
   experimentUpdated,
   getExperimentWatchers,
-  createSnapshot,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
-  deleteExperimentById,
   getExperimentById,
   getExperimentByTrackingKey,
   getAllExperiments,
   updateExperimentById,
   getPastExperimentsByDatasource,
+  deleteExperimentByIdForOrganization,
 } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
@@ -38,7 +38,7 @@ import {
 } from "../services/queries";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
-  ChangeLog,
+  Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
@@ -685,7 +685,7 @@ export async function postExperiment(
   ];
   const existing: ExperimentInterface = exp;
   let requiresWebhook = false;
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
   keys.forEach((key) => {
     if (!(key in data)) {
       return;
@@ -764,7 +764,7 @@ export async function postExperimentArchive(
 
   const exp = await getExperimentById(org.id, id);
 
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   if (!exp) {
     res.status(403).json({
@@ -819,7 +819,7 @@ export async function postExperimentUnarchive(
   const { id } = req.params;
 
   const exp = await getExperimentById(org.id, id);
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   if (!exp) {
     res.status(403).json({
@@ -880,7 +880,7 @@ export async function postExperimentStatus(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   const exp = await getExperimentById(org.id, id);
   if (!exp) {
@@ -941,7 +941,7 @@ export async function postExperimentStop(
   const { reason, results, analysis, winner, dateEnded } = req.body;
 
   const exp = await getExperimentById(org.id, id);
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   if (!exp) {
     res.status(403).json({
@@ -1019,7 +1019,7 @@ export async function deleteExperimentPhase(
   const phaseIndex = parseInt(phase);
 
   const exp = await getExperimentById(org.id, id);
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   if (!exp) {
     res.status(404).json({
@@ -1100,7 +1100,7 @@ export async function putExperimentPhase(
   const { id } = req.params;
   const i = parseInt(req.params.phase);
   const phase = req.body;
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   const exp = await getExperimentById(org.id, id);
 
@@ -1158,7 +1158,7 @@ export async function postExperimentPhase(
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   const exp = await getExperimentById(org.id, id);
 
@@ -1281,7 +1281,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentById(org.id, exp.id),
+    deleteExperimentByIdForOrganization(exp.id, org),
     removeExperimentFromPresentations(exp.id),
   ]);
 
@@ -1573,7 +1573,7 @@ export async function deleteScreenshot(
   const { org } = getOrgFromReq(req);
   const { id, variation } = req.params;
   const { url } = req.body;
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   const exp = await getExperimentById(org.id, id);
 
@@ -1641,7 +1641,7 @@ export async function addScreenshot(
   const { org, userId } = getOrgFromReq(req);
   const { id, variation } = req.params;
   const { url, description } = req.body;
-  const changes: ChangeLog = {};
+  const changes: Changeset = {};
 
   const exp = await getExperimentById(org.id, id);
 

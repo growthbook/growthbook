@@ -8,8 +8,8 @@ import {
   findSDKConnectionsByOrganization,
   setProxyError,
 } from "../models/SdkConnectionModel";
-import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
+import { cancellableFetch } from "../util/http.util";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{

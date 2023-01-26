@@ -117,7 +117,7 @@ export type ExperimentInterfaceStringDates = Omit<
   phases: ExperimentPhaseStringDates[];
 };
 
-export type ChangeLog = {
+export type Changeset = {
   [key: string]:
     | Variation[]
     | boolean
