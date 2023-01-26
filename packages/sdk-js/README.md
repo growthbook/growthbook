@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-4.8KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-4.5KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -338,17 +338,11 @@ In addition, there are a few other settings that only really make sense for inli
 A call to `gb.run(experiment)` returns an object with a few useful properties:
 
 ```ts
-const {
-  inExperiment,
-  hashUsed,
-  variationId,
-  value,
-  hashAttribute,
-  hashValue,
-} = gb.run({
-  key: "my-experiment",
-  variations: ["A", "B"],
-});
+const { inExperiment, hashUsed, variationId, value, hashAttribute, hashValue } =
+  gb.run({
+    key: "my-experiment",
+    variations: ["A", "B"],
+  });
 
 // If user is included in the experiment
 console.log(inExperiment); // true or false

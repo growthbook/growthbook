@@ -31,7 +31,11 @@ const sidebars = {
         type: "doc",
         id: "self-host/index",
       },
-      items: ["self-host/environment-variables", "self-host/config-yml"],
+      items: [
+        "self-host/environment-variables",
+        "self-host/config-yml",
+        "self-host/proxy",
+      ],
     },
     {
       type: "category",
@@ -51,7 +55,6 @@ const sidebars = {
           type: "doc",
           id: "app/visual-editor",
           label: "Visual Editor",
-          className: "beta",
         },
         { type: "doc", id: "app/api", label: "API" },
         { type: "doc", id: "app/webhooks", label: "Webhooks" },
