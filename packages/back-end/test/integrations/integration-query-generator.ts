@@ -66,6 +66,7 @@ const engines: DataSourceType[] = [
   "redshift",
   "athena",
   "presto",
+  "databricks",
   "mysql",
   "mssql",
   "clickhouse",

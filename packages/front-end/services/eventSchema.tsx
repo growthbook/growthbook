@@ -477,6 +477,16 @@ export const dataSourceConnections: {
     },
   },
   {
+    type: "databricks",
+    display: "Databricks",
+    default: {
+      host: "",
+      port: 443,
+      path: "",
+      token: "",
+    },
+  },
+  {
     type: "snowflake",
     display: "Snowflake",
     default: {
