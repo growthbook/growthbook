@@ -1,6 +1,7 @@
 import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
+import cloneDeep from "lodash/cloneDeep";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getExperimentsByOrganization,
@@ -61,7 +62,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
-import cloneDeep from "lodash/cloneDeep";
+import { logger } from "../util/logger";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -583,7 +584,6 @@ export async function postExperiment(
     return;
   }
 
-  let shouldLogUpdatedEvent = false;
   const previousExperiment = cloneDeep(exp);
 
   if (exp.organization !== org.id) {
@@ -700,7 +700,6 @@ export async function postExperiment(
       exp.set(key, data[key]);
       if (keysRequiringWebhook.includes(key)) {
         requiresWebhook = true;
-        shouldLogUpdatedEvent = true;
       }
     }
   });
@@ -736,12 +735,14 @@ export async function postExperiment(
     details: auditDetailsUpdate(existing, exp.toJSON()),
   });
 
-  if (shouldLogUpdatedEvent) {
+  try {
     await logExperimentUpdated({
       organization: org,
       current: exp,
       previous: previousExperiment,
     });
+  } catch (e) {
+    logger.error(e);
   }
 
   // If there are new tags to add
