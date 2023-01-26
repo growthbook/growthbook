@@ -23,7 +23,6 @@ type DataForNotificationEvent = {
   filterData: {
     tags: string[];
     projects: string[];
-    environments: string[];
   };
   slackMessage: SlackMessage;
 };
@@ -40,7 +39,6 @@ export const getDataForNotificationEvent = (
           projects: event.data.current.project
             ? [event.data.current.project]
             : [],
-          environments: Object.keys(event.data.current.environmentSettings),
         },
         slackMessage: buildSlackMessageForFeatureCreatedEvent(event, eventId),
       };
@@ -61,11 +59,6 @@ export const getDataForNotificationEvent = (
               event.data.previous.project ? [event.data.previous.project] : []
             )
           ),
-          environments: uniq(
-            Object.keys(event.data.current.environmentSettings).concat(
-              Object.keys(event.data.previous.environmentSettings)
-            )
-          ),
         },
         slackMessage: buildSlackMessageForFeatureUpdatedEvent(event, eventId),
       };
@@ -77,7 +70,6 @@ export const getDataForNotificationEvent = (
           projects: event.data.previous.project
             ? [event.data.previous.project]
             : [],
-          environments: Object.keys(event.data.previous.environmentSettings),
         },
         slackMessage: buildSlackMessageForFeatureDeletedEvent(event, eventId),
       };
@@ -89,7 +81,6 @@ export const getDataForNotificationEvent = (
           projects: event.data.current.project
             ? [event.data.current.project]
             : [],
-          environments: [], // TODO: Verify OK
         },
         slackMessage: buildSlackMessageForExperimentCreatedEvent(
           event,
@@ -113,7 +104,6 @@ export const getDataForNotificationEvent = (
               event.data.previous.project ? [event.data.previous.project] : []
             )
           ),
-          environments: [], // TODO: Verify OK
         },
         slackMessage: buildSlackMessageForExperimentUpdatedEvent(
           event,
@@ -128,7 +118,6 @@ export const getDataForNotificationEvent = (
           projects: event.data.previous.project
             ? [event.data.previous.project]
             : [],
-          environments: [],
         },
         slackMessage: buildSlackMessageForExperimentDeletedEvent(
           event,
