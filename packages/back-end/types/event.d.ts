@@ -4,6 +4,9 @@ import {
   NotificationEventResource,
 } from "../src/events/base-types";
 import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
@@ -24,4 +27,7 @@ export {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
+  ExperimentCreatedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
 };
