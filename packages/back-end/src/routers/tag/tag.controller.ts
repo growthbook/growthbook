@@ -4,9 +4,10 @@ import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { TagInterface } from "../../../types/tag";
 import { addTag, removeTag } from "../../models/TagModel";
-import { ExperimentModel } from "../../models/ExperimentModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
+import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import { removeTagFromExperiments } from "../../services/experiments";
 
 // region POST /tag
 
@@ -64,18 +65,19 @@ export const deleteTag = async (
   const { id } = req.params;
 
   // experiments
-  await ExperimentModel.updateMany(
-    { organization: org.id, tags: id },
-    {
-      $pull: { tags: id },
-    }
-  );
+  await removeTagFromExperiments({
+    organization: org,
+    tag: id,
+  });
 
   // metrics
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org.id, id);
+  await removeTagInFeature(org, id);
+
+  // Slack integrations
+  await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });
 
   // finally, remove the tag itself
   await removeTag(org.id, id);

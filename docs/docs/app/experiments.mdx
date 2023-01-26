@@ -18,6 +18,8 @@ Before analyzing results, you need to actually run the experiment. This can be d
 
 When you go to add an experiment in GrowthBook, it will first look in your [data source](/app/datasources) for any new experiment ids and prompt you to import them. If none are found, you can enter the experiment settings yourself.
 
+## Experiment Results Table
+
 Once imported or added, go to the Results tab to view and update the results:
 
 ![Results Table](/images/results-table.png)
@@ -32,6 +34,24 @@ Each row of this table is a different metric.
 
 **Percent Change** shows how much better/worse the variation is compared to the control. It is a probability density graph and the thicker the area, the more likely the true percent change will be there.
 As you collect more data, the tails of the graphs will shorten, indicating more certainty around the estimates.
+
+## Experiment Results Table (Frequentist Engine)
+
+You can also choose to analyze results using a Frequentist engine that conducts simple t-tests for differences in means and displays the commensurate p-values and confidence intervals. You can switch to the frequentist engine under **General -> Settings -> Experiment Settings -> Statistics Engine**.
+
+![Frequentist Setting](/images/engine-setting.png)
+
+If you select the "Frequentist" engine, when you navigate to the results tab to view and update the results, you will see the following results table:
+
+![Results Table (Frequentist)](/images/results-table-frequentist.png)
+
+Everything is the same as above except for three key changes:
+
+1. There is no longer a risk column, as the concept is not easily replicated in frequentist statistics.
+2. The **Chance to Beat Control** column has been replaced with the **P-value** column.
+   The p-value is the probability that the percent change for a variant would have been observed if the true percent change
+   were zero. When the p-value is less than 0.05 and the percent change is in the preferred direction, we highlight the cell green, indicating it is a clear winner. When the p-value is less than 0.05 and the percent change is _opposite_ the preferred diection, we highlight the cell red, indicating the variant is a clear loser on this metric.
+3. We now present a 95% confidence interval rather than a posterior probability density plot.
 
 ## Sample Ratio Mismatch (SRM)
 
@@ -51,6 +71,8 @@ Guardrail results show up beneath the main table of metrics and you can click on
 A "Chance of Being Worse" less than 65% is green and of no concern. Between 65% and 90% is yellow and should be watched as more data comes in. Above 90% is red and you may consider stopping the experiment. If we don't have enough data to accurately predict the "Chance of Being Worse", we will color the metric grey.
 
 ![Guardrails](/images/guardrails.png)
+
+If you select the frequentist engine, we instead use yellow to represent a metric moving in the wrong direction at all (regardless of statistical significance), red to represent a metric moving in the wrong direction with a two-sided t-test p-value below 0.05, and green to represent a metric moving in the right direction with a p-value below 0.05. Otherwise the cell is unshaded if the metric is moving in the right direction but not statistically significant at the 0.05 level.
 
 ## Dimensions
 

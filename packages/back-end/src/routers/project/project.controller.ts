@@ -14,6 +14,7 @@ import { removeProjectFromMetrics } from "../../models/MetricModel";
 import { removeProjectFromFeatures } from "../../models/FeatureModel";
 import { removeProjectFromExperiments } from "../../services/experiments";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
+import { removeProjectFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
 // region POST /projects
 
@@ -128,9 +129,13 @@ export const deleteProject = async (
   // Cleanup functions from other models
   await removeProjectFromDatasources(id, org.id);
   await removeProjectFromMetrics(id, org.id);
-  await removeProjectFromFeatures(id, org.id);
-  await removeProjectFromExperiments(id, org.id);
+  await removeProjectFromFeatures(id, org);
+  await removeProjectFromExperiments(id, org);
   await removeProjectFromProjectRoles(id, org);
+  await removeProjectFromSlackIntegration({
+    organizationId: org.id,
+    projectId: id,
+  });
   // ideas?
   // report?
   // api endpoints & webhooks?

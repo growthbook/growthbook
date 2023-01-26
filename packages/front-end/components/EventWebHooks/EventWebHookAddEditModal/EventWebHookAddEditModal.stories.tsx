@@ -9,6 +9,7 @@ export default {
 export const AddMode = () => {
   return (
     <EventWebHookAddEditModal
+      error={null}
       isOpen={true}
       onClose={action("perform close")}
       onSubmit={action("Submitted data")}
@@ -20,6 +21,7 @@ export const AddMode = () => {
 export const EditMode = () => {
   return (
     <EventWebHookAddEditModal
+      error={null}
       isOpen={true}
       onClose={action("perform close")}
       onSubmit={action("Submitted data")}
