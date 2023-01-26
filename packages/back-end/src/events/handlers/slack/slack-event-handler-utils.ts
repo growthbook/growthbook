@@ -5,6 +5,9 @@ import intersection from "lodash/intersection";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
 import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
@@ -80,10 +83,58 @@ export const getDataForNotificationEvent = (
       };
 
     case "experiment.created":
+      return {
+        filterData: {
+          tags: event.data.current.tags || [],
+          projects: event.data.current.project
+            ? [event.data.current.project]
+            : [],
+          environments: [], // TODO: Verify OK
+        },
+        slackMessage: buildSlackMessageForExperimentCreatedEvent(
+          event,
+          eventId
+        ),
+      };
+
     case "experiment.updated":
+      return {
+        filterData: {
+          tags: uniq(
+            (event.data.current.tags || []).concat(
+              event.data.previous.tags || []
+            )
+          ),
+          projects: uniq(
+            (event.data.current.project
+              ? [event.data.current.project]
+              : []
+            ).concat(
+              event.data.previous.project ? [event.data.previous.project] : []
+            )
+          ),
+          environments: [], // TODO: Verify OK
+        },
+        slackMessage: buildSlackMessageForExperimentUpdatedEvent(
+          event,
+          eventId
+        ),
+      };
+
     case "experiment.deleted":
-      // TODO: https://linear.app/growthbook/issue/GB-19
-      return null;
+      return {
+        filterData: {
+          tags: event.data.previous.tags || [],
+          projects: event.data.previous.project
+            ? [event.data.previous.project]
+            : [],
+          environments: [],
+        },
+        slackMessage: buildSlackMessageForExperimentDeletedEvent(
+          event,
+          eventId
+        ),
+      };
   }
 };
 
@@ -106,8 +157,7 @@ export const filterSlackIntegrationForRelevance = (
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
-      // TODO: https://linear.app/growthbook/issue/GB-19
-      return false;
+      return true;
 
     case "feature.created":
     case "feature.deleted":
@@ -300,6 +350,86 @@ const buildSlackMessageForFeatureDeletedEvent = (
 };
 
 // endregion Event-specific messages -> Feature
+
+// region Event-specific messages -> Experiment
+
+const getExperimentUrlFormatted = (experimentId: string): string =>
+  `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
+
+const buildSlackMessageForExperimentCreatedEvent = (
+  experimentEvent: ExperimentCreatedNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  const experimentId = experimentEvent.data.current.id;
+  const experimentName = experimentEvent.data.current.name;
+  const text = `The experiment ${experimentName} has been created`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The experiment *${experimentName}* has been created.` +
+            getExperimentUrlFormatted(experimentId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentUpdatedEvent = (
+  experimentEvent: ExperimentUpdatedNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  const experimentId = experimentEvent.data.previous.id;
+  const experimentName = experimentEvent.data.previous.name;
+  const text = `The experiment ${experimentName} has been updated`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The experiment *${experimentName}* has been updated.` +
+            getExperimentUrlFormatted(experimentId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentDeletedEvent = (
+  experimentEvent: ExperimentDeletedNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  const experimentName = experimentEvent.data.previous.name;
+  const text = `The experiment ${experimentName} has been deleted`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The experiment *${experimentName}* has been deleted.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Experiment
 
 // endregion Event-specific messages
 
