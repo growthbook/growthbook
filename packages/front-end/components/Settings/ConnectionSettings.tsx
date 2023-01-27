@@ -10,6 +10,7 @@ import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
 import SnowflakeForm from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
+import DatabricksForm from "./DatabricksForm";
 
 export interface Props {
   datasource: Partial<DataSourceInterfaceWithParams>;
@@ -60,6 +61,15 @@ export default function ConnectionSettings({
         existing={existing}
         onParamChange={onParamChange}
         onManualParamChange={onManualParamChange}
+        setParams={setParams}
+        params={datasource.params}
+      />
+    );
+  } else if (datasource.type === "databricks") {
+    return (
+      <DatabricksForm
+        existing={existing}
+        onParamChange={onParamChange}
         setParams={setParams}
         params={datasource.params}
       />
