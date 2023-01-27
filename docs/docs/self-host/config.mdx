@@ -151,6 +151,17 @@ params:
   schema: growthbook
 ```
 
+#### Databricks
+
+```yml
+type: databricks
+params:
+  host: dbc-123-abc.cloud.databricks.com
+  port: 443
+  path: /sql/1.0/warehouses/abc123
+  token: dapi123abc
+```
+
 #### AWS Athena
 
 If you want GrowthBook to auto-discover credentials from environment variables or instance metadata, use the following format:

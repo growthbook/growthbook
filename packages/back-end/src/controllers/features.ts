@@ -47,6 +47,7 @@ import {
   markSDKConnectionUsed,
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
+import { addTagsDiff } from "../models/TagModel";
 
 class ApiKeyError extends Error {
   constructor(message: string) {
@@ -611,6 +612,9 @@ export async function putFeature(
   }
 
   const updatedFeature = await updateFeature(org, feature, updates);
+
+  // If there are new tags to add
+  await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
 
   await req.audit({
     event: "feature.update",
