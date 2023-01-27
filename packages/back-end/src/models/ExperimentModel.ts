@@ -155,7 +155,7 @@ export async function getAllExperiments(
     query.project = project;
   }
 
-  return (await ExperimentModel.find(query)).map((m) => toInterface(m));
+  return (await ExperimentModel.find(query)).map(toInterface);
 }
 
 export async function getExperimentByTrackingKey(
@@ -179,7 +179,7 @@ export async function getExperimentsByIds(
     organization,
   });
 
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function getSampleExperiment(
@@ -354,7 +354,7 @@ export async function getExperimentsToUpdate(
   )
     .limit(100)
     .sort({ nextSnapShotAttempt: 1 });
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function getExperimentsToUpdateLegacy(
@@ -382,7 +382,7 @@ export async function getExperimentsToUpdateLegacy(
   )
     .limit(100)
     .sort({ nextSnapShotAttempt: 1 });
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function getPastExperimentsByDatasource(
@@ -401,7 +401,7 @@ export async function getPastExperimentsByDatasource(
     }
   );
 
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function getRecentExperimentsUsingMetric(
@@ -440,7 +440,7 @@ export async function getRecentExperimentsUsingMetric(
   )
     .limit(10)
     .sort({ _id: -11 });
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function deleteExperimentSegment(
@@ -473,7 +473,7 @@ export async function getExperimentsForActivityFeed(
     }
   );
 
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function removeTagFromExperiment(
@@ -635,7 +635,7 @@ export async function getExperimentsByOrganization(
 
   const experiments = await ExperimentModel.find(query);
 
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 export async function removeMetricFromExperiments(
@@ -735,7 +735,7 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
     segment: id,
   });
 
-  return experiments.map((m) => toInterface(m));
+  return experiments.map(toInterface);
 }
 
 /**

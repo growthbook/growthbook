@@ -1,6 +1,7 @@
 import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
+import cloneDeep from "lodash/cloneDeep";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getLatestSnapshot,
@@ -885,7 +886,7 @@ export async function postExperimentStatus(
   }
   req.checkPermissions("createAnalyses", exp.project);
 
-  const existing = exp;
+  const existing = cloneDeep(exp);
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...existing.phases];
@@ -954,7 +955,7 @@ export async function postExperimentStop(
   }
   req.checkPermissions("createAnalyses", exp.project);
 
-  const existing = exp;
+  const existing = cloneDeep(exp);
 
   const phases = [...exp.phases];
   // Already has phases
@@ -1037,7 +1038,7 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
-  const existing = exp;
+  const existing = cloneDeep(exp);
 
   // Remove phase from experiment and revert to draft if no more phases left
   exp.phases.splice(phaseIndex, 1);
@@ -1108,7 +1109,7 @@ export async function putExperimentPhase(
 
   req.checkPermissions("createAnalyses", exp.project);
 
-  const existing = exp;
+  const existing = cloneDeep(exp);
 
   if (!existing.phases?.[i]) {
     throw new Error("Invalid phase");
@@ -1175,7 +1176,7 @@ export async function postExperimentPhase(
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
-  const existing = exp;
+  const existing = cloneDeep(exp);
 
   const phases = [...exp.phases];
   // Already has phases
