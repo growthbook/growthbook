@@ -575,7 +575,7 @@ export async function putDataSourceSchema(
   //TODO: Should we check for permissions here?
 
   //TODO: Build
-  const { results, formattedResults } = await generateSchema(
+  const { results, formattedResults, error } = await generateSchema(
     datasource,
     org.id
   );
@@ -585,6 +585,7 @@ export async function putDataSourceSchema(
     message: "This thing is on",
     results,
     formattedResults,
+    error,
     //TODO: Include actual datasourceSchema here
   });
 }

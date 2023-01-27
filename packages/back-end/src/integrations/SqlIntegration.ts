@@ -474,7 +474,10 @@ export default abstract class SqlIntegration
   }
 
   async runGetSchemaQuery(sql: string): Promise<any> {
+    console.log("got to runGetSchemaQuery");
+    console.log("sql", sql);
     const results = await this.runQuery(sql);
+    console.log("results", results);
     return results;
   }
 

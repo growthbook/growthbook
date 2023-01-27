@@ -99,31 +99,39 @@ export async function generateSchema(
     //MKTODO: We'll want to change this to fail elegantly so it doesn't block creating a Mixpanel datasource
   }
 
-  const sql =
-    "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name;";
+  // Postgres SQL
+  // const sql =
+  //   "SELECT table_name, column_name, data_type, table_catalog FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name;";
+
+  // BigQuery SQL
+  // const sql =
+  //   "SELECT table_name, column_name, data_type, table_catalog from adept-arbor-354914.sample_data_set.INFORMATION_SCHEMA.COLUMNS ORDER BY table_name;";
+
+  // BigQuery SQL to get datasets
+  const sql = " SELECT * from adept-arbor-354914.INFORMATION_SCHEMA.SCHEMATA;";
 
   try {
+    console.log("got here");
     const results = await integration.runGetSchemaQuery(sql);
+    console.log("results", results);
 
-    //TODO: We need to loop through the results and instead of returning a row for every table and column, we want to create an array for each table that has a row for each column
+    //TODO: Update this to support table_catalog for Postgres
 
-    // Loop through the results
-    // If current index.table_name is included, then just push current index.column_name into the array
-    // Else create an index with the name of current index.table_name
-
-    const formattedResults = [];
+    const formattedResults: any = [];
 
     results.forEach((row: any) => {
       const key = row.table_name;
 
       if (
         !formattedResults.length ||
-        formattedResults.findIndex((i) => i.table_name === key) === -1
+        formattedResults.findIndex((i: any) => i.table_name === key) === -1
       ) {
         formattedResults.push({ table_name: key, columns: [] });
       }
 
-      const index = formattedResults.findIndex((e) => e.table_name === key);
+      const index = formattedResults.findIndex(
+        (e: any) => e.table_name === key
+      );
 
       formattedResults[index].columns.push({
         column_name: row.column_name,
@@ -139,8 +147,6 @@ export async function generateSchema(
       error: e.message,
     };
   }
-
-  return datasource;
 }
 
 export async function testDataSourceConnection(
