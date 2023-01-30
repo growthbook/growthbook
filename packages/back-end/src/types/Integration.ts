@@ -144,34 +144,26 @@ export interface TestQueryResult {
   duration: number;
 }
 
-interface Column {
-  name: string;
-  type: unknown; //MKTODO: Come back and update this
-  // type:
-  //   | array
-  //   | binary
-  //   | boolean
-  //   | code
-  //   | data
-  //   | decimal128
-  //   | double
-  //   | int32
-  //   | int64
-  //   | maxKey
-  //   | minKey
-  //   | null
-  //   | object
-  //   | objectId
-  //   | BSONRegExp
-  //   | string
-  //   | BSONSymbol
-  //   | timestamp
-  //   | undefined;
+export interface SchemaResults {
+  table_name: string;
+  column_name: string;
+  data_type: string;
+  table_catalog: string;
 }
 
-interface Table {
-  name: string;
-  columns: Column[];
+export interface Column {
+  column_name?: string;
+  data_type?: unknown; //MKTODO: Come back and update this
+}
+
+export interface Table {
+  table_name?: string;
+  columns?: Column[];
+}
+
+export interface FormattedSchemaResults {
+  table_catalog: string;
+  tables: Table[];
 }
 
 export interface SourceIntegrationInterface {
@@ -198,7 +190,8 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  runGetSchemaQuery?(query: string): Promise<any>;
+  runGetSchemaQuery?(integration?: SourceIntegrationInterface): Promise<any[]>;
+  formatSchemaResults?(results: SchemaResults[]): FormattedSchemaResults[];
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getAllTables?(): Promise<any>; //MKTODO: Come back and update this

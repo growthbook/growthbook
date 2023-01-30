@@ -34,4 +34,19 @@ export default class Postgres extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
+  async runGetSchemaQuery() {
+    const sql = `SELECT
+        table_name,
+        column_name,
+        data_type,
+        table_catalog
+      FROM
+        information_schema.columns
+      WHERE
+        table_schema='public'
+      ORDER BY table_name;`;
+    const results = await this.runQuery(sql);
+
+    return results;
+  }
 }

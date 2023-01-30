@@ -17,6 +17,8 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
+  SchemaResults,
+  FormattedSchemaResults,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -473,21 +475,52 @@ export default abstract class SqlIntegration
     });
   }
 
-  async runGetSchemaQuery(sql: string): Promise<any> {
-    console.log("got to runGetSchemaQuery");
-    console.log("sql", sql);
-    const results = await this.runQuery(sql);
-    console.log("results", results);
-    return results;
+  formatSchemaResults(results: SchemaResults[]) {
+    const formattedResults: FormattedSchemaResults[] = [];
+
+    results.forEach((row) => {
+      const key = row.table_catalog;
+
+      if (
+        !formattedResults.length ||
+        formattedResults.findIndex((i) => i.table_catalog === key) === -1
+      ) {
+        formattedResults.push({ table_catalog: key, tables: [] });
+      }
+
+      const index = formattedResults.findIndex((i) => i.table_catalog === key);
+
+      if (
+        !formattedResults[index].tables.some(
+          (table) => table.table_name === row.table_name
+        )
+      ) {
+        formattedResults[index].tables.push({
+          table_name: row.table_name,
+          columns: [],
+        });
+      }
+
+      const tableIndex = formattedResults[index].tables.findIndex(
+        (i) => i.table_name === row.table_name
+      );
+
+      formattedResults[index].tables[tableIndex].columns?.push({
+        column_name: row.column_name,
+        data_type: row.data_type,
+      });
+    });
+
+    return formattedResults;
   }
 
-  // async getAllTables(): Promise<any> {
-  //   return await this.runQuery("SHOW TABLES");
-  // }
+  async getAllTables(): Promise<any> {
+    return await this.runQuery("SHOW TABLES");
+  }
 
-  // async getColumnData(tableName: string): Promise<any> {
-  //   return await this.runQuery(`DESCRIBE ${tableName}`);
-  // }
+  async getColumnData(tableName: string): Promise<any> {
+    return await this.runQuery(`DESCRIBE ${tableName}`);
+  }
 
   getTestQuery(query: string): string {
     const startDate = new Date();

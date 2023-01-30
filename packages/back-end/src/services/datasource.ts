@@ -94,50 +94,15 @@ export async function generateSchema(
   }
 
   // The Mixpanel integration does not support test queries
-  if (!integration.runGetSchemaQuery) {
+  if (!integration.runGetSchemaQuery || !integration.formatSchemaResults) {
     throw new Error("Unable to test query.");
     //MKTODO: We'll want to change this to fail elegantly so it doesn't block creating a Mixpanel datasource
   }
 
-  // Postgres SQL
-  // const sql =
-  //   "SELECT table_name, column_name, data_type, table_catalog FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name;";
-
-  // BigQuery SQL
-  // const sql =
-  //   "SELECT table_name, column_name, data_type, table_catalog from adept-arbor-354914.sample_data_set.INFORMATION_SCHEMA.COLUMNS ORDER BY table_name;";
-
-  // BigQuery SQL to get datasets
-  const sql = " SELECT * from adept-arbor-354914.INFORMATION_SCHEMA.SCHEMATA;";
-
   try {
-    console.log("got here");
-    const results = await integration.runGetSchemaQuery(sql);
-    console.log("results", results);
+    const results = await integration.runGetSchemaQuery(integration);
 
-    //TODO: Update this to support table_catalog for Postgres
-
-    const formattedResults: any = [];
-
-    results.forEach((row: any) => {
-      const key = row.table_name;
-
-      if (
-        !formattedResults.length ||
-        formattedResults.findIndex((i: any) => i.table_name === key) === -1
-      ) {
-        formattedResults.push({ table_name: key, columns: [] });
-      }
-
-      const index = formattedResults.findIndex(
-        (e: any) => e.table_name === key
-      );
-
-      formattedResults[index].columns.push({
-        column_name: row.column_name,
-        data_type: row.data_type,
-      });
-    });
+    const formattedResults = integration.formatSchemaResults(results);
 
     await postDataSourceSchema(datasource.id, orgId, formattedResults);
 

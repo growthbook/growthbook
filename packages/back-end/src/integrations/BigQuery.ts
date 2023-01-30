@@ -4,6 +4,10 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
+import {
+  SchemaResults,
+  SourceIntegrationInterface,
+} from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -77,5 +81,33 @@ export default class BigQuery extends SqlIntegration {
   }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
+  }
+
+  async runGetSchemaQuery(integration: SourceIntegrationInterface) {
+    const datasets = await this.runQuery(
+      `SELECT * FROM ${integration.params.projectId}.INFORMATION_SCHEMA.SCHEMATA;`
+    );
+
+    const combinedResults: SchemaResults[] = [];
+
+    for (const dataset of datasets) {
+      const sql = `SELECT
+        table_name,
+        column_name,
+        data_type
+      FROM
+        ${integration.params.projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
+      ORDER BY
+        table_name;`;
+      const results = await this.runQuery(sql);
+
+      //MKTODO: Is there a awit to make this more efficient?
+      for (const result of results) {
+        result.table_catalog = dataset.schema_name;
+        combinedResults.push(result);
+      }
+    }
+
+    return combinedResults;
   }
 }
