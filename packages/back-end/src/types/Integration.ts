@@ -4,12 +4,15 @@ import {
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import {
-  MetricInterface,
-  ExperimentMetricStats,
-  MetricType,
-} from "../../types/metric";
+import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
+
+export interface ExperimentMetricStats {
+  metric_type: MetricType;
+  count: number;
+  main_sum: number;
+  main_sum_squares: number;
+}
 
 export type VariationMetricResult = ExperimentMetricStats & {
   metric: string;

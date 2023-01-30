@@ -1,6 +1,7 @@
 import uniqid from "uniqid";
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
+  ExperimentMetricStats,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
@@ -18,7 +19,7 @@ import {
   QueryStatus,
 } from "../../types/query";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, ExperimentMetricStats } from "../../types/metric";
+import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { getValidDate } from "../util/dates";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
@@ -308,7 +309,9 @@ export function processMetricValueQueryResponse(
   rows.forEach((row) => {
     const { date, count, main_sum, main_sum_squares } = row;
     const mean = main_sum / count;
-    const stddev = Math.sqrt(meanVarianceFromSums(main_sum, main_sum_squares, count));
+    const stddev = Math.sqrt(
+      meanVarianceFromSums(main_sum, main_sum_squares, count)
+    );
     // Row for each date
     if (date) {
       ret.dates = ret.dates || [];

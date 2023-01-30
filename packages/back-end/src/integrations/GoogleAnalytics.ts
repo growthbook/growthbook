@@ -155,11 +155,15 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           count = users;
           mean = value;
         }
-        
+
         // Rebuild sum and sums of squares to match SQL integration
         // TODO: refactor above queries to just build these values directly
         const sum = count * mean;
-        const sum_squares = sumSquaresFromStats(sum, Math.pow(stddev, 2), count);
+        const sum_squares = sumSquaresFromStats(
+          sum,
+          Math.pow(stddev, 2),
+          count
+        );
         dates.push({
           date,
           count,
@@ -311,15 +315,15 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
               : metric.type === "binomial"
               ? mean * (1 - mean)
               : 0;
-          
+
           // because of above guessing about stddev, we have to backout the implied sum_squares
           const sum_squares = sumSquaresFromStats(mean, variance, count);
           return {
             metric: metric.id,
             metric_type: metric.type,
-            count,
-            sum,
-            sum_squares,
+            count: count,
+            main_sum: sum,
+            main_sum_squares: sum_squares,
           };
         }),
       };

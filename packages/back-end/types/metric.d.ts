@@ -4,13 +4,6 @@ export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
 
-export interface ExperimentMetricStats {
-  metric_type: MetricType;
-  count: number;
-  sum: number;
-  sum_squares: number;
-}
-
 export interface MetricStats {
   users: number;
   count: number;

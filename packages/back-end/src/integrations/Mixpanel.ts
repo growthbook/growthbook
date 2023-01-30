@@ -354,8 +354,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
           id: string;
           metric_type: MetricType;
           count: number;
-          sum: number | null;
-          sum_squares: number | null;
+          main_sum: number | null;
+          main_sum_squares: number | null;
         }[];
       }[]
     >(this.params, query);
@@ -371,8 +371,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
             users,
             metric_type: m.metric_type,
             count: m.count,
-            sum: m.sum || 0,
-            sum_squares: m.sum_squares || 0,
+            main_sum: m.main_sum || 0,
+            main_sum_squares: m.main_sum_squares || 0,
           };
         }),
       };
@@ -528,7 +528,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
               date,
               count,
               main_sum: sum || 0,
-              main_sum_squares: sum_squares || 0
+              main_sum_squares: sum_squares || 0,
             });
           });
         }
