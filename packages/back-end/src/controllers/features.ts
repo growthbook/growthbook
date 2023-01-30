@@ -50,6 +50,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
+import { IS_CLOUD } from "../util/secrets";
 
 class ApiKeyError extends Error {
   constructor(message: string) {
@@ -67,6 +68,7 @@ async function getPayloadParamsFromApiKey(
   environment: string;
   encrypted: boolean;
   encryptionKey?: string;
+  sseEnabled?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -90,6 +92,7 @@ async function getPayloadParamsFromApiKey(
       project: connection.project,
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
+      sseEnabled: connection.proxy.sseEnabled,
     };
   }
   // Old, legacy API Key
@@ -144,6 +147,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       encrypted,
       project,
       encryptionKey,
+      sseEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
 
     const defs = await getFeatureDefinitions(
@@ -158,6 +162,12 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       "Cache-control",
       "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
     );
+
+    const setSseHeaders = IS_CLOUD ? sseEnabled ?? false : false;
+    if (setSseHeaders) {
+      res.set("x-sse-support", "enabled");
+      res.set("Access-Control-Expose-Headers", "x-sse-support");
+    }
 
     res.status(200).json({
       status: 200,

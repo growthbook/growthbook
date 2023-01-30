@@ -8,6 +8,7 @@ export interface ProxyConnection {
   version: string;
   error: string;
   lastError: Date | null;
+  sseEnabled?: boolean;
 }
 
 export type EditSDKConnectionParams = {
