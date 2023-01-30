@@ -22,6 +22,7 @@ import { MetricInterface, ExperimentMetricStats } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { getValidDate } from "../util/dates";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
+import { meanVarianceFromSums } from "../util/stats";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -305,8 +306,9 @@ export function processMetricValueQueryResponse(
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 
   rows.forEach((row) => {
-    const { date, count, mean, stddev } = row;
-
+    const { date, count, main_sum, main_sum_squares } = row;
+    const mean = main_sum / count;
+    const stddev = Math.sqrt(meanVarianceFromSums(main_sum, main_sum_squares, count));
     // Row for each date
     if (date) {
       ret.dates = ret.dates || [];

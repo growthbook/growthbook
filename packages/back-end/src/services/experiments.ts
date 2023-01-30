@@ -21,7 +21,7 @@ import {
   insertMetric,
   updateMetric,
 } from "../models/MetricModel";
-import { checkSrm } from "../util/stats";
+import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
 import {
@@ -573,14 +573,9 @@ export async function getManualSnapshotData(
             users: s.count,
             count: s.count,
             statistic_type: "mean", // ratio not supported for now
-            main_metric_stats: {
-              metric_type: metric.type,
-              count: s.count,
-              sum: s.mean * s.count,
-              sum_squares:
-                Math.pow(s.stddev, 2) * (s.count - 1) +
-                (s.mean * s.count) / s.count,
-            },
+            main_metric_type: metric.type,
+            main_sum: s.mean * s.count,
+            main_sum_squares: sumSquaresFromStats(s.mean * s.count, Math.pow(s.stddev, 2), s.count),
           };
         });
 

@@ -493,14 +493,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
                 date: string;
                 count: number;
                 sum: number | null;
+                sum_squares: number | null;
               }[];
             }
           | {
               type: "overall";
               count: number;
               sum: number | null;
-              avg: number | null;
-              stddev: number | null;
+              sum_squares: number | null;
             }
         )[]
       ]
@@ -509,9 +509,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     const result: MetricValueQueryResponse = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
-      mean: 0,
-      stddev: 0,
       count: 0,
+      main_sum: 0,
+      main_sum_squares: 0,
     };
 
     rows &&
@@ -519,16 +519,16 @@ export default class Mixpanel implements SourceIntegrationInterface {
       rows[0].forEach((row) => {
         if (row.type === "overall") {
           overall.count = row.count;
-          overall.mean = row.avg || 0;
-          overall.stddev = row.stddev || 0;
+          overall.main_sum = row.sum || 0;
+          overall.main_sum_squares = row.sum_squares || 0;
         } else if (row.type === "byDate") {
           row.dates.sort((a, b) => a.date.localeCompare(b.date));
-          row.dates.forEach(({ date, count, sum }) => {
+          row.dates.forEach(({ date, count, sum, sum_squares }) => {
             result.push({
               date,
               count,
-              mean: count > 0 ? (sum || 0) / count : 0,
-              stddev: 0,
+              main_sum: sum || 0,
+              main_sum_squares: sum_squares || 0
             });
           });
         }

@@ -375,8 +375,8 @@ export default abstract class SqlIntegration
         , __overall as (
           SELECT
             COUNT(*) as count,
-            SUM(coalesce(value,0)")} as sum,
-            SUM(POWER(coalesce(value,0), 2)) as sum_squares
+            COALESCE(SUM(value), 0) as main_sum,
+            COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
           from
             __userMetric
         )
@@ -403,8 +403,8 @@ export default abstract class SqlIntegration
             SELECT
               date,
               COUNT(*) as count,
-              SUM(coalesce(value,0)")} as sum,
-              SUM(POWER(coalesce(value,0), 2)) as sum_squares
+              COALESCE(SUM(value), 0) as main_sum,
+              COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
             FROM
               __userMetricDates d
             GROUP BY
@@ -461,13 +461,13 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, stddev } = row;
+      const { date, count, main_sum, main_sum_squares } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
         count: parseFloat(count) || 0,
-        mean: parseFloat(mean) || 0,
-        stddev: parseFloat(stddev) || 0,
+        main_sum: parseFloat(main_sum) || 0,
+        main_sum_squares: parseFloat(main_sum_squares) || 0,
       };
 
       return ret;
@@ -1019,19 +1019,15 @@ export default abstract class SqlIntegration
         SELECT
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
-          ${this.ensureFloat("COUNT(*)")} as count,
-          ${this.ensureFloat("SUM(m.value)")} as main_sum,
-          ${this.ensureFloat("SUM(POWER(m.value, 2))")} as main_sum_squares
+          COUNT(*) AS count,
+          SUM(m.value) AS main_sum,
+          SUM(POWER(m.value, 2)) AS main_sum_squares
           ${
             isRatio
               ? `,
-            ${this.ensureFloat("SUM(d.value)")} as denominator_sum,
-            ${this.ensureFloat(
-              "SUM(POWER(d.value, 2))"
-            )} as denominator_sum_squares,
-            ${this.ensureFloat(
-              "SUM(coalesce(d.value,0) * coalesce(m.value,0))"
-            )} AS main_denominator_sum_product
+            SUM(d.value) AS denominator_sum,
+            SUM(POWER(d.value, 2)) AS denominator_sum_squares,
+            SUM(coalesce(d.value, 0) * coalesce(m.value, 0)) AS main_denominator_sum_product
           `
               : ""
           }
@@ -1057,15 +1053,15 @@ export default abstract class SqlIntegration
         ${this.getVariationUsers(metric)} as count,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        s.main_sum,
-        s.main_sum_squares
+        COALESCE(s.main_sum, 0) AS main_sum,
+        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
         ${
           isRatio
             ? `,
           '${denominator?.type}' as denominator_metric_type,
-          s.denominator_sum,
-          s.denominator_sum_squares,
-          s.main_denominator_sum_product
+          COALESCE(s.denominator_sum, 0) AS denominator_sum,
+          COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
+          COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
           `
             : ""
         }

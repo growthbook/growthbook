@@ -162,12 +162,9 @@ export async function analyzeExperimentResults(
             users: stats.count,
             count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
-            main_metric_stats: {
-              metric_type: stats.metric_type,
-              count: stats.count,
-              sum: stats.sum,
-              sum_squares: stats.sum_squares,
-            },
+            main_metric_type: stats.metric_type,
+            main_sum: stats.sum,
+            main_sum_squares: stats.sum_squares,
           });
         });
       });

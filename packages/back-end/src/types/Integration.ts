@@ -110,8 +110,8 @@ export type PastExperimentResult = {
 export type MetricValueQueryResponseRow = {
   date: string;
   count: number;
-  mean: number;
-  stddev: number;
+  main_sum: number;
+  main_sum_squares: number;
 };
 export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {

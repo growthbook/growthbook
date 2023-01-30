@@ -15,6 +15,7 @@ import {
   GOOGLE_OAUTH_CLIENT_SECRET,
   APP_ORIGIN,
 } from "../util/secrets";
+import { sumSquaresFromStats } from "../util/stats";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -154,12 +155,16 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           count = users;
           mean = value;
         }
-
+        
+        // Rebuild sum and sums of squares to match SQL integration
+        // TODO: refactor above queries to just build these values directly
+        const sum = count * mean;
+        const sum_squares = sumSquaresFromStats(sum, Math.pow(stddev, 2), count);
         dates.push({
           date,
           count,
-          mean,
-          stddev,
+          main_sum: sum,
+          main_sum_squares: sum_squares,
         });
       });
     }
@@ -306,9 +311,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
               : metric.type === "binomial"
               ? mean * (1 - mean)
               : 0;
-
-          const sum_squares =
-            variance * (count - 1) + Math.pow(value, 2) / count;
+          
+          // because of above guessing about stddev, we have to backout the implied sum_squares
+          const sum_squares = sumSquaresFromStats(mean, variance, count);
           return {
             metric: metric.id,
             metric_type: metric.type,
