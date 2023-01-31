@@ -81,7 +81,21 @@ export const putSDKConnection = async (
     [connection.environment]
   );
 
-  await editSDKConnection(connection, req.body);
+  let encryptPayload = req.body.encryptPayload || false;
+  const encryptionPermitted = orgHasPremiumFeature(
+    org,
+    "encrypt-features-endpoint"
+  );
+  const changingFromUnencryptedToEncrypted =
+    !connection.encryptPayload && encryptPayload;
+  if (changingFromUnencryptedToEncrypted && !encryptionPermitted) {
+    encryptPayload = false;
+  }
+
+  await editSDKConnection(connection, {
+    ...req.body,
+    encryptPayload,
+  });
 
   res.status(200).json({
     status: 200,
