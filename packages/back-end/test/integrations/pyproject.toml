@@ -16,6 +16,7 @@ psycopg2 = "^2.9.5"
 python-dotenv = "^0.21.1"
 sqlfluff = "^1.4.5"
 snowflake-connector-python = "^2.9.0"
+databricks-sql-connector = "^2.3.0"
 
 [tool.poetry.dev-dependencies]
 black = "22.3.0"
