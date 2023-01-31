@@ -153,7 +153,7 @@ export interface SchemaResults {
 
 export interface Column {
   column_name?: string;
-  data_type?: unknown; //MKTODO: Come back and update this
+  data_type?: string;
 }
 
 export interface Table {
@@ -190,12 +190,12 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  runGetSchemaQuery?(integration?: SourceIntegrationInterface): Promise<any[]>;
-  formatSchemaResults?(results: SchemaResults[]): FormattedSchemaResults[];
+  runGetSchemaQuery?(
+    integration?: SourceIntegrationInterface
+  ): Promise<unknown[]>;
+  formatSchemaResults?(results: unknown[]): FormattedSchemaResults[];
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
-  getAllTables?(): Promise<any>; //MKTODO: Come back and update this
-  getColumnData?(tableName: string): Promise<any>; //MKTODO: Come back and update this
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;

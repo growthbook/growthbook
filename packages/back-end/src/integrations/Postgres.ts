@@ -45,8 +45,6 @@ export default class Postgres extends SqlIntegration {
       WHERE
         table_schema='public'
       ORDER BY table_name;`;
-    const results = await this.runQuery(sql);
-
-    return results;
+    return await this.runQuery(sql);
   }
 }

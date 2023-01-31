@@ -514,14 +514,6 @@ export default abstract class SqlIntegration
     return formattedResults;
   }
 
-  async getAllTables(): Promise<any> {
-    return await this.runQuery("SHOW TABLES");
-  }
-
-  async getColumnData(tableName: string): Promise<any> {
-    return await this.runQuery(`DESCRIBE ${tableName}`);
-  }
-
   getTestQuery(query: string): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);

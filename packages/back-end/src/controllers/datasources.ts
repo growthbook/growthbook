@@ -585,6 +585,13 @@ export async function putDataSourceSchema(
 
   const { formattedResults, error } = await generateSchema(datasource);
 
+  if (error || !formattedResults) {
+    return res.status(400).json({
+      status: 400,
+      message: error || "An error occurred",
+    });
+  }
+
   const existing = await getDataSourceById(datasource.id, org.id);
 
   await updateDataSource(datasource.id, org.id, {
@@ -596,8 +603,6 @@ export async function putDataSourceSchema(
 
   res.status(200).json({
     status: 200,
-    message: "This thing is on",
     formattedResults,
-    error,
   });
 }

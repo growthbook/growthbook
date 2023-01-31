@@ -127,7 +127,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
         decryptionError: integration.decryptionError || false,
         dateCreated: d.dateCreated,
         dateUpdated: d.dateUpdated,
-        schema: d.schema,
       };
     }),
     dimensions,

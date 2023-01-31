@@ -85,6 +85,11 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
 export async function generateSchema(
   datasource: DataSourceInterface
 ): Promise<any> {
+  // ): Promise<
+  //   | { formattedResults: FormattedSchemaResults[]; error?: undefined }
+  //   | { error: unknown; formattedResults?: undefined }
+  //   | undefined
+  // > {
   const integration = getSourceIntegrationObject(datasource);
 
   if (
