@@ -144,6 +144,13 @@ export interface TestQueryResult {
   duration: number;
 }
 
+export interface RawInformationSchema {
+  table_name: string;
+  column_name: string;
+  data_type: string;
+  table_catalog: string;
+}
+
 interface Column {
   column_name?: string;
   data_type?: string;

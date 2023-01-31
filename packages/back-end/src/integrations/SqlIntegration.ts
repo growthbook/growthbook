@@ -18,7 +18,7 @@ import {
   Dimension,
   TestQueryResult,
   FormattedInformationSchema,
-  InformationSchema,
+  RawInformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -475,7 +475,7 @@ export default abstract class SqlIntegration
     });
   }
 
-  formatInformationSchema(results: InformationSchema[]) {
+  formatInformationSchema(results: RawInformationSchema[]) {
     const formattedResults: FormattedInformationSchema[] = [];
 
     results.forEach((row) => {
