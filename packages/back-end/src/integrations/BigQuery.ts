@@ -4,10 +4,7 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import {
-  SchemaResults,
-  SourceIntegrationInterface,
-} from "../types/Integration";
+import { SchemaResults } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -83,9 +80,9 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async runGetSchemaQuery(integration: SourceIntegrationInterface) {
+  async runGetSchemaQuery(projectId: string) {
     const datasets = await this.runQuery(
-      `SELECT * FROM ${integration.params.projectId}.INFORMATION_SCHEMA.SCHEMATA;`
+      `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
     );
 
     const combinedResults: SchemaResults[] = [];
@@ -96,7 +93,7 @@ export default class BigQuery extends SqlIntegration {
         column_name,
         data_type
       FROM
-        ${integration.params.projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
+        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
       ORDER BY
         table_name;`;
       const results = await this.runQuery(sql);

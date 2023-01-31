@@ -84,6 +84,7 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
 
 export async function generateSchema(
   datasource: DataSourceInterface
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   // ): Promise<
   //   | { formattedResults: FormattedSchemaResults[]; error?: undefined }
@@ -94,7 +95,7 @@ export async function generateSchema(
 
   if (
     !integration ||
-    // The Mixpanel integration does not support test queries
+    // Not all datasources support this yet
     !integration.runGetSchemaQuery ||
     !integration.formatSchemaResults
   ) {
@@ -102,7 +103,9 @@ export async function generateSchema(
   }
 
   try {
-    const results = await integration.runGetSchemaQuery(integration);
+    const results = await integration.runGetSchemaQuery(
+      integration.params.projectId
+    );
 
     const formattedResults = await integration.formatSchemaResults(results);
     return { formattedResults };

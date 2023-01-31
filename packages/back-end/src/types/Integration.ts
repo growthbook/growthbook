@@ -151,12 +151,12 @@ export interface SchemaResults {
   table_catalog: string;
 }
 
-export interface Column {
+interface Column {
   column_name?: string;
   data_type?: string;
 }
 
-export interface Table {
+interface Table {
   table_name?: string;
   columns?: Column[];
 }
@@ -190,9 +190,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  runGetSchemaQuery?(
-    integration?: SourceIntegrationInterface
-  ): Promise<unknown[]>;
+  runGetSchemaQuery?(projectId?: string): Promise<unknown[]>;
   formatSchemaResults?(results: unknown[]): FormattedSchemaResults[];
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
