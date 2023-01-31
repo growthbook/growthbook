@@ -125,7 +125,7 @@ dependencies: [
 <dependency>
   <groupId>com.github.growthbook</groupId>
   <artifactId>growthbook-sdk-java</artifactId>
-  <version>0.2.2</version>
+  <version>0.3.0</version>
 </dependency>
 `.trim()}
           />
@@ -142,7 +142,7 @@ allprojects {
     }
 }
 dependencies {
-    implementation 'com.github.growthbook:growthbook-sdk-java:0.2.2'
+    implementation 'com.github.growthbook:growthbook-sdk-java:0.3.0'
 }`.trim()}
           />
         </div>

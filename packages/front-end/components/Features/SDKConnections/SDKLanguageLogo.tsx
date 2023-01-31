@@ -91,7 +91,7 @@ export const languageMapping: Record<
     color: "#f89820",
     label: "Java",
     docs: "java",
-    supportsEncryption: false,
+    supportsEncryption: true,
     usesEntireEndpoint: true,
   },
   javascript: {
