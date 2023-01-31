@@ -427,6 +427,17 @@ export async function putDataSource(
       updates.projects = projects;
     }
 
+    // Re-generate the schema
+    const { formattedResults } = await generateSchema(datasource);
+
+    if (formattedResults) {
+      if (!updates.settings) {
+        updates.settings = {};
+      }
+
+      updates.settings.schema = formattedResults;
+    }
+
     if (
       type === "google_analytics" &&
       params &&
@@ -451,15 +462,6 @@ export async function putDataSource(
       mergeParams(integration, params);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
-
-      // If the params have updated, let's re-generate the schema
-      const { formattedResults } = await generateSchema(datasource);
-
-      if (formattedResults && !updates.settings) {
-        updates.settings = {};
-
-        updates.settings.schema = formattedResults;
-      }
     }
 
     await updateDataSource(id, org.id, updates);
