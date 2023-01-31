@@ -11,6 +11,7 @@ import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { StatsEngine } from "../../types/stats";
+import { OrganizationInterface } from "../../types/organization";
 import { updateReport } from "../models/ReportModel";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -217,16 +218,17 @@ export async function startExperimentAnalysis(
 export async function runReport(
   report: ReportInterface,
   useCache: boolean = true,
-  statsEngine: StatsEngine | undefined
+  organization: OrganizationInterface
 ) {
   const updates: Partial<ReportInterface> = {};
+  const statsEngine =
+    report.args.statsEngine || organization.settings?.statsEngine;
 
   if (report.type === "experiment") {
     const { queries, results } = await startExperimentAnalysis(
       report.organization,
       report.args,
       useCache,
-      // TODO override org setting with report setting
       statsEngine
     );
 

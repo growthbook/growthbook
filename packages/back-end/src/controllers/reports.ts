@@ -197,8 +197,7 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  // TODO pass up organization instead
-  await runReport(report, useCache, org.settings?.statsEngine);
+  await runReport(report, useCache, org);
 
   return res.status(200).json({
     status: 200,
@@ -239,14 +238,13 @@ export async function putReport(
   await updateReport(org.id, req.params.id, updates);
 
   if (needsRun) {
-    // TODO pass up organization instead
     await runReport(
       {
         ...report,
         ...updates,
       },
       true,
-      org.settings?.statsEngine
+      org
     );
   }
 
@@ -265,6 +263,7 @@ export async function getReportStatus(
   if (!report) {
     throw new Error("Could not get query status");
   }
+  const statsEngine = report.args.statsEngine || org.settings?.statsEngine;
   const result = await getStatusEndpoint(
     report,
     org.id,
@@ -275,8 +274,7 @@ export async function getReportStatus(
           report.args.variations,
           report.args.dimension || "",
           queryData,
-          // TODO override org setting with report setting
-          org.settings?.statsEngine
+          statsEngine
         );
       }
       throw new Error("Unsupported report type");
