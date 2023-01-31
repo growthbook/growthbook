@@ -136,7 +136,7 @@ type Table = {
   columns: Column[];
 };
 
-type Schema = {
+type InformationSchema = {
   table_catalog: string;
   tables: Table[];
 };
@@ -145,7 +145,7 @@ export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
-  schema?: Schema[];
+  informationSchema?: InformationSchema[];
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];

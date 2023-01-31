@@ -80,7 +80,7 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async runGetSchemaQuery(projectId: string) {
+  async getInformationSchema(projectId: string) {
     const datasets = await this.runQuery(
       `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
     );

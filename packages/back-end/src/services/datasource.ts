@@ -82,12 +82,12 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   return obj;
 }
 
-export async function generateSchema(
+export async function generateInformationSchema(
   datasource: DataSourceInterface
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   // ): Promise<
-  //   | { formattedResults: FormattedSchemaResults[]; error?: undefined }
+  //   | { formattedResults: FormattedInformationSchema[]; error?: undefined }
   //   | { error: unknown; formattedResults?: undefined }
   //   | undefined
   // > {
@@ -96,19 +96,21 @@ export async function generateSchema(
   if (
     !integration ||
     // Not all datasources support this yet
-    !integration.runGetSchemaQuery ||
-    !integration.formatSchemaResults
+    !integration.getInformationSchema ||
+    !integration.formatInformationSchema
   ) {
     return;
   }
 
   try {
-    const results = await integration.runGetSchemaQuery(
+    const rawInformationSchema = await integration.getInformationSchema(
       integration.params.projectId
     );
 
-    const formattedResults = await integration.formatSchemaResults(results);
-    return { formattedResults };
+    const informationSchema = await integration.formatInformationSchema(
+      rawInformationSchema
+    );
+    return { informationSchema };
   } catch (e) {
     return {
       error: e.message,

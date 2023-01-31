@@ -144,13 +144,6 @@ export interface TestQueryResult {
   duration: number;
 }
 
-export interface SchemaResults {
-  table_name: string;
-  column_name: string;
-  data_type: string;
-  table_catalog: string;
-}
-
 interface Column {
   column_name?: string;
   data_type?: string;
@@ -161,7 +154,7 @@ interface Table {
   columns?: Column[];
 }
 
-export interface FormattedSchemaResults {
+export interface FormattedInformationSchema {
   table_catalog: string;
   tables: Table[];
 }
@@ -190,8 +183,8 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  runGetSchemaQuery?(projectId?: string): Promise<unknown[]>;
-  formatSchemaResults?(results: unknown[]): FormattedSchemaResults[];
+  getInformationSchema?(projectId?: string): Promise<unknown[]>;
+  formatInformationSchema?(results: unknown[]): FormattedInformationSchema[];
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

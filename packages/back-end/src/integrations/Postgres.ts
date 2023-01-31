@@ -34,7 +34,7 @@ export default class Postgres extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
-  async runGetSchemaQuery() {
+  async getInformationSchema() {
     const sql = `SELECT
         table_name,
         column_name,

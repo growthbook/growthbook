@@ -14,7 +14,7 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
-  generateSchema,
+  generateInformationSchema,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { ExperimentModel } from "../models/ExperimentModel";
@@ -428,14 +428,14 @@ export async function putDataSource(
     }
 
     // Re-generate the schema
-    const { formattedResults } = await generateSchema(datasource);
+    const { informationSchema } = await generateInformationSchema(datasource);
 
-    if (formattedResults) {
+    if (informationSchema) {
       if (!updates.settings) {
         updates.settings = {};
       }
 
-      updates.settings.schema = formattedResults;
+      updates.settings.informationSchema = informationSchema;
     }
 
     if (
@@ -583,9 +583,11 @@ export async function putDataSourceSchema(
     });
   }
 
-  const { formattedResults, error } = await generateSchema(datasource);
+  const { informationSchema, error } = await generateInformationSchema(
+    datasource
+  );
 
-  if (error || !formattedResults) {
+  if (error || !informationSchema) {
     return res.status(400).json({
       status: 400,
       message: error || "An error occurred",
@@ -597,12 +599,12 @@ export async function putDataSourceSchema(
   await updateDataSource(datasource.id, org.id, {
     settings: {
       ...existing?.settings,
-      schema: formattedResults,
+      informationSchema: informationSchema,
     },
   });
 
   res.status(200).json({
     status: 200,
-    formattedResults,
+    informationSchema,
   });
 }

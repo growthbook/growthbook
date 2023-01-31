@@ -17,8 +17,8 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
-  SchemaResults,
-  FormattedSchemaResults,
+  FormattedInformationSchema,
+  InformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -475,8 +475,8 @@ export default abstract class SqlIntegration
     });
   }
 
-  formatSchemaResults(results: SchemaResults[]) {
-    const formattedResults: FormattedSchemaResults[] = [];
+  formatInformationSchema(results: InformationSchema[]) {
+    const formattedResults: FormattedInformationSchema[] = [];
 
     results.forEach((row) => {
       const key = row.table_catalog;
