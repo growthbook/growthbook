@@ -126,11 +126,26 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
+type Column = {
+  column_name: string;
+  data_type: string;
+};
+
+type Table = {
+  table_name: string;
+  columns: Column[];
+};
+
+type Schema = {
+  table_catalog: string;
+  tables: Table[];
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
-  schema?: string;
+  schema?: Schema[];
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];
@@ -168,16 +183,6 @@ export type DataSourceSettings = {
   };
 };
 
-type Column = {
-  name: string;
-  type: unknown;
-};
-
-type Table = {
-  name: string;
-  columns: Column[];
-};
-
 interface DataSourceBase {
   id: string;
   name: string;
@@ -188,8 +193,6 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
-  // schema?: string; //MKTODO: Temporary while I'm testing functionality
-  // schema?: Table[];
 }
 
 interface RedshiftDataSource extends DataSourceBase {

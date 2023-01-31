@@ -171,7 +171,6 @@ const DataSourcePage: FC = () => {
                         method: "PUT",
                       });
                       console.log("res", res);
-                      // mutateDefinitions({});
                     }}
                   >
                     Get Schema

@@ -13,7 +13,6 @@ import Mixpanel from "../integrations/Mixpanel";
 import { DataSourceInterface, DataSourceParams } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
-import { postDataSourceSchema } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -84,29 +83,24 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
 }
 
 export async function generateSchema(
-  datasource: DataSourceInterface,
-  orgId: string
+  datasource: DataSourceInterface
 ): Promise<any> {
   const integration = getSourceIntegrationObject(datasource);
 
-  if (!integration) {
+  if (
+    !integration ||
+    // The Mixpanel integration does not support test queries
+    !integration.runGetSchemaQuery ||
+    !integration.formatSchemaResults
+  ) {
     return;
-  }
-
-  // The Mixpanel integration does not support test queries
-  if (!integration.runGetSchemaQuery || !integration.formatSchemaResults) {
-    throw new Error("Unable to test query.");
-    //MKTODO: We'll want to change this to fail elegantly so it doesn't block creating a Mixpanel datasource
   }
 
   try {
     const results = await integration.runGetSchemaQuery(integration);
 
-    const formattedResults = integration.formatSchemaResults(results);
-
-    await postDataSourceSchema(datasource.id, orgId, formattedResults);
-
-    return { results, formattedResults };
+    const formattedResults = await integration.formatSchemaResults(results);
+    return { formattedResults };
   } catch (e) {
     return {
       error: e.message,

@@ -451,6 +451,17 @@ export async function putDataSource(
       mergeParams(integration, params);
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
+
+      // If the params have updated, let's re-generate the schema
+      const { formattedResults } = await generateSchema(datasource);
+
+      if (formattedResults) {
+        if (!updates.settings) {
+          updates.settings = {};
+        }
+
+        updates.settings.schema = formattedResults;
+      }
     }
 
     await updateDataSource(id, org.id, updates);
@@ -572,20 +583,21 @@ export async function putDataSourceSchema(
     });
   }
 
-  //TODO: Should we check for permissions here?
+  const { formattedResults, error } = await generateSchema(datasource);
 
-  //TODO: Build
-  const { results, formattedResults, error } = await generateSchema(
-    datasource,
-    org.id
-  );
+  const existing = await getDataSourceById(datasource.id, org.id);
+
+  await updateDataSource(datasource.id, org.id, {
+    settings: {
+      ...existing?.settings,
+      schema: formattedResults,
+    },
+  });
 
   res.status(200).json({
     status: 200,
     message: "This thing is on",
-    results,
     formattedResults,
     error,
-    //TODO: Include actual datasourceSchema here
   });
 }
