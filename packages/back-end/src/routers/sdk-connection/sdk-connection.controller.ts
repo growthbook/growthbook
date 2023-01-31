@@ -15,6 +15,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "../../models/SdkConnectionModel";
+import { orgHasPremiumFeature } from "../../util/organization.util";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -45,7 +46,16 @@ export const postSDKConnection = async (
     params.environment,
   ]);
 
-  const doc = await createSDKConnection({ ...params, organization: org.id });
+  let encryptPayload = false;
+  if (orgHasPremiumFeature(org, "encrypt-features-endpoint")) {
+    encryptPayload = params.encryptPayload;
+  }
+
+  const doc = await createSDKConnection({
+    ...params,
+    encryptPayload,
+    organization: org.id,
+  });
 
   res.status(200).json({
     status: 200,
