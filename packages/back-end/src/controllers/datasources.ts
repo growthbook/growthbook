@@ -455,10 +455,8 @@ export async function putDataSource(
       // If the params have updated, let's re-generate the schema
       const { formattedResults } = await generateSchema(datasource);
 
-      if (formattedResults) {
-        if (!updates.settings) {
-          updates.settings = {};
-        }
+      if (formattedResults && !updates.settings) {
+        updates.settings = {};
 
         updates.settings.schema = formattedResults;
       }
