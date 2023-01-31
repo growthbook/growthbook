@@ -4,7 +4,7 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { SchemaResults } from "../types/Integration";
+import { RawInformationSchema } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -85,7 +85,7 @@ export default class BigQuery extends SqlIntegration {
       `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
     );
 
-    const combinedResults: SchemaResults[] = [];
+    const combinedResults: RawInformationSchema[] = [];
 
     for (const dataset of datasets) {
       const sql = `SELECT
