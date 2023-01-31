@@ -446,13 +446,13 @@ export default abstract class SqlIntegration
         count: parseInt(row.count) || 0,
         statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
-        main_sum: parseFloat(row.main_sum) ?? 0,
-        main_sum_squares: parseFloat(row.main_sum_squares) ?? 0,
+        main_sum: parseFloat(row.main_sum) || 0,
+        main_sum_squares: parseFloat(row.main_sum_squares) || 0,
         denominator_metric_type: row.denominator_metric_type ?? "",
-        denominator_sum: parseFloat(row.denominator_sum) ?? 0,
-        denominator_sum_squares: parseFloat(row.denominator_sum_squares) ?? 0,
+        denominator_sum: parseFloat(row.denominator_sum) || 0,
+        denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
         main_denominator_sum_product:
-          parseFloat(row.main_denominator_sum_product) ?? 0,
+          parseFloat(row.main_denominator_sum_product) || 0,
       };
     });
   }
@@ -1007,7 +1007,7 @@ export default abstract class SqlIntegration
         SELECT
           variation,
           dimension,
-          ${this.ensureFloat("COUNT(*)")} as users
+          COUNT(*) as users
         FROM
           __distinctUsers
         GROUP BY
@@ -1020,14 +1020,14 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) AS count,
-          SUM(m.value) AS main_sum,
-          SUM(POWER(m.value, 2)) AS main_sum_squares
+          SUM(COALESCE(m.value, 0)) AS main_sum,
+          SUM(POWER(COALESCE(m.value 0), 2)) AS main_sum_squares
           ${
             isRatio
               ? `,
-            SUM(d.value) AS denominator_sum,
-            SUM(POWER(d.value, 2)) AS denominator_sum_squares,
-            SUM(coalesce(d.value, 0) * coalesce(m.value, 0)) AS main_denominator_sum_product
+            SUM(COALESCE(d.value, 0)) AS denominator_sum,
+            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
+            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
           `
               : ""
           }

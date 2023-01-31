@@ -320,8 +320,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
               id: metricIds[i-1],
               metric_type: metricTypes[i-1],
               count: row.value[i].count,
-              sum: row.value[i].sum,
-              sum_squares: row.value[i].sum_squares,
+              main_sum: row.value[i].sum,
+              main_sum_squares: row.value[i].sum_squares,
             });
           }
           return ret;
@@ -453,16 +453,18 @@ export default class Mixpanel implements SourceIntegrationInterface {
               const dates = {};
               prevs.forEach(prev => {
                 prev.dates.forEach(d=>{
-                  dates[d.date] = dates[d.date] || {count:0, sum:0};
+                  dates[d.date] = dates[d.date] || {count:0, sum:0, sum_squares:0};
                   dates[d.date].count += d.count;
                   dates[d.date].sum += d.sum;
+                  dates[d.date].sum_squares += d.sum_squares;
                 })
               });
               events.forEach(e=>{
                 const date = (new Date(e.value.date)).toISOString().substr(0,10);
-                dates[date] = dates[date] || {count:0, sum:0};
+                dates[date] = dates[date] || {count:0, sum:0, sum_squares:0};
                 dates[date].count++;
                 dates[date].sum += e.value.metricValue;
+                dates[date].sum_squares += Math.pow(e.value.metricValue, 2);
               });
 
               return {
