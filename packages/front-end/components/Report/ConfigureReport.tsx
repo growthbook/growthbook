@@ -6,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -22,6 +23,7 @@ export default function ConfigureReport({
   mutate: () => void;
   viewResults: () => void;
 }) {
+  const settings = useOrgSettings();
   const { apiCall } = useAuth();
   const { metrics, segments, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
@@ -41,6 +43,7 @@ export default function ConfigureReport({
         .toISOString()
         .substr(0, 16),
       endDate: getValidDate(report.args.endDate).toISOString().substr(0, 16),
+      statsEngine: report.args.statsEngine || settings.statsEngine,
     },
   });
 
@@ -308,6 +311,28 @@ export default function ConfigureReport({
           ]}
         />
       )}
+
+      <SelectField
+        label={<strong>Stats Engine</strong>}
+        value={form.watch("statsEngine")}
+        onChange={(value) =>
+          form.setValue(
+            "statsEngine",
+            value === "frequentist" ? "frequentist" : "bayesian"
+          )
+        }
+        options={[
+          {
+            label: "Bayesian",
+            value: "bayesian",
+          },
+          {
+            label: "Frequentist",
+            value: "frequentist",
+          },
+        ]}
+      />
+
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
           <div className="col">
