@@ -22,7 +22,7 @@ String userAttributesJson = user.toJson();
 // You can store your encryption key as an environment variable rather than hardcoding in plain text in your codebase
 String encryptionKey = "<key-for-decrypting>";
 
-// Initialize the GrowthBook SDK with the GBContext
+// Initialize the GrowthBook SDK with the GBContext and the encryption key
 GBContext context = GBContext
     .builder()
     .featuresJson(encryptedFeaturesJson)
@@ -60,7 +60,7 @@ val userAttributes = """
 // You can store your encryption key as an environment variable rather than hardcoding in plain text in your codebase
 val encryptionKey = "<key-for-decrypting>";
 
-// Initialize the GrowthBook SDK with the GBContext
+// Initialize the GrowthBook SDK with the GBContext and the encryption key
 val context = GBContext
     .builder()
     .featuresJson(encryptedFeaturesJson)
