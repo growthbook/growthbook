@@ -85,171 +85,174 @@ const TopNav: FC<{
           left: toggleLeftMenu ? undefined : 0,
         }}
       >
-        {toggleLeftMenu ? (
-          <a
-            href="#main-menu"
-            id="main-menu-toggle"
-            className={styles.mobilemenu}
-            aria-label="Open main menu"
-            onClick={(e) => {
-              e.preventDefault();
-              toggleLeftMenu();
-            }}
-          >
-            <span className="sr-only">Open main menu</span>
-            <FaBars />
-          </a>
-        ) : (
-          <div>
-            <img
-              alt="GrowthBook"
-              src="/logo/growthbook-logo.png"
-              style={{ height: 40 }}
-            />
-          </div>
-        )}
+        <div className={styles.leftSection}>
+          {toggleLeftMenu ? (
+            <a
+              href="#main-menu"
+              id="main-menu-toggle"
+              className={styles.mobilemenu}
+              aria-label="Open main menu"
+              onClick={(e) => {
+                e.preventDefault();
+                toggleLeftMenu();
+              }}
+            >
+              <span className="sr-only">Open main menu</span>
+              <FaBars />
+            </a>
+          ) : (
+            <div>
+              <img
+                alt="GrowthBook"
+                src="/logo/growthbook-logo.png"
+                style={{ height: 40 }}
+              />
+            </div>
+          )}
 
-        <span className={styles.pagetitle}>{pageTitle}</span>
+          <div className={styles.pagetitle}>{pageTitle}</div>
+        </div>
 
-        <div style={{ flex: 1 }} />
+        <div className={styles.rightSection}>
+          <ThemeToggler />
 
-        <ThemeToggler />
+          {showNotices && (
+            <>
+              <AccountPlanNotices />
+              <AccountPlanBadge />
 
-        {showNotices && (
-          <>
-            <AccountPlanNotices />
-            <AccountPlanBadge />
+              {(watchedExperiments.length > 0 ||
+                watchedFeatures.length > 0) && (
+                <Link href="/activity">
+                  <a className="nav-link mr-1 text-secondary">
+                    <FaBell />
+                  </a>
+                </Link>
+              )}
+            </>
+          )}
 
-            {(watchedExperiments.length > 0 || watchedFeatures.length > 0) && (
-              <Link href="/activity">
-                <a className="nav-link mr-1 text-secondary">
-                  <FaBell />
-                </a>
-              </Link>
-            )}
-          </>
-        )}
+          {organizations && organizations.length === 1 && (
+            <div className="top-nav-org-menu mr-2">
+              <FaBuilding className="text-muted mr-1" />
+              <span className="d-none d-lg-inline">{orgName}</span>
+            </div>
+          )}
+          {organizations && organizations.length > 1 && (
+            <div className="dropdown top-nav-org-menu">
+              <div
+                className={`nav-link dropdown-toggle`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOrgDropdownOpen(!orgDropdownOpen);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <FaBuilding className="text-muted mr-1" />
+                <span className="d-none d-lg-inline">{orgName}</span>
+              </div>
+              <div
+                className={clsx("dropdown-menu dropdown-menu-right", {
+                  show: orgDropdownOpen,
+                })}
+              >
+                <div className="dropdown-header">Organization</div>
+                {organizations.map((o) => (
+                  <a
+                    className={clsx("dropdown-item", {
+                      active: o.id === orgId,
+                    })}
+                    key={o.id}
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOrgId(o.id);
+                      setOrgDropdownOpen(false);
+                    }}
+                  >
+                    <span className="status"></span>
+                    {o.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {organizations && organizations.length === 1 && (
-          <div className="top-nav-org-menu mr-2">
-            <FaBuilding className="text-muted mr-1" />
-            <span className="d-none d-lg-inline">{orgName}</span>
-          </div>
-        )}
-        {organizations && organizations.length > 1 && (
-          <div className="dropdown top-nav-org-menu">
+          <div className="dropdown top-nav-user-menu">
             <div
               className={`nav-link dropdown-toggle`}
               onClick={(e) => {
                 e.preventDefault();
-                setOrgDropdownOpen(!orgDropdownOpen);
+                setUserDropdownOpen(!userDropdownOpen);
               }}
               style={{ cursor: "pointer" }}
             >
-              <FaBuilding className="text-muted mr-1" />
-              <span className="d-none d-lg-inline">{orgName}</span>
+              <Avatar email={email} size={26} />{" "}
+              <span className="d-none d-lg-inline">{email}</span>
             </div>
             <div
               className={clsx("dropdown-menu dropdown-menu-right", {
-                show: orgDropdownOpen,
+                show: userDropdownOpen,
               })}
             >
-              <div className="dropdown-header">Organization</div>
-              {organizations.map((o) => (
-                <a
-                  className={clsx("dropdown-item", {
-                    active: o.id === orgId,
-                  })}
-                  key={o.id}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setOrgId(o.id);
-                    setOrgDropdownOpen(false);
-                  }}
-                >
-                  <span className="status"></span>
-                  {o.name}
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="dropdown top-nav-user-menu">
-          <div
-            className={`nav-link dropdown-toggle`}
-            onClick={(e) => {
-              e.preventDefault();
-              setUserDropdownOpen(!userDropdownOpen);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <Avatar email={email} size={26} />{" "}
-            <span className="d-none d-lg-inline">{email}</span>
-          </div>
-          <div
-            className={clsx("dropdown-menu dropdown-menu-right", {
-              show: userDropdownOpen,
-            })}
-          >
-            <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
-              <div className="text-muted">{email}</div>
-              {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
-              {user?.role && (
-                <span className="badge badge-secondary">{user.role}</span>
+              <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
+                <div className="text-muted">{email}</div>
+                {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
+                {user?.role && (
+                  <span className="badge badge-secondary">{user.role}</span>
+                )}
+              </div>
+              {datasources?.length > 0 && (
+                <>
+                  <div className="dropdown-divider"></div>
+                  <Link href={"/reports"}>
+                    <a
+                      className="dropdown-item"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                      }}
+                    >
+                      My Reports
+                    </a>
+                  </Link>
+                </>
               )}
-            </div>
-            {datasources?.length > 0 && (
-              <>
-                <div className="dropdown-divider"></div>
-                <Link href={"/reports"}>
-                  <a
+              <div className="dropdown-divider"></div>
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditUserOpen(true);
+                }}
+              >
+                Edit Profile
+              </button>
+              <div className="dropdown-divider"></div>
+              {!usingSSO() && (
+                <>
+                  <button
                     className="dropdown-item"
-                    onClick={() => {
-                      setUserDropdownOpen(false);
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setChangePasswordOpen(true);
                     }}
                   >
-                    My Reports
-                  </a>
-                </Link>
-              </>
-            )}
-            <div className="dropdown-divider"></div>
-            <button
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                setEditUserOpen(true);
-              }}
-            >
-              Edit Profile
-            </button>
-            <div className="dropdown-divider"></div>
-            {!usingSSO() && (
-              <>
-                <button
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setChangePasswordOpen(true);
-                  }}
-                >
-                  Change Password
-                </button>
-                <div className="dropdown-divider"></div>
-              </>
-            )}
-            <button
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                logout();
-                setUserDropdownOpen(false);
-              }}
-            >
-              Sign Out
-            </button>
+                    Change Password
+                  </button>
+                  <div className="dropdown-divider"></div>
+                </>
+              )}
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  logout();
+                  setUserDropdownOpen(false);
+                }}
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
