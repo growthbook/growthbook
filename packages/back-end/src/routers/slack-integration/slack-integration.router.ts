@@ -32,12 +32,16 @@ router.post(
       .object({
         name: z.string(),
         description: z.string(),
-        project: z.string().nullable(),
+        projects: z.array(z.string()),
         environments: z.array(z.string()),
         events: z.array(z.enum(notificationEventNames)),
         tags: z.array(z.string()),
         slackAppId: z.string(),
         slackSigningKey: z.string(),
+        slackIncomingWebHook: z
+          .string()
+          .url()
+          .startsWith("https://hooks.slack.com/services/"),
       })
       .strict(),
   }),
@@ -56,12 +60,16 @@ router.put(
       .object({
         name: z.string(),
         description: z.string(),
-        project: z.string().nullable(),
+        projects: z.array(z.string()),
         environments: z.array(z.string()),
         events: z.array(z.enum(notificationEventNames)),
         tags: z.array(z.string()),
         slackAppId: z.string(),
         slackSigningKey: z.string(),
+        slackIncomingWebHook: z
+          .string()
+          .url()
+          .startsWith("https://hooks.slack.com/services/"),
       })
       .strict(),
   }),

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
+import intersection from "lodash/intersection";
 import { z } from "zod";
 import { SlackIntegrationInterface } from "../../types/slack-integration";
 import {
@@ -27,7 +28,7 @@ const slackIntegrationSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true,
+    required: false,
   },
   dateCreated: {
     type: Date,
@@ -37,9 +38,9 @@ const slackIntegrationSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
-  project: {
-    type: String,
-    required: false,
+  projects: {
+    type: [String],
+    required: true,
   },
   environments: {
     type: [String],
@@ -68,6 +69,10 @@ const slackIntegrationSchema = new mongoose.Schema({
     required: true,
   },
   slackAppId: {
+    type: String,
+    required: true,
+  },
+  slackIncomingWebHook: {
     type: String,
     required: true,
   },
@@ -106,11 +111,12 @@ type CreateOptions = {
   organizationId: string;
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
+  slackIncomingWebHook: string;
   slackSigningKey: string;
   linkedByUserId: string;
 };
@@ -119,11 +125,12 @@ export const createSlackIntegration = async ({
   organizationId,
   name,
   description,
-  project,
+  projects,
   environments,
   events,
   tags,
   slackAppId,
+  slackIncomingWebHook,
   slackSigningKey,
   linkedByUserId,
 }: CreateOptions): Promise<SlackIntegrationInterface> => {
@@ -136,12 +143,13 @@ export const createSlackIntegration = async ({
     organizationId,
     name,
     description,
-    project,
+    projects,
     environments,
     events,
     tags,
     slackAppId,
     slackSigningKey,
+    slackIncomingWebHook,
     linkedByUserId,
   });
 
@@ -187,6 +195,78 @@ export const getSlackIntegration = async ({
   }
 };
 
+type GetForEventOptions = {
+  organizationId: string;
+  eventName: NotificationEventName;
+  environments: string[];
+  tags: string[];
+  projects: string[];
+};
+
+/**
+ * Filters by the following:
+ *  eventName:
+ *    If the integration's events includes the provided event, or
+ *    if the integration does not specify events,
+ *    it will be included.
+ *  environments:
+ *    If the integration's environments intersects with the integration's environments, or
+ *    if the integration does not specify environments,
+ *    it will be included.
+ *  tags:
+ *    If the integration's tags intersects with the integration's tags, or
+ *    if the integration does not specify tags,
+ *    it will be included.
+ *  projects:
+ *    If the integration's projects intersects with the integration's projects, or
+ *    if the integration does not specify projects,
+ *    it will be included.
+ * @param organizationId
+ * @param eventName
+ * @param environments
+ * @param tags
+ * @param projects
+ */
+export const getSlackIntegrationsForFilters = async ({
+  organizationId,
+  eventName,
+  environments,
+  tags,
+  projects,
+}: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
+  const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.events.length === 0 ||
+    slackIntegration.events.includes(eventName);
+
+  const includesEnvironments = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.environments.length === 0 ||
+    intersection(slackIntegration.environments, environments).length > 0;
+
+  const includesTags = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.tags.length === 0 ||
+    intersection(slackIntegration.tags, tags).length > 0;
+
+  const includesProjects = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.projects.length === 0 ||
+    intersection(slackIntegration.projects, projects).length > 0;
+
+  try {
+    const docs = await SlackIntegrationModel.find({
+      organizationId,
+    });
+
+    return docs
+      .filter(includesEvent)
+      .filter(includesEnvironments)
+      .filter(includesTags)
+      .filter(includesProjects)
+      .map(toInterface);
+  } catch (e) {
+    logger.error(e, "getSlackIntegrationsForEvent");
+    return null;
+  }
+};
+
 // endregion Read
 
 // region Update
@@ -199,12 +279,13 @@ type UpdateOptions = {
 type UpdateAttributes = {
   name: string;
   description: string;
-  project: string | null;
+  projects: string[];
   environments: string[];
   events: NotificationEventName[];
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;
+  slackIncomingWebHook: string;
 };
 
 /**
@@ -224,11 +305,12 @@ export const updateSlackIntegration = async (
         ...pick(updates, [
           "name",
           "description",
-          "project",
+          "projects",
           "environments",
           "events",
           "tags",
           "slackAppId",
+          "slackIncomingWebHook",
           "slackSigningKey",
         ]),
         dateUpdated: new Date(),
@@ -263,6 +345,57 @@ export const deleteSlackIntegration = async ({
   });
 
   return result.deletedCount === 1;
+};
+
+type RemoveTagOptions = {
+  organizationId: string;
+  tag: string;
+};
+
+export const removeTagFromSlackIntegration = async ({
+  organizationId,
+  tag,
+}: RemoveTagOptions): Promise<void> => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, tags: tag },
+    {
+      $pull: { tags: tag },
+    }
+  );
+};
+
+type RemoveProjectOptions = {
+  organizationId: string;
+  projectId: string;
+};
+
+export const removeProjectFromSlackIntegration = async ({
+  organizationId,
+  projectId,
+}: RemoveProjectOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, projects: projectId },
+    {
+      $pull: { projects: projectId },
+    }
+  );
+};
+
+type RemoveEnvironmentOptions = {
+  organizationId: string;
+  envId: string;
+};
+
+export const removeEnvironmentFromSlackIntegration = async ({
+  organizationId,
+  envId,
+}: RemoveEnvironmentOptions) => {
+  await SlackIntegrationModel.updateMany(
+    { organizationId, environments: envId },
+    {
+      $pull: { environments: envId },
+    }
+  );
 };
 
 // endregion Delete

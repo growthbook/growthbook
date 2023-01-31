@@ -33,6 +33,7 @@ type ModalProps = {
   secondaryCTA?: ReactElement;
   successMessage?: string;
   children: ReactNode;
+  bodyClassName?: string;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -55,6 +56,7 @@ const Modal: FC<ModalProps> = ({
   error: externalError,
   secondaryCTA,
   successMessage,
+  bodyClassName,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +144,7 @@ const Modal: FC<ModalProps> = ({
         </>
       )}
       <div
-        className="modal-body"
+        className={`modal-body ${bodyClassName}`}
         ref={bodyRef}
         style={overflowAuto ? { overflowY: "auto" } : {}}
       >

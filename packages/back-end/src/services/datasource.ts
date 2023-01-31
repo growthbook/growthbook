@@ -3,6 +3,7 @@ import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
 import Presto from "../integrations/Presto";
+import Databricks from "../integrations/Databricks";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
@@ -10,7 +11,12 @@ import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
-import { DataSourceInterface, DataSourceParams } from "../../types/datasource";
+import {
+  DataSourceInterface,
+  DataSourceParams,
+  DataSourceSettings,
+  DataSourceType,
+} from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 
@@ -46,33 +52,46 @@ export function mergeParams(
   });
 }
 
+function getIntegrationObj(
+  type: DataSourceType,
+  params: string,
+  settings: DataSourceSettings
+): SourceIntegrationInterface {
+  switch (type) {
+    case "athena":
+      return new Athena(params, settings);
+    case "redshift":
+      return new Redshift(params, settings);
+    case "google_analytics":
+      return new GoogleAnalytics(params, settings);
+    case "snowflake":
+      return new Snowflake(params, settings);
+    case "postgres":
+      return new Postgres(params, settings);
+    case "mysql":
+      return new Mysql(params, settings);
+    case "mssql":
+      return new Mssql(params, settings);
+    case "bigquery":
+      return new BigQuery(params, settings);
+    case "clickhouse":
+      return new ClickHouse(params, settings);
+    case "mixpanel":
+      return new Mixpanel(params, settings ?? {});
+    case "presto":
+      return new Presto(params, settings);
+    case "databricks":
+      return new Databricks(params, settings);
+  }
+}
+
 export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   const { type, params, settings } = datasource;
 
-  let obj: SourceIntegrationInterface;
-  if (type === "athena") {
-    obj = new Athena(params, settings);
-  } else if (type === "redshift") {
-    obj = new Redshift(params, settings);
-  } else if (type === "google_analytics") {
-    obj = new GoogleAnalytics(params, settings);
-  } else if (type === "snowflake") {
-    obj = new Snowflake(params, settings);
-  } else if (type === "postgres") {
-    obj = new Postgres(params, settings);
-  } else if (type === "mysql") {
-    obj = new Mysql(params, settings);
-  } else if (type === "mssql") {
-    obj = new Mssql(params, settings);
-  } else if (type === "bigquery") {
-    obj = new BigQuery(params, settings);
-  } else if (type === "clickhouse") {
-    obj = new ClickHouse(params, settings);
-  } else if (type === "mixpanel") {
-    obj = new Mixpanel(params, settings ?? {});
-  } else if (type === "presto") {
-    obj = new Presto(params, settings);
-  } else {
+  const obj = getIntegrationObj(type, params, settings);
+
+  // Sanity check, this should never happen
+  if (!obj) {
     throw new Error("Unknown data source type: " + type);
   }
 

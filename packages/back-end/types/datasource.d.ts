@@ -7,6 +7,7 @@ import { MysqlConnectionParams } from "./integrations/mysql";
 import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
+import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 
@@ -21,6 +22,7 @@ export type DataSourceType =
   | "bigquery"
   | "clickhouse"
   | "presto"
+  | "databricks"
   | "mixpanel";
 
 export type DataSourceParams =
@@ -29,6 +31,7 @@ export type DataSourceParams =
   | MssqlConnectionParams
   | AthenaConnectionParams
   | PrestoConnectionParams
+  | DatabricksConnectionParams
   | GoogleAnalyticsParams
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
@@ -207,6 +210,10 @@ interface PrestoDataSource extends DataSourceBase {
   type: "presto";
 }
 
+interface DatabricksDataSource extends DataSourceBase {
+  type: "databricks";
+}
+
 interface GoogleAnalyticsDataSource extends DataSourceBase {
   type: "google_analytics";
 }
@@ -251,6 +258,10 @@ export type PrestoDataSourceWithParams = WithParams<
   PrestoDataSource,
   PrestoConnectionParams
 >;
+export type DatabricksDataSourceWithParams = WithParams<
+  DatabricksDataSource,
+  DatabricksConnectionParams
+>;
 export type GoogleAnalyticsDataSourceWithParams = WithParams<
   GoogleAnalyticsDataSource,
   GoogleAnalyticsParams
@@ -288,6 +299,7 @@ export type DataSourceInterface =
   | RedshiftDataSource
   | AthenaDataSource
   | PrestoDataSource
+  | DatabricksDataSource
   | GoogleAnalyticsDataSource
   | SnowflakeDataSource
   | PostgresDataSource
@@ -301,6 +313,7 @@ export type DataSourceInterfaceWithParams =
   | RedshiftDataSourceWithParams
   | AthenaDataSourceWithParams
   | PrestoDataSourceWithParams
+  | DatabricksDataSourceWithParams
   | GoogleAnalyticsDataSourceWithParams
   | SnowflakeDataSourceWithParams
   | PostgresDataSourceWithParams

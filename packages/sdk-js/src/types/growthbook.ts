@@ -118,6 +118,9 @@ export interface Context {
   overrides?: Record<string, ExperimentOverride>;
   /* @deprecated */
   groups?: Record<string, boolean>;
+  apiHost?: string;
+  clientKey?: string;
+  decryptionKey?: string;
 }
 
 export type SubscriptionFunction = (
@@ -142,3 +145,49 @@ export type WidenPrimitives<T> = T extends string
   : T extends boolean
   ? boolean
   : T;
+
+export type FeatureDefinitions = Record<string, FeatureDefinition>;
+
+export type FeatureApiResponse = {
+  features?: FeatureDefinitions;
+  dateUpdated?: string;
+  encryptedFeatures?: string;
+};
+
+// Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
+// These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
+export type Polyfills = {
+  // eslint-disable-next-line
+  fetch: any;
+  // eslint-disable-next-line
+  SubtleCrypto: any;
+  // eslint-disable-next-line
+  EventSource: any;
+  localStorage: LocalStorageCompat;
+};
+
+export interface LocalStorageCompat {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+}
+
+export type CacheSettings = {
+  backgroundSync: boolean;
+  cacheKey: string;
+  staleTTL: number;
+};
+
+export type ApiHost = string;
+export type ClientKey = string;
+export type RepositoryKey = `${ApiHost}||${ClientKey}`;
+
+export type LoadFeaturesOptions = {
+  autoRefresh?: boolean;
+  timeout?: number;
+  skipCache?: boolean;
+};
+
+export type RefreshFeaturesOptions = {
+  timeout?: number;
+  skipCache?: boolean;
+};

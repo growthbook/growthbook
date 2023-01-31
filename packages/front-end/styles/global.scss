@@ -653,6 +653,9 @@ pre {
 
 .nav-link {
   padding: 0.3rem 0.8rem;
+  @media (max-width: 520px) {
+    padding: 0.3rem 0.4rem;
+  }
 }
 .nav-underlined .nav-link.active,
 .nav-underlined .show > .nav-link {
@@ -1057,6 +1060,9 @@ pre {
 
 .bg-purple {
   background: colors.$highlight-purple;
+}
+.bg-purple-light {
+  background: colors.$highlight-purple-light;
 }
 
 .change-bar {

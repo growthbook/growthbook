@@ -17,15 +17,19 @@ const docSections = {
   bigquery: "/guide/bigquery",
   google_analytics: "/app/datasources#google-analytics",
   //Language
+  buildYourOwn: "/lib/build-your-own",
   sdks: "/lib",
   javascript: "/lib/js",
   tsx: "/lib/react",
   go: "/lib/go",
   kotlin: "/lib/kotlin",
+  swift: "/lib/swift",
   ruby: "/lib/ruby",
   php: "/lib/php",
   python: "/lib/python",
   java: "/lib/java",
+  csharp: "/lib/csharp",
+  flutter: "/lib/flutter",
   //Other
   user_guide: "/app",
   config: "/self-host/config",
@@ -34,7 +38,7 @@ const docSections = {
   config_organization_settings: "/self-host/config#organization-settings",
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
-  encryptedSDKEndpoints: "/lib/js#hiding-features-from-users",
+  encryptedSDKEndpoints: "/lib/js#loading-features",
 };
 
 export type DocSection = keyof typeof docSections;

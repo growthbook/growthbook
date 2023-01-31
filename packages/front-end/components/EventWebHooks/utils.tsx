@@ -9,9 +9,14 @@ export type EventWebHookEditParams = {
 };
 
 export const notificationEventNames = [
+  // Features
   "feature.created",
   "feature.updated",
   "feature.deleted",
+  // Experiments
+  "experiment.created",
+  "experiment.updated",
+  "experiment.deleted",
 ] as const;
 
 export const eventWebHookEventOptions: {

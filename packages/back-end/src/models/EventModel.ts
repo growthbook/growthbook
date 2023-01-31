@@ -101,13 +101,26 @@ export const createEvent = async (
 };
 
 /**
- * Get an event by ID for an organization
+ * Get an event by ID
  * @param eventId
  */
 export const getEvent = async (
   eventId: string
 ): Promise<EventInterface<NotificationEvent> | null> => {
   const doc = await EventModel.findOne({ id: eventId });
+  return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
+};
+
+/**
+ * Get an event by ID for an organization
+ * @param eventId
+ * @param organizationId
+ */
+export const getEventForOrganization = async (
+  eventId: string,
+  organizationId: string
+): Promise<EventInterface<NotificationEvent> | null> => {
+  const doc = await EventModel.findOne({ id: eventId, organizationId });
   return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
 };
 
