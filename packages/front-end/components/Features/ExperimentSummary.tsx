@@ -2,6 +2,7 @@ import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useState } from "react";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExperimentDefinitionFromFeature,
@@ -19,20 +20,26 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function ExperimentSummary({
   rule,
-  experiment,
   feature,
 }: {
   feature: FeatureInterface;
-  experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRule;
 }) {
   const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
   const type = feature.valueType;
 
-  const { datasources, metrics } = useDefinitions();
+  const { datasources, metrics, project } = useDefinitions();
+
+  const { data } = useApi<{
+    experiments: ExperimentInterfaceStringDates[];
+  }>(`/experiments?project=${project || ""}`);
+  const experiments = data?.experiments;
   const [newExpModal, setNewExpModal] = useState(false);
   const [experimentInstructions, setExperimentInstructions] = useState(false);
 
+  const experiment = experiments?.find(
+    (exp) => exp.name.split(" ")[0] === feature.id
+  );
   const expDefinition = getExperimentDefinitionFromFeature(feature, rule);
 
   const hasNamespace = namespace && namespace.enabled;
