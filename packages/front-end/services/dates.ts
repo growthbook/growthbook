@@ -40,7 +40,7 @@ export function getValidDate(
 
   if (typeof dateStr === "string") {
     // Fix date parsing for Safari
-    let reformattedDateStr = (dateStr + "").replace(/[/\s]/g, "-");
+    let reformattedDateStr = dateStr.replace(/[/\s]/g, "-");
     if (reformattedDateStr.match(/-/g)?.length === 1) {
       reformattedDateStr = reformattedDateStr.replace("-", "-1-");
     }
