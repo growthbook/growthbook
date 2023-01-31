@@ -1021,7 +1021,7 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) AS count,
           SUM(COALESCE(m.value, 0)) AS main_sum,
-          SUM(POWER(COALESCE(m.value 0), 2)) AS main_sum_squares
+          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
           ${
             isRatio
               ? `,
