@@ -36,12 +36,18 @@ export function getValidDate(
 
   if (!dateStr) return fallback;
 
-  // Fix date parsing for Safari
-  let reformattedDateStr = (dateStr + "").replace(/[/\s]/g, "-");
-  if (reformattedDateStr.match(/-/)?.length === 1) {
-    reformattedDateStr = reformattedDateStr.replace("-", "-1-");
+  let d: Date;
+
+  if (typeof dateStr === "string") {
+    // Fix date parsing for Safari
+    let reformattedDateStr = (dateStr + "").replace(/[/\s]/g, "-");
+    if (reformattedDateStr.match(/-/g)?.length === 1) {
+      reformattedDateStr = reformattedDateStr.replace("-", "-1-");
+    }
+    d = new Date(reformattedDateStr);
+  } else {
+    d = new Date(dateStr);
   }
-  const d = new Date(reformattedDateStr);
   if (isNaN(d.getTime())) {
     return fallback;
   }
