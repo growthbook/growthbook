@@ -3,13 +3,13 @@ import z from "zod";
 import { useForm } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import {
   EventWebHookEditParams,
   eventWebHookEventOptions,
   EventWebHookModalMode,
   notificationEventNames,
 } from "../utils";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
