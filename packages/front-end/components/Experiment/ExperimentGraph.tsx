@@ -3,7 +3,7 @@ import { BarRounded } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
 import { ParentSizeModern } from "@visx/responsive";
-import { scaleLinear, scaleTime } from "@visx/scale";
+import { scaleBand, scaleLinear } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -63,9 +63,6 @@ export default function ExperimentGraph({
     return <div>no data to show</div>;
   }
 
-  const firstMonth = getValidDate(graphData[0].date);
-  const lastMonth = getValidDate(graphData[graphData.length - 1].date);
-
   return (
     <ParentSizeModern>
       {({ width }) => {
@@ -76,13 +73,14 @@ export default function ExperimentGraph({
           Math.max(...graphData.map((d) => d.numExp), 1)
         );
 
-        const barWidth = 25;
-        const xScale = scaleTime({
-          domain: [firstMonth, lastMonth],
+        const barWidth = 35;
+        const xScale = scaleBand({
+          domain: graphData.map((d) => new Date(d.date)),
           range: [barWidth / 2, xMax],
           round: true,
-          nice: true,
-          clamp: false,
+          align: 0.5,
+          padding: 1,
+          paddingOuter: 0.15,
         });
         const yScale = scaleLinear<number>({
           domain: [0, maxYValue],
