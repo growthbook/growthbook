@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
@@ -27,6 +28,7 @@ export default function ConfigureReport({
   const { apiCall } = useAuth();
   const { metrics, segments, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
+  const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -64,6 +66,16 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+
+  const setStatsEngineToDefault = useCallback(
+    (enable: boolean) => {
+      if (enable) {
+        form.setValue("statsEngine", settings.statsEngine);
+      }
+      setUsingStatsEngineDefault(enable);
+    },
+    [form, setUsingStatsEngineDefault, settings.statsEngine]
+  );
 
   return (
     <Modal
@@ -312,26 +324,40 @@ export default function ConfigureReport({
         />
       )}
 
-      <SelectField
-        label={<strong>Stats Engine</strong>}
-        value={form.watch("statsEngine")}
-        onChange={(value) =>
-          form.setValue(
-            "statsEngine",
-            value === "frequentist" ? "frequentist" : "bayesian"
-          )
-        }
-        options={[
-          {
-            label: "Bayesian",
-            value: "bayesian",
-          },
-          {
-            label: "Frequentist",
-            value: "frequentist",
-          },
-        ]}
-      />
+      <div className="d-flex flex-row no-gutters align-items-center">
+        <div className="col-2">
+          <SelectField
+            disabled={usingStatsEngineDefault}
+            label={<strong>Stats Engine</strong>}
+            value={form.watch("statsEngine")}
+            onChange={(value) =>
+              form.setValue(
+                "statsEngine",
+                value === "frequentist" ? "frequentist" : "bayesian"
+              )
+            }
+            options={[
+              {
+                label: "Bayesian",
+                value: "bayesian",
+              },
+              {
+                label: "Frequentist",
+                value: "frequentist",
+              },
+            ]}
+          />
+        </div>
+        <label className="ml-5 mt-3">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={usingStatsEngineDefault}
+            onChange={(e) => setStatsEngineToDefault(e.target.checked)}
+          />
+          Use Organization Default
+        </label>
+      </div>
 
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
