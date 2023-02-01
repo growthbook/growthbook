@@ -82,7 +82,7 @@ const DimensionForm: FC<{
         }))}
         className="portal-overflow-ellipsis"
       />
-      {dsProps.userIds && (
+      {dsProps?.userIds && (
         <SelectField
           label="Identifier Type"
           required
