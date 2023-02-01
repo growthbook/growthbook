@@ -96,14 +96,15 @@ export async function getExperimentsFrequencyMonth(
   const { num } = req.params;
   const experiments = await getExperimentsByOrganization(org.id, project);
 
-  const allData: { name: string; numExp: number }[] = [];
+  const allData: { date: string; numExp: number }[] = [];
 
   // make the data array with all the months needed and 0 experiments.
   for (let i = parseInt(num) - 1; i >= 0; i--) {
     const d = new Date();
+    d.setDate(1); // necessary because altering the month may result in an invalid date (ex: Feb 31)
     d.setMonth(d.getMonth() - i);
     const ob = {
-      name: format(d, "MMM yyy"),
+      date: format(d, "MM/dd/yyyy"),
       numExp: 0,
     };
     allData.push(ob);
@@ -133,7 +134,8 @@ export async function getExperimentsFrequencyMonth(
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
 
     allData.forEach((md, i) => {
-      if (md.name === monthYear) {
+      const name = format(getValidDate(md.date), "MMM yyy");
+      if (name === monthYear) {
         md.numExp++;
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
