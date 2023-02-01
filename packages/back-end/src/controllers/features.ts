@@ -92,7 +92,7 @@ async function getPayloadParamsFromApiKey(
       project: connection.project,
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
-      sseEnabled: connection.proxy.sseEnabled,
+      sseEnabled: connection.sseEnabled,
     };
   }
   // Old, legacy API Key

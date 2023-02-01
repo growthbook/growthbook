@@ -39,6 +39,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   encryptPayload: Boolean,
   encryptionKey: String,
   connected: Boolean,
+  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -52,7 +53,6 @@ const sdkConnectionSchema = new mongoose.Schema({
     version: String,
     error: String,
     lastError: Date,
-    sseEnabled: Boolean,
   },
 });
 
@@ -109,7 +109,6 @@ export const createSDKConnectionValidator = z
     encryptPayload: z.boolean(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
-    sseEnabled: z.string().optional(),
   })
   .strict();
 
@@ -170,7 +169,6 @@ export const editSDKConnectionValidator = z
     environment: z.string().optional(),
     project: z.string().optional(),
     encryptPayload: z.boolean(),
-    sseEnabled: z.string().optional(),
   })
   .strict();
 

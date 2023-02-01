@@ -147,7 +147,6 @@ export interface OrganizationSettings {
   pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
-  sseEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {
