@@ -39,10 +39,10 @@ export default function ExperimentGraph({
 
   const { data, error } = useApi<{
     data: {
-      all: { name: string; numExp: number }[];
-      draft: { name: string; numExp: number }[];
-      running: { name: string; numExp: number }[];
-      stopped: { name: string; numExp: number }[];
+      all: { date: string; numExp: number }[];
+      draft: { date: string; numExp: number }[];
+      running: { date: string; numExp: number }[];
+      stopped: { date: string; numExp: number }[];
     };
   }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
@@ -63,8 +63,8 @@ export default function ExperimentGraph({
     return <div>no data to show</div>;
   }
 
-  const firstMonth = getValidDate(graphData[0].name);
-  const lastMonth = getValidDate(graphData[graphData.length - 1].name);
+  const firstMonth = getValidDate(graphData[0].date);
+  const lastMonth = getValidDate(graphData[graphData.length - 1].date);
 
   return (
     <ParentSizeModern>
@@ -95,7 +95,7 @@ export default function ExperimentGraph({
           const xCoord = coords.x - barWidth;
 
           const barData = graphData.map((d) => {
-            return { xcord: xScale(getValidDate(d.name)), numExp: d.numExp };
+            return { xcord: xScale(getValidDate(d.date)), numExp: d.numExp };
           });
 
           const closestBar = barData.reduce((prev, curr) =>
@@ -140,16 +140,18 @@ export default function ExperimentGraph({
                   scale={yScale}
                   numTicks={Math.min(maxYValue, 5)}
                   width={xMax + barWidth / 2}
+                  stroke="var(--border-color-200)"
                 />
                 {graphData.map((d, i) => {
-                  const barX = xScale(getValidDate(d.name)) - barWidth / 2;
+                  const barX = xScale(getValidDate(d.date)) - barWidth / 2;
                   let barHeight = yMax - (yScale(d.numExp) ?? 0);
                   // if there are no experiments this month, show a little nub for design reasons.
                   if (barHeight === 0) barHeight = 6;
                   const barY = yMax - barHeight;
+                  const name = format(getValidDate(d.date), "MMM yyy");
                   return (
                     <BarRounded
-                      key={d.name + i}
+                      key={name + i}
                       x={barX + 5}
                       y={barY}
                       width={Math.max(10, barWidth - 10)}
@@ -166,12 +168,18 @@ export default function ExperimentGraph({
                   top={yMax}
                   scale={xScale}
                   numTicks={
-                    width > 567
+                    width > 670
                       ? graphData.length
                       : Math.ceil(graphData.length / 2)
                   }
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "start",
+                    dx: -25,
+                  })}
                   hideAxisLine={false}
-                  stroke={"#C2C5D6"}
+                  stroke={"var(--text-color-table)"}
                   hideTicks={true}
                   rangePadding={barWidth / 2}
                   tickFormat={(v) => {
@@ -181,7 +189,14 @@ export default function ExperimentGraph({
                 <AxisLeft
                   scale={yScale}
                   numTicks={Math.min(maxYValue, 5)}
-                  stroke={"#C2C5D6"}
+                  tickLabelProps={() => ({
+                    fill: "var(--text-color-table)",
+                    fontSize: 11,
+                    textAnchor: "end",
+                    dx: -2,
+                    dy: 2,
+                  })}
+                  stroke={"var(--text-color-table)"}
                   hideTicks={true}
                   tickFormat={(v) => {
                     return Math.round(v as number) + "";
