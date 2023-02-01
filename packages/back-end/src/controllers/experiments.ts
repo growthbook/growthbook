@@ -697,7 +697,8 @@ export async function postExperiment(
     }
 
     if (hasChanges) {
-      changes[key] = data[key];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (changes as any)[key] = data[key];
       if (keysRequiringWebhook.includes(key)) {
         requiresWebhook = true;
       }

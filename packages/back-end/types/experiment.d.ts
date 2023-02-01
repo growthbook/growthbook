@@ -116,19 +116,4 @@ export type ExperimentInterfaceStringDates = Omit<
   phases: ExperimentPhaseStringDates[];
 };
 
-export type Changeset = {
-  [key: string]:
-    | Variation[]
-    | boolean
-    | ExperimentPhase[]
-    | ExperimentStatus
-    | number
-    | string
-    | undefined
-    | ExperimentResultsType
-    | string[]
-    | Date
-    | MetricOverride[]
-    | ExperimentPhaseStringDates[]
-    | null;
-};
+export type Changeset = Partial<ExperimentInterface>;
