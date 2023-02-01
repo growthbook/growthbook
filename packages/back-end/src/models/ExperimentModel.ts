@@ -197,10 +197,6 @@ export async function createExperiment(
   data: Partial<ExperimentInterface>,
   organization: OrganizationInterface
 ): Promise<ExperimentInterface> {
-  if (!data.organization) {
-    throw new Error("Missing organization");
-  }
-
   data.organization = organization.id;
 
   if (!data.trackingKey) {
@@ -354,7 +350,7 @@ export async function getExperimentsToUpdate(
   )
     .limit(100)
     .sort({ nextSnapShotAttempt: 1 });
-  return experiments.map(toInterface);
+  return experiments;
 }
 
 export async function getExperimentsToUpdateLegacy(
@@ -382,7 +378,7 @@ export async function getExperimentsToUpdateLegacy(
   )
     .limit(100)
     .sort({ nextSnapShotAttempt: 1 });
-  return experiments.map(toInterface);
+  return experiments;
 }
 
 export async function getPastExperimentsByDatasource(
@@ -401,7 +397,7 @@ export async function getPastExperimentsByDatasource(
     }
   );
 
-  return experiments.map(toInterface);
+  return experiments;
 }
 
 export async function getRecentExperimentsUsingMetric(
@@ -440,7 +436,7 @@ export async function getRecentExperimentsUsingMetric(
   )
     .limit(10)
     .sort({ _id: -11 });
-  return experiments.map(toInterface);
+  return experiments;
 }
 
 export async function deleteExperimentSegment(
@@ -473,7 +469,7 @@ export async function getExperimentsForActivityFeed(
     }
   );
 
-  return experiments.map(toInterface);
+  return experiments;
 }
 
 export async function removeTagFromExperiment(
@@ -569,24 +565,19 @@ export const logExperimentUpdated = async ({
  * @param organization
  */
 export async function deleteExperimentByIdForOrganization(
-  id: string,
+  experiment: ExperimentInterface,
   organization: OrganizationInterface
 ) {
   try {
-    const previous = await findExperiment({
-      experimentId: id,
-      organizationId: organization.id,
+    await logExperimentDeleted(organization, experiment);
+
+    await ExperimentModel.deleteOne({
+      id: experiment.id,
+      organization: organization.id,
     });
-    if (previous) {
-      await logExperimentDeleted(organization, previous);
-    }
   } catch (e) {
     logger.error(e);
   }
-
-  await ExperimentModel.deleteOne({
-    id,
-  });
 }
 
 /**
@@ -609,7 +600,9 @@ export const removeTagFromExperiments = async ({
     $pull: { tags: tag },
   });
 
-  previousExperiments.forEach((previous) => {
+  const previousExperimentsInterface = previousExperiments.map(toInterface);
+
+  previousExperimentsInterface.forEach((previous) => {
     const current = cloneDeep(previous);
     current.tags = current.tags.filter((t) => t != tag);
 
@@ -620,23 +613,6 @@ export const removeTagFromExperiments = async ({
     });
   });
 };
-
-export async function getExperimentsByOrganization(
-  organization: string,
-  project?: string
-) {
-  const query: FilterQuery<ExperimentDocument> = {
-    organization,
-  };
-
-  if (project) {
-    query.project = project;
-  }
-
-  const experiments = await ExperimentModel.find(query);
-
-  return experiments.map(toInterface);
-}
 
 export async function removeMetricFromExperiments(
   metricId: string,
@@ -661,7 +637,10 @@ export async function removeMetricFromExperiments(
   const docsToTrackChanges = await ExperimentModel.find({
     $or: [metricQuery, guardRailsQuery, activationMetricQuery],
   });
-  docsToTrackChanges.forEach((experiment: ExperimentDocument) => {
+
+  const docsToTrackChangesInterface = docsToTrackChanges.map(toInterface);
+
+  docsToTrackChangesInterface.forEach((experiment: ExperimentInterface) => {
     if (!oldExperiments[experiment.id]) {
       oldExperiments[experiment.id] = {
         previous: experiment,
@@ -686,9 +665,14 @@ export async function removeMetricFromExperiments(
   });
 
   const ids = Object.keys(oldExperiments);
-  const updatedExperiments = await ExperimentModel.find({ id: { $in: ids } });
+  const updatedExperiments = await ExperimentModel.find(
+    { organization: organization.id },
+    { id: { $in: ids } }
+  );
+
+  const updatedExperimentsInterface = updatedExperiments.map(toInterface);
   // Populate updated experiments
-  updatedExperiments.forEach((experiment) => {
+  updatedExperimentsInterface.forEach((experiment) => {
     const changeSet = oldExperiments[experiment.id];
     if (changeSet) {
       changeSet.current = experiment;
@@ -717,7 +701,9 @@ export async function removeProjectFromExperiments(
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
-  previousExperiments.forEach((previous) => {
+  const previousExperimentsInterface = previousExperiments.map(toInterface);
+
+  previousExperimentsInterface.forEach((previous) => {
     const current = cloneDeep(previous);
     current.project = "";
 

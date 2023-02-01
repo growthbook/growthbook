@@ -107,7 +107,7 @@ export default async function (agenda: Agenda) {
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   const organization = job.attrs.data?.organization;
-  if (!experimentId) return;
+  if (!experimentId || !organization) return;
 
   const log = logger.child({
     cron: "updateSingleExperiment",
@@ -203,7 +203,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       await updateExperimentById(organization, experiment, {
-        autoSnapShots: false,
+        autoSnapshots: false,
       });
       // TODO: email user and let them know it failed
     } catch (e) {

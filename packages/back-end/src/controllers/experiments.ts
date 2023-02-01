@@ -1276,7 +1276,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(exp.id, org),
+    deleteExperimentByIdForOrganization(exp, org),
     removeExperimentFromPresentations(exp.id),
   ]);
 
