@@ -104,7 +104,7 @@ export async function getExperimentsFrequencyMonth(
     d.setDate(1); // necessary because altering the month may result in an invalid date (ex: Feb 31)
     d.setMonth(d.getMonth() - i);
     const ob = {
-      date: format(d, "MM/dd/yyyy"),
+      date: format(d, "yyyy/MM/dd"),
       numExp: 0,
     };
     allData.push(ob);
