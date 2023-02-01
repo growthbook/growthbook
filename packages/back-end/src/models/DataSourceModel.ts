@@ -167,7 +167,10 @@ export async function createDataSource(
 
   // Build the datasource schema
   const { informationSchema } = await generateInformationSchema(datasource);
-  datasource.settings.informationSchema = informationSchema;
+
+  if (informationSchema?.length) {
+    datasource.settings.informationSchema = informationSchema;
+  }
 
   //  Create in the database
   const model = await DataSourceModel.create(datasource);

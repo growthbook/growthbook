@@ -7,7 +7,11 @@ import Databricks from "../integrations/Databricks";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
+import {
+  FormattedInformationSchema,
+  SourceIntegrationInterface,
+  TestQueryRow,
+} from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
@@ -103,13 +107,13 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
 
 export async function generateInformationSchema(
   datasource: DataSourceInterface
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Promise<any> {
-  // ): Promise<
-  //   | { formattedResults: FormattedInformationSchema[]; error?: undefined }
-  //   | { error: unknown; formattedResults?: undefined }
-  //   | undefined
-  // > {
+): Promise<
+  | {
+      informationSchema: FormattedInformationSchema[];
+      error?: undefined;
+    }
+  | { error: string; informationSchema?: undefined }
+> {
   const integration = getSourceIntegrationObject(datasource);
 
   if (
@@ -118,7 +122,7 @@ export async function generateInformationSchema(
     !integration.getInformationSchema ||
     !integration.formatInformationSchema
   ) {
-    return;
+    return { informationSchema: [] };
   }
 
   try {

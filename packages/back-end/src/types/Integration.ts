@@ -152,13 +152,13 @@ export interface RawInformationSchema {
 }
 
 interface Column {
-  column_name?: string;
-  data_type?: string;
+  column_name: string;
+  data_type: string;
 }
 
 interface Table {
-  table_name?: string;
-  columns?: Column[];
+  table_name: string;
+  columns: Column[];
 }
 
 export interface FormattedInformationSchema {

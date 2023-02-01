@@ -435,7 +435,7 @@ export async function putDataSource(
     // Re-generate the schema
     const { informationSchema } = await generateInformationSchema(datasource);
 
-    if (informationSchema) {
+    if (informationSchema?.length) {
       if (!updates.settings) {
         updates.settings = {};
       }
@@ -592,7 +592,7 @@ export async function putDataSourceSchema(
     datasource
   );
 
-  if (error || !informationSchema) {
+  if (error || !informationSchema?.length) {
     return res.status(400).json({
       status: 400,
       message: error || "An error occurred",
