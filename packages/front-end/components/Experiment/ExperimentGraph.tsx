@@ -39,10 +39,10 @@ export default function ExperimentGraph({
 
   const { data, error } = useApi<{
     data: {
-      all: { name: string; date: string; numExp: number }[];
-      draft: { name: string; date: string; numExp: number }[];
-      running: { name: string; date: string; numExp: number }[];
-      stopped: { name: string; date: string; numExp: number }[];
+      all: { date: string; numExp: number }[];
+      draft: { date: string; numExp: number }[];
+      running: { date: string; numExp: number }[];
+      stopped: { date: string; numExp: number }[];
     };
   }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
