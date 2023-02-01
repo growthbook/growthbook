@@ -76,6 +76,7 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
+  publishedBy: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });

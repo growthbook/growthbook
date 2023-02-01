@@ -366,6 +366,7 @@ export function getApiFeatureObj(
       publishedBy: feature.revision?.publishedBy?.email || "",
       version: feature.revision?.version || 1,
     },
+    publishedBy: feature.publishedBy?.email || "",
   };
 
   return featureRecord;

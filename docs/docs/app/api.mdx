@@ -108,6 +108,7 @@ interface Feature {
     date: string;
     publishedBy: string;
   };
+  publishedBy: string;
 }
 
 interface FeatureEnvironment {
@@ -233,7 +234,8 @@ interface FeatureDefinitionRule {
     "date": "2022-10-18T21:22:10.379Z",
     "publishedBy": "test@example.com",
     "version": 2
-  }
+  },
+  "publishedBy": "test@example.com",
 }
 ```
 
@@ -303,7 +305,8 @@ interface ListFeaturesResponse {
         "date": "2022-10-18T21:22:10.379Z",
         "publishedBy": "test@example.com",
         "version": 2
-      }
+      },
+      "publishedBy": "test@example.com"
     }
   ],
   "limit": 1,

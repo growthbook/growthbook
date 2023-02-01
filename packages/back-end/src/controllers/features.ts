@@ -209,6 +209,12 @@ export async function postFeatures(
     );
   }
 
+  const publishedBy = {
+    id: userId,
+    email,
+    name: userName,
+  };
+
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
@@ -226,12 +232,9 @@ export async function postFeatures(
       version: 1,
       comment: "New feature",
       date: new Date(),
-      publishedBy: {
-        id: userId,
-        email,
-        name: userName,
-      },
+      publishedBy,
     },
+    publishedBy,
   };
 
   // Require publish permission for any enabled environments

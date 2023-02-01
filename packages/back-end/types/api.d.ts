@@ -93,6 +93,7 @@ export interface ApiFeatureInterface {
     date: string;
     publishedBy: string;
   };
+  publishedBy: string;
 }
 
 export type ApiSDKConnectionInterface = {

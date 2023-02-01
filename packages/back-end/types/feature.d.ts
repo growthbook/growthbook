@@ -46,6 +46,7 @@ export interface FeatureInterface {
     date: Date;
     publishedBy: UserRef;
   };
+  publishedBy?: UserRef;
 }
 type ScheduleRule = {
   timestamp: string | null;
