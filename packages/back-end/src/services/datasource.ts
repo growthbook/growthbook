@@ -131,7 +131,8 @@ export async function generateInformationSchema(
     );
 
     const informationSchema = await integration.formatInformationSchema(
-      rawInformationSchema
+      rawInformationSchema,
+      datasource.type
     );
     return { informationSchema };
   } catch (e) {

@@ -475,8 +475,13 @@ export default abstract class SqlIntegration
     });
   }
 
-  formatInformationSchema(results: RawInformationSchema[]) {
+  formatInformationSchema(
+    results: RawInformationSchema[],
+    datasourceType: string
+  ) {
     const formattedResults: FormattedInformationSchema[] = [];
+
+    const pathSeparator = datasourceType === "postgres" ? "." : "/";
 
     results.forEach((row) => {
       const key = row.table_catalog;
@@ -485,7 +490,7 @@ export default abstract class SqlIntegration
         !formattedResults.length ||
         formattedResults.findIndex((i) => i.table_catalog === key) === -1
       ) {
-        formattedResults.push({ table_catalog: key, tables: [] });
+        formattedResults.push({ table_catalog: key, tables: [], path: key });
       }
 
       const index = formattedResults.findIndex((i) => i.table_catalog === key);
@@ -498,6 +503,7 @@ export default abstract class SqlIntegration
         formattedResults[index].tables.push({
           table_name: row.table_name,
           columns: [],
+          path: `${key}${pathSeparator}${row.table_name}`,
         });
       }
 
@@ -508,6 +514,7 @@ export default abstract class SqlIntegration
       formattedResults[index].tables[tableIndex].columns?.push({
         column_name: row.column_name,
         data_type: row.data_type,
+        path: `${key}${pathSeparator}${row.table_name}${pathSeparator}${row.column_name}`,
       });
     });
 

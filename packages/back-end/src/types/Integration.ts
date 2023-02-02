@@ -153,16 +153,19 @@ export interface RawInformationSchema {
 
 interface Column {
   column_name: string;
+  path?: string;
   data_type: string;
 }
 
 interface Table {
   table_name: string;
+  path?: string;
   columns: Column[];
 }
 
 export interface FormattedInformationSchema {
   table_catalog: string;
+  path?: string;
   tables: Table[];
 }
 
@@ -191,7 +194,10 @@ export interface SourceIntegrationInterface {
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
   getInformationSchema?(projectId?: string): Promise<unknown[]>;
-  formatInformationSchema?(results: unknown[]): FormattedInformationSchema[];
+  formatInformationSchema?(
+    results: unknown[],
+    datasourceType: string
+  ): FormattedInformationSchema[];
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
