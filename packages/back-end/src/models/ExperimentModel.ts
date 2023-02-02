@@ -26,12 +26,14 @@ type FindOrganizationOptions = {
   organizationId: string;
 };
 
+type FilterKeys = ExperimentInterface & { _id: string };
+
 type ProjectionFilter = {
-  [key: string]: boolean;
+  [key in keyof Partial<FilterKeys>]: boolean;
 };
 
 type SortFilter = {
-  [key: string]: 1 | -1;
+  [key in keyof Partial<FilterKeys>]: 1 | -1;
 };
 
 type OptionsFilter = {
@@ -382,7 +384,7 @@ export async function getExperimentsToUpdate(
       organization: true,
     },
     100,
-    { nextSnapShotAttempt: 1 }
+    { nextSnapshotAttempt: 1 }
   );
   return experiments;
 }
@@ -410,7 +412,7 @@ export async function getExperimentsToUpdateLegacy(
       organization: true,
     },
     100,
-    { nextSnapShotAttempt: 1 }
+    { nextSnapshotAttempt: 1 }
   );
   return experiments;
 }
