@@ -26,6 +26,19 @@ type FindOrganizationOptions = {
   organizationId: string;
 };
 
+type ProjectionFilter = {
+  [key: string]: boolean;
+};
+
+type SortFilter = {
+  [key: string]: 1 | -1;
+};
+
+type OptionsFilter = {
+  limit?: number;
+  sort?: SortFilter;
+};
+
 const experimentSchema = new mongoose.Schema({
   id: String,
   trackingKey: String,
@@ -141,21 +154,19 @@ const toInterface = (doc: ExperimentDocument): ExperimentInterface =>
  */
 async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  projections: any = {},
+  projections?: ProjectionFilter,
   limit?: number,
-  sortBy?: { [key: string]: 1 | -1 }
+  sortBy?: SortFilter
 ): Promise<ExperimentInterface[]> {
-  let experiments;
-  if (sortBy) {
-    experiments = await ExperimentModel.find(query, projections)
-      .limit(limit || 0)
-      .sort(sortBy);
-  } else {
-    experiments = await ExperimentModel.find(query, projections).limit(
-      limit || 0
-    );
+  const options: OptionsFilter = {};
+
+  if (limit) {
+    options.limit = limit;
   }
+  if (sortBy) {
+    options.sort = sortBy;
+  }
+  const experiments = await ExperimentModel.find(query, projections, options);
 
   return experiments.map(toInterface);
 }
