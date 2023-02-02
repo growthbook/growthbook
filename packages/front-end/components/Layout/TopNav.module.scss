@@ -36,13 +36,13 @@ $sidebarwidth: 240px;
 }
 .leftSection {
   display: flex;
-  justify-content: start;
+  justify-content: flex-start;
   align-items: center;
   max-width: 30%;
 }
 .rightSection {
   display: flex;
-  justify-content: end;
+  justify-content: flex-end;
   align-items: center;
 }
 @media (max-width: 1180px) {
