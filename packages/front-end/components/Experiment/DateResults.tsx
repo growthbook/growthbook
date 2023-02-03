@@ -110,7 +110,7 @@ const DateResults: FC<{
                     value = Math.exp(x) - 1;
                   } else {
                     error = [x - 2 * sx, x + 2 * sx];
-                    value = Math.exp(x) - 1;
+                    value = x;
                   }
                 }
                 // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
