@@ -16,8 +16,8 @@ export default function InviteModalSubscriptionInfo() {
   } = useStripeSubscription();
   if (loading) return null;
 
-  if (!isCloud()) return null;
-  if (!hasActiveSubscription && activeAndInvitedUsers < freeSeats) return null;
+  if (!hasActiveSubscription || !isCloud()) return null;
+  if (activeAndInvitedUsers < freeSeats) return null;
 
   return (
     <p className="mt-3 mb-0 alert-warning alert">
