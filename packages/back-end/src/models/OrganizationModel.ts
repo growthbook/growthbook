@@ -7,6 +7,7 @@ import {
   OrganizationInterface,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
+import escapeStringRegexp from "escape-string-regexp-node";
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -260,4 +261,10 @@ export async function removeProjectFromProjectRoles(
   if (Object.keys(updates).length > 0) {
     await OrganizationModel.updateOne({ id: org.id }, { $set: updates });
   }
+}
+
+export async function findOrganizationsByDomain(domain: string) {
+  const re = new RegExp(`${escapeStringRegexp(domain)}$`, "i");
+  const docs = await OrganizationModel.find({ ownerEmail: { $regex: re } });
+  return docs.map(toInterface);
 }

@@ -78,7 +78,7 @@ import {
   getAccountPlan,
   getRoles,
 } from "../../util/organization.util";
-import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+import { deleteUser, findUserById, findVerifiedEmails, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
@@ -801,7 +801,7 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
-  if (!IS_CLOUD) {
+  if (false && !IS_CLOUD) {
     const orgs = await hasOrganization();
     // there are odd edge cases where a user can exist, but not an org,
     // so we want to allow org creation this way if there are no other orgs
