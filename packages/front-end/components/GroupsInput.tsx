@@ -1,6 +1,6 @@
 import { FC } from "react";
-import { Typeahead } from "react-bootstrap-typeahead";
 import { useDefinitions } from "../services/DefinitionsContext";
+import MultiSelectField from "./Forms/MultiSelectField";
 
 const GroupsInput: FC<{
   onChange: (groups: string[]) => void;
@@ -9,26 +9,23 @@ const GroupsInput: FC<{
   const { groups } = useDefinitions();
 
   return (
-    <Typeahead
+    <MultiSelectField
       id="groups-input"
-      newSelectionPrefix="New Group: "
-      labelKey="name"
-      multiple={true}
-      allowNew={true}
+      placeholder="Groups..."
+      value={value}
       options={groups.map((group) => {
         return {
-          id: group,
-          name: group,
+          label: group,
+          value: group,
         };
       })}
-      onChange={(selected: { id: string; name: string }[]) => {
-        onChange(selected.map((s) => s.name).filter((t) => t.length > 0));
+      onChange={(value: string[]) => {
+        value.map((t) => groups.push(t));
+        onChange(value.filter((t) => t.length > 0));
       }}
-      selected={value.map((v) => {
-        return { id: v, name: v };
-      })}
-      placeholder="Groups..."
-      positionFixed={true}
+      closeMenuOnSelect={true}
+      autoFocus={true}
+      creatable={true}
     />
   );
 };
