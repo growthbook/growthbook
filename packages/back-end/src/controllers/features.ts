@@ -213,6 +213,7 @@ export async function postFeatures(
     defaultValue: "",
     valueType: "boolean",
     owner: userName,
+    ownerEmail: email,
     description: "",
     project: "",
     environmentSettings,

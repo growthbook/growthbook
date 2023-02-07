@@ -36,6 +36,7 @@ const featureSchema = new mongoose.Schema({
   organization: String,
   nextScheduledUpdate: Date,
   owner: String,
+  ownerEmail: String,
   project: String,
   dateCreated: Date,
   dateUpdated: Date,

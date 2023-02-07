@@ -32,6 +32,7 @@ export interface FeatureInterface {
   organization: string;
   nextScheduledUpdate?: Date | null;
   owner: string;
+  ownerEmail?: string;
   project?: string;
   dateCreated: Date;
   dateUpdated: Date;
