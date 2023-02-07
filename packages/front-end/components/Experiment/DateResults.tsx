@@ -99,10 +99,19 @@ const DateResults: FC<{
                 if (i && !cumulative) {
                   const x = uplift?.mean || 0;
                   const sx = uplift?.stddev || 0;
-                  // Uplift distribution is lognormal, so need to correct this
-                  // Add 2 standard deviations (~95% CI) for an error bar
-                  error = [Math.exp(x - 2 * sx) - 1, Math.exp(x + 2 * sx) - 1];
-                  value = Math.exp(x) - 1;
+                  const dist = uplift?.dist || "";
+                  if (dist === "lognormal") {
+                    // Uplift distribution is lognormal, so need to correct this
+                    // Add 2 standard deviations (~95% CI) for an error bar
+                    error = [
+                      Math.exp(x - 2 * sx) - 1,
+                      Math.exp(x + 2 * sx) - 1,
+                    ];
+                    value = Math.exp(x) - 1;
+                  } else {
+                    error = [x - 2 * sx, x + 2 * sx];
+                    value = x;
+                  }
                 }
                 // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
                 else if (i) {
