@@ -4,6 +4,7 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { hasEnoughData } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import AlignedGraph from "./AlignedGraph";
+import { useState, useRef, useEffect } from "react";
 
 export default function PercentGraphColumn({
   metric,
@@ -26,8 +27,15 @@ export default function PercentGraphColumn({
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
   const showGraph = metric && enoughData;
+  const [height, setHeight] = useState(0);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setHeight(ref.current.clientHeight);
+  });
+
   return (
-    <td className="compact-graph pb-0 align-middle">
+    <td className="compact-graph pb-0 align-middle" ref={ref}>
       <AlignedGraph
         ci={showGraph ? stats.ci || [] : [0, 0]}
         id={id}
@@ -43,7 +51,7 @@ export default function PercentGraphColumn({
             ? stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower
             : false
         }
-        height={75}
+        height={height}
         inverse={!!metric?.inverse}
       />
     </td>
