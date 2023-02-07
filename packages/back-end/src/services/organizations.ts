@@ -1,10 +1,12 @@
 import { randomBytes } from "crypto";
+import freeEmailDomains from "free-email-domains";
 import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
-  findOrganizationByInviteKey, findOrganizationsByDomain,
-  updateOrganization
+  findOrganizationByInviteKey,
+  findOrganizationsByDomain,
+  updateOrganization,
 } from "../models/OrganizationModel";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
@@ -49,8 +51,6 @@ import {
 } from "./datasource";
 import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { UserInterface } from "../../types/user";
-import freeEmailDomains from "free-email-domains";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -733,19 +733,21 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgForNewUser(user: UserInterface) {
-  const domain = user.email.toLowerCase().split("@")[1];
+export async function findVerifiedOrgForNewUser(email: string) {
+  const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
 
   if (!isFreeDomain) {
-    const orgs = await findOrganizationsByDomain(domain);
-    if (!orgs.length) {
+    const organizations = await findOrganizationsByDomain(domain);
+    if (!organizations.length) {
       return null;
     }
     // filter orgs by verified emails
-    const orgOwnerEmails = orgs.map((o) => o.ownerEmail);
+    const orgOwnerEmails = organizations.map((o) => o.ownerEmail);
     const verifiedOwnerEmails = await findVerifiedEmails(orgOwnerEmails);
-    const filteredOrgs = orgs.filter((o) => verifiedOwnerEmails.includes(o.ownerEmail));
+    const filteredOrgs = organizations.filter((o) =>
+      verifiedOwnerEmails.includes(o.ownerEmail)
+    );
     if (!filteredOrgs.length) {
       return null;
     }

@@ -5,6 +5,7 @@ import { createUser } from "../../services/users";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
+  findVerifiedOrgForNewUser,
   getOrgFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
@@ -186,4 +187,19 @@ export async function postUnwatchItem(
       message: e.message,
     });
   }
+}
+
+export async function getRecommendedOrg(req: AuthRequest, res: Response) {
+  const { email } = req;
+  const org = await findVerifiedOrgForNewUser(email);
+  if (org) {
+    return res.status(200).json({
+      id: org.id,
+      name: org.name,
+      members: org?.members?.length || 0,
+    });
+  }
+  res.status(200).json({
+    message: "no org found",
+  });
 }

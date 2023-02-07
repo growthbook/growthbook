@@ -45,7 +45,9 @@ export async function deleteUser(id: string): Promise<void> {
   await UserModel.deleteOne({ id });
 }
 
-export async function findVerifiedEmails(emails: string[] | undefined): Promise<string[]> {
+export async function findVerifiedEmails(
+  emails: string[] | undefined
+): Promise<string[]> {
   let users;
   if (emails) {
     users = await UserModel.find({

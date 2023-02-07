@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import escapeStringRegexp from "escape-string-regexp-node";
 import {
   Invite,
   Member,
   OrganizationInterface,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
-import escapeStringRegexp from "escape-string-regexp-node";
 
 const organizationSchema = new mongoose.Schema({
   id: {

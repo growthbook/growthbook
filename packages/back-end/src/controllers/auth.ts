@@ -21,7 +21,7 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../util/cookie";
-import { findVerifiedOrgForNewUser, getEmailFromUserId, getOrgFromReq } from "../services/organizations";
+import { getEmailFromUserId, getOrgFromReq } from "../services/organizations";
 import {
   createUser,
   getUserByEmail,
@@ -32,11 +32,6 @@ import {
 import { AuthRequest } from "../types/AuthRequest";
 import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
 import { UserInterface } from "../../types/user";
-
-interface LocalSuccessResponseExtraData {
-  verifiedOrgId?: string;
-  verifiedOrgName?: string;
-};
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();
@@ -119,8 +114,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
 async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
-  user: UserInterface,
-  extra: LocalSuccessResponseExtraData = {},
+  user: UserInterface
 ) {
   const { idToken, refreshToken, expiresIn } = await auth.processCallback(
     req,
@@ -140,7 +134,6 @@ async function sendLocalSuccessResponse(
   res.status(200).json({
     status: 200,
     token: idToken,
-    extra,
   });
 }
 
@@ -216,15 +209,7 @@ export async function postRegister(
 
   // Create new account
   const user = await createUser(name, email, password);
-  const extra: LocalSuccessResponseExtraData = {};
-  if (true || IS_CLOUD && user.verified) {
-    const org = await findVerifiedOrgForNewUser(user);
-    if (org) {
-      extra.verifiedOrgId = org.id;
-      extra.verifiedOrgName = org.name;
-    }
-  }
-  sendLocalSuccessResponse(req, res, user, extra);
+  sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postFirstTimeRegister(

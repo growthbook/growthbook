@@ -10,11 +10,7 @@ export default function Welcome({
   onSuccess,
   firstTime = false,
 }: {
-  onSuccess: (
-    token: string,
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    extra?: any
-  ) => void;
+  onSuccess: (token: string) => void;
   firstTime?: boolean;
 }): ReactElement {
   const [state, setState] = useState<
