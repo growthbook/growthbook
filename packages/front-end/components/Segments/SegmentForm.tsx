@@ -79,7 +79,7 @@ const SegmentForm: FC<{
         }))}
         className="portal-overflow-ellipsis"
       />
-      {datasource.properties.userIds && (
+      {datasource?.properties.userIds && (
         <SelectField
           label="Identifier Type"
           required
