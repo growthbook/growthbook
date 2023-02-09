@@ -106,7 +106,8 @@ export function useFeature<T extends JSONValue = any>(
 
 export function useFeatureIsOn(id: string): boolean {
   const growthbook = useGrowthBook();
-  return growthbook ? growthbook.isOn(id) : false;
+  const value = growthbook?.isOn(id);
+  return value || false;
 }
 
 export function useFeatureValue<T extends JSONValue = any>(
