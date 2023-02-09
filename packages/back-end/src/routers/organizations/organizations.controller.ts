@@ -7,6 +7,7 @@ import {
 import {
   acceptInvite,
   addMemberToOrg,
+  findVerifiedOrgForNewUser,
   getInviteUrl,
   getOrgFromReq,
   importConfig,
@@ -55,7 +56,6 @@ import {
   findOrganizationByInviteKey,
   findAllOrganizations,
   findOrganizationsByMemberId,
-  hasOrganization,
   updateOrganization,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
@@ -76,6 +76,7 @@ import {
 import {
   accountFeatures,
   getAccountPlan,
+  getDefaultRole,
   getRoles,
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
@@ -297,6 +298,63 @@ export async function putMemberRole(
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to change role",
+    });
+  }
+}
+
+export async function putMember(
+  req: AuthRequest<{
+    orgId: string;
+  }>,
+  res: Response
+) {
+  if (!req.userId || !req.email) {
+    throw new Error("Must be logged in");
+  }
+  const { orgId } = req.body;
+  if (!orgId) {
+    throw new Error("Must provide orgId");
+  }
+
+  // ensure org matches calculated verified org
+  const organization = await findVerifiedOrgForNewUser(req.email);
+  if (!organization || organization.id !== orgId) {
+    throw new Error("Invalid orgId");
+  }
+
+  // check if user is already a member
+  const existingMember = organization.members.find((m) => m.id === req.userId);
+  if (existingMember) {
+    return res.status(200).json({
+      status: 200,
+      message: "User is already a member of organization",
+    });
+  }
+
+  try {
+    const invite: Invite | undefined = organization.invites.find(
+      (inv) => inv.email === req.email
+    );
+    if (invite) {
+      // if user already invited, accept invite
+      await acceptInvite(invite.key, req.email);
+    } else {
+      // otherwise, add user as new member
+      await addMemberToOrg({
+        organization,
+        userId: req.userId,
+        ...getDefaultRole(organization),
+      });
+    }
+
+    return res.status(200).json({
+      status: 200,
+      message: "Successfully added member to organization",
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to add member to organization",
     });
   }
 }
@@ -802,13 +860,13 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
   // if (!IS_CLOUD) {
-  const orgs = await hasOrganization();
-  // there are odd edge cases where a user can exist, but not an org,
-  // so we want to allow org creation this way if there are no other orgs
-  // on a local install.
-  if (orgs && !req.admin) {
-    throw new Error("An organization already exists");
-  }
+  // const orgs = await hasOrganization();
+  // // there are odd edge cases where a user can exist, but not an org,
+  // // so we want to allow org creation this way if there are no other orgs
+  // // on a local install.
+  // if (orgs && !req.admin) {
+  //   throw new Error("An organization already exists");
+  // }
   // }
 
   try {
