@@ -39,7 +39,8 @@ export default function CreateOrganization(): ReactElement {
   const { apiCall, logout } = useAuth();
   const { updateUser } = useUser();
 
-  const { data: org } = useApi(`/user/getRecommendedOrg`);
+  const { data: recommendedOrgData } = useApi(`/user/getRecommendedOrg`);
+  const org = recommendedOrgData?.organization;
 
   useEffect(() => {
     if (org) {
@@ -87,7 +88,6 @@ export default function CreateOrganization(): ReactElement {
               <>
                 <form
                   onSubmit={joinOrgForm.handleSubmit(async (value) => {
-                    console.log({ value });
                     if (loading) return;
                     setError(null);
                     setLoading(true);
@@ -114,7 +114,7 @@ export default function CreateOrganization(): ReactElement {
                   <div className={`${style.recommendedOrgBox} mt-5 mb-3`}>
                     <div className={style.recommendedOrgLogo}>
                       <div className={style.recommendedOrgLogoText}>
-                        {org.name.slice(0, 1).toUpperCase()}
+                        {org?.name?.slice(0, 1)?.toUpperCase()}
                       </div>
                     </div>
                     <div className={style.recommendedOrgInfo}>

@@ -360,7 +360,7 @@ export async function putMember(
       // otherwise, add user as pending member
       await addPendingMemberToOrg({
         organization,
-        name: req.name || req.email,
+        name: req.name || "",
         userId: req.userId,
         email: req.email,
         ...getDefaultRole(organization),
@@ -417,6 +417,30 @@ export async function postMemberApproval(
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to approve member",
+    });
+  }
+}
+
+export async function postAutoApproveMembers(
+  req: AuthRequest<{ state: boolean }>,
+  res: Response
+) {
+  req.checkPermissions("manageTeam");
+  const { org } = getOrgFromReq(req);
+  const { state } = req.body;
+
+  try {
+    await updateOrganization(org.id, {
+      autoApproveMembers: state,
+    });
+    return res.status(200).json({
+      status: 200,
+      message: "Successfully updated auto approve members",
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to update auto approve members",
     });
   }
 }
@@ -560,6 +584,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,
+      autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       pendingMembers: org.pendingMembers,
     },
