@@ -35,6 +35,7 @@ router.post("/invite/resend", organizationsController.postInviteResend);
 router.put("/invite/:key/role", organizationsController.putInviteRole);
 router.delete("/invite", organizationsController.deleteInvite);
 router.put("/member", organizationsController.putMember);
+router.post("/member/:id/approve", organizationsController.postMemberApproval);
 router.delete("/member/:id", organizationsController.deleteMember);
 router.put("/member/:id/role", organizationsController.putMemberRole);
 router.put(

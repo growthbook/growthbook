@@ -11,6 +11,7 @@ import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
+import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();
@@ -96,14 +97,19 @@ const TeamPage: FC = () => {
         </div>
       )}
       <MemberList mutate={refreshOrganization} project={currentProject} />
-      {organization.invites.length > 0 ? (
+      {organization?.pendingMembers?.length > 0 && (
+        <PendingMemberList
+          pendingMembers={organization.pendingMembers}
+          mutate={refreshOrganization}
+          project={currentProject}
+        />
+      )}
+      {organization.invites.length > 0 && (
         <InviteList
           invites={organization.invites}
           mutate={refreshOrganization}
           project={currentProject}
         />
-      ) : (
-        ""
       )}
 
       <OrphanedUsersList

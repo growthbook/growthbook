@@ -60,6 +60,13 @@ export interface Invite extends MemberRoleWithProjects {
   dateCreated: Date;
 }
 
+export interface PendingMember extends MemberRoleWithProjects {
+  id: string;
+  name: string;
+  email: string;
+  dateCreated: Date;
+}
+
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
@@ -203,8 +210,10 @@ export interface OrganizationInterface {
     priceId?: string;
   };
   licenseKey?: string;
+  autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
+  pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }

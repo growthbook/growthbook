@@ -7,6 +7,7 @@ import {
 import {
   acceptInvite,
   addMemberToOrg,
+  addPendingMemberToOrg,
   findVerifiedOrgForNewUser,
   getInviteUrl,
   getOrgFromReq,
@@ -279,6 +280,15 @@ export async function putMemberRole(
       found = true;
     }
   });
+  org?.pendingMembers?.forEach((m) => {
+    if (m.id === id) {
+      m.role = role;
+      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
+      m.environments = environments || [];
+      m.projectRoles = projectRoles || [];
+      found = true;
+    }
+  });
 
   if (!found) {
     return res.status(404).json({
@@ -290,6 +300,7 @@ export async function putMemberRole(
   try {
     await updateOrganization(org.id, {
       members: org.members,
+      pendingMembers: org.pendingMembers,
     });
     return res.status(200).json({
       status: 200,
@@ -337,13 +348,26 @@ export async function putMember(
     );
     if (invite) {
       // if user already invited, accept invite
-      await acceptInvite(invite.key, req.email);
-    } else {
-      // otherwise, add user as new member
+      await acceptInvite(invite.key, req.userId);
+    } else if (organization.autoApproveMembers) {
+      // if auto approve, add user as member
       await addMemberToOrg({
         organization,
         userId: req.userId,
         ...getDefaultRole(organization),
+      });
+    } else {
+      // otherwise, add user as pending member
+      await addPendingMemberToOrg({
+        organization,
+        name: req.name || req.email,
+        userId: req.userId,
+        email: req.email,
+        ...getDefaultRole(organization),
+      });
+      return res.status(200).json({
+        status: 200,
+        message: "Successfully added pending member to organization",
       });
     }
 
@@ -355,6 +379,44 @@ export async function putMember(
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to add member to organization",
+    });
+  }
+}
+
+export async function postMemberApproval(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageTeam");
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const pendingMember = org?.pendingMembers?.find((m) => m.id === id);
+  if (!pendingMember) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find pending member",
+    });
+  }
+
+  try {
+    await addMemberToOrg({
+      organization: org,
+      userId: pendingMember.id,
+      role: pendingMember.role,
+      limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
+      environments: pendingMember.environments,
+      projectRoles: pendingMember.projectRoles,
+    });
+    // todo: send email to member?
+    return res.status(200).json({
+      status: 200,
+      message: "Successfully added member to organization",
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to approve member",
     });
   }
 }
@@ -499,6 +561,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       slackTeam: connections?.slack?.team,
       settings,
       members: org.members,
+      pendingMembers: org.pendingMembers,
     },
   });
 }

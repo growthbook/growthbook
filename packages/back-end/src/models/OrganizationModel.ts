@@ -20,6 +20,7 @@ const organizationSchema = new mongoose.Schema({
   ownerEmail: String,
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
+  autoApproveMembers: Boolean,
   members: [
     {
       _id: false,
@@ -44,6 +45,27 @@ const organizationSchema = new mongoose.Schema({
       _id: false,
       email: String,
       key: String,
+      dateCreated: Date,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+      projectRoles: [
+        {
+          _id: false,
+          project: String,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
+    },
+  ],
+  pendingMembers: [
+    {
+      _id: false,
+      id: String,
+      name: String,
+      email: String,
       dateCreated: Date,
       role: String,
       limitAccessByEnvironment: Boolean,
