@@ -75,6 +75,7 @@ export interface Member extends MemberRoleWithProjects {
 export interface ExpandedMember extends Member {
   email: string;
   name: string;
+  verified: boolean;
 }
 
 export interface NorthStarMetric {

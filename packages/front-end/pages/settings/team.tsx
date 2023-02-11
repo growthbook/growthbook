@@ -1,6 +1,6 @@
 import Link from "next/link";
 import React, { FC, useEffect, useState } from "react";
-import { FaAngleLeft, FaQuestionCircle } from "react-icons/fa";
+import { FaAngleLeft } from "react-icons/fa";
 import { useRouter } from "next/router";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
@@ -12,10 +12,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
-import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import track from "@/services/track";
+import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();
@@ -23,7 +21,6 @@ const TeamPage: FC = () => {
   const { project, projects } = useDefinitions();
 
   const [currentProject, setCurrentProject] = useState(project || "");
-  const [togglingAutoApprove, setTogglingAutoApprove] = useState(false);
 
   const permissions = usePermissions();
 
@@ -101,49 +98,7 @@ const TeamPage: FC = () => {
           </div>
         </div>
       )}
-      {isCloud() && (
-        <div className="mt-3">
-          <Toggle
-            id="autoApproveMembers"
-            value={!!organization?.autoApproveMembers}
-            disabled={!permissions.manageTeam}
-            setValue={async (on) => {
-              if (togglingAutoApprove) return;
-              if (on && organization?.autoApproveMembers) return;
-              if (!on && !organization?.autoApproveMembers) return;
-
-              setTogglingAutoApprove(true);
-              try {
-                await apiCall(`/organization/autoApproveMembers`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    state: on,
-                  }),
-                });
-                track("Set auto approve members", {
-                  enabled: on,
-                });
-              } catch (e) {
-                console.error(e);
-              }
-              setTogglingAutoApprove(false);
-              await refreshOrganization();
-            }}
-          />
-          <div
-            className="ml-1"
-            style={{ display: "inline-block", verticalAlign: "middle" }}
-          >
-            <Tooltip body="When new members register using a verified email address matching this organization, automatically add them as active members.">
-              Automatically approve new verified users <FaQuestionCircle />
-            </Tooltip>
-            <div className="small">
-              Requires this organization&apos;s owner to have a verified email
-              address.
-            </div>
-          </div>
-        </div>
-      )}
+      {isCloud() && <AutoApproveMembersToggle mutate={refreshOrganization} />}
       <MemberList mutate={refreshOrganization} project={currentProject} />
       {organization?.pendingMembers?.length > 0 && (
         <PendingMemberList
