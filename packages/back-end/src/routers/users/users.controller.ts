@@ -199,12 +199,16 @@ export async function getRecommendedOrg(req: AuthRequest, res: Response) {
   }
   const org = await findVerifiedOrgForNewUser(email);
   if (org) {
+    const currentUserIsPending = !!org?.pendingMembers?.find(
+      (m) => m.id === user.id
+    );
     return res.status(200).json({
       organization: {
         id: org.id,
         name: org.name,
         members: org?.members?.length || 0,
-      }
+        currentUserIsPending,
+      },
     });
   }
   res.status(200).json({

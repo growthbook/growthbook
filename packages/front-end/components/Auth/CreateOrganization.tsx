@@ -1,7 +1,7 @@
 import { ReactElement, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
-import { FaPlus } from "react-icons/fa";
+import { FaCheck, FaPlus } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -32,6 +32,7 @@ export default function CreateOrganization(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState<"create" | "join">("create");
+  const [currentUserIsPending, setCurrentUserIsPending] = useState(false);
   function switchMode() {
     setMode(mode === "create" ? "join" : "create");
   }
@@ -46,6 +47,9 @@ export default function CreateOrganization(): ReactElement {
     if (org) {
       setMode("join");
       joinOrgForm.setValue("orgId", org.id);
+      if (org.currentUserIsPending) {
+        setCurrentUserIsPending(true);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [org]);
@@ -92,13 +96,17 @@ export default function CreateOrganization(): ReactElement {
                     setError(null);
                     setLoading(true);
                     try {
-                      await apiCall("/member", {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const resp: any = await apiCall("/member", {
                         method: "PUT",
                         body: JSON.stringify(value),
                       });
-                      track("Create Organization");
+                      track("Join Organization");
                       updateUser();
                       setLoading(false);
+                      if (resp?.isPending) {
+                        setCurrentUserIsPending(true);
+                      }
                     } catch (e) {
                       setError(e.message);
                       setLoading(false);
@@ -126,11 +134,21 @@ export default function CreateOrganization(): ReactElement {
                       </div>
                     </div>
                     <Field type="hidden" {...joinOrgForm.register("orgId")} />
-                    <button type="submit" className="btn btn-lg btn-primary">
-                      Join
+                    <button
+                      type="submit"
+                      className="btn btn-lg btn-primary"
+                      disabled={currentUserIsPending || false}
+                    >
+                      {currentUserIsPending ? "Pending" : "Join"}
                     </button>
                   </div>
                 </form>
+                {currentUserIsPending && (
+                  <div className="alert alert-success">
+                    <div className="mb-2"><FaCheck /> Your membership is pending.</div>
+                    <div>Please contact your organization&apos;s admin to approve your membership.</div>
+                  </div>
+                )}
                 <div
                   className={`${style.switchModeButton} btn btn-light mt-3`}
                   onClick={switchMode}

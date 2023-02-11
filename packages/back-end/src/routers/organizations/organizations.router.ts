@@ -18,7 +18,10 @@ router.post(
   "/organization/config/import",
   organizationsController.postImportConfig
 );
-router.post("/organization/autoApproveMembers", organizationsController.postAutoApproveMembers);
+router.post(
+  "/organization/autoApproveMembers",
+  organizationsController.postAutoApproveMembers
+);
 router.get("/organization/namespaces", organizationsController.getNamespaces);
 router.post("/organization/namespaces", organizationsController.postNamespaces);
 router.put(

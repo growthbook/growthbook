@@ -367,6 +367,7 @@ export async function putMember(
       });
       return res.status(200).json({
         status: 200,
+        isPending: true,
         message: "Successfully added pending member to organization",
       });
     }

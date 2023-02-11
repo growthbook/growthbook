@@ -130,12 +130,17 @@ const TeamPage: FC = () => {
               await refreshOrganization();
             }}
           />
-          <div className="ml-1" style={{display: "inline-block", verticalAlign: "middle"}}>
+          <div
+            className="ml-1"
+            style={{ display: "inline-block", verticalAlign: "middle" }}
+          >
             <Tooltip body="When new members register using a verified email address matching this organization, automatically add them as active members.">
-              Automatically approve new verified users{" "}
-              <FaQuestionCircle />
+              Automatically approve new verified users <FaQuestionCircle />
             </Tooltip>
-            <div className="small">Requires this organization&apos;s owner to have a verified email address.</div>
+            <div className="small">
+              Requires this organization&apos;s owner to have a verified email
+              address.
+            </div>
           </div>
         </div>
       )}
