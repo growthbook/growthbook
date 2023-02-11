@@ -63,6 +63,7 @@ import {
   findOrganizationByInviteKey,
   findAllOrganizations,
   findOrganizationsByMemberId,
+  hasOrganization,
   updateOrganization,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
