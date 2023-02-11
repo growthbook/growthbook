@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import freeEmailDomains from "free-email-domains";
+import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   createOrganization,
   findAllOrganizations,
