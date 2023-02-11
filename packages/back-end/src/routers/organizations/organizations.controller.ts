@@ -44,8 +44,14 @@ import { ExperimentModel } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { SegmentModel } from "../../models/SegmentModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
-import { IS_CLOUD } from "../../util/secrets";
-import { sendInviteEmail, sendNewOrgEmail } from "../../services/email";
+import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
+import {
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+  sendNewOrgEmail,
+  sendPendingMemberApprovalEmail,
+} from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllGroups } from "../../services/group";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -365,11 +371,36 @@ export async function putMember(
         email: req.email,
         ...getDefaultRole(organization),
       });
+
+      try {
+        const teamUrl = APP_ORIGIN + "settings/team";
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
+
       return res.status(200).json({
         status: 200,
         isPending: true,
         message: "Successfully added pending member to organization",
       });
+    }
+
+    try {
+      await sendNewMemberEmail(
+        req.name || "",
+        req.email || "",
+        organization.name,
+        organization.ownerEmail
+      );
+    } catch (e) {
+      req.log.error(e, "Failed to send new member email");
     }
 
     return res.status(200).json({
@@ -409,17 +440,28 @@ export async function postMemberApproval(
       environments: pendingMember.environments,
       projectRoles: pendingMember.projectRoles,
     });
-    // todo: send email to member?
-    return res.status(200).json({
-      status: 200,
-      message: "Successfully added member to organization",
-    });
   } catch (e) {
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to approve member",
     });
   }
+
+  try {
+    await sendPendingMemberApprovalEmail(
+      pendingMember.name || "",
+      pendingMember.email || "",
+      org.name,
+      APP_ORIGIN
+    );
+  } catch (e) {
+    req.log.error(e, "Failed to send pending member approval email");
+  }
+
+  return res.status(200).json({
+    status: 200,
+    message: "Successfully added member to organization",
+  });
 }
 
 export async function postAutoApproveMembers(
