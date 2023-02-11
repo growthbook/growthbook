@@ -307,8 +307,6 @@ export async function addPendingMemberToOrg({
   ];
 
   await updateOrganization(organization.id, { pendingMembers });
-
-  // todo: send email to org admin
 }
 
 export async function acceptInvite(key: string, userId: string) {

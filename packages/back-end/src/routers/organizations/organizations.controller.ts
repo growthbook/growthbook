@@ -991,15 +991,15 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
-  // if (!IS_CLOUD) {
-  // const orgs = await hasOrganization();
-  // // there are odd edge cases where a user can exist, but not an org,
-  // // so we want to allow org creation this way if there are no other orgs
-  // // on a local install.
-  // if (orgs && !req.admin) {
-  //   throw new Error("An organization already exists");
-  // }
-  // }
+  if (!IS_CLOUD) {
+    const orgs = await hasOrganization();
+    // there are odd edge cases where a user can exist, but not an org,
+    // so we want to allow org creation this way if there are no other orgs
+    // on a local install.
+    if (orgs && !req.admin) {
+      throw new Error("An organization already exists");
+    }
+  }
 
   try {
     if (company.length < 3) {
