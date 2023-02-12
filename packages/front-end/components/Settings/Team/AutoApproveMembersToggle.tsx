@@ -1,5 +1,5 @@
 import { FaQuestionCircle } from "react-icons/fa";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Toggle from "@/components/Forms/Toggle";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import React, { FC, useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
 import { useRouter } from "next/router";
 import InviteList from "@/components/Settings/Team/InviteList";
