@@ -69,7 +69,7 @@ const NorthStarMetricDisplay = ({
           </div>
         ) : (
           <div className="mb-4">
-            <h5 className="mb-3">{metric.name}</h5>
+            <h5 className="my-3">{metric.name}</h5>
             {permissions.check("runQueries", "") && (
               <form
                 onSubmit={async (e) => {
@@ -94,6 +94,7 @@ const NorthStarMetricDisplay = ({
                   statusEndpoint={`/metric/${metric.id}/analysis/status`}
                   cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                   color="outline-primary"
+                  position="left"
                   onReady={() => {
                     mutate();
                   }}
@@ -110,10 +111,10 @@ const NorthStarMetricDisplay = ({
                 Your analysis is currently running.
               </div>
             )}
-            <div>
+            <div className="mt-2">
               <em>
-                No data for this metric yet. Click the Run Analysis button
-                above.
+                No data for this metric yet. Click the{" "}
+                {analysis ? "Refresh Data" : "Run Analysis"} button above.
               </em>
             </div>
           </div>
