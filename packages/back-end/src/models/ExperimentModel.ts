@@ -8,6 +8,7 @@ import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import {
   determineNextDate,
+  experimentUpdated,
   generateTrackingKey,
 } from "../services/experiments";
 import {
@@ -276,8 +277,8 @@ export async function updateExperimentById(
   organization: string,
   experiment: ExperimentInterface,
   changes: Changeset
-): Promise<void> {
-  await ExperimentModel.updateOne(
+): Promise<ExperimentInterface | null> {
+  await ExperimentModel.findOneAndUpdate(
     {
       id: experiment.id,
       organization,
@@ -286,6 +287,14 @@ export async function updateExperimentById(
       $set: changes,
     }
   );
+
+  const updated = await getExperimentById(organization, experiment.id);
+
+  if (updated) {
+    await experimentUpdated(updated);
+  }
+
+  return updated;
 }
 
 export async function getExperimentsByMetric(
