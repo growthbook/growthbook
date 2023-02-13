@@ -5,6 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
+import type { StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -151,7 +152,7 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
-  statsEngine?: "bayesian" | "frequentist";
+  statsEngine?: StatsEngine;
   pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
