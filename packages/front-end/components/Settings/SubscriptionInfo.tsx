@@ -43,7 +43,7 @@ export default function SubscriptionInfo() {
         <strong>Current Plan:</strong> {planName}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {quote?.currentSeatsPaidFor || 0}
+        <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
       </div>
       {quote && (
         <div className="col-md-12 mb-3">

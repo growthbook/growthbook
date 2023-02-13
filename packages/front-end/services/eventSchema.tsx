@@ -20,7 +20,15 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "segment",
     label: "Segment",
-    types: ["bigquery", "snowflake", "athena", "redshift", "postgres"],
+    types: [
+      "bigquery",
+      "snowflake",
+      "athena",
+      "redshift",
+      "postgres",
+      "databricks",
+      "athena",
+    ],
     logo: "/images/3rd-party-logos/segment.png",
     popular: true,
     intro: (
@@ -43,7 +51,17 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "rudderstack",
     label: "RudderStack",
-    types: ["bigquery", "snowflake", "athena", "redshift", "postgres"],
+    types: [
+      "bigquery",
+      "snowflake",
+      "athena",
+      "redshift",
+      "postgres",
+      "databricks",
+      "athena",
+      "clickhouse",
+      "mssql",
+    ],
     logo: "/images/3rd-party-logos/rudderstack.png",
     popular: true,
     intro: (
@@ -94,7 +112,14 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "snowplow",
     label: "Snowplow",
-    types: ["redshift", "bigquery", "postgres", "athena", "snowflake"],
+    types: [
+      "redshift",
+      "bigquery",
+      "postgres",
+      "athena",
+      "snowflake",
+      "databricks",
+    ],
     logo: "/images/3rd-party-logos/snowplow.png",
     popular: true,
     intro: (
@@ -115,7 +140,7 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "amplitude",
     label: "Amplitude",
-    types: ["snowflake", "bigquery", "redshift", "athena"],
+    types: ["snowflake", "bigquery", "redshift", "athena", "databricks"],
     logo: "/images/3rd-party-logos/amplitude.png",
     popular: true,
     intro: (
@@ -219,7 +244,14 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "freshpaint",
     label: "Freshpaint",
-    types: ["bigquery", "postgres", "redshift", "snowflake", "athena"],
+    types: [
+      "bigquery",
+      "postgres",
+      "redshift",
+      "snowflake",
+      "athena",
+      "databricks",
+    ],
     logo: "/images/3rd-party-logos/freshpaint.png",
     popular: false,
     intro: (
@@ -297,7 +329,7 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "heap",
     label: "Heap",
-    types: ["bigquery", "redshift", "snowflake", "athena"],
+    types: ["bigquery", "redshift", "snowflake", "athena", "databricks"],
     logo: "/images/3rd-party-logos/heap.png",
     popular: false,
     intro: (
@@ -334,6 +366,8 @@ export const eventSchemas: eventSchema[] = [
       "redshift",
       "postgres",
       "clickhouse",
+      "mysql",
+      "databricks",
     ],
     logo: "/images/3rd-party-logos/jitsu.png",
     popular: false,
@@ -363,7 +397,7 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "mparticle",
     label: "mParticle",
-    types: ["bigquery", "snowflake", "athena", "redshift"],
+    types: ["bigquery", "snowflake", "athena", "redshift", "databricks"],
     logo: "/images/3rd-party-logos/mparticle.png",
     popular: false,
     intro: (
@@ -384,7 +418,7 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "keen",
     label: "Keen IO",
-    types: ["athena"],
+    types: ["athena", "databricks"],
     logo: "/images/3rd-party-logos/keen-io.png",
     popular: false,
     intro: (
@@ -405,7 +439,7 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "clevertap",
     label: "CleverTap",
-    types: ["bigquery", "athena"],
+    types: ["bigquery", "athena", "databricks"],
     logo: "/images/3rd-party-logos/clevertap.png",
     popular: false,
     intro: (
@@ -474,6 +508,16 @@ export const dataSourceConnections: {
       password: "",
       catalog: "",
       schema: "",
+    },
+  },
+  {
+    type: "databricks",
+    display: "Databricks",
+    default: {
+      host: "",
+      port: 443,
+      path: "",
+      token: "",
     },
   },
   {

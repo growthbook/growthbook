@@ -14,7 +14,7 @@ const MetricsSelector: FC<{
 }> = ({ datasource, project, selected, onChange, autoFocus }) => {
   const { metrics } = useDefinitions();
   const filteredMetrics = metrics
-    .filter((m) => m.datasource === datasource)
+    .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => {
       if (!project) return true;
       if (!m?.projects?.length) return true;
