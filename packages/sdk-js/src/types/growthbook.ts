@@ -163,7 +163,7 @@ export type Polyfills = {
   SubtleCrypto: any;
   // eslint-disable-next-line
   EventSource: any;
-  localStorage: LocalStorageCompat;
+  localStorage?: LocalStorageCompat;
 };
 
 export interface LocalStorageCompat {
