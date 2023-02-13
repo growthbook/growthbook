@@ -110,7 +110,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   const additionalSeatPrice = unitPrice;
   const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
   const currentSeatsPaidFor = org.subscription?.qty || 0;
-  const subtotal = currentSeatsPaidFor * unitPrice;
+  const subtotal = activeAndInvitedUsers * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);
 
   const quote: SubscriptionQuote = {

@@ -9,6 +9,7 @@ toc_max_heading_level: 5
 import ExternalLink from '@site/src/components/ExternalLink'
 import CodeTabsAddDependencyPartial from '@site/src/partials/java/_code-tabs-add-dependency.mdx'
 import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder.mdx'
+import CodeTabsGBContextBuilderEncryptedPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder-encrypted.mdx'
 import CodeTabsGBContextConstructorPartial from '@site/src/partials/java/_code-tabs-gbcontext-constructor.mdx'
 import CodeTabsUserAttributesPartial from '@site/src/partials/java/_code-tabs-user-attributes.mdx'
 import CodeTabsUsingFeaturesPartial from '@site/src/partials/java/_code-tabs-using-features.mdx'
@@ -219,6 +220,14 @@ You can subscribe with as many callbacks as you like:
 <CodeTabsExperimentResultSubscribeMultipleCallbackPartial />
 
 **The experiment run callback is called for every experiment run, regardless of experiment result**. If you would like to subscribe only to evaluations where the user falls into an experiment, see [TrackingCallback](#tracking-callback).
+
+## Working with Encrypted features
+
+As of version 0.3.0, the Java SDK supports decrypting encrypted features. You can learn more about [SDK Connection Endpoint Encryption](/app/api#encryption).
+
+The main difference is you create a `GBContext` by passing an encryption key (`.encryptionKey()` when using the builder) and using the encrypted payload as the features JSON (`.featuresJson()` for the builder).
+
+<CodeTabsGBContextBuilderEncryptedPartial />
 
 ## Code Examples
 
