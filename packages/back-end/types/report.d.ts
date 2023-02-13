@@ -1,6 +1,7 @@
 import { AttributionModel, MetricOverride } from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
+import { StatsEngine } from "./stats";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -43,6 +44,7 @@ export interface ExperimentReportArgs {
   skipPartialData?: boolean;
   removeMultipleExposures?: boolean;
   attributionModel?: AttributionModel;
+  statsEngine?: StatsEngine;
 }
 export interface ExperimentReportResultDimension {
   name: string;
