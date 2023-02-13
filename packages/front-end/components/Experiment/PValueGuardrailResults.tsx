@@ -33,6 +33,8 @@ const HeaderResult: FC<{
   metric: MetricInterface;
   results: PValueGuardrailResult[];
 }> = ({ metric, results }) => {
+  // remove control for determining header
+  results.shift();
   const anyInsufficientData = results.some((r) => !r.hasEnoughData);
   const significantNegativeDirection = results.some(
     (r) => !r.expectedDirection && r.statSig
