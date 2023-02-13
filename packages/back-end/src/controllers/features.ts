@@ -220,7 +220,7 @@ export async function postFeatures(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
-    id: id.toLowerCase(),
+    id: id,
     archived: false,
     revision: {
       version: 1,
