@@ -1,5 +1,7 @@
 import type { MetricStats } from "./metric";
 
+export type StatsEngine = "bayesian" | "frequentist";
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
