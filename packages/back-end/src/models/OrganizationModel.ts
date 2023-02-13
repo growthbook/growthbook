@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
-import escapeStringRegexp from "escape-string-regexp-node";
 import {
   Invite,
   Member,
@@ -32,6 +31,7 @@ const organizationSchema = new mongoose.Schema({
     unique: true,
   },
   dateCreated: Date,
+  verifiedDomain: String,
   url: String,
   name: String,
   ownerEmail: String,
@@ -264,7 +264,6 @@ export async function removeProjectFromProjectRoles(
 }
 
 export async function findOrganizationsByDomain(domain: string) {
-  const re = new RegExp(`${escapeStringRegexp(domain)}$`, "i");
-  const docs = await OrganizationModel.find({ ownerEmail: { $regex: re } });
+  const docs = await OrganizationModel.find({ verifiedDomain: domain });
   return docs.map(toInterface);
 }

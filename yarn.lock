@@ -9241,11 +9241,6 @@ escape-html@^1.0.3, escape-html@~1.0.3:
   resolved "https://registry.yarnpkg.com/escape-html/-/escape-html-1.0.3.tgz#0258eae4d3d0c0974de1c169188ef0051d1d1988"
   integrity sha1-Aljq5NPQwJdN4cFpGI7wBR0dGYg=
 
-escape-string-regexp-node@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/escape-string-regexp-node/-/escape-string-regexp-node-1.0.2.tgz#a53eae3cb2ce1dc5cad541750a1db52fecc842d9"
-  integrity sha512-tv6v/7vF8ob7vTNPBHJ6cdRGtb9t6wBZJt6ZWzJ5kDacXa3jplof+mmoXYLuEUtFXWw8xwR2wVbT2c20HvVubA==
-
 escape-string-regexp@^1.0.5:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/escape-string-regexp/-/escape-string-regexp-1.0.5.tgz#1b61c0562190a8dff6ae3bb2cf0200ca130b86d4"

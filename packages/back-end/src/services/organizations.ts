@@ -10,7 +10,7 @@ import {
 } from "../models/OrganizationModel";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
-import { findVerifiedEmails, UserModel } from "../models/UserModel";
+import { UserModel } from "../models/UserModel";
 import {
   Invite,
   Member,
@@ -797,7 +797,6 @@ export async function addMemberFromSSOConnection(
 export async function findVerifiedOrgForNewUser(email: string) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
-
   if (isFreeDomain) {
     return null;
   }
@@ -806,17 +805,9 @@ export async function findVerifiedOrgForNewUser(email: string) {
   if (!organizations.length) {
     return null;
   }
-  // filter orgs by verified emails
-  const orgOwnerEmails = organizations.map((o) => o.ownerEmail);
-  const verifiedOwnerEmails = await findVerifiedEmails(orgOwnerEmails);
-  const filteredOrgs = organizations.filter((o) =>
-    verifiedOwnerEmails.includes(o.ownerEmail)
-  );
-  if (!filteredOrgs.length) {
-    return null;
-  }
+
   // get the org with the most members
-  return filteredOrgs.reduce((prev, current) => {
+  return organizations.reduce((prev, current) => {
     return prev.members.length > current.members.length ? prev : current;
   });
 }
