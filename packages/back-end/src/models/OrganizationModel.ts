@@ -9,6 +9,23 @@ import {
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 
+const baseMemberFields = {
+  _id: false,
+  role: String,
+  dateCreated: Date,
+  limitAccessByEnvironment: Boolean,
+  environments: [String],
+  projectRoles: [
+    {
+      _id: false,
+      project: String,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+    },
+  ],
+};
+
 const organizationSchema = new mongoose.Schema({
   id: {
     type: String,
@@ -23,62 +40,23 @@ const organizationSchema = new mongoose.Schema({
   autoApproveMembers: Boolean,
   members: [
     {
-      _id: false,
+      ...baseMemberFields,
       id: String,
-      role: String,
-      dateCreated: Date,
-      limitAccessByEnvironment: Boolean,
-      environments: [String],
-      projectRoles: [
-        {
-          _id: false,
-          project: String,
-          role: String,
-          limitAccessByEnvironment: Boolean,
-          environments: [String],
-        },
-      ],
     },
   ],
   invites: [
     {
-      _id: false,
+      ...baseMemberFields,
       email: String,
       key: String,
-      dateCreated: Date,
-      role: String,
-      limitAccessByEnvironment: Boolean,
-      environments: [String],
-      projectRoles: [
-        {
-          _id: false,
-          project: String,
-          role: String,
-          limitAccessByEnvironment: Boolean,
-          environments: [String],
-        },
-      ],
     },
   ],
   pendingMembers: [
     {
-      _id: false,
+      ...baseMemberFields,
       id: String,
       name: String,
       email: String,
-      dateCreated: Date,
-      role: String,
-      limitAccessByEnvironment: Boolean,
-      environments: [String],
-      projectRoles: [
-        {
-          _id: false,
-          project: String,
-          role: String,
-          limitAccessByEnvironment: Boolean,
-          environments: [String],
-        },
-      ],
     },
   ],
   stripeCustomerId: String,

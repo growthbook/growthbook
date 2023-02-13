@@ -798,24 +798,25 @@ export async function findVerifiedOrgForNewUser(email: string) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
 
-  if (!isFreeDomain) {
-    const organizations = await findOrganizationsByDomain(domain);
-    if (!organizations.length) {
-      return null;
-    }
-    // filter orgs by verified emails
-    const orgOwnerEmails = organizations.map((o) => o.ownerEmail);
-    const verifiedOwnerEmails = await findVerifiedEmails(orgOwnerEmails);
-    const filteredOrgs = organizations.filter((o) =>
-      verifiedOwnerEmails.includes(o.ownerEmail)
-    );
-    if (!filteredOrgs.length) {
-      return null;
-    }
-    // get the org with the most members
-    return filteredOrgs.reduce((prev, current) => {
-      return prev.members.length > current.members.length ? prev : current;
-    });
+  if (isFreeDomain) {
+    return null;
   }
-  return null;
+
+  const organizations = await findOrganizationsByDomain(domain);
+  if (!organizations.length) {
+    return null;
+  }
+  // filter orgs by verified emails
+  const orgOwnerEmails = organizations.map((o) => o.ownerEmail);
+  const verifiedOwnerEmails = await findVerifiedEmails(orgOwnerEmails);
+  const filteredOrgs = organizations.filter((o) =>
+    verifiedOwnerEmails.includes(o.ownerEmail)
+  );
+  if (!filteredOrgs.length) {
+    return null;
+  }
+  // get the org with the most members
+  return filteredOrgs.reduce((prev, current) => {
+    return prev.members.length > current.members.length ? prev : current;
+  });
 }
