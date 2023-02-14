@@ -90,7 +90,7 @@ export default function CreateOrganization(): ReactElement {
         </a>
         {isCloud() || !data.hasOrganizations ? (
           <>
-            {mode === "join" ? (
+            {mode === "join" && org ? (
               <>
                 <form
                   onSubmit={joinOrgForm.handleSubmit(async (value) => {
@@ -124,17 +124,15 @@ export default function CreateOrganization(): ReactElement {
                   <div className={`${style.recommendedOrgBox} mt-5 mb-3`}>
                     <div className={style.recommendedOrgLogo}>
                       <div className={style.recommendedOrgLogoText}>
-                        {org?.name?.slice(0, 1)?.toUpperCase()}
+                        {org.name?.slice(0, 1)?.toUpperCase()}
                       </div>
                     </div>
                     <div className={style.recommendedOrgInfo}>
-                      <div className={style.recommendedOrgName}>
-                        {org?.name}
-                      </div>
+                      <div className={style.recommendedOrgName}>{org.name}</div>
                       <div className={style.recommendedOrgMembers}>
-                        {org?.members === 1
-                          ? `${org?.members} member`
-                          : `${org?.members} members`}
+                        {org.members === 1
+                          ? `${org.members} member`
+                          : `${org.members} members`}
                       </div>
                     </div>
                     <Field type="hidden" {...joinOrgForm.register("orgId")} />
