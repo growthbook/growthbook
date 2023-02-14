@@ -2,46 +2,54 @@ import type { MetricStats } from "./metric";
 
 export type StatsEngine = "bayesian" | "frequentist";
 
-interface BaseVariationResponse {
+interface BaseDiffStats {
+  dist: string;
+  mean: number;
+  stddev: number;
+  expected: number;
+  ci: [number, number];
+}
+
+interface RelativeDiffStats extends BaseDiffStats {
+  DiffType: "relative";
+}
+
+interface AbsoluteDiffStats extends BaseDiffStats {
+  DiffType: "absolute";
+}
+
+interface BayesianDiffStats {
+  chanceToWin: number;
+  risk: [number, number];
+}
+
+interface FrequentistDiffStats {
+  pValue: number;
+}
+
+type BayesianRelativeDiffStats = RelativeDiffStats & BayesianDiffStats;
+
+type FrequentistRelativeDiffStats = RelativeDiffStats & FrequentistDiffStats;
+
+type BayesianAbsoluteDiffStats = AbsoluteDiffStats & BayesianDiffStats;
+
+type FrequentistAbsoluteDiffStats = AbsoluteDiffStats & FrequentistDiffStats;
+
+export interface VariationResponse {
   cr: number;
   value: number;
   users: number;
   denominator?: number;
   stats: MetricStats;
-  expected?: number;
-  uplift?: {
-    dist: string;
-    mean?: number;
-    stddev?: number;
-  };
-  ci?: [number, number];
+  relativeDiffStats: BayesianRelativeDiffStats | FrequentistRelativeDiffStats;
+  absoluteDiffStats: BayesianAbsoluteDiffStats | FrequentistAbsoluteDiffStats;
 }
 
-interface BayesianVariationResponse extends BaseVariationResponse {
-  chanceToWin?: number;
-  risk?: [number, number];
-}
-
-interface FrequentistVariationResponse extends BaseVariationResponse {
-  pValue?: number;
-}
-
-interface BaseDimensionResponse {
+interface StatsEngineDimensionResponse {
   dimension: string;
   srm: number;
+  variations: VariationResponse[];
 }
-
-interface BayesianDimensionResponse extends BaseDimensionResponse {
-  variations: BayesianVariationResponse[];
-}
-
-interface FrequentistVariationResponse extends BaseDimensionResponse {
-  variations: FrequentistVariationResponse[];
-}
-
-type StatsEngineDimensionResponse =
-  | BayesianDimensionResponse
-  | FrequentistVariationResponse;
 
 export interface ExperimentMetricAnalysis {
   unknownVariations: string[];

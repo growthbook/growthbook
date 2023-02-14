@@ -1,28 +1,12 @@
 import { QueryLanguage } from "./datasource";
-import { MetricStats } from "./metric";
-import { StatsEngine } from "./stats";
+import { StatsEngine, VariationResponse } from "./stats";
 import { Queries } from "./query";
 
-export interface SnapshotMetric {
-  value: number;
-  cr: number;
-  users: number;
-  denominator?: number;
-  ci?: [number, number];
-  expected?: number;
-  risk?: [number, number];
-  stats?: MetricStats;
-  pValue?: number;
-  uplift?: {
-    dist: string;
-    mean?: number;
-    stddev?: number;
-  };
+export interface SnapshotMetric extends VariationResponse {
   buckets?: {
     x: number;
     y: number;
   }[];
-  chanceToWin?: number;
 }
 
 export interface SnapshotVariation {
