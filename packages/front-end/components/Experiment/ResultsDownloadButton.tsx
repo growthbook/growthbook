@@ -87,8 +87,8 @@ export default function ResultsDownloadButton({
             chanceToBeatControl: stats.chanceToWin || null,
             percentChange: stats.expected || null,
             percentChangePValue: stats.pValue || null,
-            percentChangeCILower: stats.ci[0] || null,
-            percentChangeCIUpper: stats.ci[1] || null,
+            percentChangeCILower: stats.ci?.[0] || null,
+            percentChangeCIUpper: stats.ci?.[1] || null,
           });
         });
       });

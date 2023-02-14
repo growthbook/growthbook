@@ -65,7 +65,7 @@ def create_notebook(
         ),
         nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
-            "# Requires gbstats version 0.2.1 or higher\n"
+            "# Requires gbstats version 0.3.1 or higher\n"
             "from gbstats.gbstats import (\n"
             "  detect_unknown_variations,\n"
             "  analyze_metric_df,\n"
