@@ -1020,7 +1020,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       if (user?.verified) {
         const domain = user.email.toLowerCase().split("@")[1] || "";
         const isFreeDomain = freeEmailDomains.includes(domain);
-        if (isFreeDomain) {
+        if (!isFreeDomain) {
           verifiedDomain = domain;
         }
       }
