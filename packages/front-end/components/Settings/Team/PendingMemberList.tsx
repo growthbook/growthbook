@@ -16,18 +16,16 @@ const PendingMemberList: FC<{
   project: string;
 }> = ({ pendingMembers, mutate, project }) => {
   const { apiCall } = useAuth();
-  const [roleModal, setRoleModal] = useState<string>("");
+  const [roleModalUser, setRoleModalUser] = useState<PendingMember | null>(
+    null
+  );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
-
-  const roleModalUser = pendingMembers.find(
-    (member) => member.id === roleModal
-  );
 
   return (
     <div className="my-4">
       <h5>Pending Members{` (${pendingMembers.length})`}</h5>
-      {roleModal && (
+      {roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}
           roleInfo={{
@@ -36,9 +34,9 @@ const PendingMemberList: FC<{
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
           }}
-          close={() => setRoleModal(null)}
+          close={() => setRoleModalUser(null)}
           onConfirm={async (value) => {
-            await apiCall(`/member/${roleModal}/role`, {
+            await apiCall(`/member/${roleModalUser.id}/role`, {
               method: "PUT",
               body: JSON.stringify(value),
             });
@@ -125,7 +123,7 @@ const PendingMemberList: FC<{
                       className="dropdown-item"
                       onClick={(e) => {
                         e.preventDefault();
-                        setRoleModal(member.id);
+                        setRoleModalUser(member);
                       }}
                     >
                       Edit Role
