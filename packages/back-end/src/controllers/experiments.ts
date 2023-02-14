@@ -727,7 +727,7 @@ export async function postExperiment(
   });
 
   // If there are new tags to add
-  await addTagsDiff(org.id, updated?.tags || [], data.tags || []);
+  await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
 
   await ensureWatching(userId, org.id, experiment.id, "experiments");
 
@@ -1013,11 +1013,10 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
-  // Remove phase from experiment and revert to draft if no more phases left
-  experiment.phases.splice(phaseIndex, 1);
-  changes.phases = experiment.phases;
+  // Remove an element from an array without mutating the original
+  changes.phases = experiment.phases.filter((phase, i) => i !== phaseIndex);
 
-  if (!experiment.phases.length) {
+  if (!changes.phases.length) {
     changes.status = "draft";
   }
   const updated = await updateExperimentById(org.id, experiment, changes);
@@ -1632,12 +1631,13 @@ export async function addScreenshot(
 
   experiment.variations[variation].screenshots =
     experiment.variations[variation].screenshots || [];
-  experiment.variations[variation].screenshots.push({
+
+  changes.variations = experiment.variations;
+
+  changes.variations[variation].screenshots.push({
     path: url,
     description: description,
   });
-
-  changes.variations = experiment.variations;
 
   await updateExperimentById(org.id, experiment, changes);
 

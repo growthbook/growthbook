@@ -278,7 +278,7 @@ export async function updateExperimentById(
   experiment: ExperimentInterface,
   changes: Changeset
 ): Promise<ExperimentInterface | null> {
-  await ExperimentModel.findOneAndUpdate(
+  await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization,
@@ -288,11 +288,9 @@ export async function updateExperimentById(
     }
   );
 
-  const updated = await getExperimentById(organization, experiment.id);
+  const updated = { ...experiment, ...changes };
 
-  if (updated) {
-    await experimentUpdated(updated);
-  }
+  await experimentUpdated(updated);
 
   return updated;
 }
