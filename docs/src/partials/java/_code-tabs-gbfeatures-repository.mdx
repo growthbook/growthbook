@@ -22,8 +22,12 @@ featuresRepository.onFeaturesRefresh(new FeatureRefreshCallback() {
     }
 });
 
-// Fetch the features
-featuresRepository.initialize();
+try {
+    featuresRepository.initialize();
+} catch (FeatureFetchException e) {
+    // TODO: handle the exception
+    e.printStackTrace();
+}
 
 // Initialize the GrowthBook SDK with the GBContext and features
 GBContext context = GBContext
@@ -43,18 +47,23 @@ GrowthBook growthBook = new GrowthBook(context);
 
 ```kotlin
 val featuresRepository = GBFeaturesRepository(
-    endpoint = "https://cdn.growthbook.io/api/features/<environment_key>",
-    encryptionKey = "<client-key-for-decrypting>", // optional, nullable
-    ttlSeconds = 30,
+    "https://cdn.growthbook.io/api/features/<environment_key>",
+    "<client-key-for-decrypting>", // optional, nullable
+    30,
 ).apply {
-    // Optional callback for getting updates when features are freshed
+    // Optional callback for getting updates when features are refreshed
     onFeaturesRefresh {
         println("Features have been refreshed \n $it")
     }
 }
 
 // Fetch the features
-featuresRepository.initialize()
+try {
+    featuresRepository.initialize()
+} catch (e: FeatureFetchException) {
+    // TODO: handle the exception
+    e.printStackTrace()
+}
 
 // Initialize the GrowthBook SDK with the GBContext and features
 val context = GBContext
