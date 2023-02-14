@@ -1034,13 +1034,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     if (!req.userId) {
       throw Error("Must be logged in");
     }
-    const org = await createOrganization(
-      req.email,
-      req.userId,
-      company,
-      "",
-      verifiedDomain
-    );
+    const org = await createOrganization({
+      email: req.email,
+      userId: req.userId,
+      name: company,
+      verifiedDomain,
+    });
 
     // Alert the site manager about new organizations that are created
     try {

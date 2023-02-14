@@ -50,6 +50,8 @@ export default function CreateOrganization(): ReactElement {
       if (org.currentUserIsPending) {
         setCurrentUserIsPending(true);
       }
+    } else {
+      setMode("create");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [org]);
