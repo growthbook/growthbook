@@ -124,7 +124,7 @@ export default function CreateOrganization(): ReactElement {
                   <div className={`${style.recommendedOrgBox} mt-5 mb-3`}>
                     <div className={style.recommendedOrgLogo}>
                       <div className={style.recommendedOrgLogoText}>
-                        {org.name?.slice(0, 1)?.toUpperCase()}
+                        {org.name.slice(0, 1)?.toUpperCase()}
                       </div>
                     </div>
                     <div className={style.recommendedOrgInfo}>
