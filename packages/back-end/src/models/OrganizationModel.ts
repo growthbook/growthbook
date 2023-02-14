@@ -109,13 +109,15 @@ export async function createOrganization(
   email: string,
   userId: string,
   name: string,
-  url: string
+  url: string,
+  verifiedDomain: string = ""
 ) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
     name,
     url,
+    verifiedDomain,
     invites: [],
     members: [
       {

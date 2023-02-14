@@ -126,11 +126,13 @@ export default function CreateOrganization(): ReactElement {
                       </div>
                     </div>
                     <div className={style.recommendedOrgInfo}>
-                      <div className={style.recommendedOrgName}>{org.name}</div>
+                      <div className={style.recommendedOrgName}>
+                        {org?.name}
+                      </div>
                       <div className={style.recommendedOrgMembers}>
-                        {org.members === 1
-                          ? `${org.members} member`
-                          : `${org.members} members`}
+                        {org?.members === 1
+                          ? `${org?.members} member`
+                          : `${org?.members} members`}
                       </div>
                     </div>
                     <Field type="hidden" {...joinOrgForm.register("orgId")} />
@@ -145,8 +147,13 @@ export default function CreateOrganization(): ReactElement {
                 </form>
                 {currentUserIsPending && (
                   <div className="alert alert-success">
-                    <div className="mb-2"><FaCheck /> Your membership is pending.</div>
-                    <div>Please contact your organization&apos;s admin to approve your membership.</div>
+                    <div className="mb-2">
+                      <FaCheck /> Your membership is pending.
+                    </div>
+                    <div>
+                      Please contact your organization&apos;s admin to approve
+                      your membership.
+                    </div>
                   </div>
                 )}
                 <div
