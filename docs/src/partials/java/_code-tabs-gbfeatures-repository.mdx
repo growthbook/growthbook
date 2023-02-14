@@ -13,7 +13,7 @@ GBFeaturesRepository featuresRepository = GBFeaturesRepository
     .encryptionKey("<client-key-for-decrypting>") // optional, nullable
     .build();
 
-// Optional callback for getting updates when features are freshed
+// Optional callback for getting updates when features are refreshed
 featuresRepository.onFeaturesRefresh(new FeatureRefreshCallback() {
     @Override
     public void onRefresh(String featuresJson) {
