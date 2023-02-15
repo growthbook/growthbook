@@ -90,7 +90,6 @@ import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
 import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
