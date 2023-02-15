@@ -61,6 +61,13 @@ export interface Invite extends MemberRoleWithProjects {
   dateCreated: Date;
 }
 
+export interface PendingMember extends MemberRoleWithProjects {
+  id: string;
+  name: string;
+  email: string;
+  dateCreated: Date;
+}
+
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
@@ -69,6 +76,7 @@ export interface Member extends MemberRoleWithProjects {
 export interface ExpandedMember extends Member {
   email: string;
   name: string;
+  verified: boolean;
 }
 
 export interface NorthStarMetric {
@@ -181,6 +189,7 @@ export interface OrganizationInterface {
   id: string;
   url: string;
   dateCreated: Date;
+  verifiedDomain?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -204,8 +213,10 @@ export interface OrganizationInterface {
     priceId?: string;
   };
   licenseKey?: string;
+  autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
+  pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }

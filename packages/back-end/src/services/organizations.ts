@@ -1,9 +1,11 @@
 import { randomBytes } from "crypto";
+import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
+  findOrganizationsByDomain,
   updateOrganization,
 } from "../models/OrganizationModel";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
@@ -16,6 +18,7 @@ import {
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
+  PendingMember,
   ProjectMemberRole,
 } from "../../types/organization";
 import { ExperimentOverride } from "../../types/api";
@@ -188,6 +191,9 @@ export async function removeMember(
   id: string
 ) {
   const members = organization.members.filter((member) => member.id !== id);
+  const pendingMembers = (organization?.pendingMembers || []).filter(
+    (member) => member.id !== id
+  );
 
   if (!members.length) {
     throw new Error("Organizations must have at least 1 member");
@@ -195,6 +201,7 @@ export async function removeMember(
 
   await updateOrganization(organization.id, {
     members,
+    pendingMembers,
   });
 
   return organization;
@@ -236,6 +243,9 @@ export async function addMemberToOrg({
   if (organization.members.find((m) => m.id === userId)) {
     return;
   }
+  // If member is also a pending member, remove
+  let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
+  pendingMembers = pendingMembers.filter((m) => m.id !== userId);
 
   const members: Member[] = [
     ...organization.members,
@@ -249,7 +259,55 @@ export async function addMemberToOrg({
     },
   ];
 
-  await updateOrganization(organization.id, { members });
+  await updateOrganization(organization.id, {
+    members,
+    pendingMembers,
+  });
+}
+
+export async function addPendingMemberToOrg({
+  organization,
+  name,
+  userId,
+  email,
+  role,
+  environments,
+  limitAccessByEnvironment,
+  projectRoles,
+}: {
+  organization: OrganizationInterface;
+  name: string;
+  userId: string;
+  email: string;
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+  projectRoles?: ProjectMemberRole[];
+}) {
+  // If member is already in the org, skip
+  if (organization.members.find((m) => m.id === userId)) {
+    return;
+  }
+  // If member is also a pending member, skip
+  if (organization?.pendingMembers?.find((m) => m.id === userId)) {
+    return;
+  }
+
+  const pendingMembers: PendingMember[] = [
+    ...(organization.pendingMembers || []),
+    {
+      id: userId,
+      name,
+      email,
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+      dateCreated: new Date(),
+    },
+  ];
+
+  await updateOrganization(organization.id, { pendingMembers });
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -272,6 +330,10 @@ export async function acceptInvite(key: string, userId: string) {
 
   // Remove invite
   const invites = organization.invites.filter((invite) => invite.key !== key);
+  // Remove from pending members
+  const pendingMembers = (organization?.pendingMembers || []).filter(
+    (m) => m.id !== userId
+  );
 
   // Add to member list
   const members: Member[] = [
@@ -288,6 +350,7 @@ export async function acceptInvite(key: string, userId: string) {
   await updateOrganization(organization.id, {
     invites,
     members,
+    pendingMembers,
   });
 
   return organization;
@@ -730,4 +793,22 @@ export async function addMemberFromSSOConnection(
   }
 
   return organization;
+}
+
+export async function findVerifiedOrgForNewUser(email: string) {
+  const domain = email.toLowerCase().split("@")[1];
+  const isFreeDomain = freeEmailDomains.includes(domain);
+  if (isFreeDomain) {
+    return null;
+  }
+
+  const organizations = await findOrganizationsByDomain(domain);
+  if (!organizations.length) {
+    return null;
+  }
+
+  // get the org with the most members
+  return organizations.reduce((prev, current) => {
+    return prev.members.length > current.members.length ? prev : current;
+  });
 }

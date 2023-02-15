@@ -13,6 +13,7 @@ import { removeProjectFromDatasources } from "../../models/DataSourceModel";
 import { removeProjectFromMetrics } from "../../models/MetricModel";
 import { removeProjectFromFeatures } from "../../models/FeatureModel";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
+import { removeProjectFromExperiments } from "../../models/ExperimentModel";
 import { removeProjectFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import { removeProjectFromExperiments } from "../../models/ExperimentModel";
 
