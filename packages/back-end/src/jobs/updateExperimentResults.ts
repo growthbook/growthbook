@@ -98,6 +98,7 @@ export default async function (agenda: Agenda) {
 
     job.unique({
       experimentId,
+      organization,
     });
     job.schedule(new Date());
     await job.save();
