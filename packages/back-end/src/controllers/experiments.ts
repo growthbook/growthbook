@@ -1,6 +1,7 @@
 import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
+import cloneDeep from "lodash/cloneDeep";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   getLatestSnapshot,
@@ -1632,7 +1633,7 @@ export async function addScreenshot(
   experiment.variations[variation].screenshots =
     experiment.variations[variation].screenshots || [];
 
-  changes.variations = experiment.variations;
+  changes.variations = cloneDeep(experiment.variations);
 
   changes.variations[variation].screenshots.push({
     path: url,
