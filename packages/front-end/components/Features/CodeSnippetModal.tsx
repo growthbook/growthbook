@@ -87,7 +87,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
-  const [attributesOpen, setAttributesOpen] = useState(false);
+  const [attributesOpen, setAttributesOpen] = useState(true);
 
   const { apiCall } = useAuth();
 

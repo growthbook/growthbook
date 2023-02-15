@@ -653,6 +653,9 @@ pre {
 
 .nav-link {
   padding: 0.3rem 0.8rem;
+  @media (max-width: 520px) {
+    padding: 0.3rem 0.4rem;
+  }
 }
 .nav-underlined .nav-link.active,
 .nav-underlined .show > .nav-link {
@@ -665,6 +668,12 @@ pre {
   min-height: 100vh;
   font-size: 1rem;
   font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+
+  .welcomemodal {
+    @media (max-width: 575px) {
+      padding-top: 50px !important;
+    }
+  }
 
   .h1 {
     font-size: 1.9rem;

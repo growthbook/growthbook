@@ -46,6 +46,7 @@
     "express-async-handler": "^1.1.4",
     "express-jwt": "^6.0.0",
     "express-rate-limit": "^6.6.0",
+    "free-email-domains-typescript": "^1.0.9",
     "googleapis": "^59.0.0",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^8.5.1",

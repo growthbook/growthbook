@@ -1,7 +1,7 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { MetricInterface } from "../../types/metric";
-import { ExperimentMetricAnalysis } from "../../types/stats";
+import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
   ExperimentMetricQueryResponse,
   ExperimentResults,
@@ -15,7 +15,6 @@ import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
-import { OrganizationSettings } from "../../types/organization";
 import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
@@ -25,7 +24,7 @@ export async function analyzeExperimentMetric(
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number,
-  statsEngine: OrganizationSettings["statsEngine"] = "bayesian"
+  statsEngine: StatsEngine = "bayesian"
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -126,7 +125,7 @@ export async function analyzeExperimentResults(
   variations: ExperimentReportVariation[],
   dimension: string | undefined,
   queryData: QueryMap,
-  statsEngine: OrganizationSettings["statsEngine"] = "bayesian"
+  statsEngine: StatsEngine = "bayesian"
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
