@@ -2,13 +2,15 @@ import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createMetric,
-  removeMetricFromExperiments,
   getMetricAnalysis,
   refreshMetric,
-  getExperimentsByMetric,
 } from "../services/experiments";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getRecentExperimentsUsingMetric,
+  getExperimentsByMetric,
+  removeMetricFromExperiments,
+} from "../models/ExperimentModel";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
 import { getStatusEndpoint, cancelRun } from "../services/queries";
@@ -253,35 +255,7 @@ export async function getMetric(
     });
   }
 
-  const experiments = await ExperimentModel.find(
-    {
-      organization: org.id,
-      $or: [
-        {
-          metrics: metric.id,
-        },
-        {
-          guardrails: metric.id,
-        },
-      ],
-      archived: {
-        $ne: true,
-      },
-    },
-    {
-      _id: false,
-      id: true,
-      name: true,
-      status: true,
-      phases: true,
-      results: true,
-      analysis: true,
-    }
-  )
-    .sort({
-      _id: -1,
-    })
-    .limit(10);
+  const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
 
   res.status(200).json({
     status: 200,

@@ -14,7 +14,8 @@ import { getLicense } from "../../init/license";
 import { UserModel } from "../../models/UserModel";
 import { WatchModel } from "../../models/WatchModel";
 import { getFeature } from "../../models/FeatureModel";
-import { ensureWatching, getExperimentById } from "../../services/experiments";
+import { ensureWatching } from "../../services/experiments";
+import { getExperimentById } from "../../models/ExperimentModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -134,7 +135,7 @@ export async function postWatchItem(
   if (type === "feature") {
     item = await getFeature(org.id, id);
   } else if (type === "experiment") {
-    item = await getExperimentById(id);
+    item = await getExperimentById(org.id, id);
     if (item && item.organization !== org.id) {
       res.status(403).json({
         status: 403,

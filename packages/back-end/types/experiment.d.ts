@@ -115,3 +115,5 @@ export type ExperimentInterfaceStringDates = Omit<
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
 };
+
+export type Changeset = Partial<ExperimentInterface>;
