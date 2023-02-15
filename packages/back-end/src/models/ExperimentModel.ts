@@ -257,14 +257,17 @@ export async function createExperiment(
   );
 
   const exp = await ExperimentModel.create({
-    ...data,
     id: uniqid("exp_"),
+    // If this is a sample experiment, we'll override the id with data.id
+    ...data,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
   });
+
+  await logExperimentCreated(organization, exp);
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
