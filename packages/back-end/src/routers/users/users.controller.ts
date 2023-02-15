@@ -1,10 +1,11 @@
 import { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
-import { createUser } from "../../services/users";
+import { createUser, getUserByEmail } from "../../services/users";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
+  findVerifiedOrgForNewUser,
   getOrgFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
@@ -187,4 +188,31 @@ export async function postUnwatchItem(
       message: e.message,
     });
   }
+}
+
+export async function getRecommendedOrg(req: AuthRequest, res: Response) {
+  const { email } = req;
+  const user = await getUserByEmail(email);
+  if (!user?.verified) {
+    return res.status(200).json({
+      message: "no verified user found",
+    });
+  }
+  const org = await findVerifiedOrgForNewUser(email);
+  if (org) {
+    const currentUserIsPending = !!org?.pendingMembers?.find(
+      (m) => m.id === user.id
+    );
+    return res.status(200).json({
+      organization: {
+        id: org.id,
+        name: org.name,
+        members: org?.members?.length || 0,
+        currentUserIsPending,
+      },
+    });
+  }
+  res.status(200).json({
+    message: "no org found",
+  });
 }

@@ -669,6 +669,12 @@ pre {
   font-size: 1rem;
   font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
 
+  .welcomemodal {
+    @media (max-width: 575px) {
+      padding-top: 50px !important;
+    }
+  }
+
   .h1 {
     font-size: 1.9rem;
   }
