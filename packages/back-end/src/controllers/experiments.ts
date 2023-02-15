@@ -1563,13 +1563,12 @@ export async function deleteScreenshot(
     return;
   }
 
-  const existing = [...experiment.variations[variation].screenshots];
+  changes.variations = cloneDeep(experiment.variations);
 
   // TODO: delete from s3 as well?
-  experiment.variations[variation].screenshots = experiment.variations[
+  changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  changes.variations = experiment.variations;
   const updated = await updateExperimentById(org.id, experiment, changes);
 
   await req.audit({
@@ -1579,7 +1578,7 @@ export async function deleteScreenshot(
       id: experiment.id,
     },
     details: auditDetailsUpdate(
-      existing,
+      experiment.variations[variation].screenshots,
       updated?.variations[variation].screenshots,
       { variation }
     ),
