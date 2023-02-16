@@ -74,7 +74,14 @@ const ExperimentRuleDefaultValuesField: FC<{
         coverage={coverageValue}
         setCoverage={setCoverageValue}
         setWeight={setWeight}
-        variations={variations || []}
+        variations={variations.map(
+          (variation: ExperimentValue & { id?: string }) => {
+            return {
+              ...variation,
+              id: variation.id,
+            };
+          }
+        )}
         setVariations={setVariations}
         defaultValue={variationsDefaultValue}
         valueType={valueType}

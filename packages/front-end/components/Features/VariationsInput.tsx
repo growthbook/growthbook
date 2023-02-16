@@ -1,4 +1,4 @@
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import { FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
 import {
   DndContext,
@@ -34,7 +34,7 @@ export interface Props {
   defaultValue?: string;
   variations: DraggableVariation[];
   setWeight: (i: number, weight: number) => void;
-  setVariations?: (variations: ExperimentValue[]) => void;
+  setVariations?: (variations: DraggableVariation[]) => void;
   coverage: number;
   setCoverage: (coverage: number) => void;
   coverageTooltip?: string;
