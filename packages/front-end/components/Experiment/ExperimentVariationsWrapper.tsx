@@ -48,7 +48,7 @@ export default function ExperimentVariationsWrapper({
 
   return (
     <div className={className}>
-      <label>Variations Bro</label>
+      <label>Variations</label>
       <div className="row">
         <DndContext
           sensors={sensors}
@@ -67,13 +67,13 @@ export default function ExperimentVariationsWrapper({
           }}
         >
           <SortableContext items={variations} strategy={rectSortingStrategy}>
-            {variations.map((draggableVariation, i) => (
+            {variations.map((variation, i) => (
               <SortableExperimentVariationCard
                 i={i}
-                variation={draggableVariation}
+                variation={variation}
                 variations={variations}
                 setVariations={setVariations}
-                key={draggableVariation.id}
+                key={variation.id}
               />
             ))}
           </SortableContext>

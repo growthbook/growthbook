@@ -22,14 +22,13 @@ const EditVariationsForm: FC<{
     defaultValues: {
       variations: experiment.variations
         ? experiment.variations.map((v) => {
-            const id = generateVariationId();
             return {
               name: "",
               description: "",
               value: "",
               key: "",
               ...v,
-              id: id,
+              id: generateVariationId(),
             };
           })
         : [
@@ -63,8 +62,6 @@ const EditVariationsForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
-
-        //MKTODO: Remove the temp id's?
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",

@@ -4,7 +4,6 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ImplementationType,
-  Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { useWatching } from "@/services/WatchProvider";
@@ -121,8 +120,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       guardrails: initialValue?.guardrails || [],
-      variations:
-        initialValue?.variations || getDefaultVariations(initialNumVariations),
+      variations: initialValue?.variations
+        ? initialValue.variations.map((variation) => {
+            return {
+              ...variation,
+              id: generateVariationId(),
+            };
+          })
+        : getDefaultVariations(initialNumVariations),
       phases: [
         initialValue
           ? {
@@ -172,9 +177,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       setStep(0);
       throw new Error("Experiment Name must not be empty");
     }
-
-    // Remove temp id's that were added for drag and drop
-    value.variations.forEach((variation) => delete variation.id);
 
     // TODO: more validation?
 
@@ -391,31 +393,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 v.map((v) => v.weight)
               );
             }}
-            variations={form
-              .watch("variations")
-              .map((v: Variation & { id?: string }, i) => {
-                return {
-                  value: v.key || "",
-                  name: v.name,
-                  weight: form.watch(`phases.0.variationWeights.${i}`), //This isn't working correctly right now
-                  id: v.id || generateVariationId(),
-                };
-              })}
+            variations={form.watch("variations").map((v, i) => {
+              return {
+                value: v.key || "",
+                name: v.name,
+                weight: form.watch(`phases.0.variationWeights.${i}`),
+                id: v.id,
+              };
+            })}
             coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
             showPreview={false}
           />
         ) : (
           <ExperimentVariationsWrapper
-            variations={form
-              .watch("variations")
-              .map((v: Variation & { id?: string }) => {
-                return {
-                  value: v.key || "",
-                  name: v.name,
-                  id: v.id || generateVariationId(),
-                  screenshots: [],
-                };
-              })}
+            variations={form.watch("variations").map((v) => {
+              return {
+                value: v.key || "",
+                name: v.name,
+                id: v.id,
+                screenshots: [],
+              };
+            })}
             setVariations={(variations) =>
               form.setValue("variations", variations)
             }
