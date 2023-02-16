@@ -733,7 +733,7 @@ export function getExperimentDefinitionFromFeature(
         name,
         screenshots: [],
         description: v.value,
-        id: v.id, //MKTODO: This might need to be v.id || generateVariationId()
+        id: v.id,
       };
     }),
     phases: [

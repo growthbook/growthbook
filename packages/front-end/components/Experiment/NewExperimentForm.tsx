@@ -384,7 +384,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     ...current,
                     name: data.name || current?.name || "",
                     key: data.value || current?.key || "",
-                    id: data.id || "",
+                    id: data.id,
                   };
                 })
               );

@@ -410,7 +410,7 @@ const ImportExperimentList: FC<{
                                   screenshots: [],
                                   description: "",
                                   key: vKey,
-                                  id: generateVariationId(), //MKTODO: Double check this is accurate
+                                  id: generateVariationId(),
                                 };
                               }),
                               phases: [
