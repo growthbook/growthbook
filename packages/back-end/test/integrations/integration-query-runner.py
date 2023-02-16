@@ -223,8 +223,8 @@ def get_sql_runner(engine) -> sqlRunner:
             return snowflakeRunner()
         elif engine == "presto":
             return prestoRunner()
-        elif engine == "databricks":
-            return databricksRunner()
+        #elif engine == "databricks":
+        #    return databricksRunner()
         else:
             return dummyRunner("no runner configured")
     except Exception as e:

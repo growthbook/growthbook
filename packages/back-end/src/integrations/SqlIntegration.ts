@@ -448,11 +448,13 @@ export default abstract class SqlIntegration
         main_metric_type: row.main_metric_type ?? "",
         main_sum: parseFloat(row.main_sum) || 0,
         main_sum_squares: parseFloat(row.main_sum_squares) || 0,
-        denominator_metric_type: row.denominator_metric_type ?? "",
-        denominator_sum: parseFloat(row.denominator_sum) || 0,
-        denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
-        main_denominator_sum_product:
-          parseFloat(row.main_denominator_sum_product) || 0,
+        ...(row.denominator_metric_type && {
+          denominator_metric_type: row.denominator_metric_type ?? "",
+          denominator_sum: parseFloat(row.denominator_sum) || 0,
+          denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
+          main_denominator_sum_product:
+            parseFloat(row.main_denominator_sum_product) || 0,
+        }),
       };
     });
   }
