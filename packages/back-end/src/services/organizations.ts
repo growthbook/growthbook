@@ -762,12 +762,11 @@ export async function addMemberFromSSOConnection(
     }
     // If this is a brand-new installation, create an organization first
     else if (!orgs.length) {
-      organization = await createOrganization(
-        req.email,
-        req.userId,
-        "My Organization",
-        ""
-      );
+      organization = await createOrganization({
+        email: req.email,
+        userId: req.userId,
+        name: "My Organization",
+      });
       markInstalled();
       return organization;
     }

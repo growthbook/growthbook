@@ -105,17 +105,25 @@ function toInterface(doc: OrganizationDocument): OrganizationInterface {
   return upgradeOrganizationDoc(doc.toJSON());
 }
 
-export async function createOrganization(
-  email: string,
-  userId: string,
-  name: string,
-  url: string
-) {
+export async function createOrganization({
+  email,
+  userId,
+  name,
+  url = "",
+  verifiedDomain = "",
+}: {
+  email: string;
+  userId: string;
+  name: string;
+  url?: string;
+  verifiedDomain?: string;
+}) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
     name,
     url,
+    verifiedDomain,
     invites: [],
     members: [
       {
