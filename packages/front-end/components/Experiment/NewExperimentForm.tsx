@@ -21,8 +21,8 @@ import Page from "../Modal/Page";
 import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import { DraggableVariation } from "../Features/SortableFeatureVariationCard";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
+import { SortableVariation } from "../Features/SortableFeatureVariationRow";
 import MetricsSelector from "./MetricsSelector";
 import { SortableExperimentInterfaceStringDates } from "./EditVariationsForm";
 import ExperimentVariationsWrapper, {
@@ -370,7 +370,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               form.setValue(`phases.0.variationWeights.${i}`, weight)
             }
             valueAsId={true}
-            setVariations={(v: DraggableVariation[]) => {
+            setVariations={(v: SortableVariation[]) => {
               const existing = form.watch("variations");
               form.setValue(
                 "variations",

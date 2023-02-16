@@ -19,13 +19,13 @@ import Field from "../Forms/Field";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
-export type DraggableVariation = ExperimentValue & {
+export type SortableVariation = ExperimentValue & {
   id: string;
 };
 interface SortableProps {
   i: number;
-  variation: DraggableVariation;
-  variations: DraggableVariation[];
+  variation: SortableVariation;
+  variations: SortableVariation[];
   key: string;
   valueType: FeatureValueType;
   setVariations: (value: ExperimentValue[]) => void;
@@ -217,7 +217,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 
 VariationRow.displayName = "VariationRow";
 
-export function SortableFeatureVariationCard(props: SortableProps) {
+export function SortableFeatureVariationRow(props: SortableProps) {
   const {
     attributes,
     listeners,

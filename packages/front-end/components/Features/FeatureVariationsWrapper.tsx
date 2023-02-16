@@ -29,15 +29,15 @@ import Tooltip from "../Tooltip/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
-  DraggableVariation,
-  SortableFeatureVariationCard,
-} from "./SortableFeatureVariationCard";
+  SortableFeatureVariationRow,
+  SortableVariation,
+} from "./SortableFeatureVariationRow";
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
-  variations: DraggableVariation[];
+  variations: SortableVariation[];
   setWeight: (i: number, weight: number) => void;
-  setVariations?: (variations: DraggableVariation[]) => void;
+  setVariations?: (variations: SortableVariation[]) => void;
   coverage: number;
   setCoverage: (coverage: number) => void;
   coverageTooltip?: string;
@@ -193,15 +193,15 @@ export default function FeatureVariationsWrapper({
                 items={variations}
                 strategy={verticalListSortingStrategy}
               >
-                {variations.map((draggableVariation, i) => (
-                  <SortableFeatureVariationCard
+                {variations.map((variation, i) => (
+                  <SortableFeatureVariationRow
                     i={i}
-                    variation={draggableVariation}
+                    variation={variation}
                     variations={variations}
                     setVariations={setVariations}
                     setWeight={setWeight}
                     customSplit={customSplit}
-                    key={draggableVariation.id}
+                    key={variation.id}
                     valueType={valueType}
                     valueAsId={valueAsId}
                   />
