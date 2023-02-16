@@ -14,8 +14,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
-import VariationsInput from "../Features/VariationsInput";
-import { DraggableExperimentVariation } from "./VariationDataInput";
+import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
+import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -137,7 +137,7 @@ const NewPhaseForm: FC<{
           </div>
         </div>
       )}
-      <VariationsInput
+      <FeatureVariationsWrapper
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -146,7 +146,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v: DraggableExperimentVariation, i) => {
+          experiment.variations.map((v: SortableExperimentVariation, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

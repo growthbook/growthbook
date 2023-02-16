@@ -15,19 +15,19 @@ import {
 } from "@dnd-kit/sortable";
 import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "../Icons";
-import { DraggableVariationData } from "./DraggableVariationData";
+import { SortableExperimentVariationCard } from "./SortableVariationData";
 
-export type DraggableExperimentVariation = Variation & {
+export type SortableExperimentVariation = Variation & {
   id: string;
 };
 
 export interface Props {
-  variations: DraggableExperimentVariation[];
-  setVariations?: (variations: DraggableExperimentVariation[]) => void;
+  variations: SortableExperimentVariation[];
+  setVariations?: (variations: SortableExperimentVariation[]) => void;
   className?: string;
 }
 
-export default function VariationDataInput({
+export default function ExperimentVariationsWrapper({
   variations,
   setVariations,
   className = "",
@@ -48,7 +48,7 @@ export default function VariationDataInput({
 
   return (
     <div className={className}>
-      <label>Variations</label>
+      <label>Variations Bro</label>
       <div className="row">
         <DndContext
           sensors={sensors}
@@ -68,7 +68,7 @@ export default function VariationDataInput({
         >
           <SortableContext items={variations} strategy={rectSortingStrategy}>
             {variations.map((draggableVariation, i) => (
-              <DraggableVariationData
+              <SortableExperimentVariationCard
                 i={i}
                 variation={draggableVariation}
                 variations={variations}

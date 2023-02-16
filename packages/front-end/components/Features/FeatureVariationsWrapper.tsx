@@ -26,9 +26,12 @@ import {
 } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import Tooltip from "../Tooltip/Tooltip";
-import { DraggableVariation, SortableVariationRow } from "./Variation";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
+import {
+  DraggableVariation,
+  SortableFeatureVariationCard,
+} from "./SortableFeatureVariationCard";
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
@@ -42,7 +45,7 @@ export interface Props {
   showPreview?: boolean;
 }
 
-export default function VariationsInput({
+export default function FeatureVariationsWrapper({
   variations,
   setVariations,
   setWeight,
@@ -191,7 +194,7 @@ export default function VariationsInput({
                 strategy={verticalListSortingStrategy}
               >
                 {variations.map((draggableVariation, i) => (
-                  <SortableVariationRow
+                  <SortableFeatureVariationCard
                     i={i}
                     variation={draggableVariation}
                     variations={variations}

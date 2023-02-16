@@ -4,13 +4,13 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
-import VariationDataInput, {
-  DraggableExperimentVariation,
-} from "./VariationDataInput";
+import ExperimentVariationsWrapper, {
+  SortableExperimentVariation,
+} from "./ExperimentVariationsWrapper";
 
-export interface DraggableExperimentInterfaceStringDates
+export interface SortableExperimentInterfaceStringDates
   extends ExperimentInterfaceStringDates {
-  variations: DraggableExperimentVariation[];
+  variations: SortableExperimentVariation[];
 }
 
 const EditVariationsForm: FC<{
@@ -18,7 +18,7 @@ const EditVariationsForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const form = useForm<Partial<DraggableExperimentInterfaceStringDates>>({
+  const form = useForm<Partial<SortableExperimentInterfaceStringDates>>({
     defaultValues: {
       variations: experiment.variations
         ? experiment.variations.map((v) => {
@@ -74,7 +74,7 @@ const EditVariationsForm: FC<{
       })}
       cta="Save"
     >
-      <VariationDataInput
+      <ExperimentVariationsWrapper
         variations={form.watch("variations")}
         setVariations={(variations) => form.setValue("variations", variations)}
       />

@@ -24,9 +24,9 @@ import UpgradeModal from "../Settings/UpgradeModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
-import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
+import FeatureVariationsWrapper from "./FeatureVariationsWrapper";
 
 export interface Props {
   close: () => void;
@@ -268,7 +268,7 @@ export default function RuleModal({
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
           />
-          <VariationsInput
+          <FeatureVariationsWrapper
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
             coverage={form.watch("coverage")}

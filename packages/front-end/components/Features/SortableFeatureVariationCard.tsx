@@ -217,7 +217,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 
 VariationRow.displayName = "VariationRow";
 
-export function SortableVariationRow(props: SortableProps) {
+export function SortableFeatureVariationCard(props: SortableProps) {
   const {
     attributes,
     listeners,

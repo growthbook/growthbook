@@ -4,12 +4,12 @@ import { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import { MdDeleteForever } from "react-icons/md";
 import Field from "../Forms/Field";
-import { DraggableExperimentVariation } from "./VariationDataInput";
+import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
 
 interface SortableProps {
-  variation: DraggableExperimentVariation;
-  variations: DraggableExperimentVariation[];
-  setVariations: (variations: DraggableExperimentVariation[]) => void;
+  variation: SortableExperimentVariation;
+  variations: SortableExperimentVariation[];
+  setVariations: (variations: SortableExperimentVariation[]) => void;
   i: number;
 }
 
@@ -100,7 +100,7 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
 
 Card.displayName = "Card";
 
-export function DraggableVariationData(props) {
+export function SortableExperimentVariationCard(props) {
   const {
     attributes,
     listeners,

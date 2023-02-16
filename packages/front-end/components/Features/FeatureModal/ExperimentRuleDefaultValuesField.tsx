@@ -4,10 +4,10 @@ import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
-import VariationsInput from "../VariationsInput";
 import ConditionInput from "../ConditionInput";
 import NamespaceSelector from "../NamespaceSelector";
 import FeatureValueField from "../FeatureValueField";
+import FeatureVariationsWrapper from "../FeatureVariationsWrapper";
 
 const ExperimentRuleDefaultValuesField: FC<{
   // TODO Don't pass the entire form in here bruther
@@ -70,7 +70,7 @@ const ExperimentRuleDefaultValuesField: FC<{
         defaultValue={conditionValue}
         onChange={setConditionValue}
       />
-      <VariationsInput
+      <FeatureVariationsWrapper
         coverage={coverageValue}
         setCoverage={setCoverageValue}
         setWeight={setWeight}

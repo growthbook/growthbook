@@ -22,13 +22,13 @@ import Page from "../Modal/Page";
 import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import VariationsInput from "../Features/VariationsInput";
-import { DraggableVariation } from "../Features/Variation";
+import { DraggableVariation } from "../Features/SortableFeatureVariationCard";
+import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
 import MetricsSelector from "./MetricsSelector";
-import VariationDataInput, {
-  DraggableExperimentVariation,
-} from "./VariationDataInput";
-import { DraggableExperimentInterfaceStringDates } from "./EditVariationsForm";
+import { SortableExperimentInterfaceStringDates } from "./EditVariationsForm";
+import ExperimentVariationsWrapper, {
+  SortableExperimentVariation,
+} from "./ExperimentVariationsWrapper";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -52,7 +52,7 @@ function getDefaultVariations(num: number) {
   // Must have at least 2 variations
   num = Math.max(2, num);
 
-  const variations: DraggableExperimentVariation[] = [];
+  const variations: SortableExperimentVariation[] = [];
   for (let i = 0; i < num; i++) {
     variations.push({
       name: i ? `Variation ${i}` : "Control",
@@ -99,7 +99,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const form = useForm<Partial<DraggableExperimentInterfaceStringDates>>({
+  const form = useForm<Partial<SortableExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
@@ -358,7 +358,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       </Page>
       <Page display="Variations">
         {status !== "draft" ? (
-          <VariationsInput
+          <FeatureVariationsWrapper
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}
             setCoverage={(coverage) =>
@@ -391,33 +391,31 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 v.map((v) => v.weight)
               );
             }}
-            variations={
-              form
-                .watch("variations")
-                .map((v: Variation & { id?: string }, i) => {
-                  return {
-                    value: v.key || "",
-                    name: v.name,
-                    weight: form.watch(`phases.0.variationWeights.${i}`),
-                    id: v.id || generateVariationId(),
-                  };
-                }) || []
-            }
+            variations={form
+              .watch("variations")
+              .map((v: Variation & { id?: string }, i) => {
+                return {
+                  value: v.key || "",
+                  name: v.name,
+                  weight: form.watch(`phases.0.variationWeights.${i}`), //This isn't working correctly right now
+                  id: v.id || generateVariationId(),
+                };
+              })}
             coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
             showPreview={false}
           />
         ) : (
-          <VariationDataInput
-            variations={
-              form.watch("variations").map((v: Variation & { id?: string }) => {
+          <ExperimentVariationsWrapper
+            variations={form
+              .watch("variations")
+              .map((v: Variation & { id?: string }) => {
                 return {
                   value: v.key || "",
                   name: v.name,
                   id: v.id || generateVariationId(),
                   screenshots: [],
                 };
-              }) || []
-            }
+              })}
             setVariations={(variations) =>
               form.setValue("variations", variations)
             }
