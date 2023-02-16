@@ -370,7 +370,7 @@ export async function putMember(
       });
 
       try {
-        const teamUrl = APP_ORIGIN + "/settings/team/?orgId=" + orgId;
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + orgId;
         await sendPendingMemberEmail(
           req.name || "",
           req.email || "",
@@ -445,7 +445,7 @@ export async function postMemberApproval(
   }
 
   try {
-    const url = APP_ORIGIN + "/?orgId=" + org.id;
+    const url = APP_ORIGIN + "/?org=" + org.id;
     await sendPendingMemberApprovalEmail(
       pendingMember.name || "",
       pendingMember.email || "",
