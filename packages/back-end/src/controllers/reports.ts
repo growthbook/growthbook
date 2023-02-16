@@ -1,6 +1,9 @@
 import { Response } from "express";
 import { ReportInterface } from "../../types/report";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "../models/ExperimentModel";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   createReport,
@@ -17,7 +20,6 @@ import { runReport, reportArgsFromSnapshot } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
 import { getValidDate } from "../util/dates";
-import { getExperimentsByIds } from "../services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -34,10 +36,7 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
 
-  const experiment = await ExperimentModel.findOne({
-    organization: org.id,
-    id: snapshot.experiment,
-  });
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -115,7 +114,7 @@ export async function getReports(
   }
 
   const experiments = experimentsIds.length
-    ? await getExperimentsByIds(experimentsIds)
+    ? await getExperimentsByIds(org.id, experimentsIds)
     : [];
 
   res.status(200).json({
