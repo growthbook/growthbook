@@ -399,7 +399,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     value: v.key || "",
                     name: v.name,
                     weight: form.watch(`phases.0.variationWeights.${i}`),
-                    id: v.id || "",
+                    id: v.id || generateVariationId(),
                   };
                 }) || []
             }
@@ -409,17 +409,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ) : (
           <VariationDataInput
             variations={
-              form
-                .watch("variations")
-                .map((v: Variation & { id?: string }, i) => {
-                  return {
-                    value: v.key || "",
-                    name: v.name,
-                    weight: form.watch(`phases.0.variationWeights.${i}`),
-                    id: v.id || "",
-                    screenshots: [],
-                  };
-                }) || []
+              form.watch("variations").map((v: Variation & { id?: string }) => {
+                return {
+                  value: v.key || "",
+                  name: v.name,
+                  id: v.id || generateVariationId(),
+                  screenshots: [],
+                };
+              }) || []
             }
             setVariations={(variations) =>
               form.setValue("variations", variations)
