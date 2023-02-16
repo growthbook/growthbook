@@ -22,11 +22,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import {
-  getUserById,
-  getUsersByIds,
-  updatePassword,
-} from "../../services/users";
+import { getUsersByIds, updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   ExpandedMember,
@@ -330,9 +326,7 @@ export async function putMember(
   if (!orgId) {
     throw new Error("Must provide orgId");
   }
-
-  const user = await getUserById(req.userId);
-  if (!user?.verified) {
+  if (!req.verified) {
     throw new Error("User is not verified");
   }
 
@@ -1007,14 +1001,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   let verifiedDomain = "";
   if (IS_CLOUD) {
     // if the owner is verified, try to infer a verified domain
-    if (req.userId) {
-      const user = await findUserById(req.userId);
-      if (user?.verified) {
-        const domain = user.email.toLowerCase().split("@")[1] || "";
-        const isFreeDomain = freeEmailDomains.includes(domain);
-        if (!isFreeDomain) {
-          verifiedDomain = domain;
-        }
+    if (req.email && req.verified) {
+      const domain = req.email.toLowerCase().split("@")[1] || "";
+      const isFreeDomain = freeEmailDomains.includes(domain);
+      if (!isFreeDomain) {
+        verifiedDomain = domain;
       }
     }
   }
