@@ -50,6 +50,8 @@ export default function CreateOrganization(): ReactElement {
       if (org.currentUserIsPending) {
         setCurrentUserIsPending(true);
       }
+    } else {
+      setMode("create");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [org]);
@@ -88,7 +90,7 @@ export default function CreateOrganization(): ReactElement {
         </a>
         {isCloud() || !data.hasOrganizations ? (
           <>
-            {mode === "join" ? (
+            {mode === "join" && org ? (
               <>
                 <form
                   onSubmit={joinOrgForm.handleSubmit(async (value) => {
@@ -122,7 +124,7 @@ export default function CreateOrganization(): ReactElement {
                   <div className={`${style.recommendedOrgBox} mt-5 mb-3`}>
                     <div className={style.recommendedOrgLogo}>
                       <div className={style.recommendedOrgLogoText}>
-                        {org?.name?.slice(0, 1)?.toUpperCase()}
+                        {org.name.slice(0, 1)?.toUpperCase()}
                       </div>
                     </div>
                     <div className={style.recommendedOrgInfo}>
@@ -145,8 +147,13 @@ export default function CreateOrganization(): ReactElement {
                 </form>
                 {currentUserIsPending && (
                   <div className="alert alert-success">
-                    <div className="mb-2"><FaCheck /> Your membership is pending.</div>
-                    <div>Please contact your organization&apos;s admin to approve your membership.</div>
+                    <div className="mb-2">
+                      <FaCheck /> Your membership is pending.
+                    </div>
+                    <div>
+                      Please contact your organization&apos;s admin to approve
+                      your membership.
+                    </div>
                   </div>
                 )}
                 <div

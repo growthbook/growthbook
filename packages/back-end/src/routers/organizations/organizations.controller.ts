@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -324,6 +325,9 @@ export async function putMember(
   const { orgId } = req.body;
   if (!orgId) {
     throw new Error("Must provide orgId");
+  }
+  if (!req.verified) {
+    throw new Error("User is not verified");
   }
 
   // ensure org matches calculated verified org
@@ -994,6 +998,18 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     }
   }
 
+  let verifiedDomain = "";
+  if (IS_CLOUD) {
+    // if the owner is verified, try to infer a verified domain
+    if (req.email && req.verified) {
+      const domain = req.email.toLowerCase().split("@")[1] || "";
+      const isFreeDomain = freeEmailDomains.includes(domain);
+      if (!isFreeDomain) {
+        verifiedDomain = domain;
+      }
+    }
+  }
+
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
@@ -1001,7 +1017,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     if (!req.userId) {
       throw Error("Must be logged in");
     }
-    const org = await createOrganization(req.email, req.userId, company, "");
+    const org = await createOrganization({
+      email: req.email,
+      userId: req.userId,
+      name: company,
+      verifiedDomain,
+    });
 
     // Alert the site manager about new organizations that are created
     try {
