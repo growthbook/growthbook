@@ -17,9 +17,13 @@ import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import { DraggableVariationData } from "./DraggableVariationData";
 
+export type DraggableExperimentVariation = Variation & {
+  id: string;
+};
+
 export interface Props {
-  variations: Variation[];
-  setVariations?: (variations: Variation[]) => void;
+  variations: DraggableExperimentVariation[];
+  setVariations?: (variations: DraggableExperimentVariation[]) => void;
   className?: string;
 }
 

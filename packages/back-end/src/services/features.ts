@@ -406,7 +406,3 @@ export function getNextScheduledUpdate(
 
   return new Date(sortedFutureDates[0]);
 }
-
-export function generateVariationId() {
-  return uniqid("variation-");
-}

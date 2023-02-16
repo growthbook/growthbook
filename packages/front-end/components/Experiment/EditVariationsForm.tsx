@@ -4,23 +4,32 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
-import VariationDataInput from "./VariationDataInput";
+import VariationDataInput, {
+  DraggableExperimentVariation,
+} from "./VariationDataInput";
+
+export interface DraggableExperimentInterfaceStringDates
+  extends ExperimentInterfaceStringDates {
+  variations: DraggableExperimentVariation[];
+}
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<Partial<DraggableExperimentInterfaceStringDates>>({
     defaultValues: {
       variations: experiment.variations
         ? experiment.variations.map((v) => {
+            const id = generateVariationId();
             return {
               name: "",
               description: "",
               value: "",
               key: "",
               ...v,
+              id: id,
             };
           })
         : [
@@ -54,6 +63,8 @@ const EditVariationsForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const data = { ...value };
         data.variations = [...data.variations];
+
+        //MKTODO: Remove the temp id's?
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",

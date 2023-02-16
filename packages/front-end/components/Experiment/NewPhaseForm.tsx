@@ -15,6 +15,7 @@ import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import VariationsInput from "../Features/VariationsInput";
+import { DraggableExperimentVariation } from "./VariationDataInput";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -145,7 +146,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          experiment.variations.map((v: DraggableExperimentVariation, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

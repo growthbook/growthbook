@@ -19,7 +19,6 @@ import {
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
 import { createExperiment } from "../models/ExperimentModel";
-import { generateVariationId } from "../services/features";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -265,7 +264,6 @@ export async function addSampleData(
       data.activationMetric = viewedSignup.id;
       data.variations = [
         {
-          id: generateVariationId(),
           name: "Control",
           screenshots: [
             {
@@ -275,7 +273,6 @@ export async function addSampleData(
           ],
         },
         {
-          id: generateVariationId(),
           name: "Google Login",
           screenshots: [
             {
@@ -298,7 +295,6 @@ export async function addSampleData(
         "Adding a dollar amount to the buy button will remove uncertainty from users and cause them to convert at a higher rate.";
       data.variations = [
         {
-          id: generateVariationId(),
           name: "Control",
           screenshots: [
             {
@@ -308,7 +304,6 @@ export async function addSampleData(
           ],
         },
         {
-          id: generateVariationId(),
           name: "Price in CTA",
           screenshots: [
             {
@@ -328,7 +323,6 @@ export async function addSampleData(
         "Removing everything except email and password will reduce friction and increase signups.";
       data.variations = [
         {
-          id: generateVariationId(),
           name: "Control",
           screenshots: [
             {
@@ -338,7 +332,6 @@ export async function addSampleData(
           ],
         },
         {
-          id: generateVariationId(),
           name: "Shorter Reg Modal",
           screenshots: [
             {

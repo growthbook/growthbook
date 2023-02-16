@@ -63,7 +63,6 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
-import { generateVariationId } from "../services/features";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -193,10 +192,6 @@ export async function getExperiment(
     });
     return;
   }
-
-  experiment.variations?.forEach((variation) => {
-    variation.id = variation.id || generateVariationId();
-  });
 
   if (!(await userHasAccess(req, experiment.organization))) {
     res.status(403).json({
@@ -400,7 +395,6 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name,
         screenshots: [],
         description: v.value,
-        id: v.id || generateVariationId(),
       };
     }),
     phases: [

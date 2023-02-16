@@ -9,6 +9,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import VariationsInput from "../Features/VariationsInput";
+import { DraggableExperimentVariation } from "./VariationDataInput";
 
 export interface Props {
   close: () => void;
@@ -103,7 +104,7 @@ export default function EditPhaseModal({
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          experiment.variations.map((v: DraggableExperimentVariation, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

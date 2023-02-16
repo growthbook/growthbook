@@ -32,7 +32,7 @@ import ExperimentSplitVisual from "./ExperimentSplitVisual";
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
-  variations: ExperimentValue[] | DraggableVariation[];
+  variations: DraggableVariation[];
   setWeight: (i: number, weight: number) => void;
   setVariations?: (variations: ExperimentValue[]) => void;
   coverage: number;

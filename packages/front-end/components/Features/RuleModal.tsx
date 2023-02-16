@@ -1,11 +1,13 @@
 import { useForm } from "react-hook-form";
 import {
+  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
 import { useState } from "react";
 import {
+  generateVariationId,
   getDefaultRuleValue,
   getFeatureDefaultValue,
   getRules,
@@ -274,7 +276,18 @@ export default function RuleModal({
             setWeight={(i, weight) =>
               form.setValue(`values.${i}.weight`, weight)
             }
-            variations={form.watch("values") || []}
+            variations={
+              form
+                .watch("values")
+                .map((v: ExperimentValue & { id?: string }) => {
+                  return {
+                    value: v.value || "",
+                    name: v.name,
+                    weight: v.weight,
+                    id: v.id || generateVariationId(),
+                  };
+                }) || []
+            }
             setVariations={(variations) => form.setValue("values", variations)}
           />
           {namespaces?.length > 0 && (

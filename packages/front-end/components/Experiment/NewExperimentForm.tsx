@@ -25,7 +25,10 @@ import SelectField from "../Forms/SelectField";
 import VariationsInput from "../Features/VariationsInput";
 import { DraggableVariation } from "../Features/Variation";
 import MetricsSelector from "./MetricsSelector";
-import VariationDataInput from "./VariationDataInput";
+import VariationDataInput, {
+  DraggableExperimentVariation,
+} from "./VariationDataInput";
+import { DraggableExperimentInterfaceStringDates } from "./EditVariationsForm";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -49,7 +52,7 @@ function getDefaultVariations(num: number) {
   // Must have at least 2 variations
   num = Math.max(2, num);
 
-  const variations: Variation[] = [];
+  const variations: DraggableExperimentVariation[] = [];
   for (let i = 0; i < num; i++) {
     variations.push({
       name: i ? `Variation ${i}` : "Control",
@@ -96,7 +99,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<Partial<DraggableExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
@@ -405,7 +408,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         ) : (
           <VariationDataInput
-            variations={form.watch("variations")}
+            variations={
+              form
+                .watch("variations")
+                .map((v: Variation & { id?: string }, i) => {
+                  return {
+                    value: v.key || "",
+                    name: v.name,
+                    weight: form.watch(`phases.0.variationWeights.${i}`),
+                    id: v.id || "",
+                    screenshots: [],
+                  };
+                }) || []
+            }
             setVariations={(variations) =>
               form.setValue("variations", variations)
             }

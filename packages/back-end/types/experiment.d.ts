@@ -24,7 +24,6 @@ export interface Variation {
   screenshots: Screenshot[];
   css?: string;
   dom?: DomChange[];
-  id: string;
 }
 
 export interface ExperimentPhase {

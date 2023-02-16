@@ -28,7 +28,6 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
-  generateVariationId,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
@@ -738,11 +737,6 @@ export async function getFeatureById(
       env.rules?.forEach((r) => {
         if (r.type === "experiment") {
           expIds.add(r.trackingKey || feature.id);
-          if (r.values.length) {
-            r.values.forEach((value) => {
-              value.id = value.id || generateVariationId();
-            });
-          }
         }
       });
     });

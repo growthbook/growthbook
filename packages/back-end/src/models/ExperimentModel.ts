@@ -93,7 +93,6 @@ const experimentSchema = new mongoose.Schema({
   variations: [
     {
       _id: false,
-      id: String,
       name: String,
       description: String,
       key: String,
