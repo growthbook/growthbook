@@ -1,15 +1,16 @@
 {% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
 
 {% block preview %}
   {{ name }} ({{ email }})
 {% endblock %}
 
 {% block title %}
-  New User Requesting to Join {{ organization }} on GrowthBook
+  A new user is requesting to join {{ organization }} on GrowthBook
 {% endblock %}
 
 {% block top %}
-  <p>
+  <p style='margin: 0 0 20px;'>
     Name: <strong>{{ name }}</strong><br/>
     Email: <strong>{{ email }}</strong><br/>
   </p>

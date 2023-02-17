@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -325,6 +326,9 @@ export async function putMember(
   if (!orgId) {
     throw new Error("Must provide orgId");
   }
+  if (!req.verified) {
+    throw new Error("User is not verified");
+  }
 
   // ensure org matches calculated verified org
   const organization = await findVerifiedOrgForNewUser(req.email);
@@ -366,7 +370,7 @@ export async function putMember(
       });
 
       try {
-        const teamUrl = APP_ORIGIN + "settings/team";
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + orgId;
         await sendPendingMemberEmail(
           req.name || "",
           req.email || "",
@@ -441,11 +445,12 @@ export async function postMemberApproval(
   }
 
   try {
+    const url = APP_ORIGIN + "/?org=" + org.id;
     await sendPendingMemberApprovalEmail(
       pendingMember.name || "",
       pendingMember.email || "",
       org.name,
-      APP_ORIGIN
+      url
     );
   } catch (e) {
     req.log.error(e, "Failed to send pending member approval email");
@@ -605,7 +610,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: [...accountFeatures[getAccountPlan(org)]],
+    commercialFeatures: res.locals.licenseError
+      ? []
+      : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     organization: {
@@ -994,6 +1001,18 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     }
   }
 
+  let verifiedDomain = "";
+  if (IS_CLOUD) {
+    // if the owner is verified, try to infer a verified domain
+    if (req.email && req.verified) {
+      const domain = req.email.toLowerCase().split("@")[1] || "";
+      const isFreeDomain = freeEmailDomains.includes(domain);
+      if (!isFreeDomain) {
+        verifiedDomain = domain;
+      }
+    }
+  }
+
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
@@ -1001,7 +1020,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     if (!req.userId) {
       throw Error("Must be logged in");
     }
-    const org = await createOrganization(req.email, req.userId, company, "");
+    const org = await createOrganization({
+      email: req.email,
+      userId: req.userId,
+      name: company,
+      verifiedDomain,
+    });
 
     // Alert the site manager about new organizations that are created
     try {

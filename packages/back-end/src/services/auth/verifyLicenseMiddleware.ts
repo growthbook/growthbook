@@ -16,13 +16,26 @@ export default function verifyLicenseMiddleware(
     return next();
   }
 
+  // Check if license is expired (2 day buffer)
+  if (license.exp) {
+    let expiresWithBuffer = new Date(license.exp);
+    expiresWithBuffer = new Date(
+      expiresWithBuffer.setDate(expiresWithBuffer.getDate() + 2)
+    );
+    if (expiresWithBuffer < new Date()) {
+      res.locals.licenseError = "License expired";
+      res.setHeader("X-License-Error", "License expired");
+    }
+  }
+
   // Validate organization id with license
   if (req.headers["x-organization"] && license?.org) {
     if (req.headers["x-organization"] !== license.org) {
-      return res.status(402).json({
-        code: 402,
-        message: "Organization id does not match license",
-      });
+      res.locals.licenseError = "Organization id does not match license";
+      res.setHeader(
+        "X-License-Error",
+        "Organization id does not match license"
+      );
     }
   }
 
