@@ -4,9 +4,9 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
-import ExperimentVariationsWrapper, {
+import ExperimentVariationsInput, {
   SortableExperimentVariation,
-} from "./ExperimentVariationsWrapper";
+} from "./ExperimentVariationsInput";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -72,7 +72,7 @@ const EditVariationsForm: FC<{
       })}
       cta="Save"
     >
-      <ExperimentVariationsWrapper
+      <ExperimentVariationsInput
         variations={form.watch("variations")}
         setVariations={(variations) => form.setValue("variations", variations)}
       />

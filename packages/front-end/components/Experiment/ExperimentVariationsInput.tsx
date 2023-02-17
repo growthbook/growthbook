@@ -14,7 +14,7 @@ export type SortableExperimentVariation = Variation & {
   id: string;
 };
 
-export default function ExperimentVariationsWrapper({
+export default function ExperimentVariationsInput({
   variations,
   setVariations,
   className = "",

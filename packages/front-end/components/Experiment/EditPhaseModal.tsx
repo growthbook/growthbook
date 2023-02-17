@@ -9,8 +9,8 @@ import SelectField from "@/components/Forms/SelectField";
 import { generateVariationId } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
-import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import { SortableExperimentVariation } from "./ExperimentVariationsInput";
 
 export interface Props {
   close: () => void;
@@ -104,7 +104,7 @@ export default function EditPhaseModal({
         />
       )}
 
-      <FeatureVariationsWrapper
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}

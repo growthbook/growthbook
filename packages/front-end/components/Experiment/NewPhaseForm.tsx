@@ -15,7 +15,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
-import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -143,7 +143,7 @@ const NewPhaseForm: FC<{
           </div>
         </div>
       )}
-      <FeatureVariationsWrapper
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}

@@ -21,11 +21,11 @@ import Page from "../Modal/Page";
 import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import MetricsSelector from "./MetricsSelector";
-import ExperimentVariationsWrapper, {
+import ExperimentVariationsInput, {
   SortableExperimentVariation,
-} from "./ExperimentVariationsWrapper";
+} from "./ExperimentVariationsInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -364,7 +364,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       </Page>
       <Page display="Variations">
         {status !== "draft" ? (
-          <FeatureVariationsWrapper
+          <FeatureVariationsInput
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}
             setCoverage={(coverage) =>
@@ -407,7 +407,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             showPreview={false}
           />
         ) : (
-          <ExperimentVariationsWrapper
+          <ExperimentVariationsInput
             variations={form.watch("variations").map((v) => {
               return {
                 value: v.key || "",

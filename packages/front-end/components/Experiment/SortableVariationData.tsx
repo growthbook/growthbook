@@ -4,7 +4,7 @@ import { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import { MdDeleteForever } from "react-icons/md";
 import Field from "../Forms/Field";
-import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
+import { SortableExperimentVariation } from "./ExperimentVariationsInput";
 
 interface SortableProps {
   variation: SortableExperimentVariation;
