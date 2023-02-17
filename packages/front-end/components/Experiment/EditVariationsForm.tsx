@@ -1,12 +1,13 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  SortableExperimentVariation,
+} from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
-import ExperimentVariationsWrapper, {
-  SortableExperimentVariation,
-} from "./ExperimentVariationsWrapper";
+import ExperimentVariationsWrapper from "./ExperimentVariationsWrapper";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;

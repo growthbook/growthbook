@@ -1,10 +1,10 @@
+import { SortableExperimentVariation } from "@/../back-end/types/experiment";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef } from "react";
 import { FaArrowsAlt } from "react-icons/fa";
 import { MdDeleteForever } from "react-icons/md";
 import Field from "../Forms/Field";
-import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
 
 interface SortableProps {
   variation: SortableExperimentVariation;

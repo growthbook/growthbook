@@ -1,12 +1,8 @@
-import { Variation } from "back-end/types/experiment";
+import { SortableExperimentVariation } from "@/../back-end/types/experiment";
 import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import SortableVariationsList from "../Features/SortableVariationsList";
 import { SortableExperimentVariationCard } from "./SortableVariationData";
-
-export type SortableExperimentVariation = Variation & {
-  id: string;
-};
 
 export interface Props {
   variations: SortableExperimentVariation[];

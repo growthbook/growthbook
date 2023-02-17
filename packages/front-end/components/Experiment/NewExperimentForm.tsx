@@ -4,6 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ImplementationType,
+  SortableExperimentVariation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { useWatching } from "@/services/WatchProvider";
@@ -23,9 +24,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
 import MetricsSelector from "./MetricsSelector";
-import ExperimentVariationsWrapper, {
-  SortableExperimentVariation,
-} from "./ExperimentVariationsWrapper";
+import ExperimentVariationsWrapper from "./ExperimentVariationsWrapper";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

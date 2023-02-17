@@ -39,6 +39,12 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       groups: prevPhase.groups || [],
+      variations: experiment.variations.map((v) => {
+        return {
+          ...v,
+          id: generateVariationId(),
+        };
+      }),
     },
   });
 
@@ -146,12 +152,12 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          form.watch("variations").map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
-              id: generateVariationId(),
+              id: v.id,
             };
           }) || []
         }

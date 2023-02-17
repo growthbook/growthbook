@@ -5,8 +5,8 @@ import {
   ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { generateVariationId } from "@/services/features";
 import SelectField from "@/components/Forms/SelectField";
+import { generateVariationId } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
@@ -31,6 +31,12 @@ export default function EditPhaseModal({
       dateEnded: experiment.phases[i].dateEnded
         ? experiment.phases[i].dateEnded.substr(0, 16)
         : "",
+      variations: experiment.variations.map((v) => {
+        return {
+          ...v,
+          id: generateVariationId(),
+        };
+      }),
     },
   });
   const { apiCall } = useAuth();
@@ -104,12 +110,12 @@ export default function EditPhaseModal({
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          form.watch("variations").map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
-              id: generateVariationId(),
+              id: v.id,
             };
           }) || []
         }
