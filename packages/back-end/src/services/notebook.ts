@@ -2,7 +2,7 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
-import { ExperimentModel } from "../models/ExperimentModel";
+import { getExperimentById } from "../models/ExperimentModel";
 import { getMetricsByDatasource } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { MetricInterface } from "../../types/metric";
@@ -55,10 +55,7 @@ export async function generateExperimentNotebook(
   }
 
   // Get experiment
-  const experiment = await ExperimentModel.findOne({
-    id: snapshot.experiment,
-    organization,
-  });
+  const experiment = await getExperimentById(organization, snapshot.experiment);
   if (!experiment) {
     throw new Error("Cannot find snapshot");
   }

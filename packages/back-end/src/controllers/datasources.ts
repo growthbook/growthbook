@@ -16,12 +16,13 @@ import {
   testQuery,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
-import { ExperimentModel } from "../models/ExperimentModel";
-import { QueryModel } from "../models/QueryModel";
 import {
-  createManualSnapshot,
+  logExperimentCreated,
+  createExperiment,
   getSampleExperiment,
-} from "../services/experiments";
+} from "../models/ExperimentModel";
+import { QueryModel } from "../models/QueryModel";
+import { createManualSnapshot } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
 import {
@@ -44,6 +45,7 @@ export async function postSampleData(req: AuthRequest, res: Response) {
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;
+  const statsEngine = org.settings?.statsEngine;
 
   const existingMetrics = await getSampleMetrics(orgId);
 
@@ -155,38 +157,46 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         },
       ],
     };
-    await ExperimentModel.create(experiment);
 
-    await createManualSnapshot(experiment, 0, [15500, 15400], {
-      [metric1.id]: [
-        {
-          users: 15500,
-          count: 950,
-          mean: 1,
-          stddev: 1,
-        },
-        {
-          users: 15400,
-          count: 1025,
-          mean: 1,
-          stddev: 1,
-        },
-      ],
-      [metric2.id]: [
-        {
-          users: 15500,
-          count: 950,
-          mean: 26.54,
-          stddev: 16.75,
-        },
-        {
-          users: 15400,
-          count: 1025,
-          mean: 25.13,
-          stddev: 16.87,
-        },
-      ],
-    });
+    const createdExperiment = await createExperiment(experiment, org);
+    await logExperimentCreated(org, createdExperiment);
+
+    await createManualSnapshot(
+      experiment,
+      0,
+      [15500, 15400],
+      {
+        [metric1.id]: [
+          {
+            users: 15500,
+            count: 950,
+            mean: 1,
+            stddev: 1,
+          },
+          {
+            users: 15400,
+            count: 1025,
+            mean: 1,
+            stddev: 1,
+          },
+        ],
+        [metric2.id]: [
+          {
+            users: 15500,
+            count: 950,
+            mean: 26.54,
+            stddev: 16.75,
+          },
+          {
+            users: 15400,
+            count: 1025,
+            mean: 25.13,
+            stddev: 16.87,
+          },
+        ],
+      },
+      statsEngine
+    );
   }
 
   res.status(200).json({

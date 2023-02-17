@@ -11,15 +11,13 @@ import ExternalLink from '@site/src/components/ExternalLink'
 
 This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
+This SDK supports both ReactJS and ReactNative environments.
+
 ## Installation
 
-```
-yarn add @growthbook/growthbook-react
-```
+Install with a package manager
 
-or
-
-```
+```bash npm2yarn
 npm install --save @growthbook/growthbook-react
 ```
 
@@ -32,35 +30,29 @@ import { useEffect } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 
 // Create a GrowthBook instance
-const growthbook = new GrowthBook({
-  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Enable easier debugging of feature flags during development
   enableDevMode: true,
-  // Callback when a user is put into an A/B experiment
-  trackingCallback: (experiment, result) => {
-    console.log("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
-  },
 });
 
 export default function App() {
   useEffect(() => {
-    // Load feature definitions from GrowthBook API
-    fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
-      .then((res) => res.json())
-      .then((json) => growthbook.setFeatures(json.features))
-      .catch((e) => console.error("Failed to fetch features", e));
-
-    // Set user attributes for targeting (from cookie, auth system, etc.)
-    growthbook.setAttributes({
-      id: "123",
-      company: "acme",
-    });
+    // Load features from the GrowthBook API
+    gb.loadFeatures({ autoRefresh: true })
   }, []);
 
+  useEffect(() => {
+    // Set user attributes for targeting (from cookie, auth system, etc.)
+    gb.setAttributes({
+      id: user.id,
+      company: user.company,
+    });
+  }, [user])
+
   return (
-    <GrowthBookProvider growthbook={growthbook}>
+    <GrowthBookProvider growthbook={gb}>
       <OtherComponent />
     </GrowthBookProvider>
   );
@@ -71,17 +63,17 @@ export default function App() {
 
 There are a few ways to use feature flags in GrowthBook:
 
-#### useFeature hook
+#### Feature Hooks
 
 ```tsx
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeatureValue, useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export default function OtherComponent() {
-  // Boolean on/off flags
-  const newLogin = useFeature("new-login-form").on;
+  // Boolean on/off features
+  const newLogin = useFeatureIsOn("new-login-form");
 
-  // Multivariate or string/JSON values with a fallback
-  const buttonColor = useFeature("login-button-color").value || "blue";
+  // String/Number/JSON features with a fallback value
+  const buttonColor = useFeatureValue("login-button-color", "blue");
 
   if (newLogin) {
     return <NewLogin color={buttonColor} />;
@@ -91,15 +83,17 @@ export default function OtherComponent() {
 }
 ```
 
-#### IfFeatureEnabled component
+#### Feature Wrapper Components
 
 ```tsx
-import { IfFeatureEnabled } from "@growthbook/growthbook-react";
+import { IfFeatureEnabled, FeatureString } from "@growthbook/growthbook-react";
 
 export default function OtherComponent() {
   return (
     <div>
-      <h1>Hello!</h1>
+      <h1>
+        <FeatureString feature="site-h1" default="My Site"/>
+      </h1>
       <IfFeatureEnabled feature="welcome-message">
         <p>Welcome to our site!</p>
       </IfFeatureEnabled>
@@ -108,46 +102,69 @@ export default function OtherComponent() {
 }
 ```
 
-#### FeatureString component
-
-```tsx
-import { FeatureString } from "@growthbook/growthbook-react";
-
-export default function OtherComponent() {
-  return (
-    <div>
-      <h1>
-        <FeatureString feature="site-h1" default="My Site" />
-      </h1>
-    </div>
-  );
-}
-```
-
 #### useGrowthBook hook
 
-If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook:
+If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook.
 
-```tsx
+One example is updating targeting attributes when a user logs in:
+
+```jsx
 import { useGrowthBook } from "@growthbook/growthbook-react";
 
-export default function OtherComponent() {
-  // Identical to: const feature = useFeature("my-feature")
+export default function Auth() {
   const growthbook = useGrowthBook();
-  const feature = growthbook.feature("my-feature");
+
+  const user = useUser();
+  useEffect(() => {
+    if (!user || !growthbook) return;
+    growthbook.setAttributes({
+      loggedIn: true,
+      id: user.id,
+      company: user.company,
+      isPro: user.plan === "pro"
+    })
+  }, [user, growthbook])
+
+  ...
 }
 ```
 
-## The GrowthBook Context
+## Loading Features
 
-The `GrowthBook` constructor takes a number of optional settings.
+In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
 
-### Features
+### Built-in Fetching and Caching
 
-If you already have features loaded as a JSON object, you can pass them into the constructor with the `features` field:
+If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey`.
 
 ```ts
-new GrowthBook({
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  decryptionKey: "key_abc123" // Only if you have feature encryption turned on
+});
+
+// Wait for features to be downloaded
+await gb.loadFeatures({
+  // When features change, update the GrowthBook instance automatically
+  // Default: `false`
+  autoRefresh: true,
+  // If the network request takes longer than this (in milliseconds), continue
+  // Default: `0` (no timeout)
+  timeout: 2000
+});
+```
+
+Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `loadFeatures` without awaiting the result.
+
+If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+### Custom Integration
+
+If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.
+
+```ts
+const gb = new GrowthBook({
   features: {
     "feature-1": {...},
     "feature-2": {...},
@@ -156,11 +173,215 @@ new GrowthBook({
 })
 ```
 
-If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start). **Note** - if you try to use a feature before it is loaded, it will always evaluate to `null`.
+Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in.
 
-If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
+You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
-If you prefer to build this file by hand or you want to know how it works under the hood, check out the detailed [Feature Definitions](/lib/js#feature-definitions) section in the Javascript SDK docs.
+### Waiting for Features to Load
+
+There is a helper component `<FeaturesReady>` that lets you render a fallback component until features are done loading. This works for both built-in fetching and custom integrations.
+
+```jsx
+<FeaturesReady timeout={500} fallback={<LoadingSpinner/>}>
+  <ComponentThatUsesFeatures/>
+</FeaturesReady>
+```
+
+- `timeout` is the max time you want to wait for features to load (in ms). The default is `0` (no timeout).
+- `fallback` is the component you want to display before features are loaded. The default is `null`.
+
+If you want more control, you can use the `useGrowthBook()` hook and the `ready` flag:
+
+```ts
+const gb = useGrowthBook();
+
+if (gb.ready) {
+  // Do something
+}
+```
+
+## Experimentation (A/B Testing)
+
+In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result) => {
+    // Example using Segment
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+Once you set that up, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+
+```js
+// If this has an active experiment, it will call trackingCallback automatically
+const newLogin = useFeatureIsOn("new-signup-form");
+```
+
+## Server Side Rendering (SSR)
+
+This SDK fully supports server side rendering. The below examples use Next.js, but other frameworks should be similar.
+
+First, create a helper function:
+
+```js
+import { setPolyfills } from "@growthbook/growthbook-react";
+
+export function getServerSideGrowthBookContext(req) {
+  // Set GrowthBook polyfills for server environments
+  setPolyfills({
+    fetch: globalThis.fetch || require("cross-fetch"),
+    EventSource: globalThis.EventSource || require("eventsource"),
+    SubtleCrypto: globalThis.crypto?.subtle || require("node:crypto")?.webcrypto?.subtle
+  });
+
+  return {
+    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+    decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
+    attributes: {
+      // TODO: get more targeting attributes from request context
+      id: (req && req.cookies.DEVICE_ID) ?? null,
+    },
+  }
+}
+```
+
+There are 2 ways to use GrowthBook for SSR.
+
+### Pure SSR
+
+With this approach, feature flags are evaluated once when the page is rendered. If a feature flag changes, the user would need to refresh the page to see it.
+
+```js
+export const getServerSideProps = async (context) => {
+  // Create a GrowthBook instance and load features from the API
+  const gbContext = getServerSideGrowthBookContext(context);
+  const gb = new GrowthBook(gbContext);
+  await gb.loadFeatures({ timeout: 1000 });
+
+  return {
+    props: {
+      title: gb.getFeatureValue("site-title", "fallback"),
+      showBanner: gb.isOn("sale-banner")
+    }
+  }
+}
+
+export default function MyPage({ title, showBanner }) {
+  return (
+    <div>
+      <h1>{title}</h1>
+      {showBanner && (
+        <div className="sale">There's a Sale!</div>
+      )}
+    </div>
+  )
+}
+```
+
+### Hybrid (SSR + Client-side)
+
+With this approach, you use the client-side hooks and components (e.g. `useFeatureValue`) and simply use SSR to make sure the initial load already has the latest features from the API.
+
+You get the benefits of client-side rendering (interactivity, realtime feature flag updates) plus the benefits of SSR (no flickering, improved SEO).
+
+First, follow the normal setup steps for client-side rendering:
+
+```jsx
+// pages/_app.jsx
+import { useEffect } from "react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+
+// Create a client-side GrowthBook instance
+const gb = new GrowthBook({
+  apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+  clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+  decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
+  enableDevMode: true,
+});
+
+export default function App() {
+  useEffect(() => {
+    // Load features from the GrowthBook API and keep them up-to-date
+    gb.loadFeatures({ autoRefresh: true })
+  }, []);
+
+  useEffect(() => {
+    // Set user attributes for targeting (use the same values as SSR when possible)
+    gb.setAttributes({
+      id: user.id,
+    });
+  }, [user])
+
+  // Wrap your app in a GrowthBookProvider
+  return (
+    <GrowthBookProvider growthbook={gb}>
+      <OtherComponent />
+    </GrowthBookProvider>
+  );
+}
+```
+
+Then, use the `useGrowthBookSSR` hook to enable server side rendering:
+
+```jsx
+// pages/server.jsx
+import MyComponent from "../components/MyComponent";
+import { generateGrowthBookSSRProps } from "../util/gb-server";
+import { useGrowthBookSSR } from "@growthbook/growthbook-react";
+
+
+export const getServerSideProps = async (context) => {
+  const gbContext = getServerSideGrowthBookContext(context);
+  const gbData = await getGrowthBookSSRData(gbContext);
+
+  return {
+    props: {
+      gbData,
+    },
+  };
+};
+
+export default function ServerPage({ gbData }) {
+  // This is required once at the top of the SSR page
+  useGrowthBookSSR(gbData);
+
+  return <MyComponent />;
+}
+```
+
+Lastly, in the rest of your app, use the client-side hooks and components just as you would if you weren't using SSR.
+
+```jsx
+// components/MyComponent.jsx
+export default function MyComponent() {
+  // Boolean on/off features
+  const newLogin = useFeatureIsOn("new-login-form");
+
+  // String/Number/JSON features with a fallback value
+  const buttonColor = useFeatureValue("login-button-color", "blue");
+
+  if (newLogin) {
+    return <NewLogin color={buttonColor} />;
+  } else {
+    return <Login color={buttonColor} />;
+  }
+}
+```
+
+These exact same approaches work for static pages as well!
+
+## API Reference
+
+There are a number of configuration options and settings that control how GrowthBook behaves.
 
 ### Attributes
 
@@ -187,22 +408,16 @@ new GrowthBook({
 });
 ```
 
-If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+#### Updating Attributes
 
-### Tracking Callback
+If attributes change, you can call `setAttributes()` to update. This will completely overwrite any existing attributes. To do a partial update, use the following pattern:
 
-Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
-
-```ts
-new GrowthBook({
-  trackingCallback: (experiment, result) => {
-    // Example using Segment.io
-    analytics.track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
-  },
-});
+```js
+gb.setAttributes({
+  // Only update the `url` attribute, keep the rest the same
+  ...gb.getAttributes(),
+  url: "/new-page"
+})
 ```
 
 ### Feature Usage Callback
@@ -217,69 +432,29 @@ new GrowthBook({
 });
 ```
 
-The `result` argument is the same thing returned from the `useFeature` hook.
-
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
 ### Dev Mode
 
-You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
 
-Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
 
 ```js
-const growthbook = new GrowthBook({
-  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+const gb = new GrowthBook({
   enableDevMode: true,
 });
 ```
 
-## Hiding Features from Users
+To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
 
-If you fetch the list of features from a client-side app, any of your users could inspect the network request and see which features and experiments you are running. In most cases, this is not a big deal, but if you did want to prevent that, you have two options:
-
-1. Evaluate feature flags using a server-side SDK and only pass the result to the browser
-2. Enable encryption for your SDK Endpoint
-
-If you enable encryption for an SDK Endpoint, instead of returning features as human-readable JSON, we will return it as an encrypted string that must be decrypted before being passed into the SDK.
-
-With encryption enabled, the response from the SDK Endpoint will be in the format:
-
-```json
-  {
-    "status": 200,
-    "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
-  }
-```
-
-The GrowthBook class has a `setEncryptedFeatures` helper method. You will need to pass in your encryption key, which you can find on the **Features -> Environments** page in GrowthBook.
-
-```ts
-function MyApp() {
-  useEffect(() => {
-    // Load features from the encrypted SDK Endpoint and decrypt them
-    fetch("https://cdn.growthbook.io/api/features/<your api key>")
-      .then((res) => res.json())
-      .then((json) => growthbook.setEncryptedFeatures(json.encryptedFeatures, "MY_ENCRYPTION_KEY"))
-      .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
-  }, []);
-  // ...
-}
-```
-
-**Note**: This method is not completely private. Users could find your encryption key if they inspect your minified javascript files.
-
-### React Native
-
-If you're using React Native, you may need to polyfill the `window.crypto.subtle` API and the `TextEncoder/TextDecoder` classes.
-
-## Inline Experiments
+### Inline Experiments
 
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
 
-### useExperiment hook
+#### useExperiment hook
 
 ```tsx
 import { useExperiment } from "@growthbook/growthbook-react";
@@ -294,7 +469,7 @@ export default function OtherComponent() {
 }
 ```
 
-### Class Components
+#### withRunExperiment (class components)
 
 **Note:** This library uses hooks internally, so still requires React 16.8 or above.
 
@@ -317,4 +492,5 @@ export default withRunExperiment(OtherComponent);
 
 ## Examples
 
+- [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)

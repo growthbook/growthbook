@@ -69,6 +69,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageTargetingAttributes: false,
   manageTeam: false,
   manageWebhooks: false,
+  manageIntegrations: false,
   organizationSettings: false,
   superDelete: false,
   viewEvents: false,
@@ -102,6 +103,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  verified: boolean;
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
@@ -187,6 +189,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   if (!user && data) {
     user = {
       email: data.email,
+      verified: data.verified,
       id: data.userId,
       environments: [],
       limitAccessByEnvironment: false,

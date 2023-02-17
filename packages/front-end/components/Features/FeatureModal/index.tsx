@@ -41,6 +41,7 @@ export type Props = {
   secondaryCTA?: ReactElement;
   featureToDuplicate?: FeatureInterface;
   features?: FeatureInterface[];
+  initialRule?: boolean;
 };
 
 function parseDefaultValue(
@@ -138,6 +139,7 @@ export default function FeatureModal({
   cta = "Create",
   secondaryCTA,
   featureToDuplicate,
+  initialRule = true,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -308,27 +310,29 @@ export default function FeatureModal({
             }}
           />
 
-          <RuleSelect
-            value={rule?.type || ""}
-            setValue={(value) => {
-              let defaultValue = getDefaultValue(valueType);
+          {initialRule && (
+            <RuleSelect
+              value={rule?.type || ""}
+              setValue={(value) => {
+                let defaultValue = getDefaultValue(valueType);
 
-              if (!value) {
-                form.setValue("rule", null);
-                form.setValue("defaultValue", defaultValue);
-              } else {
-                defaultValue = getDefaultVariationValue(defaultValue);
-                form.setValue("defaultValue", defaultValue);
-                form.setValue("rule", {
-                  ...getDefaultRuleValue({
-                    defaultValue: defaultValue,
-                    ruleType: value,
-                    attributeSchema,
-                  }),
-                });
-              }
-            }}
-          />
+                if (!value) {
+                  form.setValue("rule", null);
+                  form.setValue("defaultValue", defaultValue);
+                } else {
+                  defaultValue = getDefaultVariationValue(defaultValue);
+                  form.setValue("defaultValue", defaultValue);
+                  form.setValue("rule", {
+                    ...getDefaultRuleValue({
+                      defaultValue: defaultValue,
+                      ruleType: value,
+                      attributeSchema,
+                    }),
+                  });
+                }
+              }}
+            />
+          )}
 
           {!rule ? (
             <FeatureValueField
@@ -392,6 +396,12 @@ export default function FeatureModal({
               fallbackValue={form.watch("defaultValue")}
               setFallbackValue={(v) => form.setValue("defaultValue", v)}
             />
+          )}
+          {!initialRule && (
+            <p>
+              You can add complex rules later to control exactly how and when
+              this feature gets released to users.
+            </p>
           )}
         </>
       )}

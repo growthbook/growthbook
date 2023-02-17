@@ -18,8 +18,12 @@ type CsvRow = {
   users?: number;
   totalValue?: number;
   perUserValue?: number;
+  perUserValueStdDev?: number | null;
   chanceToBeatControl?: number | null;
   percentChange?: number | null;
+  percentChangePValue?: number | null;
+  percentChangeCILower?: number | null;
+  percentChangeCIUpper?: number | null;
 };
 
 export default function ResultsDownloadButton({
@@ -79,8 +83,12 @@ export default function ResultsDownloadButton({
             users: stats.users,
             totalValue: stats.value,
             perUserValue: stats.cr,
+            perUserValueStdDev: stats.stats.stddev || null,
             chanceToBeatControl: stats.chanceToWin || null,
             percentChange: stats.expected || null,
+            percentChangePValue: stats.pValue || null,
+            percentChangeCILower: stats.ci?.[0] || null,
+            percentChangeCIUpper: stats.ci?.[1] || null,
           });
         });
       });

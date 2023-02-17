@@ -11,14 +11,10 @@ Supports both browser and NodeJS environments.
 
 ## Installation
 
-```
-yarn add @growthbook/growthbook
-```
+Install with a package manager
 
-or
-
-```
-npm i --save @growthbook/growthbook
+```bash npm2yarn
+npm install --save @growthbook/growthbook
 ```
 
 or use directly in your HTML without installing first:
@@ -32,41 +28,131 @@ or use directly in your HTML without installing first:
 
 ## Quick Usage
 
-```ts
+### Step 1: Configure your app
+
+```js
 import { GrowthBook } from "@growthbook/growthbook";
 
-// Create a GrowthBook context
-const growthbook = new GrowthBook({
-  // enableDevMode: true allows you to use the Chrome DevTools Extension to test/debug.
+// Create a GrowthBook instance
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Enable easier debugging of feature flags during development
   enableDevMode: true,
 });
 
-// Load feature definitions (from API, database, etc.)
-fetch("https://cdn.growthbook.io/api/features/MY_API_KEY")
-  .then((res) => res.json())
-  .then((json) => growthbook.setFeatures(json.features))
-  .catch((e) => console.error("Failed to fetch features", e));
+// Wait for features to be available
+await gb.loadFeatures({ autoRefresh: true });
 
+const color = gb.getFeatureValue("button-color");
+```
 
+#### Node.js
+
+If using this SDK in a server-side environment, you may need to configure some polyfills for missing browser APIs.
+
+```js
+const { setPolyfills } = require("@growthbook/growthbook");
+
+setPolyfills({
+  // Required when using built-in feature loading and Node 17 or lower
+  fetch: require("cross-fetch"),
+  // Required when using encrypted feature flags and Node 18 or lower
+  SubtleCrypto: require("node:crypto").webcrypto.subtle,
+  // Optional, can make feature rollouts faster
+  EventSource: require("eventsource"),
+  // Optional, can reduce startup times by persisting cached feature flags
+  localStorage: {
+    // Example using Redis
+    getItem: (key) => redisClient.get(key),
+    setItem: (key, value) => redisClient.set(key, value),
+  }
+})
+```
+
+It's also recommended to create a separate GrowthBook instance in a middleware for every request:
+
+```js
+app.use(function(req, res, next) {
+  // Create a GrowthBook Context
+  req.growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+  });
+
+  // Clean up at the end of the request
+  res.on('close', () => req.growthbook.destroy());
+
+  // Wait for features to load (will be cached in-memory for future requests)
+  req.growthbook.loadFeatures()
+    .then(() => next())
+    .catch((e) => {
+      console.error("Failed to load features from GrowthBook", e);
+      next();
+    })
+})
+```
+
+Then, you can access the GrowthBook instance from any route:
+
+```js
+app.get("/", (req, res) => {
+  const gb = req.growthbook;
+  // ...
+})
+```
+
+### Step 2: Start Feature Flagging!
+
+There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+
+```js
 // Simple boolean (on/off) feature flag
-if (growthbook.isOn("my-feature")) {
+if (gb.isOn("my-feature")) {
   console.log("Feature enabled!");
 }
 
-// Get the value of a non-boolean feature with a fallback
-const color = growthbook.getFeatureValue("button-color", "blue");
+// Get the value of a string/JSON/number feature with a fallback
+const color = gb.getFeatureValue("button-color", "blue");
 ```
 
-## The GrowthBook Context
+## Loading Features
 
-The `GrowthBook` constructor takes a number of optional settings.
+In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
 
-### Features
+### Built-in Fetching and Caching
 
-If you already have features loaded as a JSON object, you can pass them into the constructor with the `features` field:
+If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey`.
 
 ```ts
-new GrowthBook({
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  decryptionKey: "key_abc123" // Only if you have feature encryption turned on
+});
+
+// Wait for features to be downloaded
+await gb.loadFeatures({
+  // When features change, update the GrowthBook instance automatically
+  // Default: `false`
+  autoRefresh: true,
+  // If the network request takes longer than this (in milliseconds), continue
+  // Default: `0` (no timeout)
+  timeout: 2000
+});
+```
+
+Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `loadFeatures` without awaiting the result.
+
+If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+### Custom Integration
+
+If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres and send it down to your front-end as part of your app's initial bootstrap API call.
+
+```ts
+const gb = new GrowthBook({
   features: {
     "feature-1": {...},
     "feature-2": {...},
@@ -75,11 +161,101 @@ new GrowthBook({
 })
 ```
 
-If you need to load feature definitions from a remote source like an API or database, you can update the context at any time with `setFeatures()` (seen above in the Quick Start). **Note** - if you try to use a feature before it is loaded, it will always evaluate to `null`.
+Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in.
 
-If you use the GrowthBook App to manage your features, you don't need to build this JSON file yourself - it will auto-generate one for you and make it available via an API endpoint.
+You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
-If you prefer to build this file by hand or you want to know how it works under the hood, check out the detailed [Feature Definitions](#feature-definitions) section below.
+### Re-rendering When Features Change
+
+When features change (e.g. by calling `gb.refreshFeatures()`), you need to re-render your app so that all of your feature flag checks can be re-evaluated. You can specify your own custom rendering function for this purpose:
+
+```js
+// Callback to re-render your app when feature flag values change
+gb.setRenderer(() => {
+  // TODO: re-render your app
+})
+```
+
+## Experimentation (A/B Testing)
+
+In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result) => {
+    // Example using Segment
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
+
+Once you define the callback, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+
+```js
+// If this has an active experiment, it will call trackingCallback automatically
+const newLogin = gb.isOn("new-signup-form");
+```
+
+## Typescript
+
+When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
+
+```ts
+// color will be type "string"
+const color = gb.getFeatureValue("button-color", "blue");
+```
+
+When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type using generics. Note that whatever type you specify will be unioned with `null` in the return value.
+
+```ts
+// result.value will be type "number | null" now
+const result = gb.evalFeature<number>("button-size");
+```
+
+When using inline experiments, the returned value is inferred from the variations you pass in:
+
+```ts
+// result.value will be type "string"
+const result = gb.run({
+  key: "my-test",
+  variations: ["blue", "green"],
+});
+```
+
+There are a number of types you can import as well if needed:
+
+```ts
+import type {
+  Context,
+  Attributes,
+  Polyfills,
+  CacheSettings,
+  FeatureApiResponse,
+  LoadFeaturesOptions,
+  RefreshFeaturesOptions,
+  FeatureDefinitions,
+  FeatureDefinition,
+  FeatureRule,
+  FeatureResult,
+  FeatureResultSource,
+  Experiment,
+  Result,
+  ExperimentOverride,
+  ExperimentStatus,
+  JSONValue,
+  SubscriptionFunction,
+  LocalStorageCompat,
+} from "@growthbook/growthbook";
+```
+
+## GrowthBook Instance (reference)
 
 ### Attributes
 
@@ -108,24 +284,6 @@ new GrowthBook({
 
 If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
 
-### Tracking Callback
-
-Any time an experiment is run to determine the value of a feature, we call a function so you can record the assigned value in your event tracking or analytics system of choice.
-
-```ts
-new GrowthBook({
-  trackingCallback: (experiment, result) => {
-    // Example using Segment.io
-    analytics.track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
-  },
-});
-```
-
-If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
-
 ### Feature Usage Callback
 
 GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
@@ -138,100 +296,55 @@ new GrowthBook({
 });
 ```
 
-The `result` argument is the same thing returned from `growthbook.evalFeature`.
+The `result` argument is the same thing returned from `gb.evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
 ### Dev Mode
 
-You can enable Dev Mode by passing `enableDevMode: true` when you create a new GrowthBook Context. Doing so will provide you with a much better developer experience when getting started.
+There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
 
-Enabling Dev Mode allows you to test and debug with GrowthBook's Chrome DevTools Extension.
+In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
 
 ```js
-const growthbook = new GrowthBook({
-  // Set enableDevMode to true to use the Chrome DevTools Extension to aid testing/debugging.
+const gb = new GrowthBook({
   enableDevMode: true,
 });
 ```
 
-## Using Features
+To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
 
-Every feature has a "value" which is assigned to a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
+### evalFeature
 
-There are 4 main methods for evaluating features:
+In addition to the `isOn` and `getFeatureValue` helper methods, there is the `evalFeature` method that gives you more detailed information about why the value was assigned to the user.
 
 ```ts
-if (growthbook.isOn("my-feature")) {
-  // Value is truthy
-}
-
-if (growthbook.isOff("my-feature")) {
-  // Value is falsy (null, 0, "", or false)
-}
-
-// Get the value with a fallback for when it's null
-const value = growthbook.getFeatureValue("my-feature", 123);
-
 // Get detailed information about the feature evaluation
-const result = growthbook.evalFeature("my-feature");
+const result = gb.evalFeature("my-feature");
+
+// The value of the feature (or `null` if not defined)
+console.log(result.value);
+
+// Why the value was assigned to the user
+// One of: `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
+console.log(result.source);
+
+// The string id of the rule (if any) which was used
+console.log(result.ruleId);
+
+// Information about the experiment (if any) which was used
+console.log(result.experiment);
+
+// The result of the experiment (or `undefined`)
+console.log(result.experimentResult)
 ```
 
-The `evalFeature` method returns a `FeatureResult` object with more info about why the feature was assigned to the user. It has the following properties:
+### Inline Experiments
 
-- **value** - The value of the feature (or `null` if not defined)
-- **source** - Why the value was assigned to the user. One of `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
-- **ruleId** - The string id of the rule (if any) which was used to assign the value to the user
-- **experiment** - Information about the experiment (if any) which was used to assign the value to the user
-- **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
-
-## Hiding Features from Users
-
-If you fetch the list of features from a client-side app, any of your users could inspect the network request and see which features and experiments you are running. In most cases, this is not a big deal, but if you did want to prevent that, you have two options:
-
-1. Evaluate feature flags using a server-side SDK and only pass the result to the browser
-2. Enable encryption for your SDK Endpoint
-
-If you enable encryption for an SDK Endpoint, instead of returning features as human-readable JSON, we will return it as an encrypted string that must be decrypted before being passed into the SDK.
-
-With encryption enabled, the response from the SDK Endpoint will be in the format:
-
-```json
-  {
-    "status": 200,
-    "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
-  }
-```
-
-The GrowthBook class has a `setEncryptedFeatures` helper method. You will need to pass in your encryption key, which you can find on the **Features -> Environments** page in GrowthBook.
-
-```ts
-// Load features from the encrypted SDK Endpoint and decrypt them
-fetch("https://cdn.growthbook.io/api/features/<your api key>")
-  .then((res) => res.json())
-  .then((json) => growthbook.setEncryptedFeatures(json.encryptedFeatures, "MY_ENCRYPTION_KEY"))
-  .catch((e) => console.log("Failed to set GrowthBook feature definitions", e));
-```
-
-**Note**: This method is not completely private. Users could find your encryption key if they inspect your minified javascript files.
-
-### Node.js
-
-If you're using this SDK in a Node.js environment using Node 18 or lower, you will need to pass in a SubtleCrpyto implementation as the 3rd argument when calling `setEncryptedFeatures`.
-
-```ts
-// Node 15+
-const crypto = require('node:crypto').webcrypto;
-
-growthbook.setEncryptedFeatures(encryptedString, encryptionKey, crypto.subtle);
-```
-
-## Inline Experiments
-
-Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `growthbook.run` method:
+Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
 
 ```js
-const { value } = growthbook.run({
+const { value } = gb.run({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
 });
@@ -244,9 +357,9 @@ In addition, there are a few other settings that only really make sense for inli
 - `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
 - `active` can be set to false to disable the experiment and return the control for everyone
 
-### Inline Experiment Return Value
+#### Inline Experiment Return Value
 
-A call to `growthbook.run(experiment)` returns an object with a few useful properties:
+A call to `gb.run(experiment)` returns an object with a few useful properties:
 
 ```ts
 const {
@@ -256,7 +369,7 @@ const {
   value,
   hashAttribute,
   hashValue,
-} = growthbook.run({
+} = gb.run({
   key: "my-experiment",
   variations: ["A", "B"],
 });
@@ -283,45 +396,6 @@ console.log(hashValue); // e.g. "123"
 The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
 
 The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
-
-## Typescript
-
-When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
-
-```ts
-// color will be type "string"
-const color = growthbook.getFeatureValue("button-color", "blue");
-```
-
-When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type:
-
-```ts
-// result.value will be type "number" now
-const result = growthbook.evalFeature<number>("button-size");
-```
-
-When using inline experiments, the returned value is inferred from the variations you pass in:
-
-```ts
-// result.value will be type "string"
-const result = growthbook.run({
-  key: "my-test",
-  variations: ["blue", "green"],
-});
-```
-
-There are a number of types you can import as well if needed:
-
-```ts
-import type {
-  Context,
-  ConditionInterface,
-  Experiment,
-  FeatureDefinition,
-  FeatureResult,
-  ExperimentResult,
-} from "@growthbook/growthbook";
-```
 
 ## Feature Definitions (reference)
 
@@ -525,7 +599,7 @@ When a user is assigned a variation, we call the `trackingCallback` function so 
 We use deterministic hashing to make sure the same user always gets assigned the same value. By default, we use the attribute `id`, but this can be overridden with the `hashAttribute` setting:
 
 ```js
-const growthbook = new GrowthBook({
+const gb = new GrowthBook({
   attributes: {
     id: "123",
     company: "acme",

@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useState } from "react";
 import z from "zod";
 import { useForm } from "react-hook-form";
-import { Typeahead } from "react-bootstrap-typeahead";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import {
   EventWebHookEditParams,
   eventWebHookEventOptions,
@@ -105,38 +105,19 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         />
       </div>
 
-      <div className="form-group">
-        <label className="d-block">Events</label>
-        <div className="mt-1">
-          <Typeahead
-            id="events-input"
-            labelKey="name"
-            multiple={true}
-            allowNew={false}
-            options={eventWebHookEventOptions.map(({ id }) => {
-              return {
-                id: id,
-                name: id,
-              };
-            })}
-            onChange={(
-              selected: {
-                id: NotificationEventName;
-                name: NotificationEventName;
-              }[]
-            ) => {
-              form.setValue(
-                "events",
-                selected.map((item) => item.id)
-              );
-              handleFormValidation();
-            }}
-            selected={form.watch("events").map((v) => ({ id: v, name: v }))}
-            placeholder="Choose events"
-            positionFixed={true}
-          />
-        </div>
-      </div>
+      <MultiSelectField
+        label="Events"
+        value={form.watch("events")}
+        placeholder="Choose events"
+        options={eventWebHookEventOptions.map(({ id }) => ({
+          label: id,
+          value: id,
+        }))}
+        onChange={(value: string[]) => {
+          form.setValue("events", value as NotificationEventName[]);
+          handleFormValidation();
+        }}
+      />
     </Modal>
   );
 };

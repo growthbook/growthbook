@@ -39,11 +39,21 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       ) : null}
 
       <div className="mb-4">
-        <h1>Event Webhooks</h1>
+        <div className="d-flex justify-space-between align-items-center">
+          <span className="badge badge-purple text-uppercase mr-2">Beta</span>
+          <h1>Event Webhooks</h1>
+        </div>
         <p>
           Event Webhooks are event-based, and allow you to monitor specific
           events.
         </p>
+        <div className="alert alert-premium">
+          <h4>Free while in Beta</h4>
+          <p className="mb-0">
+            This feature will be free while we build it out and work out the
+            bugs.
+          </p>
+        </div>
       </div>
 
       {/* Feedback messages */}

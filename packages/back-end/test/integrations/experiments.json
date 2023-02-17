@@ -1,0 +1,98 @@
+[
+  {
+    "id": "base",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposures",
+    "attributionModel": "allExposures"
+  },
+  {
+    "id": "activation",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "allExposures"
+  },
+  {
+    "id": "negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": -24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposures_negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": -24
+      }
+    ],
+    "attributionModel": "allExposures"
+  },
+  {
+    "id": "activation_negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": -24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures_negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": -24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "allExposures"
+  },
+  {
+    "id": "dimension_date",
+    "dimensionType": "date",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_experiment",
+    "dimensionType": "experiment",
+    "dimensionMetric": "browser",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_user",
+    "dimensionType": "user",
+    "dimensionMetric": "country",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "filter_sql",
+    "attributionModel": "firstExposure",
+    "queryFilter": "browser = 'Chrome'"
+  },
+  {
+    "id": "filter_segment",
+    "attributionModel": "firstExposure",
+    "segment": "chrome_only"
+  },
+  {
+    "id": "keepmultipleexposures",
+    "attributionModel": "firstExposure",
+    "removeMultipleExposures": false
+  }
+]

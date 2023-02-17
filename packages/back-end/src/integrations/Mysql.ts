@@ -68,4 +68,7 @@ export default class Mysql extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as char)`;
   }
+  ensureFloat(col: string): string {
+    return `CAST(${col} AS DOUBLE)`;
+  }
 }

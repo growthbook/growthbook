@@ -1,5 +1,6 @@
 import { QueryLanguage } from "./datasource";
 import { MetricStats } from "./metric";
+import { StatsEngine } from "./stats";
 import { Queries } from "./query";
 
 export interface SnapshotMetric {
@@ -11,6 +12,7 @@ export interface SnapshotMetric {
   expected?: number;
   risk?: [number, number];
   stats?: MetricStats;
+  pValue?: number;
   uplift?: {
     dist: string;
     mean?: number;
@@ -56,4 +58,5 @@ export interface ExperimentSnapshotInterface {
   segment?: string;
   activationMetric?: string;
   skipPartialData?: boolean;
+  statsEngine?: StatsEngine;
 }
