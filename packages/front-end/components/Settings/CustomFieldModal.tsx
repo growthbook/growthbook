@@ -54,7 +54,7 @@ export default function CustomFieldModal({
 
   const availableProjects: (SingleValue | GroupedValue)[] = projects
     .slice()
-    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .sort((a, b) => (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1))
     .map((p) => ({ value: p.id, label: p.name }));
 
   return (
@@ -156,7 +156,6 @@ export default function CustomFieldModal({
               name="projects"
               options={availableProjects}
               onChange={(v) => {
-                console.log(v);
                 form.setValue("projects", v);
               }}
               className="label-overflow-ellipsis"

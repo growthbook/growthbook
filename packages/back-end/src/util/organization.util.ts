@@ -35,6 +35,7 @@ export const accountFeatures: CommercialFeaturesMap = {
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
+    "custom-exp-metadata",
     "advanced-permissions",
     "encrypt-features-endpoint",
     "schedule-feature-flag",

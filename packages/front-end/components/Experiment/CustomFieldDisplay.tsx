@@ -6,10 +6,11 @@ import {
 import { useForm } from "react-hook-form";
 import { CustomField } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
-import { useCustomFields } from "../../services/experiments";
+import { useCustomFields } from "@/services/experiments";
+import { useAuth } from "@/services/auth";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
@@ -34,7 +35,8 @@ const CustomFieldDisplay: FC<{
     });
   }
 
-  const { license } = useUser();
+  const { hasCommercialFeature } = useUser();
+  const hasCustomFieldAccess = hasCommercialFeature("custom-exp-metadata");
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       customFields: experiment?.customFields || defaultFields,
@@ -54,22 +56,22 @@ const CustomFieldDisplay: FC<{
             }}
             size="lg"
             submit={form.handleSubmit(async (value) => {
-              const data = { ...value };
-
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...value }),
               });
 
               if (mutate) mutate();
             })}
             cta="Save"
           >
-            {license ? (
+            {hasCustomFieldAccess ? (
               <CustomFieldInput customFields={customFields} form={form} />
             ) : (
               <div className="text-center">
-                Custom fields are available as part of the enterprise plan
+                <PremiumTooltip commercialFeature={"custom-exp-metadata"}>
+                  Custom fields are available as part of the enterprise plan
+                </PremiumTooltip>
               </div>
             )}
           </Modal>
@@ -78,7 +80,7 @@ const CustomFieldDisplay: FC<{
           <HeaderWithEdit
             edit={
               canEdit &&
-              license &&
+              hasCustomFieldAccess &&
               (() => {
                 setEditModal(true);
               })

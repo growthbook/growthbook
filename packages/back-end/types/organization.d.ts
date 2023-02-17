@@ -35,6 +35,7 @@ export type Role = {
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export type CommercialFeature =
   | "sso"
+  | "custom-exp-metadata"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "override-metrics"

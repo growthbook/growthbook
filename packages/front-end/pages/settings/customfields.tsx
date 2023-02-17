@@ -23,18 +23,22 @@ import {
   SortableCustomFieldRow,
   StaticCustomFieldRow,
 } from "@/components/Experiment/SortableCustomField";
-import usePermissions from "../../hooks/usePermissions";
-import { GBEdit } from "../../components/Icons";
-import CustomFieldModal from "../../components/Settings/CustomFieldModal";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import usePermissions from "@/hooks/usePermissions";
+import { GBEdit } from "@/components/Icons";
+import CustomFieldModal from "@/components/Settings/CustomFieldModal";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const permissions = usePermissions();
   const customFields = useCustomFields();
   const { apiCall } = useAuth();
-  const { refreshOrganization, license, updateUser } = useUser();
+  const { refreshOrganization, hasCommercialFeature, updateUser } = useUser();
   const [activeId, setActiveId] = useState();
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const [items, setItems] = useState(customFields);
+  const hasCustomFieldAccess = hasCommercialFeature("custom-exp-metadata");
 
   useEffect(() => {
     setItems(customFields);
@@ -101,24 +105,43 @@ const CustomFieldsPage = (): React.ReactElement => {
     setActiveId(null);
   }
 
-  if (!license) {
+  if (!hasCustomFieldAccess) {
     return (
-      <div className="contents container-fluid pagecontents">
-        <div className="mb-5">
-          <div className="row mb-3 align-items-center">
-            <div className="col-auto">
-              <h3>Custom Experiment Fields</h3>
-              <p className="text-gray"></p>
+      <>
+        <div className="contents container-fluid pagecontents">
+          <div className="mb-5">
+            <div className="row mb-3 align-items-center">
+              <div className="col-auto">
+                <h3>Custom Experiment Fields</h3>
+                <p className="text-gray"></p>
+              </div>
             </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-auto mb-2 alert alert-info py-2">
-              Custom experiment fields are available for enterprise plans.
-              Please upgrade your plan to access this feature.
+            <div className="row mb-3">
+              <div className="col-12 mb-2 py-2">
+                <p>
+                  Custom experiment fields are available with an Enterprise
+                  plan.
+                </p>
+                <UpgradeMessage
+                  showUpgradeModal={() => setUpgradeModal(true)}
+                  commercialFeature="override-metrics"
+                  upgradeMessage="set custom experiment fields"
+                  isEnterprise={true}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        {upgradeModal && (
+          <>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              reason="To add custom experiment metadata,"
+              source="custom-fields"
+            />
+          </>
+        )}
+      </>
     );
   }
 

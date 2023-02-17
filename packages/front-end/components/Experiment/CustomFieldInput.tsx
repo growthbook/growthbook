@@ -18,7 +18,7 @@ const CustomFieldInput: FC<{
       <div className={className}>
         {customFields
           .filter((v) => {
-            if (v.projects) {
+            if (v.projects && v.projects.length) {
               let matched = false;
               v.projects.forEach((p) => {
                 if (p === selectedProject) {
