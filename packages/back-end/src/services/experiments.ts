@@ -291,11 +291,7 @@ export async function getManualSnapshotData(
             statistic_type: "mean", // ratio not supported for now
             main_metric_type: metric.type,
             main_sum: s.mean * s.count,
-            main_sum_squares: sumSquaresFromStats(
-              s.mean * s.count,
-              Math.pow(s.stddev, 2),
-              s.count
-            ),
+            main_sum_squares: sumSquaresFromStats(s.mean * s.count, Math.pow(s.stddev, 2), s.count),
           };
         });
 
