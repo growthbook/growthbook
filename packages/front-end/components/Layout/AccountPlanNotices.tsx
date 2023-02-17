@@ -13,7 +13,7 @@ export default function AccountPlanNotices() {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const permissions = usePermissions();
   const router = useRouter();
-  const { license } = useUser();
+  const { license, organization } = useUser();
   const {
     showSeatOverageBanner,
     canSubscribe,
@@ -89,6 +89,22 @@ export default function AccountPlanNotices() {
   if (!isCloud() && license) {
     // Trial license is up
     const licenseTrialRemaining = license.trial ? daysLeft(license.exp) : -1;
+    if (license?.org && license.org !== organization.id) {
+      return (
+        <Tooltip
+          body={
+            <>
+              Your license key appears to be invalid. Please contact
+              sales@growthbook.io for assistance.
+            </>
+          }
+        >
+          <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+            <FaExclamationTriangle /> Invalid license
+          </div>
+        </Tooltip>
+      );
+    }
     if (licenseTrialRemaining >= 0) {
       return (
         <Tooltip

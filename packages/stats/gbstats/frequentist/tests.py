@@ -35,14 +35,14 @@ class TTest(BaseABTest):
     @property
     def variance(self) -> float:
         return self.stat_b.variance / (
-            pow(self.stat_a.value, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.value, 2) / (
-            pow(self.stat_a.value, 4) * self.stat_a.n
+            pow(self.stat_a.mean, 2) * self.stat_b.n
+        ) + self.stat_a.variance * pow(self.stat_b.mean, 2) / (
+            pow(self.stat_a.mean, 4) * self.stat_a.n
         )
 
     @property
     def point_estimate(self) -> float:
-        return (self.stat_b.value - self.stat_a.value) / self.stat_a.value
+        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.mean
 
     @property
     def critical_value(self) -> float:

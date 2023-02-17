@@ -25,9 +25,6 @@ export default class Redshift extends SqlIntegration {
   getSchema(): string {
     return this.params.defaultSchema || "";
   }
-  covariance(y: string, x: string): string {
-    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
-  }
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
