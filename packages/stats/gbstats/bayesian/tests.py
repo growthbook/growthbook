@@ -47,6 +47,9 @@ class BayesianABTest(BaseABTest):
             relative_risk=[0, 0],
         )
 
+    def has_empty_input(self):
+        return self.stat_a.n == 0 or self.stat_b.n == 0
+
     def credible_interval(
         self, mean_diff: float, std_diff: float, ccr: float
     ) -> List[float]:
@@ -74,11 +77,12 @@ class BayesianABTest(BaseABTest):
 
 class BinomialBayesianABTest(BayesianABTest):
     def compute_result(self) -> BayesianTestResult:
-        count_a = self.stat_a.value * self.stat_a.n
-        count_b = self.stat_b.value * self.stat_b.n
+        # TODO refactor validation to base test
+        if self.has_empty_input():
+            return self._default_output()
 
-        alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [count_a, self.stat_a.n])
-        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [count_b, self.stat_b.n])
+        alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_a.n])
+        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [self.stat_b.sum, self.stat_b.n])
 
         mean_a, var_a = Beta.moments(alpha_a, beta_a, log=True)
         mean_b, var_b = Beta.moments(alpha_b, beta_b, log=True)
@@ -89,7 +93,7 @@ class BinomialBayesianABTest(BayesianABTest):
         expected = np.exp(mean_diff) - 1
         risk = Beta.risk(alpha_a, beta_a, alpha_b, beta_b).tolist()
 
-        relative_risk = self.relative_risk(risk, self.stat_b.value)
+        relative_risk = self.relative_risk(risk, self.stat_b.mean)
         ci = self.credible_interval(mean_diff, std_diff, self.ccr)
         ctw = self.chance_to_win(mean_diff, std_diff)
 
@@ -106,13 +110,16 @@ class BinomialBayesianABTest(BayesianABTest):
 
 class GaussianBayesianABTest(BayesianABTest):
     def compute_result(self) -> BayesianTestResult:
+        if self.has_empty_input():
+            return self._default_output()
+
         if not _is_std_dev_positive((self.stat_a.stddev, self.stat_b.stddev)):
             return self._default_output()
 
         mu_a, sd_a = Norm.posterior(
             NORM_PRIOR,
             [
-                self.stat_a.value,
+                self.stat_a.mean,
                 self.stat_a.stddev,
                 self.stat_a.n,
             ],
@@ -120,7 +127,7 @@ class GaussianBayesianABTest(BayesianABTest):
         mu_b, sd_b = Norm.posterior(
             NORM_PRIOR,
             [
-                self.stat_b.value,
+                self.stat_b.mean,
                 self.stat_b.stddev,
                 self.stat_b.n,
             ],
@@ -138,7 +145,7 @@ class GaussianBayesianABTest(BayesianABTest):
 
         risk = Norm.risk(mu_a, sd_a, mu_b, sd_b).tolist()
 
-        relative_risk = self.relative_risk(risk, self.stat_b.value)
+        relative_risk = self.relative_risk(risk, self.stat_b.mean)
         ci = self.credible_interval(mean_diff, std_diff, self.ccr)
         ctw = self.chance_to_win(mean_diff, std_diff)
 
