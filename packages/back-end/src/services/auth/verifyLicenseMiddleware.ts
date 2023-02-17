@@ -17,13 +17,15 @@ export default function verifyLicenseMiddleware(
   }
 
   // Check if license is expired (2 day buffer)
-  let expiresWithBuffer = new Date(license.exp);
-  expiresWithBuffer = new Date(
-    expiresWithBuffer.setDate(expiresWithBuffer.getDate() + 2)
-  );
-  if (expiresWithBuffer < new Date()) {
-    res.locals.licenseError = "License expired";
-    res.setHeader("X-License-Error", "License expired");
+  if (license.exp) {
+    let expiresWithBuffer = new Date(license.exp);
+    expiresWithBuffer = new Date(
+      expiresWithBuffer.setDate(expiresWithBuffer.getDate() + 2)
+    );
+    if (expiresWithBuffer < new Date()) {
+      res.locals.licenseError = "License expired";
+      res.setHeader("X-License-Error", "License expired");
+    }
   }
 
   // Validate organization id with license
