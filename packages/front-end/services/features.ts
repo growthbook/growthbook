@@ -391,13 +391,11 @@ export function getDefaultRuleValue({
           value: defaultValue,
           weight: 0.5,
           name: "",
-          id: generateVariationId(),
         },
         {
           value: value,
           weight: 0.5,
           name: "",
-          id: generateVariationId(),
         },
       ],
       coverage: 1,
@@ -733,7 +731,6 @@ export function getExperimentDefinitionFromFeature(
         name,
         screenshots: [],
         description: v.value,
-        id: v.id,
       };
     }),
     phases: [

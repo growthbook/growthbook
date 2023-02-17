@@ -8,6 +8,7 @@ import ConditionInput from "../ConditionInput";
 import NamespaceSelector from "../NamespaceSelector";
 import FeatureValueField from "../FeatureValueField";
 import FeatureVariationsWrapper from "../FeatureVariationsWrapper";
+import { SortableVariation } from "../SortableFeatureVariationRow";
 
 const ExperimentRuleDefaultValuesField: FC<{
   // TODO Don't pass the entire form in here bruther
@@ -24,7 +25,7 @@ const ExperimentRuleDefaultValuesField: FC<{
   valueType: FeatureValueType;
   setWeight: (index: number, weight: number) => void;
   variationsDefaultValue?: string;
-  variations: ExperimentValue[];
+  variations: SortableVariation[];
   setVariations?: (variations: ExperimentValue[]) => void;
   fallbackValue: string;
   setFallbackValue: (v: string) => void;
@@ -74,14 +75,12 @@ const ExperimentRuleDefaultValuesField: FC<{
         coverage={coverageValue}
         setCoverage={setCoverageValue}
         setWeight={setWeight}
-        variations={variations.map(
-          (variation: ExperimentValue & { id?: string }) => {
-            return {
-              ...variation,
-              id: variation.id,
-            };
-          }
-        )}
+        variations={variations.map((variation) => {
+          return {
+            ...variation,
+            id: variation.id,
+          };
+        })}
         setVariations={setVariations}
         defaultValue={variationsDefaultValue}
         valueType={valueType}

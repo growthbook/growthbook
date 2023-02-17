@@ -1,6 +1,5 @@
 import { useForm } from "react-hook-form";
 import {
-  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
@@ -51,15 +50,28 @@ export default function RuleModal({
   const { namespaces } = useOrgSettings();
 
   const rules = getRules(feature, environment);
+  const rule = rules[i];
+
+  const defaultRuleValues = getDefaultRuleValue({
+    defaultValue: getFeatureDefaultValue(feature),
+    ruleType: defaultType,
+    attributeSchema,
+  });
 
   const defaultValues = {
-    ...getDefaultRuleValue({
-      defaultValue: getFeatureDefaultValue(feature),
-      ruleType: defaultType,
-      attributeSchema,
-    }),
-    ...((rules[i] as FeatureRule) || {}),
+    ...defaultRuleValues,
+    ...((rule as FeatureRule) || {}),
+    // add id's to allow for drag & drop sorting
+    ...(rule.type === "experiment"
+      ? {
+          values: rule.values.map((v) => ({
+            ...v,
+            id: generateVariationId(),
+          })),
+        }
+      : {}),
   };
+
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
     defaultValues.scheduleRules.some(
       (scheduleRule) => scheduleRule.timestamp !== null
@@ -92,7 +104,7 @@ export default function RuleModal({
       close={close}
       size="lg"
       cta="Save"
-      header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
+      header={rule ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
@@ -277,16 +289,14 @@ export default function RuleModal({
               form.setValue(`values.${i}.weight`, weight)
             }
             variations={
-              form
-                .watch("values")
-                .map((v: ExperimentValue & { id?: string }) => {
-                  return {
-                    value: v.value || "",
-                    name: v.name,
-                    weight: v.weight,
-                    id: v.id || generateVariationId(),
-                  };
-                }) || []
+              form.watch("values").map((v) => {
+                return {
+                  value: v.value || "",
+                  name: v.name,
+                  weight: v.weight,
+                  id: v.id,
+                };
+              }) || []
             }
             setVariations={(variations) => form.setValue("values", variations)}
           />

@@ -8,17 +8,18 @@ import ExperimentVariationsWrapper, {
   SortableExperimentVariation,
 } from "./ExperimentVariationsWrapper";
 
-export interface SortableExperimentInterfaceStringDates
-  extends ExperimentInterfaceStringDates {
-  variations: SortableExperimentVariation[];
-}
-
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const form = useForm<Partial<SortableExperimentInterfaceStringDates>>({
+  const form = useForm<
+    Partial<
+      Omit<ExperimentInterfaceStringDates, "variations"> & {
+        variations: SortableExperimentVariation[];
+      }
+    >
+  >({
     defaultValues: {
       variations: experiment.variations
         ? experiment.variations.map((v) => {

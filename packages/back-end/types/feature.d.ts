@@ -72,7 +72,6 @@ export interface RolloutRule extends BaseRule {
 }
 
 type ExperimentValue = {
-  id?: string;
   value: string;
   weight: number;
   name?: string;

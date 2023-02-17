@@ -1,20 +1,7 @@
 import { Variation } from "back-end/types/experiment";
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  rectSortingStrategy,
-  SortableContext,
-  sortableKeyboardCoordinates,
-} from "@dnd-kit/sortable";
 import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "../Icons";
+import SortableVariationsList from "../Features/SortableVariationsList";
 import { SortableExperimentVariationCard } from "./SortableVariationData";
 
 export type SortableExperimentVariation = Variation & {
@@ -32,52 +19,25 @@ export default function ExperimentVariationsWrapper({
   setVariations,
   className = "",
 }: Props) {
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  function getVariationIndex(id: string) {
-    for (let i = 0; i < variations.length; i++) {
-      if (variations[i].id === id) return i;
-    }
-    return -1;
-  }
-
   return (
     <div className={className}>
       <label>Variations</label>
       <div className="row">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={({ active, over }) => {
-            if (active.id !== over.id) {
-              const oldIndex = getVariationIndex(active.id);
-              const newIndex = getVariationIndex(over.id);
-
-              if (oldIndex === -1 || newIndex === -1) return;
-
-              const newVariations = arrayMove(variations, oldIndex, newIndex);
-
-              setVariations(newVariations);
-            }
-          }}
+        <SortableVariationsList
+          variations={variations}
+          setVariations={setVariations}
+          sortingStrategy="rect"
         >
-          <SortableContext items={variations} strategy={rectSortingStrategy}>
-            {variations.map((variation, i) => (
-              <SortableExperimentVariationCard
-                i={i}
-                variation={variation}
-                variations={variations}
-                setVariations={setVariations}
-                key={variation.id}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+          {variations.map((variation, i) => (
+            <SortableExperimentVariationCard
+              i={i}
+              variation={variation}
+              variations={variations}
+              setVariations={setVariations}
+              key={variation.id}
+            />
+          ))}
+        </SortableVariationsList>
         <div
           className="col-lg-6 col-md-6 mb-2 text-center"
           style={{ minWidth: 200 }}

@@ -22,9 +22,7 @@ import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
-import { SortableVariation } from "../Features/SortableFeatureVariationRow";
 import MetricsSelector from "./MetricsSelector";
-import { SortableExperimentInterfaceStringDates } from "./EditVariationsForm";
 import ExperimentVariationsWrapper, {
   SortableExperimentVariation,
 } from "./ExperimentVariationsWrapper";
@@ -98,7 +96,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const form = useForm<Partial<SortableExperimentInterfaceStringDates>>({
+  const form = useForm<
+    Partial<
+      Omit<ExperimentInterfaceStringDates, "variations"> & {
+        variations: SortableExperimentVariation[];
+      }
+    >
+  >({
     defaultValues: {
       project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
@@ -122,6 +126,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       guardrails: initialValue?.guardrails || [],
       variations: initialValue?.variations
         ? initialValue.variations.map((variation) => {
+            console.log("DEBUG initial variation", variation);
             return {
               id: generateVariationId(),
               ...variation,
@@ -370,7 +375,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               form.setValue(`phases.0.variationWeights.${i}`, weight)
             }
             valueAsId={true}
-            setVariations={(v: SortableVariation[]) => {
+            setVariations={(v) => {
               const existing = form.watch("variations");
               form.setValue(
                 "variations",
@@ -380,6 +385,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     key: "",
                     screenshots: [],
                   };
+                  console.log("current", current);
                   return {
                     ...current,
                     name: data.name || current?.name || "",

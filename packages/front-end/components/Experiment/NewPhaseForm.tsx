@@ -10,12 +10,12 @@ import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { generateVariationId } from "@/services/features";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
-import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -146,12 +146,12 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v: SortableExperimentVariation, i) => {
+          experiment.variations.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
+              id: generateVariationId(),
             };
           }) || []
         }

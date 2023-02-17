@@ -1,20 +1,6 @@
 import { FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
 import {
-  DndContext,
-  closestCenter,
-  useSensor,
-  useSensors,
-  PointerSensor,
-  KeyboardSensor,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import {
   decimalToPercent,
   distributeWeights,
   getEqualWeights,
@@ -32,6 +18,8 @@ import {
   SortableFeatureVariationRow,
   SortableVariation,
 } from "./SortableFeatureVariationRow";
+import SortableVariationsList from "./SortableVariationsList";
+
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
@@ -66,20 +54,6 @@ export default function FeatureVariationsWrapper({
       setWeight(i, w);
     });
   };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  function getVariationIndex(id: string) {
-    for (let i = 0; i < variations.length; i++) {
-      if (variations[i].id === id) return i;
-    }
-    return -1;
-  }
 
   return (
     <div className="form-group">
@@ -169,45 +143,24 @@ export default function FeatureVariationsWrapper({
             </tr>
           </thead>
           <tbody>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={({ active, over }) => {
-                if (active.id !== over.id) {
-                  const oldIndex = getVariationIndex(active.id);
-                  const newIndex = getVariationIndex(over.id);
-
-                  if (oldIndex === -1 || newIndex === -1) return;
-
-                  const newVariations = arrayMove(
-                    variations,
-                    oldIndex,
-                    newIndex
-                  );
-
-                  setVariations(newVariations);
-                }
-              }}
+            <SortableVariationsList
+              variations={variations}
+              setVariations={setVariations}
             >
-              <SortableContext
-                items={variations}
-                strategy={verticalListSortingStrategy}
-              >
-                {variations.map((variation, i) => (
-                  <SortableFeatureVariationRow
-                    i={i}
-                    variation={variation}
-                    variations={variations}
-                    setVariations={setVariations}
-                    setWeight={setWeight}
-                    customSplit={customSplit}
-                    key={variation.id}
-                    valueType={valueType}
-                    valueAsId={valueAsId}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+              {variations.map((variation, i) => (
+                <SortableFeatureVariationRow
+                  i={i}
+                  key={variation.id}
+                  variation={variation}
+                  variations={variations}
+                  setVariations={setVariations}
+                  setWeight={setWeight}
+                  customSplit={customSplit}
+                  valueType={valueType}
+                  valueAsId={valueAsId}
+                />
+              ))}
+            </SortableVariationsList>
             <tr>
               <td colSpan={4}>
                 <div className="row">

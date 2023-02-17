@@ -22,11 +22,11 @@ import styles from "./VariationsInput.module.scss";
 export type SortableVariation = ExperimentValue & {
   id: string;
 };
+
 interface SortableProps {
   i: number;
   variation: SortableVariation;
   variations: SortableVariation[];
-  key: string;
   valueType: FeatureValueType;
   setVariations: (value: ExperimentValue[]) => void;
   setWeight: (i: number, weight: number) => void;

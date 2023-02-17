@@ -5,11 +5,11 @@ import {
   ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
+import { generateVariationId } from "@/services/features";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
-import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
 
 export interface Props {
   close: () => void;
@@ -104,12 +104,12 @@ export default function EditPhaseModal({
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v: SortableExperimentVariation, i) => {
+          experiment.variations.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
+              id: generateVariationId(),
             };
           }) || []
         }
