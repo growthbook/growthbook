@@ -502,15 +502,7 @@ pre {
     }
   }
 }
-.hover-link {
-  a {
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
-  }
-  &:hover a {
-    opacity: 1;
-  }
-}
+
 .appbox {
   background-color: var(--surface-background-color);
   border: 1px solid var(--border-color-100);
