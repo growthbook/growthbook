@@ -7,6 +7,7 @@ import {
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -26,8 +27,8 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
-import GoogleAnalyticsMetrics from "../GoogleAnalyticsMetrics";
-import RiskThresholds from "./RiskThresholds";
+import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
+import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -36,6 +37,7 @@ export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
   edit: boolean;
+  duplicate?: boolean;
   source: string;
   onClose?: () => void;
   advanced?: boolean;
@@ -127,6 +129,7 @@ function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
+  duplicate = false,
   onClose,
   source,
   initialStep = 0,
@@ -136,10 +139,17 @@ const MetricForm: FC<MetricFormProps> = ({
   onSuccess,
   secondaryCTA,
 }) => {
-  const { datasources, getDatasourceById, metrics } = useDefinitions();
+  const {
+    datasources,
+    getDatasourceById,
+    metrics,
+    projects,
+    project,
+  } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
-  const [hideTags, setHideTags] = useState(true);
+  const [hideTags, setHideTags] = useState(!current?.tags?.length);
+  const settings = useOrgSettings();
 
   const {
     getMinSampleSizeForMetric,
@@ -209,6 +219,8 @@ const MetricForm: FC<MetricFormProps> = ({
       },
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
+      projects:
+        edit || duplicate ? current.projects || [] : project ? [project] : [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -218,6 +230,8 @@ const MetricForm: FC<MetricFormProps> = ({
   });
 
   const { apiCall } = useAuth();
+
+  const type = form.watch("type");
 
   const value = {
     name: form.watch("name"),
@@ -229,10 +243,11 @@ const MetricForm: FC<MetricFormProps> = ({
     denominator: form.watch("denominator"),
     column: form.watch("column"),
     table: form.watch("table"),
-    type: form.watch("type"),
+    type,
     winRisk: form.watch("winRisk"),
     loseRisk: form.watch("loseRisk"),
     tags: form.watch("tags"),
+    projects: form.watch("projects"),
     sql: form.watch("sql"),
     conditions: form.watch("conditions"),
   };
@@ -261,29 +276,29 @@ const MetricForm: FC<MetricFormProps> = ({
       });
   }, [metrics, value.type, value.datasource, current?.id]);
 
-  const currentDataSource = getDatasourceById(value.datasource);
+  const selectedDataSource = getDatasourceById(value.datasource);
 
-  const datasourceType = currentDataSource?.type;
+  const datasourceType = selectedDataSource?.type;
 
   const datasourceSettingsSupport =
-    currentDataSource?.properties?.hasSettings || false;
+    selectedDataSource?.properties?.hasSettings || false;
 
-  const capSupported = currentDataSource?.properties?.metricCaps || false;
+  const capSupported = selectedDataSource?.properties?.metricCaps || false;
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
   const ignoreNullsSupported = capSupported;
   const conversionWindowSupported = capSupported;
 
-  const supportsSQL = currentDataSource?.properties?.queryLanguage === "sql";
+  const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
-    currentDataSource?.properties?.queryLanguage === "javascript";
+    selectedDataSource?.properties?.queryLanguage === "javascript";
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
   let table = "Table";
   let column = "Column";
-  if (currentDataSource?.properties?.events) {
+  if (selectedDataSource?.properties?.events) {
     table = "Event";
     column = "Property";
   }
@@ -344,6 +359,12 @@ const MetricForm: FC<MetricFormProps> = ({
     return new Set(["timestamp", ...value.userIdTypes]);
   }, [value.userIdTypes]);
 
+  useEffect(() => {
+    if (type === "binomial") {
+      form.setValue("ignoreNulls", false);
+    }
+  }, [type, form]);
+
   return (
     <PagedModal
       inline={inline}
@@ -365,9 +386,9 @@ const MetricForm: FC<MetricFormProps> = ({
           validateBasicInfo(form.getValues());
 
           // Initial metric SQL based on the data source
-          if (supportsSQL && currentDataSource && !value.sql) {
+          if (supportsSQL && selectedDataSource && !value.sql) {
             const [userTypes, sql] = getInitialMetricQuery(
-              currentDataSource,
+              selectedDataSource,
               value.type,
               value.name
             );
@@ -379,7 +400,7 @@ const MetricForm: FC<MetricFormProps> = ({
         }}
       >
         <div className="form-group">
-          Metric Name
+          <label>Metric Name</label>
           <input
             type="text"
             required
@@ -401,7 +422,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
-              Tags
+              <label>Tags</label>
               <TagsInput
                 value={value.tags}
                 onChange={(tags) => form.setValue("tags", tags)}
@@ -409,6 +430,19 @@ const MetricForm: FC<MetricFormProps> = ({
             </>
           )}
         </div>
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label="Projects"
+              placeholder="All projects"
+              value={value.projects || []}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              onChange={(v) => form.setValue("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this metric to specific projects"
+            />
+          </div>
+        )}
         <SelectField
           label="Data Source"
           value={value.datasource || ""}
@@ -423,7 +457,7 @@ const MetricForm: FC<MetricFormProps> = ({
           disabled={edit}
         />
         <div className="form-group">
-          Metric Type
+          <label>Metric Type</label>
           <RadioSelector
             name="type"
             value={value.type}
@@ -496,7 +530,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(types) => {
                     form.setValue("userIdTypes", types);
                   }}
-                  options={(currentDataSource.settings.userIdTypes || []).map(
+                  options={(selectedDataSource.settings.userIdTypes || []).map(
                     ({ userIdType }) => ({
                       value: userIdType,
                       label: userIdType,
@@ -505,6 +539,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   label="Identifier Types Supported"
                 />
                 <SQLInputField
+                  className="mb-2"
                   userEnteredQuery={value.sql}
                   datasourceId={value.datasource}
                   form={form}
@@ -694,12 +729,12 @@ const MetricForm: FC<MetricFormProps> = ({
                     onChange={(types) => {
                       form.setValue("userIdTypes", types);
                     }}
-                    options={(currentDataSource.settings.userIdTypes || []).map(
-                      ({ userIdType }) => ({
-                        value: userIdType,
-                        label: userIdType,
-                      })
-                    )}
+                    options={(
+                      selectedDataSource.settings.userIdTypes || []
+                    ).map(({ userIdType }) => ({
+                      value: userIdType,
+                      label: userIdType,
+                    }))}
                     label="Identifier Types Supported"
                   />
                 )}
@@ -763,7 +798,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   />
                   {value.type !== "binomial" && (
                     <div className="mt-2">
-                      User Value Aggregation:
+                      <label>User Value Aggregation:</label>
                       <Code
                         language="sql"
                         code={getAggregateSQLPreview(value)}
@@ -781,7 +816,7 @@ const MetricForm: FC<MetricFormProps> = ({
       </Page>
       <Page display="Behavior">
         <div className="form-group ">
-          What is the Goal?
+          <label>What is the Goal?</label>
           <SelectField
             value={form.watch("inverse") ? "1" : "0"}
             onChange={(v) => {
@@ -805,7 +840,7 @@ const MetricForm: FC<MetricFormProps> = ({
         </div>
         {capSupported && ["count", "duration", "revenue"].includes(value.type) && (
           <div className="form-group">
-            Capped Value
+            <label>Capped Value</label>
             <input
               type="number"
               className="form-control"
@@ -819,7 +854,7 @@ const MetricForm: FC<MetricFormProps> = ({
         )}
         {conversionWindowSupported && (
           <div className="form-group">
-            Conversion Delay (hours)
+            <label>Conversion Delay (hours)</label>
             <input
               type="number"
               step="any"
@@ -837,7 +872,7 @@ const MetricForm: FC<MetricFormProps> = ({
         )}
         {conversionWindowSupported && (
           <div className="form-group">
-            Conversion Window (hours)
+            <label>Conversion Window (hours)</label>
             <input
               type="number"
               step="any"
@@ -869,8 +904,8 @@ const MetricForm: FC<MetricFormProps> = ({
           <>
             {ignoreNullsSupported && value.type !== "binomial" && (
               <div className="form-group">
-                Converted Users Only
                 <SelectField
+                  label="Converted Users Only"
                   required
                   value={form.watch("ignoreNulls") ? "1" : "0"}
                   onChange={(v) => {
@@ -893,15 +928,17 @@ const MetricForm: FC<MetricFormProps> = ({
                 </small>
               </div>
             )}
-            <RiskThresholds
-              winRisk={value.winRisk}
-              loseRisk={value.loseRisk}
-              winRiskRegisterField={form.register("winRisk")}
-              loseRiskRegisterField={form.register("loseRisk")}
-              riskError={riskError}
-            />
+            {settings.statsEngine !== "frequentist" && (
+              <RiskThresholds
+                winRisk={value.winRisk}
+                loseRisk={value.loseRisk}
+                winRiskRegisterField={form.register("winRisk")}
+                loseRiskRegisterField={form.register("loseRisk")}
+                riskError={riskError}
+              />
+            )}
             <div className="form-group">
-              Minimum Sample Size
+              <label>Minimum Sample Size</label>
               <input
                 type="number"
                 className="form-control"

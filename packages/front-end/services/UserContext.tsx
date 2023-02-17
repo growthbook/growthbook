@@ -26,10 +26,10 @@ import {
   useState,
 } from "react";
 import * as Sentry from "@sentry/react";
-import useApi from "../hooks/useApi";
-import { useAuth, UserOrganizations } from "./auth";
-import { isCloud, isSentryEnabled } from "./env";
-import track from "./track";
+import { isCloud, isSentryEnabled } from "@/services/env";
+import useApi from "@/hooks/useApi";
+import { useAuth, UserOrganizations } from "@/services/auth";
+import track from "@/services/track";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -42,7 +42,7 @@ type OrgSettingsResponse = {
   licenseKey?: string;
 };
 
-interface PermissionFunctions {
+export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,
@@ -56,13 +56,9 @@ interface PermissionFunctions {
 }
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
-  runQueries: false,
-  createDatasources: false,
   createDimensions: false,
-  createMetrics: false,
   createPresentations: false,
   createSegments: false,
-  editDatasourceSettings: false,
   manageApiKeys: false,
   manageBilling: false,
   manageNamespaces: false,
@@ -74,6 +70,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageTargetingAttributes: false,
   manageTeam: false,
   manageWebhooks: false,
+  manageIntegrations: false,
   organizationSettings: false,
   superDelete: false,
   viewEvents: false,
@@ -107,6 +104,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  verified: boolean;
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
@@ -192,6 +190,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   if (!user && data) {
     user = {
       email: data.email,
+      verified: data.verified,
       id: data.userId,
       environments: [],
       limitAccessByEnvironment: false,

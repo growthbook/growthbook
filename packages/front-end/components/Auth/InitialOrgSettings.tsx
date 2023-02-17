@@ -4,7 +4,7 @@ import { FiLogOut } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import WelcomeFrame from "./WelcomeFrame";
 
 export default function InitialOrgSettings(): ReactElement {
@@ -30,6 +30,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "MySQL or MariaDB", value: "mysql" },
     { display: "MS SQL/SQL Server", value: "mssql" },
     { display: "BigQuery", value: "bigquery" },
+    { display: "Databricks", value: "databricks" },
     { display: "Mixpanel", value: "mixpanel" },
     { display: "ClickHouse", value: "clickhouse" },
   ];
@@ -68,7 +69,7 @@ export default function InitialOrgSettings(): ReactElement {
       method: "PUT",
       body: JSON.stringify({
         types: value.types,
-        dataSouce: datas,
+        dataSource: datas,
         techStack: techs,
       }),
     });

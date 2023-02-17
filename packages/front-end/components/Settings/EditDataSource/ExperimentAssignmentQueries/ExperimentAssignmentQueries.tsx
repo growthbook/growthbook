@@ -6,12 +6,13 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { checkDatasourceProjectPermissions } from "@/services/datasources";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
-import usePermissions from "@/hooks/usePermissions";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
-import { AddEditExperimentAssignmentQueryModal } from "./AddEditExperimentAssignmentQueryModal";
+import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -19,6 +20,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   dataSource,
   onSave,
   onCancel,
+  canEdit = true,
 }) => {
   const router = useRouter();
   let intitialOpenIndexes: boolean[] = [];
@@ -35,7 +37,13 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   );
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  canEdit =
+    canEdit &&
+    checkDatasourceProjectPermissions(
+      dataSource,
+      permissions,
+      "editDatasourceSettings"
+    );
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {

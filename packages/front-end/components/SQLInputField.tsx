@@ -2,11 +2,11 @@ import { UserIdType } from "back-end/types/datasource";
 import React, { ReactElement, useEffect, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
+import type { TestQueryRow } from "back-end/src/types/Integration";
 import CodeTextArea from "../components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "../components/Settings/DisplayTestQueryResults";
 import Code from "../components/SyntaxHighlighting/Code";
 import Tooltip from "../components/Tooltip/Tooltip";
-import { TestQueryRow } from "../../back-end/src/types/Integration";
 import { useAuth } from "../services/auth";
 import { validateSQL } from "../services/datasources";
 
@@ -28,6 +28,7 @@ type Props = {
   helpText?: ReactElement;
   identityTypes?: UserIdType[];
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
+  className?: string;
 };
 
 export default function SQLInputField({
@@ -40,6 +41,7 @@ export default function SQLInputField({
   helpText,
   identityTypes,
   queryType,
+  className,
 }: Props) {
   const [
     testQueryResults,
@@ -161,7 +163,7 @@ export default function SQLInputField({
   };
 
   return (
-    <>
+    <div className={className}>
       <label className="font-weight-bold mb-1">SQL Query</label>
       <div className="row flex-column-reverse flex-md-row">
         <div
@@ -269,6 +271,6 @@ export default function SQLInputField({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

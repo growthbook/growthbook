@@ -1,0 +1,128 @@
+---
+title: Swift SDK
+description: GrowthBook SDK for Swift - iOS
+sidebar_label: Swift (iOS)
+slug: swift
+---
+
+# Swift (iOS)
+
+This SDK supports the following platforms and versions:
+
+- iOS 12 and above
+- Apple TvOS 12 and above
+- Apple WatchOS 5.0 and above
+
+## Installation
+
+### CocoaPods
+
+Add the following to your podfile:
+
+```ruby
+source 'https://github.com/CocoaPods/Specs.git'
+
+target 'MyApp' do
+  pod 'GrowthBook-IOS'
+end
+```
+
+Then, install:
+
+```bash
+pod install
+```
+
+### Swift Package Manager (SPM)
+
+Add GrowthBook to your `Package.swift` file:
+
+```swift
+dependencies: [
+  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+]
+```
+
+## Quick Usage
+
+```swift
+// First, create a GrowthBook instance using your unique features endpoint
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  // Your GrowthBook feature flag endpoint
+  url: "https://cdn.growthbook.io/api/features/sdk-abc123"
+).initializer()
+
+// Then, add targeting attributes so you can control the release of your features
+// TODO: Replace with your real targeting attributes
+var attrs = [
+  "id": "12345",
+  "deviceId": "abc123",
+  "loggedIn": true,
+  "country": "US"
+]
+gb.setAttributes(attrs)
+
+// Finally, start feature flagging!
+
+// Boolean (On/Off) Feature Flag
+if (gb.isOn("feature-usage-code")) {
+  // Feature is enabled!
+}
+
+// String/Number/JSON Feature Flag with a fallback
+var value = gb.getFeatureValue("button-color", "blue")
+print(value)
+```
+
+## Loading Features
+
+In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
+
+### Built-in Fetching and Caching
+
+If you pass a `url` into GrowthBookBuilder, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in an `encryptionKey` and it will decrypt feature flags automatically.
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  // Your feature flag endpoint
+  url: "https://cdn.growthbook.io/api/features/sdk-abc123",
+  // View your encryption key on the Features -> SDKs page
+  encryptionKey: "abcdef98765"
+).initializer()
+```
+
+If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshCache()`.
+
+### Custom Integration
+
+If you prefer to handle the network and caching logic yourself, you can instead pass in a features JSON object directly. For example, you might store features in Postgres on your back-end and send it down to your app as part of an initial bootstrap API call.
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  features: [
+    "feature1": Feature(defaultValue: true)
+  ]
+).initializer()
+```
+
+## Experimentation (A/B Testing)
+
+In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  // Your feature flag endpoint
+  url: "https://cdn.growthbook.io/api/features/sdk-abc123",
+  // Called whenever someone is put into an experiment
+  trackingCallback: { experiment, experimentResult in
+    // TODO: Track in your real analytics system
+    print("Viewed Experiment")
+    print("Experiment Id: ", experiment.key)
+    print("Variation Id: ", experimentResult.variationId)
+  }
+).initializer()
+```
+
+## Reference
+
+View detailed docs on the [GitHub Repo](https://github.com/growthbook/growthbook-swift)

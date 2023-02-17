@@ -8,6 +8,11 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
 import { NotificationEventName } from "../../events/base-types";
+import {
+  deleteEventWebHookById,
+  getEventWebHookById,
+  updateEventWebHook,
+} from "../../models/EventWebhookModel";
 
 // region GET /event-webhooks
 
@@ -19,7 +24,7 @@ type GetEventWebHooks = {
 
 export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
-  res: Response<GetEventWebHooks | ApiErrorResponse>
+  res: Response<GetEventWebHooks>
 ) => {
   req.checkPermissions("manageWebhooks");
 
@@ -31,6 +36,35 @@ export const getEventWebHooks = async (
 };
 
 // endregion GET /event-webhooks
+
+// region GET /event-webhooks/:id
+
+type GetEventWebHookByIdRequest = AuthRequest<null, { eventWebHookId: string }>;
+
+type GetEventWebHookByIdResponse = {
+  eventWebHook: EventWebHookInterface;
+};
+
+export const getEventWebHook = async (
+  req: GetEventWebHookByIdRequest,
+  res: Response<GetEventWebHookByIdResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+  const { eventWebHookId } = req.params;
+
+  const eventWebHook = await getEventWebHookById(eventWebHookId, org.id);
+  if (!eventWebHook) {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return res.json({
+    eventWebHook,
+  });
+};
+
+// endregion GET /event-webhooks/:id
 
 // region POST /event-webhooks
 
@@ -89,10 +123,81 @@ export const getEventWebHookLogs = async (
 
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
     org.id,
-    req.params.eventWebHookId
+    req.params.eventWebHookId,
+    50
   );
 
   return res.json({ eventWebHookLogs });
 };
 
 // endregion GET /event-webhooks/logs/:eventWebHookId
+
+// region DELETE /event-webhooks/:eventWebHookId
+
+type DeleteEventWebhookRequest = AuthRequest<null, { eventWebHookId: string }>;
+
+type DeleteEventWebhookResponse = {
+  status: number;
+};
+
+export const deleteEventWebHook = async (
+  req: DeleteEventWebhookRequest,
+  res: Response<DeleteEventWebhookResponse | ApiErrorResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+
+  const successful = await deleteEventWebHookById({
+    eventWebHookId: req.params.eventWebHookId,
+    organizationId: org.id,
+  });
+
+  const status = successful ? 200 : 404;
+
+  res.status(status).json({
+    status,
+  });
+};
+
+// endregion DELETE /event-webhooks/:eventWebHookId
+
+// region PUT /event-webhooks/:eventWebHookId
+
+type UpdateEventWebHookRequest = AuthRequest<
+  {
+    name: string;
+    url: string;
+    events: NotificationEventName[];
+  },
+  { eventWebHookId: string }
+>;
+
+type UpdateEventWebHookResponse = {
+  status: number;
+};
+
+export const putEventWebHook = async (
+  req: UpdateEventWebHookRequest,
+  res: Response<UpdateEventWebHookResponse>
+) => {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+
+  const successful = await updateEventWebHook(
+    {
+      eventWebHookId: req.params.eventWebHookId,
+      organizationId: org.id,
+    },
+    req.body
+  );
+
+  const status = successful ? 200 : 404;
+
+  res.status(status).json({
+    status,
+  });
+};
+
+// endregion PUT /event-webhooks/:eventWebHookId

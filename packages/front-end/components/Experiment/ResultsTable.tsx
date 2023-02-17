@@ -4,7 +4,9 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
@@ -12,6 +14,7 @@ import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
+import PValueColumn from "./PValueColumn";
 
 export type ResultsTableProps = {
   id: string;
@@ -31,6 +34,7 @@ export type ResultsTableProps = {
   fullStats?: boolean;
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
+  statsEngine?: StatsEngine;
 };
 
 const numberFormatter = new Intl.NumberFormat();
@@ -54,8 +58,11 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
+  statsEngine: _statsEngine,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
+  const orgSettings = useOrgSettings();
+  const statsEngine = _statsEngine ? _statsEngine : orgSettings.statsEngine;
 
   return (
     <table
@@ -114,8 +121,9 @@ export default function ResultsTable({
                   className={`variation${i} text-center`}
                   style={{ minWidth: 110 }}
                 >
-                  {/** TODO Change to 'P-Value' for frequentist **/}
-                  Chance to Beat Control
+                  {statsEngine === "frequentist"
+                    ? "P-value"
+                    : "Chance to Beat Control"}
                 </th>
               )}
               {i > 0 && (
@@ -202,35 +210,46 @@ export default function ResultsTable({
                       users={stats?.users || 0}
                       className="value variation"
                     />
-                    {/** TODO Switch to p-value for frequentist **/}
-                    {i > 0 && fullStats && (
-                      <ChanceToWinColumn
-                        baseline={baseline}
-                        stats={stats}
-                        status={status}
-                        isLatestPhase={isLatestPhase}
-                        startDate={startDate}
-                        metric={row.metric}
-                        snapshotDate={dateCreated}
-                      />
-                    )}
-                    {i > 0 && (
-                      <>
-                        {fullStats ? (
-                          <PercentGraphColumn
-                            baseline={baseline}
-                            domain={domain}
-                            metric={row.metric}
-                            stats={stats}
-                            id={`${id}_violin_row${ind}_var${i}`}
-                          />
-                        ) : (
-                          <td className="align-middle">
-                            {percentFormatter.format(stats?.expected || 0)}
-                          </td>
-                        )}
-                      </>
-                    )}
+                    {i > 0 &&
+                      fullStats &&
+                      (statsEngine === "frequentist" ? (
+                        <PValueColumn
+                          baseline={baseline}
+                          stats={stats}
+                          status={status}
+                          isLatestPhase={isLatestPhase}
+                          startDate={startDate}
+                          metric={row.metric}
+                          snapshotDate={dateCreated}
+                        />
+                      ) : (
+                        <ChanceToWinColumn
+                          baseline={baseline}
+                          stats={stats}
+                          status={status}
+                          isLatestPhase={isLatestPhase}
+                          startDate={startDate}
+                          metric={row.metric}
+                          snapshotDate={dateCreated}
+                        />
+                      ))}
+                    {i > 0 &&
+                      (fullStats ? (
+                        <PercentGraphColumn
+                          barType={
+                            statsEngine === "frequentist" ? "pill" : null
+                          }
+                          baseline={baseline}
+                          domain={domain}
+                          metric={row.metric}
+                          stats={stats}
+                          id={`${id}_violin_row${ind}_var${i}`}
+                        />
+                      ) : (
+                        <td className="align-middle">
+                          {percentFormatter.format(stats?.expected || 0)}
+                        </td>
+                      ))}
                   </React.Fragment>
                 );
               })}

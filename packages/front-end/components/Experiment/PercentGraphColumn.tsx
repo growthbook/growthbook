@@ -11,17 +11,19 @@ export default function PercentGraphColumn({
   stats,
   domain,
   id,
+  barType: _barType,
 }: {
   metric: MetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
   id: string;
+  barType?: "pill" | "violin";
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const { ciUpper, ciLower } = useConfidenceLevels();
-  const barType = stats.uplift?.dist ? "violin" : "pill";
+  const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
   const showGraph = metric && enoughData;
   return (

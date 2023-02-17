@@ -1,4 +1,9 @@
-export { GrowthBook } from "@growthbook/growthbook";
+export {
+  GrowthBook,
+  setPolyfills,
+  configureCache,
+  clearCache,
+} from "@growthbook/growthbook";
 
 export type {
   Context,
@@ -19,10 +24,12 @@ export type {
 export type {
   WithRunExperimentProps,
   GrowthBookContextValue,
+  GrowthBookSSRData,
 } from "./GrowthBookReact";
 
 export {
   FeatureString,
+  FeaturesReady,
   GrowthBookContext,
   GrowthBookProvider,
   IfFeatureEnabled,
@@ -30,4 +37,8 @@ export {
   useFeature,
   useGrowthBook,
   withRunExperiment,
+  getGrowthBookSSRData,
+  useGrowthBookSSR,
+  useFeatureIsOn,
+  useFeatureValue,
 } from "./GrowthBookReact";

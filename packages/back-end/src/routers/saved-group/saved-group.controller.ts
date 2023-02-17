@@ -138,7 +138,7 @@ export const putSavedGroup = async (
 
   // If the values change, we need to invalidate cached feature rules
   if (savedGroup.values !== values) {
-    savedGroupUpdated(org);
+    savedGroupUpdated(org, savedGroup.id);
   }
 
   return res.status(200).json({

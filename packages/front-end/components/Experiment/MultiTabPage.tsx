@@ -37,12 +37,12 @@ import Button from "@/components/Button";
 import usePermissions from "@/hooks/usePermissions";
 import { getExposureQuery } from "@/services/datasources";
 import { useUser } from "@/services/UserContext";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import { useCustomFields } from "../../services/experiments";
-import VariationBox from "./VariationBox";
-import ExperimentReportsList from "./ExperimentReportsList";
-import CustomFieldDisplay from "./CustomFieldDisplay";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
+import { useCustomFields } from "@/services/experiments";
+import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
+import VariationBox from "@/components/Experiment/VariationBox";
+import CustomFieldDisplay from "@/components/Experiment/CustomFieldDisplay";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -726,7 +726,7 @@ const MultiTabPage = ({
                 {experiment.autoSnapshots && experiment.nextSnapshotAttempt ? (
                   <span title={datetime(experiment.nextSnapshotAttempt)}>
                     {ago(experiment.nextSnapshotAttempt)}{" "}
-                    {canEdit && permissions.runQueries && (
+                    {canEdit && permissions.check("runQueries", "") && (
                       <Button
                         color="link text-danger"
                         className="btn-sm"

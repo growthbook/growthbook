@@ -61,7 +61,7 @@ class BayesABDist(ABC):
         )
         out = gq - cls.dist.mean((a_par1, b_par1), (a_par2, b_par2))
 
-        return out
+        return np.maximum(out, 0)
 
 
 class Beta(BayesABDist):

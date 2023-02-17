@@ -27,6 +27,10 @@ const dataSourceSchema = new mongoose.Schema({
   dateUpdated: Date,
   type: { type: String },
   params: String,
+  projects: {
+    type: [String],
+    index: true,
+  },
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -68,6 +72,31 @@ export async function getDataSourceById(id: string, organization: string) {
 
   return doc ? toInterface(doc) : null;
 }
+export async function getDataSourcesByIds(ids: string[], organization: string) {
+  // If using config.yml, immediately return the list from there
+  if (usingFileConfig()) {
+    return (
+      getConfigDatasources(organization).filter((d) => ids.includes(d.id)) || []
+    );
+  }
+
+  return (
+    await DataSourceModel.find({
+      id: { $in: ids },
+      organization,
+    })
+  ).map(toInterface);
+}
+
+export async function removeProjectFromDatasources(
+  project: string,
+  organization: string
+) {
+  await DataSourceModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
+}
 
 export async function getOrganizationsWithDatasources(): Promise<string[]> {
   if (usingFileConfig()) {
@@ -92,13 +121,15 @@ export async function createDataSource(
   params: DataSourceParams,
   settings: DataSourceSettings,
   id?: string,
-  description: string = ""
+  description: string = "",
+  projects?: string[]
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
 
   id = id || uniqid("ds_");
+  projects = projects || [];
 
   if (type === "google_analytics") {
     const oauth2Client = getOauth2Client();
@@ -127,6 +158,7 @@ export async function createDataSource(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     params: encryptParams(params),
+    projects,
   };
 
   // Test the connection and create in the database

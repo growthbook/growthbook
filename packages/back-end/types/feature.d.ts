@@ -38,7 +38,7 @@ export interface FeatureInterface {
   valueType: FeatureValueType;
   defaultValue: string;
   tags?: string[];
-  environmentSettings?: Record<string, FeatureEnvironment>;
+  environmentSettings: Record<string, FeatureEnvironment>;
   draft?: FeatureDraftChanges;
   revision?: {
     version: number;

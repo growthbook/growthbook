@@ -1,12 +1,12 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { getExperimentsByOrganization } from "../services/experiments";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { APP_ORIGIN } from "../util/secrets";
 import { ExperimentInterface } from "../../types/experiment";
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
+import { getAllExperiments } from "../models/ExperimentModel";
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface
@@ -84,7 +84,7 @@ type CompressedExperimentOptions = {
 const baseScript = fs
   .readFileSync(path.join(__dirname, "..", "templates", "javascript.js"))
   .toString("utf-8")
-  .replace(/.*eslint-.*\n/g, "")
+  .replace(/\/\*\s*eslint-.*\*\//, "")
   .replace(/\n\/\/.*/g, "");
 
 export async function getExperimentsScript(
@@ -108,7 +108,7 @@ export async function getExperimentsScript(
           "Must use a Publishable API key to load the visual editor script",
       });
     }
-    const experiments = await getExperimentsByOrganization(organization);
+    const experiments = await getAllExperiments(organization);
 
     const experimentData: ExperimentData[] = [];
 

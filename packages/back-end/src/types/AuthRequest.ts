@@ -12,12 +12,12 @@ interface PermissionFunctions {
   checkPermissions(permission: GlobalPermission): void;
   checkPermissions(
     permission: ProjectScopedPermission,
-    project: string | undefined
+    project: string | string[] | undefined
   ): void;
   checkPermissions(
     permission: EnvScopedPermission,
-    project: string | undefined,
-    envs: string[]
+    project: string | string[] | undefined,
+    envs: string[] | Set<string>
   ): void;
 }
 

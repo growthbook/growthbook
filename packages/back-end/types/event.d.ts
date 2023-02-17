@@ -4,6 +4,9 @@ import {
   NotificationEventResource,
 } from "../src/events/base-types";
 import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
@@ -11,6 +14,7 @@ import {
 
 export interface EventInterface<T> {
   id: string;
+  event: NotificationEventName;
   dateCreated: Date;
   data: T;
   organizationId: string;
@@ -23,4 +27,7 @@ export {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
+  ExperimentCreatedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
 };

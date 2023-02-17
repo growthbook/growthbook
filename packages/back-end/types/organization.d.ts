@@ -5,6 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
+import type { StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -36,7 +37,8 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
-  | "override-metrics";
+  | "override-metrics"
+  | "schedule-feature-flag";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -59,6 +61,13 @@ export interface Invite extends MemberRoleWithProjects {
   dateCreated: Date;
 }
 
+export interface PendingMember extends MemberRoleWithProjects {
+  id: string;
+  name: string;
+  email: string;
+  dateCreated: Date;
+}
+
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
@@ -67,6 +76,7 @@ export interface Member extends MemberRoleWithProjects {
 export interface ExpandedMember extends Member {
   email: string;
   name: string;
+  verified: boolean;
 }
 
 export interface NorthStarMetric {
@@ -167,9 +177,10 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
+  statsEngine?: StatsEngine;
+  pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
-  statsEngine?: "bayesian" | "frequentist";
 }
 
 export interface SubscriptionQuote {
@@ -203,6 +214,7 @@ export interface OrganizationInterface {
   id: string;
   url: string;
   dateCreated: Date;
+  verifiedDomain?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -226,8 +238,10 @@ export interface OrganizationInterface {
     priceId?: string;
   };
   licenseKey?: string;
+  autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
+  pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }

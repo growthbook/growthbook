@@ -480,6 +480,7 @@ const DateGraph: FC<{
                 <AxisBottom
                   top={graphHeight}
                   scale={xScale}
+                  stroke={"var(--text-color-table)"}
                   numTicks={numXTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
@@ -496,6 +497,7 @@ const DateGraph: FC<{
                 />
                 <AxisLeft
                   scale={yScale}
+                  stroke={"var(--text-color-table)"}
                   numTicks={numYTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",

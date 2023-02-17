@@ -6,15 +6,17 @@ import {
   ReactElement,
 } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { dataSourceConnections } from "@/services/eventSchema";
+import Button from "@/components/Button";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { getInitialSettings } from "@/services/datasources";
+import { DocLink, DocSection } from "@/components/DocLink";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getInitialSettings } from "@/services/datasources";
-import { dataSourceConnections } from "@/services/eventSchema";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Button from "../Button";
-import { DocLink, DocSection } from "../DocLink";
-import ConnectionSettings from "./ConnectionSettings";
+import Modal from "@/components/Modal";
+import ConnectionSettings from "@/components/Settings/ConnectionSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const typeOptions = dataSourceConnections;
 
@@ -39,6 +41,7 @@ const DataSourceForm: FC<{
   cta = "Save",
   secondaryCTA,
 }) => {
+  const { projects } = useDefinitions();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -130,6 +133,13 @@ const DataSourceForm: FC<{
     });
     setDirty(true);
   };
+  const onManualChange = (name, value) => {
+    setDatasource({
+      ...datasource,
+      [name]: value,
+    });
+    setDirty(true);
+  };
 
   return (
     <Modal
@@ -214,7 +224,7 @@ const DataSourceForm: FC<{
         />
       </div>
       <div className="form-group">
-        <label>Description (optional)</label>
+        <label>Description</label>
         <textarea
           className="form-control"
           name="description"
@@ -222,6 +232,19 @@ const DataSourceForm: FC<{
           value={datasource.description}
         />
       </div>
+      {projects?.length > 0 && (
+        <div className="form-group">
+          <MultiSelectField
+            label="Projects"
+            placeholder="All projects"
+            value={datasource.projects || []}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => onManualChange("projects", v)}
+            customClassName="label-overflow-ellipsis"
+            helpText="Assign this data source to specific projects"
+          />
+        </div>
+      )}
       <ConnectionSettings
         datasource={datasource}
         existing={existing}
