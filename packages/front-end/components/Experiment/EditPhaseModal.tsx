@@ -10,6 +10,7 @@ import { generateVariationId } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsWrapper from "../Features/FeatureVariationsWrapper";
+import { SortableExperimentVariation } from "./ExperimentVariationsWrapper";
 
 export interface Props {
   close: () => void;
@@ -24,7 +25,9 @@ export default function EditPhaseModal({
   experiment,
   mutate,
 }: Props) {
-  const form = useForm<ExperimentPhaseStringDates>({
+  const form = useForm<
+    ExperimentPhaseStringDates & { variations: SortableExperimentVariation[] }
+  >({
     defaultValues: {
       ...experiment.phases[i],
       dateStarted: experiment.phases[i].dateStarted.substr(0, 16),

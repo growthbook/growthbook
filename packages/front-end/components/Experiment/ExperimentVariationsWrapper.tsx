@@ -1,4 +1,4 @@
-import { SortableExperimentVariation } from "@/../back-end/types/experiment";
+import { Variation } from "@/../back-end/types/experiment";
 import { generateVariationId } from "@/services/features";
 import { GBAddCircle } from "../Icons";
 import SortableVariationsList from "../Features/SortableVariationsList";
@@ -9,6 +9,10 @@ export interface Props {
   setVariations?: (variations: SortableExperimentVariation[]) => void;
   className?: string;
 }
+
+export type SortableExperimentVariation = Variation & {
+  id: string;
+};
 
 export default function ExperimentVariationsWrapper({
   variations,

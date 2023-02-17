@@ -26,10 +26,6 @@ export interface Variation {
   dom?: DomChange[];
 }
 
-export type SortableExperimentVariation = Variation & {
-  id: string;
-};
-
 export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
@@ -46,7 +42,6 @@ export type ExperimentPhaseStringDates = Omit<
 > & {
   dateStarted?: string;
   dateEnded?: string;
-  variations?: SortableExperimentVariation[];
 };
 
 export type ExperimentStatus = "draft" | "running" | "stopped";
