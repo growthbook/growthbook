@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { SortableExperimentVariation } from "../Experiment/ExperimentVariationsWrapper";
+import { SortableExperimentVariation } from "../Experiment/ExperimentVariationsInput";
 import { SortableVariation } from "./SortableFeatureVariationRow";
 
 const SortableVariationsList: FC<{

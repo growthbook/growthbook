@@ -26,7 +26,7 @@ import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
-import FeatureVariationsWrapper from "./FeatureVariationsWrapper";
+import FeatureVariationsInput from "./FeatureVariationsInput";
 
 export interface Props {
   close: () => void;
@@ -272,7 +272,7 @@ export default function RuleModal({
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
           />
-          <FeatureVariationsWrapper
+          <FeatureVariationsInput
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
             coverage={form.watch("coverage")}

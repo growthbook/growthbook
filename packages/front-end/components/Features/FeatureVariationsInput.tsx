@@ -33,7 +33,7 @@ export interface Props {
   showPreview?: boolean;
 }
 
-export default function FeatureVariationsWrapper({
+export default function FeatureVariationsInput({
   variations,
   setVariations,
   setWeight,

@@ -7,8 +7,8 @@ import Field from "@/components/Forms/Field";
 import ConditionInput from "../ConditionInput";
 import NamespaceSelector from "../NamespaceSelector";
 import FeatureValueField from "../FeatureValueField";
-import FeatureVariationsWrapper from "../FeatureVariationsWrapper";
 import { SortableVariation } from "../SortableFeatureVariationRow";
+import FeatureVariationsInput from "../FeatureVariationsInput";
 
 const ExperimentRuleDefaultValuesField: FC<{
   // TODO Don't pass the entire form in here bruther
@@ -71,16 +71,11 @@ const ExperimentRuleDefaultValuesField: FC<{
         defaultValue={conditionValue}
         onChange={setConditionValue}
       />
-      <FeatureVariationsWrapper
+      <FeatureVariationsInput
         coverage={coverageValue}
         setCoverage={setCoverageValue}
         setWeight={setWeight}
-        variations={variations.map((variation) => {
-          return {
-            ...variation,
-            id: variation.id,
-          };
-        })}
+        variations={variations}
         setVariations={setVariations}
         defaultValue={variationsDefaultValue}
         valueType={valueType}
