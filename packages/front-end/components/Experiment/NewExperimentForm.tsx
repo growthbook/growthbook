@@ -123,8 +123,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       variations: initialValue?.variations
         ? initialValue.variations.map((variation) => {
             return {
-              ...variation,
               id: generateVariationId(),
+              ...variation,
             };
           })
         : getDefaultVariations(initialNumVariations),

@@ -84,7 +84,10 @@ export default function ExperimentVariationsWrapper({
         >
           <div
             className="p-3 h-100 d-flex align-items-center justify-content-center"
-            style={{ border: "1px dashed #C2C5D6", borderRadius: "3px" }}
+            style={{
+              border: "1px dashed var(--border-color-200)",
+              borderRadius: "3px",
+            }}
           >
             <button
               className="btn btn-outline-primary"
