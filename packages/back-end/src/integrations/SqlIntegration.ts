@@ -17,6 +17,7 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
+  UserDimension,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -326,17 +327,31 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
       [
         params.metric.userIdTypes || [],
+        params.dimension ? [params.dimension.userIdType || "user_id"] : [],
         params.segment ? [params.segment.userIdType || "user_id"] : [],
       ],
       params.from,
       params.to
     );
 
+    let dimension: UserDimension | null = null;
+    if (params.dimension) {
+      dimension = {
+        dimension: { ...params.dimension },
+        type: "user",
+      };
+    }
+
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart([params.metric], params.from);
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "m");
+
+    const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
+    const dimensionGroupBy = this.useAliasInGroupBy()
+      ? "dimension"
+      : dimensionCol;
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -351,6 +366,15 @@ export default abstract class SqlIntegration
               )}),`
             : ""
         }
+        ${
+          dimension
+            ? `, __dimension as (${this.getDimensionCTE(
+                dimension.dimension,
+                baseIdType,
+                idJoinMap
+              )})`
+            : ""
+        }
         __metric as (${this.getMetricCTE({
           metric: params.metric,
           baseIdType,
@@ -361,7 +385,8 @@ export default abstract class SqlIntegration
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
-            ${aggregate} as value
+            ${aggregate} as value,
+            ${dimensionCol} as dimension
           FROM
             __metric m
             ${
@@ -369,8 +394,14 @@ export default abstract class SqlIntegration
                 ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                 : ""
             }
+            ${
+              params.dimension
+                ? `JOIN __dimension d ON (d.${baseIdType} = m.${baseIdType})`
+                : ""
+            }
           GROUP BY
             m.${baseIdType}
+            ${dimension ? dimensionGroupBy + ", " : ""}
         )
         , __overall as (
           SELECT

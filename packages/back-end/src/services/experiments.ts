@@ -53,6 +53,7 @@ import {
 import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
+import { DimensionInterface } from "../../types/dimension";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -153,7 +154,8 @@ export async function getMetricAnalysis(
 export async function refreshMetric(
   metric: MetricInterface,
   orgId: string,
-  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
+  metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS,
+  dimension?: DimensionInterface
 ) {
   if (metric.datasource) {
     const datasource = await getDataSourceById(
@@ -198,6 +200,7 @@ export async function refreshMetric(
       name: `Last ${days} days`,
       includeByDate: true,
       segment,
+      dimension,
     };
 
     const updates: Partial<MetricInterface> = {};
@@ -288,7 +291,11 @@ export async function getManualSnapshotData(
             statistic_type: "mean", // ratio not supported for now
             main_metric_type: metric.type,
             main_sum: s.mean * s.count,
-            main_sum_squares: sumSquaresFromStats(s.mean * s.count, Math.pow(s.stddev, 2), s.count),
+            main_sum_squares: sumSquaresFromStats(
+              s.mean * s.count,
+              Math.pow(s.stddev, 2),
+              s.count
+            ),
           };
         });
 

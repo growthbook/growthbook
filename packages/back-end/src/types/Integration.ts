@@ -80,6 +80,7 @@ export type MetricValueParams = {
   metric: MetricInterface;
   name: string;
   segment?: SegmentInterface;
+  dimension?: DimensionInterface;
   includeByDate?: boolean;
 };
 

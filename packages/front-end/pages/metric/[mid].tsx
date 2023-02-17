@@ -51,6 +51,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -63,6 +64,7 @@ const MetricPage: FC = () => {
     getSegmentById,
     getMetricById,
     segments,
+    dimensions,
   } = useDefinitions();
   const settings = useOrgSettings();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -91,7 +93,7 @@ const MetricPage: FC = () => {
   } = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
-
+  const [dimension, setDimension] = useState("");
   useEffect(() => {
     if (data?.metric) {
       form.setValue("name", data.metric.name || "");
@@ -493,6 +495,9 @@ const MetricPage: FC = () => {
                                     `/metric/${metric.id}/analysis`,
                                     {
                                       method: "POST",
+                                      body: JSON.stringify({
+                                        dimension,
+                                      }),
                                     }
                                   );
                                   mutate();
@@ -548,6 +553,19 @@ const MetricPage: FC = () => {
                             </>
                           )}
                         </div>
+                        {dimensions.length > 0 && (
+                          <div className="col-auto form-inline">
+                            <DimensionChooser
+                              value={"test"}
+                              setValue={setDimension}
+                              activationMetric={false}
+                              datasourceId={metric.datasource}
+                              exposureQueryId={""}
+                              userIdType={"anonymous"} //{metric.userIdTypes[0]}
+                              labelClassName="mr-2"
+                            />
+                          </div>
+                        )}
                         {analysis && (
                           <div className="col-auto text-muted">
                             <small>

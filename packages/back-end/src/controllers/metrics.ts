@@ -30,6 +30,8 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import { findDimensionById } from "../models/DimensionModel";
+import { DimensionInterface } from "../../types/dimension";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
@@ -197,7 +199,7 @@ export async function cancelMetricAnalysis(
 }
 
 export async function postMetricAnalysis(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ dimension?: string }, { id: string }>,
   res: Response
 ) {
   req.checkPermissions("runQueries", "");
@@ -205,6 +207,11 @@ export async function postMetricAnalysis(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
+  const data = req.body;
+  let dimension: DimensionInterface | undefined = undefined;
+  if (data.dimension) {
+    dimension = (await findDimensionById(data.dimension, org.id)) || undefined;
+  }
   const metric = await getMetricById(id, org.id, true);
 
   if (!metric) {
@@ -218,7 +225,8 @@ export async function postMetricAnalysis(
     await refreshMetric(
       metric,
       org.id,
-      req.organization?.settings?.metricAnalysisDays
+      req.organization?.settings?.metricAnalysisDays,
+      dimension
     );
 
     res.status(200).json({
