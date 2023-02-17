@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import {
+  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
@@ -61,15 +62,6 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...((rule as FeatureRule) || {}),
-    // add id's to allow for drag & drop sorting
-    ...(rule.type === "experiment"
-      ? {
-          values: rule.values.map((v) => ({
-            ...v,
-            id: generateVariationId(),
-          })),
-        }
-      : {}),
   };
 
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
@@ -289,14 +281,16 @@ export default function RuleModal({
               form.setValue(`values.${i}.weight`, weight)
             }
             variations={
-              form.watch("values").map((v) => {
-                return {
-                  value: v.value || "",
-                  name: v.name,
-                  weight: v.weight,
-                  id: v.id,
-                };
-              }) || []
+              form
+                .watch("values")
+                .map((v: ExperimentValue & { id?: string }) => {
+                  return {
+                    value: v.value || "",
+                    name: v.name,
+                    weight: v.weight,
+                    id: v.id || generateVariationId(),
+                  };
+                }) || []
             }
             setVariations={(variations) => form.setValue("values", variations)}
           />
