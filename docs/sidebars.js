@@ -139,7 +139,7 @@ const sidebars = {
       items: [
         {
           type: "doc",
-          id: "statistics/statistics",
+          id: "statistics/overview",
           label: "Statistics Overview",
         },
         {
