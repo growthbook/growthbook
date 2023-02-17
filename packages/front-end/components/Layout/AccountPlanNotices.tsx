@@ -89,7 +89,7 @@ export default function AccountPlanNotices() {
   if (!isCloud() && license) {
     // Trial license is up
     const licenseTrialRemaining = license.trial ? daysLeft(license.exp) : -1;
-    if (license.org && license.org !== organization.id) {
+    if (license?.org && license.org !== organization.id) {
       return (
         <Tooltip
           body={
