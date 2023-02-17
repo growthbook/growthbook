@@ -2,10 +2,12 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  ExperimentPhaseType,
 } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import VariationsInput from "../Features/VariationsInput";
 
 export interface Props {
@@ -46,13 +48,17 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
-      <Field
+      <SelectField
         label="Type of Phase"
-        {...form.register("phase")}
+        value={form.watch("phase")}
+        onChange={(v) => {
+          const phaseType = v as ExperimentPhaseType;
+          form.setValue("phase", phaseType);
+        }}
         options={[
-          "ramp",
-          { value: "main", display: "main (default)" },
-          "holdout",
+          { label: "ramp", value: "ramp" },
+          { value: "main", label: "main (default)" },
+          { label: "holdout", value: "holdout" },
         ]}
       />
       <Field

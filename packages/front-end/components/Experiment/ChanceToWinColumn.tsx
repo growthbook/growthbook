@@ -1,16 +1,17 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import useConfidenceLevels from "../../hooks/useConfidenceLevels";
+import { ExperimentStatus } from "back-end/types/experiment";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import {
   hasEnoughData,
   isBelowMinChange,
   isSuspiciousUplift,
-} from "../../services/experiments";
-import NotEnoughData from "./NotEnoughData";
-import { ExperimentStatus } from "back-end/types/experiment";
+  shouldHighlight as _shouldHighlight,
+} from "@/services/experiments";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Tooltip from "../Tooltip/Tooltip";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
+import NotEnoughData from "./NotEnoughData";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -55,13 +56,14 @@ export default function ChanceToWinColumn({
   );
   const { ciUpper, ciLower } = useConfidenceLevels();
 
-  const shouldHighlight =
-    metric &&
-    baseline?.value &&
-    stats?.value &&
-    enoughData &&
-    !suspiciousChange &&
-    !belowMinChange;
+  const shouldHighlight = _shouldHighlight({
+    metric,
+    baseline,
+    stats,
+    hasEnoughData: enoughData,
+    suspiciousChange,
+    belowMinChange,
+  });
 
   const chanceToWin = stats?.chanceToWin ?? 0;
 

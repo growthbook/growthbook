@@ -1,9 +1,6 @@
 import Link from "next/link";
-import styles from "./DateGraph.module.scss";
 import { MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo, Fragment } from "react";
-import { formatConversionRate } from "../../services/metrics";
-import { date, getValidDate } from "../../services/dates";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -19,6 +16,9 @@ import {
 } from "@visx/tooltip";
 import setDay from "date-fns/setDay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { date, getValidDate } from "@/services/dates";
+import { formatConversionRate } from "@/services/metrics";
+import styles from "./DateGraph.module.scss";
 
 type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
@@ -480,6 +480,7 @@ const DateGraph: FC<{
                 <AxisBottom
                   top={graphHeight}
                   scale={xScale}
+                  stroke={"var(--text-color-table)"}
                   numTicks={numXTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
@@ -496,6 +497,7 @@ const DateGraph: FC<{
                 />
                 <AxisLeft
                   scale={yScale}
+                  stroke={"var(--text-color-table)"}
                   numTicks={numYTicks}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",

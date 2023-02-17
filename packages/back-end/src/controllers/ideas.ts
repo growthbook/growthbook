@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   getIdeasByOrganization,
@@ -17,9 +18,8 @@ import {
   createImpactEstimate,
 } from "../models/ImpactEstimateModel";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
-import { ExperimentModel } from "../models/ExperimentModel";
-import { FilterQuery } from "mongoose";
 import { IdeaDocument } from "../models/IdeasModel";
+import { getExperimentByIdea } from "../models/ExperimentModel";
 
 export async function getIdeas(
   // eslint-disable-next-line
@@ -45,7 +45,7 @@ export async function getEstimatedImpact(
   res: Response
 ) {
   req.checkPermissions("createIdeas", "");
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { metric, segment } = req.body;
 
@@ -68,7 +68,7 @@ export async function postEstimatedImpactManual(
   res: Response
 ) {
   req.checkPermissions("createIdeas", "");
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { conversionsPerDay, metric } = req.body;
@@ -119,7 +119,7 @@ export async function getIdea(
   res: Response
 ) {
   const { id } = req.params;
-  //const data = req.body;
+  const { org } = getOrgFromReq(req);
 
   const idea = await getIdeaById(id);
 
@@ -157,10 +157,7 @@ export async function getIdea(
     }
   }
 
-  const experiment = await ExperimentModel.findOne({
-    organization: idea.organization,
-    ideaSource: idea.id,
-  });
+  const experiment = await getExperimentByIdea(org.id, idea);
 
   res.status(200).json({
     status: 200,

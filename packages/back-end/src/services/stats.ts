@@ -1,6 +1,7 @@
-import { MetricInterface, MetricStats } from "../../types/metric";
-import { PythonShell } from "python-shell";
 import { promisify } from "util";
+import { PythonShell } from "python-shell";
+import { MetricInterface } from "../../types/metric";
+import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
   ExperimentMetricQueryResponse,
   ExperimentResults,
@@ -10,46 +11,20 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
-import { QueryMap } from "./queries";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
+import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
-
-export interface StatsEngineDimensionResponse {
-  dimension: string;
-  srm: number;
-  variations: {
-    cr: number;
-    value: number;
-    users: number;
-    denominator?: number;
-    stats: MetricStats;
-    expected?: number;
-    chanceToWin?: number;
-    uplift?: {
-      dist: string;
-      mean?: number;
-      stddev?: number;
-    };
-    ci?: [number, number];
-    risk?: [number, number];
-  }[];
-}
-
-export interface ExperimentMetricAnalysis {
-  unknownVariations: string[];
-  multipleExposures: number;
-  dimensions: StatsEngineDimensionResponse[];
-}
 
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
-  maxDimensions: number
+  maxDimensions: number,
+  statsEngine: StatsEngine = "bayesian"
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -73,6 +48,7 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 
@@ -80,7 +56,6 @@ data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
       var_names: variations.map((v) => v.name),
       weights: variations.map((v) => v.weight),
-      type: metric.type,
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions: maxDimensions,
@@ -91,7 +66,6 @@ var_id_map = data['var_id_map']
 var_names = data['var_names']
 ignore_nulls = data['ignore_nulls']
 inverse = data['inverse']
-type = data['type']
 weights = data['weights']
 max_dimensions = data['max_dimensions']
 
@@ -106,9 +80,6 @@ df = get_metric_df(
   rows=rows,
   var_id_map=var_id_map,
   var_names=var_names,
-  ignore_nulls=ignore_nulls,
-  type=type,
-  needs_correction=False
 )
 
 reduced = reduce_dimensionality(
@@ -119,8 +90,12 @@ reduced = reduce_dimensionality(
 result = analyze_metric_df(
   df=reduced,
   weights=weights,
-  type=type,
   inverse=inverse,
+  engine=${
+    statsEngine === "frequentist"
+      ? "StatsEngine.FREQUENTIST"
+      : "StatsEngine.BAYESIAN"
+  }
 )
 
 print(json.dumps({
@@ -149,7 +124,8 @@ export async function analyzeExperimentResults(
   organization: string,
   variations: ExperimentReportVariation[],
   dimension: string | undefined,
-  queryData: QueryMap
+  queryData: QueryMap,
+  statsEngine: StatsEngine = "bayesian"
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -173,7 +149,6 @@ export async function analyzeExperimentResults(
     const data = results.result as ExperimentResults;
 
     unknownVariations = data.unknownVariations;
-
     const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
     data.dimensions.forEach((row) => {
       row.variations.forEach((v) => {
@@ -181,9 +156,14 @@ export async function analyzeExperimentResults(
           const stats = v.metrics[metric];
           byMetric[metric] = byMetric[metric] || [];
           byMetric[metric].push({
-            ...stats,
             dimension: row.dimension,
             variation: variations[v.variation].id,
+            users: stats.count,
+            count: stats.count,
+            statistic_type: "mean", // no ratio in mixpanel or GA
+            main_metric_type: stats.metric_type,
+            main_sum: stats.main_sum,
+            main_sum_squares: stats.main_sum_squares,
           });
         });
       });
@@ -219,7 +199,8 @@ export async function analyzeExperimentResults(
           variations,
           metric,
           data.rows,
-          dimension === "pre:date" ? 100 : MAX_DIMENSIONS
+          dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
+          statsEngine
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

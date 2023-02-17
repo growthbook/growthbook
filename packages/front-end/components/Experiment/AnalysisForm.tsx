@@ -1,15 +1,18 @@
 import { FC } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Field from "../Forms/Field";
-import { getValidDate } from "../../services/dates";
-import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
-import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import {
+  AttributionModel,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getValidDate } from "@/services/dates";
+import { getExposureQuery } from "@/services/datasources";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -142,9 +145,10 @@ const AnalysisForm: FC<{
           form.setValue("datasource", newDatasource);
         }}
         options={datasources.map((d) => ({
-          label: d.name,
           value: d.id,
+          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
         }))}
+        className="portal-overflow-ellipsis"
         initialOption="Manual"
         helpText={
           <>
@@ -257,17 +261,18 @@ const AnalysisForm: FC<{
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
-        <Field
+        <SelectField
           label="Metric Conversion Windows"
           labelClassName="font-weight-bold"
-          {...form.register("skipPartialData")}
+          value={form.watch("skipPartialData")}
+          onChange={(value) => form.setValue("skipPartialData", value)}
           options={[
             {
-              display: "Include In-Progress Conversions",
+              label: "Include In-Progress Conversions",
               value: "loose",
             },
             {
-              display: "Exclude In-Progress Conversions",
+              label: "Exclude In-Progress Conversions",
               value: "strict",
             },
           ]}
@@ -275,17 +280,18 @@ const AnalysisForm: FC<{
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
-        <Field
+        <SelectField
           label="Users in Multiple Variations"
           labelClassName="font-weight-bold"
-          {...form.register("removeMultipleExposures")}
+          value={form.watch("removeMultipleExposures")}
+          onChange={(value) => form.setValue("removeMultipleExposures", value)}
           options={[
             {
-              display: "Include in both variations",
+              label: "Include in both variations",
               value: "keep",
             },
             {
-              display: "Remove from analysis",
+              label: "Remove from analysis",
               value: "remove",
             },
           ]}
@@ -293,20 +299,24 @@ const AnalysisForm: FC<{
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
-        <Field
+        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
-          {...form.register("attributionModel")}
+          value={form.watch("attributionModel")}
+          onChange={(value) => {
+            const model = value as AttributionModel;
+            form.setValue("attributionModel", model);
+          }}
           options={[
             {
-              display: "First Exposure",
+              label: "First Exposure",
               value: "firstExposure",
             },
             {
-              display: "All Exposures",
+              label: "All Exposures",
               value: "allExposures",
             },
           ]}

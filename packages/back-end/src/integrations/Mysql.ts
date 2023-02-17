@@ -1,9 +1,9 @@
-import { MysqlConnectionParams } from "../../types/integrations/mysql";
-import { decryptDataSourceParams } from "../services/datasource";
-import SqlIntegration from "./SqlIntegration";
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
+import { MysqlConnectionParams } from "../../types/integrations/mysql";
+import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
+import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -43,9 +43,6 @@ export default class Mysql extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;
   }
-  covariance(y: string, x: string): string {
-    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
-  }
   stddev(col: string) {
     return `STDDEV_SAMP(${col})`;
   }
@@ -67,5 +64,8 @@ export default class Mysql extends SqlIntegration {
   }
   castToString(col: string): string {
     return `cast(${col} as char)`;
+  }
+  ensureFloat(col: string): string {
+    return `CAST(${col} AS DOUBLE)`;
   }
 }

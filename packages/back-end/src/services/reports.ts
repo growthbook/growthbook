@@ -5,18 +5,20 @@ import {
   ReportInterface,
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
-import { getSourceIntegrationObject } from "./datasource";
-import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
 import { QueryDocument } from "../models/QueryModel";
 import { SegmentModel } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { parseDimensionId } from "./experiments";
+import { StatsEngine } from "../../types/stats";
+import { OrganizationInterface } from "../../types/organization";
 import { updateReport } from "../models/ReportModel";
-import { analyzeExperimentResults } from "./stats";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
+import { analyzeExperimentResults } from "./stats";
+import { parseDimensionId } from "./experiments";
+import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
+import { getSourceIntegrationObject } from "./datasource";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -63,7 +65,8 @@ export function reportArgsFromSnapshot(
 export async function startExperimentAnalysis(
   organization: string,
   args: ExperimentReportArgs,
-  useCache: boolean
+  useCache: boolean,
+  statsEngine: StatsEngine | undefined
 ) {
   const metricObjs = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -205,7 +208,8 @@ export async function startExperimentAnalysis(
         organization,
         args.variations,
         args.dimension,
-        queryData
+        queryData,
+        statsEngine
       )
   );
   return { queries, results };
@@ -213,15 +217,19 @@ export async function startExperimentAnalysis(
 
 export async function runReport(
   report: ReportInterface,
-  useCache: boolean = true
+  useCache: boolean = true,
+  organization: OrganizationInterface
 ) {
   const updates: Partial<ReportInterface> = {};
+  const statsEngine =
+    report.args.statsEngine || organization.settings?.statsEngine;
 
   if (report.type === "experiment") {
     const { queries, results } = await startExperimentAnalysis(
       report.organization,
       report.args,
-      useCache
+      useCache,
+      statsEngine
     );
 
     if (results) {

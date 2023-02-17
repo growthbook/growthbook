@@ -101,7 +101,7 @@ The GrowthBook application is very lightweight and efficient. For most usecases,
 
 GrowthBook only deals with aggregate data and the bulk of the processing is offloaded to your data source. Because of this, you can easily analyze terrabytes of data from your laptop or a small container in the cloud.
 
-If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. This could either be a CDN or a local cache server like Redis. Learn more about how to keep a local cache up-to-date using [API polling](/app/api) or [Webhooks](/app/webhooks).
+If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup your own custom system using a CDN or distributed cache like Redis.
 
 ## I can't upload to S3/getting 400 error when uploading to S3?
 
@@ -121,6 +121,18 @@ const growthbook = new GrowthBook({
   enableDevMode: true,
 },
 ```
+
+## My old exported notebook stopped working. How can I fix it?
+
+There's a good chance that the SQL we are exporting and your version of our Python stats library, `gbstats`, are out of sync.
+In February of 2023 we updated our SQL engines and `gbstats` library to only use sums and sums of squares, rather than averages and standard deviations.
+
+If the queries in your notebook return averages and standard deviations (using `AVG` and `VAR` SQL operators as part of the `__stats` CTE), then you need to run that notebook with `gbstats` version 0.3.1.
+You can download this from PyPI [here](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
+Ideally in this case you can redownload the notebook and use the new `gbstats` library (0.4.0 or newer). You can download a new notebook by navigating to your experiment in GrowthBook and clicking `Download Notebook` again. This should now use the updated SQL and `gbstats` syntax. Then, if you install `gbstats` 0.4.0 or later, everything should work as expected.
+
+If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
+You can download this from PyPI [here](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
 
 ## Can't find your question?
 

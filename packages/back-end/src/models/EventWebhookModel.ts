@@ -1,5 +1,6 @@
+import { randomUUID } from "crypto";
 import z from "zod";
-import _ from "lodash";
+import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
 import {
@@ -8,7 +9,6 @@ import {
 } from "../events/base-types";
 import { errorStringFromZodResult } from "../util/validation";
 import { EventWebHookInterface } from "../../types/event-webhook";
-import { randomUUID } from "crypto";
 import { logger } from "../util/logger";
 
 const eventWebHookSchema = new mongoose.Schema({
@@ -88,7 +88,7 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @returns
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
+  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
 
 const EventWebHookModel = mongoose.model<EventWebHookDocument>(
   "EventWebHook",
@@ -139,12 +139,17 @@ export const createEventWebHook = async ({
 /**
  * Retrieve an EventWebHook by ID
  * @param eventWebHookId
+ * @param organizationId
  */
 export const getEventWebHookById = async (
-  eventWebHookId: string
+  eventWebHookId: string,
+  organizationId: string
 ): Promise<EventWebHookInterface | null> => {
   try {
-    const doc = await EventWebHookModel.findOne({ id: eventWebHookId });
+    const doc = await EventWebHookModel.findOne({
+      id: eventWebHookId,
+      organizationId,
+    });
     return !doc ? null : toInterface(doc);
   } catch (e) {
     logger.error(e, "getEventWebHookById");
@@ -154,15 +159,25 @@ export const getEventWebHookById = async (
 
 /**
  * Given an EventWebHook.id will delete the corresponding document
- * @param eventWebHookId
+ * @param options DeleteEventWebHookParams
  */
-export const deleteEventWebHookById = async (eventWebHookId: string) => {
-  await EventWebHookModel.deleteOne({
+type DeleteEventWebHookParams = {
+  eventWebHookId: string;
+  organizationId: string;
+};
+export const deleteEventWebHookById = async ({
+  eventWebHookId,
+  organizationId,
+}: DeleteEventWebHookParams): Promise<boolean> => {
+  const result = await EventWebHookModel.deleteOne({
     id: eventWebHookId,
+    organizationId,
   });
+
+  return result.deletedCount === 1;
 };
 
-type UpdateEventWebHookOptions = {
+type UpdateEventWebHookAttributes = {
   name?: string;
   url?: string;
   events?: NotificationEventName[];
@@ -170,15 +185,19 @@ type UpdateEventWebHookOptions = {
 
 /**
  * Given an EventWebHook.id allows updating some of the properties on the document
- * @param eventWebHookId
- * @param updates UpdateEventWebHookOptions
+ * @param options UpdateEventWebHookQueryOptions
+ * @param updates UpdateEventWebHookAttributes
  */
+type UpdateEventWebHookQueryOptions = {
+  eventWebHookId: string;
+  organizationId: string;
+};
 export const updateEventWebHook = async (
-  eventWebHookId: string,
-  updates: UpdateEventWebHookOptions
-): Promise<void> => {
-  await EventWebHookModel.updateOne(
-    { id: eventWebHookId },
+  { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
+  updates: UpdateEventWebHookAttributes
+): Promise<boolean> => {
+  const result = await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId },
     {
       $set: {
         ...updates,
@@ -186,6 +205,8 @@ export const updateEventWebHook = async (
       },
     }
   );
+
+  return result.nModified === 1;
 };
 
 type EventWebHookStatusUpdate =

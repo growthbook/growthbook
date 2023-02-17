@@ -1,4 +1,4 @@
-import { Request } from "express";
+import { Request, Response } from "express";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -12,12 +12,12 @@ interface PermissionFunctions {
   checkPermissions(permission: GlobalPermission): void;
   checkPermissions(
     permission: ProjectScopedPermission,
-    project: string | undefined
+    project: string | string[] | undefined
   ): void;
   checkPermissions(
     permission: EnvScopedPermission,
-    project: string | undefined,
-    envs: string[]
+    project: string | string[] | undefined,
+    envs: string[] | Set<string>
   ): void;
 }
 
@@ -37,3 +37,8 @@ export type AuthRequest<
   organization?: OrganizationInterface;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 } & PermissionFunctions;
+
+export type ResponseWithStatusAndError<T = unknown> = Response<
+  | (T & { status: 200 })
+  | { status: 400 | 401 | 403 | 404 | 405 | 406; message: string }
+>;

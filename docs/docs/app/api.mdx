@@ -7,162 +7,15 @@ slug: api
 
 import Pill from '@site/src/components/Pill';
 
-# API
+# API <Pill>beta</Pill>
 
-GrowthBook's API has both public endpoints plus an authenticated REST API <Pill>beta</Pill>.
-
-## Public Endpoints
-
-Currently, GrowthBook has a single public endpoint, the **SDK Endpoint**. This is a unique URL that returns your feature definitions, which can be passed into any of the GrowthBook SDKs - front-end, server-side, or mobile. [View All SDKs](/lib)
-
-Using this endpoint is one way to get your feature definitions. The other way is via [Webhooks](/app/webhooks), where we send the same payload to you automatically whenever someone updates a feature in GrowthBook.
-
-### Environments
-
-SDK Endpoints are scoped to a single environment (e.g. `dev` or `production`).
-
-When you first create a GrowthBook account, we add a default "production" environment for you with a single SDK Endpoint. You can add new environments and SDK Endpoints by going to **Features -> Environments**.
-
-### The SDK Endpoint
-
-In **GrowthBook Cloud**, the SDK endpoint is served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you'll want to set up either a CDN or cache layer yourself in front of the GrowthBook API for scalability and speed.
-
-<details className="mb-3">
-<summary className="cursor-pointer">Typescript Type Definition</summary>
-
-```ts
-interface SDKEndpointResponse {
-  status: 200;
-  features: {
-    [key: string]: FeatureDefinition
-  }
-}
-
-interface FeatureDefinition {
-  defaultValue: any;
-  rules?: FeatureDefinitionRule[];
-}
-
-interface FeatureDefinitionRule {
-  force?: any;
-  weights?: number[];
-  variations?: any[];
-  hashAttribute?: string;
-  namespace?: [string, number, number];
-  key?: string;
-  coverage?: number;
-  condition?: any;
-}
-```
-
-</details>
-
-<details className="mb-3">
-<summary className="cursor-pointer">Example JSON object</summary>
-
-```json
-{
-  "status": 200,
-  "features": {
-    "feature-key": {
-      "defaultValue": true
-    },
-    "another-feature": {
-      "defaultValue": "blue",
-      "rules": [
-        {
-          "condition": {
-            "browser": "firefox"
-          },
-          "force": "green"
-        }
-      ]
-    }
-  }
-}
-```
-
-</details>
-
-#### Project-scoping
-
-If you've set up multiple projects within GrowthBook, you can optionally add a querystring to the SDK endpoint to only include features in a specific project. By default, features from all projects are returned.
-
-To do this, add the querystring `?project={projectId}`. You can find the id for your project under Settings > Projects (will start with `prj_`).
-
-For example:
-
-```
-/api/features/dev_abc123?project=prj_456def
-```
-
-#### Encryption
-
-If you've enabled encryption for your SDK endpoint, the response format changes:
-
-<details className="mb-3">
-<summary className="cursor-pointer">Typescript Type Definition</summary>
-
-```ts
-interface SDKEncryptedEndpointResponse {
-  status: 200;
-  encryptedFeatures: string;
-}
-```
-
-</details>
-
-<details className="mb-3">
-<summary className="cursor-pointer">Example JSON object</summary>
-
-```json
-{
-  "status": 200,
-  "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
-}
-```
-
-</details>
-
-You will need to decrypt the features first before passing into the SDK. You can find your encryption key on the **Features -> Environments** page in GrowthBook.
-
-Here's an example in JavaScript using the SubtleCrypto API, which is available in all modern web browsers:
-
-<details>
-<summary className="cursor-pointer">Decryption Code Example</summary>
-
-```js
-async function decrypt(encryptedText) {
-  const GB_ENCRYPTION_KEY = "MY_ENCRYPTION_KEY"; // <-- Set your encryption key here
-  const base64ToBuf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-  const key = await window.crypto.subtle.importKey(
-    "raw", base64ToBuf(GB_ENCRYPTION_KEY),
-    { name: "AES-CBC", length: 128 }, true, ["encrypt", "decrypt"]
-  );
-  const [iv, cipherText] = encryptedText.split(".");
-  const plainTextBuffer = await window.crypto.subtle
-    .decrypt({name: "AES-CBC", iv: base64ToBuf(iv)}, key, base64ToBuf(cipherText));
-  return new TextDecoder().decode(plainTextBuffer);
-}
-
-// Decrypting gives you a JSON-encoded string
-const featuresStr = await decrypt(encryptedFeatures);
-
-// Turn it into a JSON object
-const features = JSON.parse(featuresStr);
-```
-
-</details>
-
-## Authenticated REST API <Pill>beta</Pill>
-
-In addition to the public API endpoints, GrowthBook also offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
 
 Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
 
 The API base URL for GrowthBook Cloud is `https://api.growthbook.io`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100`). The rest of these docs will assume you are using GrowthBook Cloud.
 
-### Authentication
+## Authentication
 
 We support both the HTTP Basic and Bearer authentication schemes for convenience.
 
@@ -183,7 +36,7 @@ curl https://api.growthbook.io/api/v1 \
   -H "Authorization: Bearer secret_abc123DEF456"
 ```
 
-### Errors
+## Errors
 
 The API may return the following error status codes:
 
@@ -199,7 +52,7 @@ The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
 
-### Pagination
+## Pagination
 
 All list methods are paginated and support the querystring parameters:
 
@@ -225,9 +78,9 @@ And the response will contain the fields:
 - `hasMore` - `true` if there is another page, `false` if there are no more items
 - `nextOffset` - Offset to fetch the next page, or `null` if there are no more results
 
-### Features
+## Features
 
-#### The Feature Object
+### The Feature Object
 
 This object represents a single feature in your account. Features are complex objects with many nested properties.
 
@@ -386,7 +239,7 @@ interface FeatureDefinitionRule {
 
 </details>
 
-#### List Features
+### List Features
 
 `GET /api/v1/features`
 
@@ -464,7 +317,7 @@ interface ListFeaturesResponse {
 
 </details>
 
-#### Toggle Feature
+### Toggle Feature
 
 `POST /api/v1/features/:key/toggle`
 
@@ -538,3 +391,98 @@ interface ToggleFeaturesResponse {
 ```
 
 </details>
+
+## SDK Connection Endpoints
+
+SDK Connection Endpoints provide readonly access to a subset of your feature flags, just enough for the [GrowthBook SDKs](/lib) to assign values to users. They are meant to be public and do not require authentication to view.
+
+In **GrowthBook Cloud**, the SDK Connection Endpoints are served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you can run the [GrowthBook Proxy server](/self-host/proxy), which provides built-in caching and performance optimizations.
+
+SDK Connection Endpoints are scoped to a single Environment (e.g. `dev` or `production`) and can also be scoped to a single Project. Manage all of your SDK Connections on the **Features -> SDKs** page.
+
+<details className="mb-3">
+<summary className="cursor-pointer">Typescript Type Definition</summary>
+
+```ts
+interface SDKEndpointResponse {
+  status: 200;
+  features: {
+    [key: string]: FeatureDefinition
+  }
+}
+
+interface FeatureDefinition {
+  defaultValue: any;
+  rules?: FeatureDefinitionRule[];
+}
+
+interface FeatureDefinitionRule {
+  force?: any;
+  weights?: number[];
+  variations?: any[];
+  hashAttribute?: string;
+  namespace?: [string, number, number];
+  key?: string;
+  coverage?: number;
+  condition?: any;
+}
+```
+
+</details>
+
+<details className="mb-3">
+<summary className="cursor-pointer">Example JSON object</summary>
+
+```json
+{
+  "status": 200,
+  "features": {
+    "feature-key": {
+      "defaultValue": true
+    },
+    "another-feature": {
+      "defaultValue": "blue",
+      "rules": [
+        {
+          "condition": {
+            "browser": "firefox"
+          },
+          "force": "green"
+        }
+      ]
+    }
+  }
+}
+```
+
+</details>
+
+### Encryption
+
+If you've enabled encryption for your SDK endpoint, the response format changes:
+
+<details className="mb-3">
+<summary className="cursor-pointer">Typescript Type Definition</summary>
+
+```ts
+interface SDKEncryptedEndpointResponse {
+  status: 200;
+  encryptedFeatures: string;
+}
+```
+
+</details>
+
+<details className="mb-3">
+<summary className="cursor-pointer">Example JSON object</summary>
+
+```json
+{
+  "status": 200,
+  "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
+}
+```
+
+</details>
+
+You will need to decrypt the features first before passing into the SDK. Our front-end SDKs (Javascript and React) handle this for you automatically and we're in the process of adding built-in support to our other SDKs.

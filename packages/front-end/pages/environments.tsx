@@ -1,23 +1,19 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
 import { FaAngleLeft } from "react-icons/fa";
+import { Environment } from "back-end/types/organization";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
 import EnvironmentModal from "../components/Settings/EnvironmentModal";
 import { useAuth } from "../services/auth";
-import { Environment } from "back-end/types/organization";
 import { GBAddCircle } from "../components/Icons";
 import { useEnvironments } from "../services/features";
 import { useUser } from "../services/UserContext";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import Button from "../components/Button";
-import useApi from "../hooks/useApi";
-import { ApiKeyInterface } from "back-end/types/apikey";
-import SDKEndpoints from "../components/Features/SDKEndpoints";
 import usePermissions from "../hooks/usePermissions";
 
 const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
-  const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
   const { refreshOrganization } = useUser();
   const permissions = usePermissions();
   // See if the user has access to a random environment name that doesn't exist yet
@@ -29,17 +25,6 @@ const EnvironmentsPage: FC = () => {
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
 
-  const apiKeysPerEnv = new Map();
-  data?.keys.forEach((k) => {
-    if (k.environment) {
-      apiKeysPerEnv.set(
-        k.environment.toLowerCase(),
-        apiKeysPerEnv.has(k.environment.toLowerCase())
-          ? apiKeysPerEnv.get(k.environment.toLowerCase()) + 1
-          : 1
-      );
-    }
-  });
   return (
     <div className="container-fluid pagecontents">
       {modalOpen && (
@@ -48,7 +33,6 @@ const EnvironmentsPage: FC = () => {
           close={() => setModalOpen(null)}
           onSuccess={() => {
             refreshOrganization();
-            mutate();
           }}
         />
       )}
@@ -69,13 +53,11 @@ const EnvironmentsPage: FC = () => {
               <th>Description</th>
               <th>Default state</th>
               <th>Show toggle on feature list</th>
-              <th>API keys</th>
               {canManageEnvironments && <th style={{ width: 30 }}></th>}
             </tr>
           </thead>
           <tbody>
             {environments.map((e, i) => {
-              const numApiKeys = apiKeysPerEnv.get(e.id) ?? 0;
               const canEdit = permissions.check("manageEnvironments", "", [
                 e.id,
               ]);
@@ -85,12 +67,9 @@ const EnvironmentsPage: FC = () => {
                   <td>{e.description}</td>
                   <td>{e.defaultState === false ? "off" : "on"}</td>
                   <td>{e.toggleOnList ? "yes" : "no"}</td>
-                  <td>
-                    {numApiKeys} {numApiKeys === 1 ? "key" : "keys"}
-                  </td>
                   {canManageEnvironments && (
                     <td style={{ width: 30 }}>
-                      <MoreMenu id={e.id + "_moremenu"}>
+                      <MoreMenu>
                         {canEdit && (
                           <button
                             className="dropdown-item"
@@ -197,7 +176,12 @@ const EnvironmentsPage: FC = () => {
           </button>
         )}
       </div>
-      {data?.keys && <SDKEndpoints keys={data.keys} mutate={mutate} />}
+      <div className="alert alert-info">
+        Looking for SDK Endpoints? They have moved to the new{" "}
+        <Link href="/sdks">SDKs</Link> tab. Also, make sure to check out the new{" "}
+        <strong>SDK Connections</strong>, which makes it easier to configure and
+        test your integrations.
+      </div>
     </div>
   );
 };

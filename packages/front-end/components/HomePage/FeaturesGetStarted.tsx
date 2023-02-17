@@ -1,17 +1,17 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import track from "../../services/track";
-import CodeSnippetModal from "../Features/CodeSnippetModal";
+import { FaChrome } from "react-icons/fa";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import EditAttributesModal from "../Features/EditAttributesModal";
 import FeatureModal from "../Features/FeatureModal";
-import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
-import GetStartedStep from "./GetStartedStep";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaChrome } from "react-icons/fa";
-import usePermissions from "../../hooks/usePermissions";
 import { DocLink } from "../DocLink";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
+import GetStartedStep from "./GetStartedStep";
+import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 
 export interface Props {
   features: FeatureInterface[];
@@ -52,7 +52,10 @@ export default function FeaturesGetStarted({ features }: Props) {
         <EditAttributesModal close={() => setAttributeModalOpen(false)} />
       )}
       {codeModalOpen && (
-        <CodeSnippetModal close={() => setCodeModalOpen(false)} />
+        <InitialSDKConnectionForm
+          close={() => setCodeModalOpen(false)}
+          feature={features[0]}
+        />
       )}
       <div className="row getstarted mb-3">
         <div className="col-12 col-lg-8 ">

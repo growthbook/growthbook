@@ -5,18 +5,20 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { useAuth } from "../../services/auth";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import track from "../../services/track";
-import SelectField from "../Forms/SelectField";
-import { getInitialSettings } from "../../services/datasources";
+import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getInitialSettings } from "@/services/datasources";
 import {
   eventSchemas,
   dataSourceConnections,
   eventSchema,
-} from "../../services/eventSchema";
+} from "@/services/eventSchema";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
-import { useForm } from "react-hook-form";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import EventSourceList from "./EventSourceList";
@@ -41,6 +43,7 @@ const NewDataSourceForm: FC<{
   inline,
   secondaryCTA,
 }) => {
+  const { projects, project } = useDefinitions();
   const [step, setStep] = useState(0);
   const [schema, setSchema] = useState("");
   const [dataSourceId, setDataSourceId] = useState<string | null>(
@@ -181,12 +184,21 @@ const NewDataSourceForm: FC<{
     });
   };
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+  const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
+    e
+  ) => {
     setDatasource({
       ...datasource,
       [e.target.name]: e.target.value,
     });
   };
+  const onManualChange = (name, value) => {
+    setDatasource({
+      ...datasource,
+      [name]: value,
+    });
+  };
+
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
     form.setValue("settings.schemaFormat", s.value);
@@ -207,6 +219,7 @@ const NewDataSourceForm: FC<{
       setDatasource({
         name: `${s.label}`,
         settings: {},
+        projects: project ? [project] : [],
       });
     }
     setPossibleTypes(s.types);
@@ -274,6 +287,7 @@ const NewDataSourceForm: FC<{
                 setDatasource({
                   name: "My Datasource",
                   settings: {},
+                  projects: project ? [project] : [],
                 });
                 // no options for custom:
                 form.setValue(`settings.schemaOptions`, {});
@@ -384,6 +398,28 @@ const NewDataSourceForm: FC<{
             value={datasource.name}
           />
         </div>
+        <div className="form-group">
+          <label>Description</label>
+          <textarea
+            className="form-control"
+            name="description"
+            onChange={onChange}
+            value={datasource.description}
+          />
+        </div>
+        {projects?.length > 0 && (
+          <div className="form-group">
+            <MultiSelectField
+              label="Projects"
+              placeholder="All projects"
+              value={datasource.projects || []}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              onChange={(v) => onManualChange("projects", v)}
+              customClassName="label-overflow-ellipsis"
+              helpText="Assign this data source to specific projects"
+            />
+          </div>
+        )}
         <ConnectionSettings
           datasource={datasource}
           existing={existing}

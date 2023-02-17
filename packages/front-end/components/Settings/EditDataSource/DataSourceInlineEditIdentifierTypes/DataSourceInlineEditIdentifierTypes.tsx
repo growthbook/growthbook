@@ -1,16 +1,17 @@
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import React, { FC, useCallback, useMemo, useState } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "back-end/types/datasource";
-import { EditIdentifierType } from "./EditIdentifierType";
-import MoreMenu from "../../../Dropdown/MoreMenu";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
+import { checkDatasourceProjectPermissions } from "@/services/datasources";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import usePermissions from "@/hooks/usePermissions";
+import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -18,12 +19,19 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   dataSource,
   onSave,
   onCancel,
+  canEdit = true,
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  canEdit =
+    canEdit &&
+    checkDatasourceProjectPermissions(
+      dataSource,
+      permissions,
+      "editDatasourceSettings"
+    );
 
   const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
     dataSource.settings?.userIdTypes,
@@ -121,7 +129,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
           {/* region Identity Type actions */}
           {canEdit && (
             <div>
-              <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-types">
+              <MoreMenu>
                 <button
                   className="dropdown-item py-2"
                   onClick={handleActionEditClicked(idx)}

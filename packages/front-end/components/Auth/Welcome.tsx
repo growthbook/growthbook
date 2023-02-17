@@ -1,10 +1,10 @@
 import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import track from "../../services/track";
-import { getApiHost } from "../../services/env";
-import WelcomeFrame from "./WelcomeFrame";
-import Field from "../Forms/Field";
 import { useRouter } from "next/router";
+import track from "@/services/track";
+import { getApiHost } from "@/services/env";
+import Field from "../Forms/Field";
+import WelcomeFrame from "./WelcomeFrame";
 
 export default function Welcome({
   onSuccess,

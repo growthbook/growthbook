@@ -1,20 +1,22 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { useAuth } from "../../services/auth";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import React, { forwardRef } from "react";
+import { FaArrowsAlt } from "react-icons/fa";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { getRules, useEnvironments } from "@/services/features";
+import usePermissions from "@/hooks/usePermissions";
+import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef } from "react";
-import { FaArrowsAlt } from "react-icons/fa";
 import ExperimentSummary from "./ExperimentSummary";
-import track from "../../services/track";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getRules, useEnvironments } from "../../services/features";
-import usePermissions from "../../hooks/usePermissions";
+import RuleStatusPill from "./RuleStatusPill";
 
 interface SortableProps {
   i: number;
@@ -60,6 +62,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissions.check("manageFeatures", feature.project) &&
       permissions.check("createFeatureDrafts", feature.project);
 
+    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+
+    const scheduleCompletedAndDisabled =
+      !upcomingScheduleRule &&
+      rule?.scheduleRules?.length &&
+      rule.scheduleRules.at(-1)?.timestamp !== null;
+
+    const ruleDisabled =
+      scheduleCompletedAndDisabled ||
+      upcomingScheduleRule?.enabled ||
+      !rule.enabled;
+
     return (
       <div
         className={`p-3 ${
@@ -79,25 +93,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 textAlign: "center",
                 background: "#7C45EA",
                 fontWeight: "bold",
-                opacity: !rule.enabled ? 0.5 : 1,
+                opacity: ruleDisabled ? 0.5 : 1,
               }}
             >
               {i + 1}
             </div>
           </div>
           <div
-            style={{ flex: 1, opacity: !rule.enabled ? 0.5 : 1 }}
+            style={{
+              flex: 1,
+              opacity: ruleDisabled ? 0.5 : 1,
+            }}
             className="mx-2"
           >
             {title}
           </div>
-          {!rule.enabled && (
-            <div className="mr-3">
-              <div className="bg-secondary text-light border px-2 rounded">
-                DISABLED
-              </div>
-            </div>
-          )}
+          <RuleStatusPill
+            rule={rule}
+            upcomingScheduleRule={upcomingScheduleRule}
+            scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
+          />
           {rules.length > 1 && canEdit && (
             <div
               {...handle}
@@ -109,7 +124,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           )}
           <div>
             {canEdit && (
-              <MoreMenu id={"edit_rule_" + rule.id}>
+              <MoreMenu>
                 <a
                   href="#"
                   className="dropdown-item"
@@ -206,7 +221,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             style={{ flex: 1, maxWidth: "100%" }}
             className="pt-1 position-relative"
           >
-            {!rule.enabled && (
+            {ruleDisabled && (
               <div
                 style={{
                   position: "absolute",

@@ -1,20 +1,10 @@
 import React, { useEffect, useState } from "react";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
-import { useSearch } from "../../services/search";
-import { useUser } from "../../services/UserContext";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import Tabs from "../Tabs/Tabs";
-import Tab from "../Tabs/Tab";
-import Preview from "./Preview";
-import { ago, datetime, getValidDate, date } from "../../services/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   PresentationInterface,
   PresentationSlide,
 } from "back-end/types/presentation";
-import ResultsIndicator from "../Experiment/ResultsIndicator";
 import {
   resetServerContext,
   DragDropContext,
@@ -25,12 +15,23 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
+import { ago, datetime, getValidDate, date } from "@/services/dates";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { useSearch } from "@/services/search";
+import useApi from "@/hooks/useApi";
+import track from "@/services/track";
+import ResultsIndicator from "../Experiment/ResultsIndicator";
+import Tab from "../Tabs/Tab";
+import Tabs from "../Tabs/Tabs";
+import Page from "../Modal/Page";
+import PagedModal from "../Modal/PagedModal";
 import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
-import useApi from "../../hooks/useApi";
-import track from "../../services/track";
 import SortedTags from "../Tags/SortedTags";
 import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import Preview from "./Preview";
 
 export const presentationThemes = {
   lblue: {
@@ -566,11 +567,10 @@ const ShareModal = ({
   const presThemes = [];
   for (const [key, value] of Object.entries(presentationThemes)) {
     if (value.show) {
-      presThemes.push(
-        <option value={key} key={key}>
-          {value.title}
-        </option>
-      );
+      presThemes.push({
+        value: key,
+        label: value.title,
+      });
     }
   }
 
@@ -578,20 +578,19 @@ const ShareModal = ({
     return null;
   }
 
-  const fontOptions = (
-    <>
-      <option value='"Helvetica Neue", Helvetica, Arial, sans-serif'>
-        Helvetica Neue
-      </option>
-      <option value="Arial">Arial</option>
-      <option value="Impact">Impact</option>
-      <option value='"Times New Roman", serif'>Times New Roman</option>
-      <option value="American Typewriter">American Typewriter</option>
-      <option value="Courier, Monospace">Courier</option>
-      <option value='"Comic Sans MS", "Comic Sans"'>Comic Sans</option>
-      <option value="Cursive">Cursive</option>
-    </>
-  );
+  const fontOptions = [
+    {
+      value: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+      label: "Helvetica Neue",
+    },
+    { value: "Arial", label: "Arial" },
+    { value: "Impact", label: "Impact" },
+    { value: '"Times New Roman", serif', label: "Times New Roman" },
+    { value: "American Typewriter", label: "American Typewriter" },
+    { value: "Courier, Monospace", label: "Courier" },
+    { value: '"Comic Sans MS", "Comic Sans"', label: "Comic Sans" },
+    { value: "Cursive", label: "Cursive" },
+  ];
 
   return (
     <PagedModal
@@ -750,11 +749,11 @@ const ShareModal = ({
                 Presentation theme
               </label>
               <div className="col-sm-8">
-                <select className="form-control" {...form.register("theme")}>
-                  {presThemes.map((opt) => {
-                    return opt;
-                  })}
-                </select>
+                <SelectField
+                  value={form.watch("theme")}
+                  onChange={(v) => form.setValue("theme", v)}
+                  options={presThemes}
+                />
               </div>
             </div>
             {value.theme === "custom" && (
@@ -764,18 +763,13 @@ const ShareModal = ({
                     Heading font
                   </label>
                   <div className="col-sm-12 col-md-8">
-                    <select
-                      className="form-control"
-                      value={value.customTheme?.headingFont}
-                      onChange={(e) => {
-                        form.setValue(
-                          "customTheme.headingFont",
-                          e.target.value
-                        );
-                      }}
-                    >
-                      {fontOptions}
-                    </select>
+                    <SelectField
+                      value={form.watch("customTheme.headingFont")}
+                      onChange={(v) =>
+                        form.setValue("customTheme.headingFont", v)
+                      }
+                      options={fontOptions}
+                    />
                   </div>
                 </div>
                 <div className="form-group row">
@@ -783,15 +777,11 @@ const ShareModal = ({
                     Body font
                   </label>
                   <div className="col-sm-12 col-md-8">
-                    <select
-                      className="form-control"
-                      value={value.customTheme?.bodyFont}
-                      onChange={(e) => {
-                        form.setValue("customTheme.bodyFont", e.target.value);
-                      }}
-                    >
-                      {fontOptions}
-                    </select>
+                    <SelectField
+                      value={form.watch("customTheme.bodyFont")}
+                      onChange={(v) => form.setValue("customTheme.bodyFont", v)}
+                      options={fontOptions}
+                    />
                   </div>
                 </div>
                 <div className="form-group row">

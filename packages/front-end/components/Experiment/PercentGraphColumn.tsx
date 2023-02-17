@@ -1,9 +1,9 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import useConfidenceLevels from "../../hooks/useConfidenceLevels";
-import { hasEnoughData } from "../../services/experiments";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import { hasEnoughData } from "@/services/experiments";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import AlignedGraph from "./AlignedGraph";
-import { useOrganizationMetricDefaults } from "../../hooks/useOrganizationMetricDefaults";
 
 export default function PercentGraphColumn({
   metric,
@@ -11,17 +11,19 @@ export default function PercentGraphColumn({
   stats,
   domain,
   id,
+  barType: _barType,
 }: {
   metric: MetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
   id: string;
+  barType?: "pill" | "violin";
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const { ciUpper, ciLower } = useConfidenceLevels();
-  const barType = stats.uplift?.dist ? "violin" : "pill";
+  const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
   const showGraph = metric && enoughData;
   return (

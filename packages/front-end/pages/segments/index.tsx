@@ -1,19 +1,19 @@
 import React, { FC, Fragment, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import { SegmentInterface } from "back-end/types/segment";
-import { ago } from "../../services/dates";
-import Button from "../../components/Button";
-import SegmentForm from "../../components/Segments/SegmentForm";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
-import { useAuth } from "../../services/auth";
-import { GBAddCircle } from "../../components/Icons";
-import usePermissions from "../../hooks/usePermissions";
-import Code, { Language } from "../../components/SyntaxHighlighting/Code";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { ago } from "@/services/dates";
+import Button from "@/components/Button";
+import SegmentForm from "@/components/Segments/SegmentForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { GBAddCircle } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
+import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 
 const SegmentPage: FC = () => {
   const {
@@ -187,8 +187,8 @@ const SegmentPage: FC = () => {
         <div className="alert alert-info">
           Segments are only available if you connect GrowthBook to a compatible
           data source (Snowflake, Redshift, BigQuery, ClickHouse, Athena,
-          Postgres, MySQL, Presto, or Mixpanel). Support for other data sources
-          like Google Analytics is coming soon.
+          Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel). Support for
+          other data sources like Google Analytics is coming soon.
         </div>
       </div>
     );
@@ -255,7 +255,21 @@ const SegmentPage: FC = () => {
                       <td>{s.name}</td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
-                        {datasource?.name}
+                        {datasource && (
+                          <>
+                            <div>
+                              <Link href={`/datasources/${datasource?.id}`}>
+                                {datasource?.name}
+                              </Link>
+                            </div>
+                            <div
+                              className="text-gray font-weight-normal small text-ellipsis"
+                              style={{ maxWidth: 350 }}
+                            >
+                              {datasource?.description}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="d-none d-md-table-cell">
                         {datasource?.properties?.userIds

@@ -7,13 +7,22 @@ import { planHasPremiumFeature } from "../util/organization.util";
 import { LICENSE_KEY, SSO_CONFIG } from "../util/secrets";
 
 let licenseData: LicenseData | null = null;
-export default async () => {
-  if (!LICENSE_KEY) return;
-  licenseData = await getVerifiedLicenseData(LICENSE_KEY);
+
+export default async (licenseKey?: string) => {
+  const key = licenseKey || LICENSE_KEY || null;
+  if (!key) {
+    licenseData = null;
+    return;
+  }
+  licenseData = await getVerifiedLicenseData(key);
 };
 
 export function getLicense() {
   return licenseData;
+}
+export async function setLicense(l: LicenseData | null) {
+  // make sure we trust that l is already verified before setting:
+  licenseData = l;
 }
 
 async function getPublicKey() {

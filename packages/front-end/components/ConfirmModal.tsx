@@ -1,5 +1,5 @@
-import styles from "./ConfirmModal.module.scss";
 import clsx from "clsx";
+import styles from "./ConfirmModal.module.scss";
 
 type Props = {
   title: string;

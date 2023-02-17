@@ -1,18 +1,14 @@
+import { Response } from "express";
+import uniqid from "uniqid";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationById,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { Response } from "express";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import {
-  createExperiment,
-  createMetric,
-  createSnapshot,
-} from "../services/experiments";
+import { createMetric, createSnapshot } from "../services/experiments";
 import { SegmentModel } from "../models/SegmentModel";
-import uniqid from "uniqid";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
@@ -22,6 +18,7 @@ import {
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
+import { createExperiment } from "../models/ExperimentModel";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -369,7 +366,7 @@ export async function addSampleData(
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, org, null);
+      await createSnapshot(exp, 0, org, null, false, org.settings?.statsEngine);
     })
   );
 

@@ -1,48 +1,48 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import MoreMenu from "../Dropdown/MoreMenu";
-import WatchButton from "../WatchButton";
-import StatusIndicator from "./StatusIndicator";
-import SortedTags from "../Tags/SortedTags";
-import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
 import { useState } from "react";
-import Results from "./Results";
-import DiscussionThread from "../DiscussionThread";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import VariationBox from "./VariationBox";
-import DeleteButton from "../DeleteButton/DeleteButton";
 import { useRouter } from "next/router";
-import { GBAddCircle, GBEdit } from "../Icons";
-import RightRailSection from "../Layout/RightRailSection";
-import AnalysisForm from "./AnalysisForm";
-import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Link from "next/link";
-import ExperimentReportsList from "./ExperimentReportsList";
-import { useSnapshot } from "./SnapshotProvider";
-import EditExperimentNameForm from "./EditExperimentNameForm";
-import Modal from "../Modal";
-import HistoryTable from "../HistoryTable";
-import EditStatusModal from "./EditStatusModal";
 import {
   FaArrowDown,
   FaExternalLinkAlt,
   FaLink,
   FaQuestionCircle,
 } from "react-icons/fa";
-import useApi from "../../hooks/useApi";
-import { useUser } from "../../services/UserContext";
-import ResultsIndicator from "./ResultsIndicator";
-import { phaseSummary } from "../../services/utils";
-import { date } from "../../services/dates";
 import { IdeaInterface } from "back-end/types/idea";
-import Code from "../SyntaxHighlighting/Code";
-import { AttributionModelTooltip } from "./AttributionModelTooltip";
-import { getDefaultConversionWindowHours } from "../../services/env";
-import { applyMetricOverrides } from "../../services/experiments";
 import { MetricInterface } from "back-end/types/metric";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
+import { useUser } from "@/services/UserContext";
+import { phaseSummary } from "@/services/utils";
+import { date } from "@/services/dates";
+import { getDefaultConversionWindowHours } from "@/services/env";
+import { applyMetricOverrides } from "@/services/experiments";
+import MoreMenu from "../Dropdown/MoreMenu";
+import WatchButton from "../WatchButton";
+import SortedTags from "../Tags/SortedTags";
+import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
+import DiscussionThread from "../DiscussionThread";
+import HeaderWithEdit from "../Layout/HeaderWithEdit";
+import DeleteButton from "../DeleteButton/DeleteButton";
+import { GBAddCircle, GBEdit } from "../Icons";
+import RightRailSection from "../Layout/RightRailSection";
+import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
+import Modal from "../Modal";
+import HistoryTable from "../HistoryTable";
+import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
+import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import ResultsIndicator from "./ResultsIndicator";
+import EditStatusModal from "./EditStatusModal";
+import EditExperimentNameForm from "./EditExperimentNameForm";
+import { useSnapshot } from "./SnapshotProvider";
+import ExperimentReportsList from "./ExperimentReportsList";
+import AnalysisForm from "./AnalysisForm";
+import VariationBox from "./VariationBox";
+import Results from "./Results";
+import StatusIndicator from "./StatusIndicator";
 
 function getColWidth(v: number) {
   // 2 across
@@ -60,26 +60,46 @@ function drawMetricRow(
   metric: MetricInterface,
   experiment: ExperimentInterfaceStringDates
 ) {
-  const newMetric = structuredClone(metric) as MetricInterface;
-  const override = applyMetricOverrides(newMetric, experiment);
+  const { newMetric, overrideFields } = applyMetricOverrides(
+    metric,
+    experiment.metricOverrides
+  );
   return (
     <div className="row align-items-top" key={m}>
-      <div className="col-auto pr-0">-</div>
-      <div className="col">
-        <Link href={`/metric/${m}`}>
-          <a className="font-weight-bold">{newMetric?.name}</a>
-        </Link>
+      <div className="col-sm-5">
+        <div className="row">
+          <div className="col-auto pr-0">-</div>
+          <div className="col">
+            <Link href={`/metric/${m}`}>
+              <a className="font-weight-bold">{newMetric?.name}</a>
+            </Link>
+          </div>
+        </div>
       </div>
-      <div className="col">
+      <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
             {newMetric.conversionDelayHours || 0} to{" "}
             {(newMetric.conversionDelayHours || 0) +
               (newMetric.conversionWindowHours ||
                 getDefaultConversionWindowHours())}{" "}
-            hours {override && <span className="font-italic">(override)</span>}
+            hours{" "}
+            {(overrideFields.includes("conversionDelayHours") ||
+              overrideFields.includes("conversionWindowHours")) && (
+              <span className="font-italic text-purple">(override)</span>
+            )}
           </div>
         )}
+      </div>
+      <div className="col-sm-1">
+        <div className="small">
+          {overrideFields.includes("winRisk") ||
+          overrideFields.includes("loseRisk") ? (
+            <span className="font-italic text-purple">override</span>
+          ) : (
+            <span className="text-muted">default</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -236,7 +256,7 @@ export default function SinglePage({
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
         <div className="col-auto">
-          <MoreMenu id="exp-more-menu">
+          <MoreMenu>
             {canEdit && (
               <button
                 className="dropdown-item"
@@ -484,11 +504,22 @@ export default function SinglePage({
             canOpen={canEdit}
           >
             <div className="appbox px-3 pt-3 pb-2">
-              <RightRailSectionGroup title="Data Source" type="commaList">
+              <RightRailSectionGroup
+                title="Data Source"
+                type="commaList"
+                titleClassName="align-top"
+              >
                 {datasource && (
-                  <Link href={`/datasources/${datasource?.id}`}>
-                    {datasource?.name}
-                  </Link>
+                  <div className="d-inline-block" style={{ maxWidth: 300 }}>
+                    <div>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource?.name}
+                      </Link>
+                    </div>
+                    <div className="text-gray font-weight-normal small text-ellipsis">
+                      {datasource?.description}
+                    </div>
+                  </div>
                 )}
               </RightRailSectionGroup>
               {exposureQuery && (
@@ -550,8 +581,8 @@ export default function SinglePage({
           >
             <div className="appbox p-3">
               <div className="row mb-1 text-muted">
-                <div className="col">Goals</div>
-                <div className="col">
+                <div className="col-5">Goals</div>
+                <div className="col-5">
                   Conversion Window{" "}
                   <Tooltip
                     body={`After a user sees the experiment, only include
@@ -560,6 +591,7 @@ export default function SinglePage({
                     <FaQuestionCircle />
                   </Tooltip>
                 </div>
+                <div className="col-sm-2">Behavior</div>
               </div>
               <>
                 {experiment.metrics.map((m) => {
@@ -569,8 +601,9 @@ export default function SinglePage({
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col">Guardrails</div>
-                      <div className="col">Conversion Window</div>
+                      <div className="col-5">Guardrails</div>
+                      <div className="col-5">Conversion Window</div>
+                      <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
@@ -581,8 +614,9 @@ export default function SinglePage({
                 {experiment.activationMetric && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
-                      <div className="col">Activation Metric</div>
-                      <div className="col">Conversion Window</div>
+                      <div className="col-5">Activation Metric</div>
+                      <div className="col-5">Conversion Window</div>
+                      <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,

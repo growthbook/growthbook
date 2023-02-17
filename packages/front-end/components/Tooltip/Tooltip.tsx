@@ -1,9 +1,11 @@
 import { ReactNode, FC, HTMLAttributes, useState } from "react";
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
+import clsx from "clsx";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   body: string | JSX.Element;
+  popperClassName?: string;
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top" | "left" | "right";
   innerClassName?: string;
@@ -14,6 +16,7 @@ const Tooltip: FC<Props> = ({
   body,
   children,
   className = "",
+  popperClassName = "",
   tipMinWidth = "140px",
   tipPosition = "bottom",
   innerClassName = "",
@@ -62,7 +65,7 @@ const Tooltip: FC<Props> = ({
             zIndex: 10000,
           }}
           {...attributes.popper}
-          className="shadow-lg gb-tooltip"
+          className={clsx("shadow-lg gb-tooltip", popperClassName)}
           role="tooltip"
         >
           <div className={`body ${innerClassName}`}>{body}</div>

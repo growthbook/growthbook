@@ -1,5 +1,5 @@
 import { ApiKeyRow } from "back-end/types/vercel";
-import useApi from "../../../../hooks/useApi";
+import useApi from "@/hooks/useApi";
 
 type ConfigResponse = {
   status: number;

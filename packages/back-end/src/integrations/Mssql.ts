@@ -1,8 +1,8 @@
+import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
-import SqlIntegration from "./SqlIntegration";
-import mssql from "mssql";
 import { FormatDialect } from "../util/sql";
+import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -47,15 +47,6 @@ export default class Mssql extends SqlIntegration {
   }
   stddev(col: string) {
     return `STDEV(${col})`;
-  }
-  avg(col: string) {
-    return `AVG(CAST(${col} as FLOAT))`;
-  }
-  variance(col: string) {
-    return `VAR(${col})`;
-  }
-  covariance(y: string, x: string): string {
-    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
   }
   ensureFloat(col: string): string {
     return `CAST(${col} as FLOAT)`;

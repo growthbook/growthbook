@@ -30,6 +30,7 @@ export interface FeatureInterface {
   archived?: boolean;
   description?: string;
   organization: string;
+  nextScheduledUpdate?: Date | null;
   owner: string;
   project?: string;
   dateCreated: Date;
@@ -37,7 +38,7 @@ export interface FeatureInterface {
   valueType: FeatureValueType;
   defaultValue: string;
   tags?: string[];
-  environmentSettings?: Record<string, FeatureEnvironment>;
+  environmentSettings: Record<string, FeatureEnvironment>;
   draft?: FeatureDraftChanges;
   revision?: {
     version: number;
@@ -46,12 +47,16 @@ export interface FeatureInterface {
     publishedBy: UserRef;
   };
 }
-
+type ScheduleRule = {
+  timestamp: string | null;
+  enabled: boolean;
+};
 export interface BaseRule {
   description: string;
   condition?: string;
   id: string;
   enabled?: boolean;
+  scheduleRules?: ScheduleRule[];
 }
 
 export interface ForceRule extends BaseRule {

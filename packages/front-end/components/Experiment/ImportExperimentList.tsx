@@ -1,30 +1,31 @@
+import Link from "next/link";
+import React, { FC, useCallback, useState } from "react";
+import { PastExperimentsInterface } from "back-end/types/past-experiments";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import {
   ago,
   date,
   datetime,
   daysBetween,
   getValidDate,
-} from "../../services/dates";
-import Link from "next/link";
-//import Button from "../Button";
-import React, { FC, useCallback, useState } from "react";
-import { PastExperimentsInterface } from "back-end/types/past-experiments";
-import { useAddComputedFields, useSearch } from "../../services/search";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useAuth } from "../../services/auth";
-import useApi from "../../hooks/useApi";
-import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
-import LoadingOverlay from "../LoadingOverlay";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import SelectField from "../Forms/SelectField";
-import { getExposureQuery } from "../../services/datasources";
-import usePermissions from "../../hooks/usePermissions";
-import Field from "../Forms/Field";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
-import { isCloud } from "../../services/env";
+} from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
+import { getExposureQuery } from "@/services/datasources";
+import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { isCloud } from "@/services/env";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -41,7 +42,6 @@ const ImportExperimentList: FC<{
     experiments: PastExperimentsInterface;
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
-
   const datasource = getDatasourceById(data?.experiments?.datasource);
 
   const status = getQueryStatus(
@@ -144,12 +144,20 @@ const ImportExperimentList: FC<{
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => ({
                 value: d.id,
-                label: d.name,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
               }))}
+              className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
           ) : (
-            <strong>{datasource?.name}</strong>
+            <>
+              <div>
+                <strong>{datasource?.name}</strong>
+              </div>
+              <div className="text-gray font-weight-normal small text-ellipsis">
+                {datasource?.description}
+              </div>
+            </>
           )}
         </div>
         <div className="col-auto ml-auto">
@@ -161,7 +169,7 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted)}
           </div>
         </div>
-        {permissions.runQueries && (
+        {permissions.check("runQueries", "") && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {
@@ -205,7 +213,18 @@ const ImportExperimentList: FC<{
                 </Link>
               </p>
             )}
-            <span>View Queries (below) for more information.</span>
+            <span>
+              <ViewAsyncQueriesButton
+                queries={data.experiments.queries?.map((q) => q.query) ?? []}
+                error={data.experiments.error}
+                ctaCommponent={(onClick) => (
+                  <a className="alert-link" href="#" onClick={onClick}>
+                    View Queries
+                  </a>
+                )}
+              />{" "}
+              for more information.
+            </span>
           </div>
         </>
       )}
@@ -460,7 +479,6 @@ const ImportExperimentList: FC<{
           </table>
         </div>
       )}
-
       {showQueries && (
         <div>
           <ViewAsyncQueriesButton

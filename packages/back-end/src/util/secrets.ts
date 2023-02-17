@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
 import fs from "fs";
+import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
@@ -157,3 +157,18 @@ export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
+
+// Add a default secret access key via an environment variable
+// Only allowed while self-hosting, don't allow using "dev" (default value) in prod
+let secretAPIKey = IS_CLOUD ? "" : process.env.SECRET_API_KEY || "";
+if ((prod || !isLocalhost) && secretAPIKey === "dev") {
+  secretAPIKey = "";
+  // eslint-disable-next-line
+  console.error(
+    "SECRET_API_KEY must be set to a secure value in production. Disabling access."
+  );
+}
+export const SECRET_API_KEY = secretAPIKey;
+export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
+export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
+export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";

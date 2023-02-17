@@ -1,9 +1,9 @@
 /// <reference types="../../typings/presto-client" />
-import { decryptDataSourceParams } from "../services/datasource";
-import SqlIntegration from "./SqlIntegration";
-import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { Client, IPrestoClientOptions } from "presto-client";
+import { decryptDataSourceParams } from "../services/datasource";
+import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
+import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
 type Row = any;
@@ -100,6 +100,6 @@ export default class Presto extends SqlIntegration {
     return false;
   }
   ensureFloat(col: string): string {
-    return `1.0*${col}`;
+    return `CAST(${col} AS DOUBLE)`;
   }
 }

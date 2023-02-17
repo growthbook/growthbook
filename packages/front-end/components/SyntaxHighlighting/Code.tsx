@@ -7,8 +7,8 @@ import {
   tomorrow as dark,
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import PrismFallback from "./PrismFallback";
-import { useAppearanceUITheme } from "../../services/AppearanceUIThemeProvider";
 
 // Lazy-load syntax highlighting to improve page load time
 const Prism = dynamic(() => import("./Prism"), {
@@ -17,6 +17,7 @@ const Prism = dynamic(() => import("./Prism"), {
 
 export type Language =
   | "none"
+  | "bash"
   | "sql"
   | "ruby"
   | "json"
@@ -32,10 +33,13 @@ export type Language =
   | "yml"
   | "kotlin"
   | "xml"
+  | "dart"
+  | "csharp"
   | "java";
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",
+  bash: "Terminal",
   tsx: "JSX",
   none: "Code",
 };
@@ -56,6 +60,7 @@ export default function Code({
   filename?: string;
 }) {
   language = language || "none";
+  if (language === "sh") language = "bash";
 
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(!expandable);

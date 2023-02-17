@@ -1,144 +1,50 @@
+import { webcrypto as crypto } from "node:crypto";
+import uniqid from "uniqid";
+import isEqual from "lodash/isEqual";
 import {
   ApiFeatureEnvironmentInterface,
   ApiFeatureInterface,
   FeatureDefinition,
-  FeatureDefinitionRule,
 } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
-  FeatureValueType,
+  FeatureRule,
 } from "../../types/feature";
-import { queueWebhook } from "../jobs/webhooks";
 import { getAllFeatures } from "../models/FeatureModel";
-import uniqid from "uniqid";
-import isEqual from "lodash/isEqual";
-import { webcrypto as crypto } from "node:crypto";
-import { replaceSavedGroupsInCondition } from "../util/features";
+import { getFeatureDefinition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { getEnvironments, getOrganizationById } from "./organizations";
 import { OrganizationInterface } from "../../types/organization";
-import { FeatureUpdatedNotificationEvent } from "../events/base-events";
-import { createEvent } from "../models/EventModel";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
+import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
+import { logger } from "../util/logger";
+import { promiseAllChunks } from "../util/promise";
+import { queueWebhook } from "../jobs/webhooks";
+import { GroupMap } from "../../types/saved-group";
+import { SDKPayloadKey } from "../../types/sdk-payload";
+import { queueProxyUpdate } from "../jobs/proxyUpdate";
+import { getEnvironments, getOrganizationById } from "./organizations";
 
-export type GroupMap = Map<string, string[] | number[]>;
 export type AttributeMap = Map<string, string>;
 
-function roundVariationWeight(num: number): number {
-  return Math.round(num * 1000) / 1000;
-}
-
-// eslint-disable-next-line
-function getJSONValue(type: FeatureValueType, value: string): any {
-  if (type === "json") {
-    try {
-      return JSON.parse(value);
-    } catch (e) {
-      return null;
+function generatePayload(
+  features: FeatureInterface[],
+  environment: string,
+  groupMap: GroupMap
+): Record<string, FeatureDefinition> {
+  const defs: Record<string, FeatureDefinition> = {};
+  features.forEach((feature) => {
+    const def = getFeatureDefinition({
+      feature,
+      environment,
+      groupMap,
+    });
+    if (def) {
+      defs[feature.id] = def;
     }
-  }
-  if (type === "number") return parseFloat(value) || 0;
-  if (type === "string") return value;
-  if (type === "boolean") return value === "false" ? false : true;
-  return null;
-}
+  });
 
-export function getFeatureDefinition({
-  feature,
-  environment,
-  groupMap,
-  useDraft = false,
-}: {
-  feature: FeatureInterface;
-  environment: string;
-  groupMap: GroupMap;
-  useDraft?: boolean;
-}): FeatureDefinition | null {
-  const settings = feature.environmentSettings?.[environment];
-
-  // Don't include features which are disabled for this environment
-  if (!settings || !settings.enabled || feature.archived) {
-    return null;
-  }
-
-  const draft = feature.draft;
-  if (!draft?.active) {
-    useDraft = false;
-  }
-
-  const defaultValue = useDraft
-    ? draft?.defaultValue ?? feature.defaultValue
-    : feature.defaultValue;
-
-  const rules = useDraft
-    ? draft?.rules?.[environment] ?? settings.rules
-    : settings.rules;
-
-  const def: FeatureDefinition = {
-    defaultValue: getJSONValue(feature.valueType, defaultValue),
-    rules:
-      rules
-        ?.filter((r) => r.enabled)
-        ?.map((r) => {
-          const rule: FeatureDefinitionRule = {};
-          if (r.condition && r.condition !== "{}") {
-            try {
-              rule.condition = JSON.parse(
-                replaceSavedGroupsInCondition(r.condition, groupMap)
-              );
-            } catch (e) {
-              // ignore condition parse errors here
-            }
-          }
-
-          if (r.type === "force") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-          } else if (r.type === "experiment") {
-            rule.variations = r.values.map((v) =>
-              getJSONValue(feature.valueType, v.value)
-            );
-
-            rule.coverage = r.coverage;
-
-            rule.weights = r.values
-              .map((v) => v.weight)
-              .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
-              .map((w) => roundVariationWeight(w));
-
-            if (r.trackingKey) {
-              rule.key = r.trackingKey;
-            }
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
-            if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-              rule.namespace = [
-                r.namespace.name,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[0] as any) || 0,
-                // eslint-disable-next-line
-                parseFloat(r.namespace.range[1] as any) || 0,
-              ];
-            }
-          } else if (r.type === "rollout") {
-            rule.force = getJSONValue(feature.valueType, r.value);
-            rule.coverage =
-              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
-            }
-          }
-          return rule;
-        }) ?? [],
-  };
-  if (def.rules && !def.rules.length) {
-    delete def.rules;
-  }
-
-  return def;
+  return defs;
 }
 
 export async function getSavedGroupMap(
@@ -175,49 +81,139 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-export async function getFeatureDefinitions(
-  organization: string,
-  environment: string = "production",
-  project?: string
-): Promise<{
-  features: Record<string, FeatureDefinition>;
-  dateUpdated: Date | null;
-}> {
-  const org = await getOrganizationById(organization);
-  if (!org) {
+export async function refreshSDKPayloadCache(
+  organization: OrganizationInterface,
+  payloadKeys: SDKPayloadKey[],
+  allFeatures: FeatureInterface[] | null = null
+) {
+  // Ignore any old environments which don't exist anymore
+  const allowedEnvs = new Set(
+    organization.settings?.environments?.map((e) => e.id) || []
+  );
+  payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
+
+  // If no environments are affected, we don't need to update anything
+  if (!payloadKeys.length) return;
+
+  const groupMap = await getSavedGroupMap(organization);
+  allFeatures = allFeatures || (await getAllFeatures(organization.id));
+
+  // For each affected project/environment pair, generate a new SDK payload and update the cache
+  const promises: (() => Promise<void>)[] = [];
+  for (const key of payloadKeys) {
+    const projectFeatures = key.project
+      ? allFeatures.filter((f) => f.project === key.project)
+      : allFeatures;
+
+    if (!projectFeatures.length) continue;
+
+    const featureDefinitions = generatePayload(
+      projectFeatures,
+      key.environment,
+      groupMap
+    );
+
+    promises.push(async () => {
+      await updateSDKPayload({
+        organization: organization.id,
+        project: key.project,
+        environment: key.environment,
+        featureDefinitions,
+      });
+    });
+  }
+
+  // If there are no changes, we don't need to do anything
+  if (!promises.length) return;
+
+  // Vast majority of the time, there will only be 1 or 2 promises
+  // However, there could be a lot if an org has many enabled environments
+  // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
+  await promiseAllChunks(promises, 4);
+
+  // After the SDK payloads are updated, fire any webhooks on the organization
+  await queueWebhook(organization.id, payloadKeys, true);
+
+  // Update any Proxy servers that are affected by this change
+  await queueProxyUpdate(organization.id, payloadKeys);
+}
+
+async function getFeatureDefinitionsResponse(
+  features: Record<string, FeatureDefinition>,
+  dateUpdated: Date | null,
+  encryptionKey?: string
+) {
+  if (!encryptionKey) {
     return {
-      features: {},
-      dateUpdated: null,
+      features,
+      dateUpdated,
     };
   }
 
-  const features = await getAllFeatures(organization, project);
-  const groupMap = await getSavedGroupMap(org);
+  const encryptedFeatures = await encrypt(
+    JSON.stringify(features),
+    encryptionKey
+  );
 
-  const defs: Record<string, FeatureDefinition> = {};
-  let mostRecentUpdate: Date | null = null;
-  features.forEach((feature) => {
-    const def = getFeatureDefinition({
-      feature,
-      environment,
-      groupMap,
-    });
-    if (def) {
-      defs[feature.id] = def;
-
-      if (!mostRecentUpdate || mostRecentUpdate < feature.dateUpdated) {
-        mostRecentUpdate = feature.dateUpdated;
-      }
-    }
-  });
-
-  return { features: defs, dateUpdated: mostRecentUpdate };
+  return {
+    features: {},
+    dateUpdated,
+    encryptedFeatures,
+  };
 }
 
-export function getEnabledEnvironments(feature: FeatureInterface) {
-  return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
-    return !!feature.environmentSettings?.[env]?.enabled;
+export async function getFeatureDefinitions(
+  organization: string,
+  environment: string = "production",
+  project?: string,
+  encryptionKey?: string
+): Promise<{
+  features: Record<string, FeatureDefinition>;
+  dateUpdated: Date | null;
+  encryptedFeatures?: string;
+}> {
+  // Return cached payload from Mongo if exists
+  try {
+    const cached = await getSDKPayload({
+      organization,
+      environment,
+      project: project || "",
+    });
+    if (cached) {
+      const { features } = cached.contents;
+      return await getFeatureDefinitionsResponse(
+        features,
+        cached.dateUpdated,
+        encryptionKey
+      );
+    }
+  } catch (e) {
+    logger.error(e, "Failed to fetch SDK payload from cache");
+  }
+
+  const org = await getOrganizationById(organization);
+  if (!org) {
+    return await getFeatureDefinitionsResponse({}, null, encryptionKey);
+  }
+
+  // Generate the feature definitions
+  const features = await getAllFeatures(organization, project);
+  const groupMap = await getSavedGroupMap(org);
+  const featureDefinitions = generatePayload(features, environment, groupMap);
+
+  // Cache in Mongo
+  await updateSDKPayload({
+    organization,
+    project: project || "",
+    environment,
+    featureDefinitions,
   });
+
+  return await getFeatureDefinitionsResponse(
+    featureDefinitions,
+    new Date(),
+    encryptionKey
+  );
 }
 
 export function generateRuleId() {
@@ -242,33 +238,11 @@ export function addIdsToRules(
   });
 }
 
-export function getAffectedEnvs(
-  feature: FeatureInterface,
-  changedEnvs: string[]
-): string[] {
-  const settings = feature.environmentSettings;
-  if (!settings) return [];
-  return changedEnvs.filter((e) => settings?.[e]?.enabled);
-}
-
-export async function featureUpdated(
-  feature: FeatureInterface,
-  previousEnvironments: string[] = [],
-  previousProject: string = ""
-) {
-  const currentEnvironments = getEnabledEnvironments(feature);
-
-  // fire the webhook:
-  await queueWebhook(
-    feature.organization,
-    [...currentEnvironments, ...previousEnvironments],
-    [previousProject || "", feature.project || ""],
-    true
-  );
-}
-
-// eslint-disable-next-line
-export function arrayMove(array: Array<any>, from: number, to: number) {
+export function arrayMove<T>(
+  array: Array<T>,
+  from: number,
+  to: number
+): Array<T> {
   const newArray = array.slice();
   newArray.splice(
     to < 0 ? newArray.length + to : to,
@@ -397,29 +371,38 @@ export function getApiFeatureObj(
   return featureRecord;
 }
 
-/**
- * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
- * will log an update event in the events collection
- * @param organization
- * @param previous
- * @param current
- */
-export async function logFeatureUpdatedEvent(
-  organization: OrganizationInterface,
-  previous: FeatureInterface,
-  current: FeatureInterface
-): Promise<string> {
-  const payload: FeatureUpdatedNotificationEvent = {
-    object: "feature",
-    event: "feature.updated",
-    data: {
-      current,
-      previous,
-    },
-  };
+export function getNextScheduledUpdate(
+  envSettings: Record<string, FeatureEnvironment>
+): Date | null {
+  if (!envSettings) {
+    return null;
+  }
 
-  const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
+  const dates: string[] = [];
 
-  return emittedEvent.id;
+  for (const env in envSettings) {
+    const rules = envSettings[env].rules;
+
+    if (!rules) continue;
+
+    rules.forEach((rule: FeatureRule) => {
+      if (rule?.scheduleRules) {
+        rule.scheduleRules.forEach((scheduleRule) => {
+          if (scheduleRule.timestamp !== null) {
+            dates.push(scheduleRule.timestamp);
+          }
+        });
+      }
+    });
+  }
+
+  const sortedFutureDates = dates
+    .filter((date) => new Date(date) > new Date())
+    .sort();
+
+  if (sortedFutureDates.length === 0) {
+    return null;
+  }
+
+  return new Date(sortedFutureDates[0]);
 }

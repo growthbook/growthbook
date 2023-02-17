@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 

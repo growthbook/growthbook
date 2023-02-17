@@ -5,6 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
+import type { StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -36,7 +37,8 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
-  | "override-metrics";
+  | "override-metrics"
+  | "schedule-feature-flag";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -59,6 +61,13 @@ export interface Invite extends MemberRoleWithProjects {
   dateCreated: Date;
 }
 
+export interface PendingMember extends MemberRoleWithProjects {
+  id: string;
+  name: string;
+  email: string;
+  dateCreated: Date;
+}
+
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
@@ -67,6 +76,7 @@ export interface Member extends MemberRoleWithProjects {
 export interface ExpandedMember extends Member {
   email: string;
   name: string;
+  verified: boolean;
 }
 
 export interface NorthStarMetric {
@@ -142,6 +152,8 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
+  statsEngine?: StatsEngine;
+  pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
@@ -177,6 +189,7 @@ export interface OrganizationInterface {
   id: string;
   url: string;
   dateCreated: Date;
+  verifiedDomain?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -199,8 +212,11 @@ export interface OrganizationInterface {
     planNickname: string | null;
     priceId?: string;
   };
+  licenseKey?: string;
+  autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
+  pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
@@ -221,6 +237,8 @@ export type LicenseData = {
   ref: string;
   // Name of organization on the license
   sub: string;
+  // Organization ID (keys prior to 12/2022 do not contain this field)
+  org?: string;
   // Max number of seats
   qty: number;
   // Date issued

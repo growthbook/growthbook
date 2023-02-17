@@ -1,5 +1,5 @@
-import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { NextFunction, Request, Response } from "express";
+import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import {
@@ -19,10 +19,10 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
+import { getPermissionsByRole } from "../../util/organization.util";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
-import { getPermissionsByRole } from "../../util/organization.util";
 
 type JWTInfo = {
   email?: string;
@@ -112,11 +112,19 @@ export async function processJWT(
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string,
-    envs?: string[]
+    project?: string | string[],
+    envs?: string[] | Set<string>
   ) => {
-    if (!hasPermission(permission, project, envs)) {
-      throw new Error("You do not have permission to complete that action.");
+    let checkProjects: (string | undefined)[];
+    if (Array.isArray(project)) {
+      checkProjects = project.length > 0 ? project : [undefined];
+    } else {
+      checkProjects = [project];
+    }
+    for (const p in checkProjects) {
+      if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
+        throw new Error("You do not have permission to complete that action.");
+      }
     }
   };
 

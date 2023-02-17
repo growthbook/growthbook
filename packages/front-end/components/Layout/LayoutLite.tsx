@@ -1,5 +1,5 @@
-import styles from "./LayoutLite.module.scss";
 import clsx from "clsx";
+import styles from "./LayoutLite.module.scss";
 import TopNav from "./TopNav";
 
 const LayoutLite = (): React.ReactElement => {

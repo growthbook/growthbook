@@ -1,7 +1,7 @@
-import { FC, useState } from "react";
-import AsyncQueriesModal from "./AsyncQueriesModal";
+import { FC, ReactNode, useState } from "react";
 import clsx from "clsx";
 import { FaDatabase } from "react-icons/fa";
+import AsyncQueriesModal from "./AsyncQueriesModal";
 
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
@@ -10,6 +10,7 @@ const ViewAsyncQueriesButton: FC<{
   color?: string;
   className?: string;
   inline?: boolean;
+  ctaCommponent?: (onClick: () => void) => ReactNode;
 }> = ({
   queries,
   display = "View Queries",
@@ -17,6 +18,7 @@ const ViewAsyncQueriesButton: FC<{
   error,
   className = "",
   inline = false,
+  ctaCommponent,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -24,28 +26,35 @@ const ViewAsyncQueriesButton: FC<{
 
   return (
     <>
-      <button
-        className={clsx(className, {
-          disabled: queries.length === 0,
-        })}
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
+      {ctaCommponent ? (
+        ctaCommponent(() => {
           if (!queries.length) return;
           setOpen(!open);
-        }}
-      >
-        <span className="h4 pr-2 m-0 d-inline-block align-top">
-          <FaDatabase />
-        </span>{" "}
-        {open ? (
-          "Hide Queries"
-        ) : (
-          <>
-            {display} {queries.length > 0 ? `(${queries.length})` : ""}
-          </>
-        )}
-      </button>
+        })
+      ) : (
+        <button
+          className={clsx(className, {
+            disabled: queries.length === 0,
+          })}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            if (!queries.length) return;
+            setOpen(!open);
+          }}
+        >
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <FaDatabase />
+          </span>{" "}
+          {open ? (
+            "Hide Queries"
+          ) : (
+            <>
+              {display} {queries.length > 0 ? `(${queries.length})` : ""}
+            </>
+          )}
+        </button>
+      )}
       {open && queries.length > 0 && (
         <AsyncQueriesModal
           close={() => setOpen(false)}

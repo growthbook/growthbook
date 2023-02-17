@@ -1,9 +1,9 @@
-import { redirectWithTimeout, useAuth } from "../../services/auth";
+import { useState } from "react";
+import { redirectWithTimeout, useAuth } from "@/services/auth";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
 import LoadingOverlay from "../LoadingOverlay";
 import Tooltip from "../Tooltip/Tooltip";
-import useStripeSubscription from "../../hooks/useStripeSubscription";
 import Button from "../Button";
-import { useState } from "react";
 import UpgradeModal from "./UpgradeModal";
 
 const currencyFormatter = new Intl.NumberFormat(undefined, {
@@ -43,7 +43,7 @@ export default function SubscriptionInfo() {
         <strong>Current Plan:</strong> {planName}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {quote?.currentSeatsPaidFor || 0}
+        <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
       </div>
       {quote && (
         <div className="col-md-12 mb-3">

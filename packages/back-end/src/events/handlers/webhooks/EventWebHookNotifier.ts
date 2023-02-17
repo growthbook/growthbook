@@ -5,19 +5,19 @@ import {
   getEventWebHookById,
   updateEventWebHookStatus,
 } from "../../../models/EventWebhookModel";
+import { EventWebHookInterface } from "../../../../types/event-webhook";
+import { getSavedGroupMap } from "../../../services/features";
+import { findOrganizationById } from "../../../models/OrganizationModel";
+import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
+import { logger } from "../../../util/logger";
+import { cancellableFetch } from "../../../util/http.util";
 import {
-  cancellableFetch,
   EventWebHookErrorResult,
   EventWebHookResult,
   EventWebHookSuccessResult,
   getEventWebHookSignatureForPayload,
   getPayloadForNotificationEvent,
 } from "./event-webhooks-utils";
-import { EventWebHookInterface } from "../../../../types/event-webhook";
-import { getSavedGroupMap } from "../../../services/features";
-import { findOrganizationById } from "../../../models/OrganizationModel";
-import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
-import { logger } from "../../../util/logger";
 
 let jobDefined = false;
 
@@ -83,7 +83,10 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const eventWebHook = await getEventWebHookById(eventWebHookId);
+    const eventWebHook = await getEventWebHookById(
+      eventWebHookId,
+      event.organizationId
+    );
     if (!eventWebHook) {
       // We should never get here.
       throw new Error(
@@ -104,6 +107,11 @@ export class EventWebHookNotifier implements Notifier {
       organization,
       savedGroupMap,
     });
+
+    if (!payload) {
+      // Unsupported events return a null payload
+      return;
+    }
 
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,

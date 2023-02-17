@@ -1,7 +1,11 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
+} from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
+import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import Field from "../Forms/Field";
 
 export interface Props {
@@ -33,10 +37,18 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
         mutate();
       })}
     >
-      <Field
+      <SelectField
         label="Status"
-        options={["draft", "running", "stopped"]}
-        {...form.register("status")}
+        options={[
+          { label: "draft", value: "draft" },
+          { label: "running", value: "running" },
+          { label: "stopped", value: "stopped" },
+        ]}
+        onChange={(v) => {
+          const status = v as ExperimentStatus;
+          form.setValue("status", status);
+        }}
+        value={form.watch("status")}
       />
       {form.watch("status") === "stopped" && experiment.status === "running" && (
         <>

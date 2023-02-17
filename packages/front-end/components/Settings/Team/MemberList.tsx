@@ -1,17 +1,19 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import InviteModal from "./InviteModal";
-import { roleHasAccessToEnv, useAuth } from "../../../services/auth";
-import { useUser } from "../../../services/UserContext";
-import DeleteButton from "../../DeleteButton/DeleteButton";
-import { GBAddCircle } from "../../Icons";
 import { ExpandedMember } from "back-end/types/organization";
-import MoreMenu from "../../Dropdown/MoreMenu";
-import { usingSSO } from "../../../services/env";
-import AdminSetPasswordModal from "./AdminSetPasswordModal";
-import ChangeRoleModal from "./ChangeRoleModal";
-import { useEnvironments } from "../../../services/features";
-import { datetime } from "../../../services/dates";
+import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { datetime } from "@/services/dates";
+import ProjectBadges from "@/components/ProjectBadges";
+import { GBAddCircle } from "@/components/Icons";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { usingSSO } from "@/services/env";
+import { useEnvironments } from "@/services/features";
+import InviteModal from "@/components/Settings/Team/InviteModal";
+import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -24,7 +26,7 @@ const MemberList: FC<{
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     null
   );
-
+  const { projects } = useDefinitions();
   const environments = useEnvironments();
 
   const onInvite = () => {
@@ -46,6 +48,7 @@ const MemberList: FC<{
             environments: roleModalUser.environments || [],
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
+            projectRoles: roleModalUser.projectRoles,
           }}
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
@@ -69,11 +72,12 @@ const MemberList: FC<{
             <th>Name</th>
             <th>Email</th>
             <th>Date Joined</th>
-            <th>Role</th>
+            <th>{project ? "Project Role" : "Global Role"}</th>
+            {!project && <th>Project Roles</th>}
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}
-            <th />
+            <th style={{ width: 50 }} />
           </tr>
         </thead>
         <tbody>
@@ -88,6 +92,25 @@ const MemberList: FC<{
                 <td>{member.email}</td>
                 <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                 <td>{roleInfo.role}</td>
+                {!project && (
+                  <td className="col-3">
+                    {member.projectRoles.map((pr) => {
+                      const p = projects.find((p) => p.id === pr.project);
+                      if (p?.name) {
+                        return (
+                          <div key={`project-tags-${p.id}`}>
+                            <ProjectBadges
+                              projectIds={[p.id]}
+                              className="badge-ellipsis align-middle font-weight-normal"
+                            />
+                            — {pr.role}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </td>
+                )}
                 {environments.map((env) => {
                   const access = roleHasAccessToEnv(roleInfo, env.id);
                   return (
@@ -105,7 +128,7 @@ const MemberList: FC<{
                 <td>
                   {member.id !== userId && (
                     <>
-                      <MoreMenu id={`member-actions-${id}`}>
+                      <MoreMenu>
                         <button
                           className="dropdown-item"
                           onClick={(e) => {
@@ -128,7 +151,7 @@ const MemberList: FC<{
                         )}
                         <DeleteButton
                           link={true}
-                          text="Delete User"
+                          text="Remove User"
                           useIcon={false}
                           className="dropdown-item"
                           displayName={member.email}

@@ -1,18 +1,17 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
 import { FaExclamationTriangle, FaKey } from "react-icons/fa";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
+import DeleteButton from "../DeleteButton/DeleteButton";
 import ApiKeysModal from "../Settings/ApiKeysModal";
-import { getSDKEndpoint } from "./CodeSnippetModal";
-import usePermissions from "../../hooks/usePermissions";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
-import { useEnvironments } from "../../services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ClickToReveal from "../Settings/ClickToReveal";
 import ClickToCopy from "../Settings/ClickToCopy";
+import { getApiBaseUrl } from "./CodeSnippetModal";
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
@@ -21,15 +20,15 @@ const SDKEndpoints: FC<{
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
 
-  const { projects } = useDefinitions();
+  const { getProjectById, projects, project } = useDefinitions();
 
   const environments = useEnvironments();
 
-  const [selectedProject, setSelectedProject] = useState("");
-
   const permissions = usePermissions();
 
-  const publishableKeys = keys.filter((k) => !k.secret);
+  const publishableKeys = keys
+    .filter((k) => !k.secret)
+    .filter((k) => !project || !k.project || k.project === project);
   const canManageKeys = permissions.check("manageEnvironments", "", []);
 
   const envCounts = new Map();
@@ -43,7 +42,7 @@ const SDKEndpoints: FC<{
   });
 
   return (
-    <div className="mt-4">
+    <div>
       {open && canManageKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}
@@ -53,32 +52,17 @@ const SDKEndpoints: FC<{
       )}
       <h1>SDK Endpoints</h1>
       <p>
-        SDK Endpoints return a list of feature flags for an environment. The
-        endpoints provide readonly access and can be safely exposed to users
-        (e.g. in your HTML source code).
+        SDK Endpoints return a list of feature flags for an environment,
+        formatted in a way our SDKs understand. The endpoints provide readonly
+        access and can be safely exposed to users (e.g. in your HTML).
       </p>
-      {publishableKeys.length > 0 && projects?.length > 0 && (
-        <div className="row mb-2 align-items-center">
-          <div className="col-auto">
-            <SelectField
-              value={selectedProject}
-              onChange={(value) => setSelectedProject(value)}
-              initialOption="All Projects"
-              options={projects.map((p) => {
-                return {
-                  value: p.id,
-                  label: p.name,
-                };
-              })}
-            />
-          </div>
-        </div>
-      )}
       {publishableKeys.length > 0 && (
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
-              <th style={{ width: 150 }}>Environment</th>
+              {projects.length > 0 && <th>Project</th>}
+              <th>Environment</th>
+              <th>Description</th>
               <th>Endpoint</th>
               <th>Encrypted?</th>
               {canManageKeys && <th style={{ width: 30 }}></th>}
@@ -87,35 +71,35 @@ const SDKEndpoints: FC<{
           <tbody>
             {publishableKeys.map((key) => {
               const env = key.environment ?? "production";
-              const endpoint = getSDKEndpoint(key.key, selectedProject);
-
+              const endpoint = getApiBaseUrl() + "/api/features/" + key.key;
               const envExists = environments?.some((e) => e.id === env);
 
               return (
                 <tr key={key.key}>
+                  {projects.length > 0 && (
+                    <td>
+                      {getProjectById(key.project)?.name || (
+                        <em>All Projects</em>
+                      )}
+                    </td>
+                  )}
                   <td>
-                    <div className="d-flex flex-column">
-                      <Tooltip
-                        body={
-                          envExists
-                            ? ""
-                            : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
-                        }
-                      >
-                        <strong className="mr-1">{env}</strong>
-                        {!envExists && (
-                          <FaExclamationTriangle className="text-danger" />
-                        )}
-                      </Tooltip>
-                      <span style={{ fontSize: "87.5%", fontStyle: "italic" }}>
-                        {key.description}
-                      </span>
-                    </div>
+                    <Tooltip
+                      body={
+                        envExists
+                          ? ""
+                          : "This environment no longer exists. This SDK endpoint will continue working, but will no longer be updated."
+                      }
+                    >
+                      <strong className="mr-1">{env}</strong>
+                      {!envExists && (
+                        <FaExclamationTriangle className="text-danger" />
+                      )}
+                    </Tooltip>
                   </td>
+                  <td>{key.description}</td>
                   <td>
-                    <ClickToCopy valueToCopy={endpoint}>
-                      <span style={{ wordBreak: "break-all" }}>{endpoint}</span>
-                    </ClickToCopy>
+                    <ClickToCopy>{endpoint}</ClickToCopy>
                   </td>
                   <td style={{ width: 295 }}>
                     {canManageKeys && key.encryptSDK ? (
@@ -142,7 +126,7 @@ const SDKEndpoints: FC<{
                   </td>
                   {canManageKeys && (
                     <td>
-                      <MoreMenu id={key.key + "_actions"}>
+                      <MoreMenu>
                         <DeleteButton
                           onClick={async () => {
                             await apiCall(`/keys`, {

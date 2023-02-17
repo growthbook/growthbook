@@ -1,7 +1,7 @@
-import z from "zod";
-import _ from "lodash";
-import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
+import z from "zod";
+import omit from "lodash/omit";
+import mongoose from "mongoose";
 import {
   notificationEventNames,
   notificationEventResources,
@@ -71,7 +71,7 @@ type EventDocument<T> = mongoose.Document & EventInterface<T>;
  * @returns
  */
 const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
-  _.omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
+  omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
 
 const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
 
@@ -101,13 +101,26 @@ export const createEvent = async (
 };
 
 /**
- * Get an event by ID for an organization
+ * Get an event by ID
  * @param eventId
  */
 export const getEvent = async (
   eventId: string
 ): Promise<EventInterface<NotificationEvent> | null> => {
   const doc = await EventModel.findOne({ id: eventId });
+  return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
+};
+
+/**
+ * Get an event by ID for an organization
+ * @param eventId
+ * @param organizationId
+ */
+export const getEventForOrganization = async (
+  eventId: string,
+  organizationId: string
+): Promise<EventInterface<NotificationEvent> | null> => {
+  const doc = await EventModel.findOne({ id: eventId, organizationId });
   return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
 };
 

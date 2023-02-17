@@ -1,17 +1,18 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
-import Code from "../../../SyntaxHighlighting/Code";
-import MoreMenu from "../../../Dropdown/MoreMenu";
-import DeleteButton from "../../../DeleteButton/DeleteButton";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
-import { AddEditIdentityJoinModal } from "./AddEditIdentityJoinModal";
-import Tooltip from "../../../Tooltip/Tooltip";
-import usePermissions from "../../../../hooks/usePermissions";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import { checkDatasourceProjectPermissions } from "@/services/datasources";
+import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Code from "@/components/SyntaxHighlighting/Code";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -19,12 +20,19 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   dataSource,
   onSave,
   onCancel,
+  canEdit = true,
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissions = usePermissions();
-  const canEdit = permissions.editDatasourceSettings;
+  canEdit =
+    canEdit &&
+    checkDatasourceProjectPermissions(
+      dataSource,
+      permissions,
+      "editDatasourceSettings"
+    );
 
   const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
 
@@ -141,7 +149,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                   {/* Actions*/}
                   <div className="d-flex align-items-center">
                     {canEdit && (
-                      <MoreMenu id="DataSourceInlineEditIdentifierTypes_identifier-joins">
+                      <MoreMenu>
                         <button
                           className="dropdown-item py-2"
                           onClick={handleActionEditClicked(idx)}

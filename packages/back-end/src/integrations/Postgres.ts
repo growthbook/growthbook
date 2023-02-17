@@ -5,9 +5,7 @@ import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Postgres extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  params: PostgresConnectionParams;
+  params!: PostgresConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams
@@ -30,9 +28,6 @@ export default class Postgres extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `${col}::float`;
-  }
-  avg(col: string) {
-    return `AVG(${col}::float)`;
   }
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;

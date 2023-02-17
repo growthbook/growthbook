@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import Modal from "../Modal";
 import uniq from "lodash/uniq";
+import Modal from "../Modal";
 import Field from "../Forms/Field";
 
 export interface Props {

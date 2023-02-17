@@ -1,35 +1,33 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../../hooks/useApi";
-import LoadingOverlay from "../../components/LoadingOverlay";
 import React, { ReactElement, useState } from "react";
-import useSwitchOrg from "../../services/useSwitchOrg";
 import { IdeaInterface } from "back-end/types/idea";
-import SinglePage from "../../components/Experiment/SinglePage";
-import MultiTabPage from "../../components/Experiment/MultiTabPage";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import EditMetricsForm from "../../components/Experiment/EditMetricsForm";
-import StopExperimentForm from "../../components/Experiment/StopExperimentForm";
-import usePermissions from "../../hooks/usePermissions";
-import EditVariationsForm from "../../components/Experiment/EditVariationsForm";
-import EditInfoForm from "../../components/Experiment/EditInfoForm";
-import NewExperimentForm from "../../components/Experiment/NewExperimentForm";
-import EditTagsForm from "../../components/Tags/EditTagsForm";
-import EditProjectForm from "../../components/Experiment/EditProjectForm";
-import { useAuth } from "../../services/auth";
 import Link from "next/link";
-import { GBCircleArrowLeft } from "../../components/Icons";
-import SnapshotProvider from "../../components/Experiment/SnapshotProvider";
-import NewPhaseForm from "../../components/Experiment/NewPhaseForm";
-import track from "../../services/track";
-import EditPhasesModal from "../../components/Experiment/EditPhasesModal";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useSwitchOrg from "@/services/useSwitchOrg";
+import SinglePage from "@/components/Experiment/SinglePage";
+import MultiTabPage from "@/components/Experiment/MultiTabPage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
+import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
+import usePermissions from "@/hooks/usePermissions";
+import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
+import EditInfoForm from "@/components/Experiment/EditInfoForm";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import EditProjectForm from "@/components/Experiment/EditProjectForm";
+import { useAuth } from "@/services/auth";
+import { GBCircleArrowLeft } from "@/components/Icons";
+import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
+import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
+import track from "@/services/track";
+import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 
 const ExperimentPage = (): ReactElement => {
+  const permissions = usePermissions();
   const router = useRouter();
   const { eid } = router.query;
-
-  const permissions = usePermissions();
-
   const [useSinglePage, setUseSinglePage] = useLocalStorage(
     "new-exp-page-layout",
     true
@@ -70,13 +68,16 @@ const ExperimentPage = (): ReactElement => {
     permissions.check("createAnalyses", experiment.project) &&
     !experiment.archived;
 
+  const canEditProject =
+    permissions.check("createAnalyses", "") && !experiment.archived;
+
   const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
   const editResult = canEdit ? () => setStopModalOpen(true) : null;
   const editVariations = canEdit ? () => setVariationsModalOpen(true) : null;
   const editInfo = canEdit ? () => setEditModalOpen(true) : null;
   const duplicate = canEdit ? () => setDuplicateModalOpen(true) : null;
   const editTags = canEdit ? () => setTagsModalOpen(true) : null;
-  const editProject = canEdit ? () => setProjectModalOpen(true) : null;
+  const editProject = canEditProject ? () => setProjectModalOpen(true) : null;
   const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
   const editPhases = canEdit ? () => setEditPhasesOpen(true) : null;
 

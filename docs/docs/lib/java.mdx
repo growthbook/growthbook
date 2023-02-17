@@ -9,6 +9,7 @@ toc_max_heading_level: 5
 import ExternalLink from '@site/src/components/ExternalLink'
 import CodeTabsAddDependencyPartial from '@site/src/partials/java/_code-tabs-add-dependency.mdx'
 import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder.mdx'
+import CodeTabsGBContextBuilderEncryptedPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder-encrypted.mdx'
 import CodeTabsGBContextConstructorPartial from '@site/src/partials/java/_code-tabs-gbcontext-constructor.mdx'
 import CodeTabsUserAttributesPartial from '@site/src/partials/java/_code-tabs-user-attributes.mdx'
 import CodeTabsUsingFeaturesPartial from '@site/src/partials/java/_code-tabs-using-features.mdx'
@@ -16,6 +17,7 @@ import CodeTabsTrackingCallbackPartial from '@site/src/partials/java/_code-tabs-
 import CodeTabsRunExperimentPartial from '@site/src/partials/java/_code-tabs-run-experiment.mdx'
 import CodeTabsExperimentResultCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-experiment-run.mdx'
 import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-multiple.mdx'
+import CodeTabsFeaturesRepository from '@site/src/partials/java/_code-tabs-gbfeatures-repository.mdx'
 
 This supports Java applications using Java version 1.8 and higher.
 
@@ -84,6 +86,10 @@ The GrowthBook context `GBContext` can be created either by implementing the bui
 The builder is the easiest to use way to construct a `GBContext`, allowing you to provide as many or few arguments as you'd like. All fields mentioned above are available via the builder.
 
 <CodeTabsGBContextBuilderPartial />
+
+:::info Note
+The above example uses `java.net.http.HttpClient` which, depending on your web framework, may not be the best option, in which case it is recommended to use a networking library more suitable for your implementation.
+:::
 
 #### Using the GBContext constructor
 
@@ -220,9 +226,51 @@ You can subscribe with as many callbacks as you like:
 
 **The experiment run callback is called for every experiment run, regardless of experiment result**. If you would like to subscribe only to evaluations where the user falls into an experiment, see [TrackingCallback](#tracking-callback).
 
+### Working with Encrypted features
+
+As of version 0.3.0, the Java SDK supports decrypting encrypted features. You can learn more about [SDK Connection Endpoint Encryption](/app/api#encryption).
+
+The main difference is you create a `GBContext` by passing an encryption key (`.encryptionKey()` when using the builder) and using the encrypted payload as the features JSON (`.featuresJson()` for the builder).
+
+<CodeTabsGBContextBuilderEncryptedPartial />
+
+### Fetching, Cacheing, and Refreshing features with GBFeaturesRepository
+
+As of version 0.4.0, the Java SDK provides an optional `GBFeaturesRepository` class which will manage networking for you in the following ways:
+
+- Fetching features from the SDK endpoint when `initialize()` is called
+- Decrypting encrypted features when provided with the client key, e.g. `.builder().encryptionKey(clientKey)`
+- Cacheing features (in-memory)
+- Refreshing features
+
+If you wish to manage fetching, refreshing, and cacheing features on your own, you can choose to not implement this class.
+
+:::info Recommendation
+This class should be implemented as a singleton class as it includes caching and refreshing functionality.
+:::
+
+If you have more than one SDK endpoint you'd like to implement, you can extend the `GBFeaturesRepository` class with your own class to make it easier to work with dependency injection frameworks. Each of these instances should be singletons.
+
+#### Fetching the features
+
+You will need to create a singleton instance of the `GBFeaturesRepository` class either by implementing its `.builder()` or by using its constructor.
+
+Then, you would call `myGbFeaturesRepositoryInstance.initialize()` in order to make the initial (blocking) request to fetch the features. Then, you would call `myGbFeaturesRepositoryInstance.getFeaturesJson()` and provided that to the `GBContext` initialization.
+
+<CodeTabsFeaturesRepository />
+
+For more references, see the [Examples](#code-examples) below.
+
+#### Cacheing and refreshing behaviour
+
+The `GBFeaturesRepository` will automatically refresh the features when the features become stale. Features are considered stale every 60 seconds. This amount is configurable with the `ttlSeconds` option.
+
+When you fetch features and they are considered stale, the stale features are returned from the `getFeaturesJson()` method and a network call to refresh the features is enqueued asynchronously. When that request succeeds, the features are updated with the newest features, and the next call to `getFeaturesJson()` will return the refreshed features.
+
 ## Code Examples
 
 - [JVM with Spring Web example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-spring-web)
+- [JVM example in Kotlin with Ktor <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example)
 - [Android Java example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/android-example)
 
 ## Further Reading

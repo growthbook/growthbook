@@ -1,16 +1,16 @@
 import { FC, useMemo, useState } from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { MetricInterface } from "back-end/types/metric";
-import ExperimentDateGraph, {
-  ExperimentDateGraphDataPoint,
-} from "./ExperimentDateGraph";
-import { formatConversionRate } from "../../services/metrics";
-import Toggle from "../Forms/Toggle";
-import { getValidDate } from "../../services/dates";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatConversionRate } from "@/services/metrics";
+import { getValidDate } from "@/services/dates";
+import Toggle from "../Forms/Toggle";
+import ExperimentDateGraph, {
+  ExperimentDateGraphDataPoint,
+} from "./ExperimentDateGraph";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -99,10 +99,19 @@ const DateResults: FC<{
                 if (i && !cumulative) {
                   const x = uplift?.mean || 0;
                   const sx = uplift?.stddev || 0;
-                  // Uplift distribution is lognormal, so need to correct this
-                  // Add 2 standard deviations (~95% CI) for an error bar
-                  error = [Math.exp(x - 2 * sx) - 1, Math.exp(x + 2 * sx) - 1];
-                  value = Math.exp(x) - 1;
+                  const dist = uplift?.dist || "";
+                  if (dist === "lognormal") {
+                    // Uplift distribution is lognormal, so need to correct this
+                    // Add 2 standard deviations (~95% CI) for an error bar
+                    error = [
+                      Math.exp(x - 2 * sx) - 1,
+                      Math.exp(x + 2 * sx) - 1,
+                    ];
+                    value = Math.exp(x) - 1;
+                  } else {
+                    error = [x - 2 * sx, x + 2 * sx];
+                    value = x;
+                  }
                 }
                 // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
                 else if (i) {

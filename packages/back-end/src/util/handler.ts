@@ -1,8 +1,12 @@
-import { Request, RequestHandler } from "express";
 import path from "path";
 import fs from "fs";
+import { Request, RequestHandler } from "express";
 import z, { Schema } from "zod";
-import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
+import {
+  ApiErrorResponse,
+  ApiPaginationFields,
+  ApiRequestLocals,
+} from "../../types/api";
 
 type ApiRequest<
   ResponseType = never,
@@ -120,4 +124,37 @@ export function getBuild() {
   }
 
   return build;
+}
+
+export function applyPagination<T>(
+  items: T[],
+  query: { limit?: string | undefined; offset?: string | undefined }
+): {
+  filtered: T[];
+  returnFields: ApiPaginationFields;
+} {
+  const limit = parseInt(query.limit || "10");
+  const offset = parseInt(query.offset || "0");
+  if (isNaN(limit) || limit < 1 || limit > 100) {
+    throw new Error("Pagination limit must be between 1 and 100");
+  }
+  if (isNaN(offset) || offset < 0 || offset >= items.length) {
+    throw new Error("Invalid pagination offset");
+  }
+
+  const filtered = items.slice(offset, limit + offset);
+  const nextOffset = offset + limit;
+  const hasMore = nextOffset < items.length;
+
+  return {
+    filtered,
+    returnFields: {
+      limit,
+      offset,
+      count: filtered.length,
+      total: items.length,
+      hasMore,
+      nextOffset: hasMore ? nextOffset : null,
+    },
+  };
 }

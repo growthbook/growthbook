@@ -7,13 +7,14 @@ import {
   ExperimentReportVariation,
   ReportInterface,
 } from "back-end/types/report";
-import { useAuth } from "../../services/auth";
-import Button from "../Button";
-import MoreMenu from "../Dropdown/MoreMenu";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import { BsArrowRepeat } from "react-icons/bs";
-import usePermissions from "../../hooks/usePermissions";
-import ResultsDownloadButton from "./ResultsDownloadButton";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
+import Button from "@/components/Button";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -60,8 +61,15 @@ export default function ResultMoreMenu({
 
   const canEdit = permissions.check("createAnalyses", project);
 
+  const canDownloadJupyterNotebook =
+    hasData &&
+    !hasUserQuery &&
+    supportsNotebooks &&
+    notebookUrl &&
+    notebookFilename;
+
   return (
-    <MoreMenu id="exp-result-actions">
+    <MoreMenu>
       {canEdit && (
         <button
           className="btn dropdown-item py-2"
@@ -80,7 +88,7 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.runQueries && (
+      {forceRefresh && permissions.check("runQueries", "") && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -114,47 +122,42 @@ export default function ResultMoreMenu({
           Report
         </Button>
       )}
+      <Tooltip
+        shouldDisplay={!canDownloadJupyterNotebook}
+        body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
+      >
+        <Button
+          color="outline-info"
+          className="dropdown-item py-2"
+          disabled={!canDownloadJupyterNotebook}
+          onClick={async () => {
+            const res = await apiCall<{ notebook: string }>(notebookUrl, {
+              method: "POST",
+            });
 
-      {hasData &&
-        !hasUserQuery &&
-        supportsNotebooks &&
-        notebookUrl &&
-        notebookFilename && (
-          <Button
-            color="outline-info"
-            className="dropdown-item py-2"
-            onClick={async () => {
-              const res = await apiCall<{ notebook: string }>(notebookUrl, {
-                method: "POST",
-              });
+            const url = URL.createObjectURL(
+              new Blob([res.notebook], {
+                type: "application/json",
+              })
+            );
 
-              const url = URL.createObjectURL(
-                new Blob([res.notebook], {
-                  type: "application/json",
-                })
-              );
+            const name = notebookFilename
+              .replace(/[^a-zA-Z0-9_-]+/g, "")
+              .replace(/[-]+/g, "_")
+              .replace(/[_]{2,}/g, "_");
 
-              const name = notebookFilename
-                .replace(/[^a-zA-Z0-9_-]+/g, "")
-                .replace(/[-]+/g, "_")
-                .replace(/[_]{2,}/g, "_");
+            const d = new Date().toISOString().slice(0, 10).replace(/-/g, "_");
 
-              const d = new Date()
-                .toISOString()
-                .slice(0, 10)
-                .replace(/-/g, "_");
-
-              const el = document.createElement("a");
-              el.href = url;
-              el.download = `${name}_${d}.ipynb`;
-              el.click();
-            }}
-          >
-            <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
-            Download Notebook
-          </Button>
-        )}
-
+            const el = document.createElement("a");
+            el.href = url;
+            el.download = `${name}_${d}.ipynb`;
+            el.click();
+          }}
+        >
+          <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
+          Download Notebook
+        </Button>
+      </Tooltip>
       {canEdit && editMetrics && (
         <button
           type="button"

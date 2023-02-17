@@ -30,6 +30,9 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          remarkPlugins: [
+            [require("@docusaurus/remark-plugin-npm2yarn"), { sync: true }],
+          ],
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/", // Serve the docs at the site's root
           // Please change this to your repo.
@@ -134,10 +137,12 @@ const config = {
         theme: require("prism-react-renderer/themes/github"),
         darkTheme: require("prism-react-renderer/themes/dracula"),
         additionalLanguages: [
+          "csharp",
           "ruby",
           "php",
           "java",
           "kotlin",
+          "swift",
           "dart",
           "groovy",
         ],

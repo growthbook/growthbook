@@ -2,21 +2,23 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
-import DeleteButton from "../../components/DeleteButton/DeleteButton";
-import { useAuth } from "../../services/auth";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import DataSourceForm from "../../components/Settings/DataSourceForm";
-import LoadingOverlay from "../../components/LoadingOverlay";
-import Code from "../../components/SyntaxHighlighting/Code";
-import { hasFileConfig } from "../../services/env";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink, DocSection } from "../../components/DocLink";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DataSourceInlineEditIdentifierTypes } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
-import { DataSourceInlineEditIdentityJoins } from "../../components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
-import { ExperimentAssignmentQueries } from "../../components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
-import { DataSourceViewEditExperimentProperties } from "../../components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
-import { DataSourceJupyterNotebookQuery } from "../../components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { hasFileConfig } from "@/services/env";
+import { DocLink, DocSection } from "@/components/DocLink";
+import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
+import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
+import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
+import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
+import { checkDatasourceProjectPermissions } from "@/services/datasources";
+import ProjectBadges from "@/components/ProjectBadges";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import DataSourceForm from "@/components/Settings/DataSourceForm";
+import Code from "@/components/SyntaxHighlighting/Code";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -26,12 +28,8 @@ function quotePropertyName(name: string) {
 }
 
 const DataSourcePage: FC = () => {
-  const [editConn, setEditConn] = useState(false);
-
   const permissions = usePermissions();
-
-  const canEdit = !hasFileConfig();
-
+  const [editConn, setEditConn] = useState(false);
   const router = useRouter();
 
   const {
@@ -44,6 +42,10 @@ const DataSourcePage: FC = () => {
   const d = getDatasourceById(did);
 
   const { apiCall } = useAuth();
+
+  const canEdit =
+    checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
+    !hasFileConfig();
 
   /**
    * Update the data source provided.
@@ -109,7 +111,7 @@ const DataSourcePage: FC = () => {
           </DocLink>
         </div>
       )}
-      <div className="row mb-3 align-items-center">
+      <div className="row mb-2 align-items-center">
         <div className="col-auto">
           <h1 className="mb-0">{d.name}</h1>
         </div>
@@ -118,11 +120,29 @@ const DataSourcePage: FC = () => {
           <span className="badge badge-success">connected</span>
         </div>
       </div>
+      <div className="row mt-1 mb-3 align-items-center">
+        <div className="col-auto">
+          <div className="text-gray">{d.description}</div>
+        </div>
+      </div>
+      <div className="row mb-3 align-items-center">
+        <div className="col">
+          Projects:{" "}
+          {d?.projects?.length > 0 ? (
+            <ProjectBadges
+              projectIds={d.projects}
+              className="badge-ellipsis align-middle"
+            />
+          ) : (
+            <ProjectBadges className="badge-ellipsis align-middle" />
+          )}
+        </div>
+      </div>
 
       <div className="row">
         <div className="col-md-12">
           <div className="mb-3">
-            {canEdit && permissions.createDatasources && (
+            {canEdit && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
                   <button
@@ -145,7 +165,7 @@ const DataSourcePage: FC = () => {
                 </div>
 
                 <div>
-                  {canEdit && permissions.createDatasources && (
+                  {canEdit && (
                     <DeleteButton
                       displayName={d.name}
                       className="font-weight-bold"
@@ -175,6 +195,7 @@ const DataSourcePage: FC = () => {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
+                  canEdit={canEdit}
                 />
               </div>
 
@@ -233,6 +254,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
+                  canEdit={canEdit}
                 />
 
                 <div className="mt-4">
@@ -240,6 +262,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
+                    canEdit={canEdit}
                   />
                 </div>
               </div>
@@ -249,6 +272,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
+                  canEdit={canEdit}
                 />
               </div>
 
@@ -257,6 +281,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
+                  canEdit={canEdit}
                 />
               </div>
             </>

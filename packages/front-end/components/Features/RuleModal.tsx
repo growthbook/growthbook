@@ -1,22 +1,30 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import FeatureValueField from "./FeatureValueField";
-import { useAuth } from "../../services/auth";
-import ConditionInput from "./ConditionInput";
+import {
+  FeatureInterface,
+  FeatureRule,
+  ScheduleRule,
+} from "back-end/types/feature";
+import { useState } from "react";
 import {
   getDefaultRuleValue,
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
   validateFeatureRule,
-} from "../../services/features";
-import track from "../../services/track";
+} from "@/services/features";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Field from "../Forms/Field";
+import Modal from "../Modal";
+import { useAuth } from "../../services/auth";
+import SelectField from "../Forms/SelectField";
+import UpgradeModal from "../Settings/UpgradeModal";
 import RolloutPercentInput from "./RolloutPercentInput";
+import ConditionInput from "./ConditionInput";
+import FeatureValueField from "./FeatureValueField";
 import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
-import useOrgSettings from "../../hooks/useOrgSettings";
+import ScheduleInputs from "./ScheduleInputs";
 
 export interface Props {
   close: () => void;
@@ -36,6 +44,7 @@ export default function RuleModal({
   defaultType = "force",
 }: Props) {
   const attributeSchema = useAttributeSchema();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { namespaces } = useOrgSettings();
 
@@ -49,6 +58,12 @@ export default function RuleModal({
     }),
     ...((rules[i] as FeatureRule) || {}),
   };
+  const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
+    defaultValues.scheduleRules.some(
+      (scheduleRule) => scheduleRule.timestamp !== null
+    )
+  );
+
   const form = useForm({
     defaultValues,
   });
@@ -59,6 +74,16 @@ export default function RuleModal({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
+  if (showUpgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setShowUpgradeModal(false)}
+        reason="To enable feature flag scheduling,"
+        source="schedule-feature-flag"
+      />
+    );
+  }
+
   return (
     <Modal
       open={true}
@@ -68,6 +93,32 @@ export default function RuleModal({
       header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
+
+        // If the user built a schedule, but disabled the toggle, we ignore the schedule
+        if (!scheduleToggleEnabled) {
+          values.scheduleRules = [];
+        }
+
+        // Loop through each scheduleRule and convert the timestamp to an ISOString()
+        if (values.scheduleRules?.length) {
+          values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
+            if (scheduleRule.timestamp === null) {
+              return;
+            }
+            scheduleRule.timestamp = new Date(
+              scheduleRule.timestamp
+            ).toISOString();
+          });
+
+          // We currently only support a start date and end date, and if both are null, set schedule to empty array
+          if (
+            values.scheduleRules[0].timestamp === null &&
+            values.scheduleRules[1].timestamp === null
+          ) {
+            values.scheduleRules = [];
+          }
+        }
+
         const rule = values as FeatureRule;
 
         try {
@@ -118,17 +169,17 @@ export default function RuleModal({
         live.
       </div>
       <h3>{environment}</h3>
-      <Field
+      <SelectField
         label="Type of Rule"
         readOnly={!!rules[i]}
         disabled={!!rules[i]}
         value={type}
-        onChange={(e) => {
+        onChange={(v) => {
           const existingCondition = form.watch("condition");
           const newVal = {
             ...getDefaultRuleValue({
               defaultValue: getFeatureDefaultValue(feature),
-              ruleType: e.target.value,
+              ruleType: v,
               attributeSchema,
             }),
             description: form.watch("description"),
@@ -139,9 +190,9 @@ export default function RuleModal({
           form.reset(newVal);
         }}
         options={[
-          { display: "Forced Value", value: "force" },
-          { display: "Percentage Rollout", value: "rollout" },
-          { display: "A/B Experiment", value: "experiment" },
+          { label: "Forced Value", value: "force" },
+          { label: "Percentage Rollout", value: "rollout" },
+          { label: "A/B Experiment", value: "experiment" },
         ]}
       />
       <Field
@@ -155,7 +206,6 @@ export default function RuleModal({
         defaultValue={defaultValues.condition || ""}
         onChange={(value) => form.setValue("condition", value)}
       />
-
       {type === "force" && (
         <FeatureValueField
           label="Value to Force"
@@ -180,13 +230,18 @@ export default function RuleModal({
               form.setValue("coverage", coverage);
             }}
           />
-          <Field
-            label="Sample users based on attribute"
-            {...form.register("hashAttribute")}
+          <SelectField
+            label="Assign value based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the feature key to determine if user is part of the rollout"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
           />
         </div>
       )}
@@ -198,13 +253,18 @@ export default function RuleModal({
             placeholder={feature.id}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results"
           />
-          <Field
+          <SelectField
             label="Assign value based on attribute"
-            {...form.register("hashAttribute")}
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => s.property)}
-            helpText="Will be hashed together with the Tracking Key to pick a value"
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
           />
           <VariationsInput
             defaultValue={getFeatureDefaultValue(feature)}
@@ -227,6 +287,13 @@ export default function RuleModal({
           )}
         </div>
       )}
+      <ScheduleInputs
+        defaultValue={defaultValues.scheduleRules}
+        onChange={(value) => form.setValue("scheduleRules", value)}
+        scheduleToggleEnabled={scheduleToggleEnabled}
+        setScheduleToggleEnabled={setScheduleToggleEnabled}
+        setShowUpgradeModal={setShowUpgradeModal}
+      />
     </Modal>
   );
 }

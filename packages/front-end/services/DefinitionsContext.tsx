@@ -4,10 +4,10 @@ import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
-import useApi from "../hooks/useApi";
-import { useLocalStorage } from "../hooks/useLocalStorage";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
+import useApi from "@/hooks/useApi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -33,6 +33,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
+  getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
 };
 
@@ -64,6 +65,7 @@ const defaultValue: DefinitionContextValue = {
   getDimensionById: () => null,
   getSegmentById: () => null,
   getProjectById: () => null,
+  getSavedGroupById: () => null,
   getTagById: () => null,
 };
 
@@ -110,7 +112,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     if (!data || !data.metrics) {
       return [];
     }
-
     return data.metrics.filter((m) => m.status !== "archived");
   }, [data?.metrics]);
 
@@ -119,6 +120,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
+  const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
 
   let value: DefinitionContextValue;
@@ -127,6 +129,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   } else if (!data) {
     value = defaultValue;
   } else {
+    const filteredProject =
+      data.projects && data.projects.map((p) => p.id).includes(project)
+        ? project
+        : "";
     value = {
       ready: true,
       metrics: activeMetrics,
@@ -137,16 +143,14 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       groups: data.groups,
       savedGroups: data.savedGroups,
       projects: data.projects,
-      project:
-        data.projects && data.projects.map((p) => p.id).includes(project)
-          ? project
-          : "",
+      project: filteredProject,
       setProject,
       getMetricById,
       getDatasourceById,
       getDimensionById,
       getSegmentById,
       getProjectById,
+      getSavedGroupById,
       getTagById,
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));

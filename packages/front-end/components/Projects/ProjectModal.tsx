@@ -1,8 +1,8 @@
 import { ProjectInterface } from "back-end/types/project";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 export default function ProjectModal({
   existing,
@@ -33,7 +33,7 @@ export default function ProjectModal({
         await onSuccess();
       })}
     >
-      <Field name="Name" maxLength={30} required {...form.register("name")} />
+      <Field label="Name" maxLength={30} required {...form.register("name")} />
     </Modal>
   );
 }

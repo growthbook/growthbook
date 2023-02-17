@@ -4,8 +4,8 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import FixVariationIds from "./FixVariationIds";
-import usePermissions from "../../hooks/usePermissions";
+import usePermissions from "@/hooks/usePermissions";
+import FixVariationIds from "@/components/Experiment/FixVariationIds";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -116,7 +116,7 @@ const VariationIdWarning: FC<{
           (<CommaList vals={returnedVariations} />
           ).{" "}
           {setVariationIds &&
-            permissions.runQueries &&
+            permissions.check("runQueries", "") &&
             permissions.check("createAnalyses", project) && (
               <button
                 className="btn btn-info btn-sm ml-3"

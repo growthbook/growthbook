@@ -1,37 +1,39 @@
-import { ReactNode, useState } from "react";
-import Tooltip from "../Tooltip/Tooltip";
+import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { SimpleTooltip } from "../SimpleTooltip/SimpleTooltip";
 
 type Props = {
-  valueToCopy: string;
-  children?: ReactNode;
+  children: string;
 };
 
-export default function ClickToCopy({ valueToCopy, children }: Props) {
-  const [copyText, setCopyText] = useState("Copy");
+export default function ClickToCopy({ children }: Props) {
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 800,
+  });
   return (
-    <Tooltip
-      role="button"
-      tipMinWidth="45px"
-      tipPosition="top"
-      body={copyText}
-      onClick={(e) => {
-        e.preventDefault();
-        navigator.clipboard
-          .writeText(valueToCopy)
-          .then(() => {
-            setCopyText("Copied!");
-          })
-          .then(() => {
-            setTimeout(() => {
-              setCopyText("Copy");
-            }, 5000);
-          })
-          .catch((e) => {
-            console.error(e);
-          });
-      }}
-    >
-      {children}
-    </Tooltip>
+    <div className="d-flex align-items-center position-relative">
+      {copySupported ? (
+        <button
+          className="btn p-0"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            performCopy(children);
+          }}
+          title="Copy to Clipboard"
+        >
+          <span className="text-main" style={{ fontSize: "1.1rem" }}>
+            {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
+          </span>
+        </button>
+      ) : null}
+      <span className="ml-2">
+        <code className="text-main text-break">{children}</code>
+      </span>
+
+      {copySuccess ? (
+        <SimpleTooltip position="left">Copied to clipboard!</SimpleTooltip>
+      ) : null}
+    </div>
   );
 }

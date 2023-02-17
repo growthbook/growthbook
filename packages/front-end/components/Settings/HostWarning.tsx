@@ -1,4 +1,4 @@
-import { isCloud } from "../../services/env";
+import { isCloud } from "@/services/env";
 
 export default function HostWarning({
   host,

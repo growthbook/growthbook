@@ -1,7 +1,9 @@
 /// <reference types="../../typings/jstat" />
+import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import { jStat } from "jstat";
-import fs from "fs";
+
+// TODO: set seeds to enable replicable data
 
 const NUM_USERS = 10000;
 const OUTPUT_DIR = "/tmp/csv";
@@ -27,7 +29,7 @@ type ExperimentTableData = TableData & {
   variationId: number;
 };
 type PurchaseTableData = TableData & {
-  amount: number;
+  amount: number | null; // null will get written as \N to file
   qty: number;
 };
 type EventTableData = TableData & {
@@ -37,7 +39,8 @@ type EventTableData = TableData & {
 
 const userRetention: Record<string, number> = {};
 
-const startDate = new Date();
+// use fixed startDate so that integration tests can filter reliably
+const startDate = new Date("2022-02-01T00:00:00");
 startDate.setDate(startDate.getDate() - 90);
 function getDateRangeCondition(start: number, end: number) {
   const s = new Date(startDate);
@@ -270,15 +273,42 @@ function viewCheckout(data: TableData, gb: GrowthBook) {
     condition: getDateRangeCondition(50, 100),
   });
   trackExperiment(data, res, "checkout-layout");
+  // add second "error" exposure with different value
+  // for 10% of users. Used to test multiple exposures.
+  if (Math.random() < 0.1) {
+    trackExperiment(
+      data,
+      { inExperiment: true, variationId: 0 },
+      "checkout-layout"
+    );
+  }
   advanceTime(30);
-  return Math.random() < res.value;
+
+  // add activation metric that the checkout layout actually loads
+  // (and is unaffected by experiment, which otherwise would cause bias)
+  if (Math.random() < 0.9) {
+    trackEvent(data, "Cart Loaded");
+    return Math.random() < res.value;
+  }
+  // bounce all those not activated
+  return true;
 }
 
-function purchase(data: TableData, gb: GrowthBook, qty: number, price: number) {
+function purchase(
+  data: TableData,
+  gb: GrowthBook,
+  qty: number,
+  price: number | null
+) {
   trackPageView({
     ...data,
     path: `/success`,
   });
+  // Pretend we gift people items randomly and the price is then 0, but
+  // we set it to NULL (just as a way to simulate NULL values in data)
+  if (Math.random() < 0.15) {
+    price = null;
+  }
   trackPurchase({
     ...data,
     qty: qty,
@@ -416,7 +446,7 @@ function writeCSV(objs: Record<string, unknown>[], filename: string) {
   for (let i = 0; i < objs.length; i++) {
     const row: string[] = [];
     for (let j = 0; j < headers.length; j++) {
-      row.push(String(objs[i][headers[j]] || ""));
+      row.push(String(objs[i][headers[j]] ?? "\\N"));
     }
     rows.push(row);
   }
@@ -446,7 +476,6 @@ simulate().then(async () => {
 
   console.log(`Writing CSVs to '${OUTPUT_DIR}'...`);
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  writeCSV(sessions, "sessions.csv");
   writeCSV(sessions, "sessions.csv");
   writeCSV(pageViews, "pageViews.csv");
   writeCSV(experimentViews, "experimentViews.csv");

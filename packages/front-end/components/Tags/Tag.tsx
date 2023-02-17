@@ -1,5 +1,6 @@
 import React from "react";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/components/Badge";
 
 interface Props {
   tag: string;
@@ -15,17 +16,16 @@ export default function Tag({ tag, color, description }: Props) {
   const displayColor = color ?? fullTag?.color ?? "#029dd1";
 
   return (
-    <span
-      className="tag mr-2 badge badge-primary"
+    <Badge
+      className={"tag badge-primary"}
       title={displayTitle}
+      content={tag}
       style={{
         backgroundColor: displayColor,
         color: isLight(displayColor) ? "#000000" : "#ffffff",
         cursor: "default",
       }}
-    >
-      {tag}
-    </span>
+    />
   );
 }
 

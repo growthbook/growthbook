@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
+import { Stripe } from "stripe";
 import {
   APP_ORIGIN,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
   IS_CLOUD,
 } from "../util/secrets";
-import { Stripe } from "stripe";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
@@ -110,7 +110,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   const additionalSeatPrice = unitPrice;
   const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
   const currentSeatsPaidFor = org.subscription?.qty || 0;
-  const subtotal = currentSeatsPaidFor * unitPrice;
+  const subtotal = activeAndInvitedUsers * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);
 
   const quote: SubscriptionQuote = {

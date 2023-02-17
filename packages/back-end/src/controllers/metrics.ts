@@ -2,13 +2,15 @@ import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createMetric,
-  removeMetricFromExperiments,
   getMetricAnalysis,
   refreshMetric,
-  getExperimentsByMetric,
 } from "../services/experiments";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getRecentExperimentsUsingMetric,
+  getExperimentsByMetric,
+  removeMetricFromExperiments,
+} from "../models/ExperimentModel";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
 import { getStatusEndpoint, cancelRun } from "../services/queries";
@@ -33,13 +35,16 @@ export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
   req.checkPermissions("createAnalyses", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id);
+  req.checkPermissions(
+    "createMetrics",
+    metric?.projects?.length ? metric.projects : ""
+  );
 
   if (!metric) {
     res.status(403).json({
@@ -60,7 +65,7 @@ export async function deleteMetric(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, org.id);
+  await removeMetricFromExperiments(metric.id, org);
 
   // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);
@@ -169,7 +174,7 @@ export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -195,7 +200,7 @@ export async function postMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries");
+  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -250,35 +255,7 @@ export async function getMetric(
     });
   }
 
-  const experiments = await ExperimentModel.find(
-    {
-      organization: org.id,
-      $or: [
-        {
-          metrics: metric.id,
-        },
-        {
-          guardrails: metric.id,
-        },
-      ],
-      archived: {
-        $ne: true,
-      },
-    },
-    {
-      _id: false,
-      id: true,
-      name: true,
-      status: true,
-      phases: true,
-      results: true,
-      analysis: true,
-    }
-  )
-    .sort({
-      _id: -1,
-    })
-    .limit(10);
+  const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
 
   res.status(200).json({
     status: 200,
@@ -290,8 +267,6 @@ export async function postMetrics(
   req: AuthRequest<Partial<MetricInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
-
   const { org, userName } = getOrgFromReq(req);
 
   const {
@@ -311,6 +286,7 @@ export async function postMetrics(
     queryFormat,
     segment,
     tags,
+    projects,
     winRisk,
     loseRisk,
     maxPercentChange,
@@ -325,6 +301,8 @@ export async function postMetrics(
     userIdTypes,
     anonymousIdColumn,
   } = req.body;
+
+  req.checkPermissions("createMetrics", projects?.length ? projects : "");
 
   if (datasource) {
     const datasourceObj = await getDataSourceById(datasource, org.id);
@@ -365,6 +343,7 @@ export async function postMetrics(
     timestampColumn,
     conditions,
     tags,
+    projects,
     winRisk,
     loseRisk,
     maxPercentChange,
@@ -391,14 +370,16 @@ export async function putMetric(
   req: AuthRequest<Partial<MetricInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createMetrics");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const metric = await getMetricById(id, org.id);
   if (!metric) {
     throw new Error("Could not find metric");
   }
+  req.checkPermissions(
+    "createMetrics",
+    metric?.projects?.length ? metric.projects : ""
+  );
 
   const updates: Partial<MetricInterface> = {};
 
@@ -419,6 +400,7 @@ export async function putMetric(
     "queryFormat",
     "status",
     "tags",
+    "projects",
     "winRisk",
     "loseRisk",
     "maxPercentChange",
@@ -441,6 +423,10 @@ export async function putMetric(
       (updates as any)[k] = req.body[k];
     }
   });
+
+  if (updates?.projects?.length) {
+    req.checkPermissions("createMetrics", updates.projects);
+  }
 
   await updateMetric(metric.id, updates, org.id);
 

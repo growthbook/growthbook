@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { FC, useEffect, useState } from "react";
 import { FaAngleLeft } from "react-icons/fa";
-import InviteList from "../../components/Settings/Team/InviteList";
-import MemberList from "../../components/Settings/Team/MemberList";
 import { useRouter } from "next/router";
-import { useAuth } from "../../services/auth";
-import SSOSettings from "../../components/Settings/SSOSettings";
-import { useUser } from "../../services/UserContext";
-import usePermissions from "../../hooks/usePermissions";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import SelectField from "../../components/Forms/SelectField";
+import InviteList from "@/components/Settings/Team/InviteList";
+import MemberList from "@/components/Settings/Team/MemberList";
+import { useAuth } from "@/services/auth";
+import SSOSettings from "@/components/Settings/SSOSettings";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SelectField from "@/components/Forms/SelectField";
+import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
+import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
+import { isCloud } from "@/services/env";
+import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();
@@ -94,16 +98,27 @@ const TeamPage: FC = () => {
           </div>
         </div>
       )}
+      {isCloud() && <AutoApproveMembersToggle mutate={refreshOrganization} />}
       <MemberList mutate={refreshOrganization} project={currentProject} />
-      {organization.invites.length > 0 ? (
+      {organization?.pendingMembers?.length > 0 && (
+        <PendingMemberList
+          pendingMembers={organization.pendingMembers}
+          mutate={refreshOrganization}
+          project={currentProject}
+        />
+      )}
+      {organization.invites.length > 0 && (
         <InviteList
           invites={organization.invites}
           mutate={refreshOrganization}
           project={currentProject}
         />
-      ) : (
-        ""
       )}
+
+      <OrphanedUsersList
+        mutateUsers={refreshOrganization}
+        numUsersInAccount={organization.members?.length || 0}
+      />
     </div>
   );
 };

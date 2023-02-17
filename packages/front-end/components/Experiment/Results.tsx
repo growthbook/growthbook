@@ -1,21 +1,27 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import GuardrailResults from "./GuardrailResult";
-import { getQueryStatus } from "../Queries/RunQueriesButton";
-import { ago, getValidDate } from "../../services/dates";
-import DateResults from "./DateResults";
-import AnalysisSettingsBar from "./AnalysisSettingsBar";
-import usePermissions from "../../hooks/usePermissions";
-import { useAuth } from "../../services/auth";
-import FilterSummary from "./FilterSummary";
-import VariationIdWarning from "./VariationIdWarning";
-import { useSnapshot } from "./SnapshotProvider";
-import StatusBanner from "./StatusBanner";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ago, getValidDate } from "@/services/dates";
+import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAuth } from "@/services/auth";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import FilterSummary from "@/components/Experiment/FilterSummary";
+import DateResults from "@/components/Experiment/DateResults";
+import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
+import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
+import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import StatusBanner from "@/components/Experiment/StatusBanner";
+import PValueGuardrailResults from "./PValueGuardrailResults";
 
-const BreakDownResults = dynamic(() => import("./BreakDownResults"));
-const CompactResults = dynamic(() => import("./CompactResults"));
+const BreakDownResults = dynamic(
+  () => import("@/components/Experiment/BreakDownResults")
+);
+const CompactResults = dynamic(
+  () => import("@/components/Experiment/CompactResults")
+);
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -35,6 +41,7 @@ const Results: FC<{
   reportDetailsLink = true,
 }) => {
   const { getMetricById } = useDefinitions();
+  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -60,7 +67,9 @@ const Results: FC<{
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasData =
+    snapshot?.results?.[0]?.variations?.length > 0 &&
+    snapshot.statsEngine === settings.statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -120,7 +129,7 @@ const Results: FC<{
                 ago(experiment.phases[phase]?.dateStarted) +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissions.runQueries &&
+              permissions.check("runQueries", "") &&
               `Click the "Update" button above.`}
           </div>
         )}
@@ -177,6 +186,7 @@ const Results: FC<{
           <BreakDownResults
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results || []}
             status={experiment.status}
@@ -203,6 +213,7 @@ const Results: FC<{
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides}
             reportDate={snapshot.dateCreated}
             results={snapshot.results?.[0]}
             status={experiment.status}
@@ -243,11 +254,19 @@ const Results: FC<{
                       className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
                       key={g}
                     >
-                      <GuardrailResults
-                        data={data}
-                        variations={variations}
-                        metric={metric}
-                      />
+                      {settings.statsEngine === "frequentist" ? (
+                        <PValueGuardrailResults
+                          data={data}
+                          variations={variations}
+                          metric={metric}
+                        />
+                      ) : (
+                        <GuardrailResults
+                          data={data}
+                          variations={variations}
+                          metric={metric}
+                        />
+                      )}
                     </div>
                   );
                 })}

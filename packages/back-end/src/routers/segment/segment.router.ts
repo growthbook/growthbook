@@ -1,8 +1,8 @@
 import express from "express";
 import z from "zod";
-import * as rawSegmentController from "./segment.controller";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import * as rawSegmentController from "./segment.controller";
 
 const router = express.Router();
 

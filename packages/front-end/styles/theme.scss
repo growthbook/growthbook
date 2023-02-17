@@ -8,6 +8,7 @@
   --surface-background-color-alt: #{colors.$gray-100};
   --background-primary-light: #f3eff7;
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
+  --table-row-highlight-background-color: #{rgba(124, 69, 234, 0.06)};
 
   --text-color-main: #{colors.$main-black};
   --text-color-table: #{colors.$gray-900};
@@ -19,6 +20,7 @@
   --text-color-on-bright: #{colors.$white};
   --text-color-primary: #{colors.$highlight-purple};
   --text-color-on-background-primary-light: #{colors.$dark-purple};
+  --text-color-premium: #{colors.$premium};
 
   --form-input-group-background: #e9ecef;
   --form-input-group-color: #{colors.$gray-700};
@@ -42,6 +44,9 @@
   --alert-danger-background: #f8d7da;
   --alert-danger-border-color: #f5c6cb;
   --alert-danger-color: #721c24;
+
+  --alert-premium-background-gradient-1: #fcf8ff;
+  --alert-premium-background-gradient-2: #ece0ff;
 
   --border-color-100: #e0e2eb;
   --border-color-200: #dee2e6;
@@ -68,6 +73,10 @@
   --surface-background-color: #{colors.$surface-background-dark};
   --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
+  --table-row-highlight-background-color: #{lighten(
+      colors.$surface-background-dark,
+      10%
+    )};
   --background-primary-light: #{darken(colors.$dark-purple, 13%)};
 
   --text-color-main: #{colors.$white};
@@ -80,6 +89,7 @@
   --text-color-on-bright: #{colors.$black};
   --text-color-primary: #{colors.$highlight-purple-light};
   --text-color-on-background-primary-light: #{colors.$highlight-purple-light};
+  --text-color-premium: #{lighten(colors.$premium, 15%)};
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
@@ -103,6 +113,9 @@
   --alert-danger-background: #{darken(#721c24, 8%)};
   --alert-danger-border-color: #{darken(#721c24, 0%)};
   --alert-danger-color: #f8d7da;
+
+  --alert-premium-background-gradient-1: #5f5279;
+  --alert-premium-background-gradient-2: #3e256e;
 
   --border-color-100: #616161;
   --border-color-200: #424242;

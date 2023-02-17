@@ -1,10 +1,11 @@
 import { Router, Request } from "express";
+import rateLimit from "express-rate-limit";
+import bodyParser from "body-parser";
 import authencateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "../util/handler";
-import rateLimit from "express-rate-limit";
 import { ApiRequestLocals } from "../../types/api";
 import featuresRouter from "./features/features.router";
-import bodyParser from "body-parser";
+import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.get("/", (req, res) => {
 
 // API endpoints
 router.use("/features", featuresRouter);
+router.use("/sdk-connections", sdkConnectionsRouter);
 
 // 404 route
 router.use(function (req, res) {

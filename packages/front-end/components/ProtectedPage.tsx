@@ -1,12 +1,12 @@
 import { ReactNode } from "react";
 import { useAuth, safeLogout } from "../services/auth";
-import LoadingOverlay from "./LoadingOverlay";
 import WatchProvider from "../services/WatchProvider";
+import { UserContextProvider, useUser } from "../services/UserContext";
+import LoadingOverlay from "./LoadingOverlay";
 import CreateOrganization from "./Auth/CreateOrganization";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
-import { ThemeToggler } from "./Layout/ThemeToggler/ThemeToggler";
-import { UserContextProvider, useUser } from "../services/UserContext";
+import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
   children,
@@ -21,29 +21,7 @@ const LoggedInPageGuard = ({
   if (error) {
     return (
       <div>
-        <div className="navbar bg-white border-bottom">
-          <div>
-            <img
-              alt="GrowthBook"
-              src="/logo/growthbook-logo.png"
-              style={{ height: 36 }}
-            />
-          </div>
-          <div className="ml-auto">
-            <ThemeToggler />
-          </div>
-          <div>
-            <Button
-              className="ml-auto"
-              onClick={async () => {
-                await safeLogout();
-              }}
-              color="danger"
-            >
-              Log Out
-            </Button>
-          </div>
-        </div>
+        <TopNavLite />
         <div className="container mt-5">
           <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
             <h3 className="mb-3">Error Signing In</h3>

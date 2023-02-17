@@ -2,17 +2,17 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useState } from "react";
-import { useAuth } from "../../services/auth";
-import { ago, datetime } from "../../services/dates";
-import { useDefinitions } from "../../services/DefinitionsContext";
+import { ExperimentReportVariation } from "back-end/types/report";
+import { useAuth } from "@/services/auth";
+import { ago, datetime } from "@/services/dates";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
+import DimensionChooser from "../Dimensions/DimensionChooser";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
-import usePermissions from "../../hooks/usePermissions";
-import DimensionChooser from "../Dimensions/DimensionChooser";
-import { ExperimentReportVariation } from "back-end/types/report";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 
@@ -134,7 +134,7 @@ export default function AnalysisSettingsBar({
               </div>
             ))}
         </div>
-        {permissions.runQueries && experiment.metrics.length > 0 && (
+        {permissions.check("runQueries", "") && experiment.metrics.length > 0 && (
           <div className="col-auto">
             {experiment.datasource && latest && latest.queries?.length > 0 ? (
               <form
@@ -219,7 +219,7 @@ export default function AnalysisSettingsBar({
           />
         </div>
       </div>
-      {permissions.runQueries && datasource && (
+      {permissions.check("runQueries", "") && datasource && (
         <div className="px-3">
           {refreshError && (
             <div className="alert alert-danger">

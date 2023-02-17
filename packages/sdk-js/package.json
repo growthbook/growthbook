@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "0.20.0",
+  "version": "0.21.2",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -23,7 +23,7 @@
     "directory": "packages/sdk-js"
   },
   "scripts": {
-    "build:clean": "rm -rf dist",
+    "build:clean": "rimraf -rf dist",
     "build:esm": "cross-env BABEL_ENV=esmUnbundled babel src --extensions '.ts' --out-dir 'dist/esm' --source-maps",
     "build:cjs": "cross-env BABEL_ENV=cjs babel src --extensions '.ts' --out-dir 'dist/cjs' --source-maps",
     "build:bundles": "rollup -c",
@@ -46,7 +46,10 @@
     "cross-env": "^7.0.3",
     "gzip-size-cli": "^5.0.0",
     "jest": "^27.1.1",
+    "jest-localstorage-mock": "^2.4.26",
+    "mocksse": "^1.0.4",
     "npm-run-all": "^4.1.5",
+    "rimraf": "^3.0.2",
     "rollup": "^2.56.3",
     "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^27.0.5",

@@ -1,17 +1,19 @@
 import Link from "next/link";
-import styles from "./Layout.module.scss";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import TopNav from "./TopNav";
-import { GBExperiment, GBSettings } from "../Icons";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import ProjectSelector from "./ProjectSelector";
 import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { FaArrowRight } from "react-icons/fa";
+import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
+import UpgradeModal from "../Settings/UpgradeModal";
+import { useUser } from "../../services/UserContext";
+import ProjectSelector from "./ProjectSelector";
+import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import TopNav from "./TopNav";
+import styles from "./Layout.module.scss";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -27,13 +29,18 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features|attributes|namespaces|environments|saved-groups)/,
+    path: /^(features|attributes|namespaces|environments|saved-groups|sdks)/,
     autoClose: true,
     subLinks: [
       {
         name: "All Features",
         href: "/features",
         path: /^features/,
+      },
+      {
+        name: "SDKs",
+        href: "/sdks",
+        path: /^sdks/,
       },
       {
         name: "Attributes",
@@ -235,6 +242,10 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
+  const { accountPlan } = useUser();
+
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
   const router = useRouter();
@@ -286,6 +297,13 @@ const Layout = (): React.ReactElement => {
 
   return (
     <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason=""
+          source="layout"
+        />
+      )}
       {settings?.customized && (
         <style dangerouslySetInnerHTML={{ __html: customStyles }}></style>
       )}
@@ -375,6 +393,22 @@ const Layout = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="p-3">
+          {showUpgradeButton && (
+            <button
+              className="btn btn-premium btn-block font-weight-normal"
+              onClick={() => setUpgradeModal(true)}
+            >
+              {accountPlan === "oss" ? (
+                <>
+                  Try Enterprise <GBPremiumBadge />
+                </>
+              ) : (
+                <>
+                  Upgrade to Pro <GBPremiumBadge />
+                </>
+              )}
+            </button>
+          )}
           <a
             href={inferDocUrl()}
             className="btn btn-outline-light btn-block"

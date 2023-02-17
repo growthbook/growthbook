@@ -1,15 +1,16 @@
+import { randomBytes } from "crypto";
+import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
+  findOrganizationsByDomain,
   updateOrganization,
 } from "../models/OrganizationModel";
-import { randomBytes } from "crypto";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import {
   Invite,
   Member,
@@ -17,8 +18,9 @@ import {
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
+  PendingMember,
+  ProjectMemberRole,
 } from "../../types/organization";
-import { createMetric, getExperimentsByOrganization } from "./experiments";
 import { ExperimentOverride } from "../../types/api";
 import { ConfigFile } from "../init/config";
 import {
@@ -26,11 +28,6 @@ import {
   getDataSourceById,
   updateDataSource,
 } from "../models/DataSourceModel";
-import {
-  encryptParams,
-  getSourceIntegrationObject,
-  mergeParams,
-} from "./datasource";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
@@ -44,10 +41,18 @@ import {
 } from "../models/DimensionModel";
 import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
-import { markInstalled } from "./auth";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { getDefaultRole } from "../util/organization.util";
+import { getAllExperiments } from "../models/ExperimentModel";
+import { markInstalled } from "./auth";
+import {
+  encryptParams,
+  getSourceIntegrationObject,
+  mergeParams,
+} from "./datasource";
+import { createMetric } from "./experiments";
+import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -186,6 +191,9 @@ export async function removeMember(
   id: string
 ) {
   const members = organization.members.filter((member) => member.id !== id);
+  const pendingMembers = (organization?.pendingMembers || []).filter(
+    (member) => member.id !== id
+  );
 
   if (!members.length) {
     throw new Error("Organizations must have at least 1 member");
@@ -193,6 +201,7 @@ export async function removeMember(
 
   await updateOrganization(organization.id, {
     members,
+    pendingMembers,
   });
 
   return organization;
@@ -221,17 +230,22 @@ export async function addMemberToOrg({
   role,
   environments,
   limitAccessByEnvironment,
+  projectRoles,
 }: {
   organization: OrganizationInterface;
   userId: string;
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  projectRoles?: ProjectMemberRole[];
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
   }
+  // If member is also a pending member, remove
+  let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
+  pendingMembers = pendingMembers.filter((m) => m.id !== userId);
 
   const members: Member[] = [
     ...organization.members,
@@ -240,11 +254,60 @@ export async function addMemberToOrg({
       role,
       limitAccessByEnvironment,
       environments,
+      projectRoles,
       dateCreated: new Date(),
     },
   ];
 
-  await updateOrganization(organization.id, { members });
+  await updateOrganization(organization.id, {
+    members,
+    pendingMembers,
+  });
+}
+
+export async function addPendingMemberToOrg({
+  organization,
+  name,
+  userId,
+  email,
+  role,
+  environments,
+  limitAccessByEnvironment,
+  projectRoles,
+}: {
+  organization: OrganizationInterface;
+  name: string;
+  userId: string;
+  email: string;
+  role: MemberRole;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+  projectRoles?: ProjectMemberRole[];
+}) {
+  // If member is already in the org, skip
+  if (organization.members.find((m) => m.id === userId)) {
+    return;
+  }
+  // If member is also a pending member, skip
+  if (organization?.pendingMembers?.find((m) => m.id === userId)) {
+    return;
+  }
+
+  const pendingMembers: PendingMember[] = [
+    ...(organization.pendingMembers || []),
+    {
+      id: userId,
+      name,
+      email,
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+      dateCreated: new Date(),
+    },
+  ];
+
+  await updateOrganization(organization.id, { pendingMembers });
 }
 
 export async function acceptInvite(key: string, userId: string) {
@@ -267,6 +330,10 @@ export async function acceptInvite(key: string, userId: string) {
 
   // Remove invite
   const invites = organization.invites.filter((invite) => invite.key !== key);
+  // Remove from pending members
+  const pendingMembers = (organization?.pendingMembers || []).filter(
+    (m) => m.id !== userId
+  );
 
   // Add to member list
   const members: Member[] = [
@@ -283,6 +350,7 @@ export async function acceptInvite(key: string, userId: string) {
   await updateOrganization(organization.id, {
     invites,
     members,
+    pendingMembers,
   });
 
   return organization;
@@ -480,6 +548,7 @@ export async function importConfig(
 
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
+              description: ds.description || existing.description,
               type: ds.type || existing.type,
               params,
               settings: {
@@ -504,7 +573,8 @@ export async function importConfig(
               ds.type,
               ds.params,
               ds.settings || {},
-              k
+              k,
+              ds.description
             );
           }
         } catch (e) {
@@ -593,7 +663,7 @@ export async function getExperimentOverrides(
   organization: string,
   project?: string
 ) {
-  const experiments = await getExperimentsByOrganization(organization, project);
+  const experiments = await getAllExperiments(organization, project);
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
@@ -692,12 +762,11 @@ export async function addMemberFromSSOConnection(
     }
     // If this is a brand-new installation, create an organization first
     else if (!orgs.length) {
-      organization = await createOrganization(
-        req.email,
-        req.userId,
-        "My Organization",
-        ""
-      );
+      organization = await createOrganization({
+        email: req.email,
+        userId: req.userId,
+        name: "My Organization",
+      });
       markInstalled();
       return organization;
     }
@@ -723,4 +792,22 @@ export async function addMemberFromSSOConnection(
   }
 
   return organization;
+}
+
+export async function findVerifiedOrgForNewUser(email: string) {
+  const domain = email.toLowerCase().split("@")[1];
+  const isFreeDomain = freeEmailDomains.includes(domain);
+  if (isFreeDomain) {
+    return null;
+  }
+
+  const organizations = await findOrganizationsByDomain(domain);
+  if (!organizations.length) {
+    return null;
+  }
+
+  // get the org with the most members
+  return organizations.reduce((prev, current) => {
+    return prev.members.length > current.members.length ? prev : current;
+  });
 }

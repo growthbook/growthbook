@@ -1,22 +1,22 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useDefinitions } from "../../services/DefinitionsContext";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import MetricForm from "../Metrics/MetricForm";
 import { FaChevronRight, FaDatabase, FaQuestionCircle } from "react-icons/fa";
-import Button from "../Button";
-import Tooltip from "../Tooltip/Tooltip";
-import { useAuth } from "../../services/auth";
-import track from "../../services/track";
-import { hasFileConfig } from "../../services/env";
-import ImportExperimentModal from "../Experiment/ImportExperimentModal";
-import GetStartedStep from "./GetStartedStep";
-import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import usePermissions from "../../hooks/usePermissions";
-import { DocLink } from "../DocLink";
-import NewDataSourceForm from "../Settings/NewDataSourceForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { hasFileConfig } from "@/services/env";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
+import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
+import MetricForm from "@/components/Metrics/MetricForm";
+import Button from "@/components/Button";
+import { DocLink } from "@/components/DocLink";
+import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
+import GetStartedStep from "@/components/HomePage/GetStartedStep";
+import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -218,8 +218,8 @@ const ExperimentsGetStarted = ({
                       // Otherwise, you need full create access
                       !hasFileConfig() &&
                       !(hasDataSource
-                        ? permissions.editDatasourceSettings
-                        : permissions.createDatasources)
+                        ? permissions.check("editDatasourceSettings", project)
+                        : permissions.check("createDatasources", project))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"
@@ -246,7 +246,7 @@ const ExperimentsGetStarted = ({
                     finishedCTA="View metrics"
                     permissionsError={
                       !hasFileConfig() &&
-                      !permissions.createMetrics &&
+                      !permissions.check("createMetrics", project) &&
                       !hasMetrics
                     }
                     imageLeft={false}

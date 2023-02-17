@@ -8,11 +8,11 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
-import MetricValueColumn from "./MetricValueColumn";
 import { ExperimentReportVariation } from "back-end/types/report";
+import Link from "next/link";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
-import Link from "next/link";
+import MetricValueColumn from "./MetricValueColumn";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;
@@ -22,7 +22,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-function hasEnoughData(value1: number, value2: number): boolean {
+export function hasEnoughData(value1: number, value2: number): boolean {
   return Math.max(value1, value2) >= 80 && Math.min(value1, value2) >= 20;
 }
 

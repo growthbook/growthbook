@@ -1,7 +1,7 @@
-import { env } from "string-env-interpolation";
-import yaml from "js-yaml";
 import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
+import { env } from "string-env-interpolation";
+import yaml from "js-yaml";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -148,6 +148,7 @@ export function getConfigDatasources(
     return upgradeDatasourceObject({
       id,
       name: d.name,
+      description: d.description,
       organization,
       params: encryptParams(d.params),
       settings: d.settings,

@@ -3,8 +3,9 @@ import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
+import { MetricOverride } from "back-end/types/experiment";
+import cloneDeep from "lodash/cloneDeep";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 export type ExperimentTableRow = {
   label: string;
@@ -53,6 +54,31 @@ export function isBelowMinChange(
     metric.minPercentChange || metricDefaults.minPercentageChange;
 
   return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+}
+
+export function shouldHighlight({
+  metric,
+  baseline,
+  stats,
+  hasEnoughData,
+  suspiciousChange,
+  belowMinChange,
+}: {
+  metric: MetricInterface;
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
+  hasEnoughData: boolean;
+  suspiciousChange: boolean;
+  belowMinChange: boolean;
+}): boolean {
+  return (
+    metric &&
+    baseline?.value &&
+    stats?.value &&
+    hasEnoughData &&
+    !suspiciousChange &&
+    !belowMinChange
+  );
 }
 
 export function getRisk(
@@ -184,16 +210,41 @@ export function useDomain(
 
 export function applyMetricOverrides(
   metric: MetricInterface,
-  experiment: ExperimentInterfaceStringDates
-): boolean {
-  if (!metric) return false;
-  const metricOverride = experiment?.metricOverrides?.find(
-    (mo) => mo.id === metric.id
-  );
-  if (metricOverride) {
-    metric.conversionWindowHours = metricOverride.conversionWindowHours;
-    metric.conversionDelayHours = metricOverride.conversionDelayHours;
-    return true;
+  metricOverrides?: MetricOverride[]
+): {
+  newMetric: MetricInterface;
+  overrideFields: string[];
+} {
+  if (!metric || !metricOverrides) {
+    return {
+      newMetric: metric,
+      overrideFields: [],
+    };
   }
-  return false;
+  const newMetric = cloneDeep<MetricInterface>(metric);
+  const overrideFields: string[] = [];
+  const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
+  if (metricOverride) {
+    if ("conversionWindowHours" in metricOverride) {
+      newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
+      overrideFields.push("conversionWindowHours");
+    }
+    if ("conversionDelayHours" in metricOverride) {
+      newMetric.conversionDelayHours = metricOverride.conversionDelayHours;
+      overrideFields.push("conversionDelayHours");
+    }
+    if ("winRisk" in metricOverride) {
+      newMetric.winRisk = metricOverride.winRisk;
+      overrideFields.push("winRisk");
+    }
+    if ("loseRisk" in metricOverride) {
+      newMetric.loseRisk = metricOverride.loseRisk;
+      overrideFields.push("loseRisk");
+    }
+  }
+  return { newMetric, overrideFields };
+}
+
+export function pValueFormatter(pValue: number) {
+  return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }

@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import Tooltip from "../components/Tooltip/Tooltip";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
+import { SDKAttribute } from "back-end/types/organization";
+import Tooltip from "../components/Tooltip/Tooltip";
 import { GBEdit } from "../components/Icons";
 import EditAttributesModal from "../components/Features/EditAttributesModal";
 import usePermissions from "../hooks/usePermissions";
-import { SDKAttribute } from "back-end/types/organization";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import { useAuth } from "../services/auth";
 import { useAttributeSchema } from "../services/features";
@@ -15,12 +15,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   let attributeSchema = useAttributeSchema(true);
-  const orderedAttributes = [
-    ...attributeSchema.filter((o) => !o.archived),
-    ...attributeSchema.filter((o) => o.archived),
-  ];
+
+  const orderedAttributes = useMemo(
+    () => [
+      ...attributeSchema.filter((o) => !o.archived),
+      ...attributeSchema.filter((o) => o.archived),
+    ],
+    [attributeSchema]
+  );
+
   const [attributesForView, setAttributesForView] = useState(orderedAttributes);
   const { refreshOrganization } = useUser();
+
+  useEffect(() => {
+    setAttributesForView(orderedAttributes);
+  }, [orderedAttributes]);
 
   const drawRow = (v: SDKAttribute, i: number) => (
     <tr className={v.archived ? "disabled" : ""} key={i}>
@@ -32,7 +41,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
       <td className="text-gray">{v.archived && <>yes</>}</td>
       <td>
-        <MoreMenu id={`more-menu-attribute-${i}`}>
+        <MoreMenu>
           <button
             className="dropdown-item"
             onClick={async (e) => {
@@ -63,7 +72,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               await refreshOrganization();
             }}
           >
-            {v.archived ? "unarchive" : "archive"}
+            {v.archived ? "Unarchive" : "Archive"}
           </button>
         </MoreMenu>
       </td>

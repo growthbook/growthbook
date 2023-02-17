@@ -1,7 +1,7 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-import { useUser } from "../../services/UserContext";
-import { isCloud } from "../../services/env";
+import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 
 export default function InAppHelp() {
   const config = useFeature("papercups-config").value;

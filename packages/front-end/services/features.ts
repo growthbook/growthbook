@@ -15,13 +15,13 @@ import {
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import useApi from "../hooks/useApi";
 import { FeatureUsageRecords } from "back-end/types/realtime";
-import { useDefinitions } from "./DefinitionsContext";
-import { useLocalStorage } from "../hooks/useLocalStorage";
-import useOrgSettings from "../hooks/useOrgSettings";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
+import { useLocalStorage } from "../hooks/useLocalStorage";
+import useOrgSettings from "../hooks/useOrgSettings";
+import useApi from "../hooks/useApi";
+import { useDefinitions } from "./DefinitionsContext";
 
 export interface Condition {
   field: string;
@@ -360,6 +360,16 @@ export function getDefaultRuleValue({
       condition: "",
       enabled: true,
       hashAttribute,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
     };
   }
   if (ruleType === "experiment") {
@@ -389,6 +399,16 @@ export function getDefaultRuleValue({
         name: "",
         range: [0, 0.5],
       },
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
     };
   }
 
@@ -406,6 +426,16 @@ export function getDefaultRuleValue({
     value,
     enabled: true,
     condition,
+    scheduleRules: [
+      {
+        enabled: true,
+        timestamp: null,
+      },
+      {
+        enabled: false,
+        timestamp: null,
+      },
+    ],
   };
 }
 
@@ -775,4 +805,20 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$includes";
   }
   return "$eq";
+}
+
+export function genDuplicatedKey({ id }: FeatureInterface) {
+  try {
+    // Take the '_4' out of 'feature_a_4'
+    const numSuffix = id.match(/_[\d]+$/)?.[0];
+    // Store 'feature_a' from 'feature_a_4'
+    const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
+    // Parse the 4 (number) out of '_4' (string)
+    const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
+
+    return `${keyRoot}_${num}`;
+  } catch (e) {
+    // we failed, let the user name the key
+    return "";
+  }
 }

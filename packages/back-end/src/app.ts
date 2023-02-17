@@ -1,8 +1,11 @@
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
-import { usingFileConfig } from "./init/config";
 import cors from "cors";
+import asyncHandler from "express-async-handler";
+import compression from "compression";
+import * as Sentry from "@sentry/node";
+import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
@@ -16,12 +19,9 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import asyncHandler from "express-async-handler";
 import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
-import compression from "compression";
-import * as Sentry from "@sentry/node";
 import apiRouter from "./api/api.router";
 
 if (SENTRY_DSN) {
@@ -83,7 +83,10 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
+import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
+import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 
 const app = express();
 
@@ -259,6 +262,9 @@ app.use(
   }
 );
 
+// Validate self hosted license key if present
+app.use(verifyLicenseMiddleware);
+
 // Logged-in auth requests
 if (!useSSO) {
   app.post("/auth/change-password", authController.postChangePassword);
@@ -333,6 +339,10 @@ app.get(
 );
 app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
+app.get(
+  "/experiments/tracking-key",
+  experimentsController.lookupExperimentByTrackingKey
+);
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
@@ -413,6 +423,8 @@ app.use("/segments", segmentRouter);
 
 app.use("/dimensions", dimensionRouter);
 
+app.use("/sdk-connections", sdkConnectionRouter);
+
 app.use("/projects", projectRouter);
 
 // Features
@@ -445,7 +457,10 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // Events
 app.use("/events", eventsRouter);
-app.use("/event-webhooks", eventWebHooksRouter);
+app.use(eventWebHooksRouter);
+
+// Slack integration
+app.use("/integrations/slack", slackIntegrationRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
