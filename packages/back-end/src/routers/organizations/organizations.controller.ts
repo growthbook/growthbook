@@ -610,7 +610,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: [...accountFeatures[getAccountPlan(org)]],
+    commercialFeatures: res.locals.licenseError
+      ? []
+      : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     organization: {
