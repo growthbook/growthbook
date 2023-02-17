@@ -126,7 +126,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       guardrails: initialValue?.guardrails || [],
       variations: initialValue?.variations
         ? initialValue.variations.map((variation) => {
-            console.log("DEBUG initial variation", variation);
             return {
               id: generateVariationId(),
               ...variation,
@@ -376,21 +375,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
             valueAsId={true}
             setVariations={(v) => {
-              const existing = form.watch("variations");
               form.setValue(
                 "variations",
                 v.map((data, i) => {
-                  const current = existing[i] || {
-                    name: "",
-                    key: "",
-                    screenshots: [],
-                  };
-                  console.log("current", current);
                   return {
-                    ...current,
-                    name: data.name || current?.name || "",
-                    key: data.value || current?.key || "",
-                    id: data.id,
+                    // default values
+                    name: "",
+                    value: i,
+                    screenshots: [],
+                    // overwrite defaults
+                    ...data,
+                    // use value as key if provided to maintain backwards compatibility
+                    key: data.value || `${i}` || "",
                   };
                 })
               );
