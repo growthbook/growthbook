@@ -29,7 +29,8 @@ pandas = "^1.5.1"
 scipy = "^1.9.2"
 numpy = "^1.23.4"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+certifi = "2022.12.7"
 tox = "^3.20.1"
 virtualenv = "^20.2.2"
 twine = "^3.3.0"
