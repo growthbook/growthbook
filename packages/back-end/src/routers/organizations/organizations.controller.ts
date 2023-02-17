@@ -370,7 +370,7 @@ export async function putMember(
       });
 
       try {
-        const teamUrl = APP_ORIGIN + "settings/team";
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + orgId;
         await sendPendingMemberEmail(
           req.name || "",
           req.email || "",
@@ -445,11 +445,12 @@ export async function postMemberApproval(
   }
 
   try {
+    const url = APP_ORIGIN + "/?org=" + org.id;
     await sendPendingMemberApprovalEmail(
       pendingMember.name || "",
       pendingMember.email || "",
       org.name,
-      APP_ORIGIN
+      url
     );
   } catch (e) {
     req.log.error(e, "Failed to send pending member approval email");
@@ -609,7 +610,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: [...accountFeatures[getAccountPlan(org)]],
+    commercialFeatures: res.locals.licenseError
+      ? []
+      : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     organization: {

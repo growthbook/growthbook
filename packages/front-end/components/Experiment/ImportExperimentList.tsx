@@ -214,7 +214,18 @@ const ImportExperimentList: FC<{
                 </Link>
               </p>
             )}
-            <span>View Queries (below) for more information.</span>
+            <span>
+              <ViewAsyncQueriesButton
+                queries={data.experiments.queries?.map((q) => q.query) ?? []}
+                error={data.experiments.error}
+                ctaCommponent={(onClick) => (
+                  <a className="alert-link" href="#" onClick={onClick}>
+                    View Queries
+                  </a>
+                )}
+              />{" "}
+              for more information.
+            </span>
           </div>
         </>
       )}
