@@ -39,6 +39,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   encryptPayload: Boolean,
   encryptionKey: String,
   connected: Boolean,
+  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
