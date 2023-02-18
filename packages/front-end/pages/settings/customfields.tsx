@@ -191,7 +191,7 @@ const CustomFieldsPage = (): React.ReactElement => {
                 </tr>
               </thead>
               <tbody>
-                {customFields?.length ? (
+                {customFields?.length && items?.length ? (
                   <SortableContext
                     items={items}
                     strategy={verticalListSortingStrategy}

@@ -85,13 +85,13 @@ const CustomFieldDisplay: FC<{
                 setEditModal(true);
               })
             }
-            outerClassName="mb-3"
+            outerClassName="mb-2"
           >
             {label}
           </HeaderWithEdit>
         )}
         {experiment?.customFields && (
-          <>
+          <div className="mb-4">
             {Array.from(customFieldsMap.values()).map((v: CustomField) => {
               // these two loops are used to make sure the order is correct with the stored order of custom fields.
               return Object.keys(experiment.customFields).map((fid, i) => {
@@ -102,15 +102,15 @@ const CustomFieldDisplay: FC<{
                   if (displayValue) {
                     if (v.type === "textarea" || v.type === "markdown") {
                       return (
-                        <div className="mb-4" key={i}>
-                          <h4>{v.name}</h4>
-                          {displayValue}
+                        <div className="mb-1 row" key={i}>
+                          <div className="text-muted col-auto">{v.name}</div>
+                          <div className="col">{displayValue}</div>
                         </div>
                       );
                     } else {
                       return (
-                        <div className="mb-3" key={i}>
-                          <span className="h4">{v.name}</span>
+                        <div className="mb-1" key={i}>
+                          <span className="text-muted">{v.name}</span>
                           {": "}
                           {displayValue}
                         </div>
@@ -120,7 +120,7 @@ const CustomFieldDisplay: FC<{
                 }
               });
             })}
-          </>
+          </div>
         )}
       </>
     );
