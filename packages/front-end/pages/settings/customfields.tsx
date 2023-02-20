@@ -27,12 +27,12 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import usePermissions from "@/hooks/usePermissions";
 import { GBEdit } from "@/components/Icons";
 import CustomFieldModal from "@/components/Settings/CustomFieldModal";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import { useCustomFields } from "@/services/experiments";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const permissions = usePermissions();
-  const { customFields } = useOrgSettings();
+  const customFields = useCustomFields();
   const { apiCall } = useAuth();
   const { refreshOrganization, hasCommercialFeature, updateUser } = useUser();
   const [activeId, setActiveId] = useState();

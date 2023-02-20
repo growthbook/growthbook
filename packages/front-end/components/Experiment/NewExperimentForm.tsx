@@ -17,6 +17,10 @@ import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { getEqualWeights } from "@/services/utils";
+import {
+  filterCustomFieldsForProject,
+  useCustomFields,
+} from "@/services/experiments";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -24,7 +28,6 @@ import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
 import VariationsInput from "../Features/VariationsInput";
-import { useCustomFields } from "../../services/experiments";
 import MetricsSelector from "./MetricsSelector";
 import VariationDataInput from "./VariationDataInput";
 import CustomFieldInput from "./CustomFieldInput";
@@ -158,7 +161,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));
-  const customFields = useCustomFields(selectedProject);
+  const customFields = filterCustomFieldsForProject(
+    useCustomFields(),
+    selectedProject
+  );
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";

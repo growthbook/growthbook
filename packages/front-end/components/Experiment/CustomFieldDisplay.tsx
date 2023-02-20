@@ -6,7 +6,10 @@ import {
 import { useForm } from "react-hook-form";
 import { CustomField } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
-import { useCustomFields } from "@/services/experiments";
+import {
+  filterCustomFieldsForProject,
+  useCustomFields,
+} from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
@@ -20,7 +23,10 @@ const CustomFieldDisplay: FC<{
   experiment: ExperimentInterfaceStringDates;
 }> = ({ label = "Additional Fields", experiment, canEdit = true, mutate }) => {
   const [editModal, setEditModal] = useState(false);
-  const customFields = useCustomFields(experiment.project);
+  const customFields = filterCustomFieldsForProject(
+    useCustomFields(),
+    experiment.project
+  );
   const customFieldsMap = new Map();
   const defaultFields: CustomExperimentField = {};
   if (customFields && customFields.length) {
