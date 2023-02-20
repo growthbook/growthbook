@@ -20,7 +20,7 @@ const CustomFieldDisplay: FC<{
   experiment: ExperimentInterfaceStringDates;
 }> = ({ label = "Additional Fields", experiment, canEdit = true, mutate }) => {
   const [editModal, setEditModal] = useState(false);
-  const customFields = useCustomFields();
+  const customFields = useCustomFields(experiment.project);
   const customFieldsMap = new Map();
   const defaultFields: CustomExperimentField = {};
   if (customFields && customFields.length) {
@@ -43,8 +43,7 @@ const CustomFieldDisplay: FC<{
     },
   });
   const { apiCall } = useAuth();
-
-  if (customFields && customFields.length) {
+  if (customFields?.length) {
     return (
       <>
         {editModal && (
@@ -66,7 +65,11 @@ const CustomFieldDisplay: FC<{
             cta="Save"
           >
             {hasCustomFieldAccess ? (
-              <CustomFieldInput customFields={customFields} form={form} />
+              <CustomFieldInput
+                customFields={customFields}
+                form={form}
+                project={experiment.project}
+              />
             ) : (
               <div className="text-center">
                 <PremiumTooltip commercialFeature={"custom-exp-metadata"}>

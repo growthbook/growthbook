@@ -82,7 +82,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
   );
-  const customFields = useCustomFields();
 
   const {
     datasources,
@@ -158,6 +157,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       customFields: initialValue?.customFields || {},
     },
   });
+  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
+  const customFields = useCustomFields(selectedProject);
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
@@ -167,7 +168,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { apiCall } = useAuth();
 
   const { visualEditorEnabled } = useOrgSettings();
-  const { license } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
@@ -296,7 +297,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <label>Project</label>
             <SelectField
               value={form.watch("project")}
-              onChange={(p) => form.setValue("project", p)}
+              onChange={(p) => {
+                form.setValue("project", p);
+                setSelectedProject(p);
+              }}
               name="project"
               initialOption={allowAllProjects ? "All Projects" : undefined}
               options={availableProjects}
@@ -376,9 +380,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
       </Page>
-      {license && customFields?.length && (
+      {hasCommercialFeature("custom-exp-metadata") && customFields?.length && (
         <Page display="Custom Fields">
-          <CustomFieldInput customFields={customFields} form={form} />
+          <CustomFieldInput
+            customFields={customFields}
+            form={form}
+            project={selectedProject}
+          />
         </Page>
       )}
       <Page display="Variations">

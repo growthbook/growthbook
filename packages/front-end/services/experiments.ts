@@ -2,7 +2,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { MetricDefaults } from "back-end/types/organization";
+import { CustomField, MetricDefaults } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
@@ -250,7 +250,29 @@ export function pValueFormatter(pValue: number) {
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
 
-export function useCustomFields() {
+export function useCustomFields(forProject?: string) {
   const { customFields } = useOrgSettings();
-  return customFields;
+  return filterCustomFieldsForProject(customFields, forProject);
+}
+
+export function filterCustomFieldsForProject(
+  customFields: CustomField[],
+  project: string
+) {
+  // for the moment, is an experiment is in none/all projects, project scoped custom fields will not be available to it.
+  // if (!project) {
+  //   return customFields;
+  // }
+  return customFields.filter((v) => {
+    if (v.projects && v.projects.length) {
+      let matched = false;
+      v.projects.forEach((p) => {
+        if (p === project) {
+          matched = true;
+        }
+      });
+      return matched;
+    }
+    return true;
+  });
 }

@@ -105,7 +105,11 @@ const EditInfoForm: FC<{
       />
       {customFields?.length && (
         <div className="mb-3">
-          <CustomFieldInput customFields={customFields} form={form} />
+          <CustomFieldInput
+            customFields={customFields}
+            form={form}
+            project={experiment.project}
+          />
         </div>
       )}
     </Modal>

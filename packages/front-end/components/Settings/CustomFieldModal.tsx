@@ -61,11 +61,7 @@ export default function CustomFieldModal({
     <Modal
       open={true}
       close={close}
-      header={
-        existing.id
-          ? `Edit ${existing.id} Custom Field`
-          : "Create New Custom Field"
-      }
+      header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
       submit={form.handleSubmit(async (value) => {
         const newCustomFields = [...customFields];
         if (existing.id) {
