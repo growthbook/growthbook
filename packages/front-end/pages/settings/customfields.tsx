@@ -16,7 +16,6 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { useUser } from "@/services/UserContext";
-import { useCustomFields } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -28,11 +27,12 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import usePermissions from "@/hooks/usePermissions";
 import { GBEdit } from "@/components/Icons";
 import CustomFieldModal from "@/components/Settings/CustomFieldModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const permissions = usePermissions();
-  const customFields = useCustomFields();
+  const { customFields } = useOrgSettings();
   const { apiCall } = useAuth();
   const { refreshOrganization, hasCommercialFeature, updateUser } = useUser();
   const [activeId, setActiveId] = useState();

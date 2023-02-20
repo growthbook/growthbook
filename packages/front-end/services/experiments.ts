@@ -250,9 +250,9 @@ export function pValueFormatter(pValue: number) {
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
 
-export function useCustomFields(forProject?: string) {
+export function useCustomFields(project?: string) {
   const { customFields } = useOrgSettings();
-  return filterCustomFieldsForProject(customFields, forProject);
+  return filterCustomFieldsForProject(customFields, project);
 }
 
 export function filterCustomFieldsForProject(

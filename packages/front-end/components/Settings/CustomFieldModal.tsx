@@ -3,15 +3,15 @@ import { CustomField, CustomFieldTypes } from "back-end/types/organization";
 import uniqid from "uniqid";
 import React from "react";
 import { useAuth } from "@/services/auth";
-import { useCustomFields } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import track from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
 import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
-import track from "../../services/track";
 
 export default function CustomFieldModal({
   existing,
@@ -40,8 +40,7 @@ export default function CustomFieldModal({
       index: true,
     },
   });
-
-  const customFields = useCustomFields() ?? [];
+  const { customFields } = useOrgSettings();
 
   const fieldOptions = [
     "text",
