@@ -90,6 +90,8 @@ class RatioStatistic(Statistic):
 
     @property
     def covariance(self):
+        if self.n <= 1:
+            return 0
         return (
             self.m_d_sum_of_products
             - self.m_statistic.sum * self.d_statistic.sum / self.n
