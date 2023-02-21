@@ -126,7 +126,7 @@ class GaussianBayesianABTest(BayesianABTest):
         if self.has_empty_input():
             return self._default_output()
 
-        if not self._is_variance_positive():
+        if self._has_zero_variance():
             return self._default_output()
 
         mu_a, sd_a = Norm.posterior(

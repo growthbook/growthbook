@@ -94,7 +94,7 @@ class TTest(BaseABTest):
                 note the values are with respect to percent uplift,
                 not absolute differences
         """
-        if not self._is_variance_positive():
+        if self._has_zero_variance():
             return self._default_output()
         return FrequentistTestResult(
             expected=self.point_estimate,
