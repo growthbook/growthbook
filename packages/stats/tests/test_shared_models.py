@@ -27,6 +27,13 @@ class TestSampleMeanStatistic(TestCase):
         expected_var = np.var(METRIC_1, ddof=1)
         self.assertEqual(stat.mean, expected_mean)
         self.assertEqual(stat.variance, expected_var)
+    
+
+    def test_sample_mean_statistic_low_n(self):
+        stat = SampleMeanStatistic(
+            sum=np.sum(METRIC_1), sum_squares=np.sum(np.power(METRIC_1, 2)), n=1
+        )
+        self.assertEqual(stat.variance, 0)
 
 
 class TestProportionStatistic(TestCase):
@@ -56,6 +63,21 @@ class TestRatioStatistic(TestCase):
         )
         expected_covariance = np.cov(METRIC_1, METRIC_3)
         self.assertAlmostEqual(stat.covariance, expected_covariance[0, 1])
+
+    def test_ratio_denom_zero(self):
+        m_stat = SampleMeanStatistic(
+            sum=np.sum(METRIC_1), sum_squares=np.sum(np.power(METRIC_1, 2)), n=N
+        )
+        d_stat = SampleMeanStatistic(
+            sum=0, sum_squares=np.sum(np.power(METRIC_3, 2)), n=N
+        )
+        stat = RatioStatistic(
+            m_statistic=m_stat,
+            d_statistic=d_stat,
+            m_d_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            n=N,
+        )
+        self.assertEqual(stat.variance, 0)
 
 
 if __name__ == "__main__":
