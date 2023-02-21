@@ -37,6 +37,8 @@ class SampleMeanStatistic(Statistic):
 
     @property
     def mean(self):
+        if self.n == 0:
+            return 0
         return self.sum / self.n
 
 
@@ -54,6 +56,8 @@ class ProportionStatistic(Statistic):
 
     @property
     def mean(self):
+        if self.n == 0:
+            return 0
         return self.sum / self.n
 
 
