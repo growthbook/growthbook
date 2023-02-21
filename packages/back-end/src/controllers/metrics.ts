@@ -165,7 +165,7 @@ export async function getMetricAnalysisStatus(
       if (result) {
         metricUpdates.analysis = result;
       }
-
+      console.dir(metricUpdates);
       await updateMetric(id, metricUpdates, org.id);
     },
     metric.analysisError

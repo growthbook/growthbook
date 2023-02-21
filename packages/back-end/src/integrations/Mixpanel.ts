@@ -511,6 +511,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     const result: MetricValueQueryResponse = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
+      dimension: "",
       count: 0,
       main_sum: 0,
       main_sum_squares: 0,
@@ -528,6 +529,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
           row.dates.forEach(({ date, count, sum, sum_squares }) => {
             result.push({
               date,
+              dimension: "",
               count,
               main_sum: sum || 0,
               main_sum_squares: sum_squares || 0,

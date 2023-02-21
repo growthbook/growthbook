@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MetricType } from "back-end/types/metric";
+import { MetricAnalysis, MetricDimensionAnalysis, MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo, Fragment } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -20,8 +20,26 @@ import { date, getValidDate } from "@/services/dates";
 import { formatConversionRate } from "@/services/metrics";
 import styles from "./DateGraph.module.scss";
 
+function returnZeroIfNotFinite(x: number): number {
+  if (isFinite(x)) {
+    return x;
+  }
+  return 0;
+}
+export function meanVarianceFromSums(
+  sum: number,
+  sum_squares: number,
+  n: number
+): number {
+  const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
+  return returnZeroIfNotFinite(variance);
+}
+
+const COLORS = ["var(--text-color-primary)", '#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628'];
+
 type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
+  dim: string;
   d: Date | number;
   v: number;
   s?: number;
@@ -40,24 +58,6 @@ function addStddev(
   const err = stddev * num;
 
   return add ? value + err : Math.max(0, value - err);
-}
-
-function correctStddev(
-  n: number,
-  x: number,
-  sx: number,
-  m: number,
-  y: number,
-  sy: number
-) {
-  const s2x = Math.pow(sx, 2);
-  const s2y = Math.pow(sy, 2);
-  const t = n + m;
-
-  return Math.sqrt(
-    ((n - 1) * s2x + (m - 1) * s2y) / (t - 1) +
-      (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
-  );
 }
 
 type ExperimentDisplayData = {
@@ -80,55 +80,60 @@ type ExperimentDisplayData = {
 const DateGraph: FC<{
   type: MetricType;
   groupby?: "day" | "week";
-  dates: Datapoint[];
+  metricData: MetricAnalysis;
   showStdDev?: boolean;
   experiments?: Partial<ExperimentInterfaceStringDates>[];
   height?: number;
 }> = ({
   type,
-  dates,
+  metricData,
   groupby = "day",
   showStdDev = true,
   experiments = [],
   height = 220,
 }) => {
-  const data = useMemo(
-    () =>
-      dates
-        .reduce(
+  console.dir(metricData,{depth:null});
+  let data: {
+    dim: string,
+    d: number,
+    v: number,
+    s: number,
+    c: number,
+  }[] = [];
+  let dimensionNames: string[] = [];
+  useMemo(
+    () => {
+      metricData.dimensions.forEach((dim) =>
+      {
+        dimensionNames.push(dim.dimension);
+        dim.dates.reduce(
           (
             dates: {
+              dimension: string;
               key: number;
-              total: number;
-              stddev: number;
               count: number;
+              sum: number;
+              sum_squares: number;
             }[],
-            { d, v, s, c }
+            { d, c, s, ss }
           ) => {
             const key = (groupby === "day"
               ? getValidDate(d)
               : setDay(getValidDate(d), 0)
             ).getTime();
-
             const count = c || 1;
-            const total = v * count;
-            const stddev = s;
+            const sum = s || 0;
+            const sum_squares = ss || 0;
 
             for (let i = 0; i < dates.length; i++) {
               if (dates[i].key === key) {
                 const clone = [...dates];
                 clone[i] = {
-                  key,
-                  total: dates[i].total + total,
+                  dimension: dim.dimension,
+                  key: key,
                   count: dates[i].count + count,
-                  stddev: correctStddev(
-                    dates[i].count,
-                    dates[i].total / dates[i].count,
-                    dates[i].stddev,
-                    count,
-                    v,
-                    stddev
-                  ),
+                  sum: dates[i].sum + sum,
+                  sum_squares: dates[i].sum + sum_squares,
                 };
                 return clone;
               }
@@ -137,26 +142,35 @@ const DateGraph: FC<{
             return [
               ...dates,
               {
-                key,
-                total,
-                count,
-                stddev,
+                dimension: dim.dimension,
+                key: key,
+                count: count,
+                sum: sum,
+                sum_squares: sum_squares,
               },
             ];
           },
           []
         )
-        .map((row) => {
-          return {
+        .forEach((row) => {
+          data.push({
+            dim: dim.dimension,
             d: row.key,
-            v: row.total / row.count,
-            s: row.stddev,
+            v: row.sum,
+            // TODO: binomial variance
+            s: meanVarianceFromSums(row.sum, row.sum_squares, row.count),
             c: row.count,
-          };
-        }),
-    [dates, groupby]
-  );
+          });
+        });
+      })
+    },
+      [metricData, groupby, data]
+    );
+  
+  console.log("DATA");
+  console.dir(data, {depth:null});
 
+  
   const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
     const innerWidth = width - margin[1] - margin[3] + width / data.length - 1;
     const px = mx / innerWidth;
@@ -467,15 +481,21 @@ const DateGraph: FC<{
                     />
                   </>
                 )}
-
-                <LinePath
-                  data={data}
-                  x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
-                  stroke={"#8884d8"}
-                  strokeWidth={2}
-                  curve={curveMonotoneX}
-                />
+                
+                {dimensionNames.map((d, i) => {
+                  // Render the actual line chart for each variation
+                  return (
+                    <LinePath
+                      key={i}
+                      data={data}
+                      x={(d) => xScale(d.d) ?? 0}
+                      y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
+                      stroke={COLORS[i]}
+                      strokeWidth={2}
+                      curve={curveMonotoneX}
+                    />
+                  );
+                })}
 
                 <AxisBottom
                   top={graphHeight}

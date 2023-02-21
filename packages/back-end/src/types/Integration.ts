@@ -87,15 +87,20 @@ export type MetricValueParams = {
 export type MetricValueResultDate = {
   date: string;
   count: number;
-  mean: number;
-  stddev: number;
+  sum: number;
+  sum_squares: number;
+};
+
+export type MetricValueDimensionResult = {
+  dimension: string;
+  count: number;
+  sum: number;
+  sum_squares: number;
+  dates?: MetricValueResultDate[];
 };
 
 export type MetricValueResult = {
-  count: number;
-  stddev: number;
-  mean: number;
-  dates?: MetricValueResultDate[];
+  dimensions: MetricValueDimensionResult[];
 };
 
 export type PastExperimentResult = {
@@ -113,6 +118,7 @@ export type PastExperimentResult = {
 
 export type MetricValueQueryResponseRow = {
   date: string;
+  dimension: string;
   count: number;
   main_sum: number;
   main_sum_squares: number;

@@ -109,46 +109,46 @@ export async function getMetricAnalysis(
   queryData: QueryMap
 ): Promise<MetricAnalysis> {
   const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
-    users: 0,
-    count: 0,
-    mean: 0,
-    stddev: 0,
+    dimensions: []
   };
 
-  let total = (metricData.count || 0) * (metricData.mean || 0);
-  let count = metricData.count || 0;
-  const dates: { d: Date; v: number; s: number; c: number }[] = [];
-
-  // Calculate total from dates
-  if (metricData.dates) {
-    total = 0;
-    count = 0;
-
-    metricData.dates.forEach((d) => {
-      const mean = d.mean;
-      const stddev = d.stddev;
-
-      const dateTotal = (d.count || 0) * (d.mean || 0);
-      total += dateTotal;
-      count += d.count || 0;
-      dates.push({
-        d: getValidDate(d.date),
-        v: mean,
-        c: d.count || 0,
-        s: stddev,
+  const dimensions = metricData.dimensions.map((dim) => {
+    let total = dim.sum || 0;
+    let count = dim.count || 0;
+    const dates: { d: Date; c: number; s: number; ss: number }[] = [];
+  
+    // Calculate total from dates
+    if (dim.dates) {
+      total = 0;
+      count = 0;
+  
+      dim.dates.forEach((d) => {
+        const dateTotal = d.sum || 0;
+        total += dateTotal;
+        count += d.count || 0;
+        dates.push({
+          d: getValidDate(d.date),
+          c: d.count || 0,
+          s: d.sum || 0,
+          ss: d.sum_squares || 0,
+        });
       });
-    });
-  }
-
-  const averageBase = count;
-  const average = averageBase > 0 ? total / averageBase : 0;
-
+    }
+  
+    const averageBase = count;
+    const average = averageBase > 0 ? total / averageBase : 0;
+    return {
+      dimension: dim.dimension,
+      average: average,
+      dates: dates
+    }
+  })
   return {
     createdAt: new Date(),
-    average,
-    dates,
+    dimensions: dimensions,
     segment: metric.segment || "",
   };
+  
 }
 
 export async function refreshMetric(
@@ -188,6 +188,7 @@ export async function refreshMetric(
     if (days < 1 || days > 400) {
       days = DEFAULT_METRIC_ANALYSIS_DAYS;
     }
+    days = 900;
 
     const from = new Date();
     from.setDate(from.getDate() - days);
@@ -217,7 +218,6 @@ export async function refreshMetric(
       },
       (queryData) => getMetricAnalysis(metric, queryData)
     );
-
     updates.queries = queries;
     if (result) {
       updates.analysis = result;

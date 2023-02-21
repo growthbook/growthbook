@@ -67,6 +67,24 @@ const metricSchema = new mongoose.Schema({
   analysisError: String,
   analysis: {
     createdAt: Date,
+    dimensions: [
+      {
+        _id: false,
+        dimension: String,
+        average: Number,
+        stddev: Number,
+        count: Number,
+        dates : [
+          {
+            _id: false,
+            d: Date,
+            c: Number,
+            s: Number,
+            ss: Number,
+          },
+        ],
+      },
+    ],
     segment: String,
     average: Number,
     stddev: Number,
@@ -264,7 +282,8 @@ export async function updateMetric(
     );
     return;
   }
-
+  console.log("mongo");
+  console.log(updates);
   await MetricModel.updateOne(
     {
       id,
@@ -272,7 +291,7 @@ export async function updateMetric(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 

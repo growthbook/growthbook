@@ -119,7 +119,7 @@ const MetricPage: FC = () => {
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis;
-  if (!analysis || !("average" in analysis)) {
+  if (!analysis) {
     analysis = null;
   }
 
@@ -239,7 +239,7 @@ const MetricPage: FC = () => {
       }
     };
   };
-
+  {console.log(analysis)};
   return (
     <div className="container-fluid pagecontents">
       {editModalOpen !== false && (
@@ -561,7 +561,7 @@ const MetricPage: FC = () => {
                               activationMetric={false}
                               datasourceId={metric.datasource}
                               exposureQueryId={""}
-                              userIdType={"anonymous"} //{metric.userIdTypes[0]}
+                              userIdType={"user"} //{metric.userIdTypes[0]}
                               labelClassName="mr-2"
                             />
                           </div>
@@ -616,7 +616,7 @@ const MetricPage: FC = () => {
                               <div style={{ fontSize: "2.5em" }}>
                                 {formatConversionRate(
                                   metric.type,
-                                  analysis.average
+                                  3
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>
@@ -624,7 +624,7 @@ const MetricPage: FC = () => {
                           )}
                         </div>
                       )}
-                      {analysis?.dates && analysis.dates.length > 0 && (
+                      {analysis && (
                         <div className="mb-4">
                           <div className="row mb-3">
                             <div className="col-auto">
@@ -664,12 +664,11 @@ const MetricPage: FC = () => {
                               </a>
                             </div>
                           </div>
-
-                          <DateGraph
+                          {analysis.dimensions?.length > 0 ? <DateGraph
                             type={metric.type}
-                            dates={analysis.dates}
+                            metricData={analysis}
                             groupby={groupby}
-                          />
+                          />: <></>}
                         </div>
                       )}
 

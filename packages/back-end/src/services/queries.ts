@@ -11,6 +11,7 @@ import {
   PastExperimentResult,
   ExperimentResults,
   ExperimentQueryResponses,
+  MetricValueDimensionResult,
 } from "../types/Integration";
 import {
   Queries,
@@ -23,7 +24,6 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { getValidDate } from "../util/dates";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
-import { meanVarianceFromSums } from "../util/stats";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -304,33 +304,40 @@ export function processExperimentResultsResponse(
 export function processMetricValueQueryResponse(
   rows: MetricValueQueryResponse
 ): MetricValueResult {
-  const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
+  const dimensionMap = new Map<string, MetricValueDimensionResult>();
 
   rows.forEach((row) => {
-    const { date, count, main_sum, main_sum_squares } = row;
-    const mean = main_sum / count;
-    const stddev = Math.sqrt(
-      meanVarianceFromSums(main_sum, main_sum_squares, count)
-    );
-    // Row for each date
-    if (date) {
-      ret.dates = ret.dates || [];
-      ret.dates.push({
-        date,
-        count,
-        mean,
-        stddev,
+    const { dimension, date, count, main_sum, main_sum_squares } = row;
+
+    if (!dimensionMap.has(dimension)) {
+      dimensionMap.set(dimension, {
+        dimension: dimension,
+        count: 0,
+        sum: 0,
+        sum_squares: 0,
+        dates: []
       });
     }
-    // Overall numbers
-    else {
-      ret.count = count;
-      ret.mean = mean;
-      ret.stddev = stddev;
+
+    if (date) {
+      dimensionMap.get(dimension)!.dates?.push({
+        date,
+        count,
+        sum: main_sum,
+        sum_squares: main_sum_squares,
+      })
+    } else {
+      dimensionMap.set(dimension, {
+        ...dimensionMap.get(dimension)!,
+        count,
+        sum: main_sum,
+        sum_squares: main_sum_squares,
+      })
     }
   });
 
-  return ret;
+
+  return { dimensions: [...dimensionMap.values()] };
 }
 
 export async function getQueryData(

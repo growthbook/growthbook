@@ -334,19 +334,26 @@ export default abstract class SqlIntegration
       params.to
     );
 
-    let dimension: UserDimension | null = null;
-    if (params.dimension) {
-      dimension = {
-        dimension: { ...params.dimension },
-        type: "user",
-      };
-    }
 
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart([params.metric], params.from);
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "m");
+
+    // Prep dimensions
+    let dimension: UserDimension | null = null;
+    if (params.dimension) {
+      dimension = {
+        dimension: { ...params.dimension },
+        type: "user",
+      };
+      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+        startDate: metricStart,
+        endDate: metricEnd || undefined,
+        experimentId: "FAKE",
+      });
+    }
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
     const dimensionGroupBy = this.useAliasInGroupBy()
@@ -366,6 +373,13 @@ export default abstract class SqlIntegration
               )}),`
             : ""
         }
+        __metric as (${this.getMetricCTE({
+          metric: params.metric,
+          baseIdType,
+          idJoinMap,
+          startDate: metricStart,
+          endDate: metricEnd,
+        })})
         ${
           dimension
             ? `, __dimension as (${this.getDimensionCTE(
@@ -375,13 +389,6 @@ export default abstract class SqlIntegration
               )})`
             : ""
         }
-        __metric as (${this.getMetricCTE({
-          metric: params.metric,
-          baseIdType,
-          idJoinMap,
-          startDate: metricStart,
-          endDate: metricEnd,
-        })})
         , __userMetric as (
           -- Add in the aggregate metric value for each user
           SELECT
@@ -400,16 +407,19 @@ export default abstract class SqlIntegration
                 : ""
             }
           GROUP BY
-            m.${baseIdType}
             ${dimension ? dimensionGroupBy + ", " : ""}
+            m.${baseIdType}
         )
         , __overall as (
           SELECT
+            dimension,
             COUNT(*) as count,
             COALESCE(SUM(value), 0) as main_sum,
             COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
-          from
+          FROM
             __userMetric
+          GROUP BY
+            dimension
         )
         ${
           params.includeByDate
@@ -418,6 +428,7 @@ export default abstract class SqlIntegration
             -- Add in the aggregate metric value for each user
             SELECT
               ${this.dateTrunc("m.timestamp")} as date,
+              ${dimensionCol} as dimension,
               ${aggregate} as value
             FROM
               __metric m
@@ -426,19 +437,27 @@ export default abstract class SqlIntegration
                   ? `JOIN segment s ON (s.${baseIdType} = m.${baseIdType}) WHERE s.date <= m.timestamp`
                   : ""
               }
+              ${
+                params.dimension
+                  ? `JOIN __dimension d ON (d.${baseIdType} = m.${baseIdType})`
+                  : ""
+              }
             GROUP BY
+              ${dimension ? dimensionGroupBy + ", " : ""}
               ${this.dateTrunc("m.timestamp")},
               m.${baseIdType}
           )
           , __byDateOverall as (
             SELECT
               date,
+              dimension,
               COUNT(*) as count,
               COALESCE(SUM(value), 0) as main_sum,
               COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
             FROM
-              __userMetricDates d
+              __userMetricDates
             GROUP BY
+              dimension,
               date
           )`
             : ""
@@ -494,10 +513,11 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, main_sum, main_sum_squares } = row;
+      const { dimension, date, count, main_sum, main_sum_squares } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
+        dimension: dimension || "",
         count: parseFloat(count) || 0,
         main_sum: parseFloat(main_sum) || 0,
         main_sum_squares: parseFloat(main_sum_squares) || 0,

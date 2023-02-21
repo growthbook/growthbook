@@ -11,14 +11,19 @@ export interface MetricStats {
   mean: number;
 }
 
-export interface MetricAnalysis {
-  createdAt: Date;
-  segment?: string;
+export interface MetricDimensionAnalysis {
+  dimension: string;
   average: number;
   stddev?: number;
   count?: number;
+  dates: { d: Date; c: number; s?: number; ss?: number }[];
+}
+
+export interface MetricAnalysis {
+  createdAt: Date;
+  dimensions: MetricDimensionAnalysis[];
+  segment?: string;
   histogram?: { b: string; c: number }[];
-  dates: { d: Date; v: number; s?: number; c?: number }[];
 }
 
 export interface Condition {
