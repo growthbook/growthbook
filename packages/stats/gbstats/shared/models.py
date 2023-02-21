@@ -31,6 +31,8 @@ class SampleMeanStatistic(Statistic):
 
     @property
     def variance(self):
+        if self.n <= 1:
+            return 0
         return (self.sum_squares - pow(self.sum, 2) / self.n) / (self.n - 1)
 
     @property
@@ -63,10 +65,14 @@ class RatioStatistic(Statistic):
 
     @property
     def mean(self):
+        if self.d_statistic.sum == 0:
+            return 0
         return self.m_statistic.sum / self.d_statistic.sum
 
     @property
     def variance(self):
+        if self.d_statistic.mean == 0 or self.n <= 1:
+            return 0
         return (
             self.m_statistic.variance / pow(self.d_statistic.mean, 2)
             - 2

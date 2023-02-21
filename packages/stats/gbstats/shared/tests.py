@@ -12,6 +12,10 @@ class BaseABTest(ABC):
         self.stat_a = stat_a
         self.stat_b = stat_b
 
+    def _is_variance_positive(self) -> bool:
+        """Check if all standard deviations are positive"""
+        return self.stat_a.variance > 0 and self.stat_b.variance > 0
+
     @abstractmethod
     def compute_result(self) -> TestResult:
         pass

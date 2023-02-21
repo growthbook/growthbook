@@ -109,11 +109,24 @@ class BinomialBayesianABTest(BayesianABTest):
 
 
 class GaussianBayesianABTest(BayesianABTest):
+    def _is_log_approximation_inexact(
+        self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
+    ) -> bool:
+        """Check if any mean-standard deviation pair yields an inexact approximation
+        due to a high probability of being negative.
+
+        :param Tuple[Tuple[float, float], Tuple[float, float]] mean_std_dev_pairs:
+            A tuple of (mean, standard deviation) tuples.
+        """
+        return any(
+            [norm.cdf(0, pair[0], pair[1]) > EPSILON for pair in mean_std_dev_pairs]
+        )
+
     def compute_result(self) -> BayesianTestResult:
         if self.has_empty_input():
             return self._default_output()
 
-        if not _is_std_dev_positive((self.stat_a.stddev, self.stat_b.stddev)):
+        if not self._is_variance_positive():
             return self._default_output()
 
         mu_a, sd_a = Norm.posterior(
@@ -133,7 +146,7 @@ class GaussianBayesianABTest(BayesianABTest):
             ],
         )
 
-        if _is_log_approximation_inexact(((mu_a, sd_a), (mu_b, sd_b))):
+        if self._is_log_approximation_inexact(((mu_a, sd_a), (mu_b, sd_b))):
             return self._default_output()
 
         mean_a, var_a = Norm.moments(mu_a, sd_a, log=True)
@@ -158,23 +171,3 @@ class GaussianBayesianABTest(BayesianABTest):
             relative_risk=relative_risk,
         )
         return result
-
-
-def _is_std_dev_positive(std_devs: Tuple[float, float]) -> bool:
-    """Check if all standard deviations are positive
-
-    :param Tuple[float, float] std_devs: A tuple of standard deviations (s_a, s_b)
-    """
-    return all([std_dev > 0 for std_dev in std_devs])
-
-
-def _is_log_approximation_inexact(
-    mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
-) -> bool:
-    """Check if any mean-standard deviation pair yields an inexact approximation
-    due to a high probability of being negative.
-
-    :param Tuple[Tuple[float, float], Tuple[float, float]] mean_std_dev_pairs:
-        A tuple of (mean, standard deviation) tuples.
-    """
-    return any([norm.cdf(0, pair[0], pair[1]) > EPSILON for pair in mean_std_dev_pairs])
