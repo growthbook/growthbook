@@ -34,12 +34,12 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     );
   }
 
-  //MKTODO: We should be able to remove this if we add an env variable to our cloud instance
+  //TODO: We should be able to remove this if we add an env variable to our cloud instance
   if (isCloud()) {
     return `https://cdn.growthbook.io`;
   }
 
-  return getCdnHost() || trimTrailingSlash(getApiHost());
+  return trimTrailingSlash(getCdnHost()) || trimTrailingSlash(getApiHost());
 }
 
 export default function CodeSnippetModal({
