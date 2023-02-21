@@ -1,11 +1,13 @@
 import { useForm } from "react-hook-form";
 import {
+  ExperimentValue,
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
 import { useState } from "react";
 import {
+  generateVariationId,
   getDefaultRuleValue,
   getFeatureDefaultValue,
   getRules,
@@ -22,9 +24,9 @@ import UpgradeModal from "../Settings/UpgradeModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
-import VariationsInput from "./VariationsInput";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
+import FeatureVariationsInput from "./FeatureVariationsInput";
 
 export interface Props {
   close: () => void;
@@ -49,15 +51,19 @@ export default function RuleModal({
   const { namespaces } = useOrgSettings();
 
   const rules = getRules(feature, environment);
+  const rule = rules[i];
+
+  const defaultRuleValues = getDefaultRuleValue({
+    defaultValue: getFeatureDefaultValue(feature),
+    ruleType: defaultType,
+    attributeSchema,
+  });
 
   const defaultValues = {
-    ...getDefaultRuleValue({
-      defaultValue: getFeatureDefaultValue(feature),
-      ruleType: defaultType,
-      attributeSchema,
-    }),
-    ...((rules[i] as FeatureRule) || {}),
+    ...defaultRuleValues,
+    ...((rule as FeatureRule) || {}),
   };
+
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
     defaultValues.scheduleRules.some(
       (scheduleRule) => scheduleRule.timestamp !== null
@@ -90,7 +96,7 @@ export default function RuleModal({
       close={close}
       size="lg"
       cta="Save"
-      header={rules[i] ? "Edit Override Rule" : "New Override Rule"}
+      header={rule ? "Edit Override Rule" : "New Override Rule"}
       submit={form.handleSubmit(async (values) => {
         const ruleAction = i === rules.length ? "add" : "edit";
 
@@ -266,7 +272,7 @@ export default function RuleModal({
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
           />
-          <VariationsInput
+          <FeatureVariationsInput
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
             coverage={form.watch("coverage")}
@@ -274,7 +280,18 @@ export default function RuleModal({
             setWeight={(i, weight) =>
               form.setValue(`values.${i}.weight`, weight)
             }
-            variations={form.watch("values") || []}
+            variations={
+              form
+                .watch("values")
+                .map((v: ExperimentValue & { id?: string }) => {
+                  return {
+                    value: v.value || "",
+                    name: v.name,
+                    weight: v.weight,
+                    id: v.id || generateVariationId(),
+                  };
+                }) || []
+            }
             setVariations={(variations) => form.setValue("values", variations)}
           />
           {namespaces?.length > 0 && (

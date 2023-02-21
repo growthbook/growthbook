@@ -6,9 +6,11 @@ import {
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
+import { generateVariationId } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import VariationsInput from "../Features/VariationsInput";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import { SortableExperimentVariation } from "./ExperimentVariationsInput";
 
 export interface Props {
   close: () => void;
@@ -23,13 +25,21 @@ export default function EditPhaseModal({
   experiment,
   mutate,
 }: Props) {
-  const form = useForm<ExperimentPhaseStringDates>({
+  const form = useForm<
+    ExperimentPhaseStringDates & { variations: SortableExperimentVariation[] }
+  >({
     defaultValues: {
       ...experiment.phases[i],
       dateStarted: experiment.phases[i].dateStarted.substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
         ? experiment.phases[i].dateEnded.substr(0, 16)
         : "",
+      variations: experiment.variations.map((v) => {
+        return {
+          ...v,
+          id: generateVariationId(),
+        };
+      }),
     },
   });
   const { apiCall } = useAuth();
@@ -94,7 +104,7 @@ export default function EditPhaseModal({
         />
       )}
 
-      <VariationsInput
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -103,11 +113,12 @@ export default function EditPhaseModal({
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          form.watch("variations").map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }
