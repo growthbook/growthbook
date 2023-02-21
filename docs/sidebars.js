@@ -132,8 +132,24 @@ const sidebars = {
         },
       ],
     },
+    {
+      type: "category",
+      label: "Statistics",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "statistics/overview",
+          label: "Statistics Overview",
+        },
+        {
+          type: "doc",
+          id: "statistics/aggregation",
+          label: "Aggregate Data",
+        },
+      ],
+    },
     { type: "doc", id: "faq", label: "FAQ" },
-    { type: "doc", id: "statistics", label: "Statistics" },
 
     //     href: "/self-host",
     //     name: "Self-Host",
