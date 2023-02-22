@@ -147,8 +147,8 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         # Baseline values
         stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
         raise_error_if_bayesian_ra(stat_a, engine)
-        s["baseline_cr"] = stat_a.mean
-        s["baseline_mean"] = stat_a.mean
+        s["baseline_cr"] = stat_a.unadjusted_mean
+        s["baseline_mean"] = stat_a.unadjusted_mean
         s["baseline_stddev"] = stat_a.stddev
 
         # List of users in each variation (used for SRM check)
@@ -160,7 +160,6 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         for i in range(1, num_variations):
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
             raise_error_if_bayesian_ra(stat_b, engine)
-            s[f"v{i}_cr"] = stat_b.mean
 
             if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
                 stat_a, RegressionAdjustedStatistic
@@ -168,10 +167,12 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
                 theta = compute_theta(stat_a, stat_b)
                 stat_a.theta = theta
                 stat_b.theta = theta
+
+            s[f"v{i}_cr"] = stat_b.unadjusted_mean
             s[f"v{i}_expected"] = (
                 (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
             )
-            s[f"v{i}_mean"] = stat_b.mean
+            s[f"v{i}_mean"] = stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = stat_b.stddev
 
             users[i] = stat_b.n

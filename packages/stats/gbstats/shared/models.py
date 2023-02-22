@@ -23,6 +23,15 @@ class Statistic(ABC):
     def mean(self):
         pass
 
+    @property
+    def unadjusted_mean(self):
+        """
+        Return the mean that has no regression adjustments.
+        Defaults to just `mean` for all statistic types besides
+        RegressionAdjustedStatistic
+        """
+        return self.mean
+
 
 @dataclass
 class SampleMeanStatistic(Statistic):
@@ -110,13 +119,17 @@ class RegressionAdjustedStatistic(Statistic):
         return self.post_statistic.mean - self.theta * self.pre_statistic.mean
 
     @property
+    def unadjusted_mean(self):
+        return self.post_statistic.mean
+
+    @property
     def variance(self):
         if self.n <= 1:
             return 0
         return (
             self.post_statistic.variance
             + pow(self.theta, 2) * self.pre_statistic.variance
-            + 2 * self.theta * self.covariance
+            - 2 * self.theta * self.covariance
         )
 
     @property
