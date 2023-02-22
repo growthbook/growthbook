@@ -23,7 +23,7 @@ import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/Multi
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
-function trimTrailingSlash(str) {
+function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
 }
 

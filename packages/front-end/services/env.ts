@@ -29,7 +29,7 @@ export function getAppOrigin(): string {
   return env.appOrigin;
 }
 
-export function getCdnHost(): string | null {
+export function getCdnHost(): string {
   return env.cdnHost;
 }
 
