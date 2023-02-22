@@ -101,6 +101,56 @@ RATIO_STATISTICS_DF = pd.DataFrame(
 ).assign(statistic_type="ratio", main_metric_type="count", denominator_metric_type="count")
 
 
+ONE_USER_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "one",
+            "variation": "one",
+            "main_sum": 1,
+            "main_sum_squares": 1,
+            "users": 1,
+            "count": 1,
+        },
+        {
+            "dimension": "one",
+            "variation": "zero",
+            "main_sum": 20,
+            "main_sum_squares": 443,
+            "users": 3,
+            "count": 3,
+        },
+    ]
+).assign(statistic_type="mean", main_metric_type="count")
+
+
+ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "one",
+            "variation": "one",
+            "users": 120,
+            "count": 120,
+            "main_sum": 300,
+            "main_sum_squares": 869,
+            "denominator_sum": 500,
+            "denominator_sum_squares": 800,
+            "main_denominator_sum_product": -905,
+        },
+        {
+            "dimension": "one",
+            "variation": "zero",
+            "main_sum": 270,
+            "users": 100,
+            "count": 100,
+            "main_sum_squares": 848.79,
+            "denominator_sum": 0,
+            "denominator_sum_squares": 0,
+            "main_denominator_sum_product": 0,
+        },
+    ]
+).assign(statistic_type="ratio", main_metric_type="count", denominator_metric_type="count")
+
+
 class TestDetectVariations(TestCase):
     def test_unknown_variations(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
@@ -144,7 +194,6 @@ class TestReduceDimensionality(TestCase):
             {"zero": 0, "one": 1},
             ["zero", "one"],
         )
-        print(df)
         reduced = reduce_dimensionality(df, 3)
         self.assertEqual(len(reduced.index), 3)
         self.assertEqual(reduced.at[0, "dimension"], "three")
@@ -209,6 +258,37 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.079755378)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
+    def test_get_metric_df_zero_val(self):
+        rows = ONE_USER_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(df, [0.5, 0.5], inverse=True)
+
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 6.666666667)
+        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
+        self.assertEqual(round_(result.at[0, "v1_risk"]), 0)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
+        self.assertEqual(result.at[0, "v1_p_value"], None)
+
+    def test_get_metric_df_ratio_zero_denom(self):
+        rows = ZERO_DENOM_RATIO_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.BAYESIAN
+        )
+
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0)
+        self.assertEqual(round_(result.at[0, "baseline_risk"]), 0)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
+        self.assertEqual(round_(result.at[0, "v1_risk"]), 0)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
+        self.assertEqual(result.at[0, "v1_p_value"], None)
 
 class TestAnalyzeMetricDfFrequentist(TestCase):
     def test_get_metric_df_frequentist(self):
@@ -249,6 +329,39 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.610663339)
 
+    def test_get_metric_df_zero_val(self):
+        rows = ONE_USER_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
+        )
+
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 6.666666667)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
+
+    def test_get_metric_df_ratio_zero_denom(self):
+        rows = ZERO_DENOM_RATIO_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
+        )
+
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
 
 if __name__ == "__main__":
     unittest_main()
