@@ -16,6 +16,7 @@ from gbstats.shared.models import (
     TestResult,
 )
 from gbstats.shared.tests import BaseABTest
+from gbstats.messages import raise_error_if_bayesian_ra
 
 
 SUM_COLS = [
@@ -145,6 +146,7 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         s = s.copy()
         # Baseline values
         stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
+        raise_error_if_bayesian_ra(stat_a, engine)
         s["baseline_cr"] = stat_a.mean
         s["baseline_mean"] = stat_a.mean
         s["baseline_stddev"] = stat_a.stddev
@@ -156,15 +158,13 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         # Loop through each non-baseline variation and run an analysis
         baseline_risk = 0
         for i in range(1, num_variations):
-            # Variation values
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
+            raise_error_if_bayesian_ra(stat_b, engine)
             s[f"v{i}_cr"] = stat_b.mean
-            # TODO: not use CUPED with bayesian
+
             if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
                 stat_a, RegressionAdjustedStatistic
             ):
-                # print(stat_a.post_statistic.mean)
-                # print(stat_a.post_statistic.variance)
                 theta = compute_theta(stat_a, stat_b)
                 stat_a.theta = theta
                 stat_b.theta = theta
@@ -272,12 +272,12 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
     elif statistic_type == "mean":
         return base_statistic_from_metric_row(row, prefix, "main")
     elif statistic_type == "mean_ra":
-        # initialize with theta = 0
         return RegressionAdjustedStatistic(
             post_statistic=base_statistic_from_metric_row(row, prefix, "main"),
             pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
             post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
             n=row[f"{prefix}_users"],
+            # Theta should be overriden with correct value later, 0 allows for unadjusted mean
             theta=0,
         )
     else:
