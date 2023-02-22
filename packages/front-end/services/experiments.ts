@@ -264,7 +264,7 @@ export function filterCustomFieldsForProject(
   //   return customFields;
   // }
   return customFields.filter((v) => {
-    if (v.projects && v.projects.length) {
+    if (v.projects && v.projects.length && v.projects[0] !== "") {
       let matched = false;
       v.projects.forEach((p) => {
         if (p === project) {

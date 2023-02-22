@@ -138,6 +138,8 @@ export type CustomFieldTypes =
   | "markdown"
   | "enum"
   | "multiselect"
+  | "url"
+  | "number"
   | "boolean";
 
 export type CustomField = {
@@ -145,6 +147,7 @@ export type CustomField = {
   name: string;
   description: string;
   placeholder: string;
+  defaultValue?: boolean | string;
   type: CustomFieldTypes;
   values?: string;
   required: boolean;

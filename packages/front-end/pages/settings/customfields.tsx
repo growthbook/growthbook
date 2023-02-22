@@ -183,8 +183,9 @@ const CustomFieldsPage = (): React.ReactElement => {
                 <tr>
                   <th style={{ width: "30px" }}></th>
                   <th>Field Name</th>
-                  <th>Field Description</th>
-                  <th>Field Type</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Default value</th>
                   <th>Projects</th>
                   <th>Required</th>
                   <th style={{ width: 75 }}></th>
@@ -210,9 +211,9 @@ const CustomFieldsPage = (): React.ReactElement => {
                 ) : (
                   <>
                     <tr>
-                      <td colSpan={3} className="text-center text-gray">
+                      <td colSpan={6} className="text-center text-gray">
                         <em>
-                          No attributes defined{" "}
+                          No custom fields defined{" "}
                           <a
                             href="#"
                             onClick={(e) => {

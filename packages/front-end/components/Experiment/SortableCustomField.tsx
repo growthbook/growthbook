@@ -63,6 +63,11 @@ export function SortableCustomFieldRow(props: SortableProps) {
             )}
           </td>
           <td className="text-gray">
+            {customField.type === "boolean"
+              ? JSON.stringify(customField.defaultValue)
+              : customField.defaultValue}
+          </td>
+          <td className="text-gray">
             {customField.projects && (
               <>
                 {customField.projects

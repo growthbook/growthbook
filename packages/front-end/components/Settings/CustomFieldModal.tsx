@@ -31,6 +31,8 @@ export default function CustomFieldModal({
       name: existing.name || "",
       values: existing.values || "",
       type: existing.type || "text",
+      defaultValue:
+        existing.defaultValue || existing.type === "boolean" ? false : "",
       section: "experiment", // not supporting features yet
       projects: existing.projects || [project] || [],
       required: existing.required ?? false,
@@ -49,6 +51,7 @@ export default function CustomFieldModal({
     "enum",
     "multiselect",
     "boolean",
+    "url",
   ];
 
   const availableProjects: (SingleValue | GroupedValue)[] = projects
@@ -62,6 +65,10 @@ export default function CustomFieldModal({
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
       submit={form.handleSubmit(async (value) => {
+        if (value.type === "boolean") {
+          // make sure the default value is a boolean
+          value.defaultValue = !!value.defaultValue;
+        }
         const newCustomFields = [...customFields];
         if (existing.id) {
           const edit = newCustomFields.filter((e) => e.id === existing.id)[0];
@@ -70,6 +77,7 @@ export default function CustomFieldModal({
           edit.type = value.type;
           edit.required = value.required;
           edit.values = value.values;
+          edit.defaultValue = value.defaultValue;
           edit.description = value.description;
           edit.projects = value.projects;
         } else {
@@ -79,6 +87,7 @@ export default function CustomFieldModal({
             values: value.values,
             description: value.description,
             placeholder: value.placeholder,
+            defaultValue: value.defaultValue,
             projects: value.projects,
             type: value.type,
             required: value.required,
@@ -87,7 +96,6 @@ export default function CustomFieldModal({
             active: value.active,
           });
         }
-
         // Add/edit environment
         await apiCall(`/organization`, {
           method: "PUT",
@@ -142,6 +150,21 @@ export default function CustomFieldModal({
         </div>
       )}
       <Field label="Description" {...form.register("description")} />
+      {form.watch("type") !== "boolean" ? (
+        <Field label="Default value" {...form.register("defaultValue")} />
+      ) : (
+        <>
+          <label className="mr-2">Default value</label>
+          <Toggle
+            id={"defaultValue"}
+            label="Default value"
+            value={!!form.watch("defaultValue")}
+            setValue={(value) => {
+              form.setValue("defaultValue", value);
+            }}
+          />
+        </>
+      )}
       <div className="form-group mb-3 mt-3">
         {projects?.length && (
           <div className="form-group">

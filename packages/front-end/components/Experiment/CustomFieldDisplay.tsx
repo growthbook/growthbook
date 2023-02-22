@@ -33,10 +33,10 @@ const CustomFieldDisplay: FC<{
     customFields.map((v) => {
       defaultFields[v.id] =
         v.type === "boolean"
-          ? JSON.stringify("")
+          ? JSON.stringify(!!v.defaultValue)
           : v.type === "multiselect"
-          ? JSON.stringify([])
-          : "";
+          ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
+          : "" + (v?.defaultValue ? v.defaultValue : "");
       customFieldsMap.set(v.id, v);
     });
   }
@@ -51,7 +51,7 @@ const CustomFieldDisplay: FC<{
   const { apiCall } = useAuth();
   if (customFields?.length) {
     return (
-      <>
+      <div className="mb-4">
         {editModal && (
           <Modal
             header={"Edit Custom Fields"}
@@ -100,7 +100,7 @@ const CustomFieldDisplay: FC<{
           </HeaderWithEdit>
         )}
         {experiment?.customFields && (
-          <div className="mb-4">
+          <div className="">
             {Array.from(customFieldsMap.values()).map((v: CustomField) => {
               // these two loops are used to make sure the order is correct with the stored order of custom fields.
               return Object.keys(experiment.customFields).map((fid, i) => {
@@ -131,7 +131,7 @@ const CustomFieldDisplay: FC<{
             })}
           </div>
         )}
-      </>
+      </div>
     );
   }
 };
