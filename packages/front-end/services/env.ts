@@ -6,6 +6,7 @@ const env: EnvironmentInitValue = {
   cloud: false,
   appOrigin: "",
   apiHost: "",
+  cdnHost: "",
   config: "db",
   defaultConversionWindowHours: 72,
   sentryDSN: "",
@@ -27,6 +28,10 @@ export async function initEnv() {
 
 export function getAppOrigin(): string {
   return env.appOrigin;
+}
+
+export function getCdnHost(): string {
+  return env.cdnHost;
 }
 
 export function getApiHost(): string {

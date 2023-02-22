@@ -7,6 +7,7 @@ export interface EnvironmentInitValue {
   cloud: boolean;
   appOrigin: string;
   apiHost: string;
+  cdnHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
   build?: {
@@ -23,6 +24,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const {
     APP_ORIGIN,
     API_HOST,
+    CDN_HOST,
     IS_CLOUD,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -55,6 +57,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
+    cdnHost: CDN_HOST || "",
     cloud: !!IS_CLOUD,
     config: hasConfigFile ? "file" : "db",
     build,

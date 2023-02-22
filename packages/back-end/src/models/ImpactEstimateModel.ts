@@ -69,6 +69,10 @@ export async function getImpactEstimate(
     segmentObj = await findSegmentById(segment, organization);
   }
 
+  if (segmentObj?.datasource !== metricObj.datasource) {
+    segmentObj = null;
+  }
+
   const integration = getSourceIntegrationObject(datasource);
   if (integration.decryptionError) {
     throw new Error(
