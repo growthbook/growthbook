@@ -39,7 +39,7 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     return `https://cdn.growthbook.io`;
   }
 
-  return trimTrailingSlash(getCdnHost()) || trimTrailingSlash(getApiHost());
+  return trimTrailingSlash(getCdnHost() || getApiHost());
 }
 
 export default function CodeSnippetModal({
