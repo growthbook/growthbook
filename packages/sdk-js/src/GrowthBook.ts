@@ -14,6 +14,9 @@ import type {
   RefreshFeaturesOptions,
   ApiHost,
   ClientKey,
+  VariationConfig,
+  Filter,
+  VariationRange,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -24,6 +27,9 @@ import {
   chooseVariation,
   getQueryStringOverride,
   inNamespace,
+  inRanges,
+  unbiasedHash,
+  inRange,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -407,28 +413,34 @@ export class GrowthBook {
             });
           continue;
         }
+        // If there are filters for who is included (e.g. namespaces)
+        if (rule.filters && this._isFilteredOut(rule.filters)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip rule because of filters", {
+              id,
+              rule,
+            });
+          continue;
+        }
+
         // Feature value is being forced
         if ("force" in rule) {
-          // Skip if coverage is reduced and user not included
-          if ("coverage" in rule) {
-            const { hashValue } = this._getHashAttribute(rule.hashAttribute);
-            if (!hashValue) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because of missing hashAttribute", {
-                  id,
-                  rule,
-                });
-              continue;
-            }
-            const n = hash(hashValue + id);
-            if (n > (rule.coverage as number)) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because of coverage", {
-                  id,
-                  rule,
-                });
-              continue;
-            }
+          // If this is a percentage rollout, skip if not included
+          if (
+            !this._isIncludedInRollout(
+              id,
+              rule.hashAttribute,
+              rule.range,
+              rule.seed,
+              rule.coverage
+            )
+          ) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip rule because user not included in rollout", {
+                id,
+                rule,
+              });
+            continue;
           }
 
           process.env.NODE_ENV !== "production" &&
@@ -436,6 +448,13 @@ export class GrowthBook {
               id,
               rule,
             });
+
+          // If this was a remotely evaluated experiment, fire the tracking callbacks
+          if (rule.tracks) {
+            rule.tracks.forEach((t) => {
+              this._track(t.experiment, t.result);
+            });
+          }
 
           return this._getFeatureResult(id, rule.force as T, "force", rule.id);
         }
@@ -457,11 +476,15 @@ export class GrowthBook {
         if (rule.weights) exp.weights = rule.weights;
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.namespace) exp.namespace = rule.namespace;
+        if (rule.configs) exp.configs = rule.configs;
+        if (rule.name) exp.name = rule.name;
+        if (rule.phase) exp.phase = rule.phase;
+        if (rule.seed) exp.seed = rule.seed;
 
         // Only return a value if the user is part of the experiment
         const res = this._run(exp, id);
         this._fireSubscriptions(exp, res);
-        if (res.inExperiment) {
+        if (res.inExperiment && !res.passthrough) {
           return this._getFeatureResult(
             id,
             res.value,
@@ -488,8 +511,41 @@ export class GrowthBook {
     );
   }
 
+  private _isIncludedInRollout(
+    featureKey: string,
+    hashAttribute: string | undefined,
+    range: VariationRange | undefined,
+    seed: string | undefined,
+    coverage: number | undefined
+  ): boolean {
+    const { hashValue } = this._getHashAttribute(hashAttribute);
+    if (!hashValue) {
+      return false;
+    }
+
+    // Range is the new way to specify rollout coverage
+    if (range) {
+      const n = unbiasedHash(seed || featureKey, hashValue);
+      return inRange(n, range);
+    } else if (coverage !== undefined) {
+      const n = hash(hashValue + featureKey);
+      return n <= coverage;
+    }
+
+    return true;
+  }
+
   private _conditionPasses(condition: ConditionInterface): boolean {
     return evalCondition(this.getAttributes(), condition);
+  }
+
+  private _isFilteredOut(filters: Filter[]): boolean {
+    return filters.some((filter) => {
+      const { hashValue } = this._getHashAttribute(filter.attribute);
+      if (!hashValue) return true;
+      const n = unbiasedHash(filter.seed, hashValue);
+      return !inRanges(n, filter.ranges);
+    });
   }
 
   private _run<T>(
@@ -561,8 +617,19 @@ export class GrowthBook {
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 7. Exclude if user not in experiment.namespace
-    if (experiment.namespace && !inNamespace(hashValue, experiment.namespace)) {
+    // 7. Exclude if user is filtered out (used to be called "namespace")
+    if (experiment.filters) {
+      if (this._isFilteredOut(experiment.filters)) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of filters", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+    } else if (
+      experiment.namespace &&
+      !inNamespace(hashValue, experiment.namespace)
+    ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of namespace", {
           id: key,
@@ -610,13 +677,15 @@ export class GrowthBook {
     }
 
     // 9. Get bucket ranges and choose variation
-    const ranges = getBucketRanges(
+    const [n, assigned] = this._assignVariation(
+      key,
+      experiment.seed,
+      hashValue,
       numVariations,
-      experiment.coverage ?? 1,
-      experiment.weights
+      experiment.coverage,
+      experiment.weights,
+      experiment.configs
     );
-    const n = hash(hashValue + key);
-    const assigned = chooseVariation(n, ranges);
 
     // 10. Return if not in experiment
     if (assigned < 0) {
@@ -661,7 +730,7 @@ export class GrowthBook {
     }
 
     // 13. Build the result object
-    const result = this._getResult(experiment, assigned, true, featureId);
+    const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 14. Fire the tracking callback
     this._track(experiment, result);
@@ -673,6 +742,24 @@ export class GrowthBook {
         variation: result.variationId,
       });
     return result;
+  }
+
+  private _assignVariation(
+    key: string,
+    seed: string | undefined,
+    hashValue: string,
+    numVariations: number,
+    coverage?: number,
+    weights?: number[],
+    configs?: VariationConfig[]
+  ) {
+    const ranges = configs
+      ? configs.map((c) => c.range)
+      : getBucketRanges(numVariations, coverage ?? 1, weights);
+    const n = configs
+      ? unbiasedHash(seed || key, hashValue)
+      : hash(hashValue + key);
+    return [n, chooseVariation(n, ranges)];
   }
 
   log(msg: string, ctx: Record<string, unknown>) {
@@ -734,7 +821,8 @@ export class GrowthBook {
     experiment: Experiment<T>,
     variationIndex: number,
     hashUsed: boolean,
-    featureId: string | null
+    featureId: string | null,
+    bucket?: number
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -747,7 +835,18 @@ export class GrowthBook {
       experiment.hashAttribute
     );
 
-    return {
+    const config: Partial<VariationConfig> = experiment.configs
+      ? experiment.configs[variationIndex]
+      : {};
+
+    // If the variation is disabled, use the baseline and mark the user as not in the experiment
+    if (config.disabled) {
+      variationIndex = 0;
+      inExperiment = false;
+    }
+
+    const res: Result<T> = {
+      key: config.key || "" + variationIndex,
       featureId,
       inExperiment,
       hashUsed,
@@ -756,6 +855,12 @@ export class GrowthBook {
       hashAttribute,
       hashValue,
     };
+
+    if (config.name) res.name = config.name;
+    if (bucket !== undefined) res.bucket = bucket;
+    if (config.passthrough) res.passthrough = config.passthrough;
+
+    return res;
   }
 
   private _getContextUrl() {

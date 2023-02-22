@@ -9,16 +9,39 @@ declare global {
   }
 }
 
+export type VariationConfig = {
+  passthrough?: boolean;
+  range: VariationRange;
+  key?: string;
+  name?: string;
+  disabled?: boolean;
+};
+
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
   force?: T;
   variations?: T[];
+  /** @deprecated */
   weights?: number[];
   key?: string;
   hashAttribute?: string;
+  range?: VariationRange;
+  /** @deprecated */
   coverage?: number;
+  /** @deprecated */
   namespace?: [string, number, number];
+
+  // Config data for each variation
+  configs?: VariationConfig[];
+  filters?: Filter[];
+  seed?: string;
+  name?: string;
+  phase?: string;
+  tracks?: Array<{
+    experiment: Experiment<T>;
+    result: Result<T>;
+  }>;
 };
 
 export interface FeatureDefinition<T = any> {
@@ -43,24 +66,35 @@ export interface FeatureResult<T = any> {
   experimentResult?: Result<T>;
 }
 
+/** @deprecated */
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
 export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
+  // Config data for each variation
+  configs?: VariationConfig[];
+  filters?: Filter[];
+  seed?: string;
+  name?: string;
+  phase?: string;
+
+  /** @deprecated */
   weights?: number[];
   condition?: ConditionInterface;
+  /** @deprecated */
   coverage?: number;
   include?: () => boolean;
+  /** @deprecated */
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
   active?: boolean;
-  /* @deprecated */
+  /** @deprecated */
   status?: ExperimentStatus;
-  /* @deprecated */
+  /** @deprecated */
   url?: RegExp;
-  /* @deprecated */
+  /** @deprecated */
   groups?: string[];
 };
 
@@ -79,6 +113,11 @@ export type ExperimentOverride = {
 export interface Result<T> {
   value: T;
   variationId: number;
+  key: string;
+  name?: string;
+  bucket?: number;
+  passthrough?: boolean;
+
   inExperiment: boolean;
   hashUsed?: boolean;
   hashAttribute: string;
@@ -191,3 +230,12 @@ export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
 };
+
+export interface Filter {
+  // Override the hashAttribute used for this filter
+  attribute?: string;
+  // The hash seed
+  seed: string;
+  // Only include these resulting ranges
+  ranges: VariationRange[];
+}

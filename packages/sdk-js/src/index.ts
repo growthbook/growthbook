@@ -19,6 +19,9 @@ export type {
   SubscriptionFunction,
   LocalStorageCompat,
   WidenPrimitives,
+  VariationConfig,
+  Filter,
+  VariationRange,
 } from "./types/growthbook";
 
 export type { ConditionInterface } from "./types/mongrule";

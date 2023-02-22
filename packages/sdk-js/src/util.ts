@@ -16,9 +16,20 @@ export function hash(str: string): number {
   return (hashFnv32a(str) % 1000) / 1000;
 }
 
+export function unbiasedHash(seed: string, value: string): number {
+  return (hashFnv32a(hashFnv32a(seed + value) + "") % 10000) / 10000;
+}
+
 export function getEqualWeights(n: number): number[] {
   if (n <= 0) return [];
   return new Array(n).fill(1 / n);
+}
+
+export function inRanges(n: number, ranges: VariationRange[]): boolean {
+  return ranges.some((r) => inRange(n, r));
+}
+export function inRange(n: number, range: VariationRange): boolean {
+  return n >= range[0] && n < range[1];
 }
 
 export function inNamespace(
@@ -31,7 +42,7 @@ export function inNamespace(
 
 export function chooseVariation(n: number, ranges: VariationRange[]): number {
   for (let i = 0; i < ranges.length; i++) {
-    if (n >= ranges[i][0] && n < ranges[i][1]) {
+    if (inRange(n, ranges[i])) {
       return i;
     }
   }
