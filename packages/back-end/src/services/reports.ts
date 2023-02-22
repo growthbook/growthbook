@@ -6,7 +6,7 @@ import {
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { QueryDocument } from "../models/QueryModel";
-import { SegmentModel } from "../models/SegmentModel";
+import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -100,11 +100,7 @@ export async function startExperimentAnalysis(
 
   let segmentObj: SegmentInterface | null = null;
   if (args.segment) {
-    segmentObj =
-      (await SegmentModel.findOne({
-        id: args.segment,
-        organization,
-      })) || null;
+    segmentObj = await findSegmentById(args.segment, organization);
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
