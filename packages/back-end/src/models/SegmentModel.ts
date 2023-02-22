@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { SegmentInterface } from "../../types/segment";
 
@@ -20,9 +21,8 @@ type SegmentDocument = mongoose.Document & SegmentInterface;
 
 const SegmentModel = mongoose.model<SegmentDocument>("Segment", segmentSchema);
 
-function toInterface(doc: SegmentDocument): SegmentInterface {
-  return doc.toJSON();
-}
+const toInterface = (doc: SegmentDocument): SegmentInterface =>
+  omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createSegment(segment: Partial<SegmentInterface>) {
   return toInterface(await SegmentModel.create(segment));
