@@ -26,6 +26,7 @@ import Toggle from "@/components/Forms/Toggle";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { generateVariationId } from "@/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -213,7 +214,18 @@ const ImportExperimentList: FC<{
                 </Link>
               </p>
             )}
-            <span>View Queries (below) for more information.</span>
+            <span>
+              <ViewAsyncQueriesButton
+                queries={data.experiments.queries?.map((q) => q.query) ?? []}
+                error={data.experiments.error}
+                ctaCommponent={(onClick) => (
+                  <a className="alert-link" href="#" onClick={onClick}>
+                    View Queries
+                  </a>
+                )}
+              />{" "}
+              for more information.
+            </span>
           </div>
         </>
       )}
@@ -409,6 +421,7 @@ const ImportExperimentList: FC<{
                                   screenshots: [],
                                   description: "",
                                   key: vKey,
+                                  id: generateVariationId(),
                                 };
                               }),
                               phases: [

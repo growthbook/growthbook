@@ -10197,6 +10197,11 @@ fragment-cache@^0.2.1:
   dependencies:
     map-cache "^0.2.2"
 
+free-email-domains-typescript@^1.0.9:
+  version "1.0.9"
+  resolved "https://registry.yarnpkg.com/free-email-domains-typescript/-/free-email-domains-typescript-1.0.9.tgz#42493b6e7c51a553235fb5b15b6572b07c9d8c8c"
+  integrity sha512-7QwMOwXrcQW7MBo7PwTDoWmuTA8iK7zeYUdZvWcjjK2uUkuEjWnaWqXwWc/JO30g0tbXvxbYM13BLArrBfZ/9Q==
+
 fresh@0.5.2:
   version "0.5.2"
   resolved "https://registry.yarnpkg.com/fresh/-/fresh-0.5.2.tgz#3d8cadd90d976569fa835ab1f8e4b23a105605a7"

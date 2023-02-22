@@ -32,7 +32,8 @@ config = {**dotenv_values(ENV_FILE)}
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
-            return str(obj)
+            # similar to what JS does (all number are float)
+            return float(obj)
         return json.JSONEncoder.default(self, obj)
 
 
@@ -222,8 +223,8 @@ def get_sql_runner(engine) -> sqlRunner:
             return snowflakeRunner()
         elif engine == "presto":
             return prestoRunner()
-        elif engine == "databricks":
-            return databricksRunner()
+        #elif engine == "databricks":
+        #    return databricksRunner()
         else:
             return dummyRunner("no runner configured")
     except Exception as e:

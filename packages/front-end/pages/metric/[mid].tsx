@@ -558,7 +558,21 @@ const MetricPage: FC = () => {
                       </div>
                       {hasQueries && status === "failed" && (
                         <div className="alert alert-danger my-3">
-                          Error running the analysis. View Queries for more info
+                          Error running the analysis.{" "}
+                          <ViewAsyncQueriesButton
+                            queries={metric.queries.map((q) => q.query)}
+                            error={metric.analysisError}
+                            ctaCommponent={(onClick) => (
+                              <a
+                                className="alert-link"
+                                href="#"
+                                onClick={onClick}
+                              >
+                                View Queries
+                              </a>
+                            )}
+                          />{" "}
+                          for more info
                         </div>
                       )}
                       {hasQueries && status === "running" && (

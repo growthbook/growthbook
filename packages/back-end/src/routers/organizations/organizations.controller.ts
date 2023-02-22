@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -7,6 +8,8 @@ import {
 import {
   acceptInvite,
   addMemberToOrg,
+  addPendingMemberToOrg,
+  findVerifiedOrgForNewUser,
   getInviteUrl,
   getOrgFromReq,
   importConfig,
@@ -38,12 +41,17 @@ import {
   findByEntityParent,
   getWatchedAudits,
 } from "../../services/audit";
-import { ExperimentModel } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
 import { findSegmentsByOrganization } from "../../models/SegmentModel";
-import { IS_CLOUD } from "../../util/secrets";
-import { sendInviteEmail, sendNewOrgEmail } from "../../services/email";
+import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
+import {
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+  sendNewOrgEmail,
+  sendPendingMemberApprovalEmail,
+} from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllGroups } from "../../services/group";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -76,10 +84,12 @@ import {
 import {
   accountFeatures,
   getAccountPlan,
+  getDefaultRole,
   getRoles,
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
+import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -152,17 +162,9 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
     }
 
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
-    const experiments = await ExperimentModel.find(
-      {
-        id: {
-          $in: experimentIds,
-        },
-      },
-      {
-        _id: false,
-        id: true,
-        name: true,
-      }
+    const experiments = await getExperimentsForActivityFeed(
+      org.id,
+      experimentIds
     );
 
     res.status(200).json({
@@ -276,6 +278,15 @@ export async function putMemberRole(
       found = true;
     }
   });
+  org?.pendingMembers?.forEach((m) => {
+    if (m.id === id) {
+      m.role = role;
+      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
+      m.environments = environments || [];
+      m.projectRoles = projectRoles || [];
+      found = true;
+    }
+  });
 
   if (!found) {
     return res.status(404).json({
@@ -287,6 +298,7 @@ export async function putMemberRole(
   try {
     await updateOrganization(org.id, {
       members: org.members,
+      pendingMembers: org.pendingMembers,
     });
     return res.status(200).json({
       status: 200,
@@ -295,6 +307,179 @@ export async function putMemberRole(
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to change role",
+    });
+  }
+}
+
+export async function putMember(
+  req: AuthRequest<{
+    orgId: string;
+  }>,
+  res: Response
+) {
+  if (!req.userId || !req.email) {
+    throw new Error("Must be logged in");
+  }
+  const { orgId } = req.body;
+  if (!orgId) {
+    throw new Error("Must provide orgId");
+  }
+  if (!req.verified) {
+    throw new Error("User is not verified");
+  }
+
+  // ensure org matches calculated verified org
+  const organization = await findVerifiedOrgForNewUser(req.email);
+  if (!organization || organization.id !== orgId) {
+    throw new Error("Invalid orgId");
+  }
+
+  // check if user is already a member
+  const existingMember = organization.members.find((m) => m.id === req.userId);
+  if (existingMember) {
+    return res.status(200).json({
+      status: 200,
+      message: "User is already a member of organization",
+    });
+  }
+
+  try {
+    const invite: Invite | undefined = organization.invites.find(
+      (inv) => inv.email === req.email
+    );
+    if (invite) {
+      // if user already invited, accept invite
+      await acceptInvite(invite.key, req.userId);
+    } else if (organization.autoApproveMembers) {
+      // if auto approve, add user as member
+      await addMemberToOrg({
+        organization,
+        userId: req.userId,
+        ...getDefaultRole(organization),
+      });
+    } else {
+      // otherwise, add user as pending member
+      await addPendingMemberToOrg({
+        organization,
+        name: req.name || "",
+        userId: req.userId,
+        email: req.email,
+        ...getDefaultRole(organization),
+      });
+
+      try {
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + orgId;
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
+
+      return res.status(200).json({
+        status: 200,
+        isPending: true,
+        message: "Successfully added pending member to organization",
+      });
+    }
+
+    try {
+      await sendNewMemberEmail(
+        req.name || "",
+        req.email || "",
+        organization.name,
+        organization.ownerEmail
+      );
+    } catch (e) {
+      req.log.error(e, "Failed to send new member email");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      message: "Successfully added member to organization",
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to add member to organization",
+    });
+  }
+}
+
+export async function postMemberApproval(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageTeam");
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const pendingMember = org?.pendingMembers?.find((m) => m.id === id);
+  if (!pendingMember) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find pending member",
+    });
+  }
+
+  try {
+    await addMemberToOrg({
+      organization: org,
+      userId: pendingMember.id,
+      role: pendingMember.role,
+      limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
+      environments: pendingMember.environments,
+      projectRoles: pendingMember.projectRoles,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to approve member",
+    });
+  }
+
+  try {
+    const url = APP_ORIGIN + "/?org=" + org.id;
+    await sendPendingMemberApprovalEmail(
+      pendingMember.name || "",
+      pendingMember.email || "",
+      org.name,
+      url
+    );
+  } catch (e) {
+    req.log.error(e, "Failed to send pending member approval email");
+  }
+
+  return res.status(200).json({
+    status: 200,
+    message: "Successfully added member to organization",
+  });
+}
+
+export async function postAutoApproveMembers(
+  req: AuthRequest<{ state: boolean }>,
+  res: Response
+) {
+  req.checkPermissions("manageTeam");
+  const { org } = getOrgFromReq(req);
+  const { state } = req.body;
+
+  try {
+    await updateOrganization(org.id, {
+      autoApproveMembers: state,
+    });
+    return res.status(200).json({
+      status: 200,
+      message: "Successfully updated auto approve members",
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to update auto approve members",
     });
   }
 }
@@ -406,11 +591,12 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   // Add email/name to the organization members array
   const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, name, _id }) => {
+  userInfo.forEach(({ id, email, verified, name, _id }) => {
     const memberInfo = members.find((m) => m.id === id);
     if (!memberInfo) return;
     expandedMembers.push({
       email,
+      verified,
       name,
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
@@ -422,7 +608,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: [...accountFeatures[getAccountPlan(org)]],
+    commercialFeatures: res.locals.licenseError
+      ? []
+      : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     organization: {
@@ -438,7 +626,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,
+      autoApproveMembers: org.autoApproveMembers,
       members: org.members,
+      pendingMembers: org.pendingMembers,
     },
   });
 }
@@ -809,6 +999,18 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     }
   }
 
+  let verifiedDomain = "";
+  if (IS_CLOUD) {
+    // if the owner is verified, try to infer a verified domain
+    if (req.email && req.verified) {
+      const domain = req.email.toLowerCase().split("@")[1] || "";
+      const isFreeDomain = freeEmailDomains.includes(domain);
+      if (!isFreeDomain) {
+        verifiedDomain = domain;
+      }
+    }
+  }
+
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
@@ -816,7 +1018,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     if (!req.userId) {
       throw Error("Must be logged in");
     }
-    const org = await createOrganization(req.email, req.userId, company, "");
+    const org = await createOrganization({
+      email: req.email,
+      userId: req.userId,
+      name: company,
+      verifiedDomain,
+    });
 
     // Alert the site manager about new organizations that are created
     try {

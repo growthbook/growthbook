@@ -44,3 +44,20 @@ export async function findUserById(id: string): Promise<UserInterface | null> {
 export async function deleteUser(id: string): Promise<void> {
   await UserModel.deleteOne({ id });
 }
+
+export async function findVerifiedEmails(
+  emails: string[] | undefined
+): Promise<string[]> {
+  let users;
+  if (emails) {
+    users = await UserModel.find({
+      email: { $in: emails },
+      verified: true,
+    });
+  } else {
+    users = await UserModel.find({
+      verified: true,
+    });
+  }
+  return users.map((u) => u.email);
+}

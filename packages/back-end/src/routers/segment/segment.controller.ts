@@ -19,14 +19,14 @@ import {
   getMetricsUsingSegment,
   updateMetricsByQuery,
 } from "../../models/MetricModel";
-import { getExperimentsUsingSegment } from "../../services/experiments";
 import {
-  ExperimentDocument,
-  ExperimentModel,
+  deleteExperimentSegment,
+  getExperimentsUsingSegment,
   logExperimentUpdated,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
+import { ExperimentInterface } from "../../../types/experiment";
 
 // region GET /segments
 
@@ -68,7 +68,7 @@ type GetSegmentUsageRequest = AuthRequest<
 type GetSegmentUsageResponse = {
   ideas: IdeaDocument[];
   metrics: MetricInterface[];
-  experiments: ExperimentDocument[];
+  experiments: ExperimentInterface[];
   total: number;
   status: 200;
 };
@@ -294,12 +294,7 @@ export const deleteSegment = async (
 
   const exps = await getExperimentsUsingSegment(id, org.id);
   if (exps.length > 0) {
-    await ExperimentModel.updateMany(
-      { organization: org.id, segment: id },
-      {
-        $set: { segment: "" },
-      }
-    );
+    await deleteExperimentSegment(org.id, id);
 
     exps.forEach((previous) => {
       const current = cloneDeep(previous);
