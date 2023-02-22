@@ -42,8 +42,8 @@ import {
   getWatchedAudits,
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
-import { SegmentModel } from "../../models/SegmentModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
+import { findSegmentsByOrganization } from "../../models/SegmentModel";
 import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
 import {
   sendInviteEmail,
@@ -112,9 +112,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
     findDimensionsByOrganization(orgId),
-    SegmentModel.find({
-      organization: orgId,
-    }),
+    findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllGroups(orgId),
     getAllSavedGroups(orgId),
