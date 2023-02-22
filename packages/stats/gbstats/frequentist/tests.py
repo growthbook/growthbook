@@ -94,6 +94,8 @@ class TTest(BaseABTest):
                 note the values are with respect to percent uplift,
                 not absolute differences
         """
+        if self.stat_a.mean == 0:  # TODO: WHY?
+            return self._default_output()
         if self._has_zero_variance():
             return self._default_output()
         return FrequentistTestResult(

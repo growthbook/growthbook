@@ -7,13 +7,29 @@ from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTes
 from gbstats.frequentist.tests import TwoSidedTTest
 from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
+    compute_theta,
     ProportionStatistic,
     SampleMeanStatistic,
     RatioStatistic,
+    RegressionAdjustedStatistic,
     Statistic,
     TestResult,
 )
 from gbstats.shared.tests import BaseABTest
+
+
+SUM_COLS = [
+    "users",
+    "count",
+    "main_sum",
+    "main_sum_squares",
+    "denominator_sum",
+    "denominator_sum_squares",
+    "main_denominator_sum_product",
+    "covariate_sum",
+    "covariate_sum_squares",
+    "main_covariate_sum_product",
+]
 
 
 # Looks for any variation ids that are not in the provided map
@@ -49,6 +65,7 @@ def get_metric_df(
                 "denominator_metric_type": getattr(
                     row, "denominator_metric_type", None
                 ),
+                "covariate_metric_type": getattr(row, "covariate_metric_type", None),
                 "total_users": 0,
             }
             # Add columns for each variation (including baseline)
@@ -57,13 +74,8 @@ def get_metric_df(
                 prefix = f"v{i}" if i > 0 else "baseline"
                 dimensions[dim][f"{prefix}_id"] = key
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
-                dimensions[dim][f"{prefix}_users"] = 0
-                dimensions[dim][f"{prefix}_count"] = 0
-                dimensions[dim][f"{prefix}_main_sum"] = 0
-                dimensions[dim][f"{prefix}_main_sum_squares"] = 0
-                dimensions[dim][f"{prefix}_denominator_sum"] = 0
-                dimensions[dim][f"{prefix}_denominator_sum_squares"] = 0
-                dimensions[dim][f"{prefix}_main_denominator_sum_product"] = 0
+                for col in SUM_COLS:
+                    dimensions[dim][f"{prefix}_{col}"] = 0
 
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
@@ -72,19 +84,8 @@ def get_metric_df(
 
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-            dimensions[dim][f"{prefix}_users"] = row.users
-            dimensions[dim][f"{prefix}_count"] = row.count
-            dimensions[dim][f"{prefix}_main_sum"] = row.main_sum
-            dimensions[dim][f"{prefix}_main_sum_squares"] = row.main_sum_squares
-            dimensions[dim][f"{prefix}_denominator_sum"] = getattr(
-                row, "denominator_sum", 0
-            )
-            dimensions[dim][f"{prefix}_denominator_sum_squares"] = getattr(
-                row, "denominator_sum_squares", 0
-            )
-            dimensions[dim][f"{prefix}_main_denominator_sum_product"] = getattr(
-                row, "main_denominator_sum_product", 0
-            )
+            for col in SUM_COLS:
+                dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
 
     return pd.DataFrame(dimensions.values())
 
@@ -110,19 +111,8 @@ def reduce_dimensionality(df, max=20):
             current["total_users"] += row["total_users"]
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
-                current[f"{prefix}_users"] += row[f"{prefix}_users"]
-                current[f"{prefix}_count"] += row[f"{prefix}_count"]
-                current[f"{prefix}_main_sum"] += row[f"{prefix}_main_sum"]
-                current[f"{prefix}_main_sum_squares"] += row[
-                    f"{prefix}_main_sum_squares"
-                ]
-                current[f"{prefix}_denominator_sum"] += row[f"{prefix}_denominator_sum"]
-                current[f"{prefix}_denominator_sum_squares"] += row[
-                    f"{prefix}_denominator_sum_squares"
-                ]
-                current[f"{prefix}_main_denominator_sum_product"] += row[
-                    f"{prefix}_main_denominator_sum_product"
-                ]
+                for col in SUM_COLS:
+                    current[f"{prefix}_{col}"] += row[f"{prefix}_{col}"]
 
     return pd.DataFrame(newrows)
 
@@ -168,8 +158,16 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         for i in range(1, num_variations):
             # Variation values
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
-
             s[f"v{i}_cr"] = stat_b.mean
+            # TODO: not use CUPED with bayesian
+            if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
+                stat_a, RegressionAdjustedStatistic
+            ):
+                # print(stat_a.post_statistic.mean)
+                # print(stat_a.post_statistic.variance)
+                theta = compute_theta(stat_a, stat_b)
+                stat_a.theta = theta
+                stat_b.theta = theta
             s[f"v{i}_expected"] = (
                 (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
             )
@@ -273,6 +271,15 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
         )
     elif statistic_type == "mean":
         return base_statistic_from_metric_row(row, prefix, "main")
+    elif statistic_type == "mean_ra":
+        # initialize with theta = 0
+        return RegressionAdjustedStatistic(
+            post_statistic=base_statistic_from_metric_row(row, prefix, "main"),
+            pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
+            post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
+            n=row[f"{prefix}_users"],
+            theta=0,
+        )
     else:
         raise ValueError(
             f"Unexpected statistic_type {statistic_type}' found in experiment data."
