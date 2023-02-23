@@ -9,6 +9,7 @@ import {
   getEqualWeights,
   getQueryStringOverride,
   hash,
+  unbiasedHash,
   inNamespace,
 } from "../src/util";
 import cases from "./cases.json";
@@ -17,6 +18,8 @@ type Cases = {
   specVersion: string;
   // value, hash
   hash: [string, number][];
+  // seed, value, hash
+  unbiasedHash: [string, string, number][];
   // name, context, experiment, value, inExperiment
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
@@ -70,6 +73,13 @@ describe("json test suite", () => {
   it.each((cases as Cases).hash)("hash[%#] %s", (value, expected) => {
     expect(hash(value as string)).toEqual(expected);
   });
+
+  it.each((cases as Cases).unbiasedHash)(
+    "unbiasedHash[%#] `%s` + `%s`",
+    (seed, value, expected) => {
+      expect(unbiasedHash(seed, value)).toEqual(expected);
+    }
+  );
 
   it.each((cases as Cases).getBucketRange)(
     "getBucketRange[%#] %s",

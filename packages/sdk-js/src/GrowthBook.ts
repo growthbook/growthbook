@@ -480,6 +480,7 @@ export class GrowthBook {
         if (rule.name) exp.name = rule.name;
         if (rule.phase) exp.phase = rule.phase;
         if (rule.seed) exp.seed = rule.seed;
+        if (rule.filters) exp.filters = rule.filters;
 
         // Only return a value if the user is part of the experiment
         const res = this._run(exp, id);
@@ -518,6 +519,8 @@ export class GrowthBook {
     seed: string | undefined,
     coverage: number | undefined
   ): boolean {
+    if (!range && coverage === undefined) return true;
+
     const { hashValue } = this._getHashAttribute(hashAttribute);
     if (!hashValue) {
       return false;
