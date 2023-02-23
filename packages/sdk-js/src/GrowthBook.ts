@@ -377,6 +377,13 @@ export class GrowthBook<
     return this.evalFeature(id);
   }
 
+  public evalTypedFeature<
+    K extends string & keyof AppFeatures,
+    V extends AppFeatures[K]
+  >(id: K): FeatureResult<V | null> {
+    return (this.evalFeature(id) as unknown) as FeatureResult<V | null>;
+  }
+
   // eslint-disable-next-line
   public evalFeature<T extends JSONValue = any>(
     id: string

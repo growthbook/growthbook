@@ -69,4 +69,23 @@ describe("typed features", () => {
       expect(stringResult).toEqual("¡Bienvenidos y bienvenidas a Donas Acme!");
     });
   });
+
+  describe("evalTypedFeature", () => {
+    const context: Context = {
+      features,
+      attributes: {
+        id: "user-abc123",
+        country: "france",
+      },
+    };
+
+    it("evaluates a typed feature", () => {
+      const growthbook = new GrowthBook<TestAppFeatures>(context);
+
+      const result = growthbook.evalTypedFeature("greeting");
+
+      expect(result.on).toEqual(true);
+      expect(result.value).toEqual("Bienvenue au Beignets Acme !");
+    });
+  });
 });
