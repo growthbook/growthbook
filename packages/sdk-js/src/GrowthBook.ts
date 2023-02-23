@@ -35,7 +35,8 @@ const base64ToBuf = (b: string) =>
   Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
 export class GrowthBook<
-  AppFeatures extends Record<string, unknown> = Record<string, never>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AppFeatures extends Record<string, any> = Record<string, any>
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   // _ctx below is a clone of this property that we use internally
@@ -242,17 +243,12 @@ export class GrowthBook<
     this._render();
   }
 
-  public run<T>(experiment: Experiment<T>): Result<T> {
+  public run<K extends string & keyof AppFeatures, V extends AppFeatures[K]>(
+    experiment: Experiment<V, K>
+  ): Result<V> {
     const result = this._run(experiment, null);
     this._fireSubscriptions(experiment, result);
     return result;
-  }
-
-  public runTypedExperiment<
-    K extends string & keyof AppFeatures,
-    V extends AppFeatures[K]
-  >(experiment: Experiment<V, K>): Result<V> {
-    return this.run<V>(experiment);
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -360,21 +356,14 @@ export class GrowthBook<
     return this.evalFeature(key).off;
   }
 
-  public getFeatureValue<T extends JSONValue>(
-    key: string,
-    defaultValue: T
-  ): WidenPrimitives<T> {
-    return (
-      this.evalFeature<WidenPrimitives<T>>(key).value ??
-      (defaultValue as WidenPrimitives<T>)
-    );
-  }
-
-  public getTypedFeatureValue<
+  public getFeatureValue<
     K extends string & keyof AppFeatures,
     V extends AppFeatures[K]
-  >(key: K, defaultValue: V): V {
-    return this.evalFeature(key).value ?? defaultValue;
+  >(key: K, defaultValue: V): WidenPrimitives<V> {
+    return (
+      this.evalFeature<K, WidenPrimitives<V>>(key).value ??
+      (defaultValue as WidenPrimitives<V>)
+    );
   }
 
   // eslint-disable-next-line
@@ -384,17 +373,10 @@ export class GrowthBook<
     return this.evalFeature(id);
   }
 
-  public evalTypedFeature<
+  public evalFeature<
     K extends string & keyof AppFeatures,
     V extends AppFeatures[K]
   >(id: K): FeatureResult<V | null> {
-    return (this.evalFeature(id) as unknown) as FeatureResult<V | null>;
-  }
-
-  // eslint-disable-next-line
-  public evalFeature<T extends JSONValue = any>(
-    id: string
-  ): FeatureResult<T | null> {
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -417,7 +399,7 @@ export class GrowthBook<
     }
 
     // Get the feature
-    const feature: FeatureDefinition<T> = this._ctx.features[id];
+    const feature: FeatureDefinition<V> = this._ctx.features[id];
 
     // Loop through the rules
     if (feature.rules) {
@@ -461,7 +443,7 @@ export class GrowthBook<
               rule,
             });
 
-          return this._getFeatureResult(id, rule.force as T, "force", rule.id);
+          return this._getFeatureResult(id, rule.force as V, "force", rule.id);
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
@@ -473,8 +455,8 @@ export class GrowthBook<
           continue;
         }
         // For experiment rules, run an experiment
-        const exp: Experiment<T> = {
-          variations: rule.variations as [T, T, ...T[]],
+        const exp: Experiment<V> = {
+          variations: rule.variations as [V, V, ...V[]],
           key: rule.key || id,
         };
         if ("coverage" in rule) exp.coverage = rule.coverage;

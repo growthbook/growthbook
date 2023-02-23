@@ -57,9 +57,9 @@ describe("typed features", () => {
     it("implements type-safe feature getting", () => {
       const growthbook = new GrowthBook<TestAppFeatures>(context);
 
-      const booleanResult = growthbook.getTypedFeatureValue("dark_mode", false);
-      const jsonResult = growthbook.getTypedFeatureValue("sample_json", {});
-      const stringResult = growthbook.getTypedFeatureValue("greeting", "??");
+      const booleanResult = growthbook.getFeatureValue("dark_mode", false);
+      const jsonResult = growthbook.getFeatureValue("sample_json", {});
+      const stringResult = growthbook.getFeatureValue("greeting", "??");
 
       expect(typeof booleanResult).toEqual("boolean");
       expect(booleanResult).toEqual(false);
@@ -82,7 +82,7 @@ describe("typed features", () => {
     it("evaluates a typed feature", () => {
       const growthbook = new GrowthBook<TestAppFeatures>(context);
 
-      const result = growthbook.evalTypedFeature("greeting");
+      const result = growthbook.evalFeature("greeting");
 
       expect(result.on).toEqual(true);
       expect(result.value).toEqual("Bienvenue au Beignets Acme !");
@@ -104,7 +104,7 @@ describe("typed features", () => {
         key: "greeting",
         variations: ["bonjour", "hello", "good day", "how is your family"],
       };
-      const experimentResult = growthbook.runTypedExperiment(experiment);
+      const experimentResult = growthbook.run(experiment);
 
       expect(experimentResult.value).toEqual("hello");
     });
