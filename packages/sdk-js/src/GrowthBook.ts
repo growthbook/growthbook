@@ -355,8 +355,8 @@ export class GrowthBook<
   }
 
   public getFeatureValue<
-    K extends string & keyof AppFeatures,
-    V extends AppFeatures[K]
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     return (
       this.evalFeature<WidenPrimitives<V>, K>(key).value ??

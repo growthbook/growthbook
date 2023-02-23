@@ -75,6 +75,9 @@ describe("typed features", () => {
       expect(growthbook.getFeatureValue("greeting", "??")).toEqual(
         "¡Bienvenidos y bienvenidas a Donas Acme!"
       );
+      expect(growthbook.getFeatureValue<string>("greeting", "??")).toEqual(
+        "¡Bienvenidos y bienvenidas a Donas Acme!"
+      );
       expect(growthbook.getFeatureValue("unknown_key", "??")).toEqual("??");
     });
   });
