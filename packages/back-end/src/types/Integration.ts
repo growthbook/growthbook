@@ -4,10 +4,17 @@ import {
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 
-export type VariationMetricResult = MetricStats & {
+export interface ExperimentMetricStats {
+  metric_type: MetricType;
+  count: number;
+  main_sum: number;
+  main_sum_squares: number;
+}
+
+export type VariationMetricResult = ExperimentMetricStats & {
   metric: string;
 };
 
@@ -18,7 +25,7 @@ export type ExperimentResults = {
       variation: number;
       users: number;
       metrics: {
-        [key: string]: MetricStats;
+        [key: string]: ExperimentMetricStats;
       };
     }[];
   }[];
@@ -106,8 +113,8 @@ export type PastExperimentResult = {
 export type MetricValueQueryResponseRow = {
   date: string;
   count: number;
-  mean: number;
-  stddev: number;
+  main_sum: number;
+  main_sum_squares: number;
 };
 export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {
@@ -125,8 +132,14 @@ export type ExperimentMetricQueryResponse = {
   variation: string;
   users: number;
   count: number;
-  mean: number;
-  stddev: number;
+  statistic_type: "ratio" | "mean";
+  main_metric_type: MetricType;
+  main_sum: number;
+  main_sum_squares: number;
+  denominator_metric_type?: MetricType;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
 }[];
 export interface SourceIntegrationConstructor {
   new (
