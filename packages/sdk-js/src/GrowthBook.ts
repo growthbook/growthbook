@@ -243,10 +243,7 @@ export class GrowthBook<
     this._render();
   }
 
-  public run<
-    V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
-  >(experiment: Experiment<V, K>): Result<V> {
+  public run<T>(experiment: Experiment<T>): Result<T> {
     const result = this._run(experiment, null);
     this._fireSubscriptions(experiment, result);
     return result;

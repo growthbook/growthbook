@@ -106,43 +106,4 @@ describe("typed features", () => {
       expect(result.value).toEqual("Bienvenue au Beignets Acme !");
     });
   });
-
-  describe("run", () => {
-    it("runs a typed experiment", () => {
-      const context: Context = {
-        features,
-        attributes: {
-          id: "user-abc123",
-        },
-      };
-
-      const growthbook = new GrowthBook<TestAppFeatures>(context);
-
-      const experiment: Experiment<string, "greeting"> = {
-        key: "greeting",
-        variations: ["bonjour", "hello", "good day", "how is your family"],
-      };
-      const experimentResult = growthbook.run(experiment);
-
-      expect(experimentResult.value).toEqual("hello");
-    });
-  });
-
-  it("runs an experiment without types", () => {
-    const context: Context = {
-      features,
-      attributes: {
-        id: "user-abc123",
-      },
-    };
-
-    const growthbook = new GrowthBook(context);
-
-    const experimentResult = growthbook.run({
-      key: "greeting",
-      variations: ["bonjour", "hello", "good day", "how is your family"],
-    });
-
-    expect(experimentResult.value).toEqual("hello");
-  });
 });
