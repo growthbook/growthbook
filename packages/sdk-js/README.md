@@ -164,7 +164,7 @@ const gb = new GrowthBook({
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
@@ -320,18 +320,72 @@ console.log(result.experimentResult);
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
 
 ```js
+// These are the only 3 required options
 const { value } = gb.run({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
+  // How to split traffic between the variations
+  // This is a simple 50/50 split on 100% of traffic
+  ranges: [
+    [0, 0.5],
+    [0.5, 1.0],
+  ],
 });
 ```
 
-All of the other settings (`weights`, `hashAttribute`, `coverage`, `namespace`, `condition`) are supported when using inline experiments.
+There are many other options available for inline experiments. Here's an example that uses all of them:
 
-In addition, there are a few other settings that only really make sense for inline experiments:
+```js
+gb.run({
+  // Key, name, and phase are passed to the trackingCallback
+  key: "my-experiment",
+  name: "My Experiment Name",
+  phase: "full-traffic",
 
-- `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
-- `active` can be set to false to disable the experiment and return the control for everyone
+  // Variation values (any data type)
+  variations: [10, 20],
+
+  // Variation ranges (this is a 10/10 split)
+  ranges: [
+    [0, 0.1],
+    [0.5, 0.6],
+  ],
+
+  // Variation meta info (passed to the trackingCallback)
+  meta: [
+    {
+      key: "control",
+      name: "Control Variation (10)",
+    },
+    {
+      key: "variation",
+      name: "1st Variant (20)",
+    },
+  ],
+
+  // Only include users who pass this condition (using a MongoDB-style query syntax)
+  condition: {
+    country: {
+      $in: ["US", "CA"],
+    },
+  },
+
+  // Which seed and attribute to use to assign a variation to the user
+  seed: "my-experiment-abcdef123",
+  hashAttribute: "id",
+
+  // Filters can be used for mutual exclusion
+  filters: [
+    // If another experiment uses the same attribute/seed, but a non-overlapping range
+    // It will be mutually exclusive with this one
+    {
+      attribute: "id",
+      seed: "my-exclusion-group",
+      ranges: [[0, 0.5]],
+    },
+  ],
+});
+```
 
 #### Inline Experiment Return Value
 
@@ -339,10 +393,12 @@ A call to `gb.run(experiment)` returns an object with a few useful properties:
 
 ```ts
 const {
+  value,
+  key,
+  name,
+  variationId,
   inExperiment,
   hashUsed,
-  variationId,
-  value,
   hashAttribute,
   hashValue,
 } = gb.run({
@@ -358,6 +414,10 @@ console.log(variationId); // 0 or 1
 
 // The value of the assigned variation
 console.log(value); // "A" or "B"
+
+// The key and name of the assigned variation (if specified in `meta`)
+console.log(key); // "0" or "1"
+console.log(name); // ""
 
 // If the variation was randomly assigned by hashing
 console.log(hashUsed);
@@ -477,38 +537,25 @@ Force rules do what you'd expect - force a specific value for the feature
 
 ##### Gradual Rollouts
 
-You can specify a `coverage` value for your rule, which is a number between 0 and 1 and represents what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value).
-
-This is useful for gradually rolling out features to users (start coverage at 0 and slowly increase towards 1 as you watch metrics).
-
-```js
-// 20% of users will get the new feature
-{
-  "new-feature": {
-    defaultValue: false,
-    rules: [
-      {
-        force: true,
-        coverage: 0.2
-      }
-    ]
-  }
-}
-```
+You can specify a `range` for your rule, which determines what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value). You can also specify a `seed` that will be used for hashing.
 
 In order to figure out if a user is included or not, we use deterministic hashing. By default, we use the user attribute `id` for this, but you can override this by specifying `hashAttribute` for the rule:
 
+This is useful for gradually rolling out features to users (start with a small range and slowly increase).
+
 ```js
-// 20% of companies will get the new feature
-// Users in the same company will always get the same value (either true or false)
 {
   "new-feature": {
     defaultValue: false,
     rules: [
       {
         force: true,
-        coverage: 0.2,
-        hashAttribute: "company"
+        hashAttribute: "device-id",
+        seed: 'new-feature-rollout-abcdef123',
+        // 20% of users
+        range: [0, 0.2]
+        // Increase to 40%:
+        // range: [0, 0.4]
       }
     ]
   }
@@ -532,29 +579,70 @@ Experiment rules let you adjust the percent of users who get randomly assigned t
 }
 ```
 
-##### Weights
+##### Variation Ranges
 
-You can use the `weights` setting to control what percent of users get assigned to each variation. Weights determine the traffic split between variations and must add to 1.
+You can use use the `ranges` setting to control how users are assigned to the variations.
+
+A user is assigned a number from 0 to 1 and whichever variation's range includes their number will be assigned to them.
 
 ```js
 {
   "results-per-page": {
     rules: [
       {
-        variations: ["small", "medium", "large"],
-        // 50% of users will get "small" (index 0)
-        // 30% will get "medium" (index 1)
-        // 20% will get "large" (index 2)
-        weights: [0.5, 0.3, 0.2]
+        variations: ["sm", "md", "lg"],
+        // 50% of users will get "sm" (index 0)
+        // 30% will get "md" (index 1)
+        // 20% will get "lg" (index 2)
+        ranges: [
+          [0, 0.5],
+          [0.5, 0.75],
+          [0.75, 1.0]
+        ]
       }
     ]
   }
 }
 ```
 
-##### Tracking Key
+##### Variation Meta Info
 
-When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting:
+You can use the `meta` setting to provide additional info about the variations such as name.
+
+```js
+{
+  "results-per-page": {
+    rules: [
+      {
+        variations: ["sm", "md", "lg"],
+        ranges: [
+          [0, 0.5],
+          [0.5, 0.75],
+          [0.75, 1.0]
+        ],
+        meta: [
+          {
+            key: "control",
+            name: "Small",
+          },
+          {
+            key: "v1",
+            name: "Medium",
+          },
+          {
+            key: "v2",
+            name: "Large",
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+##### Tracking Key and Name
+
+When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting. You can also optionally provide a human-readable name.
 
 ```js
 {
@@ -563,6 +651,7 @@ When a user is assigned a variation, we call the `trackingCallback` function so 
       {
         // Use "my-experiment" as the key instead of "feature-1"
         key: "my-experiment",
+        name: "My Experiment",
         variations: ["A", "B"]
       }
     ]
@@ -600,33 +689,11 @@ const gb = new GrowthBook({
 });
 ```
 
-##### Coverage
+##### Filters
 
-You can use the `coverage` setting to introduce sampling and reduce the percent of users who are included in your experiment. Coverage must be between 0 and 1 and defaults to 1 (everyone included). This feature uses deterministic hashing to ensure consistent sampling.
+Sometimes you want to run multiple conflicting experiments at the same time. You can use the `filters` setting to run mutually exclusive experiments.
 
-```js
-{
-  "my-feature": {
-    rules: [
-      // 80% of users will be included in the experiment
-      {
-        variations: [false, true],
-        coverage: 0.8
-      },
-      // The remaining 20% will fall through to this next matching rule
-      {
-        force: false
-      }
-    ]
-  }
-}
-```
-
-##### Namespaces
-
-Sometimes you want to run multiple conflicting experiments at the same time. You can use the `namespace` setting to run mutually exclusive experiments.
-
-We do this using deterministic hashing to assign users a value between 0 and 1 for each namespace. Experiments can specify which namespace it is in and what part of the range [0,1] it should include. If the ranges for two experiments in a namespace don't overlap, they will be mutually exclusive.
+We do this using deterministic hashing to assign users a value between 0 and 1 for each filter.
 
 ```js
 {
@@ -635,7 +702,13 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
       // Will include 60% of users - ones with a hash between 0 and 0.6
       {
         variations: [false, true],
-        namespace: ["pricing", 0, 0.6]
+        filters: [
+          {
+            seed: "pricing",
+            attribute: "id",
+            ranges: [[0, 0.6]]
+          }
+        ]
       }
     ]
   },
@@ -644,11 +717,17 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
       // Will include the other 40% of users - ones with a hash between 0.6 and 1
       {
         variations: [false, true],
-        namespace: ["pricing", 0.6, 1]
+        filters: [
+          {
+            seed: "pricing",
+            attribute: "id",
+            ranges: [[0.6, 1.0]]
+          }
+        ]
       },
     ]
   }
 }
 ```
 
-**Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
+**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.

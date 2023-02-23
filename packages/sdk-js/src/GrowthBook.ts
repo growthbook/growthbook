@@ -14,7 +14,7 @@ import type {
   RefreshFeaturesOptions,
   ApiHost,
   ClientKey,
-  VariationConfig,
+  VariationMeta,
   Filter,
   VariationRange,
 } from "./types/growthbook";
@@ -476,7 +476,8 @@ export class GrowthBook {
         if (rule.weights) exp.weights = rule.weights;
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.namespace) exp.namespace = rule.namespace;
-        if (rule.configs) exp.configs = rule.configs;
+        if (rule.meta) exp.meta = rule.meta;
+        if (rule.ranges) exp.ranges = rule.ranges;
         if (rule.name) exp.name = rule.name;
         if (rule.phase) exp.phase = rule.phase;
         if (rule.seed) exp.seed = rule.seed;
@@ -687,7 +688,7 @@ export class GrowthBook {
       numVariations,
       experiment.coverage,
       experiment.weights,
-      experiment.configs
+      experiment.ranges
     );
 
     // 10. Return if not in experiment
@@ -754,14 +755,16 @@ export class GrowthBook {
     numVariations: number,
     coverage?: number,
     weights?: number[],
-    configs?: VariationConfig[]
+    ranges?: VariationRange[]
   ) {
-    const ranges = configs
-      ? configs.map((c) => c.range)
-      : getBucketRanges(numVariations, coverage ?? 1, weights);
-    const n = configs
+    // If ranges are specified, use the new better hashing algorithm
+    // This is to keep backwards compatibility
+    const n = ranges
       ? unbiasedHash(seed || key, hashValue)
       : hash(hashValue + key);
+
+    ranges = ranges || getBucketRanges(numVariations, coverage ?? 1, weights);
+
     return [n, chooseVariation(n, ranges)];
   }
 
@@ -838,18 +841,18 @@ export class GrowthBook {
       experiment.hashAttribute
     );
 
-    const config: Partial<VariationConfig> = experiment.configs
-      ? experiment.configs[variationIndex]
+    const meta: Partial<VariationMeta> = experiment.meta
+      ? experiment.meta[variationIndex]
       : {};
 
     // If the variation is disabled, use the baseline and mark the user as not in the experiment
-    if (config.disabled) {
+    if (meta.disabled) {
       variationIndex = 0;
       inExperiment = false;
     }
 
     const res: Result<T> = {
-      key: config.key || "" + variationIndex,
+      key: meta.key || "" + variationIndex,
       featureId,
       inExperiment,
       hashUsed,
@@ -859,9 +862,9 @@ export class GrowthBook {
       hashValue,
     };
 
-    if (config.name) res.name = config.name;
+    if (meta.name) res.name = meta.name;
     if (bucket !== undefined) res.bucket = bucket;
-    if (config.passthrough) res.passthrough = config.passthrough;
+    if (meta.passthrough) res.passthrough = meta.passthrough;
 
     return res;
   }

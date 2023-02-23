@@ -1821,14 +1821,16 @@
                 "seed": "feature",
                 "name": "Test",
                 "phase": "1",
-                "configs": [
+                "ranges": [
+                  [0, 0.1],
+                  [0.1, 1.0]
+                ],
+                "meta": [
                   {
-                    "range": [0, 0.1],
                     "key": "v0",
                     "name": "variation 0"
                   },
                   {
-                    "range": [0.1, 1.0],
                     "key": "v1",
                     "name": "variation 1"
                   }
@@ -1858,14 +1860,16 @@
         "source": "experiment",
         "experiment": {
           "coverage": 0.99,
-          "configs": [
+          "ranges": [
+            [0, 0.1],
+            [0.1, 1.0]
+          ],
+          "meta": [
             {
-              "range": [0, 0.1],
               "key": "v0",
               "name": "variation 0"
             },
             {
-              "range": [0.1, 1.0],
               "key": "v1",
               "name": "variation 1"
             }
@@ -2288,12 +2292,13 @@
               {
                 "key": "holdout",
                 "variations": [1, 2],
-                "configs": [
+                "ranges": [
+                  [0, 0.01],
+                  [0.01, 1.0]
+                ],
+                "meta": [
+                  {},
                   {
-                    "range": [0, 0.01]
-                  },
-                  {
-                    "range": [0.01, 1.0],
                     "passthrough": true
                   }
                 ]
@@ -2301,13 +2306,9 @@
               {
                 "key": "experiment",
                 "variations": [3, 4],
-                "configs": [
-                  {
-                    "range": [0, 0.5]
-                  },
-                  {
-                    "range": [0.5, 1.0]
-                  }
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
                 ]
               }
             ]
@@ -2321,16 +2322,12 @@
         "off": false,
         "source": "experiment",
         "experiment": {
-          "configs": [
-            {
-              "range": [0, 0.5]
-            },
-            {
-              "range": [0.5, 1.0]
-            }
-          ],
           "key": "experiment",
-          "variations": [3, 4]
+          "variations": [3, 4],
+          "ranges": [
+            [0, 0.5],
+            [0.5, 1.0]
+          ]
         },
         "experimentResult": {
           "featureId": "feature",
@@ -2358,12 +2355,13 @@
               {
                 "key": "holdout",
                 "variations": [1, 2],
-                "configs": [
+                "ranges": [
+                  [0, 0.99],
+                  [0.99, 1.0]
+                ],
+                "meta": [
+                  {},
                   {
-                    "range": [0, 0.99]
-                  },
-                  {
-                    "range": [0.99, 1.0],
                     "passthrough": true
                   }
                 ]
@@ -2371,13 +2369,9 @@
               {
                 "key": "experiment",
                 "variations": [3, 4],
-                "configs": [
-                  {
-                    "range": [0, 0.5]
-                  },
-                  {
-                    "range": [0.5, 1.0]
-                  }
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
                 ]
               }
             ]
@@ -2391,12 +2385,13 @@
         "off": false,
         "source": "experiment",
         "experiment": {
-          "configs": [
+          "ranges": [
+            [0, 0.99],
+            [0.99, 1.0]
+          ],
+          "meta": [
+            {},
             {
-              "range": [0, 0.99]
-            },
-            {
-              "range": [0.99, 1.0],
               "passthrough": true
             }
           ],
@@ -3150,22 +3145,18 @@
       true
     ],
     [
-      "Configs, ignore coverage and weights",
+      "Ranges, ignore coverage and weights",
       {
         "attributes": {
           "id": "1"
         }
       },
       {
-        "key": "configs",
+        "key": "ranges",
         "variations": [0, 1],
-        "configs": [
-          {
-            "range": [0.99, 1.0]
-          },
-          {
-            "range": [0.0, 0.99]
-          }
+        "ranges": [
+          [0.99, 1.0],
+          [0.0, 0.99]
         ],
         "coverage": 0.01,
         "weights": [0.99, 0.01]
@@ -3175,7 +3166,7 @@
       true
     ],
     [
-      "Configs, partial coverage",
+      "Ranges, partial coverage",
       {
         "attributes": {
           "id": "1"
@@ -3184,13 +3175,9 @@
       {
         "key": "configs",
         "variations": [0, 1],
-        "configs": [
-          {
-            "range": [0, 0.1]
-          },
-          {
-            "range": [0.9, 1.0]
-          }
+        "ranges": [
+          [0, 0.1],
+          [0.9, 1.0]
         ]
       },
       0,
@@ -3208,13 +3195,9 @@
         "key": "key",
         "seed": "foo",
         "variations": [0, 1],
-        "configs": [
-          {
-            "range": [0.0, 0.5]
-          },
-          {
-            "range": [0.5, 1.0]
-          }
+        "ranges": [
+          [0, 0.5],
+          [0.5, 1.0]
         ]
       },
       1,

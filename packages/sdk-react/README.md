@@ -223,7 +223,7 @@ const gb = new GrowthBook({
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
@@ -458,6 +458,8 @@ Depending on how you configure feature flags, they may run A/B tests behind the 
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
 
+View the [Javascript SDK Docs](https://docs.growthbook.io/lib/js) for all of the options available for inline experiments
+
 #### useExperiment hook
 
 ```tsx
@@ -467,6 +469,10 @@ export default function OtherComponent() {
   const { value } = useExperiment({
     key: "new-headline",
     variations: ["Hello", "Hi", "Good Day"],
+    ranges: [
+      [0, 0.5],
+      [0.5, 1.0],
+    ],
   });
 
   return <h1>{value}</h1>;
@@ -486,6 +492,10 @@ class OtherComponent extends React.Component {
     const { value } = this.props.runExperiment({
       key: "headline-test",
       variations: ["Hello World", "Hola Mundo"],
+      ranges: [
+        [0, 0.5],
+        [0.5, 1.0],
+      ],
     });
     return <h1>{value}</h1>;
   }

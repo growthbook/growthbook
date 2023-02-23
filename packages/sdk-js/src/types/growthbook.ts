@@ -9,9 +9,8 @@ declare global {
   }
 }
 
-export type VariationConfig = {
+export type VariationMeta = {
   passthrough?: boolean;
-  range: VariationRange;
   key?: string;
   name?: string;
   disabled?: boolean;
@@ -31,9 +30,8 @@ export type FeatureRule<T = any> = {
   coverage?: number;
   /** @deprecated */
   namespace?: [string, number, number];
-
-  // Config data for each variation
-  configs?: VariationConfig[];
+  ranges?: VariationRange[];
+  meta?: VariationMeta[];
   filters?: Filter[];
   seed?: string;
   name?: string;
@@ -72,8 +70,8 @@ export type ExperimentStatus = "draft" | "running" | "stopped";
 export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
-  // Config data for each variation
-  configs?: VariationConfig[];
+  ranges?: VariationRange[];
+  meta?: VariationMeta[];
   filters?: Filter[];
   seed?: string;
   name?: string;

@@ -19,7 +19,7 @@ export type {
   SubscriptionFunction,
   LocalStorageCompat,
   WidenPrimitives,
-  VariationConfig,
+  VariationMeta,
   Filter,
   VariationRange,
 } from "./types/growthbook";

@@ -20,7 +20,8 @@ export type {
   JSONValue,
   SubscriptionFunction,
   Filter,
-  VariationConfig,
+  VariationMeta,
+  VariationRange,
 } from "@growthbook/growthbook";
 
 export type {
