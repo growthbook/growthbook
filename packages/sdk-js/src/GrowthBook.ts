@@ -347,10 +347,11 @@ export class GrowthBook<
     return ret;
   }
 
-  public isOn(key: string): boolean {
+  public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).on;
   }
-  public isOff(key: string): boolean {
+
+  public isOff<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).off;
   }
 
@@ -365,9 +366,10 @@ export class GrowthBook<
   }
 
   // eslint-disable-next-line
-  public feature<T extends JSONValue = any>(
-    id: string
-  ): FeatureResult<T | null> {
+  public feature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 

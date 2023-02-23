@@ -67,6 +67,8 @@ describe("typed features", () => {
       expect(jsonResult).toEqual({ foo: "bar" });
       expect(typeof stringResult).toEqual("string");
       expect(stringResult).toEqual("¡Bienvenidos y bienvenidas a Donas Acme!");
+      expect(growthbook.isOn("greeting")).toEqual(true);
+      expect(growthbook.isOff("greeting")).toEqual(false);
     });
 
     it("implements feature getting without types", () => {
@@ -79,6 +81,8 @@ describe("typed features", () => {
         "¡Bienvenidos y bienvenidas a Donas Acme!"
       );
       expect(growthbook.getFeatureValue("unknown_key", "??")).toEqual("??");
+      expect(growthbook.isOn("unknown_key")).toEqual(false);
+      expect(growthbook.isOff("unknown_key")).toEqual(true);
     });
   });
 
@@ -104,6 +108,34 @@ describe("typed features", () => {
       const growthbook = new GrowthBook<TestAppFeatures>(context);
 
       const result = growthbook.evalFeature("greeting");
+
+      expect(result.on).toEqual(true);
+      expect(result.value).toEqual("Bienvenue au Beignets Acme !");
+    });
+  });
+
+  describe("feature (alias for evalFeature(key))", () => {
+    const context: Context = {
+      features,
+      attributes: {
+        id: "user-abc123",
+        country: "france",
+      },
+    };
+
+    it("evaluates a feature without using types", () => {
+      const growthbook = new GrowthBook(context);
+
+      expect(growthbook.feature("greeting").value).toEqual(
+        "Bienvenue au Beignets Acme !"
+      );
+      expect(growthbook.feature("unknown_key").value).toEqual(null);
+    });
+
+    it("evaluates a typed feature", () => {
+      const growthbook = new GrowthBook<TestAppFeatures>(context);
+
+      const result = growthbook.feature("greeting");
 
       expect(result.on).toEqual(true);
       expect(result.value).toEqual("Bienvenue au Beignets Acme !");
