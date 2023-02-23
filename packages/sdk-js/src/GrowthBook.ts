@@ -243,9 +243,10 @@ export class GrowthBook<
     this._render();
   }
 
-  public run<K extends string & keyof AppFeatures, V extends AppFeatures[K]>(
-    experiment: Experiment<V, K>
-  ): Result<V> {
+  public run<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(experiment: Experiment<V, K>): Result<V> {
     const result = this._run(experiment, null);
     this._fireSubscriptions(experiment, result);
     return result;
@@ -361,7 +362,7 @@ export class GrowthBook<
     V extends AppFeatures[K]
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     return (
-      this.evalFeature<K, WidenPrimitives<V>>(key).value ??
+      this.evalFeature<WidenPrimitives<V>, K>(key).value ??
       (defaultValue as WidenPrimitives<V>)
     );
   }
@@ -374,8 +375,8 @@ export class GrowthBook<
   }
 
   public evalFeature<
-    K extends string & keyof AppFeatures,
-    V extends AppFeatures[K]
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
   >(id: K): FeatureResult<V | null> {
     // Global override
     if (this._forcedFeatureValues.has(id)) {
