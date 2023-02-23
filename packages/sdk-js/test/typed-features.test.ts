@@ -45,7 +45,7 @@ describe("typed features", () => {
     },
   };
 
-  describe("getTypedFeatureValue", () => {
+  describe("getFeatureValue", () => {
     const context: Context = {
       features,
       attributes: {
@@ -68,9 +68,18 @@ describe("typed features", () => {
       expect(typeof stringResult).toEqual("string");
       expect(stringResult).toEqual("¡Bienvenidos y bienvenidas a Donas Acme!");
     });
+
+    it("implements feature getting without types", () => {
+      const growthbook = new GrowthBook(context);
+
+      expect(growthbook.getFeatureValue("greeting", "??")).toEqual(
+        "¡Bienvenidos y bienvenidas a Donas Acme!"
+      );
+      expect(growthbook.getFeatureValue("unknown_key", "??")).toEqual("??");
+    });
   });
 
-  describe("evalTypedFeature", () => {
+  describe("evalFeature", () => {
     const context: Context = {
       features,
       attributes: {
@@ -78,6 +87,15 @@ describe("typed features", () => {
         country: "france",
       },
     };
+
+    it("evaluates a feature without using types", () => {
+      const growthbook = new GrowthBook(context);
+
+      expect(growthbook.evalFeature("greeting").value).toEqual(
+        "Bienvenue au Beignets Acme !"
+      );
+      expect(growthbook.evalFeature("unknown_key").value).toEqual(null);
+    });
 
     it("evaluates a typed feature", () => {
       const growthbook = new GrowthBook<TestAppFeatures>(context);
@@ -89,7 +107,7 @@ describe("typed features", () => {
     });
   });
 
-  describe("runTypedExperiment", () => {
+  describe("run", () => {
     it("runs a typed experiment", () => {
       const context: Context = {
         features,
@@ -108,5 +126,23 @@ describe("typed features", () => {
 
       expect(experimentResult.value).toEqual("hello");
     });
+  });
+
+  it("runs an experiment without types", () => {
+    const context: Context = {
+      features,
+      attributes: {
+        id: "user-abc123",
+      },
+    };
+
+    const growthbook = new GrowthBook(context);
+
+    const experimentResult = growthbook.run({
+      key: "greeting",
+      variations: ["bonjour", "hello", "good day", "how is your family"],
+    });
+
+    expect(experimentResult.value).toEqual("hello");
   });
 });
