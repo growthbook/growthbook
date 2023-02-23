@@ -34,7 +34,9 @@ const isBrowser =
 const base64ToBuf = (b: string) =>
   Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
-export class GrowthBook {
+export class GrowthBook<
+  AppFeatures extends Record<string, unknown> = Record<string, never>
+> {
   // context is technically private, but some tools depend on it so we can't mangle the name
   // _ctx below is a clone of this property that we use internally
   private context: Context;
@@ -350,6 +352,7 @@ export class GrowthBook {
   public isOff(key: string): boolean {
     return this.evalFeature(key).off;
   }
+
   public getFeatureValue<T extends JSONValue>(
     key: string,
     defaultValue: T
@@ -358,6 +361,13 @@ export class GrowthBook {
       this.evalFeature<WidenPrimitives<T>>(key).value ??
       (defaultValue as WidenPrimitives<T>)
     );
+  }
+
+  public getTypedFeatureValue<
+    K extends string & keyof AppFeatures,
+    V extends AppFeatures[K]
+  >(key: K, defaultValue: V): V {
+    return this.evalFeature(key).value ?? defaultValue;
   }
 
   // eslint-disable-next-line

@@ -5,7 +5,7 @@ import { ConditionInterface } from "./mongrule";
 
 declare global {
   interface Window {
-    _growthbook?: GrowthBook;
+    _growthbook?: GrowthBook<Record<string, unknown>>;
   }
 }
 
