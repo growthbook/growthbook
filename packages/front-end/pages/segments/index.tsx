@@ -354,6 +354,15 @@ const SegmentPage: FC = () => {
             "Click the button above to create your first one."}
         </div>
       )}
+      {segments.length === 0 && hasFileConfig() && storeSegmentsInMongo() && (
+        <div className="alert alert-info">
+          You don&apos;t have any segments defined yet. You can add them to your{" "}
+          <code>config.yml</code> file
+          {permissions.createSegments &&
+            " or click the button above to create your first one"}
+          . <DocLink docSection="config_yml">View Documentation</DocLink>
+        </div>
+      )}
       {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
         <div className="alert alert-info">
           It looks like you have a <code>config.yml</code> file. Segments
