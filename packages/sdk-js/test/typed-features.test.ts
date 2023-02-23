@@ -1,4 +1,4 @@
-import { Context, GrowthBook } from "../src";
+import { Context, Experiment, GrowthBook } from "../src";
 
 type TestAppFeatures = {
   dark_mode: boolean;
@@ -86,6 +86,27 @@ describe("typed features", () => {
 
       expect(result.on).toEqual(true);
       expect(result.value).toEqual("Bienvenue au Beignets Acme !");
+    });
+  });
+
+  describe("runTypedExperiment", () => {
+    it("runs a typed experiment", () => {
+      const context: Context = {
+        features,
+        attributes: {
+          id: "user-abc123",
+        },
+      };
+
+      const growthbook = new GrowthBook<TestAppFeatures>(context);
+
+      const experiment: Experiment<string, "greeting"> = {
+        key: "greeting",
+        variations: ["bonjour", "hello", "good day", "how is your family"],
+      };
+      const experimentResult = growthbook.runTypedExperiment(experiment);
+
+      expect(experimentResult.value).toEqual("hello");
     });
   });
 });

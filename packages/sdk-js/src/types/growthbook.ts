@@ -45,8 +45,8 @@ export interface FeatureResult<T = any> {
 
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
-export type Experiment<T> = {
-  key: string;
+export type Experiment<T, K extends string = string> = {
+  key: K;
   variations: [T, T, ...T[]];
   weights?: number[];
   condition?: ConditionInterface;

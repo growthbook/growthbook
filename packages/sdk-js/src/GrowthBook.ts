@@ -248,6 +248,13 @@ export class GrowthBook<
     return result;
   }
 
+  public runTypedExperiment<
+    K extends string & keyof AppFeatures,
+    V extends AppFeatures[K]
+  >(experiment: Experiment<V, K>): Result<V> {
+    return this.run<V>(experiment);
+  }
+
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
     const key = experiment.key;
 
