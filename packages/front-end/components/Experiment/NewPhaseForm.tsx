@@ -10,11 +10,12 @@ import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { generateVariationId } from "@/services/features";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
-import VariationsInput from "../Features/VariationsInput";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -38,6 +39,12 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       groups: prevPhase.groups || [],
+      variations: experiment.variations.map((v) => {
+        return {
+          ...v,
+          id: generateVariationId(),
+        };
+      }),
     },
   });
 
@@ -136,7 +143,7 @@ const NewPhaseForm: FC<{
           </div>
         </div>
       )}
-      <VariationsInput
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -145,11 +152,12 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          form.watch("variations").map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }

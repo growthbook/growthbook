@@ -37,6 +37,14 @@ class TestTwoSidedTTest(TestCase):
             result_dict[k] = v
 
         self.assertDictEqual(result_dict, expected_rounded_dict)
+    
+    def test_two_sided_ttest_missing_variance(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=2)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        default_output = TwoSidedTTest(stat_a, stat_b)._default_output()
+        result_output = TwoSidedTTest(stat_a, stat_b).compute_result()
+
+        self.assertEqual(default_output, result_output)
 
 
 if __name__ == "__main__":

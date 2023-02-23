@@ -2,15 +2,24 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
+import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
-import VariationDataInput from "./VariationDataInput";
+import ExperimentVariationsInput, {
+  SortableExperimentVariation,
+} from "./ExperimentVariationsInput";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<
+    Partial<
+      Omit<ExperimentInterfaceStringDates, "variations"> & {
+        variations: SortableExperimentVariation[];
+      }
+    >
+  >({
     defaultValues: {
       variations: experiment.variations
         ? experiment.variations.map((v) => {
@@ -20,6 +29,7 @@ const EditVariationsForm: FC<{
               value: "",
               key: "",
               ...v,
+              id: generateVariationId(),
             };
           })
         : [
@@ -29,6 +39,7 @@ const EditVariationsForm: FC<{
               description: "",
               key: "",
               screenshots: [],
+              id: generateVariationId(),
             },
             {
               name: "Variation",
@@ -36,6 +47,7 @@ const EditVariationsForm: FC<{
               value: "",
               key: "",
               screenshots: [],
+              id: generateVariationId(),
             },
           ],
     },
@@ -60,7 +72,10 @@ const EditVariationsForm: FC<{
       })}
       cta="Save"
     >
-      <VariationDataInput form={form} />
+      <ExperimentVariationsInput
+        variations={form.watch("variations")}
+        setVariations={(variations) => form.setValue("variations", variations)}
+      />
     </Modal>
   );
 };
