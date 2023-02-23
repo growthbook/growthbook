@@ -251,7 +251,11 @@ export async function postFirstTimeRegister(
   }
 
   const user = await createUser(name, email, password);
-  await createOrganization(email, user.id, companyname, "");
+  await createOrganization({
+    email,
+    userId: user.id,
+    name: companyname,
+  });
   markInstalled();
 
   sendLocalSuccessResponse(req, res, user);

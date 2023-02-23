@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import {
   FeatureEnvironment,
   FeatureInterface,
+  FeatureRule,
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
@@ -20,6 +21,7 @@ import {
   validateFeatureValue,
   useEnvironments,
   genDuplicatedKey,
+  generateVariationId,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
@@ -291,11 +293,13 @@ export default function FeatureModal({
                       value: otherVal,
                       weight: 0.5,
                       name: "",
+                      id: generateVariationId(),
                     },
                     {
                       value: defaultValue,
                       weight: 0.5,
                       name: "",
+                      id: generateVariationId(),
                     },
                   ]);
                 } else {
@@ -304,6 +308,7 @@ export default function FeatureModal({
                       `rule.values.${i}.value`,
                       i ? defaultValue : otherVal
                     );
+                    form.setValue(`rule.values.${i}.id`, generateVariationId());
                   }
                 }
               }
@@ -313,7 +318,7 @@ export default function FeatureModal({
           {initialRule && (
             <RuleSelect
               value={rule?.type || ""}
-              setValue={(value) => {
+              setValue={(value: FeatureRule["type"]) => {
                 let defaultValue = getDefaultValue(valueType);
 
                 if (!value) {
@@ -322,13 +327,20 @@ export default function FeatureModal({
                 } else {
                   defaultValue = getDefaultVariationValue(defaultValue);
                   form.setValue("defaultValue", defaultValue);
-                  form.setValue("rule", {
-                    ...getDefaultRuleValue({
-                      defaultValue: defaultValue,
-                      ruleType: value,
-                      attributeSchema,
-                    }),
+                  const defaultRuleValue = getDefaultRuleValue({
+                    defaultValue: defaultValue,
+                    ruleType: value,
+                    attributeSchema,
                   });
+                  if (defaultRuleValue.type === "experiment") {
+                    defaultRuleValue.values = defaultRuleValue.values.map(
+                      (v) => ({
+                        ...v,
+                        id: generateVariationId(),
+                      })
+                    );
+                  }
+                  form.setValue("rule", defaultRuleValue);
                 }
               }}
             />

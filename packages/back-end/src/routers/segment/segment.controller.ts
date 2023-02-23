@@ -5,7 +5,13 @@ import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { SegmentDocument, SegmentModel } from "../../models/SegmentModel";
+import {
+  createSegment,
+  deleteSegmentById,
+  findSegmentById,
+  findSegmentsByOrganization,
+  updateSegment,
+} from "../../models/SegmentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
@@ -13,13 +19,14 @@ import {
   getMetricsUsingSegment,
   updateMetricsByQuery,
 } from "../../models/MetricModel";
-import { getExperimentsUsingSegment } from "../../services/experiments";
 import {
-  ExperimentDocument,
-  ExperimentModel,
+  deleteExperimentSegment,
+  getExperimentsUsingSegment,
   logExperimentUpdated,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
+import { SegmentInterface } from "../../../types/segment";
+import { ExperimentInterface } from "../../../types/experiment";
 
 // region GET /segments
 
@@ -27,7 +34,7 @@ type GetSegmentsRequest = AuthRequest;
 
 type GetSegmentsResponse = {
   status: 200;
-  segments: SegmentDocument[];
+  segments: SegmentInterface[];
 };
 
 /**
@@ -41,9 +48,7 @@ export const getSegments = async (
   res: Response<GetSegmentsResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const segments = await SegmentModel.find({
-    organization: org.id,
-  });
+  const segments = await findSegmentsByOrganization(org.id);
   res.status(200).json({
     status: 200,
     segments,
@@ -63,7 +68,7 @@ type GetSegmentUsageRequest = AuthRequest<
 type GetSegmentUsageResponse = {
   ideas: IdeaDocument[];
   metrics: MetricInterface[];
-  experiments: ExperimentDocument[];
+  experiments: ExperimentInterface[];
   total: number;
   status: 200;
 };
@@ -81,10 +86,7 @@ export const getSegmentUsage = async (
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
-  const segment = await SegmentModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -126,7 +128,7 @@ type CreateSegmentRequest = AuthRequest<{
 
 type CreateSegmentResponse = {
   status: 200;
-  segment: SegmentDocument;
+  segment: SegmentInterface;
 };
 
 /**
@@ -150,7 +152,7 @@ export const postSegment = async (
     throw new Error("Invalid data source");
   }
 
-  const doc = await SegmentModel.create({
+  const doc = await createSegment({
     owner: userName,
     datasource,
     userIdType,
@@ -185,7 +187,6 @@ type PutSegmentRequest = AuthRequest<
 
 type PutSegmentResponse = {
   status: 200;
-  segment: SegmentDocument;
 };
 
 /**
@@ -201,11 +202,9 @@ export const putSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const segment = await SegmentModel.findOne({
-    id,
-  });
-
   const { org } = getOrgFromReq(req);
+
+  const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -221,18 +220,17 @@ export const putSegment = async (
     throw new Error("Invalid data source");
   }
 
-  segment.set("datasource", datasource);
-  segment.set("userIdType", userIdType);
-  segment.set("name", name);
-  segment.set("owner", owner);
-  segment.set("sql", sql);
-  segment.set("dateUpdated", new Date());
-
-  await segment.save();
+  await updateSegment(id, org.id, {
+    datasource,
+    userIdType,
+    name,
+    owner,
+    sql,
+    dateUpdated: new Date(),
+  });
 
   res.status(200).json({
     status: 200,
-    segment,
   });
 };
 
@@ -260,19 +258,13 @@ export const deleteSegment = async (
 
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
-  const segment = await SegmentModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
 
-  await SegmentModel.deleteOne({
-    id,
-    organization: org.id,
-  });
+  await deleteSegmentById(id, org.id);
 
   // delete references:
   // ideas:
@@ -302,12 +294,7 @@ export const deleteSegment = async (
 
   const exps = await getExperimentsUsingSegment(id, org.id);
   if (exps.length > 0) {
-    await ExperimentModel.updateMany(
-      { organization: org.id, segment: id },
-      {
-        $set: { segment: "" },
-      }
-    );
+    await deleteExperimentSegment(org.id, id);
 
     exps.forEach((previous) => {
       const current = cloneDeep(previous);

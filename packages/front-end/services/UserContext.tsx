@@ -103,6 +103,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  verified: boolean;
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
@@ -188,6 +189,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   if (!user && data) {
     user = {
       email: data.email,
+      verified: data.verified,
       id: data.userId,
       environments: [],
       limitAccessByEnvironment: false,
