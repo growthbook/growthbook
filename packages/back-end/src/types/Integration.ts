@@ -177,7 +177,7 @@ interface Table {
 }
 
 export interface FormattedInformationSchema {
-  table_catalog: string;
+  database_name: string;
   path?: string;
   tables: Table[];
 }

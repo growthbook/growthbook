@@ -497,19 +497,23 @@ export default abstract class SqlIntegration
   ): FormattedInformationSchema[] {
     const formattedResults: FormattedInformationSchema[] = [];
 
-    const pathSeparator = datasourceType === "postgres" ? "." : "/";
+    const isMySQL = datasourceType === "mysql";
 
     results.forEach((row) => {
       const key = row.table_catalog;
 
       if (
         !formattedResults.length ||
-        formattedResults.findIndex((i) => i.table_catalog === key) === -1
+        formattedResults.findIndex((i) => i.database_name === key) === -1
       ) {
-        formattedResults.push({ table_catalog: key, tables: [], path: key });
+        formattedResults.push({
+          database_name: key,
+          tables: [],
+          path: isMySQL ? "" : key,
+        });
       }
 
-      const index = formattedResults.findIndex((i) => i.table_catalog === key);
+      const index = formattedResults.findIndex((i) => i.database_name === key);
 
       if (
         !formattedResults[index].tables.some(
@@ -519,7 +523,7 @@ export default abstract class SqlIntegration
         formattedResults[index].tables.push({
           table_name: row.table_name,
           columns: [],
-          path: `${key}${pathSeparator}${row.table_name}`,
+          path: isMySQL ? row.table_name : `${key}.${row.table_name}`,
         });
       }
 
@@ -530,7 +534,9 @@ export default abstract class SqlIntegration
       formattedResults[index].tables[tableIndex].columns?.push({
         column_name: row.column_name,
         data_type: row.data_type,
-        path: `${key}${pathSeparator}${row.table_name}${pathSeparator}${row.column_name}`,
+        path: isMySQL
+          ? `${row.table_name}.${row.column_name}`
+          : `${key}.${row.table_name}.${row.column_name}`,
       });
     });
 
