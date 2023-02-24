@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.2.3",
+  "specVersion": "0.4.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -2182,6 +2182,33 @@
                 "force": 2,
                 "coverage": 0.01,
                 "range": [0, 0.99]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 2,
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Force rule, seed forces unbiased hash",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 2,
+                "seed": "feature",
+                "range": [0.96, 0.97]
               }
             ]
           }
