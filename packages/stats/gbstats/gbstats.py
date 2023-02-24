@@ -261,7 +261,7 @@ def format_results(df):
     return results
 
 
-def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Statistic:
+def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statistic:
     statistic_type = row["statistic_type"]
     if statistic_type == "ratio":
         return RatioStatistic(
@@ -288,7 +288,7 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
 
 
 def base_statistic_from_metric_row(
-    row: pd.DataFrame, prefix: str, component: str
+    row: pd.Series, prefix: str, component: str
 ) -> Statistic:
     metric_type = row[f"{component}_metric_type"]
     if metric_type == "binomial":
