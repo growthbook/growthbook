@@ -7,7 +7,6 @@ import type {
   FeatureDefinition,
   FeatureResultSource,
   Attributes,
-  JSONValue,
   WidenPrimitives,
   RealtimeUsageData,
   LoadFeaturesOptions,
