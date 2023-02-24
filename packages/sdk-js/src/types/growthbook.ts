@@ -13,7 +13,6 @@ export type VariationMeta = {
   passthrough?: boolean;
   key?: string;
   name?: string;
-  disabled?: boolean;
 };
 
 export type FeatureRule<T = any> = {

@@ -25,9 +25,6 @@ export function getEqualWeights(n: number): number[] {
   return new Array(n).fill(1 / n);
 }
 
-export function inRanges(n: number, ranges: VariationRange[]): boolean {
-  return ranges.some((r) => inRange(n, r));
-}
 export function inRange(n: number, range: VariationRange): boolean {
   return n >= range[0] && n < range[1];
 }
@@ -61,9 +58,11 @@ export function getUrlRegExp(regexString: string): RegExp | undefined {
 
 export function getBucketRanges(
   numVariations: number,
-  coverage: number = 1,
+  coverage: number | undefined,
   weights?: number[]
 ): VariationRange[] {
+  coverage = coverage === undefined ? 1 : coverage;
+
   // Make sure coverage is within bounds
   if (coverage < 0) {
     if (process.env.NODE_ENV !== "production") {
@@ -103,7 +102,7 @@ export function getBucketRanges(
   return weights.map((w) => {
     const start = cumulative;
     cumulative += w;
-    return [start, start + coverage * w];
+    return [start, start + (coverage as number) * w];
   }) as VariationRange[];
 }
 

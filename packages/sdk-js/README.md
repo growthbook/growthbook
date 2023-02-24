@@ -53,10 +53,24 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be available
-await gb.loadFeatures();
+await gb.loadFeatures({ autoRefresh: true });
 ```
 
-#### Node.js Configuration
+### Step 2: Start Feature Flagging!
+
+There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+
+```js
+// Simple boolean (on/off) feature flag
+if (gb.isOn("my-feature")) {
+  console.log("Feature enabled!");
+}
+
+// Get the value of a string/JSON/number feature with a fallback
+const color = gb.getFeatureValue("button-color", "blue");
+```
+
+## Node.js
 
 If using this SDK in a server-side environment, you may need to configure some polyfills for missing browser APIs.
 
@@ -79,18 +93,39 @@ setPolyfills({
 });
 ```
 
-### Step 2: Start Feature Flagging!
-
-There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+Create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
 
 ```js
-// Simple boolean (on/off) feature flag
-if (gb.isOn("my-feature")) {
-  console.log("Feature enabled!");
-}
+// Example using Express
+app.use(function (req, res, next) {
+  // Create a GrowthBook instance and store in the request
+  req.growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+  });
 
-// Get the value of a string/JSON/number feature with a fallback
-const color = gb.getFeatureValue("button-color", "blue");
+  // Clean up at the end of the request
+  res.on("close", () => req.growthbook.destroy());
+
+  // Wait for features to load (will be cached in-memory for future requests)
+  req.growthbook
+    .loadFeatures()
+    .then(() => next())
+    .catch((e) => {
+      console.error("Failed to load features from GrowthBook", e);
+      next();
+    });
+});
+```
+
+Then, you can access the GrowthBook instance from any route:
+
+```js
+app.get("/", (req, res) => {
+  const gb = req.growthbook;
+  // ...
+});
 ```
 
 ## Loading Features
@@ -320,70 +355,178 @@ console.log(result.experimentResult);
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
 
 ```js
-// These are the only 3 required options
+// These are the only 2 required options
 const { value } = gb.run({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
-  // How to split traffic between the variations
-  // This is a simple 50/50 split on 100% of traffic
+});
+```
+
+#### Customizing the Traffic Split
+
+By default, this will include all traffic and do an even split between all variations. There are 2 ways to customize this behavior:
+
+```js
+// Option 1: Using weights and coverage
+gb.run({
+  key: "my-experiment",
+  variations: ["red", "blue", "green"],
+  // Only include 10% of traffic
+  coverage: 0.1,
+  // Split the included traffic 50/25/25 instead of the default 33/33/33
+  weights: [0.5, 0.25, 0.25],
+});
+
+// Option 2: Specifying ranges
+gb.run({
+  key: "my-experiment",
+  variations: ["red", "blue", "green"],
+  // Identical to the above
+  // 5% of traffic in A, 2.5% each in B and C
   ranges: [
-    [0, 0.5],
-    [0.5, 1.0],
+    [0, 0.05],
+    [0.5, 0.525],
+    [0.75, 0.775],
   ],
 });
 ```
 
-There are many other options available for inline experiments. Here's an example that uses all of them:
+#### Hashing
+
+We use deterministic hashing to assign a variation to a user. We hash together the user's id and experiment key, which produces a number between `0` and `1`. Each variation is assigned a range of numbers, and whichever one the user's hash value falls into will be assigned.
+
+You can customize this hashing behavior:
 
 ```js
 gb.run({
-  // Key, name, and phase are passed to the trackingCallback
   key: "my-experiment",
-  name: "My Experiment Name",
-  phase: "full-traffic",
+  variations: ["A", "B"],
 
-  // Variation values (any data type)
+  // Use a different seed instead of the experiment key
+  seed: "abcdef123456",
+
+  // Use a different user attribute (default is `id`)
+  hashAttribute: "device_id",
+});
+```
+
+**Note**: The original hashing algorithm used in this SDK had a tendency to introduce bias. By specifying `seed`, you are opting into the new and improved hashing algorithm. We strongly recommend
+always specifying this property for your inline experiments.
+
+#### Meta Info
+
+You can also define meta info for the experiment and/or variations. These do not affect the behavior, but they are passed through to the `trackingCallback`, so they can be used to annotate events.
+
+```js
+gb.run({
+  key: "results-per-page",
   variations: [10, 20],
 
-  // Variation ranges (this is a 10/10 split)
-  ranges: [
-    [0, 0.1],
-    [0.5, 0.6],
-  ],
+  // Experiment meta info
+  name: "Results per Page",
+  phase: "full-traffic"
 
-  // Variation meta info (passed to the trackingCallback)
+  // Variation meta info
   meta: [
     {
       key: "control",
-      name: "Control Variation (10)",
+      name: "10 Results per Page",
     },
     {
       key: "variation",
-      name: "1st Variant (20)",
+      name: "20 Results per Page",
+    },
+  ]
+})
+```
+
+#### Mutual Exclusion
+
+Sometimes you want to run multiple conflicting experiments at the same time. You can use the `filters` setting to run mutually exclusive experiments.
+
+We do this using deterministic hashing to assign users a value between 0 and 1 for each filter.
+
+```js
+// Will include 60% of users - ones with a hash between 0 and 0.6
+gb.run({
+  key: "experiment-1",
+  variation: [0, 1],
+  filters: [
+    {
+      seed: "pricing",
+      attribute: "id",
+      ranges: [[0, 0.6]],
     },
   ],
+});
 
-  // Only include users who pass this condition (using a MongoDB-style query syntax)
+// Will include the other 40% of users - ones with a hash between 0.6 and 1
+gb.run({
+  key: "experiment-2",
+  variation: [0, 1],
+  filters: [
+    {
+      seed: "pricing",
+      attribute: "id",
+      ranges: [[0.6, 1.0]],
+    },
+  ],
+});
+```
+
+**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
+
+#### Holdout Groups
+
+To use global holdout groups, use a nested experiment design:
+
+```js
+// The value will be `true` if in the holdout group, otherwise `false`
+const holdout = gb.run({
+  key: "holdout",
+  variations: [true, false],
+  // 10% of users in the holdout group
+  weights: [0.1, 0.9],
+});
+
+// Only run your main experiment if the user is NOT in the holdout
+if (!holdout.value) {
+  const res = gb.run({
+    key: "my-experiment",
+    variations: ["A", "B"],
+  });
+}
+```
+
+#### Targeting Conditions
+
+You can also define targeting conditions that limit which users are included in the experiment. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
+
+For example, if the attributes are:
+
+```json
+{
+  "id": "123",
+  "browser": {
+    "vendor": "firefox",
+    "version": 94
+  },
+  "country": "CA"
+}
+```
+
+The following condition would evaluate to `true` and the user would be included in the experiment:
+
+```js
+gb.run({
+  key: "my-experiment",
+  variation: [0, 1],
   condition: {
+    "browser.vendor": "firefox",
     country: {
-      $in: ["US", "CA"],
+      $in: ["US", "CA", "IN"],
     },
   },
-
-  // Which seed and attribute to use to assign a variation to the user
-  seed: "my-experiment-abcdef123",
-  hashAttribute: "id",
-
-  // Filters can be used for mutual exclusion
-  filters: [
-    // If another experiment uses the same attribute/seed, but a non-overlapping range
-    // It will be mutually exclusive with this one
-    {
-      attribute: "id",
-      seed: "my-exclusion-group",
-      ranges: [[0, 0.5]],
-    },
-  ],
 });
 ```
 
@@ -579,31 +722,34 @@ Experiment rules let you adjust the percent of users who get randomly assigned t
 }
 ```
 
-##### Variation Ranges
+##### Customizing the Traffic Split
 
-You can use use the `ranges` setting to control how users are assigned to the variations.
-
-A user is assigned a number from 0 to 1 and whichever variation's range includes their number will be assigned to them.
+By default, an experiment rule will include all traffic and do an even split between all variations. There are 2 ways to customize this behavior:
 
 ```js
+// Option 1: Using weights and coverage
 {
-  "results-per-page": {
-    rules: [
-      {
-        variations: ["sm", "md", "lg"],
-        // 50% of users will get "sm" (index 0)
-        // 30% will get "md" (index 1)
-        // 20% will get "lg" (index 2)
-        ranges: [
-          [0, 0.5],
-          [0.5, 0.75],
-          [0.75, 1.0]
-        ]
-      }
-    ]
-  }
+  variations: ["red", "blue", "green"],
+  // Only include 10% of traffic
+  coverage: 0.1,
+  // Split the included traffic 50/25/25 instead of the default 33/33/33
+  weights: [0.5, 0.25, 0.25]
+}
+
+// Option 2: Specifying ranges
+{
+  variations: ["red", "blue", "green"],
+  // Identical to the above
+  // 5% of traffic in A, 2.5% each in B and C
+  ranges: [
+    [0, 0.05],
+    [0.5, 0.525],
+    [0.75, 0.775]
+  ]
 }
 ```
+
+A user is assigned a number from 0 to 1 and whichever variation's range includes their number will be assigned to them.
 
 ##### Variation Meta Info
 
@@ -611,7 +757,7 @@ You can use the `meta` setting to provide additional info about the variations s
 
 ```js
 {
-  "results-per-page": {
+  "image-size": {
     rules: [
       {
         variations: ["sm", "md", "lg"],

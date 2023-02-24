@@ -2292,6 +2292,7 @@
               {
                 "key": "holdout",
                 "variations": [1, 2],
+                "seed": "holdout",
                 "ranges": [
                   [0, 0.01],
                   [0.01, 1.0]
@@ -2306,6 +2307,7 @@
               {
                 "key": "experiment",
                 "variations": [3, 4],
+                "seed": "experiment",
                 "ranges": [
                   [0, 0.5],
                   [0.5, 1.0]
@@ -2323,6 +2325,7 @@
         "source": "experiment",
         "experiment": {
           "key": "experiment",
+          "seed": "experiment",
           "variations": [3, 4],
           "ranges": [
             [0, 0.5],
@@ -2354,6 +2357,7 @@
             "rules": [
               {
                 "key": "holdout",
+                "seed": "holdout",
                 "variations": [1, 2],
                 "ranges": [
                   [0, 0.99],
@@ -2368,6 +2372,7 @@
               },
               {
                 "key": "experiment",
+                "seed": "experiment",
                 "variations": [3, 4],
                 "ranges": [
                   [0, 0.5],
@@ -2385,6 +2390,7 @@
         "off": false,
         "source": "experiment",
         "experiment": {
+          "seed": "holdout",
           "ranges": [
             [0, 0.99],
             [0.99, 1.0]
@@ -3199,6 +3205,40 @@
           [0, 0.5],
           [0.5, 1.0]
         ]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Uses seed with default weights/coverage",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "key",
+        "seed": "foo",
+        "variations": [0, 1]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Uses seed with weights/coverage",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "key",
+        "seed": "foo",
+        "variations": [0, 1],
+        "weights": [0.5, 0.5],
+        "coverage": [0.99]
       },
       1,
       true,

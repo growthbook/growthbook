@@ -27,7 +27,6 @@ import {
   chooseVariation,
   getQueryStringOverride,
   inNamespace,
-  inRanges,
   unbiasedHash,
   inRange,
 } from "./util";
@@ -360,10 +359,8 @@ export class GrowthBook {
     key: string,
     defaultValue: T
   ): WidenPrimitives<T> {
-    return (
-      this.evalFeature<WidenPrimitives<T>>(key).value ??
-      (defaultValue as WidenPrimitives<T>)
-    );
+    const value = this.evalFeature<WidenPrimitives<T>>(key).value;
+    return value === null ? (defaultValue as WidenPrimitives<T>) : value;
   }
 
   // eslint-disable-next-line
@@ -502,13 +499,13 @@ export class GrowthBook {
     process.env.NODE_ENV !== "production" &&
       this.log("Use default value", {
         id,
-        value: feature.defaultValue ?? null,
+        value: feature.defaultValue,
       });
 
     // Fall back to using the default value
     return this._getFeatureResult(
       id,
-      feature.defaultValue ?? null,
+      feature.defaultValue === undefined ? null : feature.defaultValue,
       "defaultValue"
     );
   }
@@ -527,16 +524,15 @@ export class GrowthBook {
       return false;
     }
 
-    // Range is the new way to specify rollout coverage
-    if (range) {
-      const n = unbiasedHash(seed || featureKey, hashValue);
-      return inRange(n, range);
-    } else if (coverage !== undefined) {
-      const n = hash(hashValue + featureKey);
-      return n <= coverage;
-    }
+    const n = seed
+      ? unbiasedHash(seed, hashValue)
+      : hash(hashValue + featureKey);
 
-    return true;
+    return range
+      ? inRange(n, range)
+      : coverage !== undefined
+      ? n <= coverage
+      : true;
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
@@ -548,7 +544,7 @@ export class GrowthBook {
       const { hashValue } = this._getHashAttribute(filter.attribute);
       if (!hashValue) return true;
       const n = unbiasedHash(filter.seed, hashValue);
-      return !inRanges(n, filter.ranges);
+      return !filter.ranges.some((r) => inRange(n, r));
     });
   }
 
@@ -681,15 +677,18 @@ export class GrowthBook {
     }
 
     // 9. Get bucket ranges and choose variation
-    const [n, assigned] = this._assignVariation(
-      key,
-      experiment.seed,
-      hashValue,
-      numVariations,
-      experiment.coverage,
-      experiment.weights,
-      experiment.ranges
-    );
+    const n = experiment.seed
+      ? unbiasedHash(experiment.seed, hashValue)
+      : hash(hashValue + key); // Old hashing algo for backwards compatibility
+    const ranges =
+      experiment.ranges ||
+      getBucketRanges(
+        numVariations,
+        experiment.coverage === undefined ? 1 : experiment.coverage,
+        experiment.weights
+      );
+
+    const assigned = chooseVariation(n, ranges);
 
     // 10. Return if not in experiment
     if (assigned < 0) {
@@ -709,7 +708,7 @@ export class GrowthBook {
         });
       return this._getResult(
         experiment,
-        experiment.force ?? -1,
+        experiment.force === undefined ? -1 : experiment.force,
         false,
         featureId
       );
@@ -746,26 +745,6 @@ export class GrowthBook {
         variation: result.variationId,
       });
     return result;
-  }
-
-  private _assignVariation(
-    key: string,
-    seed: string | undefined,
-    hashValue: string,
-    numVariations: number,
-    coverage?: number,
-    weights?: number[],
-    ranges?: VariationRange[]
-  ) {
-    // If ranges are specified, use the new better hashing algorithm
-    // This is to keep backwards compatibility
-    const n = ranges
-      ? unbiasedHash(seed || key, hashValue)
-      : hash(hashValue + key);
-
-    ranges = ranges || getBucketRanges(numVariations, coverage ?? 1, weights);
-
-    return [n, chooseVariation(n, ranges)];
   }
 
   log(msg: string, ctx: Record<string, unknown>) {
@@ -844,12 +823,6 @@ export class GrowthBook {
     const meta: Partial<VariationMeta> = experiment.meta
       ? experiment.meta[variationIndex]
       : {};
-
-    // If the variation is disabled, use the baseline and mark the user as not in the experiment
-    if (meta.disabled) {
-      variationIndex = 0;
-      inExperiment = false;
-    }
 
     const res: Result<T> = {
       key: meta.key || "" + variationIndex,
