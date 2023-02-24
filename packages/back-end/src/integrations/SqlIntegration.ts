@@ -412,23 +412,36 @@ export default abstract class SqlIntegration
           )`
             : ""
         }
-      SELECT
-        ${params.includeByDate ? "null as date," : ""}
-        o.*
-      FROM
-        __overall o
       ${
         params.includeByDate
           ? `
-        UNION ALL SELECT
-          o.*
+        , __union as (
+          SELECT 
+            null as date,
+            o.*
+          FROM
+            __overall o
+          UNION ALL
+          SELECT
+            d.*
+          FROM
+            __byDateOverall d
+        )
+        SELECT
+          *
         FROM
-          __byDateOverall o
+          __union
         ORDER BY
           date ASC
       `
-          : ""
+          : `
+        SELECT
+          o.*
+        FROM
+          __overall o
+      `
       }
+      
       `,
       this.getFormatDialect()
     );
