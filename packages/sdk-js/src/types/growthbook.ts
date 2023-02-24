@@ -20,12 +20,10 @@ export type FeatureRule<T = any> = {
   condition?: ConditionInterface;
   force?: T;
   variations?: T[];
-  /** @deprecated */
   weights?: number[];
   key?: string;
   hashAttribute?: string;
   range?: VariationRange;
-  /** @deprecated */
   coverage?: number;
   /** @deprecated */
   namespace?: [string, number, number];
@@ -76,10 +74,8 @@ export type Experiment<T> = {
   name?: string;
   phase?: string;
 
-  /** @deprecated */
   weights?: number[];
   condition?: ConditionInterface;
-  /** @deprecated */
   coverage?: number;
   include?: () => boolean;
   /** @deprecated */
