@@ -6,6 +6,8 @@ slug: js
 toc_max_heading_level: 5
 ---
 
+import ExternalLink from '@site/src/components/ExternalLink'
+
 # Javascript
 
 Supports both browser and NodeJS environments.
@@ -211,7 +213,6 @@ You can use TypeScript to varying degrees of strictness based on your preference
 - Basic support with type inference
 - More strict support with strongly-typed feature definitions
 
-
 ### Type Inference
 
 When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
@@ -306,14 +307,16 @@ When using strongly typed feature definitions when creating your `GrowthBook` in
 - `getFeatureValue(key, defaultValue)` will find the reference for the provided key in the `AppFeatures` passed into the generic parameter when constructing your `GrowthBook` instance. This means if you try to pass in a string value into `defaultValue` when the known type should be a boolean, you will get a type error.
 
 ![Screenshot of TypeScript support in an IDE that shows hints offering suggested keys for valid types for the method getFeatureValue](../../static/images/lib-js-typescript-01.png)
-*Screenshot of TypeScript support in an IDE that shows hints offering suggested keys for valid types for the method `getFeatureValue(key, defaultValue)`.*
+_Screenshot of TypeScript support in an IDE that shows hints offering suggested keys for valid types for the method `getFeatureValue(key, defaultValue)`._
 
 ![Screenshot of TypeScript support in an IDE that shows an error when trying to use an unknown key in the method evalFeature](../../static/images/lib-js-typescript-02.png)
-*Screenshot of TypeScript support in an IDE that shows an error when trying to use an unknown key in the method `evalFeature(key)`.*
+_Screenshot of TypeScript support in an IDE that shows an error when trying to use an unknown key in the method `evalFeature(key)`._
 
 #### Generating strictly-typed feature definitions with the CLI
 
 To generate strictly-typed feature definitions for your project with the CLI, please see the [documentation for the Command Line Interface](/tools/cli).
+
+You can see an example project that implements the GrowthBook CLI to generate type definition and uses those generated type definitions [here <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
 
 ## GrowthBook Instance (reference)
 
