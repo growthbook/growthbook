@@ -464,8 +464,7 @@ import { useExperiment } from "@growthbook/growthbook-react";
 export default function OtherComponent() {
   const { value } = useExperiment({
     key: "new-headline",
-    variations: ["Hello", "Hi", "Good Day"],
-    ranges: [[0, 0.5], [0.5, 1.0]]
+    variations: ["Hello", "Hi", "Good Day"]
   });
 
   return <h1>{value}</h1>;
@@ -484,8 +483,7 @@ class OtherComponent extends React.Component {
     // The `runExperiment` prop is identical to the `useExperiment` hook
     const { value } = this.props.runExperiment({
       key: "headline-test",
-      variations: ["Hello World", "Hola Mundo"],
-      ranges: [[0, 0.5], [0.5, 1.0]]
+      variations: ["Hello World", "Hola Mundo"]
     });
     return <h1>{value}</h1>;
   }

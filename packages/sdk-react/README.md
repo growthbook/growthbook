@@ -469,10 +469,6 @@ export default function OtherComponent() {
   const { value } = useExperiment({
     key: "new-headline",
     variations: ["Hello", "Hi", "Good Day"],
-    ranges: [
-      [0, 0.5],
-      [0.5, 1.0],
-    ],
   });
 
   return <h1>{value}</h1>;
@@ -492,10 +488,6 @@ class OtherComponent extends React.Component {
     const { value } = this.props.runExperiment({
       key: "headline-test",
       variations: ["Hello World", "Hola Mundo"],
-      ranges: [
-        [0, 0.5],
-        [0.5, 1.0],
-      ],
     });
     return <h1>{value}</h1>;
   }
