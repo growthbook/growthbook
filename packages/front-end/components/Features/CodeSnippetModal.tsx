@@ -9,7 +9,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { getApiHost, isCloud } from "@/services/env";
+import { getApiHost, getCdnHost, isCloud } from "@/services/env";
 import Modal from "../Modal";
 import { DocLink } from "../DocLink";
 import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -23,7 +23,7 @@ import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/Multi
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
-function trimTrailingSlash(str) {
+function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
 }
 
@@ -34,11 +34,12 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     );
   }
 
+  //TODO: We should be able to remove this if we add an env variable to our cloud instance
   if (isCloud()) {
     return `https://cdn.growthbook.io`;
   }
 
-  return trimTrailingSlash(getApiHost());
+  return trimTrailingSlash(getCdnHost() || getApiHost());
 }
 
 export default function CodeSnippetModal({

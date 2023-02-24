@@ -44,7 +44,7 @@ import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
+import { findSegmentById } from "../models/SegmentModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
@@ -172,12 +172,8 @@ export async function refreshMetric(
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment =
-        (await SegmentModel.findOne({
-          id: metric.segment,
-          datasource: metric.datasource,
-        })) || undefined;
-      if (!segment) {
+      segment = (await findSegmentById(metric.segment, orgId)) || undefined;
+      if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
     }
@@ -288,7 +284,11 @@ export async function getManualSnapshotData(
             statistic_type: "mean", // ratio not supported for now
             main_metric_type: metric.type,
             main_sum: s.mean * s.count,
-            main_sum_squares: sumSquaresFromStats(s.mean * s.count, Math.pow(s.stddev, 2), s.count),
+            main_sum_squares: sumSquaresFromStats(
+              s.mean * s.count,
+              Math.pow(s.stddev, 2),
+              s.count
+            ),
           };
         });
 
