@@ -1,3 +1,4 @@
+import { FormattedInformationSchema } from "../src/types/Integration";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -129,26 +130,11 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
-type Column = {
-  column_name: string;
-  data_type: string;
-};
-
-type Table = {
-  table_name: string;
-  columns: Column[];
-};
-
-type InformationSchema = {
-  table_catalog: string;
-  tables: Table[];
-};
-
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
-  informationSchema?: InformationSchema[];
+  informationSchema?: FormattedInformationSchema[];
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];

@@ -494,7 +494,7 @@ export default abstract class SqlIntegration
   formatInformationSchema(
     results: RawInformationSchema[],
     datasourceType: string
-  ) {
+  ): FormattedInformationSchema[] {
     const formattedResults: FormattedInformationSchema[] = [];
 
     const pathSeparator = datasourceType === "postgres" ? "." : "/";
