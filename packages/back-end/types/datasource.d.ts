@@ -145,7 +145,6 @@ export type DataSourceSettings = {
     identityJoins?: IdentityJoinQuery[];
     // @deprecated
     pageviewsQuery?: string;
-    schemaGenerator?: string;
   };
   events?: DataSourceEvents;
   default?: {
