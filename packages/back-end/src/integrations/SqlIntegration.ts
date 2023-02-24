@@ -17,7 +17,7 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
-  FormattedInformationSchema,
+  InformationSchema,
   RawInformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
@@ -494,8 +494,8 @@ export default abstract class SqlIntegration
   formatInformationSchema(
     results: RawInformationSchema[],
     datasourceType: string
-  ): FormattedInformationSchema[] {
-    const formattedResults: FormattedInformationSchema[] = [];
+  ): InformationSchema[] {
+    const formattedResults: InformationSchema[] = [];
 
     const isMySQL = datasourceType === "mysql";
 

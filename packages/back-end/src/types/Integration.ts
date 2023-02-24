@@ -176,7 +176,7 @@ interface Table {
   columns: Column[];
 }
 
-export interface FormattedInformationSchema {
+export interface InformationSchema {
   database_name: string;
   path?: string;
   tables: Table[];
@@ -210,7 +210,7 @@ export interface SourceIntegrationInterface {
   formatInformationSchema?(
     results: unknown[],
     datasourceType: string
-  ): FormattedInformationSchema[];
+  ): InformationSchema[];
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

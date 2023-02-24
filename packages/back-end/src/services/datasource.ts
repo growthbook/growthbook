@@ -8,7 +8,7 @@ import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
 import {
-  FormattedInformationSchema,
+  InformationSchema,
   SourceIntegrationInterface,
   TestQueryRow,
 } from "../types/Integration";
@@ -109,7 +109,7 @@ export async function generateInformationSchema(
   datasource: DataSourceInterface
 ): Promise<
   | {
-      informationSchema: FormattedInformationSchema[];
+      informationSchema: InformationSchema[];
       error?: undefined;
     }
   | { error: string; informationSchema?: undefined }
