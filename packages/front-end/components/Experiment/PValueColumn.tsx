@@ -61,9 +61,7 @@ const PValueColumn: FC<{
   });
 
   const expected: number = stats.expected ?? 0;
-  const expectedDirection = metric.inverse
-    ? expected < 0
-    : expected > 0;
+  const expectedDirection = metric.inverse ? expected < 0 : expected > 0;
   const pValue: number = stats.pValue ?? 1;
   const statSig = pValue < pValueThreshold;
 
