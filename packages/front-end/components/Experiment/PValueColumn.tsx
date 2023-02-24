@@ -59,10 +59,13 @@ const PValueColumn: FC<{
     suspiciousChange,
     belowMinChange,
   });
+
+  const expected: number = stats.expected ?? 0;
   const expectedDirection = metric.inverse
-    ? stats.expected < 0
-    : stats.expected > 0;
-  const statSig = stats.pValue < pValueThreshold;
+    ? expected < 0
+    : expected > 0;
+  const pValue: number = stats.pValue ?? 1;
+  const statSig = pValue < pValueThreshold;
 
   let sigText: string | JSX.Element = "";
   let className = "";
