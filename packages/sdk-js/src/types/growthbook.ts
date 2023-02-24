@@ -23,6 +23,7 @@ export type FeatureRule<T = any> = {
   weights?: number[];
   key?: string;
   hashAttribute?: string;
+  hashVersion?: number;
   range?: VariationRange;
   coverage?: number;
   /** @deprecated */
@@ -82,6 +83,7 @@ export type Experiment<T> = {
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
+  hashVersion?: number;
   active?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
@@ -229,6 +231,8 @@ export interface Filter {
   attribute?: string;
   // The hash seed
   seed: string;
+  // The hashing version to use
+  hashVersion: number;
   // Only include these resulting ranges
   ranges: VariationRange[];
 }

@@ -91,14 +91,15 @@ Defines a single **Experiment**. Has a number of properties:
 
 - **key** (`string`) - The globally unique identifier for the experiment
 - **variations** (`any[]`) - The different variations to choose between
-- **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
 - **active** (`boolean`) - If set to false, always return the control (first variation)
-- **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **ranges** (`BucketRange[]`) - Array of ranges, one per variation
 - **condition** (`Condition`) - Optional targeting condition
 - **namespace** (`Namespace`) - Adds the experiment to a namespace
-- **force** (`number`) - All users included in the experiment will be forced into the specific variation index
+- **force** (`integer`) - All users included in the experiment will be forced into the specific variation index
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **hashVersion** (`integer`) - The hash version to use (default to `1`)
 - **meta** (`VariationMeta[]`) - Meta info about the variations
 - **filters** (`Filter[]`) - Array of filters to apply
 - **seed** (`string`) - The hash seed to use
@@ -172,13 +173,14 @@ The result of evaluating a **Feature**. Has a number of properties:
 Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
 - **condition** (`Condition`) - Optional targeting condition
-- **coverage** (`number`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **force** (`any`) - Immediately force a specific value (ignore every other option besides condition and coverage)
 - **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
 - **key** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
-- **weights** (`number[]`) - How to weight traffic between variations. Must add to 1.
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
 - **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **hashVersion** (`integer`) - The hash version to use (default to `1`)
 - **range** (`BucketRange`) - A more precise version of `coverage`
 - **ranges** (`BucketRange[]`) - Ranges for experiment variations
 - **meta** (`VariationMeta[]`) - Meta info about the experiment variations
@@ -194,6 +196,7 @@ Object used for mutual exclusion and filtering users out of experiments based on
 
 - **seed** (`string`) - The seed used in the hash
 - **ranges** (`BucketRange[]`) - Array of ranges that are included
+- **hashVersion** (`integer`) - The hash version to use (default to `2`)
 - **attribute** (`string`, optional) - The attribute to use (default to `"id"`)
 
 ### ForcedVariationsMap
@@ -257,29 +260,30 @@ Meta info about an experiment variation. Has the following properties:
 
 There are some helper functions which are used a few times throughout the SDK.
 
-### hash(str: string): float
+### hash(seed: string, value: string, version: integer): float
 
 Hashes a string to a float between 0 and 1.
 
-Uses the simple [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm, specifically fnv32a. An implementation of this is available in most languages already, and if not it's only a few lines of code to implement yourself.
+Uses the simple [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm, specifically fnv32a. An implementation of this is available in most languages already, and if not it's only a few lines of code to implement yourself. Fnv32a returns an integer, so we convert that to a float using a modulus.
 
-fnv32a returns an integer, so we convert that to a float using a modulus:
-
-```ts
-n = fnv32a(str);
-return (n % 1000) / 1000;
-```
-
-**Note**: It's important to use the exact hashing strategy outlined here so all SDKs behave identically.
-
-### unbiasedHash(seed: string, value: string): float
-
-New hashing algorithm that fixes bias issues with the original `hash` function. Still uses the same FNV function under the hood.
+The original hash version (1) had a flaw that caused bias when running experiments in parallel.
 
 ```ts
-n = fnv32a(fnv32a(seed + value) + "");
-return (n % 10000) / 10000;
+// New hashing algorithm
+if (version === 2) {
+  n = fnv32a(fnv32a(seed + value) + "");
+  return (n % 10000) / 10000;
+}
+// Original hashing algorithm (with a bias flaw)
+else if (version === 1) {
+  n = fnv32a(value + seed);
+  return (n % 1000) / 1000;
+}
+
+return -1;
 ```
+
+**Note**: It's important to use the exact hashing algorithms outlined here so all SDKs behave identically.
 
 ### inRange(n: float, range: BucketRange): boolean
 
@@ -297,7 +301,7 @@ The `namespace` argument is a tuple with 3 parts: id (string), start (float), an
 
 1. Hash the userId and namespace name with two underscores as a delimiter
    ```ts
-   n = hash(userId + "__" + namespace[0]);
+   n = hash("__" + namespace[0], userId, 1);
    ```
 2. Return if hash is greater than (inclusive) the namespace start and less than (exclusive) the namespace end:
    ```ts
@@ -600,29 +604,25 @@ This is a helper method to evaluate `filters` for both feature flags and experim
    2. If hashValue is empty, return `true`
    3. Determine the bucket for the user
       ```ts
-      n = unbiasedHash(filter.seed, hashValue);
+      n = hash(filter.seed, hashValue, filter.hashVersion || 2);
       ```
    4. If `inRange(n, range)` is false for every range in `filter.ranges`, return `true`
 2. If you made it through the entire array without returning early, return `false` now
 
-### private isIncludedInRollout(featureKey: string, hashAttribute: string | null, range: BucketRange | null, seed: string | null, coverage: float | null): boolean
+### private isIncludedInRollout(seed: string, hashAttribute: string | null, range: BucketRange | null, coverage: float | null, hashVersion: integer | null): boolean
 
 Determines if the user is part of a gradual feature rollout.
 
 1. Either `coverage` or `range` are required. If both are `null`, return `true` immediately
 2. Get the hashAttribute and hashValue
-
-```ts
-hashAttribute = hashAttribute || "id";
-hashValue = context.attributes[hashAttribute] || "";
-```
-
+   ```ts
+   hashAttribute = hashAttribute || "id";
+   hashValue = context.attributes[hashAttribute] || "";
+   ```
 3. If `hashValue` is empty, return `false` immediately
 4. Determine the bucket for the user
    ```ts
-   n = seed
-     ? unbiasedHash(seed, hashValue)
-     : has(hashValue + featureKey)
+   n = hash(seed, hashValue, hashVersion || 1)
    ```
 5. Check if user is included
 
@@ -710,14 +710,14 @@ There are a few ordered steps to evaluate a feature
    2. If the rule has `filters` defined
       1. if `isFilteredOut(rule.filters)`, skip this rule and continue to the next one
    3. If `rule.force` is set
-      1. If not `includedInRollout`, skip this rule and continue to the next one
+      1. If not `isIncludedInRollout`, skip this rule and continue to the next one
          ```ts
-         if (!includedInRollout(
-           featureKey,
+         if (!isIncludedInRollout(
+           rule.seed || featureKey,
            rule.hashAttribute,
            rule.range,
-           rule.seed,
-           rule.coverage
+           rule.coverage,
+           rule.hashVersion
          )) {
           continue;
          }
@@ -812,9 +812,11 @@ There are a bunch of ordered steps to run an experiment:
       experiment.converage ?? 1,
       experiment.weights ?? []
     );
-    n = experiment.seed
-      ? unbiasedHash(experiment.seed, hashValue)
-      : hash(hashValue + experiment.key);
+    n = hash(
+      experiment.seed || experiment.key,
+      hashValue,
+      experiment.hashVersion || 1
+    );
     assigned = chooseVariation(n, ranges);
     ```
 10. If assigned == `-1`, return `getExperimentResult(experiment)`
@@ -963,11 +965,9 @@ There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/t
 The cases.json file is an object. The keys are the function being tested, and the values are arrays of test cases. The test case arrays structure is different for each function and listed below:
 
 - **hash**
-  - value to hash (string)
-  - expected result (float)
-- **unbiasedHash**
   - seed (string)
-  - value (string)
+  - value to hash (string)
+  - hash version to use (integer)
   - expected result (float)
 - **getBucketRange**
   - Name of the test case (string)
@@ -1037,8 +1037,9 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Built-in fetching and caching
   - Server Sent Events (SSE) support for realtime feature updates
 - **v0.4.0** 2023-02-24
-  - New `unbiasedHash`, `inRange`, `isIncludedInRollout`, and `isFilteredOut` helper methods
-  - New `range`, `ranges`, `meta`, `filters`, `seed`, `name`, `tracks`, and `phase` properties of FeatureRules
-  - New `ranges`, `meta`, `filters`, `seed`, `name`, and `phase` properties of Experiments
+  - Changed signature of `hash` method and added multiple hashing versions
+  - New `inRange`, `isIncludedInRollout`, and `isFilteredOut` helper methods
+  - New `hashVersion`, `range`, `ranges`, `meta`, `filters`, `seed`, `name`, `tracks`, and `phase` properties of FeatureRules
+  - New `hashVersion`, `ranges`, `meta`, `filters`, `seed`, `name`, and `phase` properties of Experiments
   - New `key`, `name`, `bucket`, and `passthrough` fields in Experiment Results
   - New `Filter`, `VariationMeta`, and `TrackData` data structures

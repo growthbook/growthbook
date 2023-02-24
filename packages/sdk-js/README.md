@@ -355,7 +355,7 @@ console.log(result.experimentResult);
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
 
 ```js
-// These are the only 2 required options
+// These are the only required options
 const { value } = gb.run({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
@@ -402,6 +402,10 @@ gb.run({
   key: "my-experiment",
   variations: ["A", "B"],
 
+  // Which hashing algorithm to use
+  // Version 2 is the latest and the one we recommend
+  hashVersion: 2,
+
   // Use a different seed instead of the experiment key
   seed: "abcdef123456",
 
@@ -410,8 +414,7 @@ gb.run({
 });
 ```
 
-**Note**: The original hashing algorithm used in this SDK had a tendency to introduce bias. By specifying `seed`, you are opting into the new and improved hashing algorithm. We strongly recommend
-always specifying this property for your inline experiments.
+**Note**: For backwards compatibility, if no `hashVersion` is specified, it will fall back to using version `1`, which is deprecated. In the future, version `2` will become the default. We recommend specifying version `2` now for all new experiments to avoid migration issues down the line.
 
 #### Meta Info
 

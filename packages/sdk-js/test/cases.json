@@ -1317,22 +1317,21 @@
     ]
   ],
   "hash": [
-    ["a", 0.22],
-    ["b", 0.077],
-    ["ab", 0.946],
-    ["def", 0.652],
-    ["8952klfjas09ujkasdf", 0.549],
-    ["123", 0.011],
-    ["___)((*\":&", 0.563]
-  ],
-  "unbiasedHash": [
-    ["seed", "a", 0.0505],
-    ["seed", "b", 0.2696],
-    ["foo", "ab", 0.2575],
-    ["foo", "def", 0.2019],
-    ["89123klj", "8952klfjas09ujkasdf", 0.124],
-    ["90850943850283058242805", "123", 0.7516],
-    ["()**(%$##$%#$#", "___)((*\":&", 0.0128]
+    ["", "a", 1, 0.22],
+    ["", "b", 1, 0.077],
+    ["b", "a", 1, 0.946],
+    ["ef", "d", 1, 0.652],
+    ["asdf", "8952klfjas09ujk", 1, 0.549],
+    ["", "123", 1, 0.011],
+    ["", "___)((*\":&", 1, 0.563],
+    ["seed", "a", 2, 0.0505],
+    ["seed", "b", 2, 0.2696],
+    ["foo", "ab", 2, 0.2575],
+    ["foo", "def", 2, 0.2019],
+    ["89123klj", "8952klfjas09ujkasdf", 2, 0.124],
+    ["90850943850283058242805", "123", 2, 0.7516],
+    ["()**(%$##$%#$#", "___)((*\":&", 2, 0.0128],
+    ["abc", "def", 99, -1]
   ],
   "getBucketRange": [
     [
@@ -1819,6 +1818,7 @@
                 "coverage": 0.99,
                 "hashAttribute": "anonId",
                 "seed": "feature",
+                "hashVersion": 2,
                 "name": "Test",
                 "phase": "1",
                 "ranges": [
@@ -1884,6 +1884,7 @@
           "name": "Test",
           "phase": "1",
           "seed": "feature",
+          "hashVersion": 2,
           "hashAttribute": "anonId",
           "namespace": ["pricing", 0, 1],
           "key": "hello",
@@ -2196,7 +2197,7 @@
       }
     ],
     [
-      "Force rule, seed forces unbiased hash",
+      "Force rule, hash version 2",
       {
         "attributes": {
           "id": "1"
@@ -2207,7 +2208,7 @@
             "rules": [
               {
                 "force": 2,
-                "seed": "feature",
+                "hashVersion": 2,
                 "range": [0.96, 0.97]
               }
             ]
@@ -2292,7 +2293,8 @@
               {
                 "force": 2,
                 "range": [0, 0.5],
-                "seed": "fjdslafdsa"
+                "seed": "fjdslafdsa",
+                "hashVersion": 2
               }
             ]
           }
@@ -2319,7 +2321,7 @@
               {
                 "key": "holdout",
                 "variations": [1, 2],
-                "seed": "holdout",
+                "hashVersion": 2,
                 "ranges": [
                   [0, 0.01],
                   [0.01, 1.0]
@@ -2334,7 +2336,7 @@
               {
                 "key": "experiment",
                 "variations": [3, 4],
-                "seed": "experiment",
+                "hashVersion": 2,
                 "ranges": [
                   [0, 0.5],
                   [0.5, 1.0]
@@ -2352,7 +2354,7 @@
         "source": "experiment",
         "experiment": {
           "key": "experiment",
-          "seed": "experiment",
+          "hashVersion": 2,
           "variations": [3, 4],
           "ranges": [
             [0, 0.5],
@@ -2384,7 +2386,7 @@
             "rules": [
               {
                 "key": "holdout",
-                "seed": "holdout",
+                "hashVersion": 2,
                 "variations": [1, 2],
                 "ranges": [
                   [0, 0.99],
@@ -2399,7 +2401,7 @@
               },
               {
                 "key": "experiment",
-                "seed": "experiment",
+                "hashVersion": 2,
                 "variations": [3, 4],
                 "ranges": [
                   [0, 0.5],
@@ -2417,7 +2419,7 @@
         "off": false,
         "source": "experiment",
         "experiment": {
-          "seed": "holdout",
+          "hashVersion": 2,
           "ranges": [
             [0, 0.99],
             [0.99, 1.0]
@@ -3218,7 +3220,7 @@
       false
     ],
     [
-      "Uses seed",
+      "Uses seed and hash version",
       {
         "attributes": {
           "id": "1"
@@ -3227,6 +3229,7 @@
       {
         "key": "key",
         "seed": "foo",
+        "hashVersion": 2,
         "variations": [0, 1],
         "ranges": [
           [0, 0.5],
@@ -3247,6 +3250,7 @@
       {
         "key": "key",
         "seed": "foo",
+        "hashVersion": 2,
         "variations": [0, 1]
       },
       1,
@@ -3263,6 +3267,7 @@
       {
         "key": "key",
         "seed": "foo",
+        "hashVersion": 2,
         "variations": [0, 1],
         "weights": [0.5, 0.5],
         "coverage": [0.99]

@@ -27,7 +27,6 @@ import {
   chooseVariation,
   getQueryStringOverride,
   inNamespace,
-  unbiasedHash,
   inRange,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -425,11 +424,11 @@ export class GrowthBook {
           // If this is a percentage rollout, skip if not included
           if (
             !this._isIncludedInRollout(
-              id,
+              rule.seed || id,
               rule.hashAttribute,
               rule.range,
-              rule.seed,
-              rule.coverage
+              rule.coverage,
+              rule.hashVersion
             )
           ) {
             process.env.NODE_ENV !== "production" &&
@@ -478,6 +477,7 @@ export class GrowthBook {
         if (rule.name) exp.name = rule.name;
         if (rule.phase) exp.phase = rule.phase;
         if (rule.seed) exp.seed = rule.seed;
+        if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
         if (rule.filters) exp.filters = rule.filters;
 
         // Only return a value if the user is part of the experiment
@@ -511,11 +511,11 @@ export class GrowthBook {
   }
 
   private _isIncludedInRollout(
-    featureKey: string,
+    seed: string,
     hashAttribute: string | undefined,
     range: VariationRange | undefined,
-    seed: string | undefined,
-    coverage: number | undefined
+    coverage: number | undefined,
+    hashVersion: number | undefined
   ): boolean {
     if (!range && coverage === undefined) return true;
 
@@ -524,9 +524,7 @@ export class GrowthBook {
       return false;
     }
 
-    const n = seed
-      ? unbiasedHash(seed, hashValue)
-      : hash(hashValue + featureKey);
+    const n = hash(seed, hashValue, hashVersion || 1);
 
     return range
       ? inRange(n, range)
@@ -543,7 +541,7 @@ export class GrowthBook {
     return filters.some((filter) => {
       const { hashValue } = this._getHashAttribute(filter.attribute);
       if (!hashValue) return true;
-      const n = unbiasedHash(filter.seed, hashValue);
+      const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
       return !filter.ranges.some((r) => inRange(n, r));
     });
   }
@@ -677,9 +675,11 @@ export class GrowthBook {
     }
 
     // 9. Get bucket ranges and choose variation
-    const n = experiment.seed
-      ? unbiasedHash(experiment.seed, hashValue)
-      : hash(hashValue + key); // Old hashing algo for backwards compatibility
+    const n = hash(
+      experiment.seed || key,
+      hashValue,
+      experiment.hashVersion || 1
+    );
     const ranges =
       experiment.ranges ||
       getBucketRanges(
