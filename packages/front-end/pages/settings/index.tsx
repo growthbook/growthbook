@@ -653,7 +653,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     className="form-check-input"
                     name="advanced-options"
                     checked={showAdvancedOptions}
-                    onClick={(e) => {
+                    onChange={(e) => {
                       setShowAdvancedOptions(!!e.target?.checked);
                     }}
                     id="checkbox-advanced"
@@ -868,7 +868,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               style={{ bottom: 0 }}
             >
               <div className="col-12">
-                <div className=" d-flex flex-row-reverse">
+                <div className="d-flex flex-row-reverse pr-4">
                   <Button
                     color={"primary"}
                     disabled={!ctaEnabled}

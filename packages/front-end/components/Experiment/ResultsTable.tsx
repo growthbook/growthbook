@@ -132,7 +132,7 @@ export default function ResultsTable({
                   {fullStats && (
                     <>
                       {hasRisk && statsEngine === "bayesian" && (
-                        <Tooltip body="The true value is more likely to be in the thicker parts of the graph">
+                        <Tooltip body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph.">
                           <FaQuestionCircle />
                         </Tooltip>
                       )}
