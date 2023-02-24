@@ -222,26 +222,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
     value.confidenceLevel === 70
       ? "This is as low as it goes"
       : value.confidenceLevel < 75
-      ? "Confidence intervals this low are not recommended"
+      ? "Confidence thresholds this low are not recommended"
       : value.confidenceLevel < 80
-      ? "Confidence intervals this low are not recommended"
+      ? "Confidence thresholds this low are not recommended"
       : value.confidenceLevel < 90
-      ? "Use cation with values below 90%"
+      ? "Use caution with values below 90%"
       : value.confidenceLevel >= 99
-      ? "It can take a long time to get to these levels"
+      ? "Confidence levels 99% and higher can take lots of data to achieve"
       : "";
 
   const pWarningMsg =
     value.pValueThreshold === 0.5
       ? "This is as high as it goes"
       : value.pValueThreshold > 0.25
-      ? "P values this high are not recommended"
+      ? "P-values thresholds this high are not recommended"
       : value.pValueThreshold > 0.2
-      ? "P values this high are not recommended"
+      ? "P-values thresholds this high are not recommended"
       : value.pValueThreshold > 0.1
-      ? "Use cation with values above 0.1"
+      ? "Use caution with values above 0.1"
       : value.pValueThreshold <= 0.01
-      ? "It can take a long time to get to these levels"
+      ? "Threshold values of 0.01 and lower can take lots of data to achieve"
       : "";
 
   if (!permissions.organizationSettings) {
@@ -676,7 +676,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <div>
                       <div className="form-group mb-2 mr-2 form-inline flex-wrap">
                         <Field
-                          label="Bayesian experiment confidence interval"
+                          label="Bayesian confidence threshold"
                           type="number"
                           step="any"
                           min="70"
@@ -714,9 +714,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         <Field
                           label="Frequentist p-value threshold"
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           max="0.5"
-                          min="0.01"
+                          min="0.001"
                           style={{
                             backgroundColor: pHighlightColor
                               ? pHighlightColor + "20"
