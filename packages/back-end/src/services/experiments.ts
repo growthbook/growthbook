@@ -54,6 +54,10 @@ import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
 import {
+  ApiExperimentInterface,
+  ApiExperimentResultInterface,
+} from "../../types/api";
+import {
   getReportVariations,
   reportArgsFromSnapshot,
   startExperimentAnalysis,
@@ -644,4 +648,201 @@ export async function experimentUpdated(
       ? `/js/${key}.js`
       : `/config/${key}`;
   });
+}
+
+export function toApiInterface(
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): ApiExperimentInterface {
+  function getMetric(id: string) {
+    const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+    return {
+      metricId: id,
+      overrides: {
+        conversionWindowStart: overrides?.conversionDelayHours ?? null,
+        conversionWindowEnd: overrides?.conversionWindowHours
+          ? overrides?.conversionWindowHours +
+            (overrides?.conversionDelayHours || 0)
+          : null,
+        winRiskThreshold: overrides?.winRisk ?? null,
+        loseRiskThreshold: overrides?.loseRisk ?? null,
+      },
+    };
+  }
+
+  return {
+    id: experiment.id,
+    name: experiment.name || "",
+    project: experiment.project || "",
+    hypothesis: experiment.hypothesis || "",
+    description: experiment.description || "",
+    tags: experiment.tags || [],
+    owner: experiment.owner || "",
+    dateCreated: experiment.dateCreated.toISOString(),
+    dateUpdated: experiment.dateUpdated.toISOString(),
+    archived: !!experiment.archived,
+    status: experiment.status,
+    autoRefresh: !!experiment.autoSnapshots,
+    variations: experiment.variations.map((v, i) => ({
+      variationId: i + "",
+      key: v.key || i + "",
+      name: v.name || "",
+      description: v.description || "",
+      screenshots: v.screenshots.map((s) => s.path),
+    })),
+    phases: experiment.phases.map((p) => ({
+      name: p.phase,
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
+      reasonForStopping: p.reason || "",
+      seed: experiment.trackingKey,
+      coverage: p.coverage,
+      namespace: null,
+      trafficSplit: p.variationWeights.map((n, i) => ({
+        variationId: i + "",
+        weight: n,
+      })),
+      targetingCondition: "",
+    })),
+    settings: {
+      datasourceId: experiment.datasource || "",
+      exposureQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: experiment.segment || "",
+      queryFilter: experiment.queryFilter || "",
+      inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
+      multipleVariations: experiment.removeMultipleExposures
+        ? "exclude"
+        : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      statsEngine: organization.settings?.statsEngine || "bayesian",
+      goals: experiment.metrics.map((m) => getMetric(m)),
+      guardrails: (experiment.guardrails || []).map((m) => getMetric(m)),
+      activationMetric: experiment.activationMetric
+        ? getMetric(experiment.activationMetric)
+        : null,
+    },
+    resultSummary:
+      experiment.status === "stopped" && experiment.results
+        ? {
+            status: experiment.results,
+            winner: (experiment.winner ?? 1) + "",
+            conclusions: experiment.analysis || "",
+          }
+        : null,
+  };
+}
+
+export function toSnapshotApiInterface(
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface
+): ApiExperimentResultInterface {
+  function getMetric(id: string) {
+    const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+    return {
+      metricId: id,
+      overrides: {
+        conversionWindowStart: overrides?.conversionDelayHours ?? null,
+        conversionWindowEnd: overrides?.conversionWindowHours
+          ? overrides?.conversionWindowHours +
+            (overrides?.conversionDelayHours || 0)
+          : null,
+        winRiskThreshold: overrides?.winRisk ?? null,
+        loseRiskThreshold: overrides?.loseRisk ?? null,
+      },
+    };
+  }
+
+  const dimension = !snapshot.dimension
+    ? {
+        type: "none",
+      }
+    : snapshot.dimension.match(/^exp:/)
+    ? {
+        type: "experiment",
+        id: snapshot.dimension.substring(4),
+      }
+    : snapshot.dimension.match(/^pre:/)
+    ? {
+        type: snapshot.dimension.substring(4),
+      }
+    : {
+        type: "user",
+        id: snapshot.dimension,
+      };
+
+  const phase = experiment.phases[snapshot.phase];
+
+  const metricIds = new Set([
+    ...experiment.metrics,
+    ...(experiment.guardrails || []),
+  ]);
+  if (experiment.activationMetric) {
+    metricIds.add(experiment.activationMetric);
+  }
+
+  return {
+    id: snapshot.id,
+    dateUpdated: snapshot.dateCreated.toISOString(),
+    experimentId: snapshot.experiment,
+    phase: snapshot.phase + "",
+    dimension: dimension,
+    dateRange: [
+      phase?.dateStarted?.toISOString() || "",
+      phase?.dateEnded?.toISOString() ||
+        snapshot.runStarted?.toISOString() ||
+        "",
+    ],
+    settings: {
+      datasourceId: experiment.datasource || "",
+      exposureQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: snapshot.segment || "",
+      queryFilter: snapshot.queryFilter || "",
+      inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
+      multipleVariations: experiment.removeMultipleExposures
+        ? "exclude"
+        : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      statsEngine: snapshot.statsEngine || "bayesian",
+      goals: experiment.metrics.map((m) => getMetric(m)),
+      guardrails: (experiment.guardrails || []).map((m) => getMetric(m)),
+      activationMetric: experiment.activationMetric
+        ? getMetric(experiment.activationMetric)
+        : null,
+    },
+    queryIds: snapshot.queries.map((q) => q.query),
+    results: (snapshot.results || []).map((s) => {
+      return {
+        dimension: s.name,
+        totalUsers: s.variations.reduce((sum, v) => sum + v.users, 0),
+        checks: {
+          srm: s.srm,
+        },
+        metrics: Array.from(metricIds).map((m) => ({
+          metricId: m,
+          variations: s.variations.map((v, i) => {
+            const data = v.metrics[m];
+            return {
+              variationId: i + "",
+              analyses: [
+                {
+                  engine: snapshot.statsEngine || "bayesian",
+                  numerator: data?.value || 0,
+                  denominator: data?.denominator || data?.users || 0,
+                  mean: data?.stats?.mean || 0,
+                  stddev: data?.stats?.stddev || 0,
+                  percentChange: data?.expected || 0,
+                  ci: data?.ci || [0, 0],
+                  pValue: data?.pValue || 0,
+                  risk: data?.risk?.[1] || 0,
+                  chanceToBeatControl: data?.chanceToWin || 0,
+                },
+              ],
+            };
+          }),
+        })),
+      };
+    }),
+  };
 }
