@@ -118,7 +118,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experiment = await getExperimentById(organization, experimentId);
   if (!experiment) return;
 
-  let lastSnapshot: ExperimentSnapshotDocument;
+  let lastSnapshot: ExperimentSnapshotDocument | undefined;
   let currentSnapshot: ExperimentSnapshotDocument;
 
   try {
@@ -198,7 +198,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     log.info("Success");
 
-    await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    if (lastSnapshot) {
+      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    }
   } catch (e) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future

@@ -311,7 +311,7 @@ export async function getSnapshots(
 
   const ids = idsString.split(",");
 
-  let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];
+  let snapshotsPromises: Promise<ExperimentSnapshotDocument | undefined>[] = [];
   snapshotsPromises = ids.map(async (i) => {
     return await _getSnapshot(org.id, i);
   });
@@ -319,7 +319,7 @@ export async function getSnapshots(
 
   res.status(200).json({
     status: 200,
-    snapshots,
+    snapshots: snapshots.filter((s) => !!s),
   });
   return;
 }

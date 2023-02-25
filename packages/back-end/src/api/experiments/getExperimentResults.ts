@@ -7,7 +7,7 @@ import {
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 
-export const getExperiment = createApiRequestHandler({
+export const getExperimentResults = createApiRequestHandler({
   paramsSchema: z
     .object({
       id: z.string(),

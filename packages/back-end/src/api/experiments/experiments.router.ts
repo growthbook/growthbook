@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getExperimentResults } from "../../services/queries";
+import { getExperimentResults } from "./getExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
 

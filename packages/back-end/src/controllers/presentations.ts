@@ -70,6 +70,7 @@ export async function getPresentation(
     });
 
     const snapshot = await getLatestSnapshot(experiment.id, phase);
+    if (!snapshot) return;
     withSnapshots[i] = {
       experiment,
       snapshot,
@@ -118,6 +119,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
         if (p.phase === "main") phase = j;
       });
       const snapshot = await getLatestSnapshot(experiment.id, phase);
+      if (!snapshot) return;
       withSnapshots[i] = {
         experiment,
         snapshot,
