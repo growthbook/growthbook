@@ -45,7 +45,10 @@ import { findDimensionById } from "../models/DimensionModel";
 import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import {
+  DEFAULT_CONVERSION_WINDOW_HOURS,
+  EXPERIMENT_REFRESH_FREQUENCY,
+} from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
@@ -56,7 +59,10 @@ import { getSDKPayloadKeys } from "../util/features";
 import {
   ApiExperimentInterface,
   ApiExperimentResultInterface,
+  ApiMetricInterface,
+  ApiMetricQuerySettings,
 } from "../../types/api";
+import { DataSourceInterface } from "../../types/datasource";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -650,7 +656,7 @@ export async function experimentUpdated(
   });
 }
 
-export function toApiInterface(
+export function toExperimentApiInterface(
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ): ApiExperimentInterface {
@@ -844,5 +850,106 @@ export function toSnapshotApiInterface(
         })),
       };
     }),
+  };
+}
+
+export function toMetricApiInterface(
+  organization: OrganizationInterface,
+  metric: MetricInterface,
+  datasource: DataSourceInterface | null
+): ApiMetricInterface {
+  const metricDefaults = organization.settings?.metricDefaults;
+
+  let conversionStart = metric.conversionDelayHours || 0;
+  const conversionEnd =
+    conversionStart +
+    (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS);
+  if (!conversionStart && metric.earlyStart) {
+    conversionStart = -0.5;
+  }
+
+  let query: null | ApiMetricQuerySettings = null;
+  if (metric.datasource) {
+    if (datasource) {
+      if (datasource.type === "mixpanel") {
+        query = {
+          format: "mixpanel-builder",
+          eventName: metric.table || "",
+          eventValue: metric.column || "",
+          userAggregation: metric.aggregation || "sum(values)",
+          conditions: (metric.conditions || []).map((c) => ({
+            property: c.column,
+            operator: c.operator,
+            value: c.value,
+          })),
+        };
+      } else if (datasource.type === "google_analytics") {
+        query = null;
+      } else {
+        const identifierTypes = metric.userIdTypes ?? [
+          metric.userIdType ?? "user_id",
+        ];
+        if (metric.sql && metric.queryFormat !== "builder") {
+          query = {
+            format: "sql-custom",
+            identifierTypes,
+            conversionSQL: metric.sql,
+            userAggregationSQL: metric.aggregation || "SUM(value)",
+            denominatorMetricId: metric.denominator || "",
+          };
+        } else {
+          const identifierColumns =
+            metric.userIdColumns ??
+            Object.fromEntries(
+              identifierTypes.map((t) => [
+                t,
+                t === "user_id" && metric.userIdColumn
+                  ? metric.userIdColumn
+                  : t === "anonymous_id" && metric.anonymousIdColumn
+                  ? metric.anonymousIdColumn
+                  : t,
+              ])
+            );
+          query = {
+            format: "sql-builder",
+            identifierTypes,
+            identifierTypeColumns: identifierColumns,
+            tableName: metric.table || "",
+            valueColumnName: metric.column || "",
+            timestampColumnName: metric.timestampColumn || "timestamp",
+            conditions: metric.conditions || [],
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    id: metric.id,
+    name: metric.name,
+    description: metric.description || "",
+    dateCreated: metric.dateCreated?.toISOString() || "",
+    dateUpdated: metric.dateUpdated?.toISOString() || "",
+    archived: metric.status === "archived",
+    datasourceId: datasource?.id || "",
+    owner: metric.owner || "",
+    projects: metric.projects || [],
+    tags: metric.tags || [],
+    type: metric.type,
+    behavior: {
+      goal: metric.inverse ? "decrease" : "increase",
+      cap: metric.cap || 0,
+      minPercentChange:
+        metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
+      maxPercentChange:
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
+      minSampleSize:
+        metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
+      riskThresholdDanger: metric.loseRisk ?? 0.0125,
+      riskThresholdSuccess: metric.winRisk ?? 0.0025,
+      conversionWindowStart: conversionStart,
+      conversionWindowEnd: conversionEnd,
+    },
+    query,
   };
 }

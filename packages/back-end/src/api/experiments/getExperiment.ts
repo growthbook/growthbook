@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ApiExperimentInterface } from "../../../types/api";
 import { getExperimentById } from "../../models/ExperimentModel";
-import { toApiInterface } from "../../services/experiments";
+import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 
 export const getExperiment = createApiRequestHandler({
@@ -21,7 +21,7 @@ export const getExperiment = createApiRequestHandler({
     }
 
     return {
-      experiment: toApiInterface(req.organization, experiment),
+      experiment: toExperimentApiInterface(req.organization, experiment),
     };
   }
 );

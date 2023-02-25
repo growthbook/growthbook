@@ -160,7 +160,7 @@ export type ApiExperimentInterface = {
   };
 };
 
-interface ApiExperimentResultInterface {
+export interface ApiExperimentResultInterface {
   id: string;
   dateUpdated: string;
 
@@ -229,4 +229,69 @@ interface ApiExperimentMetricInterface {
     winRiskThreshold: null | number;
     loseRiskThreshold: null | number;
   };
+}
+
+export interface ApiMetricInterface {
+  id: string;
+  owner: string;
+  datasourceId: string;
+  name: string;
+  description: string;
+  type: string;
+  tags: string[];
+  projects: string[];
+  dateCreated: string;
+  dateUpdated: string;
+  archived: boolean;
+
+  behavior: {
+    goal: "increase" | "decrease";
+    cap: number;
+    conversionWindowStart: number;
+    conversionWindowEnd: number;
+    riskThresholdSuccess: number;
+    riskThresholdDanger: number;
+    minPercentChange: number;
+    maxPercentChange: number;
+    minSampleSize: number;
+  };
+
+  query: null | ApiMetricQuerySettings;
+}
+
+export type ApiMetricQuerySettings =
+  | SqlCustomSettings
+  | SqlQueryBuilderSettings
+  | MixpanelQueryBuilderSettings;
+
+export interface SqlCustomSettings {
+  format: "sql-custom";
+  identifierTypes: string[];
+  conversionSQL: string;
+  userAggregationSQL: string;
+  denominatorMetricId: string;
+}
+export interface SqlQueryBuilderSettings {
+  format: "sql-builder";
+  identifierTypes: string[];
+  identifierTypeColumns: Record<string, string>;
+  tableName: string;
+  valueColumnName: string;
+  timestampColumnName: string;
+  conditions: Array<{
+    column: string;
+    operator: string;
+    value: string;
+  }>;
+}
+export interface MixpanelQueryBuilderSettings {
+  format: "mixpanel-builder";
+  eventName: string;
+  eventValue: string;
+  userAggregation: string;
+  conditions: Array<{
+    property: string;
+    operator: string;
+    value: string;
+  }>;
 }
