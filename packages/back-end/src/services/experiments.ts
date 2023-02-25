@@ -73,7 +73,7 @@ export async function getLatestSnapshot(
   phase: number,
   dimension?: string,
   withResults: boolean = true
-) {
+): Promise<ExperimentSnapshotDocument | undefined> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     experiment,
     phase,
