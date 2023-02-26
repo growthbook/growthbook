@@ -1,33 +1,32 @@
-import { FilterQuery } from "mongodb";
-import mongoose from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
+import mongoose, { FilterQuery } from "mongoose";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
-  LegacyFeatureInterface,
+  LegacyFeatureInterface
 } from "../../types/feature";
-import {
-  generateRuleId,
-  getNextScheduledUpdate,
-  refreshSDKPayloadCache,
-} from "../services/features";
-import { upgradeFeatureInterface } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
+  FeatureUpdatedNotificationEvent
 } from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import {
+  generateRuleId,
+  getNextScheduledUpdate,
+  refreshSDKPayloadCache
+} from "../services/features";
+import {
   getAffectedSDKPayloadKeys,
-  getSDKPayloadKeysByDiff,
+  getSDKPayloadKeysByDiff
 } from "../util/features";
-import { saveRevision } from "./FeatureRevisionModel";
+import { upgradeFeatureInterface } from "../util/migrations";
 import { createEvent } from "./EventModel";
+import { saveRevision } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
