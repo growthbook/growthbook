@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ApiProjectInterface } from "../../types/api";
+import { ApiProject } from "../../types/openapi";
 import { ProjectInterface } from "../../types/project";
 
 const projectSchema = new mongoose.Schema({
@@ -71,9 +71,7 @@ export async function updateProject(
   );
 }
 
-export function toProjectApiInterface(
-  project: ProjectInterface
-): ApiProjectInterface {
+export function toProjectApiInterface(project: ProjectInterface): ApiProject {
   return {
     id: project.id,
     name: project.name,

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { GetProjectResponse } from "../../../types/openapi";
-import { findProjectById } from "../../models/ProjectModel";
+import {
+  findProjectById,
+  toProjectApiInterface,
+} from "../../models/ProjectModel";
 import { createApiRequestHandler } from "../../util/handler";
 
 export const getProject = createApiRequestHandler({
@@ -17,12 +20,7 @@ export const getProject = createApiRequestHandler({
     }
 
     return {
-      project: {
-        id: project.id,
-        name: project.name,
-        dateCreated: project.dateCreated.toISOString(),
-        dateUpdated: project.dateUpdated.toISOString(),
-      },
+      project: toProjectApiInterface(project),
     };
   }
 );

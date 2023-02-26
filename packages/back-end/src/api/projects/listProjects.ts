@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { ListProjectsResponse } from "../../../types/openapi";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
+import {
+  findAllProjectsByOrganization,
+  toProjectApiInterface,
+} from "../../models/ProjectModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 
 export const listProjects = createApiRequestHandler({
@@ -21,12 +24,7 @@ export const listProjects = createApiRequestHandler({
     );
 
     return {
-      projects: filtered.map((project) => ({
-        id: project.id,
-        name: project.name,
-        dateCreated: project.dateCreated.toISOString(),
-        dateUpdated: project.dateUpdated.toISOString(),
-      })),
+      projects: filtered.map((project) => toProjectApiInterface(project)),
       ...returnFields,
     };
   }
