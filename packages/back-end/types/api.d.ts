@@ -52,22 +52,6 @@ export interface ApiErrorResponse {
   message: string;
 }
 
-export type ApiSDKConnectionInterface = {
-  id: string;
-  name: string;
-  dateCreated: string;
-  dateUpdated: string;
-  languages: string[];
-  environment: string;
-  project: string;
-  encryptPayload: boolean;
-  encryptionKey: string;
-  key: string;
-  proxyEnabled: boolean;
-  proxyHost: string;
-  proxySigningKey: string;
-};
-
 export type ApiExperimentInterface = {
   id: string;
   name: string;

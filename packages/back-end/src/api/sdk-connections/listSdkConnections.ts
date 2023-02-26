@@ -1,15 +1,12 @@
 import { z } from "zod";
-import {
-  ApiPaginationFields,
-  ApiSDKConnectionInterface,
-} from "../../../types/api";
+import { ListSdkConnectionsResponse } from "../../../types/openapi";
 import {
   findSDKConnectionsByOrganization,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 
-export const listSDKConnections = createApiRequestHandler({
+export const listSdkConnections = createApiRequestHandler({
   querySchema: z
     .object({
       limit: z.string().optional(),
@@ -18,11 +15,7 @@ export const listSDKConnections = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<
-    ApiPaginationFields & { connections: ApiSDKConnectionInterface[] }
-  > => {
+  async (req): Promise<ListSdkConnectionsResponse> => {
     const connections = await findSDKConnectionsByOrganization(
       req.organization.id
     );

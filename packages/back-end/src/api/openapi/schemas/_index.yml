@@ -22,3 +22,5 @@ FeatureRolloutRule:
   $ref: './FeatureRolloutRule.yml'
 FeatureExperimentRule:
   $ref: './FeatureExperimentRule.yml'
+SdkConnection:
+  $ref: './SdkConnection.yml'

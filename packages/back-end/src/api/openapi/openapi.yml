@@ -33,6 +33,10 @@ paths:
     $ref: "./paths/metrics/index.yml"
   /metrics/{id}:
     $ref: "./paths/metrics/id.yml"
+  /sdk-connections:
+    $ref: "./paths/sdk-connections/index.yml"
+  /sdk-connections/{id}:
+    $ref: "./paths/sdk-connections/id.yml"
 # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

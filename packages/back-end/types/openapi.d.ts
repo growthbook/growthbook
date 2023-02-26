@@ -60,6 +60,15 @@ export interface paths {
     get: operations["getMetric"];
     
   };
+  "/sdk-connections": {
+    /** Get all sdk connections */
+    get: operations["listSdkConnections"];
+  };
+  "/sdk-connections/{id}": {
+    /** Get a single sdk connection */
+    get: operations["getSdkConnection"];
+    
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -248,6 +257,23 @@ export interface components {
           name?: string;
         })[];
     };
+    SdkConnection: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      languages: (string)[];
+      environment: string;
+      project: string;
+      encryptPayload: boolean;
+      encryptionKey: string;
+      key: string;
+      proxyEnabled: boolean;
+      proxyHost: string;
+      proxySigningKey: string;
+    };
   };
   responses: {
     Error: never;
@@ -398,6 +424,30 @@ export interface operations {
       };
     };
   };
+  listSdkConnections: {
+    /** Get all sdk connections */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            connections?: (components["schemas"]["SdkConnection"])[];
+          } & components["schemas"]["PaginationFields"];
+        };
+      };
+    };
+  };
+  getSdkConnection: {
+    /** Get a single sdk connection */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: components["schemas"]["SdkConnection"];
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -413,6 +463,7 @@ export type ApiFeatureDefinition = components["schemas"]["FeatureDefinition"];
 export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
 export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
 export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
+export type ApiSdkConnection = components["schemas"]["SdkConnection"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -426,3 +477,5 @@ export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
+export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
+export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];

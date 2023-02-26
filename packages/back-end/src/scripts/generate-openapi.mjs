@@ -36,7 +36,7 @@ async function run() {
   // Export each API operation's response value as a named type
   output += "\n// Operations\n";
   Object.values(api.paths).forEach((p) => {
-    // TODO: generate types for request params, query strings, and request bodies
+    // TODO: generate Zod validators for request params, query strings, and request bodies
     ["get", "post", "put", "delete", "patch"].forEach((method) => {
       if (p[method]) {
         const id = p[method]["operationId"];

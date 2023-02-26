@@ -2,11 +2,8 @@ import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema } from "zod";
-import {
-  ApiErrorResponse,
-  ApiPaginationFields,
-  ApiRequestLocals,
-} from "../../types/api";
+import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
+import { ApiPaginationFields } from "../../types/openapi";
 
 type ApiRequest<
   ResponseType = never,

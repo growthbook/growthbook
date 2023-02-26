@@ -414,6 +414,75 @@
           }
         }
       }
+    },
+    "/sdk-connections": {
+      "get": {
+        "summary": "Get all sdk connections",
+        "parameters": [
+          {
+            "$ref": "components[\"parameters\"][\"limit\"]"
+          },
+          {
+            "$ref": "components[\"parameters\"][\"offset\"]"
+          }
+        ],
+        "operationId": "listSdkConnections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["sdkConnections"],
+                      "properties": {
+                        "connections": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "components[\"schemas\"][\"SdkConnection\"]"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sdk-connections/{id}": {
+      "parameters": [
+        {
+          "$ref": "components[\"parameters\"][\"id\"]"
+        }
+      ],
+      "get": {
+        "summary": "Get a single sdk connection",
+        "operationId": "getSdkConnection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["sdkConnection"],
+                  "properties": {
+                    "sdkConnection": {
+                      "$ref": "components[\"schemas\"][\"SdkConnection\"]"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1127,6 +1196,70 @@
                 }
               }
             }
+          }
+        }
+      },
+      "SdkConnection": {
+        "type": "object",
+        "required": [
+          "id",
+          "dateCreated",
+          "dateUpdated",
+          "name",
+          "languages",
+          "environment",
+          "project",
+          "encryptPayload",
+          "encryptionKey",
+          "key",
+          "proxyEnabled",
+          "proxyHost",
+          "proxySigningKey"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "environment": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "encryptPayload": {
+            "type": "boolean"
+          },
+          "encryptionKey": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "proxyEnabled": {
+            "type": "boolean"
+          },
+          "proxyHost": {
+            "type": "string"
+          },
+          "proxySigningKey": {
+            "type": "string"
           }
         }
       }
