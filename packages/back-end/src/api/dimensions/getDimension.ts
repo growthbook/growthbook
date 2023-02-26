@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiDimensionInterface } from "../../../types/api";
+import { GetDimensionResponse } from "../../../types/api";
 import {
   findDimensionById,
   toDimensionApiInterface,
@@ -13,7 +13,7 @@ export const getDimension = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ dimension: ApiDimensionInterface }> => {
+  async (req): Promise<GetDimensionResponse> => {
     const dimension = await findDimensionById(
       req.params.id,
       req.organization.id

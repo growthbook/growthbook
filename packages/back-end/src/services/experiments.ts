@@ -60,7 +60,6 @@ import {
   ApiExperimentInterface,
   ApiExperimentResultInterface,
   ApiMetricInterface,
-  ApiMetricQuerySettings,
 } from "../../types/api";
 import { DataSourceInterface } from "../../types/datasource";
 import {
@@ -868,63 +867,7 @@ export function toMetricApiInterface(
     conversionStart = -0.5;
   }
 
-  let query: null | ApiMetricQuerySettings = null;
-  if (metric.datasource) {
-    if (datasource) {
-      if (datasource.type === "mixpanel") {
-        query = {
-          format: "mixpanel-builder",
-          eventName: metric.table || "",
-          eventValue: metric.column || "",
-          userAggregation: metric.aggregation || "sum(values)",
-          conditions: (metric.conditions || []).map((c) => ({
-            property: c.column,
-            operator: c.operator,
-            value: c.value,
-          })),
-        };
-      } else if (datasource.type === "google_analytics") {
-        query = null;
-      } else {
-        const identifierTypes = metric.userIdTypes ?? [
-          metric.userIdType ?? "user_id",
-        ];
-        if (metric.sql && metric.queryFormat !== "builder") {
-          query = {
-            format: "sql-custom",
-            identifierTypes,
-            conversionSQL: metric.sql,
-            userAggregationSQL: metric.aggregation || "SUM(value)",
-            denominatorMetricId: metric.denominator || "",
-          };
-        } else {
-          const identifierColumns =
-            metric.userIdColumns ??
-            Object.fromEntries(
-              identifierTypes.map((t) => [
-                t,
-                t === "user_id" && metric.userIdColumn
-                  ? metric.userIdColumn
-                  : t === "anonymous_id" && metric.anonymousIdColumn
-                  ? metric.anonymousIdColumn
-                  : t,
-              ])
-            );
-          query = {
-            format: "sql-builder",
-            identifierTypes,
-            identifierTypeColumns: identifierColumns,
-            tableName: metric.table || "",
-            valueColumnName: metric.column || "",
-            timestampColumnName: metric.timestampColumn || "timestamp",
-            conditions: metric.conditions || [],
-          };
-        }
-      }
-    }
-  }
-
-  return {
+  const obj: ApiMetricInterface = {
     id: metric.id,
     name: metric.name,
     description: metric.description || "",
@@ -950,6 +893,53 @@ export function toMetricApiInterface(
       conversionWindowStart: conversionStart,
       conversionWindowEnd: conversionEnd,
     },
-    query,
   };
+
+  if (datasource) {
+    if (datasource.type === "mixpanel") {
+      obj.mixpanel = {
+        eventName: metric.table || "",
+        eventValue: metric.column || "",
+        userAggregation: metric.aggregation || "sum(values)",
+        conditions: (metric.conditions || []).map((c) => ({
+          property: c.column,
+          operator: c.operator,
+          value: c.value,
+        })),
+      };
+    } else if (datasource.type !== "google_analytics") {
+      const identifierTypes = metric.userIdTypes ?? [
+        metric.userIdType ?? "user_id",
+      ];
+      obj.sql = {
+        identifierTypes,
+        // TODO: if builder mode is selected, use that to generate the SQL here
+        conversionSQL: metric.sql || "",
+        userAggregationSQL: metric.aggregation || "SUM(value)",
+        denominatorMetricId: metric.denominator || "",
+      };
+
+      if (metric.queryFormat === "builder") {
+        obj.sql.builder = {
+          identifierTypeColumns: identifierTypes.map((t) => ({
+            identifierType: t,
+            columnName:
+              metric.userIdColumns?.[t] ||
+              (t === "user_id"
+                ? metric.userIdColumn
+                : t === "anonymous_id"
+                ? metric.anonymousIdColumn
+                : t) ||
+              t,
+          })),
+          tableName: metric.table || "",
+          valueColumnName: metric.column || "",
+          timestampColumnName: metric.timestampColumn || "timestamp",
+          conditions: metric.conditions || [],
+        };
+      }
+    }
+  }
+
+  return obj;
 }

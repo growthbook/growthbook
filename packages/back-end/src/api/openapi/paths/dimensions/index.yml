@@ -1,0 +1,21 @@
+get:
+  summary: Get all dimensions
+  parameters:
+  - $ref: "../../parameters/limit.yml"
+  - $ref: "../../parameters/offset.yml"
+  operationId: listDimensions
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                required:
+                  - dimensions
+                properties:
+                  dimensions:
+                    type: array
+                    items:
+                      $ref: "../../schemas/Dimension.yml"
+              - $ref: "../../schemas/PaginationFields.yml"

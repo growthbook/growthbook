@@ -1,0 +1,16 @@
+parameters:
+  - $ref: "../../parameters/id.yml"
+get:
+  summary: Get a single dimension
+  operationId: getDimension
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - dimension
+            properties:
+              dimension:
+                $ref: "../../schemas/Dimension.yml"

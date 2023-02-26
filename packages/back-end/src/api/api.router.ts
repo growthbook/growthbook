@@ -10,8 +10,14 @@ import metricsRouter from "./metrics/metrics.router";
 import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
 import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
+import openapiSpec from "./openapi/openapi.json";
 
 const router = Router();
+
+router.get("/openapi.yaml", (req, res) => {
+  res.setHeader("Cache-Control", "max-age=3600");
+  res.json(openapiSpec);
+});
 
 router.use(bodyParser.json({ limit: "1mb" }));
 router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));

@@ -1,0 +1,21 @@
+get:
+  summary: Get all segments
+  parameters:
+  - $ref: "../../parameters/limit.yml"
+  - $ref: "../../parameters/offset.yml"
+  operationId: listSegments
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                required:
+                  - segments
+                properties:
+                  segments:
+                    type: array
+                    items:
+                      $ref: "../../schemas/Segment.yml"
+              - $ref: "../../schemas/PaginationFields.yml"

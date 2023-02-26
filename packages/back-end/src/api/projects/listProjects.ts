@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiProjectInterface, ApiPaginationFields } from "../../../types/api";
+import { ListProjectsResponse } from "../../../types/api";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 
@@ -11,9 +11,7 @@ export const listProjects = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { projects: ApiProjectInterface[] }> => {
+  async (req): Promise<ListProjectsResponse> => {
     const projects = await findAllProjectsByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance

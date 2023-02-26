@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiDimensionInterface, ApiPaginationFields } from "../../../types/api";
+import { ListDimensionsResponse } from "../../../types/api";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
@@ -14,9 +14,7 @@ export const listDimensions = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { dimensions: ApiDimensionInterface[] }> => {
+  async (req): Promise<ListDimensionsResponse> => {
     const dimensions = await findDimensionsByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance

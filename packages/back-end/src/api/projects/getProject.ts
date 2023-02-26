@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiProjectInterface } from "../../../types/api";
+import { GetProjectResponse } from "../../../types/api";
 import { findProjectById } from "../../models/ProjectModel";
 import { createApiRequestHandler } from "../../util/handler";
 
@@ -10,7 +10,7 @@ export const getProject = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ project: ApiProjectInterface }> => {
+  async (req): Promise<GetProjectResponse> => {
     const project = await findProjectById(req.params.id, req.organization.id);
     if (!project) {
       throw new Error("Could not find project with that id");

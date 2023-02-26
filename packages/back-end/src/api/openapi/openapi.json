@@ -1,0 +1,710 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "GrowthBook REST API"
+  },
+  "servers": [
+    {
+      "url": "https://api.growthbook.io/api/v1",
+      "description": "GrowthBook Cloud"
+    },
+    {
+      "url": "{domain}/api/v1",
+      "description": "Self-hosted GrowthBook",
+      "variables": {
+        "domain": {
+          "default": "http://localhost:3100"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/projects": {
+      "get": {
+        "summary": "Get all projects",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          }
+        ],
+        "operationId": "listProjects",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["projects"],
+                      "properties": {
+                        "projects": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Project"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaginationFields"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "summary": "Get a single project",
+        "operationId": "getProject",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["project"],
+                  "properties": {
+                    "project": {
+                      "$ref": "#/components/schemas/Project"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dimensions": {
+      "get": {
+        "summary": "Get all dimensions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          }
+        ],
+        "operationId": "listDimensions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["dimensions"],
+                      "properties": {
+                        "dimensions": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Dimension"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaginationFields"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dimensions/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "summary": "Get a single dimension",
+        "operationId": "getDimension",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["dimension"],
+                  "properties": {
+                    "dimension": {
+                      "$ref": "#/components/schemas/Dimension"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/segments": {
+      "get": {
+        "summary": "Get all segments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          }
+        ],
+        "operationId": "listSegments",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["segments"],
+                      "properties": {
+                        "segments": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Segment"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaginationFields"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/segments/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "summary": "Get a single segment",
+        "operationId": "getSegment",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["segment"],
+                  "properties": {
+                    "segment": {
+                      "$ref": "#/components/schemas/Segment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Get all metrics",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          }
+        ],
+        "operationId": "listMetrics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["metrics"],
+                      "properties": {
+                        "metrics": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Metric"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaginationFields"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "summary": "Get a single metric",
+        "operationId": "getMetric",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["metric"],
+                  "properties": {
+                    "metric": {
+                      "$ref": "#/components/schemas/Metric"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        }
+      },
+      "offset": {
+        "name": "offset",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "min": 0
+        }
+      }
+    },
+    "schemas": {
+      "PaginationFields": {
+        "type": "object",
+        "required": [
+          "limit",
+          "offset",
+          "count",
+          "total",
+          "hasMore",
+          "nextOffset"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextOffset": {
+            "type": ["integer", "null"]
+          }
+        }
+      },
+      "Dimension": {
+        "type": "object",
+        "required": [
+          "id",
+          "dateCreated",
+          "dateUpdated",
+          "owner",
+          "datasourceId",
+          "identifierType",
+          "name",
+          "query"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string"
+          },
+          "dateUpdated": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "datasourceId": {
+            "type": "string"
+          },
+          "identifierType": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          }
+        }
+      },
+      "Metric": {
+        "type": "object",
+        "required": [
+          "id",
+          "dateCreated",
+          "dateUpdated",
+          "owner",
+          "datasourceId",
+          "name",
+          "description",
+          "type",
+          "tags",
+          "projects",
+          "archived",
+          "behavior",
+          "query"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string"
+          },
+          "dateUpdated": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "datasourceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "behavior": {
+            "type": "object",
+            "required": [
+              "goal",
+              "cap",
+              "conversionWindowStart",
+              "conversionWindowEnd",
+              "riskThresholdSuccess",
+              "riskThresholdDanger",
+              "minPercentChange",
+              "maxPercentChange",
+              "minSampleSize"
+            ],
+            "properties": {
+              "goal": {
+                "type": "string",
+                "enum": ["increase", "decrease"]
+              },
+              "cap": {
+                "type": "number"
+              },
+              "conversionWindowStart": {
+                "type": "number"
+              },
+              "conversionWindowEnd": {
+                "type": "number"
+              },
+              "riskThresholdSuccess": {
+                "type": "number"
+              },
+              "riskThresholdDanger": {
+                "type": "number"
+              },
+              "minPercentChange": {
+                "type": "number"
+              },
+              "maxPercentChange": {
+                "type": "number"
+              },
+              "minSampleSize": {
+                "type": "number"
+              }
+            }
+          },
+          "sql": {
+            "type": "object",
+            "required": [
+              "identifierTypes",
+              "conversionSQL",
+              "userAggregationSQL",
+              "denominatorMetricId"
+            ],
+            "properties": {
+              "identifierTypes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "conversionSQL": {
+                "type": "string"
+              },
+              "userAggregationSQL": {
+                "type": "string"
+              },
+              "denominatorMetricId": {
+                "type": "string"
+              },
+              "builder": {
+                "type": "object",
+                "required": [
+                  "identifierTypeColumns",
+                  "tableName",
+                  "valueColumnName",
+                  "timestampColumnName",
+                  "conditions"
+                ],
+                "properties": {
+                  "identifierTypeColumns": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["identifierType", "columnName"],
+                      "properties": {
+                        "identifierType": {
+                          "type": "string"
+                        },
+                        "columnName": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "tableName": {
+                    "type": "string"
+                  },
+                  "valueColumnName": {
+                    "type": "string"
+                  },
+                  "timestampColumnName": {
+                    "type": "string"
+                  },
+                  "conditions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["column", "operator", "value"],
+                      "properties": {
+                        "column": {
+                          "type": "string"
+                        },
+                        "operator": {
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "mixpanel": {
+            "type": "object",
+            "required": [
+              "eventName",
+              "eventValue",
+              "userAggregation",
+              "conditions"
+            ],
+            "properties": {
+              "eventName": {
+                "type": "string"
+              },
+              "eventValue": {
+                "type": "string"
+              },
+              "userAggregation": {
+                "type": "string"
+              },
+              "conditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["property", "operator", "value"],
+                  "properties": {
+                    "property": {
+                      "type": "string"
+                    },
+                    "operator": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "required": ["id", "name", "dateCreated", "dateUpdated"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Segment": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner",
+          "datasourceId",
+          "identifierType",
+          "name",
+          "query",
+          "dateCreated",
+          "dateUpdated"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "datasourceId": {
+            "type": "string"
+          },
+          "identifierType": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string"
+          },
+          "dateUpdated": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemas": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "responses": {
+      "Error": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "basicAuth": []
+    }
+  ]
+}

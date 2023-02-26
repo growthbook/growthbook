@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { Api{{pascalCase object}}Interface, ApiPaginationFields } from "../../../types/api";
-import { get{{pascalCase object}}sByOrganization } from "../../models/{{pascalCase object}}Model";
-import { to{{pascalCase object}}ApiInterface } from "../../services/{{camelCase object}}";
+import { List{{pascalCase object}}sResponse } from "../../../types/api";
+import { 
+  find{{pascalCase object}}sByOrganization, 
+  to{{pascalCase object}}ApiInterface 
+} from "../../models/{{pascalCase object}}Model";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 
 export const list{{pascalCase object}}s = createApiRequestHandler({
@@ -12,10 +14,8 @@ export const list{{pascalCase object}}s = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { {{camelCase object}}s: Api{{pascalCase object}}Interface[] }> => {
-    const {{camelCase object}}s = await get{{pascalCase object}}sByOrganization(req.organization.id);
+  async (req): Promise<List{{pascalCase object}}sResponse> => {
+    const {{camelCase object}}s = await find{{pascalCase object}}sByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
@@ -25,10 +25,7 @@ export const list{{pascalCase object}}s = createApiRequestHandler({
 
     return {
       {{camelCase object}}s: filtered.map(({{camelCase object}}) =>
-        to{{pascalCase object}}ApiInterface(
-          req.organization,
-          {{camelCase object}}
-        )
+        to{{pascalCase object}}ApiInterface({{camelCase object}})
       ),
       ...returnFields,
     };

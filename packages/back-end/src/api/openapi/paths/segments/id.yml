@@ -1,0 +1,16 @@
+parameters:
+  - $ref: "../../parameters/id.yml"
+get:
+  summary: Get a single segment
+  operationId: getSegment
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - segment
+            properties:
+              segment:
+                $ref: "../../schemas/Segment.yml"

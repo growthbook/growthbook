@@ -1,0 +1,21 @@
+get:
+  summary: Get all metrics
+  parameters:
+  - $ref: "../../parameters/limit.yml"
+  - $ref: "../../parameters/offset.yml"
+  operationId: listMetrics
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                required:
+                  - metrics
+                properties:
+                  metrics:
+                    type: array
+                    items:
+                      $ref: "../../schemas/Metric.yml"
+              - $ref: "../../schemas/PaginationFields.yml"

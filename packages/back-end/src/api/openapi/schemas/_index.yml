@@ -1,0 +1,10 @@
+PaginationFields:
+  $ref: './PaginationFields.yml'
+Dimension:
+  $ref: './Dimension.yml'
+Metric:
+  $ref: './Metric.yml'
+Project:
+  $ref: './Project.yml'
+Segment:
+  $ref: './Segment.yml'

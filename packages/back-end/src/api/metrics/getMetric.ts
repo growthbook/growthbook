@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiMetricInterface } from "../../../types/api";
+import { GetMetricResponse } from "../../../types/api";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { getMetricById } from "../../models/MetricModel";
 import { toMetricApiInterface } from "../../services/experiments";
@@ -12,7 +12,7 @@ export const getMetric = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ metric: ApiMetricInterface }> => {
+  async (req): Promise<GetMetricResponse> => {
     const metric = await getMetricById(
       req.params.id,
       req.organization.id,

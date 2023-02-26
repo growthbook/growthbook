@@ -17,9 +17,11 @@
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
-    "watch-compile": "swc src -w --out-dir dist",
+    "watch-compile": "swc src -w --out-dir dist --copy-files",
     "watch-dev": "delay 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
-    "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js"
+    "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js",
+    "build:swagger": "swagger-cli bundle src/api/openapi/openapi.yml --outfile src/api/openapi/openapi.json",
+    "generate-api-types": "yarn build:swagger && openapi-typescript src/api/openapi/openapi.json --output types/openapi.d.ts"
   },
   "dependencies": {
     "@databricks/sql": "^1.1.0",
@@ -116,7 +118,9 @@
     "concurrently": "^7.4.0",
     "nodemon": "^2.0.20",
     "objects-to-csv": "^1.3.6",
+    "openapi-typescript": "^6.1.1",
     "pino-pretty": "^9.1.1",
+    "swagger-cli": "^4.0.4",
     "ts-node": "^10.9.1"
   },
   "license": "MIT"

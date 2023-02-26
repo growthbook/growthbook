@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiSegmentInterface, ApiPaginationFields } from "../../../types/api";
+import { ListSegmentsResponse } from "../../../types/api";
 import {
   findSegmentsByOrganization,
   toSegmentApiInterface,
@@ -14,9 +14,7 @@ export const listSegments = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { segments: ApiSegmentInterface[] }> => {
+  async (req): Promise<ListSegmentsResponse> => {
     const segments = await findSegmentsByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance

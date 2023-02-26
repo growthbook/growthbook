@@ -1,0 +1,16 @@
+parameters:
+  - $ref: "../../parameters/id.yml"
+get:
+  summary: Get a single metric
+  operationId: getMetric
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - metric
+            properties:
+              metric:
+                $ref: "../../schemas/Metric.yml"

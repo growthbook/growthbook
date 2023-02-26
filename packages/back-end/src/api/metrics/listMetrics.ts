@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiMetricInterface, ApiPaginationFields } from "../../../types/api";
+import { ListMetricsResponse } from "../../../types/api";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { toMetricApiInterface } from "../../services/experiments";
@@ -13,9 +13,7 @@ export const listMetrics = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { metrics: ApiMetricInterface[] }> => {
+  async (req): Promise<ListMetricsResponse> => {
     const metrics = await getMetricsByOrganization(req.organization.id);
 
     const datasources = await getDataSourcesByOrganization(req.organization.id);

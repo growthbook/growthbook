@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { Api{{pascalCase object}}Interface } from "../../../types/api";
-import { get{{pascalCase object}}ById } from "../../models/{{pascalCase object}}Model";
-import { to{{pascalCase object}}ApiInterface } from "../../services/{{kebabCase object}}";
+import { Get{{pascalCase object}}Response } from "../../../types/api";
+import { 
+  find{{pascalCase object}}ById, 
+  to{{pascalCase object}}ApiInterface 
+} from "../../models/{{pascalCase object}}Model";
 import { createApiRequestHandler } from "../../util/handler";
 
 export const get{{pascalCase object}} = createApiRequestHandler({
@@ -11,8 +13,8 @@ export const get{{pascalCase object}} = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ {{camelCase object}}: Api{{pascalCase object}}Interface }> => {
-    const {{camelCase object}} = await get{{pascalCase object}}ById(
+  async (req): Promise<Get{{pascalCase object}}Response> => {
+    const {{camelCase object}} = await find{{pascalCase object}}ById(
       req.params.id,
       req.organization.id
     );
@@ -21,7 +23,7 @@ export const get{{pascalCase object}} = createApiRequestHandler({
     }
 
     return {
-      {{camelCase object}}: to{{pascalCase object}}ApiInterface(req.organization, {{camelCase object}}),
+      {{camelCase object}}: to{{pascalCase object}}ApiInterface({{camelCase object}}),
     };
   }
 );

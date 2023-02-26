@@ -1,0 +1,16 @@
+parameters:
+  - $ref: "../../parameters/id.yml"
+get:
+  summary: Get a single project
+  operationId: getProject
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - project
+            properties:
+              project:
+                $ref: "../../schemas/Project.yml"

@@ -92,6 +92,45 @@ module.exports = function (plop) {
           "./packages/back-end/src/api/{{kebabCase object}}s/get{{pascalCase object}}.ts",
         templateFile: "./plop-templates/back-end/api/get.hbs",
       },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yml",
+        templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/{{kebabCase object}}s/id.yml",
+        templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/{{kebabCase object}}s/index.yml",
+        templateFile: "./plop-templates/back-end/api/openapi_list.hbs",
+      },
+      {
+        type: "append",
+        path: "./packages/back-end/types/api.d.ts",
+        template: `
+// {{titleCase object}}s
+export type Api{{pascalCase object}}Interface = components["schemas"]["{{pascalCase object}}"];
+export type List{{pascalCase object}}sResponse = operations["list{{pascalCase object}}s"]["responses"]["200"]["content"]["application/json"];
+export type Get{{pascalCase object}}Response = operations["get{{pascalCase object}}"]["responses"]["200"]["content"]["application/json"];
+`,
+      },
+      {
+        type: "append",
+        path: "./packages/back-end/src/api/openapi/schemas/_index.yml",
+        template: `
+{{pascalCase object}}:
+  $ref: './{{pascalCase object}}.yml'
+`.trim(),
+      },
     ],
   });
 

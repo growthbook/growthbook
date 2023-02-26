@@ -1,3 +1,4 @@
+import { components, operations } from "./openapi";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { FeatureRule, FeatureValueType } from "./feature";
@@ -231,96 +232,24 @@ interface ApiExperimentMetricInterface {
   };
 }
 
-export interface ApiMetricInterface {
-  id: string;
-  owner: string;
-  datasourceId: string;
-  name: string;
-  description: string;
-  type: string;
-  tags: string[];
-  projects: string[];
-  dateCreated: string;
-  dateUpdated: string;
-  archived: boolean;
+// Projects
+export type ApiProjectInterface = components["schemas"]["Project"];
+export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
+export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
 
-  behavior: {
-    goal: "increase" | "decrease";
-    cap: number;
-    conversionWindowStart: number;
-    conversionWindowEnd: number;
-    riskThresholdSuccess: number;
-    riskThresholdDanger: number;
-    minPercentChange: number;
-    maxPercentChange: number;
-    minSampleSize: number;
-  };
+// Segments
+export type ApiSegmentInterface = components["schemas"]["Segment"];
+export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
+export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 
-  query: null | ApiMetricQuerySettings;
-}
+// Dimensions
+export type ApiDimensionInterface = components["schemas"]["Dimension"];
+export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
+export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 
-export type ApiMetricQuerySettings =
-  | SqlCustomSettings
-  | SqlQueryBuilderSettings
-  | MixpanelQueryBuilderSettings;
+// Metrics
+export type ApiMetricInterface = components["schemas"]["Metric"];
+export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
+export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 
-export interface SqlCustomSettings {
-  format: "sql-custom";
-  identifierTypes: string[];
-  conversionSQL: string;
-  userAggregationSQL: string;
-  denominatorMetricId: string;
-}
-export interface SqlQueryBuilderSettings {
-  format: "sql-builder";
-  identifierTypes: string[];
-  identifierTypeColumns: Record<string, string>;
-  tableName: string;
-  valueColumnName: string;
-  timestampColumnName: string;
-  conditions: Array<{
-    column: string;
-    operator: string;
-    value: string;
-  }>;
-}
-export interface MixpanelQueryBuilderSettings {
-  format: "mixpanel-builder";
-  eventName: string;
-  eventValue: string;
-  userAggregation: string;
-  conditions: Array<{
-    property: string;
-    operator: string;
-    value: string;
-  }>;
-}
-
-export interface ApiProjectInterface {
-  id: string;
-  name: string;
-  dateCreated: string;
-  dateUpdated: string;
-}
-
-export interface ApiSegmentInterface {
-  id: string;
-  owner: string;
-  datasourceId: string;
-  identifierType: string;
-  name: string;
-  query: string;
-  dateCreated: string;
-  dateUpdated: string;
-}
-
-export interface ApiDimensionInterface {
-  id: string;
-  owner: string;
-  datasourceId: string;
-  identifierType: string;
-  name: string;
-  query: string;
-  dateCreated: string;
-  dateUpdated: string;
-}
+// PLOP_INSERT_INTERFACES_HERE
