@@ -1,7 +1,7 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-openapi=$(git status --porcelain | grep "back-end/src/api/openapi")
+openapi=$(git status --porcelain | grep "back-end/src/api/openapi" || true )
 if [ -n "$openapi" ]
   then
     echo "#### OpenAPI Spec changed, generating new Typescript types"

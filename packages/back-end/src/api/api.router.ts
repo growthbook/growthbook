@@ -14,7 +14,7 @@ import openapiSpec from "./openapi/openapi.json";
 
 const router = Router();
 
-router.get("/openapi.yaml", (req, res) => {
+router.get("/swagger.json", (req, res) => {
   res.setHeader("Cache-Control", "max-age=3600");
   res.json(openapiSpec);
 });
