@@ -24,3 +24,11 @@ FeatureExperimentRule:
   $ref: './FeatureExperimentRule.yml'
 SdkConnection:
   $ref: './SdkConnection.yml'
+Experiment:
+  $ref: './Experiment.yml'
+ExperimentMetric:
+  $ref: './ExperimentMetric.yml'
+ExperimentAnalysisSettings:
+  $ref: './ExperimentAnalysisSettings.yml'
+ExperimentResults:
+  $ref: './ExperimentResults.yml'

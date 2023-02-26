@@ -121,6 +121,15 @@ module.exports = function (plop) {
   $ref: './{{pascalCase object}}.yml'
 `.trim(),
       },
+      {
+        type: "append",
+        path: "./packages/back-end/src/api/openapi/openapi.yml",
+        pattern: /PLOP_INSERT_PATHS_HERE/,
+        template: `/{{kebabCase object}}s:
+    $ref: "./paths/{{kebabCase object}}s/index.yml"
+  /{{kebabCase object}}s/{id}:
+    $ref: "./paths/{{kebabCase object}}s/id.yml"`,
+      },
     ],
   });
 

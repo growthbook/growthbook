@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiExperimentResultInterface } from "../../../types/api";
+import { GetExperimentResultsResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
 import {
   getLatestSnapshot,
@@ -20,7 +20,7 @@ export const getExperimentResults = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ result: ApiExperimentResultInterface }> => {
+  async (req): Promise<GetExperimentResultsResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,
       req.params.id

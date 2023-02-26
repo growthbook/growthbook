@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiExperimentInterface } from "../../../types/api";
+import { GetExperimentResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
@@ -11,7 +11,7 @@ export const getExperiment = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ experiment: ApiExperimentInterface }> => {
+  async (req): Promise<GetExperimentResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,
       req.params.id

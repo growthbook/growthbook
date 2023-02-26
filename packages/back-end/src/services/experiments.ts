@@ -56,12 +56,13 @@ import {
 import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
-import {
-  ApiExperimentInterface,
-  ApiExperimentResultInterface,
-} from "../../types/api";
 import { DataSourceInterface } from "../../types/datasource";
-import { ApiMetric } from "../../types/openapi";
+import {
+  ApiExperiment,
+  ApiMetric,
+  ApiExperimentResults,
+  ApiExperimentMetric,
+} from "../../types/openapi";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -655,26 +656,38 @@ export async function experimentUpdated(
   });
 }
 
+function getExperimentMetric(
+  experiment: ExperimentInterface,
+  id: string
+): ApiExperimentMetric {
+  const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+  const ret: ApiExperimentMetric = {
+    metricId: id,
+    overrides: {},
+  };
+
+  if (overrides?.conversionDelayHours) {
+    ret.overrides.conversionWindowStart = overrides.conversionDelayHours;
+  }
+  if (overrides?.conversionWindowHours) {
+    ret.overrides.conversionWindowEnd =
+      overrides.conversionWindowHours + (overrides?.conversionDelayHours || 0);
+  }
+  if (overrides?.winRisk) {
+    ret.overrides.winRiskThreshold = overrides.winRisk;
+  }
+  if (overrides?.loseRisk) {
+    ret.overrides.loseRiskThreshold = overrides.loseRisk;
+  }
+
+  return ret;
+}
+
 export function toExperimentApiInterface(
   organization: OrganizationInterface,
   experiment: ExperimentInterface
-): ApiExperimentInterface {
-  function getMetric(id: string) {
-    const overrides = experiment.metricOverrides?.find((o) => o.id === id);
-    return {
-      metricId: id,
-      overrides: {
-        conversionWindowStart: overrides?.conversionDelayHours ?? null,
-        conversionWindowEnd: overrides?.conversionWindowHours
-          ? overrides?.conversionWindowHours +
-            (overrides?.conversionDelayHours || 0)
-          : null,
-        winRiskThreshold: overrides?.winRisk ?? null,
-        loseRiskThreshold: overrides?.loseRisk ?? null,
-      },
-    };
-  }
-
+): ApiExperiment {
+  const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
     name: experiment.name || "",
@@ -702,7 +715,6 @@ export function toExperimentApiInterface(
       reasonForStopping: p.reason || "",
       seed: experiment.trackingKey,
       coverage: p.coverage,
-      namespace: null,
       trafficSplit: p.variationWeights.map((n, i) => ({
         variationId: i + "",
         weight: n,
@@ -721,43 +733,32 @@ export function toExperimentApiInterface(
         : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: organization.settings?.statsEngine || "bayesian",
-      goals: experiment.metrics.map((m) => getMetric(m)),
-      guardrails: (experiment.guardrails || []).map((m) => getMetric(m)),
-      activationMetric: experiment.activationMetric
-        ? getMetric(experiment.activationMetric)
-        : null,
-    },
-    resultSummary:
-      experiment.status === "stopped" && experiment.results
+      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
+      guardrails: (experiment.guardrails || []).map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      ...(activationMetric
         ? {
+            activationMetric: getExperimentMetric(experiment, activationMetric),
+          }
+        : null),
+    },
+    ...(experiment.status === "stopped" && experiment.results
+      ? {
+          resultSummary: {
             status: experiment.results,
             winner: (experiment.winner ?? 1) + "",
             conclusions: experiment.analysis || "",
-          }
-        : null,
+          },
+        }
+      : null),
   };
 }
 
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface
-): ApiExperimentResultInterface {
-  function getMetric(id: string) {
-    const overrides = experiment.metricOverrides?.find((o) => o.id === id);
-    return {
-      metricId: id,
-      overrides: {
-        conversionWindowStart: overrides?.conversionDelayHours ?? null,
-        conversionWindowEnd: overrides?.conversionWindowHours
-          ? overrides?.conversionWindowHours +
-            (overrides?.conversionDelayHours || 0)
-          : null,
-        winRiskThreshold: overrides?.winRisk ?? null,
-        loseRiskThreshold: overrides?.loseRisk ?? null,
-      },
-    };
-  }
-
+): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
         type: "none",
@@ -786,18 +787,19 @@ export function toSnapshotApiInterface(
     metricIds.add(experiment.activationMetric);
   }
 
+  const activationMetric = experiment.activationMetric;
+
   return {
     id: snapshot.id,
     dateUpdated: snapshot.dateCreated.toISOString(),
     experimentId: snapshot.experiment,
     phase: snapshot.phase + "",
     dimension: dimension,
-    dateRange: [
-      phase?.dateStarted?.toISOString() || "",
+    dateStart: phase?.dateStarted?.toISOString() || "",
+    dateEnd:
       phase?.dateEnded?.toISOString() ||
-        snapshot.runStarted?.toISOString() ||
-        "",
-    ],
+      snapshot.runStarted?.toISOString() ||
+      "",
     settings: {
       datasourceId: experiment.datasource || "",
       exposureQueryId: experiment.exposureQueryId || "",
@@ -810,11 +812,15 @@ export function toSnapshotApiInterface(
         : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: snapshot.statsEngine || "bayesian",
-      goals: experiment.metrics.map((m) => getMetric(m)),
-      guardrails: (experiment.guardrails || []).map((m) => getMetric(m)),
-      activationMetric: experiment.activationMetric
-        ? getMetric(experiment.activationMetric)
-        : null,
+      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
+      guardrails: (experiment.guardrails || []).map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      ...(activationMetric
+        ? {
+            activationMetric: getExperimentMetric(experiment, activationMetric),
+          }
+        : null),
     },
     queryIds: snapshot.queries.map((q) => q.query),
     results: (snapshot.results || []).map((s) => {
@@ -838,7 +844,8 @@ export function toSnapshotApiInterface(
                   mean: data?.stats?.mean || 0,
                   stddev: data?.stats?.stddev || 0,
                   percentChange: data?.expected || 0,
-                  ci: data?.ci || [0, 0],
+                  ciLow: data?.ci?.[0] ?? 0,
+                  ciHigh: data?.ci?.[1] ?? 0,
                   pValue: data?.pValue || 0,
                   risk: data?.risk?.[1] || 0,
                   chanceToBeatControl: data?.chanceToWin || 0,

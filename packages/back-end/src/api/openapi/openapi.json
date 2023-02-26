@@ -483,6 +483,117 @@
           }
         }
       }
+    },
+    "/experiments": {
+      "get": {
+        "summary": "Get all experiments",
+        "parameters": [
+          {
+            "$ref": "components[\"parameters\"][\"limit\"]"
+          },
+          {
+            "$ref": "components[\"parameters\"][\"offset\"]"
+          }
+        ],
+        "operationId": "listExperiments",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["experiments"],
+                      "properties": {
+                        "experiments": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "components[\"schemas\"][\"Experiment\"]"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/experiments/{id}": {
+      "parameters": [
+        {
+          "$ref": "components[\"parameters\"][\"id\"]"
+        }
+      ],
+      "get": {
+        "summary": "Get a single experiment",
+        "operationId": "getExperiment",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["experiment"],
+                  "properties": {
+                    "experiment": {
+                      "$ref": "components[\"schemas\"][\"Experiment\"]"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/experiments/{id}/results": {
+      "parameters": [
+        {
+          "$ref": "components[\"parameters\"][\"id\"]"
+        },
+        {
+          "name": "phase",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "dimension",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Get results for an experiment",
+        "operationId": "getExperimentResults",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["experiment"],
+                  "properties": {
+                    "result": {
+                      "$ref": "components[\"schemas\"][\"ExperimentResults\"]"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1260,6 +1371,429 @@
           },
           "proxySigningKey": {
             "type": "string"
+          }
+        }
+      },
+      "Experiment": {
+        "type": "object",
+        "required": [
+          "id",
+          "dateCreated",
+          "dateUpdated",
+          "name",
+          "project",
+          "hypothesis",
+          "description",
+          "tags",
+          "owner",
+          "archived",
+          "status",
+          "autoRefresh",
+          "variations",
+          "phases",
+          "settings"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "hypothesis": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owner": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "autoRefresh": {
+            "type": "boolean"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "variationId",
+                "key",
+                "name",
+                "description",
+                "screenshots"
+              ],
+              "properties": {
+                "variationId": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "screenshots": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "phases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "dateStarted",
+                "dateEnded",
+                "reasonForStopping",
+                "seed",
+                "coverage",
+                "trafficSplit",
+                "targetingCondition"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "dateStarted": {
+                  "type": "string"
+                },
+                "dateEnded": {
+                  "type": "string"
+                },
+                "reasonForStopping": {
+                  "type": "string"
+                },
+                "seed": {
+                  "type": "string"
+                },
+                "coverage": {
+                  "type": "number"
+                },
+                "trafficSplit": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["variationId", "weight"],
+                    "properties": {
+                      "variationId": {
+                        "type": "string"
+                      },
+                      "weight": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                "namespace": {
+                  "type": "object",
+                  "required": ["namespaceId", "range"],
+                  "properties": {
+                    "namespaceId": {
+                      "type": "string"
+                    },
+                    "range": {
+                      "type": "array",
+                      "rangeStart": "number",
+                      "rangeEnd": "number"
+                    }
+                  }
+                },
+                "targetingCondition": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "settings": {
+            "$ref": "components[\"schemas\"][\"ExperimentAnalysisSettings\"]"
+          },
+          "resultSummary": {
+            "type": "object",
+            "required": ["status", "winner", "conclusions"],
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "winner": {
+                "type": "string"
+              },
+              "conclusions": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ExperimentMetric": {
+        "type": "object",
+        "required": ["metricId", "overrides"],
+        "properties": {
+          "metricId": {
+            "type": "string"
+          },
+          "overrides": {
+            "type": "object",
+            "properties": {
+              "conversionWindowStart": {
+                "type": "number"
+              },
+              "conversionWindowEnd": {
+                "type": "number"
+              },
+              "winRiskThreshold": {
+                "type": "number"
+              },
+              "loseRiskThreshold": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "ExperimentAnalysisSettings": {
+        "type": "object",
+        "required": [
+          "datasourceId",
+          "exposureQueryId",
+          "experimentId",
+          "segmentId",
+          "queryFilter",
+          "inProgressConversions",
+          "multipleVariations",
+          "attributionModel",
+          "statsEngine",
+          "goals",
+          "guardrails"
+        ],
+        "properties": {
+          "datasourceId": {
+            "type": "string"
+          },
+          "exposureQueryId": {
+            "type": "string"
+          },
+          "experimentId": {
+            "type": "string"
+          },
+          "segmentId": {
+            "type": "string"
+          },
+          "queryFilter": {
+            "type": "string"
+          },
+          "inProgressConversions": {
+            "enum": ["include", "exclude"]
+          },
+          "multipleVariations": {
+            "enum": ["include", "exclude"]
+          },
+          "attributionModel": {
+            "enum": ["firstExposure", "allExposures"]
+          },
+          "statsEngine": {
+            "enum": ["bayesian", "frequentist"]
+          },
+          "goals": {
+            "type": "array",
+            "items": {
+              "$ref": "components[\"schemas\"][\"ExperimentMetric\"]"
+            }
+          },
+          "guardrails": {
+            "type": "array",
+            "items": {
+              "$ref": "components[\"schemas\"][\"ExperimentMetric\"]"
+            }
+          },
+          "activationMetric": {
+            "$ref": "components[\"schemas\"][\"ExperimentMetric\"]"
+          }
+        }
+      },
+      "ExperimentResults": {
+        "type": "object",
+        "required": [
+          "id",
+          "dateUpdated",
+          "experimentId",
+          "phase",
+          "dimension",
+          "dateStart",
+          "dateEnd",
+          "settings",
+          "queryIds",
+          "results"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateUpdated": {
+            "type": "string"
+          },
+          "experimentId": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "dateStart": {
+            "type": "string"
+          },
+          "dateEnd": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          },
+          "settings": {
+            "$ref": "components[\"schemas\"][\"ExperimentAnalysisSettings\"]"
+          },
+          "queryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["dimension", "totalUsers", "checks", "metrics"],
+              "properties": {
+                "dimension": {
+                  "type": "string"
+                },
+                "totalUsers": {
+                  "type": "number"
+                },
+                "checks": {
+                  "type": "object",
+                  "required": ["srm"],
+                  "properties": {
+                    "srm": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "metrics": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["metricId", "variations"],
+                    "properties": {
+                      "metricId": {
+                        "type": "string"
+                      },
+                      "variations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["variationId", "analyses"],
+                          "properties": {
+                            "variationId": {
+                              "type": "string"
+                            },
+                            "analyses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "engine",
+                                  "numerator",
+                                  "denominator",
+                                  "mean",
+                                  "stddev",
+                                  "percentChange",
+                                  "ciLow",
+                                  "ciHigh"
+                                ],
+                                "properties": {
+                                  "engine": {
+                                    "enum": ["bayesian", "frequentist"]
+                                  },
+                                  "numerator": {
+                                    "type": "number"
+                                  },
+                                  "denominator": {
+                                    "type": "number"
+                                  },
+                                  "mean": {
+                                    "type": "number"
+                                  },
+                                  "stddev": {
+                                    "type": "number"
+                                  },
+                                  "percentChange": {
+                                    "type": "number"
+                                  },
+                                  "ciLow": {
+                                    "type": "number"
+                                  },
+                                  "ciHigh": {
+                                    "type": "number"
+                                  },
+                                  "pValue": {
+                                    "type": "number"
+                                  },
+                                  "risk": {
+                                    "type": "number"
+                                  },
+                                  "chanceToBeatControl": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

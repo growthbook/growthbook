@@ -69,6 +69,25 @@ export interface paths {
     get: operations["getSdkConnection"];
     
   };
+  "/experiments": {
+    /** Get all experiments */
+    get: operations["listExperiments"];
+  };
+  "/experiments/{id}": {
+    /** Get a single experiment */
+    get: operations["getExperiment"];
+    
+  };
+  "/experiments/{id}/results": {
+    /** Get results for an experiment */
+    get: operations["getExperimentResults"];
+    parameters: {
+      query: {
+        phase?: string;
+        dimension?: string;
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -274,6 +293,120 @@ export interface components {
       proxyHost: string;
       proxySigningKey: string;
     };
+    Experiment: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      project: string;
+      hypothesis: string;
+      description: string;
+      tags: (string)[];
+      owner: string;
+      archived: boolean;
+      status: string;
+      autoRefresh: boolean;
+      variations: ({
+          variationId: string;
+          key: string;
+          name: string;
+          description: string;
+          screenshots: (string)[];
+        })[];
+      phases: ({
+          name: string;
+          dateStarted: string;
+          dateEnded: string;
+          reasonForStopping: string;
+          seed: string;
+          coverage: number;
+          trafficSplit: ({
+              variationId: string;
+              weight: number;
+            })[];
+          namespace?: {
+            namespaceId: string;
+            range: (unknown)[];
+          };
+          targetingCondition: string;
+        })[];
+      settings: components["schemas"]["ExperimentAnalysisSettings"];
+      resultSummary?: {
+        status: string;
+        winner: string;
+        conclusions: string;
+      };
+    };
+    ExperimentMetric: {
+      metricId: string;
+      overrides: {
+        conversionWindowStart?: number;
+        conversionWindowEnd?: number;
+        winRiskThreshold?: number;
+        loseRiskThreshold?: number;
+      };
+    };
+    ExperimentAnalysisSettings: {
+      datasourceId: string;
+      exposureQueryId: string;
+      experimentId: string;
+      segmentId: string;
+      queryFilter: string;
+      /** @enum {unknown} */
+      inProgressConversions: "include" | "exclude";
+      /** @enum {unknown} */
+      multipleVariations: "include" | "exclude";
+      /** @enum {unknown} */
+      attributionModel: "firstExposure" | "allExposures";
+      /** @enum {unknown} */
+      statsEngine: "bayesian" | "frequentist";
+      goals: (components["schemas"]["ExperimentMetric"])[];
+      guardrails: (components["schemas"]["ExperimentMetric"])[];
+      activationMetric?: components["schemas"]["ExperimentMetric"];
+    };
+    ExperimentResults: {
+      id: string;
+      dateUpdated: string;
+      experimentId: string;
+      phase: string;
+      dateStart: string;
+      dateEnd: string;
+      dimension: {
+        type: string;
+        id?: string;
+      };
+      settings: components["schemas"]["ExperimentAnalysisSettings"];
+      queryIds: (string)[];
+      results: ({
+          dimension: string;
+          totalUsers: number;
+          checks: {
+            srm: number;
+          };
+          metrics: ({
+              metricId: string;
+              variations: ({
+                  variationId: string;
+                  analyses: ({
+                      /** @enum {unknown} */
+                      engine: "bayesian" | "frequentist";
+                      numerator: number;
+                      denominator: number;
+                      mean: number;
+                      stddev: number;
+                      percentChange: number;
+                      ciLow: number;
+                      ciHigh: number;
+                      pValue?: number;
+                      risk?: number;
+                      chanceToBeatControl?: number;
+                    })[];
+                })[];
+            })[];
+        })[];
+    };
   };
   responses: {
     Error: never;
@@ -448,6 +581,42 @@ export interface operations {
       };
     };
   };
+  listExperiments: {
+    /** Get all experiments */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiments: (components["schemas"]["Experiment"])[];
+          } & components["schemas"]["PaginationFields"];
+        };
+      };
+    };
+  };
+  getExperiment: {
+    /** Get a single experiment */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiment: components["schemas"]["Experiment"];
+          };
+        };
+      };
+    };
+  };
+  getExperimentResults: {
+    /** Get results for an experiment */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            result?: components["schemas"]["ExperimentResults"];
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -464,6 +633,10 @@ export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
 export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
 export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
 export type ApiSdkConnection = components["schemas"]["SdkConnection"];
+export type ApiExperiment = components["schemas"]["Experiment"];
+export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];
+export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAnalysisSettings"];
+export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -479,3 +652,6 @@ export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"][
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];

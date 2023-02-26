@@ -6,6 +6,8 @@ if [ -n "$openapi" ]
   then
     echo "#### OpenAPI Spec changed, generating new Typescript types"
     yarn generate-api-types
+    git add packages/back-end/types/openapi.d.ts
+    git add packages/back-end/src/api/openapi/openapi.json
 fi
 
 echo "#### Linting typescript, scss, and markdown files"
