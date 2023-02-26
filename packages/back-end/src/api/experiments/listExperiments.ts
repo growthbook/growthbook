@@ -1,8 +1,6 @@
 import { z } from "zod";
-import {
-  ApiExperimentInterface,
-  ApiPaginationFields,
-} from "../../../types/api";
+import { ApiExperimentInterface } from "../../../types/api";
+import { ApiPaginationFields } from "../../../types/openapi";
 import { getAllExperiments } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";

@@ -20,15 +20,134 @@
     }
   ],
   "paths": {
+    "/features": {
+      "get": {
+        "summary": "Get all features",
+        "parameters": [
+          {
+            "$ref": "components[\"parameters\"][\"limit\"]"
+          },
+          {
+            "$ref": "components[\"parameters\"][\"offset\"]"
+          }
+        ],
+        "operationId": "listFeatures",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["features"],
+                      "properties": {
+                        "features": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "components[\"schemas\"][\"Feature\"]"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/features/{id}": {
+      "parameters": [
+        {
+          "$ref": "components[\"parameters\"][\"id\"]"
+        }
+      ],
+      "get": {
+        "summary": "Get a single feature",
+        "operationId": "getFeature",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["feature"],
+                  "properties": {
+                    "feature": {
+                      "$ref": "components[\"schemas\"][\"Feature\"]"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/features/{id}/toggle": {
+      "parameters": [
+        {
+          "$ref": "components[\"parameters\"][\"id\"]"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["environments"],
+              "properties": {
+                "reason": {
+                  "type": "string"
+                },
+                "environments": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "enum": [true, false, "true", "false", "1", "0", 1, 0, ""]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Toggle a feature in one or more environments",
+        "operationId": "toggleFeature",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["feature"],
+                  "properties": {
+                    "feature": {
+                      "$ref": "components[\"schemas\"][\"Feature\"]"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/projects": {
       "get": {
         "summary": "Get all projects",
         "parameters": [
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "components[\"parameters\"][\"limit\"]"
           },
           {
-            "$ref": "#/components/parameters/offset"
+            "$ref": "components[\"parameters\"][\"offset\"]"
           }
         ],
         "operationId": "listProjects",
@@ -45,13 +164,13 @@
                         "projects": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Project"
+                            "$ref": "components[\"schemas\"][\"Project\"]"
                           }
                         }
                       }
                     },
                     {
-                      "$ref": "#/components/schemas/PaginationFields"
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
                     }
                   ]
                 }
@@ -64,7 +183,7 @@
     "/projects/{id}": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/id"
+          "$ref": "components[\"parameters\"][\"id\"]"
         }
       ],
       "get": {
@@ -79,7 +198,7 @@
                   "required": ["project"],
                   "properties": {
                     "project": {
-                      "$ref": "#/components/schemas/Project"
+                      "$ref": "components[\"schemas\"][\"Project\"]"
                     }
                   }
                 }
@@ -94,10 +213,10 @@
         "summary": "Get all dimensions",
         "parameters": [
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "components[\"parameters\"][\"limit\"]"
           },
           {
-            "$ref": "#/components/parameters/offset"
+            "$ref": "components[\"parameters\"][\"offset\"]"
           }
         ],
         "operationId": "listDimensions",
@@ -114,13 +233,13 @@
                         "dimensions": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Dimension"
+                            "$ref": "components[\"schemas\"][\"Dimension\"]"
                           }
                         }
                       }
                     },
                     {
-                      "$ref": "#/components/schemas/PaginationFields"
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
                     }
                   ]
                 }
@@ -133,7 +252,7 @@
     "/dimensions/{id}": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/id"
+          "$ref": "components[\"parameters\"][\"id\"]"
         }
       ],
       "get": {
@@ -148,7 +267,7 @@
                   "required": ["dimension"],
                   "properties": {
                     "dimension": {
-                      "$ref": "#/components/schemas/Dimension"
+                      "$ref": "components[\"schemas\"][\"Dimension\"]"
                     }
                   }
                 }
@@ -163,10 +282,10 @@
         "summary": "Get all segments",
         "parameters": [
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "components[\"parameters\"][\"limit\"]"
           },
           {
-            "$ref": "#/components/parameters/offset"
+            "$ref": "components[\"parameters\"][\"offset\"]"
           }
         ],
         "operationId": "listSegments",
@@ -183,13 +302,13 @@
                         "segments": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Segment"
+                            "$ref": "components[\"schemas\"][\"Segment\"]"
                           }
                         }
                       }
                     },
                     {
-                      "$ref": "#/components/schemas/PaginationFields"
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
                     }
                   ]
                 }
@@ -202,7 +321,7 @@
     "/segments/{id}": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/id"
+          "$ref": "components[\"parameters\"][\"id\"]"
         }
       ],
       "get": {
@@ -217,7 +336,7 @@
                   "required": ["segment"],
                   "properties": {
                     "segment": {
-                      "$ref": "#/components/schemas/Segment"
+                      "$ref": "components[\"schemas\"][\"Segment\"]"
                     }
                   }
                 }
@@ -232,10 +351,10 @@
         "summary": "Get all metrics",
         "parameters": [
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "components[\"parameters\"][\"limit\"]"
           },
           {
-            "$ref": "#/components/parameters/offset"
+            "$ref": "components[\"parameters\"][\"offset\"]"
           }
         ],
         "operationId": "listMetrics",
@@ -252,13 +371,13 @@
                         "metrics": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Metric"
+                            "$ref": "components[\"schemas\"][\"Metric\"]"
                           }
                         }
                       }
                     },
                     {
-                      "$ref": "#/components/schemas/PaginationFields"
+                      "$ref": "components[\"schemas\"][\"PaginationFields\"]"
                     }
                   ]
                 }
@@ -271,7 +390,7 @@
     "/metrics/{id}": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/id"
+          "$ref": "components[\"parameters\"][\"id\"]"
         }
       ],
       "get": {
@@ -286,7 +405,7 @@
                   "required": ["metric"],
                   "properties": {
                     "metric": {
-                      "$ref": "#/components/schemas/Metric"
+                      "$ref": "components[\"schemas\"][\"Metric\"]"
                     }
                   }
                 }
@@ -673,6 +792,341 @@
           },
           "dateUpdated": {
             "type": "string"
+          }
+        }
+      },
+      "Feature": {
+        "type": "object",
+        "required": [
+          "id",
+          "dateCreated",
+          "dateUpdated",
+          "archived",
+          "description",
+          "owner",
+          "project",
+          "valueType",
+          "defaultValue",
+          "tags",
+          "environments",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "valueType": {
+            "type": "string",
+            "enum": ["boolean", "string", "number", "json"]
+          },
+          "defaultValue": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "environments": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "components[\"schemas\"][\"FeatureEnvironment\"]"
+            }
+          },
+          "revision": {
+            "type": "object",
+            "required": ["version", "comment", "date", "publishedBy"],
+            "properties": {
+              "version": {
+                "type": "integer"
+              },
+              "comment": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "publishedBy": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "FeatureEnvironment": {
+        "type": "object",
+        "required": ["enabled", "defaultValue", "rules"],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "defaultValue": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "components[\"schemas\"][\"FeatureRule\"]"
+            }
+          },
+          "definition": {
+            "$ref": "components[\"schemas\"][\"FeatureDefinition\"]"
+          },
+          "draft": {
+            "type": "object",
+            "required": ["enabled", "defaultValue", "rules"],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "defaultValue": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "array",
+                "items": {
+                  "$ref": "components[\"schemas\"][\"FeatureRule\"]"
+                }
+              },
+              "definition": {
+                "$ref": "components[\"schemas\"][\"FeatureDefinition\"]"
+              }
+            }
+          }
+        }
+      },
+      "FeatureRule": {
+        "anyOf": [
+          {
+            "$ref": "components[\"schemas\"][\"FeatureForceRule\"]"
+          },
+          {
+            "$ref": "components[\"schemas\"][\"FeatureRolloutRule\"]"
+          },
+          {
+            "$ref": "components[\"schemas\"][\"FeatureExperimentRule\"]"
+          }
+        ]
+      },
+      "FeatureDefinition": {
+        "type": "object",
+        "required": ["defaultValue"],
+        "properties": {
+          "defaultValue": {
+            "type": {}
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "force": {
+                  "type": {}
+                },
+                "weights": {
+                  "type": "array",
+                  "items": "number"
+                },
+                "variations": {
+                  "type": "array",
+                  "items": {
+                    "type": {}
+                  }
+                },
+                "hashAttribute": {
+                  "type": "string"
+                },
+                "namespace": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "items": false
+                },
+                "key": {
+                  "type": "string"
+                },
+                "coverage": {
+                  "type": "number"
+                },
+                "condition": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "FeatureForceRule": {
+        "type": "object",
+        "required": [
+          "description",
+          "condition",
+          "id",
+          "enabled",
+          "type",
+          "value"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "FeatureRolloutRule": {
+        "type": "object",
+        "required": [
+          "description",
+          "condition",
+          "id",
+          "enabled",
+          "type",
+          "value",
+          "coverage",
+          "hashAttribute"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "number"
+          },
+          "hashAttribute": {
+            "type": "string"
+          }
+        }
+      },
+      "FeatureExperimentRule": {
+        "type": "object",
+        "required": ["description", "condition", "id", "enabled", "type"],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "trackingKey": {
+            "type": "string"
+          },
+          "hashAttribute": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "obect",
+            "required": ["enabled", "name", "range"],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "range": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "items": false
+              }
+            }
+          },
+          "coverage": {
+            "type": "number"
+          },
+          "value": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["value", "weight"],
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }

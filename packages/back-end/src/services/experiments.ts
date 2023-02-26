@@ -59,9 +59,9 @@ import { getSDKPayloadKeys } from "../util/features";
 import {
   ApiExperimentInterface,
   ApiExperimentResultInterface,
-  ApiMetricInterface,
 } from "../../types/api";
 import { DataSourceInterface } from "../../types/datasource";
+import { ApiMetric } from "../../types/openapi";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -856,7 +856,7 @@ export function toMetricApiInterface(
   organization: OrganizationInterface,
   metric: MetricInterface,
   datasource: DataSourceInterface | null
-): ApiMetricInterface {
+): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
   let conversionStart = metric.conversionDelayHours || 0;
@@ -867,7 +867,7 @@ export function toMetricApiInterface(
     conversionStart = -0.5;
   }
 
-  const obj: ApiMetricInterface = {
+  const obj: ApiMetric = {
     id: metric.id,
     name: metric.name,
     description: metric.description || "",

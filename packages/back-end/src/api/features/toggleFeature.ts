@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiFeatureInterface } from "../../../types/api";
+import { ToggleFeatureResponse } from "../../../types/openapi";
 import {
   getFeature,
   toggleMultipleEnvironments,
@@ -12,7 +12,7 @@ import { createApiRequestHandler } from "../../util/handler";
 export const toggleFeature = createApiRequestHandler({
   paramsSchema: z
     .object({
-      key: z.string(),
+      id: z.string(),
     })
     .strict(),
   bodySchema: z
@@ -34,8 +34,8 @@ export const toggleFeature = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (req): Promise<{ feature: ApiFeatureInterface }> => {
-    const feature = await getFeature(req.organization.id, req.params.key);
+  async (req): Promise<ToggleFeatureResponse> => {
+    const feature = await getFeature(req.organization.id, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");
     }

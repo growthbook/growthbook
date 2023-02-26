@@ -11,6 +11,12 @@ servers:
       domain:
         default: http://localhost:3100
 paths:
+  /features:
+    $ref: "./paths/features/index.yml"
+  /features/{id}:
+    $ref: "./paths/features/id.yml"
+  /features/{id}/toggle:
+    $ref: "./paths/features/toggle.yml"
   /projects:
     $ref: "./paths/projects/index.yml"
   /projects/{id}:

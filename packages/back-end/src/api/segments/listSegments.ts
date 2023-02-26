@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ListSegmentsResponse } from "../../../types/api";
+import { ListSegmentsResponse } from "../../../types/openapi";
 import {
   findSegmentsByOrganization,
   toSegmentApiInterface,

@@ -1,7 +1,5 @@
-import { components, operations } from "./openapi";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
-import { FeatureRule, FeatureValueType } from "./feature";
 import { OrganizationInterface } from "./organization";
 
 export interface ExperimentOverride {
@@ -52,48 +50,6 @@ export interface ApiRequestLocals {
 
 export interface ApiErrorResponse {
   message: string;
-}
-
-export interface ApiPaginationFields {
-  limit: number;
-  offset: number;
-  count: number;
-  total: number;
-  hasMore: boolean;
-  nextOffset: number | null;
-}
-
-export interface ApiFeatureEnvironmentInterface {
-  enabled: boolean;
-  defaultValue: string;
-  rules: FeatureRule[];
-  definition: FeatureDefinition | null;
-  draft: null | {
-    enabled: boolean;
-    defaultValue: string;
-    rules: FeatureRule[];
-    definition: FeatureDefinition | null;
-  };
-}
-
-export interface ApiFeatureInterface {
-  id: string;
-  archived: boolean;
-  description: string;
-  owner: string;
-  project: string;
-  dateCreated: string;
-  dateUpdated: string;
-  valueType: FeatureValueType;
-  defaultValue: string;
-  tags: string[];
-  environments: Record<string, ApiFeatureEnvironmentInterface>;
-  revision: {
-    version: number;
-    comment: string;
-    date: string;
-    publishedBy: string;
-  };
 }
 
 export type ApiSDKConnectionInterface = {
@@ -231,25 +187,3 @@ interface ApiExperimentMetricInterface {
     loseRiskThreshold: null | number;
   };
 }
-
-// Projects
-export type ApiProjectInterface = components["schemas"]["Project"];
-export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
-export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
-
-// Segments
-export type ApiSegmentInterface = components["schemas"]["Segment"];
-export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
-export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
-
-// Dimensions
-export type ApiDimensionInterface = components["schemas"]["Dimension"];
-export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
-export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
-
-// Metrics
-export type ApiMetricInterface = components["schemas"]["Metric"];
-export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
-export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
-
-// PLOP_INSERT_INTERFACES_HERE

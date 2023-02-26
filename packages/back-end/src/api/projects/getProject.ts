@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GetProjectResponse } from "../../../types/api";
+import { GetProjectResponse } from "../../../types/openapi";
 import { findProjectById } from "../../models/ProjectModel";
 import { createApiRequestHandler } from "../../util/handler";
 

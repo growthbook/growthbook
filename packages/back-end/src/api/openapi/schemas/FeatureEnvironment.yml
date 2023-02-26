@@ -1,0 +1,33 @@
+type: object
+required: 
+  - enabled
+  - defaultValue
+  - rules
+properties:
+  enabled:
+    type: boolean
+  defaultValue:
+    type: string
+  rules:
+    type: array
+    items:
+      $ref: "./FeatureRule.yml"
+  definition:
+    $ref: "./FeatureDefinition.yml"
+  draft:
+    type: object
+    required:
+      - enabled
+      - defaultValue
+      - rules
+    properties:
+      enabled:
+        type: boolean
+      defaultValue:
+        type: string
+      rules:
+        type: array
+        items:
+          $ref: "./FeatureRule.yml"
+      definition:
+        $ref: "./FeatureDefinition.yml"

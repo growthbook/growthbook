@@ -1,0 +1,36 @@
+type: object
+required:
+  - defaultValue
+properties:
+  defaultValue:
+    type: {}
+  rules:
+    type: array
+    items:
+      type: object
+      properties:
+        force:
+          type: {}
+        weights:
+          type: array
+          items: number
+        variations:
+          type: array
+          items:
+            type: {}
+        hashAttribute:
+          type: string
+        namespace:
+          type: array
+          prefixItems:
+            - type: string
+            - type: number
+            - type: number
+          items: false
+        key:
+          type: string
+        coverage:
+          type: number
+        condition:
+          type: object
+          additionalProperties: true

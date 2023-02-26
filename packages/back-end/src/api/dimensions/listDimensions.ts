@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ListDimensionsResponse } from "../../../types/api";
+import { ListDimensionsResponse } from "../../../types/openapi";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,

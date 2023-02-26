@@ -4,7 +4,7 @@ import {
   toSegmentApiInterface,
 } from "../../models/SegmentModel";
 import { createApiRequestHandler } from "../../util/handler";
-import { GetSegmentResponse } from "../../../types/api";
+import { GetSegmentResponse } from "../../../types/openapi";
 
 export const getSegment = createApiRequestHandler({
   paramsSchema: z

@@ -8,3 +8,17 @@ Project:
   $ref: './Project.yml'
 Segment:
   $ref: './Segment.yml'
+Feature:
+  $ref: './Feature.yml'
+FeatureEnvironment:
+  $ref: './FeatureEnvironment.yml'
+FeatureRule:
+  $ref: './FeatureRule.yml'
+FeatureDefinition:
+  $ref: './FeatureDefinition.yml'
+FeatureForceRule:
+  $ref: './FeatureForceRule.yml'
+FeatureRolloutRule:
+  $ref: './FeatureRolloutRule.yml'
+FeatureExperimentRule:
+  $ref: './FeatureExperimentRule.yml'

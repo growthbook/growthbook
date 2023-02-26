@@ -1,0 +1,4 @@
+anyOf:
+  - $ref: "./FeatureForceRule.yml"
+  - $ref: "./FeatureRolloutRule.yml"
+  - $ref: "./FeatureExperimentRule.yml"

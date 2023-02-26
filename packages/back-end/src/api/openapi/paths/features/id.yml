@@ -1,0 +1,16 @@
+parameters:
+  - $ref: "../../parameters/id.yml"
+get:
+  summary: Get a single feature
+  operationId: getFeature
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - feature
+            properties:
+              feature:
+                $ref: "../../schemas/Feature.yml"

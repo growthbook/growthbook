@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ApiDimensionInterface } from "../../types/api";
+import { ApiDimension } from "../../types/openapi";
 import { DimensionInterface } from "../../types/dimension";
 import { getConfigDimensions, usingFileConfig } from "../init/config";
 
@@ -99,7 +99,7 @@ export async function deleteDimensionById(id: string, organization: string) {
 
 export function toDimensionApiInterface(
   dimension: DimensionInterface
-): ApiDimensionInterface {
+): ApiDimension {
   return {
     id: dimension.id,
     name: dimension.name,

@@ -115,16 +115,6 @@ module.exports = function (plop) {
       },
       {
         type: "append",
-        path: "./packages/back-end/types/api.d.ts",
-        template: `
-// {{titleCase object}}s
-export type Api{{pascalCase object}}Interface = components["schemas"]["{{pascalCase object}}"];
-export type List{{pascalCase object}}sResponse = operations["list{{pascalCase object}}s"]["responses"]["200"]["content"]["application/json"];
-export type Get{{pascalCase object}}Response = operations["get{{pascalCase object}}"]["responses"]["200"]["content"]["application/json"];
-`,
-      },
-      {
-        type: "append",
         path: "./packages/back-end/src/api/openapi/schemas/_index.yml",
         template: `
 {{pascalCase object}}:

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiFeatureInterface, ApiPaginationFields } from "../../../types/api";
+import { ListFeaturesResponse } from "../../../types/openapi";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
@@ -12,9 +12,7 @@ export const listFeatures = createApiRequestHandler({
     })
     .strict(),
 })(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { features: ApiFeatureInterface[] }> => {
+  async (req): Promise<ListFeaturesResponse> => {
     const features = await getAllFeatures(req.organization.id);
     const groupMap = await getSavedGroupMap(req.organization);
 

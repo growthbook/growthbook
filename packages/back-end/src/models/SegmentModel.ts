@@ -1,6 +1,6 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
-import { ApiSegmentInterface } from "../../types/api";
+import { ApiSegment } from "../../types/openapi";
 import { SegmentInterface } from "../../types/segment";
 
 const segmentSchema = new mongoose.Schema({
@@ -60,9 +60,7 @@ export async function updateSegment(
   await SegmentModel.updateOne({ id, organization }, { $set: updates });
 }
 
-export function toSegmentApiInterface(
-  segment: SegmentInterface
-): ApiSegmentInterface {
+export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
   return {
     id: segment.id,
     name: segment.name,

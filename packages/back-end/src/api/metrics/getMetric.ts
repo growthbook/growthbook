@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GetMetricResponse } from "../../../types/api";
+import { GetMetricResponse } from "../../../types/openapi";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { getMetricById } from "../../models/MetricModel";
 import { toMetricApiInterface } from "../../services/experiments";
