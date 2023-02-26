@@ -7,6 +7,8 @@ import { ApiRequestLocals } from "../../types/api";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import metricsRouter from "./metrics/metrics.router";
+import segmentsRouter from "./segments/segments.router";
+import projectsRouter from "./projects/projects.router";
 import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
 
 const router = Router();
@@ -41,6 +43,8 @@ router.get("/", (req, res) => {
 router.use("/features", featuresRouter);
 router.use("/experiments", experimentsRouter);
 router.use("/metrics", metricsRouter);
+router.use("/segments", segmentsRouter);
+router.use("/projects", projectsRouter);
 router.use("/sdk-connections", sdkConnectionsRouter);
 
 // 404 route

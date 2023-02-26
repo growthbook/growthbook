@@ -60,6 +60,41 @@ module.exports = function (plop) {
     ],
   });
 
+  plop.setGenerator("api-object", {
+    description: "[back-end] Generate REST API list and get endpoints",
+    prompts: [
+      {
+        type: "input",
+        name: "object",
+        message:
+          "The singular name of the API object (e.g. 'metric' or 'data source')",
+      },
+    ],
+    actions: [
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/{{kebabCase object}}s.router.ts",
+        templateFile: "./plop-templates/back-end/api/router.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/list{{pascalCase object}}s.ts",
+        templateFile: "./plop-templates/back-end/api/list.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/get{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/get.hbs",
+      },
+    ],
+  });
+
   plop.setGenerator("next-page", {
     description: "[front-end] Generates a Next.js page",
     prompts: [

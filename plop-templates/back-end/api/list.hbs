@@ -1,0 +1,36 @@
+import { z } from "zod";
+import { Api{{pascalCase object}}Interface, ApiPaginationFields } from "../../../types/api";
+import { get{{pascalCase object}}sByOrganization } from "../../models/{{pascalCase object}}Model";
+import { to{{pascalCase object}}ApiInterface } from "../../services/{{camelCase object}}";
+import { applyPagination, createApiRequestHandler } from "../../util/handler";
+
+export const list{{pascalCase object}}s = createApiRequestHandler({
+  querySchema: z
+    .object({
+      limit: z.string().optional(),
+      offset: z.string().optional(),
+    })
+    .strict(),
+})(
+  async (
+    req
+  ): Promise<ApiPaginationFields & { {{camelCase object}}s: Api{{pascalCase object}}Interface[] }> => {
+    const {{camelCase object}}s = await get{{pascalCase object}}sByOrganization(req.organization.id);
+
+    // TODO: Move sorting/limiting to the database query for better performance
+    const { filtered, returnFields } = applyPagination(
+      {{camelCase object}}s.sort((a, b) => a.id.localeCompare(b.id)),
+      req.query
+    );
+
+    return {
+      {{camelCase object}}s: filtered.map(({{camelCase object}}) =>
+        to{{pascalCase object}}ApiInterface(
+          req.organization,
+          {{camelCase object}}
+        )
+      ),
+      ...returnFields,
+    };
+  }
+);

@@ -295,3 +295,32 @@ export interface MixpanelQueryBuilderSettings {
     value: string;
   }>;
 }
+
+export interface ApiProjectInterface {
+  id: string;
+  name: string;
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface ApiSegmentInterface {
+  id: string;
+  owner: string;
+  datasourceId: string;
+  identifierType: string;
+  name: string;
+  query: string;
+  dateCreated: string;
+  dateUpdated: string;
+}
+
+export interface ApiDimensionInterface {
+  id: string;
+  owner: string;
+  datasourceId: string;
+  identifierType: string;
+  name: string;
+  query: string;
+  dateCreated: string;
+  dateUpdated: string;
+}
