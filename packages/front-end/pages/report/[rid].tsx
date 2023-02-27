@@ -335,6 +335,7 @@ export default function ReportPage() {
                 guardrails={report.args.guardrails}
                 variations={variations}
                 key={report.args.dimension}
+                statsEngine={report.args.statsEngine}
               />
             ))}
           {report.results && !report.args.dimension && (
@@ -377,6 +378,7 @@ export default function ReportPage() {
                 startDate={getValidDate(report.args.startDate).toISOString()}
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
+                statsEngine={report.args.statsEngine}
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mb-3 p-3">

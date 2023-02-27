@@ -7,12 +7,7 @@ import {
   updateOrganization,
 } from "../models/OrganizationModel";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import {
-  createExperiment,
-  createMetric,
-  createSnapshot,
-} from "../services/experiments";
-import { SegmentModel } from "../models/SegmentModel";
+import { createMetric, createSnapshot } from "../services/experiments";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
@@ -22,6 +17,8 @@ import {
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
+import { createExperiment } from "../models/ExperimentModel";
+import { createSegment } from "../models/SegmentModel";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -182,7 +179,7 @@ export async function addSampleData(
   });
 
   // Example segment
-  await SegmentModel.create({
+  await createSegment({
     datasource: datasource.id,
     name: "Male",
     sql:

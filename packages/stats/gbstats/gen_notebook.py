@@ -65,7 +65,7 @@ def create_notebook(
         ),
         nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
-            "# Requires gbstats version 0.2.1 or higher\n"
+            "# Requires gbstats version 0.4.0 or higher\n"
             "from gbstats.gbstats import (\n"
             "  detect_unknown_variations,\n"
             "  analyze_metric_df,\n"
@@ -102,8 +102,6 @@ def create_notebook(
         )
         cells.append(nbf.new_markdown_cell("### Data Quality Checks / Preparation"))
 
-        type = metric["type"]
-        ignore_nulls = metric["ignore_nulls"]
         inverse = metric["inverse"]
 
         unknown_var_ids = detect_unknown_variations(metric["rows"], var_id_map)
@@ -125,9 +123,6 @@ def create_notebook(
             rows=metric["rows"],
             var_id_map=var_id_map,
             var_names=var_names,
-            ignore_nulls=ignore_nulls,
-            type=type,
-            needs_correction=needs_correction,
         )
         cells.append(
             code_cell_df(
@@ -138,9 +133,6 @@ def create_notebook(
                     f"    rows=m{i}_rows,\n"
                     f"    var_id_map=var_id_map,\n"
                     f"    var_names=var_names,\n"
-                    f"    ignore_nulls={ignore_nulls},\n"
-                    f'    type="{type}",\n'
-                    f'    needs_correction="{needs_correction}"\n'
                     f")\n"
                     f"display(m{i})"
                 ),
@@ -164,7 +156,6 @@ def create_notebook(
         result = analyze_metric_df(
             df=df,
             weights=weights,
-            type=type,
             inverse=inverse,
         )
         cells.append(
@@ -175,7 +166,6 @@ def create_notebook(
                     f"m{i}_result = analyze_metric_df(\n"
                     f"    df=m{i}_reduced,\n"
                     f"    weights=weights,\n"
-                    f'    type="{type}",\n'
                     f"    inverse={inverse}\n"
                     f")\n"
                     f"display(m{i}_result[summary_cols].T)"

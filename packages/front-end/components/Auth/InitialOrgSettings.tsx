@@ -30,6 +30,7 @@ export default function InitialOrgSettings(): ReactElement {
     { display: "MySQL or MariaDB", value: "mysql" },
     { display: "MS SQL/SQL Server", value: "mssql" },
     { display: "BigQuery", value: "bigquery" },
+    { display: "Databricks", value: "databricks" },
     { display: "Mixpanel", value: "mixpanel" },
     { display: "ClickHouse", value: "clickhouse" },
   ];

@@ -122,6 +122,18 @@ const growthbook = new GrowthBook({
 },
 ```
 
+## My old exported notebook stopped working. How can I fix it?
+
+There's a good chance that the SQL we are exporting and your version of our Python stats library, `gbstats`, are out of sync.
+In February of 2023 we updated our SQL engines and `gbstats` library to only use sums and sums of squares, rather than averages and standard deviations.
+
+If the queries in your notebook return averages and standard deviations (using `AVG` and `VAR` SQL operators as part of the `__stats` CTE), then you need to run that notebook with `gbstats` version 0.3.1.
+You can download this from PyPI [here](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
+Ideally in this case you can redownload the notebook and use the new `gbstats` library (0.4.0 or newer). You can download a new notebook by navigating to your experiment in GrowthBook and clicking `Download Notebook` again. This should now use the updated SQL and `gbstats` syntax. Then, if you install `gbstats` 0.4.0 or later, everything should work as expected.
+
+If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
+You can download this from PyPI [here](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
+
 ## Can't find your question?
 
 If you can't find an answer to your question above, please let us know so we can help you out and improve the docs for future users!
