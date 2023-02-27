@@ -162,6 +162,7 @@ export interface RawInformationSchema {
   column_name: string;
   data_type: string;
   table_catalog: string;
+  table_schema: string;
 }
 
 interface Column {
@@ -176,10 +177,16 @@ interface Table {
   columns: Column[];
 }
 
+interface Schema {
+  schema_name: string;
+  tables: Table[];
+  path?: string;
+}
+
 export interface InformationSchema {
   database_name: string;
   path?: string;
-  tables: Table[];
+  schemas: Schema[];
 }
 
 export interface SourceIntegrationInterface {

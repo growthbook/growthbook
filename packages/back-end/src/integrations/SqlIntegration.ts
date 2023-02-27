@@ -508,7 +508,7 @@ export default abstract class SqlIntegration
       ) {
         formattedResults.push({
           database_name: key,
-          tables: [],
+          schemas: [],
           path: isMySQL ? "" : key,
         });
       }
@@ -516,22 +516,40 @@ export default abstract class SqlIntegration
       const index = formattedResults.findIndex((i) => i.database_name === key);
 
       if (
-        !formattedResults[index].tables.some(
+        !formattedResults[index].schemas.some(
+          (schema) => schema.schema_name === row.table_schema
+        )
+      ) {
+        formattedResults[index].schemas.push({
+          schema_name: row.table_schema,
+          tables: [],
+          path: isMySQL ? "" : `${key}.${row.table_schema}`,
+        });
+      }
+
+      const schemaIndex = formattedResults[index].schemas.findIndex(
+        (i) => i.schema_name === row.table_schema
+      );
+
+      if (
+        !formattedResults[index].schemas[schemaIndex].tables.some(
           (table) => table.table_name === row.table_name
         )
       ) {
-        formattedResults[index].tables.push({
+        formattedResults[index].schemas[schemaIndex].tables.push({
           table_name: row.table_name,
           columns: [],
           path: isMySQL ? row.table_name : `${key}.${row.table_name}`,
         });
       }
 
-      const tableIndex = formattedResults[index].tables.findIndex(
-        (i) => i.table_name === row.table_name
-      );
+      const tableIndex = formattedResults[index].schemas[
+        schemaIndex
+      ].tables.findIndex((i) => i.table_name === row.table_name);
 
-      formattedResults[index].tables[tableIndex].columns?.push({
+      formattedResults[index].schemas[schemaIndex].tables[
+        tableIndex
+      ].columns?.push({
         column_name: row.column_name,
         data_type: row.data_type,
         path: isMySQL

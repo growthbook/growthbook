@@ -37,11 +37,13 @@ export default class Postgres extends SqlIntegration {
         table_name,
         column_name,
         data_type,
-        table_catalog
+        table_catalog,
+        table_schema
       FROM
         information_schema.columns
       WHERE
-        table_schema='public'
+        table_schema
+      NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
       ORDER BY table_name;`;
     return await this.runQuery(sql);
   }

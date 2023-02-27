@@ -91,16 +91,17 @@ export default class BigQuery extends SqlIntegration {
       const sql = `SELECT
         table_name,
         column_name,
-        data_type
+        data_type,
+        table_schema
       FROM
         ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
       ORDER BY
         table_name;`;
       const results = await this.runQuery(sql);
 
-      //MKTODO: Is there a awit to make this more efficient?
+      //MKTODO: Is there a way to make this more efficient?
       for (const result of results) {
-        result.table_catalog = dataset.schema_name;
+        result.table_catalog = projectId;
         combinedResults.push(result);
       }
     }
