@@ -723,7 +723,7 @@ export function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
-      exposureQueryId: experiment.exposureQueryId || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -802,7 +802,7 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
-      exposureQueryId: experiment.exposureQueryId || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: snapshot.segment || "",
       queryFilter: snapshot.queryFilter || "",

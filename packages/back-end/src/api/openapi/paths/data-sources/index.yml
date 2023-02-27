@@ -1,0 +1,21 @@
+get:
+  summary: Get all data sources
+  parameters:
+  - $ref: "../../parameters/limit.yml"
+  - $ref: "../../parameters/offset.yml"
+  operationId: listDataSources
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                required:
+                  - dataSources
+                properties:
+                  dataSources:
+                    type: array
+                    items:
+                      $ref: "../../schemas/DataSource.yml"
+              - $ref: "../../schemas/PaginationFields.yml"

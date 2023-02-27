@@ -1,7 +1,7 @@
 type: object
 required:
   - datasourceId
-  - exposureQueryId
+  - assignmentQueryId
   - experimentId
   - segmentId
   - queryFilter
@@ -14,7 +14,7 @@ required:
 properties:
   datasourceId:
     type: string
-  exposureQueryId:
+  assignmentQueryId:
     type: string
   experimentId:
     type: string

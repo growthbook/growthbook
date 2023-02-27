@@ -10,6 +10,8 @@ import metricsRouter from "./metrics/metrics.router";
 import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
 import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
+import dataSourcesRouter from "./data-sources/data-sources.router";
+import dimensionsRouter from "./dimensions/dimensions.router";
 import openapiSpec from "./openapi/openapi.json";
 
 const router = Router();
@@ -50,8 +52,10 @@ router.use("/features", featuresRouter);
 router.use("/experiments", experimentsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);
+router.use("/dimensions", dimensionsRouter);
 router.use("/projects", projectsRouter);
 router.use("/sdk-connections", sdkConnectionsRouter);
+router.use("/data-sources", dataSourcesRouter);
 
 // 404 route
 router.use(function (req, res) {

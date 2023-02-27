@@ -38,6 +38,10 @@ paths:
   /sdk-connections/{id}:
     $ref: "./paths/sdk-connections/id.yml"
 # PLOP_INSERT_PATHS_HERE
+  /data-sources:
+    $ref: "./paths/data-sources/index.yml"
+  /data-sources/{id}:
+    $ref: "./paths/data-sources/id.yml"
   /experiments:
     $ref: "./paths/experiments/index.yml"
   /experiments/{id}:

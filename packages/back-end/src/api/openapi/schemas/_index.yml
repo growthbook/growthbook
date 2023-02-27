@@ -32,3 +32,5 @@ ExperimentAnalysisSettings:
   $ref: './ExperimentAnalysisSettings.yml'
 ExperimentResults:
   $ref: './ExperimentResults.yml'
+DataSource:
+  $ref: './DataSource.yml'

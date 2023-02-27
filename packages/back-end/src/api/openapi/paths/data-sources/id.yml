@@ -1,0 +1,16 @@
+parameters:
+  - $ref: "../../parameters/id.yml"
+get:
+  summary: Get a single data source
+  operationId: getDataSource
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - dataSource
+            properties:
+              dataSource:
+                $ref: "../../schemas/DataSource.yml"

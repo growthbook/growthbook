@@ -69,6 +69,15 @@ export interface paths {
     get: operations["getSdkConnection"];
     
   };
+  "/data-sources": {
+    /** Get all data sources */
+    get: operations["listDataSources"];
+  };
+  "/data-sources/{id}": {
+    /** Get a single data source */
+    get: operations["getDataSource"];
+    
+  };
   "/experiments": {
     /** Get all experiments */
     get: operations["listExperiments"];
@@ -350,7 +359,7 @@ export interface components {
     };
     ExperimentAnalysisSettings: {
       datasourceId: string;
-      exposureQueryId: string;
+      assignmentQueryId: string;
       experimentId: string;
       segmentId: string;
       queryFilter: string;
@@ -406,6 +415,41 @@ export interface components {
                 })[];
             })[];
         })[];
+    };
+    DataSource: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      type: string;
+      name: string;
+      description: string;
+      projectIds: (string)[];
+      eventTracker: string;
+      identifierTypes: ({
+          id: string;
+          description: string;
+        })[];
+      assignmentQueries: ({
+          id: string;
+          name: string;
+          description: string;
+          identifierType: string;
+          sql: string;
+          includesNameColumns: boolean;
+          dimensionColumns: (string)[];
+        })[];
+      identifierJoinQueries: ({
+          identifierTypes: (string)[];
+          sql: string;
+        })[];
+      mixpanelSettings?: {
+        viewedExperimentEventName: string;
+        experimentIdProperty: string;
+        variationIdProperty: string;
+        extraUserIdProperty: string;
+      };
     };
   };
   responses: {
@@ -581,6 +625,30 @@ export interface operations {
       };
     };
   };
+  listDataSources: {
+    /** Get all data sources */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dataSources: (components["schemas"]["DataSource"])[];
+          } & components["schemas"]["PaginationFields"];
+        };
+      };
+    };
+  };
+  getDataSource: {
+    /** Get a single data source */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dataSource: components["schemas"]["DataSource"];
+          };
+        };
+      };
+    };
+  };
   listExperiments: {
     /** Get all experiments */
     responses: {
@@ -637,6 +705,7 @@ export type ApiExperiment = components["schemas"]["Experiment"];
 export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];
 export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAnalysisSettings"];
 export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
+export type ApiDataSource = components["schemas"]["DataSource"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -652,6 +721,8 @@ export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"][
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
+export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
