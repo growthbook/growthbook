@@ -18,6 +18,27 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Add to Cart'"
   },
   {
+    "id": "nonbinom__purchased_items_regressionadjusted",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders",
+    "regressionAdjustedHours": 336
+  },
+  {
+    "id": "nonbinom_null__purchased_value_regressionadjusted",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "regressionAdjustedHours": 336
+  },
+  {
+    "id": "binomial__any_item_in_cart_regressionadjusted",
+    "type": "binomial",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Add to Cart'",
+    "regressionAdjustedHours": 336
+  },
+  {
     "id": "ratio_binom_binom__any_purchase_over_any_item_in_cart",
     "type": "binomial",
     "ignoreNulls": false,

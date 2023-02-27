@@ -6,6 +6,7 @@ import {
   ExposureQuery,
 } from "../../types/datasource";
 import {
+  AggregateType,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
@@ -333,7 +334,11 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = this.getMetricStart([params.metric], params.from);
+    const metricStart = this.getMetricStart(
+      [params.metric],
+      params.from,
+      false
+    );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "m");
@@ -467,6 +472,13 @@ export default abstract class SqlIntegration
           denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
           main_denominator_sum_product:
             parseFloat(row.main_denominator_sum_product) || 0,
+        }),
+        ...(row.covariate_metric_type && {
+          covariate_metric_type: row.covariate_metric_type ?? "",
+          covariate_sum: parseFloat(row.covariate_sum) || 0,
+          covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+          main_covariate_sum_product:
+            parseFloat(row.main_covariate_sum_product) || 0,
         }),
       };
     });
@@ -623,7 +635,11 @@ export default abstract class SqlIntegration
     return `e.${col}`;
   }
 
-  private getMetricStart(metrics: MetricInterface[], initial: Date) {
+  private getMetricStart(
+    metrics: MetricInterface[],
+    initial: Date,
+    isRegressionAdjusted: boolean
+  ) {
     const metricStart = new Date(initial);
     let runningDelay = 0;
     let minDelay = 0;
@@ -636,6 +652,9 @@ export default abstract class SqlIntegration
     });
     if (minDelay < 0) {
       metricStart.setHours(metricStart.getHours() + minDelay);
+    }
+    if (isRegressionAdjusted) {
+      metricStart.setHours(metricStart.getHours() - 336); // 24 * 14, should customize later
     }
     return metricStart;
   }
@@ -711,11 +730,26 @@ export default abstract class SqlIntegration
       experiment.userIdType
     );
 
+    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
+    // If the denominator is a binomial, it's just acting as a filter
+    // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
+    // When the denominator is a count, it's a real ratio, dividing two quantities
+    // e.g. "Pages/Session" is dividing number of page views by number of sessions
+    const isRatio = denominator?.type === "count";
+
+    // TODO: validation that metric.regressionAdjusted is true under the right conditions
+    const regressionAdjustmentHours = metric.regressionAdjustmentHours ?? 0;
+    const isRegressionAdjusted = regressionAdjustmentHours > 0 && !isRatio;
+
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
       .concat([metric]);
-    const metricStart = this.getMetricStart(orderedMetrics, phase.dateStarted);
+    const metricStart = this.getMetricStart(
+      orderedMetrics,
+      phase.dateStarted,
+      isRegressionAdjusted
+    );
     const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
 
     // Get any required identity join queries
@@ -739,8 +773,6 @@ export default abstract class SqlIntegration
     const removeMultipleExposures = !!experiment.removeMultipleExposures;
     const useAllExposures = experiment.attributionModel === "allExposures";
 
-    const aggregate = this.getAggregateMetricColumn(metric, "m");
-
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
     const dimensionGroupBy = this.useAliasInGroupBy()
       ? "dimension"
@@ -753,14 +785,7 @@ export default abstract class SqlIntegration
         ? denominatorMetrics[0]
         : metric;
 
-    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
-    // If the denominator is a binomial, it's just acting as a filter
-    // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
-    // When the denominator is a count, it's a real ratio, dividing two quantities
-    // e.g. "Pages/Session" is dividing number of page views by number of sessions
-    const isRatio = denominator?.type === "count";
-
-    return format(
+    const queryString = format(
       `-- ${metric.name} (${metric.type})
     WITH
       ${idJoinSQL}
@@ -867,7 +892,7 @@ export default abstract class SqlIntegration
         -- One row per included metric conversion
         SELECT
           m.${baseIdType},  
-          m.timestamp as ts,
+          m.timestamp,
           m.value
         FROM
           __metric m
@@ -879,7 +904,11 @@ export default abstract class SqlIntegration
               : "__experiment"
           } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          m.timestamp >= u.conversion_start
+          m.timestamp >= ${
+            isRegressionAdjusted
+              ? this.addHours("u.conversion_start", -regressionAdjustmentHours)
+              : "u.conversion_start"
+          }
           AND m.timestamp <= u.conversion_end
         GROUP BY
           m.${baseIdType}, m.timestamp, m.value
@@ -892,7 +921,7 @@ export default abstract class SqlIntegration
         -- One row per included denominator conversion
         SELECT
           m.${baseIdType},
-          m.timestamp as ts,
+          m.timestamp,
           m.value
         FROM
           __denominator${denominatorMetrics.length - 1} m
@@ -1001,7 +1030,22 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${aggregate} as value
+          ${this.getAggregateMetricColumn(
+            metric,
+            "m",
+            "d",
+            isRegressionAdjusted ? "post" : "postOnly"
+          )} as value
+          ${
+            isRegressionAdjusted
+              ? `, ${this.getAggregateMetricColumn(
+                  metric,
+                  "m",
+                  "d",
+                  "pre"
+                )} as covariate_value`
+              : ""
+          }
         FROM
           __distinctUsers d
           JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
@@ -1011,7 +1055,11 @@ export default abstract class SqlIntegration
           useAllExposures
             ? ""
             : `WHERE
-          m.timestamp >= d.conversion_start
+          m.timestamp >= ${
+            isRegressionAdjusted
+              ? this.addHours("d.conversion_start", -regressionAdjustmentHours)
+              : "d.conversion_start"
+          }
           AND m.timestamp <= d.conversion_end`
         }
         GROUP BY
@@ -1046,6 +1094,15 @@ export default abstract class SqlIntegration
           `
               : ""
           }
+          ${
+            isRegressionAdjusted
+              ? `,
+              SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
+              SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
+              SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
+              `
+              : ""
+          }
         FROM
           ${
             isRatio
@@ -1066,7 +1123,9 @@ export default abstract class SqlIntegration
         u.dimension,
         ${this.getVariationUsers(metric)} as users,
         ${this.getVariationUsers(metric)} as count,
-        '${isRatio ? `ratio` : `mean`}' as statistic_type,
+        '${
+          isRatio ? `ratio` : isRegressionAdjusted ? `mean_ra` : `mean`
+        }' as statistic_type,
         '${metric.type}' as main_metric_type,
         COALESCE(s.main_sum, 0) AS main_sum,
         COALESCE(s.main_sum_squares, 0) AS main_sum_squares
@@ -1080,6 +1139,16 @@ export default abstract class SqlIntegration
           `
             : ""
         }
+        ${
+          isRegressionAdjusted
+            ? `,
+          '${metric.type}' as covariate_metric_type,
+          COALESCE(s.covariate_sum, 0) AS covariate_sum,
+          COALESCE(s.covariate_sum_squares, 0) AS covariate_sum_squares,
+          COALESCE(s.main_covariate_sum_product, 0) AS main_covariate_sum_product
+          `
+            : ""
+        }
       FROM
         __overallUsers u
         LEFT JOIN __stats s ON (
@@ -1089,6 +1158,7 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
+    return queryString;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");
@@ -1355,25 +1425,78 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  private getAggregateMetricColumn(metric: MetricInterface, alias = "m") {
+  private addPrePostTimeFilter(
+    col: string,
+    metricAlias: string,
+    userAlias: string,
+    timePeriod: AggregateType
+  ): string {
+    const mcol = `${metricAlias}.timestamp`;
+    const ucol = `${userAlias}.conversion_start`;
+    if (timePeriod === "pre") {
+      return `${this.ifElse(`${mcol} < ${ucol}`, `${col}`, `0`)}`;
+    } else if (timePeriod === "post") {
+      return `${this.ifElse(`${mcol} >= ${ucol}`, `${col}`, `0`)}`;
+    }
+    return `${col}`;
+  }
+
+  private getAggregateMetricColumn(
+    metric: MetricInterface,
+    metricAlias = "m",
+    userAlias = "d",
+    timePeriod: AggregateType = "postOnly"
+  ) {
     if (metric.type === "binomial") {
-      return "1";
+      return `MAX(${this.addPrePostTimeFilter(
+        "1",
+        metricAlias,
+        userAlias,
+        timePeriod
+      )})`;
     }
 
     const queryFormat = this.getMetricQueryFormat(metric);
     if (queryFormat === "sql") {
       return this.capValue(
         metric.cap,
-        metric.aggregation || `SUM(${alias}.value)`
+        metric.aggregation ||
+          `SUM(${this.addPrePostTimeFilter(
+            `${metricAlias}.value`,
+            metricAlias,
+            userAlias,
+            timePeriod
+          )})`
       );
     }
 
-    return this.capValue(
-      metric.cap,
-      metric.type === "count"
-        ? `COUNT(${metric.column ? `DISTINCT ${alias}.value` : "*"})`
-        : `MAX(${alias}.value)`
-    );
+    // builder fomat
+    let aggregate = "";
+    if (metric.type === "count") {
+      if (metric.column) {
+        aggregate = `COUNT(DISTINCT (${this.addPrePostTimeFilter(
+          `${metricAlias}.value`,
+          metricAlias,
+          userAlias,
+          timePeriod
+        )}))`;
+      } else {
+        aggregate = `SUM(${this.addPrePostTimeFilter(
+          "1",
+          metricAlias,
+          userAlias,
+          timePeriod
+        )})`;
+      }
+    } else {
+      aggregate = `MAX(${this.addPrePostTimeFilter(
+        `${metricAlias}.value`,
+        metricAlias,
+        userAlias,
+        timePeriod
+      )})`;
+    }
+    return this.capValue(metric.cap, aggregate);
   }
 
   private getMetricColumns(metric: MetricInterface, alias = "m") {
