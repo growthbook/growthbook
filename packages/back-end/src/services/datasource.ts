@@ -215,7 +215,7 @@ export async function createInitialInformationSchema(
       await updateDataSource(datasource.id, organization, {
         settings: {
           ...datasource.settings,
-          informationSchemaId: informationSchemaId.id,
+          informationSchemaId: informationSchemaId,
         },
       });
     }

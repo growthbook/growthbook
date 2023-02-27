@@ -1,4 +1,3 @@
-import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { InformationSchema } from "../types/Integration";
@@ -36,17 +35,10 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   informationSchema
 );
 
-/**
- * Convert the Mongo document to an InformationSourceInterface, omitting Mongo default fields __v, _id
- * @param doc
- */
-const toInterface = (doc: InformationSchemaDocument): InformationSchema =>
-  omit(doc.toJSON(), ["__v", "_id"]);
-
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string
-): Promise<InformationSchema | null> {
+): Promise<string | null> {
   const result = await InformationSchemaModel.create({
     id: uniqid("info-schema-"),
     organization,
@@ -55,5 +47,5 @@ export async function createInformationSchema(
     dateUpdated: new Date(),
   });
 
-  return result ? toInterface(result) : null;
+  return result ? result.id : null;
 }
