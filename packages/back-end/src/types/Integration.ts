@@ -165,7 +165,7 @@ export interface RawInformationSchema {
   table_schema: string;
 }
 
-interface Column {
+export interface Column {
   column_name: string;
   path?: string;
   data_type: string;

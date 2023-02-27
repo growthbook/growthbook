@@ -1,10 +1,7 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import {
-  Column,
-  InformationSchemaColumnsInterface,
-} from "../../types/information-source";
+import { Column } from "../types/Integration";
 
 const informationSchemaColumnsSchema = new mongoose.Schema({
   id: String,
@@ -21,8 +18,10 @@ const informationSchemaColumnsSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type InformationSchemaColumnsDocument = mongoose.Document &
-  InformationSchemaColumnsInterface;
+type InformationSchemaColumnsDocument = mongoose.Document & {
+  id: string;
+  columns: Column[];
+};
 
 const InformationSchemaColumnsModel = mongoose.model<InformationSchemaColumnsDocument>(
   "InformationSchemaColumns",
@@ -35,7 +34,10 @@ const InformationSchemaColumnsModel = mongoose.model<InformationSchemaColumnsDoc
  */
 const toInterface = (
   doc: InformationSchemaColumnsDocument
-): InformationSchemaColumnsInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): {
+  id: string;
+  columns: Column[];
+} => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchemaColumns(
   columns: Column[],
