@@ -130,6 +130,12 @@ const sidebars = {
           id: "tools/vscode-extension",
           label: "Visual Studio Code Extension",
         },
+        {
+          type: "doc",
+          id: "tools/cli",
+          className: "pill-new",
+          label: "Command Line Interface (CLI)",
+        },
       ],
     },
     {
