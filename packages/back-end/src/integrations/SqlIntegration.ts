@@ -509,7 +509,7 @@ export default abstract class SqlIntegration
         formattedResults.push({
           database_name: key,
           schemas: [],
-          path: isMySQL ? "" : key,
+          path: key,
         });
       }
 
@@ -523,7 +523,7 @@ export default abstract class SqlIntegration
         formattedResults[index].schemas.push({
           schema_name: row.table_schema,
           tables: [],
-          path: isMySQL ? "" : `${key}.${row.table_schema}`,
+          path: `${key}.${row.table_schema}`,
         });
       }
 
@@ -539,7 +539,9 @@ export default abstract class SqlIntegration
         formattedResults[index].schemas[schemaIndex].tables.push({
           table_name: row.table_name,
           columns: [],
-          path: isMySQL ? row.table_name : `${key}.${row.table_name}`,
+          path: isMySQL
+            ? `${row.table_schema}.${row.table_name}`
+            : `${key}.${row.table_schema}.${row.table_name}`,
         });
       }
 
@@ -554,7 +556,7 @@ export default abstract class SqlIntegration
         data_type: row.data_type,
         path: isMySQL
           ? `${row.table_name}.${row.column_name}`
-          : `${key}.${row.table_name}.${row.column_name}`,
+          : `${key}.${row.table_schema}.${row.table_name}.${row.column_name}`,
       });
     });
 
