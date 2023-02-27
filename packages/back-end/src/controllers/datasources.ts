@@ -15,6 +15,7 @@ import {
   encryptParams,
   testQuery,
   generateInformationSchema,
+  createInitialInformationSchema,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
@@ -357,6 +358,8 @@ export async function postDataSources(
       projects
     );
 
+    await createInitialInformationSchema(datasource, org.id); //MKTODO: Rename this method
+
     res.status(200).json({
       status: 200,
       id: datasource.id,
@@ -431,16 +434,16 @@ export async function putDataSource(
       updates.projects = projects;
     }
 
-    // Re-generate the schema
-    const { informationSchema } = await generateInformationSchema(datasource);
+    // // Re-generate the schema
+    // const { informationSchema } = await generateInformationSchema(datasource);
 
-    if (informationSchema?.length) {
-      if (!updates.settings) {
-        updates.settings = {};
-      }
+    // if (informationSchema?.length) {
+    //   if (!updates.settings) {
+    //     updates.settings = {};
+    //   }
 
-      updates.settings.informationSchema = informationSchema;
-    }
+    //   updates.settings.informationSchema = informationSchema;
+    // } //MKTODO: Re-enable this
 
     if (
       type === "google_analytics" &&
@@ -600,12 +603,12 @@ export async function putDataSourceSchema(
 
   const existing = await getDataSourceById(datasource.id, org.id);
 
-  await updateDataSource(datasource.id, org.id, {
-    settings: {
-      ...existing?.settings,
-      informationSchema: informationSchema,
-    },
-  });
+  // await updateDataSource(datasource.id, org.id, {
+  //   settings: {
+  //     ...existing?.settings,
+  //     informationSchema: informationSchema,
+  //   },
+  // }); //MKTOD): Rebuild this
 
   res.status(200).json({
     status: 200,

@@ -23,6 +23,9 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
+import { createInformationSchemaColumns } from "../models/InformationSchemaColumnsModel";
+import { createInformationSchema } from "../models/InformationSchemaModel";
+import { updateDataSource } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -178,5 +181,43 @@ export async function testQuery(
       error: e.message,
       sql,
     };
+  }
+}
+
+export async function createInitialInformationSchema(
+  datasource: DataSourceInterface,
+  organization: string
+) {
+  const { informationSchema } = await generateInformationSchema(datasource);
+
+  // Loop through each database, schema, and table, and create Mongo record for each table's columns.
+  if (informationSchema) {
+    for (const database of informationSchema) {
+      for (const schema of database.schemas) {
+        for (const table of schema.tables) {
+          const column = await createInformationSchemaColumns(
+            table.columns,
+            organization
+          );
+          table.columns_id = column.id;
+        }
+      }
+    }
+
+    // Then, I need to save the updated informationSchema to the InformationSchema collection and get the id.
+    const informationSchemaId = await createInformationSchema(
+      informationSchema,
+      organization
+    );
+
+    // Then, I need to update the datasource.settings.informationSchemaId to the id of the newly created informationSchema.
+    if (informationSchemaId) {
+      await updateDataSource(datasource.id, organization, {
+        settings: {
+          ...datasource.settings,
+          informationSchemaId: informationSchemaId.id,
+        },
+      });
+    }
   }
 }

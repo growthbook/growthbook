@@ -175,6 +175,7 @@ interface Table {
   table_name: string;
   path?: string;
   columns: Column[];
+  columns_id?: string;
 }
 
 interface Schema {

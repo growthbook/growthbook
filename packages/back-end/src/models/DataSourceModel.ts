@@ -10,7 +10,6 @@ import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics"
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,
-  generateInformationSchema,
   testDataSourceConnection,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
@@ -164,13 +163,6 @@ export async function createDataSource(
 
   // Test the connection and create in the database
   await testDataSourceConnection(datasource);
-
-  // Build the datasource schema
-  const { informationSchema } = await generateInformationSchema(datasource);
-
-  if (informationSchema?.length) {
-    datasource.settings.informationSchema = informationSchema;
-  }
 
   //  Create in the database
   const model = await DataSourceModel.create(datasource);
