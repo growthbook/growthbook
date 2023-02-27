@@ -28,10 +28,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const connection = await findSDKConnectionById(connectionId);
     if (!connection) return;
-    if (!IS_CLOUD && (!connection.proxy.enabled || !connection.proxy.host))
-      return;
-    // note: sseEnabled indicates that we are using Cloud Proxy behind the scenes.
-    if (IS_CLOUD && !connection.sseEnabled) return;
+    if (!connectionSupportsProxyUpdate(connection)) return;
 
     const defs = await getFeatureDefinitions(
       connection.organization,
@@ -103,10 +100,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 export async function queueSingleProxyUpdate(
   connection: SDKConnectionInterface
 ) {
-  if (!IS_CLOUD && (!connection.proxy.enabled || !connection.proxy.host))
-    return;
-  // note: sseEnabled indicates that we are using Cloud Proxy behind the scenes.
-  if (IS_CLOUD && !connection.sseEnabled) return;
+  if (!connectionSupportsProxyUpdate(connection)) return;
 
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
     connectionId: connection.id,
@@ -146,4 +140,11 @@ export async function queueProxyUpdate(
 
     await queueSingleProxyUpdate(connection);
   }
+}
+
+function connectionSupportsProxyUpdate(connection: SDKConnectionInterface) {
+  // note: sseEnabled indicates that we are using Cloud Proxy behind the scenes
+  if (IS_CLOUD) return !!connection.sseEnabled;
+
+  return !!(connection.proxy.enabled && connection.proxy.host);
 }
