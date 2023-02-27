@@ -163,7 +163,6 @@ export async function createDataSource(
 
   // Test the connection and create in the database
   await testDataSourceConnection(datasource);
-
   const model = await DataSourceModel.create(datasource);
 
   return toInterface(model);

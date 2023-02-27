@@ -601,7 +601,7 @@ export async function putDataSourceSchema(
     });
   }
 
-  const existing = await getDataSourceById(datasource.id, org.id);
+  // const existing = await getDataSourceById(datasource.id, org.id);
 
   // await updateDataSource(datasource.id, org.id, {
   //   settings: {
