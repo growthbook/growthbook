@@ -31,10 +31,8 @@ npm i --save @growthbook/growthbook
 or use directly in your HTML without installing first:
 
 ```html
-<script type="module">
-  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/bundles/esm.min.js";
-  //...
-</script>
+<!-- Creates `window.growthbook` with all of the exported classes -->
+<script src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.js"></script>
 ```
 
 ## Quick Usage
