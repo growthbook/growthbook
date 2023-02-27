@@ -7,7 +7,6 @@ import type {
   FeatureDefinition,
   FeatureResultSource,
   Attributes,
-  JSONValue,
   WidenPrimitives,
   RealtimeUsageData,
   LoadFeaturesOptions,
@@ -38,7 +37,10 @@ const isBrowser =
 const base64ToBuf = (b: string) =>
   Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
-export class GrowthBook {
+export class GrowthBook<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AppFeatures extends Record<string, any> = Record<string, any>
+> {
   // context is technically private, but some tools depend on it so we can't mangle the name
   // _ctx below is a clone of this property that we use internally
   private context: Context;
@@ -348,31 +350,38 @@ export class GrowthBook {
     return ret;
   }
 
-  public isOn(key: string): boolean {
+  public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).on;
   }
-  public isOff(key: string): boolean {
+
+  public isOff<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).off;
   }
-  public getFeatureValue<T extends JSONValue>(
-    key: string,
-    defaultValue: T
-  ): WidenPrimitives<T> {
-    const value = this.evalFeature<WidenPrimitives<T>>(key).value;
-    return value === null ? (defaultValue as WidenPrimitives<T>) : value;
+
+  public getFeatureValue<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(key: K, defaultValue: V): WidenPrimitives<V> {
+    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
+    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
+  /**
+   * @deprecated Use {@link evalFeature}
+   * @param id
+   */
   // eslint-disable-next-line
-  public feature<T extends JSONValue = any>(
-    id: string
-  ): FeatureResult<T | null> {
+  public feature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 
-  // eslint-disable-next-line
-  public evalFeature<T extends JSONValue = any>(
-    id: string
-  ): FeatureResult<T | null> {
+  public evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -395,7 +404,7 @@ export class GrowthBook {
     }
 
     // Get the feature
-    const feature: FeatureDefinition<T> = this._ctx.features[id];
+    const feature: FeatureDefinition<V> = this._ctx.features[id];
 
     // Loop through the rules
     if (feature.rules) {
@@ -452,7 +461,7 @@ export class GrowthBook {
             });
           }
 
-          return this._getFeatureResult(id, rule.force as T, "force", rule.id);
+          return this._getFeatureResult(id, rule.force as V, "force", rule.id);
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
@@ -464,8 +473,8 @@ export class GrowthBook {
           continue;
         }
         // For experiment rules, run an experiment
-        const exp: Experiment<T> = {
-          variations: rule.variations as [T, T, ...T[]],
+        const exp: Experiment<V> = {
+          variations: rule.variations as [V, V, ...V[]],
           key: rule.key || id,
         };
         if ("coverage" in rule) exp.coverage = rule.coverage;
