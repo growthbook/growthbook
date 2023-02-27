@@ -1,5 +1,18 @@
 # Changelog
 
+## **0.23.0** - Feb 27, 2023
+
+- Support for holdout groups
+- Experiment dependencies (e.g. only run this experiment if user is in Variation B of another experiment)
+- Ability to force re-randomization when making changes in the middle of an experiment
+- Make experiment name and variation name/id available to the tracking callback
+- More flexibile configuration of hashing and variation bucketing
+- Fix bias in hashing algorithm when nested experiments have similar tracking keys
+
+## **0.22.0** - Feb 27, 2023
+
+- Strongly typed feature flag support
+
 ## **0.21.2** - Feb 9, 2023
 
 - Fix localStorage incognito bug

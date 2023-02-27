@@ -40,8 +40,13 @@ import { GrowthBook } from "@growthbook/growthbook";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  // Enable easier debugging during development
   enableDevMode: true,
+  // Targeting attributes
+  attributes: {
+    id: "123",
+    country: "US"
+  },
 });
 
 // Wait for features to be available
@@ -207,30 +212,18 @@ const newLogin = gb.isOn("new-signup-form");
 
 ## TypeScript
 
-You can use TypeScript to varying degrees of strictness based on your preference:
-
-- Basic support with type inference
-- More strict support with strongly-typed feature definitions
-
-### Type Inference
-
-When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
+When used in a TypeScript project, GrowthBook includes basic type inference out of the box:
 
 ```ts
-// color will be type "string"
+// Type will be `string` based on the fallback provided ("blue")
 const color = gb.getFeatureValue("button-color", "blue");
-```
 
-When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type using generics. Note that whatever type you specify will be unioned with `null` in the return value.
+// You can manually specify types as well
+// feature.value will be type `number`
+const feature = gb.evalFeature<number>("font-size");
+console.log(feature.value);
 
-```ts
-// result.value will be type "number | null" now
-const result = gb.evalFeature<number>("button-size");
-```
-
-When using inline experiments, the returned value is inferred from the variations you pass in:
-
-```ts
+// Experiments will use the variations to infer the return value
 // result.value will be type "string"
 const result = gb.run({
   key: "my-test",
@@ -238,84 +231,36 @@ const result = gb.run({
 });
 ```
 
-There are a number of types you can import as well if needed:
+### Strict Typing
+
+If you want to enforce stricter types in your application, you can do that when creating the GrowthBook instance:
 
 ```ts
-import type {
-  Context,
-  Attributes,
-  Polyfills,
-  CacheSettings,
-  FeatureApiResponse,
-  LoadFeaturesOptions,
-  RefreshFeaturesOptions,
-  FeatureDefinitions,
-  FeatureDefinition,
-  FeatureRule,
-  FeatureResult,
-  FeatureResultSource,
-  Experiment,
-  Result,
-  ExperimentOverride,
-  ExperimentStatus,
-  JSONValue,
-  SubscriptionFunction,
-  LocalStorageCompat,
-} from "@growthbook/growthbook";
+// Define all your feature flags and types here
+interface AppFeatures {
+  "button-color": string;
+  "font-size": number;
+  "newForm": boolean;
+}
+
+// Pass into the GrowthBook instance
+const gb = new GrowthBook<AppFeatures>({
+  ...
+});
 ```
 
-### Strongly-typed feature definitions
-
-As of version `0.22.0` you can use strongly-typed feature definitions, which will allow you to pass a typed feature definition as a generic argument when creating the `GrowthBook` instance.
-
-When providing typed feature definitions, the following methods are strictly typed:
-
-- `getFeatureValue(key, defaultValue)`
-- `evalFeature(key)`
-- `isOn(key)`
-- `isOff(key)`
+Now, all feature flag methods will be strictly typed.
 
 ```ts
-// This can be generated with the CLI
-type MyAppFeatures = {
-  dark_mode: boolean;
-  sample_json: Record<string, unknown>;
-  greeting: string;
-};
+// feature.value will by type `number`
+const feature = gb.evalFeature("font-size");
+console.log(feature.value);
 
-const features = {
-  // Features from the SDK endpoint, as described above
-};
-const context: Context = {
-  features,
-  attributes: {
-    id: "user-abc123",
-    country: "france",
-  },
-};
-
-const growthbook = new GrowthBook<MyAppFeatures>(context);
-
-const featureResult = growthbook.evalFeature("greeting");
-const shouldUseDarkMode = growthbook.getFeatureValue("dark_mode", false);
+// Typos will cause compile-time errors
+gb.isOn("buton-color"); // "buton" instead of "button"
 ```
 
-When using strongly typed feature definitions when creating your `GrowthBook` instance, you will get the following benefits:
-
-- You will only be allowed to pass in known keys to the typed methods
-- `getFeatureValue(key, defaultValue)` will find the reference for the provided key in the `AppFeatures` passed into the generic parameter when constructing your `GrowthBook` instance. This means if you try to pass in a string value into `defaultValue` when the known type should be a boolean, you will get a type error.
-
-![Screenshot of TypeScript support in an IDE that shows hints offering suggested keys for valid types for the method getFeatureValue](../../static/images/lib-js-typescript-01.png)
-_Screenshot of TypeScript support in an IDE that shows hints offering suggested keys for valid types for the method `getFeatureValue(key, defaultValue)`._
-
-![Screenshot of TypeScript support in an IDE that shows an error when trying to use an unknown key in the method evalFeature](../../static/images/lib-js-typescript-02.png)
-_Screenshot of TypeScript support in an IDE that shows an error when trying to use an unknown key in the method `evalFeature(key)`._
-
-#### Generating strictly-typed feature definitions with the CLI
-
-To generate strictly-typed feature definitions for your project with the CLI, please see the [documentation for the Command Line Interface](/tools/cli).
-
-You can see an example project that implements the GrowthBook CLI to generate type definition and uses those generated type definitions [here <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](/tools/cli).
 
 ## GrowthBook Instance (reference)
 
@@ -932,3 +877,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 ```
 
 **Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
+
+## Examples
+
+- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).

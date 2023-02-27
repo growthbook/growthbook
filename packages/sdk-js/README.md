@@ -48,8 +48,13 @@ import { GrowthBook } from "@growthbook/growthbook";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  // Enable easier debugging during development
   enableDevMode: true,
+  // Targeting attributes
+  attributes: {
+    id: "123",
+    country: "US",
+  },
 });
 
 // Wait for features to be available
@@ -214,25 +219,20 @@ Once you define the callback, just use feature flags like normal in your code. I
 const newLogin = gb.isOn("new-signup-form");
 ```
 
-## Typescript
+## TypeScript
 
-When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
+When used in a TypeScript project, GrowthBook includes basic type inference out of the box:
 
 ```ts
-// color will be type "string"
+// Type will be `string` based on the fallback provided ("blue")
 const color = gb.getFeatureValue("button-color", "blue");
-```
 
-When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type using generics. Note that whatever type you specify will be unioned with `null` in the return value.
+// You can manually specify types as well
+// feature.value will be type `number`
+const feature = gb.evalFeature<number>("font-size");
+console.log(feature.value);
 
-```ts
-// result.value will be type "number | null" now
-const result = gb.evalFeature<number>("button-size");
-```
-
-When using inline experiments, the returned value is inferred from the variations you pass in:
-
-```ts
+// Experiments will use the variations to infer the return value
 // result.value will be type "string"
 const result = gb.run({
   key: "my-test",
@@ -240,31 +240,36 @@ const result = gb.run({
 });
 ```
 
-There are a number of types you can import as well if needed:
+### Strict Typing
+
+If you want to enforce stricter types in your application, you can do that when creating the GrowthBook instance:
 
 ```ts
-import type {
-  Context,
-  Attributes,
-  Polyfills,
-  CacheSettings,
-  FeatureApiResponse,
-  LoadFeaturesOptions,
-  RefreshFeaturesOptions,
-  FeatureDefinitions,
-  FeatureDefinition,
-  FeatureRule,
-  FeatureResult,
-  FeatureResultSource,
-  Experiment,
-  Result,
-  ExperimentOverride,
-  ExperimentStatus,
-  JSONValue,
-  SubscriptionFunction,
-  LocalStorageCompat,
-} from "@growthbook/growthbook";
+// Define all your feature flags and types here
+interface AppFeatures {
+  "button-color": string;
+  "font-size": number;
+  "newForm": boolean;
+}
+
+// Pass into the GrowthBook instance
+const gb = new GrowthBook<AppFeatures>({
+  ...
+});
 ```
+
+Now, all feature flag methods will be strictly typed.
+
+```ts
+// feature.value will by type `number`
+const feature = gb.evalFeature("font-size");
+console.log(feature.value);
+
+// Typos will cause compile-time errors
+gb.isOn("buton-color"); // "buton" instead of "button"
+```
+
+Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli).
 
 ## GrowthBook Instance (reference)
 
@@ -880,3 +885,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 ```
 
 **Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
+
+## Examples
+
+- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
