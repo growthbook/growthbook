@@ -14,7 +14,6 @@ import {
   mergeParams,
   encryptParams,
   testQuery,
-  generateInformationSchema,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
@@ -431,17 +430,6 @@ export async function putDataSource(
       updates.projects = projects;
     }
 
-    // // Re-generate the schema
-    // const { informationSchema } = await generateInformationSchema(datasource);
-
-    // if (informationSchema?.length) {
-    //   if (!updates.settings) {
-    //     updates.settings = {};
-    //   }
-
-    //   updates.settings.informationSchema = informationSchema;
-    // } //MKTODO: Re-enable this
-
     if (
       type === "google_analytics" &&
       params &&
@@ -569,46 +557,5 @@ export async function testLimitedQuery(
     results,
     sql,
     error,
-  });
-}
-
-export async function putDataSourceSchema(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-
-  const datasource = await getDataSourceById(id, org.id);
-  if (!datasource) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find data source",
-    });
-  }
-
-  const { informationSchema, error } = await generateInformationSchema(
-    datasource
-  );
-
-  if (error || !informationSchema?.length) {
-    return res.status(400).json({
-      status: 400,
-      message: error || "An error occurred",
-    });
-  }
-
-  // const existing = await getDataSourceById(datasource.id, org.id);
-
-  // await updateDataSource(datasource.id, org.id, {
-  //   settings: {
-  //     ...existing?.settings,
-  //     informationSchema: informationSchema,
-  //   },
-  // }); //MKTOD): Rebuild this
-
-  res.status(200).json({
-    status: 200,
-    informationSchema,
   });
 }
