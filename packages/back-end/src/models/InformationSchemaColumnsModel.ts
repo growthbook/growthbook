@@ -39,7 +39,7 @@ const toInterface = (
   columns: Column[];
 } => omit(doc.toJSON(), ["__v", "_id"]);
 
-export async function createInformationSchemaColumns(
+export async function createInformationSchemaColumn(
   columns: Column[],
   organization: string
 ) {

@@ -15,7 +15,6 @@ import {
   encryptParams,
   testQuery,
   generateInformationSchema,
-  createInitialInformationSchema,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
@@ -357,8 +356,6 @@ export async function postDataSources(
       description,
       projects
     );
-
-    await createInitialInformationSchema(datasource, org.id); //MKTODO: Rename this method
 
     res.status(200).json({
       status: 200,

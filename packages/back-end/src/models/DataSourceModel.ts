@@ -9,6 +9,7 @@ import {
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
+  createInitialInformationSchema,
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
@@ -161,9 +162,10 @@ export async function createDataSource(
     projects,
   };
 
-  // Test the connection and create in the database
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
+
+  await onDataSourceCreate(datasource, organization);
 
   return toInterface(model);
 }
@@ -204,4 +206,11 @@ export async function _dangerousGetAllDatasources(): Promise<
 > {
   const all = await DataSourceModel.find();
   return all.map(toInterface);
+}
+
+async function onDataSourceCreate(
+  datasource: DataSourceInterface,
+  organization: string
+) {
+  await createInitialInformationSchema(datasource, organization);
 }

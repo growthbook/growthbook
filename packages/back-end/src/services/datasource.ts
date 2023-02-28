@@ -23,7 +23,7 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
-import { createInformationSchemaColumns } from "../models/InformationSchemaColumnsModel";
+import { createInformationSchemaColumn } from "../models/InformationSchemaColumnsModel";
 import { createInformationSchema } from "../models/InformationSchemaModel";
 import { updateDataSource } from "../models/DataSourceModel";
 
@@ -195,7 +195,7 @@ export async function createInitialInformationSchema(
     for (const database of informationSchema) {
       for (const schema of database.schemas) {
         for (const table of schema.tables) {
-          const column = await createInformationSchemaColumns(
+          const column = await createInformationSchemaColumn(
             table.columns,
             organization
           );
@@ -204,13 +204,13 @@ export async function createInitialInformationSchema(
       }
     }
 
-    // Then, I need to save the updated informationSchema to the InformationSchema collection and get the id.
+    // Then, save the updated informationSchema to the InformationSchema collection and get the id.
     const informationSchemaId = await createInformationSchema(
       informationSchema,
       organization
     );
 
-    // Then, I need to update the datasource.settings.informationSchemaId to the id of the newly created informationSchema.
+    // Then, update the datasource.settings.informationSchemaId to the id of the newly created informationSchema.
     if (informationSchemaId) {
       await updateDataSource(datasource.id, organization, {
         settings: {
