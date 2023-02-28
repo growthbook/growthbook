@@ -101,7 +101,7 @@ const PValueGuardrailResults: FC<{
         users,
         name,
         hasEnoughData: hasEnoughData(
-          stats.value,
+          stats?.value ?? 0,
           data[0].metrics[metric.id]?.value
         ),
       };

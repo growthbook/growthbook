@@ -249,7 +249,7 @@ export function isExpectedDirection(
   stats: SnapshotMetric,
   metric: MetricInterface
 ): boolean {
-  const expected: number = stats.expected ?? 0;
+  const expected: number = stats?.expected ?? 0;
   return metric.inverse ? expected < 0 : expected > 0;
 }
 
@@ -257,7 +257,7 @@ export function isStatSig(
   stats: SnapshotMetric,
   pValueThreshold: number
 ): boolean {
-  const pValue: number = stats.pValue ?? 1;
+  const pValue: number = stats?.pValue ?? 1;
   return pValue < pValueThreshold;
 }
 
