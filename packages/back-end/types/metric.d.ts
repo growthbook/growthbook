@@ -45,7 +45,8 @@ export interface MetricInterface {
   projects?: string[];
   winRisk?: number;
   loseRisk?: number;
-  regressionAdjustmentHours?: number;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
   maxPercentChange?: number;
   minPercentChange?: number;
   minSampleSize?: number;

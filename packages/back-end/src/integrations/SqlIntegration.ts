@@ -337,7 +337,8 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart(
       [params.metric],
       params.from,
-      false
+      false,
+      0
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
@@ -638,7 +639,8 @@ export default abstract class SqlIntegration
   private getMetricStart(
     metrics: MetricInterface[],
     initial: Date,
-    isRegressionAdjusted: boolean
+    isRegressionAdjusted: boolean,
+    regressionAdjustmentHours: number
   ) {
     const metricStart = new Date(initial);
     let runningDelay = 0;
@@ -654,7 +656,7 @@ export default abstract class SqlIntegration
       metricStart.setHours(metricStart.getHours() + minDelay);
     }
     if (isRegressionAdjusted) {
-      metricStart.setHours(metricStart.getHours() - 336); // 24 * 14, should customize later
+      metricStart.setHours(metricStart.getHours() - regressionAdjustmentHours);
     }
     return metricStart;
   }
@@ -737,9 +739,16 @@ export default abstract class SqlIntegration
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const isRatio = denominator?.type === "count";
 
-    // TODO: validation that metric.regressionAdjusted is true under the right conditions
-    const regressionAdjustmentHours = metric.regressionAdjustmentHours ?? 0;
-    const isRegressionAdjusted = regressionAdjustmentHours > 0 && !isRatio;
+    const regressionAdjustmentHours =
+      (metric.regressionAdjustmentDays ?? 0) * 24;
+    const regressionAdjustmentEnabled =
+      metric.regressionAdjustmentEnabled ?? false;
+    // Only if hours are positive, non-ratio, non-custom aggregation, and it is enabled
+    const isRegressionAdjusted =
+      regressionAdjustmentHours > 0 &&
+      regressionAdjustmentEnabled &&
+      !isRatio &&
+      !metric.aggregation;
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
@@ -748,7 +757,8 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart(
       orderedMetrics,
       phase.dateStarted,
-      isRegressionAdjusted
+      isRegressionAdjusted,
+      regressionAdjustmentHours
     );
     const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
 
@@ -950,6 +960,11 @@ export default abstract class SqlIntegration
                 )
               : "e.variation"
           } as variation,
+          ${
+            isRegressionAdjusted
+              ? "MIN(e.timestamp) AS first_exposure_timestamp,"
+              : ""
+          }
           MIN(${this.getMetricConversionBase(
             "conversion_start",
             denominatorMetrics.length > 0,
@@ -1057,7 +1072,10 @@ export default abstract class SqlIntegration
             : `WHERE
           m.timestamp >= ${
             isRegressionAdjusted
-              ? this.addHours("d.conversion_start", -regressionAdjustmentHours)
+              ? this.addHours(
+                  "d.first_exposure_timestamp",
+                  -regressionAdjustmentHours
+                )
               : "d.conversion_start"
           }
           AND m.timestamp <= d.conversion_end`
@@ -1432,7 +1450,7 @@ export default abstract class SqlIntegration
     timePeriod: AggregateType
   ): string {
     const mcol = `${metricAlias}.timestamp`;
-    const ucol = `${userAlias}.conversion_start`;
+    const ucol = `${userAlias}.first_exposure_timestamp`;
     if (timePeriod === "pre") {
       return `${this.ifElse(`${mcol} < ${ucol}`, `${col}`, `0`)}`;
     } else if (timePeriod === "post") {
