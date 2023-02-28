@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.2.3",
+  "specVersion": "0.4.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -1317,13 +1317,21 @@
     ]
   ],
   "hash": [
-    ["a", 0.22],
-    ["b", 0.077],
-    ["ab", 0.946],
-    ["def", 0.652],
-    ["8952klfjas09ujkasdf", 0.549],
-    ["123", 0.011],
-    ["___)((*\":&", 0.563]
+    ["", "a", 1, 0.22],
+    ["", "b", 1, 0.077],
+    ["b", "a", 1, 0.946],
+    ["ef", "d", 1, 0.652],
+    ["asdf", "8952klfjas09ujk", 1, 0.549],
+    ["", "123", 1, 0.011],
+    ["", "___)((*\":&", 1, 0.563],
+    ["seed", "a", 2, 0.0505],
+    ["seed", "b", 2, 0.2696],
+    ["foo", "ab", 2, 0.2575],
+    ["foo", "def", 2, 0.2019],
+    ["89123klj", "8952klfjas09ujkasdf", 2, 0.124],
+    ["90850943850283058242805", "123", 2, 0.7516],
+    ["()**(%$##$%#$#", "___)((*\":&", 2, 0.0128],
+    ["abc", "def", 99, -1]
   ],
   "getBucketRange": [
     [
@@ -1711,7 +1719,9 @@
           "inExperiment": true,
           "hashUsed": true,
           "hashAttribute": "id",
-          "hashValue": "123"
+          "hashValue": "123",
+          "bucket": 0.863,
+          "key": "2"
         },
         "source": "experiment"
       }
@@ -1748,7 +1758,9 @@
           "inExperiment": true,
           "hashUsed": true,
           "hashAttribute": "id",
-          "hashValue": "456"
+          "hashValue": "456",
+          "bucket": 0.178,
+          "key": "0"
         },
         "source": "experiment"
       }
@@ -1785,7 +1797,9 @@
           "inExperiment": true,
           "hashUsed": true,
           "hashAttribute": "id",
-          "hashValue": "fds"
+          "hashValue": "fds",
+          "bucket": 0.514,
+          "key": "1"
         },
         "source": "experiment"
       }
@@ -1803,6 +1817,31 @@
               {
                 "coverage": 0.99,
                 "hashAttribute": "anonId",
+                "seed": "feature",
+                "hashVersion": 2,
+                "name": "Test",
+                "phase": "1",
+                "ranges": [
+                  [0, 0.1],
+                  [0.1, 1.0]
+                ],
+                "meta": [
+                  {
+                    "key": "v0",
+                    "name": "variation 0"
+                  },
+                  {
+                    "key": "v1",
+                    "name": "variation 1"
+                  }
+                ],
+                "filters": [
+                  {
+                    "attribute": "anonId",
+                    "seed": "pricing",
+                    "ranges": [[0, 1]]
+                  }
+                ],
                 "namespace": ["pricing", 0, 1],
                 "key": "hello",
                 "variations": [true, false],
@@ -1821,6 +1860,31 @@
         "source": "experiment",
         "experiment": {
           "coverage": 0.99,
+          "ranges": [
+            [0, 0.1],
+            [0.1, 1.0]
+          ],
+          "meta": [
+            {
+              "key": "v0",
+              "name": "variation 0"
+            },
+            {
+              "key": "v1",
+              "name": "variation 1"
+            }
+          ],
+          "filters": [
+            {
+              "attribute": "anonId",
+              "seed": "pricing",
+              "ranges": [[0, 1]]
+            }
+          ],
+          "name": "Test",
+          "phase": "1",
+          "seed": "feature",
+          "hashVersion": 2,
           "hashAttribute": "anonId",
           "namespace": ["pricing", 0, 1],
           "key": "hello",
@@ -1834,7 +1898,10 @@
           "inExperiment": true,
           "hashUsed": true,
           "hashAttribute": "anonId",
-          "hashValue": "123"
+          "hashValue": "123",
+          "bucket": 0.5231,
+          "key": "v1",
+          "name": "variation 1"
         }
       }
     ],
@@ -2026,7 +2093,9 @@
           "hashUsed": true,
           "inExperiment": true,
           "value": 1,
-          "variationId": 1
+          "variationId": 1,
+          "key": "1",
+          "bucket": 0.863
         }
       }
     ],
@@ -2095,7 +2164,285 @@
           "inExperiment": true,
           "hashUsed": false,
           "hashAttribute": "id",
-          "hashValue": "123"
+          "hashValue": "123",
+          "key": "1"
+        }
+      }
+    ],
+    [
+      "Force rule with range, ignores coverage",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 2,
+                "coverage": 0.01,
+                "range": [0, 0.99]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 2,
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Force rule, hash version 2",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 2,
+                "hashVersion": 2,
+                "range": [0.96, 0.97]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 2,
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Force rule, skip due to range",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 2,
+                "range": [0, 0.01]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 0,
+        "on": false,
+        "off": true,
+        "source": "defaultValue"
+      }
+    ],
+    [
+      "Force rule, skip due to filter",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 2,
+                "filters": [
+                  {
+                    "seed": "seed",
+                    "ranges": [[0, 0.01]]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 0,
+        "on": false,
+        "off": true,
+        "source": "defaultValue"
+      }
+    ],
+    [
+      "Force rule, use seed with range",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 2,
+                "range": [0, 0.5],
+                "seed": "fjdslafdsa",
+                "hashVersion": 2
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 2,
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Support passthrough variations",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "holdout",
+                "variations": [1, 2],
+                "hashVersion": 2,
+                "ranges": [
+                  [0, 0.01],
+                  [0.01, 1.0]
+                ],
+                "meta": [
+                  {},
+                  {
+                    "passthrough": true
+                  }
+                ]
+              },
+              {
+                "key": "experiment",
+                "variations": [3, 4],
+                "hashVersion": 2,
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 3,
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "experiment": {
+          "key": "experiment",
+          "hashVersion": 2,
+          "variations": [3, 4],
+          "ranges": [
+            [0, 0.5],
+            [0.5, 1.0]
+          ]
+        },
+        "experimentResult": {
+          "featureId": "feature",
+          "hashAttribute": "id",
+          "hashUsed": true,
+          "hashValue": "1",
+          "inExperiment": true,
+          "key": "0",
+          "value": 3,
+          "variationId": 0,
+          "bucket": 0.4413
+        }
+      }
+    ],
+    [
+      "Support holdout groups",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "holdout",
+                "hashVersion": 2,
+                "variations": [1, 2],
+                "ranges": [
+                  [0, 0.99],
+                  [0.99, 1.0]
+                ],
+                "meta": [
+                  {},
+                  {
+                    "passthrough": true
+                  }
+                ]
+              },
+              {
+                "key": "experiment",
+                "hashVersion": 2,
+                "variations": [3, 4],
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "experiment": {
+          "hashVersion": 2,
+          "ranges": [
+            [0, 0.99],
+            [0.99, 1.0]
+          ],
+          "meta": [
+            {},
+            {
+              "passthrough": true
+            }
+          ],
+          "key": "holdout",
+          "variations": [1, 2]
+        },
+        "experimentResult": {
+          "featureId": "feature",
+          "hashAttribute": "id",
+          "hashUsed": true,
+          "hashValue": "1",
+          "inExperiment": true,
+          "key": "0",
+          "value": 1,
+          "variationId": 0,
+          "bucket": 0.8043
         }
       }
     ]
@@ -2746,6 +3093,188 @@
       0,
       false,
       false
+    ],
+    [
+      "Filtered, included",
+      {
+        "attributes": {
+          "id": "1",
+          "anonId": "fsdafsda"
+        }
+      },
+      {
+        "key": "filtered",
+        "variations": [0, 1],
+        "filters": [
+          {
+            "seed": "seed",
+            "ranges": [
+              [0, 0.1],
+              [0.2, 0.4]
+            ]
+          },
+          {
+            "seed": "seed",
+            "attribute": "anonId",
+            "ranges": [[0.8, 1.0]]
+          }
+        ]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Filtered, excluded",
+      {
+        "attributes": {
+          "id": "1",
+          "anonId": "fsdafsda"
+        }
+      },
+      {
+        "key": "filtered",
+        "variations": [0, 1],
+        "filters": [
+          {
+            "seed": "seed",
+            "ranges": [
+              [0, 0.1],
+              [0.2, 0.4]
+            ]
+          },
+          {
+            "seed": "seed",
+            "attribute": "anonId",
+            "ranges": [[0.6, 0.8]]
+          }
+        ]
+      },
+      0,
+      false,
+      false
+    ],
+    [
+      "Filtered, ignore namespace",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "filtered",
+        "variations": [0, 1],
+        "filters": [
+          {
+            "seed": "seed",
+            "ranges": [
+              [0, 0.1],
+              [0.2, 0.4]
+            ]
+          }
+        ],
+        "namespace": ["test", 0, 0.001]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Ranges, ignore coverage and weights",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "ranges",
+        "variations": [0, 1],
+        "ranges": [
+          [0.99, 1.0],
+          [0.0, 0.99]
+        ],
+        "coverage": 0.01,
+        "weights": [0.99, 0.01]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Ranges, partial coverage",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "configs",
+        "variations": [0, 1],
+        "ranges": [
+          [0, 0.1],
+          [0.9, 1.0]
+        ]
+      },
+      0,
+      false,
+      false
+    ],
+    [
+      "Uses seed and hash version",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "key",
+        "seed": "foo",
+        "hashVersion": 2,
+        "variations": [0, 1],
+        "ranges": [
+          [0, 0.5],
+          [0.5, 1.0]
+        ]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Uses seed with default weights/coverage",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "key",
+        "seed": "foo",
+        "hashVersion": 2,
+        "variations": [0, 1]
+      },
+      1,
+      true,
+      true
+    ],
+    [
+      "Uses seed with weights/coverage",
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "key",
+        "seed": "foo",
+        "hashVersion": 2,
+        "variations": [0, 1],
+        "weights": [0.5, 0.5],
+        "coverage": [0.99]
+      },
+      1,
+      true,
+      true
     ]
   ],
   "chooseVariation": [

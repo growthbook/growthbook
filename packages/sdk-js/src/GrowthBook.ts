@@ -13,6 +13,9 @@ import type {
   RefreshFeaturesOptions,
   ApiHost,
   ClientKey,
+  VariationMeta,
+  Filter,
+  VariationRange,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -23,6 +26,7 @@ import {
   chooseVariation,
   getQueryStringOverride,
   inNamespace,
+  inRange,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -358,10 +362,8 @@ export class GrowthBook<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
   >(key: K, defaultValue: V): WidenPrimitives<V> {
-    return (
-      this.evalFeature<WidenPrimitives<V>, K>(key).value ??
-      (defaultValue as WidenPrimitives<V>)
-    );
+    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
+    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
   /**
@@ -416,28 +418,34 @@ export class GrowthBook<
             });
           continue;
         }
+        // If there are filters for who is included (e.g. namespaces)
+        if (rule.filters && this._isFilteredOut(rule.filters)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip rule because of filters", {
+              id,
+              rule,
+            });
+          continue;
+        }
+
         // Feature value is being forced
         if ("force" in rule) {
-          // Skip if coverage is reduced and user not included
-          if ("coverage" in rule) {
-            const { hashValue } = this._getHashAttribute(rule.hashAttribute);
-            if (!hashValue) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because of missing hashAttribute", {
-                  id,
-                  rule,
-                });
-              continue;
-            }
-            const n = hash(hashValue + id);
-            if (n > (rule.coverage as number)) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because of coverage", {
-                  id,
-                  rule,
-                });
-              continue;
-            }
+          // If this is a percentage rollout, skip if not included
+          if (
+            !this._isIncludedInRollout(
+              rule.seed || id,
+              rule.hashAttribute,
+              rule.range,
+              rule.coverage,
+              rule.hashVersion
+            )
+          ) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip rule because user not included in rollout", {
+                id,
+                rule,
+              });
+            continue;
           }
 
           process.env.NODE_ENV !== "production" &&
@@ -445,6 +453,13 @@ export class GrowthBook<
               id,
               rule,
             });
+
+          // If this was a remotely evaluated experiment, fire the tracking callbacks
+          if (rule.tracks) {
+            rule.tracks.forEach((t) => {
+              this._track(t.experiment, t.result);
+            });
+          }
 
           return this._getFeatureResult(id, rule.force as V, "force", rule.id);
         }
@@ -466,11 +481,18 @@ export class GrowthBook<
         if (rule.weights) exp.weights = rule.weights;
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.namespace) exp.namespace = rule.namespace;
+        if (rule.meta) exp.meta = rule.meta;
+        if (rule.ranges) exp.ranges = rule.ranges;
+        if (rule.name) exp.name = rule.name;
+        if (rule.phase) exp.phase = rule.phase;
+        if (rule.seed) exp.seed = rule.seed;
+        if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
+        if (rule.filters) exp.filters = rule.filters;
 
         // Only return a value if the user is part of the experiment
         const res = this._run(exp, id);
         this._fireSubscriptions(exp, res);
-        if (res.inExperiment) {
+        if (res.inExperiment && !res.passthrough) {
           return this._getFeatureResult(
             id,
             res.value,
@@ -486,19 +508,51 @@ export class GrowthBook<
     process.env.NODE_ENV !== "production" &&
       this.log("Use default value", {
         id,
-        value: feature.defaultValue ?? null,
+        value: feature.defaultValue,
       });
 
     // Fall back to using the default value
     return this._getFeatureResult(
       id,
-      feature.defaultValue ?? null,
+      feature.defaultValue === undefined ? null : feature.defaultValue,
       "defaultValue"
     );
   }
 
+  private _isIncludedInRollout(
+    seed: string,
+    hashAttribute: string | undefined,
+    range: VariationRange | undefined,
+    coverage: number | undefined,
+    hashVersion: number | undefined
+  ): boolean {
+    if (!range && coverage === undefined) return true;
+
+    const { hashValue } = this._getHashAttribute(hashAttribute);
+    if (!hashValue) {
+      return false;
+    }
+
+    const n = hash(seed, hashValue, hashVersion || 1);
+
+    return range
+      ? inRange(n, range)
+      : coverage !== undefined
+      ? n <= coverage
+      : true;
+  }
+
   private _conditionPasses(condition: ConditionInterface): boolean {
     return evalCondition(this.getAttributes(), condition);
+  }
+
+  private _isFilteredOut(filters: Filter[]): boolean {
+    return filters.some((filter) => {
+      const { hashValue } = this._getHashAttribute(filter.attribute);
+      if (!hashValue) return true;
+      const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
+      return !filter.ranges.some((r) => inRange(n, r));
+    });
   }
 
   private _run<T>(
@@ -570,8 +624,19 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 7. Exclude if user not in experiment.namespace
-    if (experiment.namespace && !inNamespace(hashValue, experiment.namespace)) {
+    // 7. Exclude if user is filtered out (used to be called "namespace")
+    if (experiment.filters) {
+      if (this._isFilteredOut(experiment.filters)) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of filters", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+    } else if (
+      experiment.namespace &&
+      !inNamespace(hashValue, experiment.namespace)
+    ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of namespace", {
           id: key,
@@ -619,12 +684,19 @@ export class GrowthBook<
     }
 
     // 9. Get bucket ranges and choose variation
-    const ranges = getBucketRanges(
-      numVariations,
-      experiment.coverage ?? 1,
-      experiment.weights
+    const n = hash(
+      experiment.seed || key,
+      hashValue,
+      experiment.hashVersion || 1
     );
-    const n = hash(hashValue + key);
+    const ranges =
+      experiment.ranges ||
+      getBucketRanges(
+        numVariations,
+        experiment.coverage === undefined ? 1 : experiment.coverage,
+        experiment.weights
+      );
+
     const assigned = chooseVariation(n, ranges);
 
     // 10. Return if not in experiment
@@ -645,7 +717,7 @@ export class GrowthBook<
         });
       return this._getResult(
         experiment,
-        experiment.force ?? -1,
+        experiment.force === undefined ? -1 : experiment.force,
         false,
         featureId
       );
@@ -670,7 +742,7 @@ export class GrowthBook<
     }
 
     // 13. Build the result object
-    const result = this._getResult(experiment, assigned, true, featureId);
+    const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 14. Fire the tracking callback
     this._track(experiment, result);
@@ -743,7 +815,8 @@ export class GrowthBook<
     experiment: Experiment<T>,
     variationIndex: number,
     hashUsed: boolean,
-    featureId: string | null
+    featureId: string | null,
+    bucket?: number
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -756,7 +829,12 @@ export class GrowthBook<
       experiment.hashAttribute
     );
 
-    return {
+    const meta: Partial<VariationMeta> = experiment.meta
+      ? experiment.meta[variationIndex]
+      : {};
+
+    const res: Result<T> = {
+      key: meta.key || "" + variationIndex,
       featureId,
       inExperiment,
       hashUsed,
@@ -765,6 +843,12 @@ export class GrowthBook<
       hashAttribute,
       hashValue,
     };
+
+    if (meta.name) res.name = meta.name;
+    if (bucket !== undefined) res.bucket = bucket;
+    if (meta.passthrough) res.passthrough = meta.passthrough;
+
+    return res;
   }
 
   private _getContextUrl() {
