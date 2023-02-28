@@ -1,12 +1,7 @@
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import cronParser from "cron-parser";
-import cloneDeep from "lodash/cloneDeep";
-import {
-  findExperiment,
-  logExperimentUpdated,
-  updateExperimentById,
-} from "../models/ExperimentModel";
+import { updateExperimentById } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
@@ -284,7 +279,11 @@ export async function getManualSnapshotData(
             statistic_type: "mean", // ratio not supported for now
             main_metric_type: metric.type,
             main_sum: s.mean * s.count,
-            main_sum_squares: sumSquaresFromStats(s.mean * s.count, Math.pow(s.stddev, 2), s.count),
+            main_sum_squares: sumSquaresFromStats(
+              s.mean * s.count,
+              Math.pow(s.stddev, 2),
+              s.count
+            ),
           };
         });
 
@@ -417,8 +416,6 @@ export async function createSnapshot(
   useCache: boolean = false,
   statsEngine: StatsEngine | undefined
 ) {
-  const previousExperiment = cloneDeep(experiment);
-
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -457,23 +454,6 @@ export async function createSnapshot(
     autoSnapshots: nextUpdate !== null,
   });
 
-  try {
-    const updatedExperiment = await findExperiment({
-      organizationId: experiment.organization,
-      experimentId: experiment.id,
-    });
-
-    if (updatedExperiment) {
-      await logExperimentUpdated({
-        organization,
-        previous: previousExperiment,
-        current: updatedExperiment,
-      });
-    }
-  } catch (e) {
-    logger.error(e);
-  }
-
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
@@ -488,6 +468,8 @@ export async function createSnapshot(
   data.hasCorrectedStats = true;
 
   const snapshot = await ExperimentSnapshotModel.create(data);
+
+  // TODO: https://linear.app/growthbook/issue/GB-20/[be]-create-events-for-experiment-snapshots-experiment-results
 
   return snapshot;
 }

@@ -4,24 +4,25 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
-  getLatestSnapshot,
-  createSnapshot,
   createManualSnapshot,
-  getManualSnapshotData,
+  createSnapshot,
   ensureWatching,
-  processPastExperiments,
   experimentUpdated,
   getExperimentWatchers,
+  getLatestSnapshot,
+  getManualSnapshotData,
+  processPastExperiments,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
+  deleteExperimentByIdForOrganization,
+  getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
-  getAllExperiments,
-  updateExperimentById,
   getPastExperimentsByDatasource,
-  deleteExperimentByIdForOrganization,
+  logExperimentUpdated,
+  updateExperimentById,
 } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotDocument,
@@ -32,10 +33,10 @@ import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
-  getStatusEndpoint,
-  startRun,
   cancelRun,
   getPastExperiments,
+  getStatusEndpoint,
+  startRun,
 } from "../services/queries";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
 import {
@@ -60,9 +61,10 @@ import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
   auditDetailsCreate,
-  auditDetailsUpdate,
   auditDetailsDelete,
+  auditDetailsUpdate,
 } from "../services/audit";
+import { logger } from "../util/logger";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -587,6 +589,8 @@ export async function postExperiment(
     return;
   }
 
+  const previousExperiment = cloneDeep(experiment);
+
   if (experiment.organization !== org.id) {
     res.status(403).json({
       status: 403,
@@ -726,6 +730,16 @@ export async function postExperiment(
     },
     details: auditDetailsUpdate(experiment, updated),
   });
+
+  try {
+    await logExperimentUpdated({
+      organization: org,
+      current: experiment,
+      previous: previousExperiment,
+    });
+  } catch (e) {
+    logger.error(e);
+  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
