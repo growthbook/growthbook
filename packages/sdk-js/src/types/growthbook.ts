@@ -9,6 +9,12 @@ declare global {
   }
 }
 
+export type VariationMeta = {
+  passthrough?: boolean;
+  key?: string;
+  name?: string;
+};
+
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
@@ -17,8 +23,21 @@ export type FeatureRule<T = any> = {
   weights?: number[];
   key?: string;
   hashAttribute?: string;
+  hashVersion?: number;
+  range?: VariationRange;
   coverage?: number;
+  /** @deprecated */
   namespace?: [string, number, number];
+  ranges?: VariationRange[];
+  meta?: VariationMeta[];
+  filters?: Filter[];
+  seed?: string;
+  name?: string;
+  phase?: string;
+  tracks?: Array<{
+    experiment: Experiment<T>;
+    result: Result<T>;
+  }>;
 };
 
 export interface FeatureDefinition<T = any> {
@@ -43,24 +62,34 @@ export interface FeatureResult<T = any> {
   experimentResult?: Result<T>;
 }
 
+/** @deprecated */
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
 export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
+  ranges?: VariationRange[];
+  meta?: VariationMeta[];
+  filters?: Filter[];
+  seed?: string;
+  name?: string;
+  phase?: string;
+
   weights?: number[];
   condition?: ConditionInterface;
   coverage?: number;
   include?: () => boolean;
+  /** @deprecated */
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
+  hashVersion?: number;
   active?: boolean;
-  /* @deprecated */
+  /** @deprecated */
   status?: ExperimentStatus;
-  /* @deprecated */
+  /** @deprecated */
   url?: RegExp;
-  /* @deprecated */
+  /** @deprecated */
   groups?: string[];
 };
 
@@ -79,6 +108,11 @@ export type ExperimentOverride = {
 export interface Result<T> {
   value: T;
   variationId: number;
+  key: string;
+  name?: string;
+  bucket?: number;
+  passthrough?: boolean;
+
   inExperiment: boolean;
   hashUsed?: boolean;
   hashAttribute: string;
@@ -191,3 +225,14 @@ export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
 };
+
+export interface Filter {
+  // Override the hashAttribute used for this filter
+  attribute?: string;
+  // The hash seed
+  seed: string;
+  // The hashing version to use
+  hashVersion: number;
+  // Only include these resulting ranges
+  ranges: VariationRange[];
+}
