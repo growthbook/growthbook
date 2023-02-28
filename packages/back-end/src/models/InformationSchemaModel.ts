@@ -15,6 +15,7 @@ const informationSchema = new mongoose.Schema({
           path: String,
           tables: [
             {
+              id: String,
               table_name: String,
               path: String,
               columns_id: String,

@@ -3,9 +3,10 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Column } from "../types/Integration";
 
-const informationSchemaColumnsSchema = new mongoose.Schema({
+const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
   organization: String,
+  table_name: String,
   columns: [
     {
       id: String,
@@ -18,14 +19,14 @@ const informationSchemaColumnsSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type InformationSchemaColumnsDocument = mongoose.Document & {
+type InformationSchemaTablesDocument = mongoose.Document & {
   id: string;
   columns: Column[];
 };
 
-const InformationSchemaColumnsModel = mongoose.model<InformationSchemaColumnsDocument>(
-  "InformationSchemaColumns",
-  informationSchemaColumnsSchema
+const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocument>(
+  "InformationSchemaTables",
+  informationSchemaTablesSchema
 );
 
 /**
@@ -33,19 +34,21 @@ const InformationSchemaColumnsModel = mongoose.model<InformationSchemaColumnsDoc
  * @param doc
  */
 const toInterface = (
-  doc: InformationSchemaColumnsDocument
+  doc: InformationSchemaTablesDocument
 ): {
   id: string;
   columns: Column[];
 } => omit(doc.toJSON(), ["__v", "_id"]);
 
-export async function createInformationSchemaColumn(
+export async function createInformationSchemaTable(
   columns: Column[],
-  organization: string
+  organization: string,
+  table_name: string
 ) {
-  const result = await InformationSchemaColumnsModel.create({
-    id: uniqid("cols_"),
+  const result = await InformationSchemaTablesModel.create({
+    id: uniqid("table_"),
     organization,
+    table_name,
     columns,
     dateCreated: new Date(),
     dateUpdated: new Date(),

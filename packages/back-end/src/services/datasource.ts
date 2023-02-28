@@ -23,9 +23,9 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
-import { createInformationSchemaColumn } from "../models/InformationSchemaColumnsModel";
 import { createInformationSchema } from "../models/InformationSchemaModel";
 import { updateDataSource } from "../models/DataSourceModel";
+import { createInformationSchemaTable } from "../models/InformationSchemaTablesModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -190,11 +190,12 @@ export async function createInitialInformationSchema(
     for (const database of informationSchema) {
       for (const schema of database.schemas) {
         for (const table of schema.tables) {
-          const column = await createInformationSchemaColumn(
+          const result = await createInformationSchemaTable(
             table.columns,
-            organization
+            organization,
+            table.table_name
           );
-          table.columns_id = column.id;
+          table.id = result.id;
         }
       }
     }
