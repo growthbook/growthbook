@@ -1,6 +1,8 @@
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
+import { RawInformationSchema } from "../types/Integration";
+import { formatInformationSchema } from "../util/integrations";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -32,7 +34,7 @@ export default class Postgres extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
-  async getInformationSchema() {
+  async getInformationSchema(datasourceType: string) {
     const sql = `SELECT
         table_name,
         column_name,
@@ -45,6 +47,14 @@ export default class Postgres extends SqlIntegration {
         table_schema
       NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
       ORDER BY table_name;`;
-    return await this.runQuery(sql);
+
+    const results = await this.runQuery(sql);
+
+    return results.length
+      ? formatInformationSchema(
+          results as RawInformationSchema[],
+          datasourceType
+        )
+      : [];
   }
 }

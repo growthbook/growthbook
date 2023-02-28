@@ -5,6 +5,7 @@ import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
 import { RawInformationSchema } from "../types/Integration";
+import { formatInformationSchema } from "../util/integrations";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -80,32 +81,38 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(projectId: string) {
+  async getInformationSchema(datasourceType: string, projectId: string) {
     const datasets = await this.runQuery(
       `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
     );
 
     const combinedResults: RawInformationSchema[] = [];
 
+    const query: string[] = [];
+
     for (const dataset of datasets) {
-      const sql = `SELECT
+      query.push(`SELECT
+        "${projectId}" as table_catalog,
         table_name,
         column_name,
         data_type,
         table_schema
       FROM
-        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
-      ORDER BY
-        table_name;`;
-      const results = await this.runQuery(sql);
-
-      //MKTODO: Is there a way to make this more efficient?
-      for (const result of results) {
-        result.table_catalog = projectId;
-        combinedResults.push(result);
-      }
+        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS`);
     }
 
-    return combinedResults;
+    let queryString = query.join(" UNION ALL ");
+
+    queryString = queryString + " ORDER BY table_name;";
+
+    const results = await this.runQuery(queryString);
+
+    for (const result of results) {
+      combinedResults.push(result);
+    }
+
+    return combinedResults.length
+      ? formatInformationSchema(combinedResults, datasourceType)
+      : [];
   }
 }

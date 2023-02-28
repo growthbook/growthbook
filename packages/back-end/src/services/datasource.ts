@@ -122,20 +122,15 @@ export async function generateInformationSchema(
   if (
     !integration ||
     // Not all datasources support this yet
-    !integration.getInformationSchema ||
-    !integration.formatInformationSchema
+    !integration.getInformationSchema
   ) {
     return { informationSchema: [] };
   }
 
   try {
-    const rawInformationSchema = await integration.getInformationSchema(
+    const informationSchema = await integration.getInformationSchema(
+      datasource.type,
       integration.params.projectId
-    );
-
-    const informationSchema = await integration.formatInformationSchema(
-      rawInformationSchema,
-      datasource.type
     );
     return { informationSchema };
   } catch (e) {
