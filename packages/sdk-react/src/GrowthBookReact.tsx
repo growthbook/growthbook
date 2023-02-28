@@ -36,6 +36,7 @@ function run<T>(exp: Experiment<T>, growthbook?: GrowthBook): Result<T> {
       hashUsed: false,
       hashAttribute: exp.hashAttribute || "id",
       hashValue: "",
+      key: "",
     };
   }
   return growthbook.run(exp);
