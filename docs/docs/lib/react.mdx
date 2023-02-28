@@ -33,7 +33,7 @@ import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  // Enable easier debugging during development
   enableDevMode: true,
 });
 
@@ -212,7 +212,7 @@ const gb = new GrowthBook({
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
@@ -454,6 +454,8 @@ Depending on how you configure feature flags, they may run A/B tests behind the 
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
 
+View the [Javascript SDK Docs](/lib/js) for all of the options available for inline experiments
+
 #### useExperiment hook
 
 ```tsx
@@ -462,7 +464,7 @@ import { useExperiment } from "@growthbook/growthbook-react";
 export default function OtherComponent() {
   const { value } = useExperiment({
     key: "new-headline",
-    variations: ["Hello", "Hi", "Good Day"],
+    variations: ["Hello", "Hi", "Good Day"]
   });
 
   return <h1>{value}</h1>;
@@ -481,7 +483,7 @@ class OtherComponent extends React.Component {
     // The `runExperiment` prop is identical to the `useExperiment` hook
     const { value } = this.props.runExperiment({
       key: "headline-test",
-      variations: ["Hello World", "Hola Mundo"],
+      variations: ["Hello World", "Hola Mundo"]
     });
     return <h1>{value}</h1>;
   }
