@@ -13,7 +13,11 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { pValueFormatter } from "@/services/experiments";
+import {
+  isExpectedDirection,
+  isStatSig,
+  pValueFormatter,
+} from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
@@ -86,10 +90,8 @@ const PValueGuardrailResults: FC<{
   const results: PValueGuardrailResult[] = useMemo(() => {
     return variations.map((v, i) => {
       const stats = data[i]?.metrics?.[metric.id];
-      const expectedDirection = metric.inverse
-        ? stats.expected < 0
-        : stats.expected > 0;
-      const statSig = stats.pValue < pValueThreshold;
+      const expectedDirection = isExpectedDirection(stats, metric);
+      const statSig = isStatSig(stats, pValueThreshold);
       const users = data[i].users;
       const name = v.name;
       return {

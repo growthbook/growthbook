@@ -245,6 +245,22 @@ export function applyMetricOverrides(
   return { newMetric, overrideFields };
 }
 
+export function isExpectedDirection(
+  stats: SnapshotMetric,
+  metric: MetricInterface
+): boolean {
+  const expected: number = stats.expected ?? 0;
+  return metric.inverse ? expected < 0 : expected > 0;
+}
+
+export function isStatSig(
+  stats: SnapshotMetric,
+  pValueThreshold: number
+): boolean {
+  const pValue: number = stats.pValue ?? 1;
+  return pValue < pValueThreshold;
+}
+
 export function pValueFormatter(pValue: number) {
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
