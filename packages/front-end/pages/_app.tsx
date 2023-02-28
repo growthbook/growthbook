@@ -13,6 +13,7 @@ import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "../components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
 import TopNavLite from "../components/Layout/TopNavLite";
+import { AppFeatures } from "../types/app-features";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -22,7 +23,7 @@ type ModAppProps = AppProps & {
   };
 };
 
-const growthbook = new GrowthBook({
+const growthbook = new GrowthBook<AppFeatures>({
   enableDevMode: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
