@@ -262,5 +262,8 @@ export function isStatSig(
 }
 
 export function pValueFormatter(pValue: number) {
+  if (pValue === undefined) {
+    return "P-value missing";
+  }
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
