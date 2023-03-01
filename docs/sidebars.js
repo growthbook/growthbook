@@ -77,6 +77,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "guide/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
+        },
+        {
+          type: "doc",
           id: "guide/GA-universal-analytics",
           label: "Google Analytics (UA)",
         },
