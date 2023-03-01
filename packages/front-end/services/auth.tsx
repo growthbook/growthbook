@@ -235,6 +235,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const _makeApiCall = useCallback(
     async (url: string, token: string, options: RequestInit = {}) => {
+      if (!token) return;
+
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
