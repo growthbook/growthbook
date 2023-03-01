@@ -148,42 +148,41 @@ First, you would document the endpoint using OpenAPI:
    Project:
      $ref: "./Project.yaml"
    ```
-3. Describe the API endpoint in `src/api/openapi/paths/projects.yaml`
+3. Describe the API endpoint in `src/api/openapi/paths/listProjects.yaml`
    ```yml
-   listProjects:
-     get:
-       summary: Get all projects
-       tags:
-         - projects
-       parameters:
-         - $ref: "../parameters.yaml#/limit"
-         - $ref: "../parameters.yaml#/offset"
-       operationId: listProjects
-       x-codeSamples:
-         - lang: "cURL"
-           source: |
-             curl https://api.growthbook.io/api/v1/projects \
-               -u secret_abc123DEF456:
-       responses:
-         "200":
-           content:
-             application/json:
-               schema:
-                 allOf:
-                   - type: object
-                     required:
-                       - projects
-                     properties:
-                       projects:
-                         type: array
-                         items:
-                           $ref: "../schemas/Project.yaml"
-                   - $ref: "../schemas/PaginationFields.yaml"
+   get:
+     summary: Get all projects
+     tags:
+       - projects
+     parameters:
+       - $ref: "../parameters.yaml#/limit"
+       - $ref: "../parameters.yaml#/offset"
+     operationId: listProjects
+     x-codeSamples:
+       - lang: "cURL"
+         source: |
+           curl https://api.growthbook.io/api/v1/projects \
+             -u secret_abc123DEF456:
+     responses:
+       "200":
+         content:
+           application/json:
+             schema:
+               allOf:
+                 - type: object
+                   required:
+                     - projects
+                   properties:
+                     projects:
+                       type: array
+                       items:
+                         $ref: "../schemas/Project.yaml"
+                 - $ref: "../schemas/PaginationFields.yaml"
    ```
 4. Add the endpoint to `src/api/openapi/openapi.yaml` under `paths`
    ```yml
    /projects:
-     $ref: "./paths/projects.yaml#/listProjects"
+     $ref: "./paths/listProjects.yaml"
    ```
 5. In the same `src/api/openapi/openapi.yaml` file, define the `projects` tag:
    ```yml

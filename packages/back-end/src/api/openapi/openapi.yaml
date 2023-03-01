@@ -80,41 +80,41 @@ tags:
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
 paths:
   /features:
-    $ref: "./paths/features.yaml#/listFeatures"
+    $ref: "./paths/listFeatures.yaml"
   /features/{id}:
-    $ref: "./paths/features.yaml#/getFeature"
+    $ref: "./paths/getFeature.yaml"
   /features/{id}/toggle:
-    $ref: "./paths/features.yaml#/toggleFeature"
+    $ref: "./paths/toggleFeature.yaml"
   /projects:
-    $ref: "./paths/projects.yaml#/listProjects"
+    $ref: "./paths/listProjects.yaml"
   /projects/{id}:
-    $ref: "./paths/projects.yaml#/getProject"
+    $ref: "./paths/getProject.yaml"
   /dimensions:
-    $ref: "./paths/dimensions.yaml#/listDimensions"
+    $ref: "./paths/listDimensions.yaml"
   /dimensions/{id}:
-    $ref: "./paths/dimensions.yaml#/getDimension"
+    $ref: "./paths/getDimension.yaml"
   /segments:
-    $ref: "./paths/segments.yaml#/listSegments"
+    $ref: "./paths/listSegments.yaml"
   /segments/{id}:
-    $ref: "./paths/segments.yaml#/getSegment"
+    $ref: "./paths/getSegment.yaml"
   /metrics:
-    $ref: "./paths/metrics.yaml#/listMetrics"
+    $ref: "./paths/listMetrics.yaml"
   /metrics/{id}:
-    $ref: "./paths/metrics.yaml#/getMetric"
+    $ref: "./paths/getMetric.yaml"
   /sdk-connections:
-    $ref: "./paths/sdk-connections.yaml#/listSdkConnections"
+    $ref: "./paths/listSdkConnections.yaml"
   /sdk-connections/{id}:
-    $ref: "./paths/sdk-connections.yaml#/getSdkConnection"
+    $ref: "./paths/getSdkConnection.yaml"
   /data-sources:
-    $ref: "./paths/data-sources.yaml#/listDataSources"
+    $ref: "./paths/listDataSources.yaml"
   /data-sources/{id}:
-    $ref: "./paths/data-sources.yaml#/getDataSource"
+    $ref: "./paths/getDataSource.yaml"
   /experiments:
-    $ref: "./paths/experiments.yaml#/listExperiments"
+    $ref: "./paths/listExperiments.yaml"
   /experiments/{id}:
-    $ref: "./paths/experiments.yaml#/getExperiment"
+    $ref: "./paths/getExperiment.yaml"
   /experiments/{id}/results:
-    $ref: "./paths/experiments.yaml#/getExperimentResults"
+    $ref: "./paths/getExperimentResults.yaml"
 # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
