@@ -1,3 +1,4 @@
+import { DataSourceType } from "../../types/datasource";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
@@ -35,7 +36,7 @@ export default class Postgres extends SqlIntegration {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
   async getInformationSchema(
-    datasourceType: string
+    dataSourceType: DataSourceType
   ): Promise<InformationSchema[]> {
     const sql = `SELECT
         table_name,
@@ -55,7 +56,7 @@ export default class Postgres extends SqlIntegration {
     return results.length
       ? formatInformationSchema(
           results as RawInformationSchema[],
-          datasourceType
+          dataSourceType
         )
       : [];
   }

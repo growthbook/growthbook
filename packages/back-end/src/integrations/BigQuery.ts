@@ -6,6 +6,7 @@ import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
 import { formatInformationSchema } from "../util/integrations";
+import { DataSourceType } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -82,7 +83,7 @@ export default class BigQuery extends SqlIntegration {
   }
 
   async getInformationSchema(
-    datasourceType: string,
+    dataSourceType: DataSourceType,
     projectId: string
   ): Promise<InformationSchema[]> {
     const datasets = await this.runQuery(
@@ -115,7 +116,7 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return combinedResults.length
-      ? formatInformationSchema(combinedResults, datasourceType)
+      ? formatInformationSchema(combinedResults, dataSourceType)
       : [];
   }
 }

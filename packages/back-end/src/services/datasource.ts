@@ -113,7 +113,7 @@ export async function generateInformationSchema(
 ): Promise<InformationSchema[] | null> {
   const integration = getSourceIntegrationObject(datasource);
 
-  if (!integration || !integration.getInformationSchema) {
+  if (!integration.getInformationSchema) {
     return null;
   }
 
