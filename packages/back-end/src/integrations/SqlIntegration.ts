@@ -4,6 +4,7 @@ import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
+  DataSourceType,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -17,6 +18,8 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
+  InformationSchema,
+  RawInformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -32,6 +35,7 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
+import { formatInformationSchema } from "../util/integrations";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -1477,5 +1481,91 @@ export default abstract class SqlIntegration
     }
 
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
+  }
+
+  async getPostgresInformationSchema(
+    dataSourceType: DataSourceType
+  ): Promise<InformationSchema[]> {
+    const sql = `SELECT
+        table_name,
+        column_name,
+        data_type,
+        table_catalog,
+        table_schema
+      FROM
+        information_schema.columns
+      WHERE
+        table_schema
+      NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+      ORDER BY table_name;`;
+
+    const results = await this.runQuery(sql);
+
+    return results.length
+      ? formatInformationSchema(
+          results as RawInformationSchema[],
+          dataSourceType
+        )
+      : [];
+  }
+
+  async getBigQueryInformationSchema(
+    dataSourceType: DataSourceType,
+    projectId: string
+  ): Promise<InformationSchema[]> {
+    if (!projectId) {
+      return [];
+    }
+
+    const datasets = await this.runQuery(
+      `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
+    );
+
+    const combinedResults: RawInformationSchema[] = [];
+
+    const query: string[] = [];
+
+    for (const dataset of datasets) {
+      query.push(`SELECT
+        "${projectId}" as table_catalog,
+        table_name,
+        column_name,
+        data_type,
+        table_schema
+      FROM
+        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS`);
+    }
+
+    let queryString = query.join(" UNION ALL ");
+
+    queryString = queryString + " ORDER BY table_name;";
+
+    const results = await this.runQuery(queryString);
+
+    for (const result of results) {
+      combinedResults.push(result);
+    }
+
+    return combinedResults.length
+      ? formatInformationSchema(combinedResults, dataSourceType)
+      : [];
+  }
+
+  async getInformationSchema(
+    dataSourceType: DataSourceType,
+    projectId?: string
+  ): Promise<null | InformationSchema[]> {
+    if (dataSourceType !== "bigquery" && dataSourceType !== "postgres") {
+      return null;
+    }
+    switch (dataSourceType) {
+      case "bigquery":
+        return await this.getBigQueryInformationSchema(
+          dataSourceType,
+          projectId || ""
+        );
+      case "postgres":
+        return await this.getPostgresInformationSchema(dataSourceType);
+    }
   }
 }

@@ -223,10 +223,10 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  getInformationSchema?(
+  getInformationSchema(
     datasourceType: string,
     projectId?: string
-  ): Promise<InformationSchema[]>;
+  ): Promise<null | InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
