@@ -21,3 +21,15 @@ offset:
   schema:
     type: integer
     min: 0
+projectId:
+  name: projectId
+  in: query
+  description: Filter by project id
+  schema:
+    type: string
+datasourceId:
+  name: datasourceId
+  in: query
+  description: Filter by Data Source
+  schema:
+    type: string

@@ -155,3 +155,25 @@ export function applyPagination<T>(
     },
   };
 }
+
+export function applyFilter<T>(
+  queryValue: T,
+  actualValue: T | T[],
+  arrayAsFilter: boolean = false
+): boolean {
+  // The we're not filtering on anything, return true immediately
+  if (queryValue === null || queryValue === undefined) return true;
+
+  // If we are filtering, but the actual value is missing, return false
+  if (actualValue === null || actualValue === undefined) return false;
+
+  // If we're checking if the filter value is part of an array
+  if (Array.isArray(actualValue)) {
+    // Sometimes, arrays are used as a filter and when it's empty that means include everything
+    if (arrayAsFilter && actualValue.length === 0) return true;
+    return actualValue.includes(queryValue);
+  }
+
+  // Otherwise, check if the values are equal
+  return queryValue === actualValue;
+}

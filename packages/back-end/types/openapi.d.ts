@@ -856,6 +856,10 @@ export interface components {
     limit: number;
     /** @description How many items to skip (use in conjunction with limit for pagination) */
     offset: number;
+    /** @description Filter by project id */
+    projectId: string;
+    /** @description Filter by Data Source */
+    datasourceId: string;
   };
   requestBodies: never;
   headers: never;
@@ -871,9 +875,11 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by project id */
       query: {
         limit?: number;
         offset?: number;
+        projectId?: string;
       };
     };
     responses: {
@@ -1384,9 +1390,11 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by Data Source */
       query: {
         limit?: number;
         offset?: number;
+        datasourceId?: string;
       };
     };
     responses: {
@@ -1441,9 +1449,11 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by Data Source */
       query: {
         limit?: number;
         offset?: number;
+        datasourceId?: string;
       };
     };
     responses: {
@@ -1498,9 +1508,13 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by project id */
+        /** @description Filter by Data Source */
       query: {
         limit?: number;
         offset?: number;
+        projectId?: string;
+        datasourceId?: string;
       };
     };
     responses: {
@@ -1645,9 +1659,11 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by project id */
       query: {
         limit?: number;
         offset?: number;
+        projectId?: string;
         withProxy?: string;
       };
     };
@@ -1717,9 +1733,11 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by project id */
       query: {
         limit?: number;
         offset?: number;
+        projectId?: string;
       };
     };
     responses: {
@@ -1824,10 +1842,14 @@ export interface operations {
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by project id */
+        /** @description Filter by Data Source */
         /** @description Filter the returned list by the experiment tracking key (id) */
       query: {
         limit?: number;
         offset?: number;
+        projectId?: string;
+        datasourceId?: string;
         experimentId?: string;
       };
     };

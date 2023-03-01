@@ -1,7 +1,11 @@
 import { ListFeaturesResponse } from "../../../types/openapi";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listFeaturesValidator } from "../../validators/openapi";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
@@ -11,9 +15,9 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      features.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()
-      ),
+      features
+        .filter((feature) => applyFilter(req.query.projectId, feature.project))
+        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
       req.query
     );
 

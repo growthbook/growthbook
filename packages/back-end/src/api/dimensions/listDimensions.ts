@@ -3,7 +3,11 @@ import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "../../models/DimensionModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listDimensionsValidator } from "../../validators/openapi";
 
 export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
@@ -12,7 +16,11 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      dimensions.sort((a, b) => a.id.localeCompare(b.id)),
+      dimensions
+        .filter((dimension) =>
+          applyFilter(req.query.datasourceId, dimension.datasource)
+        )
+        .sort((a, b) => a.id.localeCompare(b.id)),
       req.query
     );
 

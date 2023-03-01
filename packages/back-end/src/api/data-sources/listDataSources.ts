@@ -3,7 +3,11 @@ import {
   getDataSourcesByOrganization,
   toDataSourceApiInterface,
 } from "../../models/DataSourceModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listDataSourcesValidator } from "../../validators/openapi";
 
 export const listDataSources = createApiRequestHandler(
@@ -14,7 +18,11 @@ export const listDataSources = createApiRequestHandler(
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      dataSources.sort((a, b) => a.id.localeCompare(b.id)),
+      dataSources
+        .filter((datasource) =>
+          applyFilter(req.query.projectId, datasource.projects, true)
+        )
+        .sort((a, b) => a.id.localeCompare(b.id)),
       req.query
     );
 

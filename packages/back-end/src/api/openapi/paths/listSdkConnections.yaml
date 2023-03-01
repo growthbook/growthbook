@@ -5,6 +5,7 @@ get:
   parameters:
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
+  - $ref: "../parameters.yaml#/projectId"
   - name: withProxy
     in: query
     schema:

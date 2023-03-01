@@ -3,7 +3,11 @@ import {
   findSegmentsByOrganization,
   toSegmentApiInterface,
 } from "../../models/SegmentModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listSegmentsValidator } from "../../validators/openapi";
 
 export const listSegments = createApiRequestHandler(listSegmentsValidator)(
@@ -12,7 +16,11 @@ export const listSegments = createApiRequestHandler(listSegmentsValidator)(
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      segments.sort((a, b) => a.id.localeCompare(b.id)),
+      segments
+        .filter((segment) =>
+          applyFilter(req.query.datasourceId, segment.datasource)
+        )
+        .sort((a, b) => a.id.localeCompare(b.id)),
       req.query
     );
 

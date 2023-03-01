@@ -5,6 +5,7 @@ get:
   parameters:
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
+  - $ref: "../parameters.yaml#/datasourceId"
   operationId: listSegments
   x-codeSamples:
     - lang: 'cURL'

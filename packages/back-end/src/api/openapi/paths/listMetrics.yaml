@@ -5,6 +5,8 @@ get:
   parameters:
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
+  - $ref: "../parameters.yaml#/projectId"
+  - $ref: "../parameters.yaml#/datasourceId"
   operationId: listMetrics
   x-codeSamples:
     - lang: 'cURL'

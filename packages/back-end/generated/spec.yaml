@@ -87,6 +87,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -243,6 +244,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
       operationId: listDimensions
       x-codeSamples:
         - lang: cURL
@@ -296,6 +298,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
       operationId: listSegments
       x-codeSamples:
         - lang: cURL
@@ -349,6 +352,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
       operationId: listMetrics
       x-codeSamples:
         - lang: cURL
@@ -402,6 +407,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
         - name: withProxy
           in: query
           schema:
@@ -459,6 +465,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
       operationId: listDataSources
       x-codeSamples:
         - lang: cURL
@@ -512,6 +519,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
         - name: experimentId
           in: query
           description: Filter the returned list by the experiment tracking key (id)
@@ -620,6 +629,18 @@ components:
       schema:
         type: integer
         min: 0
+    projectId:
+      name: projectId
+      in: query
+      description: Filter by project id
+      schema:
+        type: string
+    datasourceId:
+      name: datasourceId
+      in: query
+      description: Filter by Data Source
+      schema:
+        type: string
   schemas:
     PaginationFields:
       type: object

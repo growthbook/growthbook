@@ -3,7 +3,11 @@ import {
   findSDKConnectionsByOrganization,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listSdkConnectionsValidator } from "../../validators/openapi";
 
 export const listSdkConnections = createApiRequestHandler(
@@ -16,6 +20,11 @@ export const listSdkConnections = createApiRequestHandler(
 
     const { filtered, returnFields } = applyPagination(
       connections
+        .filter(
+          (c) =>
+            (!req.query.withProxy || c.proxy?.enabled) &&
+            applyFilter(req.query.projectId, c.project)
+        )
         .filter((c) => {
           if (!req.query.withProxy) return true;
           return c.proxy?.enabled;

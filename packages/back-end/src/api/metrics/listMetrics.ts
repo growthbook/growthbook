@@ -2,7 +2,11 @@ import { ListMetricsResponse } from "../../../types/openapi";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { toMetricApiInterface } from "../../services/experiments";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listMetricsValidator } from "../../validators/openapi";
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(
@@ -13,7 +17,13 @@ export const listMetrics = createApiRequestHandler(listMetricsValidator)(
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      metrics.sort((a, b) => a.id.localeCompare(b.id)),
+      metrics
+        .filter(
+          (metric) =>
+            applyFilter(req.query.datasourceId, metric.datasource) &&
+            applyFilter(req.query.projectId, metric.projects, true)
+        )
+        .sort((a, b) => a.id.localeCompare(b.id)),
       req.query
     );
 

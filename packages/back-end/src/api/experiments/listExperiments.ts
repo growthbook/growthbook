@@ -1,7 +1,11 @@
 import { ListExperimentsResponse } from "../../../types/openapi";
 import { getAllExperiments } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listExperimentsValidator } from "../../validators/openapi";
 
 export const listExperiments = createApiRequestHandler(
@@ -13,12 +17,12 @@ export const listExperiments = createApiRequestHandler(
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       experiments
-        .filter((exp) => {
-          return (
-            !req.query.experimentId ||
-            exp.trackingKey === req.query.experimentId
-          );
-        })
+        .filter(
+          (exp) =>
+            applyFilter(req.query.experimentId, exp.trackingKey) &&
+            applyFilter(req.query.datasourceId, exp.datasource) &&
+            applyFilter(req.query.projectId, exp.project)
+        )
         .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
       req.query
     );
