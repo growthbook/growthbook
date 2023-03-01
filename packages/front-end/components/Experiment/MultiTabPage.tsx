@@ -514,7 +514,7 @@ const MultiTabPage = ({
                     }
                   </RightRailSectionGroup>
                 )}
-                <RightRailSectionGroup title="Experiment Id">
+                <RightRailSectionGroup title="Experiment Key">
                   <input
                     type="text"
                     readOnly

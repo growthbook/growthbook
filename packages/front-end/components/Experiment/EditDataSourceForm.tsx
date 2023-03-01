@@ -76,7 +76,7 @@ const EditDataSourceForm: FC<{
           })}
         />
       )}
-      <Field label="Experiment Id" {...form.register("trackingKey")} />
+      <Field label="Experiment Key" {...form.register("trackingKey")} />
     </Modal>
   );
 };

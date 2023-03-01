@@ -1345,7 +1345,7 @@ export async function getSnapshotStatus(
 
   const experiment = await getExperimentById(org.id, snapshot.experiment);
 
-  if (!experiment) throw new Error("Invalid experiment id");
+  if (!experiment) throw new Error("Invalid experiment Key");
 
   const phase = experiment.phases[snapshot.phase];
 

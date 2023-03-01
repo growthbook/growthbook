@@ -69,7 +69,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
                 {...form.register("experimentEvent")}
               />
               <Field
-                label="Experiment Id Property"
+                label="Experiment Key Property"
                 placeholder="Experiment name"
                 {...form.register("experimentIdProperty")}
               />

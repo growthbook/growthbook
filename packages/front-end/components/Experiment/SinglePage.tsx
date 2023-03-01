@@ -531,7 +531,7 @@ export default function SinglePage({
                 </RightRailSectionGroup>
               )}
               {datasource && (
-                <RightRailSectionGroup title="Experiment Id" type="commaList">
+                <RightRailSectionGroup title="Experiment Key" type="commaList">
                   {experiment.trackingKey}
                 </RightRailSectionGroup>
               )}

@@ -254,7 +254,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {!isImport && !fromFeature && datasource && (
           <Field
-            label="Experiment Id"
+            label="Experiment Key"
             {...form.register("trackingKey")}
             helpText={
               supportsSQL ? (
@@ -263,7 +263,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   database table
                 </>
               ) : (
-                "Must match the experiment id in your tracking callback"
+                "Must match the experiment Key in your tracking callback"
               )
             }
           />

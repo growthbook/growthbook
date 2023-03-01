@@ -296,7 +296,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         {isFiltered && e.trackingKey && (
                           <span
                             className="testid text-muted small"
-                            title="Experiment Id"
+                            title="Experiment Key"
                           >
                             {e.trackingKey}
                           </span>

@@ -188,7 +188,7 @@ val gb = GBSDKBuilder(
   trackingCallback = { gbExperiment, gbExperimentResult ->
     // ${trackingComment}
     println("Viewed Experiment")
-    println("Experiment Id: " + gbExperiment.key)
+    println("Experiment Key: " + gbExperiment.key)
     println("Variation Id: " + gbExperimentResult.variationId)
   }
 ).initialize()`.trim()}
@@ -210,7 +210,7 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
   trackingCallback: { experiment, experimentResult in 
     // ${trackingComment}
     print("Viewed Experiment")
-    print("Experiment Id: ", experiment.key)
+    print("Experiment Key: ", experiment.key)
     print("Variation Id: ", experimentResult.variationId)
   }
 ).initializer()
@@ -276,7 +276,7 @@ func main() {
 		// ${trackingComment}
 		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
 			log.Println("Viewed Experiment")
-			log.Println("Experiment Id", experiment.Key)
+			log.Println("Experiment Key", experiment.Key)
 			log.Println("Variation Id", result.VariationID)
 		})
 	gb := growthbook.New(context)
@@ -310,7 +310,7 @@ class MyImpressionListener
   def on_experiment_viewed(experiment, result)
     # ${trackingComment}
     puts "Viewed Experiment"
-    puts "Experiment Id: #{experiment.key}"
+    puts "Experiment Key: #{experiment.key}"
     puts "Variation Id: #{result.variationId}"
   end
 end
@@ -387,8 +387,8 @@ features = apiResp.json()["features"]
 def on_experiment_viewed(experiment, result):
   # ${trackingComment}
   print("Viewed Experiment")
-  print("Experiment Id: " + experiment.key)
-  print("Variation Id: " + result.variationId)
+  print("Experiment Key: " + experiment.key)
+  print("Variation Key: " + result.variationId)
             `.trim()}
         />
         Create a GrowthBook instance
@@ -431,7 +431,7 @@ TrackingCallback trackingCallback = new TrackingCallback() {
   ) {
     // ${trackingComment}
     System.out.println("Viewed Experiment")
-    System.out.println("Experiment Id: " + experiment.key)
+    System.out.println("Experiment Key: " + experiment.key)
     System.out.println("Variation Id: " + experimentResult.variationId)
   }
 };
@@ -478,7 +478,7 @@ final GrowthBookSDK gb = GBSDKBuilderApp(
   growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {
     // ${trackingComment}
     print("Viewed Experiment")
-    print("Experiment Id: " + gbExperiment.key)
+    print("Experiment Key: " + gbExperiment.key)
     print("Variation Id: " + gbExperimentResult.variationId)
   },
 ).initialize();

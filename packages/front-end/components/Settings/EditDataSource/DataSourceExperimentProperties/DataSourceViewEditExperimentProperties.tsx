@@ -78,7 +78,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
             </td>
           </tr>
           <tr>
-            <th>Experiment Id Property</th>
+            <th>Experiment Key Property</th>
             <td>
               <code>
                 {dataSource.settings?.events?.experimentIdProperty || ""}

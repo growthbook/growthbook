@@ -174,7 +174,7 @@ const AnalysisForm: FC<{
         />
       )}
       <Field
-        label="Experiment Id"
+        label="Experiment Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"

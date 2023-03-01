@@ -53,7 +53,7 @@ const FilterSummary: FC<{
         <div className="text-gray">
           <div className="row mb-3">
             <div className="col-5">
-              <strong className="text-gray">Experiment Id:</strong>
+              <strong className="text-gray">Experiment Key:</strong>
             </div>
             <div className="col">{experiment.trackingKey}</div>
           </div>

@@ -117,7 +117,7 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
   trackingCallback: { experiment, experimentResult in
     // TODO: Track in your real analytics system
     print("Viewed Experiment")
-    print("Experiment Id: ", experiment.key)
+    print("Experiment Key: ", experiment.key)
     print("Variation Id: ", experimentResult.variationId)
   }
 ).initializer()

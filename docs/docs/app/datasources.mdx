@@ -139,7 +139,7 @@ The variables are:
 - **endMonth** - Just the `MM` of the endDate
 - **endDay** - Just the `DD` of the endDate
 - **endDateUnix** - Unix timestamp of the endDate (seconds since Jan 1, 1970)
-- **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
+- **experimentId** - Either a specific experiment Key OR `%` if you should include all experiments
 
 For example:
 
@@ -194,7 +194,7 @@ We query Mixpanel using JQL. We have sensible defaults for the event and propert
 
 - Experiments
   - **View Experiments Event** - The name of the event you are firing when a user is put into a variation
-  - **Experiment Id Property** - The property name that stores the experiment tracking key
+  - **Experiment Key Property** - The property name that stores the experiment tracking key
   - **Variation Id Property** - The property name that stores the variation the user was assigned
   - **Extra UserId Property** - _(optional)_ An additional event property to add to the groupBy (`distinct_id` is always included)
 
