@@ -17,7 +17,7 @@
     "type-check": "tsc --pretty --noEmit",
     "generate-dummy-data": "ts-node --swc ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
-    "watch-compile": "swc src -w --out-dir dist --copy-files",
+    "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js",
     "generate-api-types": "swagger-cli bundle -t yaml src/api/openapi/openapi.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"

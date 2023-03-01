@@ -21,9 +21,3 @@ offset:
   schema:
     type: integer
     min: 0
-experimentId:
-  name: experimentId
-  in: query
-  description: Filter the returned list by the experiment tracking key (id)
-  schema:
-    type: string

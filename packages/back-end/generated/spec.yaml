@@ -512,7 +512,11 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/experimentId'
+        - name: experimentId
+          in: query
+          description: Filter the returned list by the experiment tracking key (id)
+          schema:
+            type: string
       operationId: listExperiments
       x-codeSamples:
         - lang: cURL
@@ -616,12 +620,6 @@ components:
       schema:
         type: integer
         min: 0
-    experimentId:
-      name: experimentId
-      in: query
-      description: Filter the returned list by the experiment tracking key (id)
-      schema:
-        type: string
   schemas:
     PaginationFields:
       type: object

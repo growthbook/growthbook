@@ -856,8 +856,6 @@ export interface components {
     limit: number;
     /** @description How many items to skip (use in conjunction with limit for pagination) */
     offset: number;
-    /** @description Filter the returned list by the experiment tracking key (id) */
-    experimentId: string;
   };
   requestBodies: never;
   headers: never;

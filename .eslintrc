@@ -100,14 +100,6 @@
     },
     {
       "files": [
-        "./packages/back-end/types/openapi.d.ts"
-      ],
-      "rules": {
-        "@typescript-eslint/no-explicit-any": "off"
-      }
-    },
-    {
-      "files": [
         "./packages/docs/pages/_app.tsx",
         "./packages/front-end/components/Auth/InAppHelp.tsx",
         "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
