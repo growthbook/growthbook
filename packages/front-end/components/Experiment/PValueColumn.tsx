@@ -126,7 +126,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats.pValue)}</>
+          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
         )}
       </Tooltip>
     </td>

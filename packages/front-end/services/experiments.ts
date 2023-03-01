@@ -250,7 +250,10 @@ export function isExpectedDirection(
   metric: MetricInterface
 ): boolean {
   const expected: number = stats?.expected ?? 0;
-  return metric.inverse ? expected < 0 : expected > 0;
+  if (metric.inverse) {
+    return expected < 0;
+  }
+  return expected > 0;
 }
 
 export function isStatSig(
@@ -261,9 +264,9 @@ export function isStatSig(
   return pValue < pValueThreshold;
 }
 
-export function pValueFormatter(pValue: number) {
-  if (pValue === undefined) {
-    return "P-value missing";
+export function pValueFormatter(pValue: number): string {
+  if (typeof pValue !== "number") {
+    return "";
   }
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
