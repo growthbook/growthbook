@@ -64,6 +64,52 @@
     "attributionModel": "allExposures"
   },
   {
+    "id": "positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": 24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposures_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": 24
+      }
+    ],
+    "attributionModel": "allExposures"
+  },
+  {
+    "id": "activation_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": 24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHour": 24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "allExposures"
+  },
+  {
     "id": "dimension_date",
     "dimensionType": "date",
     "attributionModel": "firstExposure"
