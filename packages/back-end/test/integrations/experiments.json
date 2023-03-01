@@ -23,7 +23,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "attributionModel": "firstExposure"
@@ -34,7 +34,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "attributionModel": "allExposures"
@@ -45,7 +45,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -57,7 +57,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -69,7 +69,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": 24
+        "conversionDelayHours": 24
       }
     ],
     "attributionModel": "firstExposure"
@@ -80,7 +80,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": 24
+        "conversionDelayHours": 24
       }
     ],
     "attributionModel": "allExposures"
@@ -91,7 +91,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": 24
+        "conversionDelayHours": 24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -103,7 +103,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": 24
+        "conversionDelayHours": 24
       }
     ],
     "activationMetric": "cart_loaded",
