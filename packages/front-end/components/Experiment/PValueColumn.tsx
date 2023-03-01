@@ -6,6 +6,8 @@ import { ExperimentStatus } from "back-end/types/experiment";
 import {
   hasEnoughData,
   isBelowMinChange,
+  isExpectedDirection,
+  isStatSig,
   isSuspiciousUplift,
   shouldHighlight as _shouldHighlight,
   pValueFormatter,
@@ -60,10 +62,8 @@ const PValueColumn: FC<{
     belowMinChange,
   });
 
-  const expected: number = stats.expected ?? 0;
-  const expectedDirection = metric.inverse ? expected < 0 : expected > 0;
-  const pValue: number = stats.pValue ?? 1;
-  const statSig = pValue < pValueThreshold;
+  const statSig = isStatSig(stats, pValueThreshold);
+  const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
   let className = "";
@@ -126,7 +126,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats.pValue)}</>
+          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
         )}
       </Tooltip>
     </td>
