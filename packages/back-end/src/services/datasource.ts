@@ -110,33 +110,20 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
 
 export async function generateInformationSchema(
   datasource: DataSourceInterface
-): Promise<
-  | {
-      informationSchema: InformationSchema[];
-      error?: undefined;
-    }
-  | { error: string; informationSchema?: undefined }
-> {
+): Promise<InformationSchema[] | null> {
   const integration = getSourceIntegrationObject(datasource);
 
-  if (
-    !integration ||
-    // Not all datasources support this yet
-    !integration.getInformationSchema
-  ) {
-    return { informationSchema: [] };
+  if (!integration || !integration.getInformationSchema) {
+    return null;
   }
 
   try {
-    const informationSchema = await integration.getInformationSchema(
+    return await integration.getInformationSchema(
       datasource.type,
       integration.params.projectId
     );
-    return { informationSchema };
   } catch (e) {
-    return {
-      error: e.message,
-    };
+    return null;
   }
 }
 
@@ -183,7 +170,7 @@ export async function createInitialInformationSchema(
   datasource: DataSourceInterface,
   organization: string
 ) {
-  const { informationSchema } = await generateInformationSchema(datasource);
+  const informationSchema = await generateInformationSchema(datasource);
 
   // Loop through each database, schema, and table, and create Mongo record for each table's columns.
   if (informationSchema) {
