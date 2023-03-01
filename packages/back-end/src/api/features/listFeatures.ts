@@ -1,17 +1,10 @@
-import { z } from "zod";
 import { ListFeaturesResponse } from "../../../types/openapi";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listFeaturesValidator } from "../../validators/openapi";
 
-export const listFeatures = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
     const features = await getAllFeatures(req.organization.id);
     const groupMap = await getSavedGroupMap(req.organization);

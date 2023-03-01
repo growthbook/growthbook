@@ -1,18 +1,12 @@
-import { z } from "zod";
 import { ListExperimentsResponse } from "../../../types/openapi";
 import { getAllExperiments } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listExperimentsValidator } from "../../validators/openapi";
 
-export const listExperiments = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-      experimentId: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listExperiments = createApiRequestHandler(
+  listExperimentsValidator
+)(
   async (req): Promise<ListExperimentsResponse> => {
     const experiments = await getAllExperiments(req.organization.id);
 

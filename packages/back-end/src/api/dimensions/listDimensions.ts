@@ -1,19 +1,12 @@
-import { z } from "zod";
 import { ListDimensionsResponse } from "../../../types/openapi";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "../../models/DimensionModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listDimensionsValidator } from "../../validators/openapi";
 
-export const listDimensions = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
   async (req): Promise<ListDimensionsResponse> => {
     const dimensions = await findDimensionsByOrganization(req.organization.id);
 

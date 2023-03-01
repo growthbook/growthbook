@@ -96,39 +96,32 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
-          "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yml",
+          "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yaml",
         templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
       },
       {
         type: "add",
         skipIfExists: true,
         path:
-          "./packages/back-end/src/api/openapi/paths/{{kebabCase object}}s/id.yml",
-        templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path:
-          "./packages/back-end/src/api/openapi/paths/{{kebabCase object}}s/index.yml",
-        templateFile: "./plop-templates/back-end/api/openapi_list.hbs",
+          "./packages/back-end/src/api/openapi/paths/{{kebabCase object}}s.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_paths.hbs",
       },
       {
         type: "append",
-        path: "./packages/back-end/src/api/openapi/schemas/_index.yml",
+        path: "./packages/back-end/src/api/openapi/schemas/_index.yaml",
         template: `
 {{pascalCase object}}:
-  $ref: './{{pascalCase object}}.yml'
+  $ref: './{{pascalCase object}}.yaml'
 `.trim(),
       },
       {
         type: "append",
-        path: "./packages/back-end/src/api/openapi/openapi.yml",
+        path: "./packages/back-end/src/api/openapi/openapi.yaml",
         pattern: /PLOP_INSERT_PATHS_HERE/,
         template: `  /{{kebabCase object}}s:
-    $ref: "./paths/{{kebabCase object}}s/index.yml"
+    $ref: "./paths/{{kebabCase object}}s.yaml#/list{{pascalCase object}}s"
   /{{kebabCase object}}s/{id}:
-    $ref: "./paths/{{kebabCase object}}s/id.yml"`,
+    $ref: "./paths/{{kebabCase object}}s.yaml#/get{{pascalCase object}}"`,
       },
     ],
   });

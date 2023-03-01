@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
-import z, { Schema } from "zod";
+import z, { Schema, ZodNever } from "zod";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
 
@@ -54,19 +54,19 @@ export function createApiRequestHandler<
     > = async (req, res, next) => {
       try {
         const errors: string[] = [];
-        if (paramsSchema) {
+        if (paramsSchema && !(paramsSchema instanceof ZodNever)) {
           const paramErrors = validate(paramsSchema, req.params);
           if (paramErrors.length > 0) {
             errors.push(`Request params: ` + paramErrors.join(", "));
           }
         }
-        if (querySchema) {
+        if (querySchema && !(querySchema instanceof ZodNever)) {
           const queryError = validate(querySchema, req.query);
           if (queryError.length > 0) {
             errors.push(`Querystring: ` + queryError.join(", "));
           }
         }
-        if (bodySchema) {
+        if (bodySchema && !(bodySchema instanceof ZodNever)) {
           const bodyErrors = validate(bodySchema, req.body);
           if (bodyErrors.length > 0) {
             errors.push(`Request body: ` + bodyErrors.join(", "));
@@ -125,13 +125,13 @@ export function getBuild() {
 
 export function applyPagination<T>(
   items: T[],
-  query: { limit?: string | undefined; offset?: string | undefined }
+  query: { limit?: number | undefined; offset?: number | undefined }
 ): {
   filtered: T[];
   returnFields: ApiPaginationFields;
 } {
-  const limit = parseInt(query.limit || "10");
-  const offset = parseInt(query.offset || "0");
+  const limit = query.limit || 10;
+  const offset = query.offset || 0;
   if (isNaN(limit) || limit < 1 || limit > 100) {
     throw new Error("Pagination limit must be between 1 and 100");
   }

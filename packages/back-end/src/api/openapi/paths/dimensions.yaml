@@ -1,0 +1,53 @@
+getDimension:
+  parameters:
+    - $ref: "../parameters.yaml#/id"
+  get:
+    summary: Get a single dimension
+    tags:
+      - dimensions
+    operationId: getDimension
+    x-codeSamples:
+      - lang: 'cURL'
+        source: |
+          curl https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+            -u secret_abc123DEF456:
+    responses:
+      "200":
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - dimension
+              properties:
+                dimension:
+                  $ref: "../schemas/Dimension.yaml"
+listDimensions:
+  get:
+    summary: Get all dimensions
+    tags:
+      - dimensions
+    parameters:
+    - $ref: "../parameters.yaml#/limit"
+    - $ref: "../parameters.yaml#/offset"
+    operationId: listDimensions
+    x-codeSamples:
+      - lang: 'cURL'
+        source: |
+          curl https://api.growthbook.io/api/v1/dimensions \
+            -u secret_abc123DEF456:
+    responses:
+      "200":
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - dimensions
+                  properties:
+                    dimensions:
+                      type: array
+                      items:
+                        $ref: "../schemas/Dimension.yaml"
+                - $ref: "../schemas/PaginationFields.yaml"

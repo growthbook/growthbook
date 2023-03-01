@@ -1,16 +1,10 @@
-import { z } from "zod";
 import { GetFeatureResponse } from "../../../types/openapi";
 import { getFeature as getFeatureDB } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { createApiRequestHandler } from "../../util/handler";
+import { getFeatureValidator } from "../../validators/openapi";
 
-export const getFeature = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-})(
+export const getFeature = createApiRequestHandler(getFeatureValidator)(
   async (req): Promise<GetFeatureResponse> => {
     const feature = await getFeatureDB(req.organization.id, req.params.id);
     if (!feature) {

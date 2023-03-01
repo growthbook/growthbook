@@ -3,11 +3,13 @@ on:
   pull_request:
     paths:
       - "docs/**"
+      - "packages/back-end/generated/spec.yaml"
   push:
     branches:
       - "main"
     paths:
       - "docs/**"
+      - "packages/back-end/generated/spec.yaml"
 jobs:
   vercel:
     runs-on: ubuntu-latest

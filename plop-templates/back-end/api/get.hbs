@@ -1,18 +1,12 @@
-import { z } from "zod";
 import { Get{{pascalCase object}}Response } from "../../../types/openapi";
 import { 
   find{{pascalCase object}}ById, 
   to{{pascalCase object}}ApiInterface 
 } from "../../models/{{pascalCase object}}Model";
 import { createApiRequestHandler } from "../../util/handler";
+import { get{{pascalCase object}}Validator } from "../../validators/openapi";
 
-export const get{{pascalCase object}} = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-})(
+export const get{{pascalCase object}} = createApiRequestHandler(get{{pascalCase object}}Validator)(
   async (req): Promise<Get{{pascalCase object}}Response> => {
     const {{camelCase object}} = await find{{pascalCase object}}ById(
       req.params.id,

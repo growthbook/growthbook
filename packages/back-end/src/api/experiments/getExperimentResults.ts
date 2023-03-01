@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { GetExperimentResultsResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
 import {
@@ -6,20 +5,11 @@ import {
   toSnapshotApiInterface,
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
+import { getExperimentResultsValidator } from "../../validators/openapi";
 
-export const getExperimentResults = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-  querySchema: z
-    .object({
-      phase: z.string().optional(),
-      dimension: z.string().optional(),
-    })
-    .strict(),
-})(
+export const getExperimentResults = createApiRequestHandler(
+  getExperimentResultsValidator
+)(
   async (req): Promise<GetExperimentResultsResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,

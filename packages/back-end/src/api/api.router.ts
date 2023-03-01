@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "fs";
+import path from "path";
 import { Router, Request } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
@@ -12,13 +14,26 @@ import projectsRouter from "./projects/projects.router";
 import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
 import dataSourcesRouter from "./data-sources/data-sources.router";
 import dimensionsRouter from "./dimensions/dimensions.router";
-import openapiSpec from "./openapi/openapi.json";
 
 const router = Router();
 
-router.get("/swagger.json", (req, res) => {
+let openapiSpec: string;
+router.get("/openapi.yaml", (req, res) => {
+  if (!openapiSpec) {
+    const file = path.join(__dirname, "..", "..", "generated", "spec.yaml");
+    if (existsSync(file)) {
+      openapiSpec = readFileSync(file).toString();
+    }
+  }
+  if (!openapiSpec) {
+    return res.status(500).json({
+      message: "Unable to load OpenAPI spec",
+    });
+  }
+
   res.setHeader("Cache-Control", "max-age=3600");
-  res.json(openapiSpec);
+  res.setHeader("Content-Type", "text/yaml");
+  res.send(openapiSpec);
 });
 
 router.use(bodyParser.json({ limit: "1mb" }));

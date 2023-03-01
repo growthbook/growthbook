@@ -1,20 +1,14 @@
-import { z } from "zod";
 import { ListSdkConnectionsResponse } from "../../../types/openapi";
 import {
   findSDKConnectionsByOrganization,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listSdkConnectionsValidator } from "../../validators/openapi";
 
-export const listSdkConnections = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-      withProxy: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listSdkConnections = createApiRequestHandler(
+  listSdkConnectionsValidator
+)(
   async (req): Promise<ListSdkConnectionsResponse> => {
     const connections = await findSDKConnectionsByOrganization(
       req.organization.id

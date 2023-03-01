@@ -1,18 +1,11 @@
-import { z } from "zod";
 import { ListMetricsResponse } from "../../../types/openapi";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { toMetricApiInterface } from "../../services/experiments";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listMetricsValidator } from "../../validators/openapi";
 
-export const listMetrics = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listMetrics = createApiRequestHandler(listMetricsValidator)(
   async (req): Promise<ListMetricsResponse> => {
     const metrics = await getMetricsByOrganization(req.organization.id);
 

@@ -1,18 +1,12 @@
-import { z } from "zod";
 import { GetDataSourceResponse } from "../../../types/openapi";
 import {
   getDataSourceById,
   toDataSourceApiInterface,
 } from "../../models/DataSourceModel";
 import { createApiRequestHandler } from "../../util/handler";
+import { getDataSourceValidator } from "../../validators/openapi";
 
-export const getDataSource = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-})(
+export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
   async (req): Promise<GetDataSourceResponse> => {
     const dataSource = await getDataSourceById(
       req.params.id,

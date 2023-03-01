@@ -1,16 +1,10 @@
-import { z } from "zod";
 import { GetExperimentResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
+import { getExperimentValidator } from "../../validators/openapi";
 
-export const getExperiment = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-})(
+export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,

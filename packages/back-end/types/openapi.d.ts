@@ -1,9 +1,10 @@
 /* eslint-disable */
 /**
- * This file was auto-generated. DO NOT MODIFY DIRECTLY
- * Instead, modify the source OpenAPI schema in back-end/src/api/openapi
- * and run `yarn generate-api-types` to re-generate this file.
- */
+* This file was auto-generated. DO NOT MODIFY DIRECTLY
+* Instead, modify the source OpenAPI schema in back-end/src/api/openapi
+* and run `yarn generate-api-types` to re-generate this file.
+*/
+
 /** OneOf type helpers */
 type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
 type XOR<T, U> = (T | U) extends object ? (Without<T, U> & U) | (Without<U, T> & T) : T | U;
@@ -17,12 +18,22 @@ export interface paths {
   "/features/{id}": {
     /** Get a single feature */
     get: operations["getFeature"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/features/{id}/toggle": {
     /** Toggle a feature in one or more environments */
     post: operations["toggleFeature"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/projects": {
     /** Get all projects */
@@ -31,7 +42,12 @@ export interface paths {
   "/projects/{id}": {
     /** Get a single project */
     get: operations["getProject"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/dimensions": {
     /** Get all dimensions */
@@ -40,7 +56,12 @@ export interface paths {
   "/dimensions/{id}": {
     /** Get a single dimension */
     get: operations["getDimension"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/segments": {
     /** Get all segments */
@@ -49,7 +70,12 @@ export interface paths {
   "/segments/{id}": {
     /** Get a single segment */
     get: operations["getSegment"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/metrics": {
     /** Get all metrics */
@@ -58,7 +84,12 @@ export interface paths {
   "/metrics/{id}": {
     /** Get a single metric */
     get: operations["getMetric"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/sdk-connections": {
     /** Get all sdk connections */
@@ -67,7 +98,12 @@ export interface paths {
   "/sdk-connections/{id}": {
     /** Get a single sdk connection */
     get: operations["getSdkConnection"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/data-sources": {
     /** Get all data sources */
@@ -76,7 +112,12 @@ export interface paths {
   "/data-sources/{id}": {
     /** Get a single data source */
     get: operations["getDataSource"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/experiments": {
     /** Get all experiments */
@@ -85,15 +126,20 @@ export interface paths {
   "/experiments/{id}": {
     /** Get a single experiment */
     get: operations["getExperiment"];
-    
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
   };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
     parameters: {
-      query: {
-        phase?: string;
-        dimension?: string;
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
       };
     };
   };
@@ -209,7 +255,116 @@ export interface components {
       defaultValue: string;
       tags: (string)[];
       environments: {
-        [key: string]: components["schemas"]["FeatureEnvironment"] | undefined;
+        [key: string]: ({
+          enabled: boolean;
+          defaultValue: string;
+          rules: ({
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              type: string;
+              value: string;
+            } | {
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              type: string;
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+            } | {
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              type: string;
+              trackingKey?: string;
+              hashAttribute?: string;
+              namespace?: {
+                enabled: boolean;
+                name: string;
+                range: (number)[];
+              };
+              coverage?: number;
+              value?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+            })[];
+          definition?: {
+            defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+            rules?: ({
+                force?: OneOf<[string, number, (unknown)[], any, null]>;
+                weights?: (number)[];
+                variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                hashAttribute?: string;
+                namespace?: (OneOf<[number, string]>)[];
+                key?: string;
+                coverage?: number;
+                condition?: {
+                  [key: string]: unknown | undefined;
+                };
+              })[];
+          };
+          draft?: {
+            enabled: boolean;
+            defaultValue: string;
+            rules: ({
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                type: string;
+                value: string;
+              } | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                type: string;
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              } | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                type: string;
+                trackingKey?: string;
+                hashAttribute?: string;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              })[];
+            definition?: {
+              defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+              rules?: ({
+                  force?: OneOf<[string, number, (unknown)[], any, null]>;
+                  weights?: (number)[];
+                  variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                  hashAttribute?: string;
+                  namespace?: (OneOf<[number, string]>)[];
+                  key?: string;
+                  coverage?: number;
+                  condition?: {
+                    [key: string]: unknown | undefined;
+                  };
+                })[];
+            };
+          };
+        }) | undefined;
       };
       revision: {
         version: number;
@@ -222,24 +377,157 @@ export interface components {
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
-      rules: (components["schemas"]["FeatureRule"])[];
-      definition?: components["schemas"]["FeatureDefinition"];
+      rules: ({
+          description: string;
+          condition: string;
+          id: string;
+          enabled: boolean;
+          type: string;
+          value: string;
+        } | {
+          description: string;
+          condition: string;
+          id: string;
+          enabled: boolean;
+          type: string;
+          value: string;
+          coverage: number;
+          hashAttribute: string;
+        } | {
+          description: string;
+          condition: string;
+          id: string;
+          enabled: boolean;
+          type: string;
+          trackingKey?: string;
+          hashAttribute?: string;
+          namespace?: {
+            enabled: boolean;
+            name: string;
+            range: (number)[];
+          };
+          coverage?: number;
+          value?: ({
+              value: string;
+              weight: number;
+              name?: string;
+            })[];
+        })[];
+      definition?: {
+        defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+        rules?: ({
+            force?: OneOf<[string, number, (unknown)[], any, null]>;
+            weights?: (number)[];
+            variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+            hashAttribute?: string;
+            namespace?: (OneOf<[number, string]>)[];
+            key?: string;
+            coverage?: number;
+            condition?: {
+              [key: string]: unknown | undefined;
+            };
+          })[];
+      };
       draft?: {
         enabled: boolean;
         defaultValue: string;
-        rules: (components["schemas"]["FeatureRule"])[];
-        definition?: components["schemas"]["FeatureDefinition"];
+        rules: ({
+            description: string;
+            condition: string;
+            id: string;
+            enabled: boolean;
+            type: string;
+            value: string;
+          } | {
+            description: string;
+            condition: string;
+            id: string;
+            enabled: boolean;
+            type: string;
+            value: string;
+            coverage: number;
+            hashAttribute: string;
+          } | {
+            description: string;
+            condition: string;
+            id: string;
+            enabled: boolean;
+            type: string;
+            trackingKey?: string;
+            hashAttribute?: string;
+            namespace?: {
+              enabled: boolean;
+              name: string;
+              range: (number)[];
+            };
+            coverage?: number;
+            value?: ({
+                value: string;
+                weight: number;
+                name?: string;
+              })[];
+          })[];
+        definition?: {
+          defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+          rules?: ({
+              force?: OneOf<[string, number, (unknown)[], any, null]>;
+              weights?: (number)[];
+              variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+              hashAttribute?: string;
+              namespace?: (OneOf<[number, string]>)[];
+              key?: string;
+              coverage?: number;
+              condition?: {
+                [key: string]: unknown | undefined;
+              };
+            })[];
+        };
       };
     };
-    FeatureRule: components["schemas"]["FeatureForceRule"] | components["schemas"]["FeatureRolloutRule"] | components["schemas"]["FeatureExperimentRule"];
+    FeatureRule: {
+      description: string;
+      condition: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      value: string;
+    } | {
+      description: string;
+      condition: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      value: string;
+      coverage: number;
+      hashAttribute: string;
+    } | {
+      description: string;
+      condition: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      trackingKey?: string;
+      hashAttribute?: string;
+      namespace?: {
+        enabled: boolean;
+        name: string;
+        range: (number)[];
+      };
+      coverage?: number;
+      value?: ({
+          value: string;
+          weight: number;
+          name?: string;
+        })[];
+    };
     FeatureDefinition: {
-      defaultValue: any;
+      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
       rules?: ({
-          force?: any;
+          force?: OneOf<[string, number, (unknown)[], any, null]>;
           weights?: (number)[];
-          variations?: (any)[];
+          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
           hashAttribute?: string;
-          namespace?: (unknown)[];
+          namespace?: (OneOf<[number, string]>)[];
           key?: string;
           coverage?: number;
           condition?: {
@@ -276,7 +564,7 @@ export interface components {
       namespace?: {
         enabled: boolean;
         name: string;
-        range: (unknown)[];
+        range: (number)[];
       };
       coverage?: number;
       value?: ({
@@ -341,7 +629,48 @@ export interface components {
           };
           targetingCondition: string;
         })[];
-      settings: components["schemas"]["ExperimentAnalysisSettings"];
+      settings: {
+        datasourceId: string;
+        assignmentQueryId: string;
+        experimentId: string;
+        segmentId: string;
+        queryFilter: string;
+        /** @enum {unknown} */
+        inProgressConversions: "include" | "exclude";
+        /** @enum {unknown} */
+        multipleVariations: "include" | "exclude";
+        /** @enum {unknown} */
+        attributionModel: "firstExposure" | "allExposures";
+        /** @enum {unknown} */
+        statsEngine: "bayesian" | "frequentist";
+        goals: ({
+            metricId: string;
+            overrides: {
+              conversionWindowStart?: number;
+              conversionWindowEnd?: number;
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        guardrails: ({
+            metricId: string;
+            overrides: {
+              conversionWindowStart?: number;
+              conversionWindowEnd?: number;
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        activationMetric?: {
+          metricId: string;
+          overrides: {
+            conversionWindowStart?: number;
+            conversionWindowEnd?: number;
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        };
+      };
       resultSummary?: {
         status: string;
         winner: string;
@@ -371,9 +700,33 @@ export interface components {
       attributionModel: "firstExposure" | "allExposures";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
-      goals: (components["schemas"]["ExperimentMetric"])[];
-      guardrails: (components["schemas"]["ExperimentMetric"])[];
-      activationMetric?: components["schemas"]["ExperimentMetric"];
+      goals: ({
+          metricId: string;
+          overrides: {
+            conversionWindowStart?: number;
+            conversionWindowEnd?: number;
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        })[];
+      guardrails: ({
+          metricId: string;
+          overrides: {
+            conversionWindowStart?: number;
+            conversionWindowEnd?: number;
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        })[];
+      activationMetric?: {
+        metricId: string;
+        overrides: {
+          conversionWindowStart?: number;
+          conversionWindowEnd?: number;
+          winRiskThreshold?: number;
+          loseRiskThreshold?: number;
+        };
+      };
     };
     ExperimentResults: {
       id: string;
@@ -386,7 +739,48 @@ export interface components {
         type: string;
         id?: string;
       };
-      settings: components["schemas"]["ExperimentAnalysisSettings"];
+      settings: {
+        datasourceId: string;
+        assignmentQueryId: string;
+        experimentId: string;
+        segmentId: string;
+        queryFilter: string;
+        /** @enum {unknown} */
+        inProgressConversions: "include" | "exclude";
+        /** @enum {unknown} */
+        multipleVariations: "include" | "exclude";
+        /** @enum {unknown} */
+        attributionModel: "firstExposure" | "allExposures";
+        /** @enum {unknown} */
+        statsEngine: "bayesian" | "frequentist";
+        goals: ({
+            metricId: string;
+            overrides: {
+              conversionWindowStart?: number;
+              conversionWindowEnd?: number;
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        guardrails: ({
+            metricId: string;
+            overrides: {
+              conversionWindowStart?: number;
+              conversionWindowEnd?: number;
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        activationMetric?: {
+          metricId: string;
+          overrides: {
+            conversionWindowStart?: number;
+            conversionWindowEnd?: number;
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        };
+      };
       queryIds: (string)[];
       results: ({
           dimension: string;
@@ -456,9 +850,14 @@ export interface components {
     Error: never;
   };
   parameters: {
+    /** @description The id of the requested resource */
     id: string;
+    /** @description The number of items to return */
     limit: number;
+    /** @description How many items to skip (use in conjunction with limit for pagination) */
     offset: number;
+    /** @description Filter the returned list by the experiment tracking key (id) */
+    experimentId: string;
   };
   requestBodies: never;
   headers: never;
@@ -471,12 +870,160 @@ export interface operations {
 
   listFeatures: {
     /** Get all features */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
     responses: {
       200: {
         content: {
-          "application/json": {
-            features: (components["schemas"]["Feature"])[];
-          } & components["schemas"]["PaginationFields"];
+          "application/json": ({
+            features: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                archived: boolean;
+                description: string;
+                owner: string;
+                project: string;
+                /** @enum {string} */
+                valueType: "boolean" | "string" | "number" | "json";
+                defaultValue: string;
+                tags: (string)[];
+                environments: {
+                  [key: string]: ({
+                    enabled: boolean;
+                    defaultValue: string;
+                    rules: ({
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      })[];
+                    definition?: {
+                      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+                      rules?: ({
+                          force?: OneOf<[string, number, (unknown)[], any, null]>;
+                          weights?: (number)[];
+                          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                          hashAttribute?: string;
+                          namespace?: (OneOf<[number, string]>)[];
+                          key?: string;
+                          coverage?: number;
+                          condition?: {
+                            [key: string]: unknown | undefined;
+                          };
+                        })[];
+                    };
+                    draft?: {
+                      enabled: boolean;
+                      defaultValue: string;
+                      rules: ({
+                          description: string;
+                          condition: string;
+                          id: string;
+                          enabled: boolean;
+                          type: string;
+                          value: string;
+                        } | {
+                          description: string;
+                          condition: string;
+                          id: string;
+                          enabled: boolean;
+                          type: string;
+                          value: string;
+                          coverage: number;
+                          hashAttribute: string;
+                        } | {
+                          description: string;
+                          condition: string;
+                          id: string;
+                          enabled: boolean;
+                          type: string;
+                          trackingKey?: string;
+                          hashAttribute?: string;
+                          namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: (number)[];
+                          };
+                          coverage?: number;
+                          value?: ({
+                              value: string;
+                              weight: number;
+                              name?: string;
+                            })[];
+                        })[];
+                      definition?: {
+                        defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+                        rules?: ({
+                            force?: OneOf<[string, number, (unknown)[], any, null]>;
+                            weights?: (number)[];
+                            variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                            hashAttribute?: string;
+                            namespace?: (OneOf<[number, string]>)[];
+                            key?: string;
+                            coverage?: number;
+                            condition?: {
+                              [key: string]: unknown | undefined;
+                            };
+                          })[];
+                      };
+                    };
+                  }) | undefined;
+                };
+                revision: {
+                  version: number;
+                  comment: string;
+                  /** Format: date-time */
+                  date: string;
+                  publishedBy: string;
+                };
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -487,7 +1034,140 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            feature: components["schemas"]["Feature"];
+            feature: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              archived: boolean;
+              description: string;
+              owner: string;
+              project: string;
+              /** @enum {string} */
+              valueType: "boolean" | "string" | "number" | "json";
+              defaultValue: string;
+              tags: (string)[];
+              environments: {
+                [key: string]: ({
+                  enabled: boolean;
+                  defaultValue: string;
+                  rules: ({
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      value: string;
+                    } | {
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                    } | {
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      trackingKey?: string;
+                      hashAttribute?: string;
+                      namespace?: {
+                        enabled: boolean;
+                        name: string;
+                        range: (number)[];
+                      };
+                      coverage?: number;
+                      value?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                    })[];
+                  definition?: {
+                    defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+                    rules?: ({
+                        force?: OneOf<[string, number, (unknown)[], any, null]>;
+                        weights?: (number)[];
+                        variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                        hashAttribute?: string;
+                        namespace?: (OneOf<[number, string]>)[];
+                        key?: string;
+                        coverage?: number;
+                        condition?: {
+                          [key: string]: unknown | undefined;
+                        };
+                      })[];
+                  };
+                  draft?: {
+                    enabled: boolean;
+                    defaultValue: string;
+                    rules: ({
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      })[];
+                    definition?: {
+                      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+                      rules?: ({
+                          force?: OneOf<[string, number, (unknown)[], any, null]>;
+                          weights?: (number)[];
+                          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                          hashAttribute?: string;
+                          namespace?: (OneOf<[number, string]>)[];
+                          key?: string;
+                          coverage?: number;
+                          condition?: {
+                            [key: string]: unknown | undefined;
+                          };
+                        })[];
+                    };
+                  };
+                }) | undefined;
+              };
+              revision: {
+                version: number;
+                comment: string;
+                /** Format: date-time */
+                date: string;
+                publishedBy: string;
+              };
+            };
           };
         };
       };
@@ -495,11 +1175,154 @@ export interface operations {
   };
   toggleFeature: {
     /** Toggle a feature in one or more environments */
+    requestBody: {
+      content: {
+        "application/json": {
+          reason?: string;
+          environments: {
+            [key: string]: (true | "" | "true" | "false" | "1" | "0" | 1 | "" | "") | undefined;
+          };
+        };
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            feature: components["schemas"]["Feature"];
+            feature: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              archived: boolean;
+              description: string;
+              owner: string;
+              project: string;
+              /** @enum {string} */
+              valueType: "boolean" | "string" | "number" | "json";
+              defaultValue: string;
+              tags: (string)[];
+              environments: {
+                [key: string]: ({
+                  enabled: boolean;
+                  defaultValue: string;
+                  rules: ({
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      value: string;
+                    } | {
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                    } | {
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      trackingKey?: string;
+                      hashAttribute?: string;
+                      namespace?: {
+                        enabled: boolean;
+                        name: string;
+                        range: (number)[];
+                      };
+                      coverage?: number;
+                      value?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                    })[];
+                  definition?: {
+                    defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+                    rules?: ({
+                        force?: OneOf<[string, number, (unknown)[], any, null]>;
+                        weights?: (number)[];
+                        variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                        hashAttribute?: string;
+                        namespace?: (OneOf<[number, string]>)[];
+                        key?: string;
+                        coverage?: number;
+                        condition?: {
+                          [key: string]: unknown | undefined;
+                        };
+                      })[];
+                  };
+                  draft?: {
+                    enabled: boolean;
+                    defaultValue: string;
+                    rules: ({
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      })[];
+                    definition?: {
+                      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
+                      rules?: ({
+                          force?: OneOf<[string, number, (unknown)[], any, null]>;
+                          weights?: (number)[];
+                          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
+                          hashAttribute?: string;
+                          namespace?: (OneOf<[number, string]>)[];
+                          key?: string;
+                          coverage?: number;
+                          condition?: {
+                            [key: string]: unknown | undefined;
+                          };
+                        })[];
+                    };
+                  };
+                }) | undefined;
+              };
+              revision: {
+                version: number;
+                comment: string;
+                /** Format: date-time */
+                date: string;
+                publishedBy: string;
+              };
+            };
           };
         };
       };
@@ -507,12 +1330,34 @@ export interface operations {
   };
   listProjects: {
     /** Get all projects */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            projects: (components["schemas"]["Project"])[];
-          } & components["schemas"]["PaginationFields"];
+            projects: ({
+                id: string;
+                name: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -523,7 +1368,14 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            project: components["schemas"]["Project"];
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
           };
         };
       };
@@ -531,12 +1383,36 @@ export interface operations {
   };
   listDimensions: {
     /** Get all dimensions */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            dimensions: (components["schemas"]["Dimension"])[];
-          } & components["schemas"]["PaginationFields"];
+            dimensions: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                owner: string;
+                datasourceId: string;
+                identifierType: string;
+                name: string;
+                query: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -547,7 +1423,16 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            dimension: components["schemas"]["Dimension"];
+            dimension: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              query: string;
+            };
           };
         };
       };
@@ -555,12 +1440,36 @@ export interface operations {
   };
   listSegments: {
     /** Get all segments */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            segments: (components["schemas"]["Segment"])[];
-          } & components["schemas"]["PaginationFields"];
+            segments: ({
+                id: string;
+                owner: string;
+                datasourceId: string;
+                identifierType: string;
+                name: string;
+                query: string;
+                dateCreated: string;
+                dateUpdated: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -571,7 +1480,16 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            segment: components["schemas"]["Segment"];
+            segment: {
+              id: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              query: string;
+              dateCreated: string;
+              dateUpdated: string;
+            };
           };
         };
       };
@@ -579,12 +1497,81 @@ export interface operations {
   };
   listMetrics: {
     /** Get all metrics */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
     responses: {
       200: {
         content: {
-          "application/json": {
-            metrics: (components["schemas"]["Metric"])[];
-          } & components["schemas"]["PaginationFields"];
+          "application/json": ({
+            metrics: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                owner: string;
+                datasourceId: string;
+                name: string;
+                description: string;
+                type: string;
+                tags: (string)[];
+                projects: (string)[];
+                archived: boolean;
+                behavior: {
+                  /** @enum {string} */
+                  goal: "increase" | "decrease";
+                  cap: number;
+                  conversionWindowStart: number;
+                  conversionWindowEnd: number;
+                  riskThresholdSuccess: number;
+                  riskThresholdDanger: number;
+                  minPercentChange: number;
+                  maxPercentChange: number;
+                  minSampleSize: number;
+                };
+                sql?: {
+                  identifierTypes: (string)[];
+                  conversionSQL: string;
+                  userAggregationSQL: string;
+                  denominatorMetricId: string;
+                  builder?: {
+                    identifierTypeColumns: ({
+                        identifierType: string;
+                        columnName: string;
+                      })[];
+                    tableName: string;
+                    valueColumnName: string;
+                    timestampColumnName: string;
+                    conditions: ({
+                        column: string;
+                        operator: string;
+                        value: string;
+                      })[];
+                  };
+                };
+                mixpanel?: {
+                  eventName: string;
+                  eventValue: string;
+                  userAggregation: string;
+                  conditions: ({
+                      property: string;
+                      operator: string;
+                      value: string;
+                    })[];
+                };
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -595,7 +1582,61 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            metric: components["schemas"]["Metric"];
+            metric: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              name: string;
+              description: string;
+              type: string;
+              tags: (string)[];
+              projects: (string)[];
+              archived: boolean;
+              behavior: {
+                /** @enum {string} */
+                goal: "increase" | "decrease";
+                cap: number;
+                conversionWindowStart: number;
+                conversionWindowEnd: number;
+                riskThresholdSuccess: number;
+                riskThresholdDanger: number;
+                minPercentChange: number;
+                maxPercentChange: number;
+                minSampleSize: number;
+              };
+              sql?: {
+                identifierTypes: (string)[];
+                conversionSQL: string;
+                userAggregationSQL: string;
+                denominatorMetricId: string;
+                builder?: {
+                  identifierTypeColumns: ({
+                      identifierType: string;
+                      columnName: string;
+                    })[];
+                  tableName: string;
+                  valueColumnName: string;
+                  timestampColumnName: string;
+                  conditions: ({
+                      column: string;
+                      operator: string;
+                      value: string;
+                    })[];
+                };
+              };
+              mixpanel?: {
+                eventName: string;
+                eventValue: string;
+                userAggregation: string;
+                conditions: ({
+                    property: string;
+                    operator: string;
+                    value: string;
+                  })[];
+              };
+            };
           };
         };
       };
@@ -603,12 +1644,44 @@ export interface operations {
   };
   listSdkConnections: {
     /** Get all sdk connections */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+        withProxy?: string;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            connections?: (components["schemas"]["SdkConnection"])[];
-          } & components["schemas"]["PaginationFields"];
+            connections?: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                languages: (string)[];
+                environment: string;
+                project: string;
+                encryptPayload: boolean;
+                encryptionKey: string;
+                key: string;
+                proxyEnabled: boolean;
+                proxyHost: string;
+                proxySigningKey: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -619,7 +1692,23 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            sdkConnection: components["schemas"]["SdkConnection"];
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              languages: (string)[];
+              environment: string;
+              project: string;
+              encryptPayload: boolean;
+              encryptionKey: string;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+            };
           };
         };
       };
@@ -627,12 +1716,61 @@ export interface operations {
   };
   listDataSources: {
     /** Get all data sources */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            dataSources: (components["schemas"]["DataSource"])[];
-          } & components["schemas"]["PaginationFields"];
+            dataSources: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                type: string;
+                name: string;
+                description: string;
+                projectIds: (string)[];
+                eventTracker: string;
+                identifierTypes: ({
+                    id: string;
+                    description: string;
+                  })[];
+                assignmentQueries: ({
+                    id: string;
+                    name: string;
+                    description: string;
+                    identifierType: string;
+                    sql: string;
+                    includesNameColumns: boolean;
+                    dimensionColumns: (string)[];
+                  })[];
+                identifierJoinQueries: ({
+                    identifierTypes: (string)[];
+                    sql: string;
+                  })[];
+                mixpanelSettings?: {
+                  viewedExperimentEventName: string;
+                  experimentIdProperty: string;
+                  variationIdProperty: string;
+                  extraUserIdProperty: string;
+                };
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -643,7 +1781,41 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            dataSource: components["schemas"]["DataSource"];
+            dataSource: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              type: string;
+              name: string;
+              description: string;
+              projectIds: (string)[];
+              eventTracker: string;
+              identifierTypes: ({
+                  id: string;
+                  description: string;
+                })[];
+              assignmentQueries: ({
+                  id: string;
+                  name: string;
+                  description: string;
+                  identifierType: string;
+                  sql: string;
+                  includesNameColumns: boolean;
+                  dimensionColumns: (string)[];
+                })[];
+              identifierJoinQueries: ({
+                  identifierTypes: (string)[];
+                  sql: string;
+                })[];
+              mixpanelSettings?: {
+                viewedExperimentEventName: string;
+                experimentIdProperty: string;
+                variationIdProperty: string;
+                extraUserIdProperty: string;
+              };
+            };
           };
         };
       };
@@ -651,12 +1823,115 @@ export interface operations {
   };
   listExperiments: {
     /** Get all experiments */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter the returned list by the experiment tracking key (id) */
+      query: {
+        limit?: number;
+        offset?: number;
+        experimentId?: string;
+      };
+    };
     responses: {
       200: {
         content: {
-          "application/json": {
-            experiments: (components["schemas"]["Experiment"])[];
-          } & components["schemas"]["PaginationFields"];
+          "application/json": ({
+            experiments: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                project: string;
+                hypothesis: string;
+                description: string;
+                tags: (string)[];
+                owner: string;
+                archived: boolean;
+                status: string;
+                autoRefresh: boolean;
+                variations: ({
+                    variationId: string;
+                    key: string;
+                    name: string;
+                    description: string;
+                    screenshots: (string)[];
+                  })[];
+                phases: ({
+                    name: string;
+                    dateStarted: string;
+                    dateEnded: string;
+                    reasonForStopping: string;
+                    seed: string;
+                    coverage: number;
+                    trafficSplit: ({
+                        variationId: string;
+                        weight: number;
+                      })[];
+                    namespace?: {
+                      namespaceId: string;
+                      range: (unknown)[];
+                    };
+                    targetingCondition: string;
+                  })[];
+                settings: {
+                  datasourceId: string;
+                  assignmentQueryId: string;
+                  experimentId: string;
+                  segmentId: string;
+                  queryFilter: string;
+                  /** @enum {unknown} */
+                  inProgressConversions: "include" | "exclude";
+                  /** @enum {unknown} */
+                  multipleVariations: "include" | "exclude";
+                  /** @enum {unknown} */
+                  attributionModel: "firstExposure" | "allExposures";
+                  /** @enum {unknown} */
+                  statsEngine: "bayesian" | "frequentist";
+                  goals: ({
+                      metricId: string;
+                      overrides: {
+                        conversionWindowStart?: number;
+                        conversionWindowEnd?: number;
+                        winRiskThreshold?: number;
+                        loseRiskThreshold?: number;
+                      };
+                    })[];
+                  guardrails: ({
+                      metricId: string;
+                      overrides: {
+                        conversionWindowStart?: number;
+                        conversionWindowEnd?: number;
+                        winRiskThreshold?: number;
+                        loseRiskThreshold?: number;
+                      };
+                    })[];
+                  activationMetric?: {
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  };
+                };
+                resultSummary?: {
+                  status: string;
+                  winner: string;
+                  conclusions: string;
+                };
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
         };
       };
     };
@@ -667,7 +1942,93 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            experiment: components["schemas"]["Experiment"];
+            experiment: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                multipleVariations: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "allExposures";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+              };
+            };
           };
         };
       };
@@ -675,11 +2036,98 @@ export interface operations {
   };
   getExperimentResults: {
     /** Get results for an experiment */
+    parameters: {
+      query: {
+        phase?: string;
+        dimension?: string;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
-            result?: components["schemas"]["ExperimentResults"];
+            result?: {
+              id: string;
+              dateUpdated: string;
+              experimentId: string;
+              phase: string;
+              dateStart: string;
+              dateEnd: string;
+              dimension: {
+                type: string;
+                id?: string;
+              };
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                multipleVariations: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "allExposures";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              queryIds: (string)[];
+              results: ({
+                  dimension: string;
+                  totalUsers: number;
+                  checks: {
+                    srm: number;
+                  };
+                  metrics: ({
+                      metricId: string;
+                      variations: ({
+                          variationId: string;
+                          analyses: ({
+                              /** @enum {unknown} */
+                              engine: "bayesian" | "frequentist";
+                              numerator: number;
+                              denominator: number;
+                              mean: number;
+                              stddev: number;
+                              percentChange: number;
+                              ciLow: number;
+                              ciHigh: number;
+                              pValue?: number;
+                              risk?: number;
+                              chanceToBeatControl?: number;
+                            })[];
+                        })[];
+                    })[];
+                })[];
+            };
           };
         };
       };

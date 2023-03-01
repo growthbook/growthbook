@@ -1,19 +1,12 @@
-import { z } from "zod";
 import { ListSegmentsResponse } from "../../../types/openapi";
 import {
   findSegmentsByOrganization,
   toSegmentApiInterface,
 } from "../../models/SegmentModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listSegmentsValidator } from "../../validators/openapi";
 
-export const listSegments = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listSegments = createApiRequestHandler(listSegmentsValidator)(
   async (req): Promise<ListSegmentsResponse> => {
     const segments = await findSegmentsByOrganization(req.organization.id);
 

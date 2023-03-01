@@ -1,6 +1,0 @@
-name: limit
-in: query
-schema:
-  type: integer
-  min: 1
-  max: 100

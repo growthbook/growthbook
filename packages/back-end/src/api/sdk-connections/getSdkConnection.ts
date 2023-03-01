@@ -1,18 +1,14 @@
-import { z } from "zod";
 import { GetSdkConnectionResponse } from "../../../types/openapi";
 import {
   findSDKConnectionById,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
 import { createApiRequestHandler } from "../../util/handler";
+import { getSdkConnectionValidator } from "../../validators/openapi";
 
-export const getSdkConnection = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-})(
+export const getSdkConnection = createApiRequestHandler(
+  getSdkConnectionValidator
+)(
   async (req): Promise<GetSdkConnectionResponse> => {
     const sdkConnection = await findSDKConnectionById(req.params.id);
     if (!sdkConnection) {

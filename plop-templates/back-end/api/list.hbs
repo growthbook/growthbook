@@ -1,19 +1,12 @@
-import { z } from "zod";
 import { List{{pascalCase object}}sResponse } from "../../../types/openapi";
 import { 
   find{{pascalCase object}}sByOrganization, 
   to{{pascalCase object}}ApiInterface 
 } from "../../models/{{pascalCase object}}Model";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { list{{pascalCase object}}sValidator } from "../../validators/openapi";
 
-export const list{{pascalCase object}}s = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const list{{pascalCase object}}s = createApiRequestHandler(list{{pascalCase object}}sValidator)(
   async (req): Promise<List{{pascalCase object}}sResponse> => {
     const {{camelCase object}}s = await find{{pascalCase object}}sByOrganization(req.organization.id);
 

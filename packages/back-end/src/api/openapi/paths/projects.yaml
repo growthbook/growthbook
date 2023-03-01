@@ -1,0 +1,53 @@
+getProject:
+  parameters:
+    - $ref: "../parameters.yaml#/id"
+  get:
+    summary: Get a single project
+    tags:
+      - projects
+    operationId: getProject
+    x-codeSamples:
+      - lang: 'cURL'
+        source: |
+          curl https://api.growthbook.io/api/v1/projects/prj_123abc \
+            -u secret_abc123DEF456:
+    responses:
+      "200":
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - project
+              properties:
+                project:
+                  $ref: "../schemas/Project.yaml"
+listProjects:
+  get:
+    summary: Get all projects
+    tags:
+      - projects
+    parameters:
+    - $ref: "../parameters.yaml#/limit"
+    - $ref: "../parameters.yaml#/offset"
+    operationId: listProjects
+    x-codeSamples:
+      - lang: 'cURL'
+        source: |
+          curl https://api.growthbook.io/api/v1/projects \
+            -u secret_abc123DEF456:
+    responses:
+      "200":
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - projects
+                  properties:
+                    projects:
+                      type: array
+                      items:
+                        $ref: "../schemas/Project.yaml"
+                - $ref: "../schemas/PaginationFields.yaml"

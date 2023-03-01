@@ -1,18 +1,12 @@
-import { z } from "zod";
 import { GetDimensionResponse } from "../../../types/openapi";
 import {
   findDimensionById,
   toDimensionApiInterface,
 } from "../../models/DimensionModel";
 import { createApiRequestHandler } from "../../util/handler";
+import { getDimensionValidator } from "../../validators/openapi";
 
-export const getDimension = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      id: z.string(),
-    })
-    .strict(),
-})(
+export const getDimension = createApiRequestHandler(getDimensionValidator)(
   async (req): Promise<GetDimensionResponse> => {
     const dimension = await findDimensionById(
       req.params.id,

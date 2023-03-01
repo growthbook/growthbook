@@ -1,6 +1,0 @@
-id:
-  $ref: "./id.yml"
-limit:
-  $ref: "./limit.yml"
-offset:
-  $ref: "./offset.yml"

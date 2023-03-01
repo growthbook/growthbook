@@ -48,6 +48,23 @@ const config = {
         },
       }),
     ],
+    [
+      "redocusaurus",
+      {
+        // Plugin Options for loading OpenAPI files
+        specs: [
+          {
+            spec: "../packages/back-end/generated/spec.yaml",
+            route: "/api/",
+          },
+        ],
+        // Theme Options for modifying how redoc renders them
+        theme: {
+          // Change with your site colors
+          primaryColor: "#1890ff",
+        },
+      },
+    ],
   ],
 
   themeConfig:
@@ -62,6 +79,16 @@ const config = {
           srcDark: "img/growthbook-docslogo-dark.png",
         },
         items: [
+          {
+            href: "/",
+            label: "Docs",
+            position: "left",
+          },
+          {
+            href: "/api/",
+            label: "API",
+            position: "left",
+          },
           {
             href: "https://growthbook.io",
             label: "Home",
@@ -145,6 +172,7 @@ const config = {
           "swift",
           "dart",
           "groovy",
+          "scala",
         ],
       },
       colorMode: {

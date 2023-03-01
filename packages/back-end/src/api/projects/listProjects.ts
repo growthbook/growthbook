@@ -1,19 +1,12 @@
-import { z } from "zod";
 import { ListProjectsResponse } from "../../../types/openapi";
 import {
   findAllProjectsByOrganization,
   toProjectApiInterface,
 } from "../../models/ProjectModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listProjectsValidator } from "../../validators/openapi";
 
-export const listProjects = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {
     const projects = await findAllProjectsByOrganization(req.organization.id);
 

@@ -1,19 +1,14 @@
-import { z } from "zod";
 import { ListDataSourcesResponse } from "../../../types/openapi";
 import {
   getDataSourcesByOrganization,
   toDataSourceApiInterface,
 } from "../../models/DataSourceModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listDataSourcesValidator } from "../../validators/openapi";
 
-export const listDataSources = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
+export const listDataSources = createApiRequestHandler(
+  listDataSourcesValidator
+)(
   async (req): Promise<ListDataSourcesResponse> => {
     const dataSources = await getDataSourcesByOrganization(req.organization.id);
 
