@@ -174,7 +174,7 @@ export interface Column {
 interface Table {
   table_name: string;
   path?: string;
-  columns: Column[];
+  columns?: Column[];
   id?: string;
 }
 
@@ -188,6 +188,15 @@ export interface InformationSchema {
   database_name: string;
   path?: string;
   schemas: Schema[];
+}
+
+export interface InformationSchemaTablesInterface {
+  id: string;
+  organization: string;
+  table_name: string;
+  columns: Column[];
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface SourceIntegrationInterface {

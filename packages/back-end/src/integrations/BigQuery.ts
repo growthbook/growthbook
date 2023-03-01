@@ -4,7 +4,7 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { RawInformationSchema } from "../types/Integration";
+import { InformationSchema, RawInformationSchema } from "../types/Integration";
 import { formatInformationSchema } from "../util/integrations";
 import SqlIntegration from "./SqlIntegration";
 
@@ -81,7 +81,10 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(datasourceType: string, projectId: string) {
+  async getInformationSchema(
+    datasourceType: string,
+    projectId: string
+  ): Promise<InformationSchema[]> {
     const datasets = await this.runQuery(
       `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
     );

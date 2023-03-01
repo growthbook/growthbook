@@ -1,28 +1,45 @@
 import omit from "lodash/omit";
+import z from "zod";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { Column } from "../types/Integration";
+import { Column, InformationSchemaTablesInterface } from "../types/Integration";
+import { errorStringFromZodResult } from "../util/validation";
+import { logger } from "../util/logger";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
   organization: String,
   table_name: String,
-  columns: [
-    {
-      id: String,
-      column_name: String,
-      data_type: String,
-      path: String,
+  columns: {
+    type: [Object],
+    required: true,
+    validate: {
+      validator(value: unknown) {
+        const zodSchema = z.array(
+          z.object({
+            column_name: z.string(),
+            path: z.string(),
+            data_type: z.string(),
+          })
+        );
+
+        const result = zodSchema.safeParse(value);
+
+        if (!result.success) {
+          const errorString = errorStringFromZodResult(result);
+          logger.error(errorString, "Invalid Columns name"); //MKTODO: Update this to be more accurate
+        }
+
+        return result.success;
+      },
     },
-  ],
+  },
   dateCreated: Date,
   dateUpdated: Date,
 });
 
-type InformationSchemaTablesDocument = mongoose.Document & {
-  id: string;
-  columns: Column[];
-};
+type InformationSchemaTablesDocument = mongoose.Document &
+  InformationSchemaTablesInterface;
 
 const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocument>(
   "InformationSchemaTables",

@@ -1,30 +1,49 @@
 import mongoose from "mongoose";
+import z from "zod";
 import uniqid from "uniqid";
 import { InformationSchema } from "../types/Integration";
+import { errorStringFromZodResult } from "../util/validation";
+import { logger } from "../util/logger";
 
 const informationSchema = new mongoose.Schema({
   id: String,
   organization: String,
-  databases: [
-    {
-      database_name: String,
-      path: String,
-      schemas: [
-        {
-          schema_name: String,
-          path: String,
-          tables: [
-            {
-              id: String,
-              table_name: String,
-              path: String,
-              columns_id: String,
-            },
-          ],
-        },
-      ],
+  databases: {
+    required: true,
+    type: [Object],
+    validate: {
+      validator(value: unknown) {
+        const zodSchema = z.array(
+          z.object({
+            database_name: z.string(),
+            path: z.string(),
+            schemas: z.array(
+              z.object({
+                schema_name: z.string(),
+                path: z.string(),
+                tables: z.array(
+                  z.object({
+                    id: z.string(),
+                    table_name: z.string(),
+                    path: z.string(),
+                  })
+                ),
+              })
+            ),
+          })
+        );
+
+        const result = zodSchema.safeParse(value);
+
+        if (!result.success) {
+          const errorString = errorStringFromZodResult(result);
+          logger.error(errorString, "Invalid database schema"); //MKTODO: Update this to be more accurate
+        }
+
+        return result.success;
+      },
     },
-  ],
+  },
   dateCreated: Date,
   dateUpdated: Date,
 });

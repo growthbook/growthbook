@@ -191,11 +191,12 @@ export async function createInitialInformationSchema(
       for (const schema of database.schemas) {
         for (const table of schema.tables) {
           const result = await createInformationSchemaTable(
-            table.columns,
+            table.columns || [],
             organization,
             table.table_name
           );
           table.id = result.id;
+          delete table.columns;
         }
       }
     }
