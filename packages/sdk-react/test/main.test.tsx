@@ -105,6 +105,16 @@ describe("GrowthBookProvider", () => {
   });
 
   describe("with typed features", () => {
+    let div = document.createElement("div");
+
+    beforeEach(() => {
+      div = document.createElement("div");
+    });
+
+    afterEach(() => {
+      ReactDOM.unmountComponentAtNode(div);
+    });
+
     type SampleAppFeatures = {
       foo: number;
       bar: boolean;
@@ -143,8 +153,6 @@ describe("GrowthBookProvider", () => {
         );
       };
 
-      const div = document.createElement("div");
-
       ReactDOM.render(
         <GrowthBookProvider growthbook={providedGrowthBook}>
           <ComponentThatCallsUseGrowthBookWithTypes />
@@ -152,30 +160,28 @@ describe("GrowthBookProvider", () => {
         div
       );
 
-      it("allows you to use types to use hook useFeatureIsOn", () => {
-        const ComponentThatCallsUseFeatureIsOn = () => {
-          const isOn = useFeatureIsOn<SampleAppFeatures>("bar");
-
-          const text = isOn ? "Yes" : "No";
-
-          return <h1>is on = {text}</h1>;
-        };
-
-        const div = document.createElement("div");
-        ReactDOM.render(
-          <GrowthBookProvider growthbook={providedGrowthBook}>
-            <ComponentThatCallsUseFeatureIsOn />
-          </GrowthBookProvider>,
-          div
-        );
-
-        expect(div.innerHTML).toEqual("<h1>is on = Yes</h1>");
-        ReactDOM.unmountComponentAtNode(div);
-      });
       expect(div.innerHTML).toEqual(
         "<h1>foo = 1337, bar = true, baz = hello world</h1>"
       );
-      ReactDOM.unmountComponentAtNode(div);
+    });
+
+    it("allows you to use types when using the hook useFeatureIsOn", () => {
+      const ComponentThatCallsUseFeatureIsOn = () => {
+        const isOn = useFeatureIsOn<SampleAppFeatures>("bar");
+
+        const text = isOn ? "Yes" : "No";
+
+        return <h1>is on = {text}</h1>;
+      };
+
+      ReactDOM.render(
+        <GrowthBookProvider growthbook={providedGrowthBook}>
+          <ComponentThatCallsUseFeatureIsOn />
+        </GrowthBookProvider>,
+        div
+      );
+
+      expect(div.innerHTML).toEqual("<h1>is on = Yes</h1>");
     });
   });
 });
