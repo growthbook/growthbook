@@ -52,16 +52,13 @@ const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocum
  */
 const toInterface = (
   doc: InformationSchemaTablesDocument
-): {
-  id: string;
-  columns: Column[];
-} => omit(doc.toJSON(), ["__v", "_id"]);
+): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchemaTable(
   columns: Column[],
   organization: string,
   table_name: string
-) {
+): Promise<InformationSchemaTablesInterface> {
   const result = await InformationSchemaTablesModel.create({
     id: uniqid("table_"),
     organization,

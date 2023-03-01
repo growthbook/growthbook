@@ -169,7 +169,7 @@ export async function testQuery(
 export async function createInitialInformationSchema(
   datasource: DataSourceInterface,
   organization: string
-) {
+): Promise<void> {
   const informationSchema = await generateInformationSchema(datasource);
 
   // Loop through each database, schema, and table, and create Mongo record for each table's columns.

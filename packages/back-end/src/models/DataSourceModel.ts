@@ -211,6 +211,6 @@ export async function _dangerousGetAllDatasources(): Promise<
 async function onDataSourceCreate(
   datasource: DataSourceInterface,
   organization: string
-) {
+): Promise<void> {
   await createInitialInformationSchema(datasource, organization);
 }
