@@ -903,6 +903,15 @@ export default abstract class SqlIntegration
         SELECT
           m.${baseIdType},  
           m.timestamp,
+          ${
+            isRegressionAdjusted
+              ? `MAX(${this.ifElse(
+                  "m.timestamp >= u.conversion_start",
+                  "1",
+                  "0"
+                )}) AS in_conversion_window,`
+              : "1 AS in_conversion_window"
+          }
           m.value
         FROM
           __metric m
@@ -914,12 +923,15 @@ export default abstract class SqlIntegration
               : "__experiment"
           } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          m.timestamp >= ${
+          ${
             isRegressionAdjusted
-              ? this.addHours("u.conversion_start", -regressionAdjustmentHours)
-              : "u.conversion_start"
+              ? `m.timestamp >= ${this.addHours(
+                  "u.timestamp",
+                  -regressionAdjustmentHours
+                )} AND`
+              : "m.timestamp >= u.conversion_start AND"
           }
-          AND m.timestamp <= u.conversion_end
+          m.timestamp <= u.conversion_end
         GROUP BY
           m.${baseIdType}, m.timestamp, m.value
       )`
@@ -1450,11 +1462,18 @@ export default abstract class SqlIntegration
     timePeriod: AggregateType
   ): string {
     const mcol = `${metricAlias}.timestamp`;
-    const ucol = `${userAlias}.first_exposure_timestamp`;
     if (timePeriod === "pre") {
-      return `${this.ifElse(`${mcol} < ${ucol}`, `${col}`, `0`)}`;
+      return `${this.ifElse(
+        `${mcol} < ${userAlias}.first_exposure_timestamp`,
+        `${col}`,
+        `0`
+      )}`;
     } else if (timePeriod === "post") {
-      return `${this.ifElse(`${mcol} >= ${ucol}`, `${col}`, `0`)}`;
+      return `${this.ifElse(
+        `${mcol} >= ${userAlias}.conversion_start AND ${metricAlias}.in_conversion_window = 1`,
+        `${col}`,
+        `0`
+      )}`;
     }
     return `${col}`;
   }
