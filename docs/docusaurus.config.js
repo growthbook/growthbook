@@ -59,10 +59,7 @@ const config = {
           },
         ],
         // Theme Options for modifying how redoc renders them
-        theme: {
-          // Change with your site colors
-          primaryColor: "#1890ff",
-        },
+        theme: {},
       },
     ],
   ],
@@ -80,12 +77,13 @@ const config = {
         },
         items: [
           {
-            href: "/",
+            to: "/",
             label: "Docs",
+            activeBaseRegex: "/(?!api)",
             position: "left",
           },
           {
-            href: "/api/",
+            to: "/api",
             label: "API",
             position: "left",
           },
