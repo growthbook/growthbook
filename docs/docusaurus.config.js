@@ -58,8 +58,6 @@ const config = {
             route: "/api/",
           },
         ],
-        // Theme Options for modifying how redoc renders them
-        theme: {},
       },
     ],
   ],

@@ -9,3 +9,8 @@ theme:
   openapi:
     disableSearch: true
     downloadDefinitionUrl: https://api.growthbook.io/api/v1/openapi.yaml
+    scrollYOffset: 60
+    theme:
+      colors:
+        primary:
+          main: '#7817d3'
