@@ -71,6 +71,7 @@ const MemberList: FC<{
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Last Date Access</th>
             <th>Date Joined</th>
             <th>{project ? "Project Role" : "Global Role"}</th>
             {!project && <th>Project Roles</th>}
@@ -90,6 +91,9 @@ const MemberList: FC<{
               <tr key={id}>
                 <td>{member.name}</td>
                 <td>{member.email}</td>
+                <td>
+                  {member.lastAccessDate && datetime(member.lastAccessDate)}
+                </td>
                 <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                 <td>{roleInfo.role}</td>
                 {!project && (

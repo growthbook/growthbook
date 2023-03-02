@@ -71,6 +71,7 @@ export interface PendingMember extends MemberRoleWithProjects {
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
+  lastAccessDate?: Date;
 }
 
 export interface ExpandedMember extends Member {

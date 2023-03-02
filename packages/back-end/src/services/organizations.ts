@@ -5,6 +5,7 @@ import {
   findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
+  findOrganizationsByMemberId,
   findOrganizationsByDomain,
   updateOrganization,
 } from "../models/OrganizationModel";
@@ -205,6 +206,22 @@ export async function removeMember(
   });
 
   return organization;
+}
+
+export async function updateOrganizationMemberLastAccessDate(userId: string) {
+  const memberOrganization = await findOrganizationsByMemberId(userId);
+  const promise = memberOrganization.map((mo) => {
+    const members: Array<Member> = mo.members.map((u) => {
+      if (u.id == userId) {
+        return { ...u, lastAccessDate: new Date() };
+      }
+      return u;
+    });
+    return updateOrganization(mo.id, {
+      members,
+    });
+  });
+  return Promise.all(promise);
 }
 
 export async function revokeInvite(

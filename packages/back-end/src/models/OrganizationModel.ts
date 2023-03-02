@@ -42,6 +42,20 @@ const organizationSchema = new mongoose.Schema({
     {
       ...baseMemberFields,
       id: String,
+      role: String,
+      dateCreated: Date,
+      lastAccessDate: Date,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+      projectRoles: [
+        {
+          _id: false,
+          project: String,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   invites: [
