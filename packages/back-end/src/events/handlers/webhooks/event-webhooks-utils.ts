@@ -12,8 +12,8 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "../../base-types";
-import { ApiFeatureInterface } from "../../../../types/api";
 import { GroupMap } from "../../../../types/saved-group";
+import { ApiFeature } from "../../../../types/openapi";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -107,7 +107,7 @@ const getPayloadForFeatureCreated = ({
 }): NotificationEventPayload<
   "feature.created",
   "feature",
-  { feature: ApiFeatureInterface }
+  { feature: ApiFeature }
 > => ({
   ...event,
   data: {
@@ -125,7 +125,7 @@ const getPayloadForFeatureUpdated = ({
 }): NotificationEventPayload<
   "feature.updated",
   "feature",
-  { current: ApiFeatureInterface; previous: ApiFeatureInterface }
+  { current: ApiFeature; previous: ApiFeature }
 > => ({
   ...event,
   data: {
@@ -148,7 +148,7 @@ const getPayloadForFeatureDeleted = ({
 }): NotificationEventPayload<
   "feature.deleted",
   "feature",
-  { previous: ApiFeatureInterface }
+  { previous: ApiFeature }
 > => ({
   ...event,
   data: {

@@ -1,0 +1,50 @@
+type: object
+required:
+  - datasourceId
+  - assignmentQueryId
+  - experimentId
+  - segmentId
+  - queryFilter
+  - inProgressConversions
+  - multipleVariations
+  - attributionModel
+  - statsEngine
+  - goals
+  - guardrails
+properties:
+  datasourceId:
+    type: string
+  assignmentQueryId:
+    type: string
+  experimentId:
+    type: string
+  segmentId:
+    type: string
+  queryFilter:
+    type: string
+  inProgressConversions:
+    enum:
+      - include
+      - exclude
+  multipleVariations:
+    enum:
+      - include
+      - exclude
+  attributionModel:
+    enum:
+      - firstExposure
+      - allExposures
+  statsEngine:
+    enum:
+      - bayesian
+      - frequentist
+  goals:
+    type: array
+    items:
+      $ref: "./ExperimentMetric.yaml"
+  guardrails:
+    type: array
+    items:
+      $ref: "./ExperimentMetric.yaml"
+  activationMetric:
+    $ref: "./ExperimentMetric.yaml"

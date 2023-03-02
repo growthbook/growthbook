@@ -48,6 +48,18 @@ const config = {
         },
       }),
     ],
+    [
+      "redocusaurus",
+      {
+        // Plugin Options for loading OpenAPI files
+        specs: [
+          {
+            spec: "../packages/back-end/generated/spec.yaml",
+            route: "/api/",
+          },
+        ],
+      },
+    ],
   ],
 
   themeConfig:
@@ -62,6 +74,17 @@ const config = {
           srcDark: "img/growthbook-docslogo-dark.png",
         },
         items: [
+          {
+            to: "/",
+            label: "Docs",
+            activeBaseRegex: "/(?!api)",
+            position: "left",
+          },
+          {
+            to: "/api",
+            label: "API",
+            position: "left",
+          },
           {
             href: "https://growthbook.io",
             label: "Home",
@@ -145,6 +168,7 @@ const config = {
           "swift",
           "dart",
           "groovy",
+          "scala",
         ],
       },
       colorMode: {
