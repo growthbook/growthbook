@@ -143,6 +143,20 @@ export interface paths {
       };
     };
   };
+  "/visual-changesets": {
+    /** Get all visual changeset */
+    get: operations["listVisualChangesets"];
+  };
+  "/visual-changesets/{id}": {
+    /** Get a single visual changeset */
+    get: operations["getVisualChangeset"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -844,6 +858,24 @@ export interface components {
         variationIdProperty: string;
         extraUserIdProperty: string;
       };
+    };
+    VisualChangeset: {
+      id?: string;
+      urlPattern: string;
+      editorUrl: string;
+      experiment: string;
+      visualChanges: ({
+          description?: string;
+          css?: string;
+          variation: string;
+          domMutations: ({
+              selector: string;
+              /** @enum {string} */
+              action: "append" | "set" | "remove";
+              attribute: string;
+              value?: string;
+            })[];
+        })[];
     };
   };
   responses: {
@@ -2153,6 +2185,79 @@ export interface operations {
       };
     };
   };
+  listVisualChangesets: {
+    /** Get all visual changeset */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            visualChangesets: ({
+                id?: string;
+                urlPattern: string;
+                editorUrl: string;
+                experiment: string;
+                visualChanges: ({
+                    description?: string;
+                    css?: string;
+                    variation: string;
+                    domMutations: ({
+                        selector: string;
+                        /** @enum {string} */
+                        action: "append" | "set" | "remove";
+                        attribute: string;
+                        value?: string;
+                      })[];
+                  })[];
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  getVisualChangeset: {
+    /** Get a single visual changeset */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangeset: {
+              id?: string;
+              urlPattern: string;
+              editorUrl: string;
+              experiment: string;
+              visualChanges: ({
+                  description?: string;
+                  css?: string;
+                  variation: string;
+                  domMutations: ({
+                      selector: string;
+                      /** @enum {string} */
+                      action: "append" | "set" | "remove";
+                      attribute: string;
+                      value?: string;
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -2174,6 +2279,7 @@ export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];
 export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAnalysisSettings"];
 export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
 export type ApiDataSource = components["schemas"]["DataSource"];
+export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -2194,3 +2300,5 @@ export type GetDataSourceResponse = operations["getDataSource"]["responses"]["20
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
+export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];

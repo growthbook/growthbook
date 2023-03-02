@@ -604,6 +604,59 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
+  /visual-changesets:
+    get:
+      summary: Get all visual changeset
+      tags:
+        - visual-changesets
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listVisualChangesets
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/visual-changesets \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - visualChangesets
+                    properties:
+                      visualChangesets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualChangeset'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/visual-changesets/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags:
+        - visual-changesets
+      summary: Get a single visual changeset
+      operationId: getVisualChangeset
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/visual-changesets/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - visualChangeset
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
 components:
   parameters:
     id:
@@ -1650,6 +1703,57 @@ components:
               type: string
             extraUserIdProperty:
               type: string
+    VisualChangeset:
+      type: object
+      required:
+        - urlPattern
+        - editorUrl
+        - experiment
+        - visualChanges
+      properties:
+        id:
+          type: string
+        urlPattern:
+          type: string
+        editorUrl:
+          type: string
+        experiment:
+          type: string
+        visualChanges:
+          type: array
+          items:
+            type: object
+            required:
+              - variation
+              - domMutations
+            properties:
+              description:
+                type: string
+              css:
+                type: string
+              variation:
+                type: string
+              domMutations:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - selector
+                    - action
+                    - attribute
+                  properties:
+                    selector:
+                      type: string
+                    action:
+                      type: string
+                      enum:
+                        - append
+                        - set
+                        - remove
+                    attribute:
+                      type: string
+                    value:
+                      type: string
   securitySchemes:
     bearerAuth:
       type: http

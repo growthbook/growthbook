@@ -15,6 +15,7 @@ interface VisualChange {
 
 export interface VisualChangesetInterface {
   id: string;
+  organization: string;
   urlPattern: string;
   editorUrl: string;
   experiment: string;

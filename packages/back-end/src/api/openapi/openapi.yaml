@@ -116,6 +116,10 @@ paths:
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
 # PLOP_INSERT_PATHS_HERE
+  /visual-changesets:
+    $ref: "./paths/listVisualChangesets.yaml"
+  /visual-changesets/{id}:
+    $ref: "./paths/getVisualChangeset.yaml"
 components:
   parameters:
     $ref: "./parameters.yaml"

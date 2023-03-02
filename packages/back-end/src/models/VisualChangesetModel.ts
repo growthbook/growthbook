@@ -1,4 +1,6 @@
+import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { ApiVisualChangeset } from "../../types/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 
 /**
@@ -50,3 +52,42 @@ export const VisualChangesetModel = mongoose.model<VisualChangesetDocument>(
   "VisualChangeset",
   visualChangesetSchema
 );
+
+const toInterface = (doc: VisualChangesetDocument): VisualChangesetInterface =>
+  omit(doc.toJSON(), ["__v", "_id"]);
+
+export function toVisualChangesetApiInterface(
+  visualChangeset: VisualChangesetInterface
+): ApiVisualChangeset {
+  return {
+    id: visualChangeset.id,
+    urlPattern: visualChangeset.urlPattern,
+    editorUrl: visualChangeset.editorUrl,
+    experiment: visualChangeset.experiment,
+    visualChanges: visualChangeset.visualChanges.map((c) => ({
+      id: c.id,
+      description: c.description,
+      css: c.css,
+      variation: c.variation,
+      domMutations: c.domMutations,
+    })),
+  };
+}
+
+export async function findVisualChangesetById(
+  id: string,
+  organization: string
+) {
+  const visualChangeset = await VisualChangesetModel.findOne({
+    organization,
+    id,
+  });
+  return visualChangeset ? toInterface(visualChangeset) : null;
+}
+
+export async function findVisualChangesetsByOrganization(organization: string) {
+  const visualChangesets = await VisualChangesetModel.find({
+    organization,
+  });
+  return visualChangesets.map(toInterface);
+}
