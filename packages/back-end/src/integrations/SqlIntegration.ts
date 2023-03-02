@@ -335,9 +335,8 @@ export default abstract class SqlIntegration
 
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart(
-      [params.metric],
       params.from,
-      false,
+      this.getMetricMinDelay([params.metric]),
       0
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
@@ -570,6 +569,7 @@ export default abstract class SqlIntegration
   private getActivatedUsersCTE(
     baseIdType: string,
     metrics: MetricInterface[],
+    isRegressionAdjusted: boolean = false,
     tablePrefix: string = "__activationMetric",
     initialTable: string = "__experiment"
   ) {
@@ -577,6 +577,13 @@ export default abstract class SqlIntegration
     return `
       SELECT
         initial.${baseIdType},
+        ${
+          isRegressionAdjusted
+            ? `
+          initial.preexposure_start,
+          initial.preexposure_end,`
+            : ""
+        }
         t${metrics.length - 1}.conversion_start as conversion_start,
         t${metrics.length - 1}.conversion_end as conversion_end
       FROM
@@ -636,13 +643,7 @@ export default abstract class SqlIntegration
     return `e.${col}`;
   }
 
-  private getMetricStart(
-    metrics: MetricInterface[],
-    initial: Date,
-    isRegressionAdjusted: boolean,
-    regressionAdjustmentHours: number
-  ) {
-    const metricStart = new Date(initial);
+  private getMetricMinDelay(metrics: MetricInterface[]) {
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
@@ -652,10 +653,19 @@ export default abstract class SqlIntegration
         runningDelay = delay;
       }
     });
+    return minDelay;
+  }
+
+  private getMetricStart(
+    initial: Date,
+    minDelay: number,
+    regressionAdjustmentHours: number
+  ) {
+    const metricStart = new Date(initial);
     if (minDelay < 0) {
       metricStart.setHours(metricStart.getHours() + minDelay);
     }
-    if (isRegressionAdjusted) {
+    if (regressionAdjustmentHours > 0) {
       metricStart.setHours(metricStart.getHours() - regressionAdjustmentHours);
     }
     return metricStart;
@@ -739,10 +749,11 @@ export default abstract class SqlIntegration
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const isRatio = denominator?.type === "count";
 
-    const regressionAdjustmentHours =
-      (metric.regressionAdjustmentDays ?? 0) * 24;
     const regressionAdjustmentEnabled =
       metric.regressionAdjustmentEnabled ?? false;
+    const regressionAdjustmentHours = regressionAdjustmentEnabled
+      ? (metric.regressionAdjustmentDays ?? 0) * 24
+      : 0;
     // Only if hours are positive, non-ratio, non-custom aggregation, and it is enabled
     const isRegressionAdjusted =
       regressionAdjustmentHours > 0 &&
@@ -754,11 +765,11 @@ export default abstract class SqlIntegration
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
       .concat([metric]);
+    const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
     const metricStart = this.getMetricStart(
-      orderedMetrics,
       phase.dateStarted,
-      isRegressionAdjusted,
-      regressionAdjustmentHours
+      minMetricDelay,
+      regressionAdjustmentHours || 0
     );
     const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
 
@@ -814,6 +825,9 @@ export default abstract class SqlIntegration
         conversionDelayHours: intialMetric.conversionDelayHours || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
+        isRegressionAdjusted: isRegressionAdjusted,
+        regressionAdjustmentHours: regressionAdjustmentHours,
+        minMetricDelay: minMetricDelay,
       })})
       , __metric as (${this.getMetricCTE({
         metric,
@@ -863,7 +877,8 @@ export default abstract class SqlIntegration
         activationMetrics.length > 0
           ? `, __activatedUsers as (${this.getActivatedUsersCTE(
               baseIdType,
-              activationMetrics
+              activationMetrics,
+              isRegressionAdjusted
             )})`
           : ""
       }
@@ -889,6 +904,7 @@ export default abstract class SqlIntegration
           ? `, __denominatorUsers as (${this.getActivatedUsersCTE(
               baseIdType,
               denominatorMetrics,
+              false, // no regression adjustment for denominators
               "__denominator",
               dimension?.type !== "activation" && activationMetrics.length > 0
                 ? "__activatedUsers"
@@ -902,16 +918,7 @@ export default abstract class SqlIntegration
         -- One row per included metric conversion
         SELECT
           m.${baseIdType},  
-            m.timestamp,
-          ${
-            isRegressionAdjusted
-              ? `MAX(${this.ifElse(
-                  "m.timestamp >= u.conversion_start",
-                  "1",
-                  "0"
-                )}) AS in_conversion_window,`
-              : ""
-          }
+          m.timestamp,
           m.value
         FROM
           __metric m
@@ -923,8 +930,7 @@ export default abstract class SqlIntegration
               : "__experiment"
           } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          ${isRegressionAdjusted ? "" : "m.timestamp >= u.conversion_start AND"}
-          m.timestamp <= u.conversion_end
+          ${this.getMetricWindowWhereClause(isRegressionAdjusted, "u")}
         GROUP BY
           m.${baseIdType}, m.timestamp, m.value
       )`
@@ -967,7 +973,8 @@ export default abstract class SqlIntegration
           } as variation,
           ${
             isRegressionAdjusted
-              ? "MIN(e.timestamp) AS first_exposure_timestamp,"
+              ? `MIN(e.preexposure_start) AS preexposure_start,
+                 MIN(e.preexposure_end) AS preexposure_end,`
               : ""
           }
           MIN(${this.getMetricConversionBase(
@@ -1054,11 +1061,7 @@ export default abstract class SqlIntegration
             metric,
             "m",
             "d",
-            !isRegressionAdjusted
-              ? "postOnly"
-              : useAllExposures
-              ? "postMultipleExposures"
-              : "post"
+            isRegressionAdjusted ? "post" : "postOnly"
           )} as value
           ${
             isRegressionAdjusted
@@ -1078,16 +1081,10 @@ export default abstract class SqlIntegration
         ${
           useAllExposures
             ? ""
-            : `WHERE
-          m.timestamp >= ${
-            isRegressionAdjusted
-              ? this.addHours(
-                  "d.first_exposure_timestamp",
-                  -regressionAdjustmentHours
-                )
-              : "d.conversion_start"
-          }
-          AND m.timestamp <= d.conversion_end`
+            : `WHERE ${this.getMetricWindowWhereClause(
+                isRegressionAdjusted,
+                "d"
+              )}`
         }
         GROUP BY
           variation, dimension, d.${baseIdType}
@@ -1326,6 +1323,18 @@ export default abstract class SqlIntegration
     return null;
   }
 
+  private getMetricWindowWhereClause(
+    isRegressionAdjusted: boolean,
+    userAlias: string
+  ): string {
+    const conversionWindowFilter = `m.timestamp <= ${userAlias}.conversion_end AND m.timestamp >= ${userAlias}.conversion_start`;
+
+    if (isRegressionAdjusted) {
+      return `(${conversionWindowFilter}) OR (m.timestamp <= ${userAlias}.preexposure_start AND m.timestamp >= ${userAlias}.preexposure_end)`;
+    }
+    return conversionWindowFilter;
+  }
+
   private getExperimentCTE({
     experiment,
     baseIdType,
@@ -1333,6 +1342,9 @@ export default abstract class SqlIntegration
     conversionWindowHours = 0,
     conversionDelayHours = 0,
     experimentDimension = null,
+    isRegressionAdjusted = false,
+    regressionAdjustmentHours = 0,
+    minMetricDelay = 0,
   }: {
     experiment: ExperimentInterface;
     baseIdType: string;
@@ -1340,6 +1352,9 @@ export default abstract class SqlIntegration
     conversionWindowHours: number;
     conversionDelayHours: number;
     experimentDimension: string | null;
+    isRegressionAdjusted: boolean;
+    regressionAdjustmentHours: number;
+    minMetricDelay: number;
   }) {
     conversionWindowHours =
       conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
@@ -1366,6 +1381,18 @@ export default abstract class SqlIntegration
         timestampColumn,
         conversionDelayHours + conversionWindowHours
       )} as conversion_end
+      ${
+        isRegressionAdjusted
+          ? `,${this.addHours(
+              timestampColumn,
+              minMetricDelay
+            )} AS preexposure_end,
+            ${this.addHours(
+              timestampColumn,
+              minMetricDelay - regressionAdjustmentHours
+            )} AS preexposure_start`
+          : ""
+      }
     FROM
         __rawExperiment e
     WHERE
@@ -1461,19 +1488,13 @@ export default abstract class SqlIntegration
     const mcol = `${metricAlias}.timestamp`;
     if (timePeriod === "pre") {
       return `${this.ifElse(
-        `${mcol} < ${userAlias}.first_exposure_timestamp`,
+        `${mcol} < ${userAlias}.preexposure_end`,
         `${col}`,
         `0`
       )}`;
     } else if (timePeriod === "post") {
       return `${this.ifElse(
         `${mcol} >= ${userAlias}.conversion_start`,
-        `${col}`,
-        `0`
-      )}`;
-    } else if (timePeriod === "postMultipleExposures") {
-      return `${this.ifElse(
-        `${mcol} >= ${userAlias}.conversion_start AND ${metricAlias}.in_conversion_window = 1`,
         `${col}`,
         `0`
       )}`;
