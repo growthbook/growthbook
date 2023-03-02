@@ -6,12 +6,6 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
   },
   {
-    "id": "nonbinom__purchased_items",
-    "type": "count",
-    "ignoreNulls": false,
-    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
-  },
-  {
     "id": "nonbinom_null__purchased_value",
     "type": "count",
     "ignoreNulls": false,

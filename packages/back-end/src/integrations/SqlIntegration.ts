@@ -902,7 +902,7 @@ export default abstract class SqlIntegration
         -- One row per included metric conversion
         SELECT
           m.${baseIdType},  
-          m.timestamp,
+            m.timestamp,
           ${
             isRegressionAdjusted
               ? `MAX(${this.ifElse(
@@ -910,7 +910,7 @@ export default abstract class SqlIntegration
                   "1",
                   "0"
                 )}) AS in_conversion_window,`
-              : "1 AS in_conversion_window"
+              : ""
           }
           m.value
         FROM
@@ -923,14 +923,7 @@ export default abstract class SqlIntegration
               : "__experiment"
           } u ON (u.${baseIdType} = m.${baseIdType})
         WHERE
-          ${
-            isRegressionAdjusted
-              ? `m.timestamp >= ${this.addHours(
-                  "u.timestamp",
-                  -regressionAdjustmentHours
-                )} AND`
-              : "m.timestamp >= u.conversion_start AND"
-          }
+          ${isRegressionAdjusted ? "" : "m.timestamp >= u.conversion_start AND"}
           m.timestamp <= u.conversion_end
         GROUP BY
           m.${baseIdType}, m.timestamp, m.value
@@ -1061,7 +1054,11 @@ export default abstract class SqlIntegration
             metric,
             "m",
             "d",
-            isRegressionAdjusted ? "post" : "postOnly"
+            !isRegressionAdjusted
+              ? "postOnly"
+              : useAllExposures
+              ? "postMultipleExposures"
+              : "post"
           )} as value
           ${
             isRegressionAdjusted
@@ -1469,6 +1466,12 @@ export default abstract class SqlIntegration
         `0`
       )}`;
     } else if (timePeriod === "post") {
+      return `${this.ifElse(
+        `${mcol} >= ${userAlias}.conversion_start`,
+        `${col}`,
+        `0`
+      )}`;
+    } else if (timePeriod === "postMultipleExposures") {
       return `${this.ifElse(
         `${mcol} >= ${userAlias}.conversion_start AND ${metricAlias}.in_conversion_window = 1`,
         `${col}`,
