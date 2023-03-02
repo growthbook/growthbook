@@ -21,10 +21,19 @@ type ApiRequest<
 function validate<T>(
   schema: Schema<T>,
   value: unknown
-): { errors: string[]; data?: T } {
+):
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      errors: string[];
+    } {
   const result = schema.safeParse(value);
   if (!result.success) {
     return {
+      success: false,
       errors: result.error.issues.map((i) => {
         return "[" + i.path.join(".") + "] " + i.message;
       }),
@@ -32,7 +41,7 @@ function validate<T>(
   }
 
   return {
-    errors: [],
+    success: true,
     data: result.data,
   };
 }
@@ -64,27 +73,27 @@ export function createApiRequestHandler<
       try {
         const allErrors: string[] = [];
         if (paramsSchema && !(paramsSchema instanceof ZodNever)) {
-          const { errors, data } = validate(paramsSchema, req.params);
-          if (errors.length > 0) {
-            allErrors.push(`Request params: ` + errors.join(", "));
+          const validated = validate(paramsSchema, req.params);
+          if (!validated.success) {
+            allErrors.push(`Request params: ` + validated.errors.join(", "));
           } else {
-            req.params = data;
+            req.params = validated.data;
           }
         }
         if (querySchema && !(querySchema instanceof ZodNever)) {
-          const { errors, data } = validate(querySchema, req.query);
-          if (errors.length > 0) {
-            allErrors.push(`Querystring: ` + errors.join(", "));
+          const validated = validate(querySchema, req.query);
+          if (!validated.success) {
+            allErrors.push(`Querystring: ` + validated.errors.join(", "));
           } else {
-            req.query = data;
+            req.query = validated.data;
           }
         }
         if (bodySchema && !(bodySchema instanceof ZodNever)) {
-          const { errors, data } = validate(bodySchema, req.body);
-          if (errors.length > 0) {
-            allErrors.push(`Request body: ` + errors.join(", "));
+          const validated = validate(bodySchema, req.body);
+          if (!validated.success) {
+            allErrors.push(`Request body: ` + validated.errors.join(", "));
           } else {
-            req.body = data;
+            req.body = validated.data;
           }
         }
         if (allErrors.length > 0) {
@@ -176,7 +185,7 @@ export function applyFilter<T>(
   actualValue: T | T[],
   arrayAsFilter: boolean = false
 ): boolean {
-  // The we're not filtering on anything, return true immediately
+  // If we're not filtering on anything, return true immediately
   if (queryValue === null || queryValue === undefined) return true;
 
   // If we are filtering, but the actual value is missing, return false
