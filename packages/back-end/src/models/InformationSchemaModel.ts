@@ -37,7 +37,7 @@ const informationSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid database schema"); //MKTODO: Update this to be more accurate
+          logger.error(errorString, "Invalid database schema");
         }
 
         return result.success;

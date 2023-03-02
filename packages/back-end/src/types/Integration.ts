@@ -171,14 +171,14 @@ export interface Column {
   data_type: string;
 }
 
-interface Table {
+export interface Table {
   table_name: string;
   path?: string;
   columns?: Column[];
   id?: string;
 }
 
-interface Schema {
+export interface Schema {
   schema_name: string;
   tables: Table[];
   path?: string;

@@ -2,7 +2,7 @@ import { DataSourceType } from "../../types/datasource";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
 
 type RowType = {
-  key: string;
+  table_catalog: string;
   table_schema?: string;
   table_name?: string;
   column_name?: string;
@@ -29,78 +29,78 @@ export function formatInformationSchema(
   results: RawInformationSchema[],
   datasourceType: DataSourceType
 ): InformationSchema[] {
-  const formattedResults: InformationSchema[] = [];
+  const formattedResultsMap = new Map();
 
   results.forEach((row) => {
-    const key = row.table_catalog;
-
-    if (
-      !formattedResults.length ||
-      formattedResults.findIndex((i) => i.database_name === key) === -1
-    ) {
-      formattedResults.push({
-        database_name: key,
-        schemas: [],
+    if (!formattedResultsMap.has(row.table_catalog)) {
+      formattedResultsMap.set(row.table_catalog, {
+        database_name: row.table_catalog,
+        schemas: new Map(),
         path: getPath(datasourceType, {
-          key,
+          table_catalog: row.table_catalog,
         }),
       });
     }
 
-    const index = formattedResults.findIndex((i) => i.database_name === key);
+    const currentSchemaCatalog = formattedResultsMap.get(row.table_catalog);
 
-    if (
-      !formattedResults[index].schemas.some(
-        (schema) => schema.schema_name === row.table_schema
-      )
-    ) {
-      formattedResults[index].schemas.push({
+    if (!currentSchemaCatalog.schemas.has(row.table_schema)) {
+      currentSchemaCatalog.schemas.set(row.table_schema, {
         schema_name: row.table_schema,
-        tables: [],
+        tables: new Map(),
         path: getPath(datasourceType, {
-          key,
+          table_catalog: row.table_catalog,
           table_schema: row.table_schema,
         }),
       });
     }
 
-    const schemaIndex = formattedResults[index].schemas.findIndex(
-      (i) => i.schema_name === row.table_schema
+    const currentTableSchema = currentSchemaCatalog.schemas.get(
+      row.table_schema
     );
 
-    if (
-      !formattedResults[index].schemas[schemaIndex].tables.some(
-        (table) => table.table_name === row.table_name
-      )
-    ) {
-      formattedResults[index].schemas[schemaIndex].tables.push({
+    if (!currentTableSchema.tables.has(row.table_name)) {
+      currentTableSchema.tables.set(row.table_name, {
         table_name: row.table_name,
-        columns: [],
+        columns: new Map(),
         path: getPath(datasourceType, {
-          key,
+          table_catalog: row.table_catalog,
           table_schema: row.table_schema,
           table_name: row.table_name,
         }),
       });
     }
 
-    const tableIndex = formattedResults[index].schemas[
-      schemaIndex
-    ].tables.findIndex((i) => i.table_name === row.table_name);
+    const currentColumnsSchema = currentTableSchema.tables.get(row.table_name);
 
-    formattedResults[index].schemas[schemaIndex].tables[
-      tableIndex
-    ].columns?.push({
-      column_name: row.column_name,
-      data_type: row.data_type,
-      path: getPath(datasourceType, {
-        key,
-        table_schema: row.table_schema,
-        table_name: row.table_name,
+    if (!currentColumnsSchema.columns.has(row.column_name)) {
+      currentColumnsSchema.columns.set(row.column_name, {
         column_name: row.column_name,
-      }),
+        data_type: row.data_type,
+        path: getPath(datasourceType, {
+          table_catalog: row.table_catalog,
+          table_schema: row.table_schema,
+          table_name: row.table_name,
+          column_name: row.column_name,
+        }),
+      });
+    }
+  });
+
+  const formattedResultsArr = Array.from(formattedResultsMap.values());
+
+  // Convert everything from maps to arrays.
+  formattedResultsArr.forEach((schema) => {
+    schema.schemas = Array.from(schema.schemas.values());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    schema.schemas.forEach((table: any) => {
+      table.tables = Array.from(table.tables.values());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      table.tables.forEach((column: any) => {
+        column.columns = Array.from(column.columns.values());
+      });
     });
   });
 
-  return formattedResults;
+  return formattedResultsArr;
 }
