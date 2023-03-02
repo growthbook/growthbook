@@ -68,13 +68,7 @@ const AddExperimentModal: FC<{
 
   switch (mode) {
     case "visual":
-      return (
-        <NewExperimentForm
-          onClose={onClose}
-          source={source}
-          initialValue={{ implementation: "visual" }}
-        />
-      );
+      return <NewExperimentForm isVisual onClose={onClose} source={source} />;
     case "import":
       return <ImportExperimentModal onClose={onClose} source={source} />;
     case "scratch":

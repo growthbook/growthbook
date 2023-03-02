@@ -533,6 +533,7 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
+    visualEditorUrl: data.visualEditorUrl || "",
   };
 
   try {
@@ -698,6 +699,7 @@ export async function postExperiment(
     "releasedVariationId",
     "autoSnapshots",
     "project",
+    "visualEditorUrl",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};

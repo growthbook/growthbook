@@ -41,6 +41,7 @@ export type NewExperimentFormProps = {
   onClose?: () => void;
   onCreate?: (id: string) => void;
   inline?: boolean;
+  isVisual?: boolean;
 };
 
 function getDefaultVariations(num: number) {
@@ -73,6 +74,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   idea,
   msg,
   inline,
+  isVisual,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -97,7 +99,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
-      implementation: initialValue?.implementation || "code",
+      implementation: isVisual
+        ? "visual"
+        : initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
@@ -113,6 +117,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       attributionModel: initialValue?.attributionModel ?? "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
+      visualEditorUrl: "",
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       guardrails: initialValue?.guardrails || [],
@@ -146,15 +151,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               variationWeights: [0.5, 0.5],
             },
       ],
-      status: initialValue?.status || "running",
+      status: isVisual ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
     },
   });
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
-
-  const implementation = form.watch("implementation");
 
   const { apiCall } = useAuth();
 
@@ -163,6 +166,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (value.name.length < 1) {
       setStep(0);
       throw new Error("Experiment Name must not be empty");
+    }
+
+    if (isVisual && !value.visualEditorUrl) {
+      setStep(0);
+      throw new Error("Visual Editor rule must not be empty");
     }
 
     // TODO: more validation?
@@ -221,7 +229,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={"New Experiment Analysis"}
+      header={isVisual ? "New Visual Experiment" : "New Experiment Analysis"}
       close={onClose}
       docSection="experiments"
       submit={onSubmit}
@@ -251,7 +259,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
         )}
-        {!isImport && (
+        {!isImport && !isVisual && (
           <SelectField
             label="Use Visual Editor"
             options={[
@@ -265,6 +273,34 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }}
           />
         )}
+
+        {isVisual && (
+          <div className="form-group">
+            <Field
+              required
+              label="Visual Editor Target URL"
+              {...form.register("visualEditorUrl")}
+              helpText={
+                "The web page the Visual Editor will make changes to. These changes can be applied to any site that matches your URL targeting rule."
+              }
+            />
+          </div>
+        )}
+
+        {isVisual && (
+          <Field
+            label="URL Targeting"
+            {...form.register("targetURLRegex")}
+            helpText={
+              <>
+                Target multiple URLs using regular expression. e.g.{" "}
+                <code>https://example.com/pricing</code> or{" "}
+                <code>^/post/[0-9]+</code>
+              </>
+            }
+          />
+        )}
+
         <div className="form-group">
           <label>Tags</label>
           <TagsInput
@@ -423,18 +459,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={datasource?.id}
             />
           </div>
-          {!isImport && implementation === "visual" && (
-            <Field
-              label="URL Targeting"
-              {...form.register("targetURLRegex")}
-              helpText={
-                <>
-                  e.g. <code>https://example.com/pricing</code> or{" "}
-                  <code>^/post/[0-9]+</code>
-                </>
-              }
-            />
-          )}
         </div>
       </Page>
     </PagedModal>

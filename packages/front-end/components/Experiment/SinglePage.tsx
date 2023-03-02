@@ -514,7 +514,7 @@ export default function SinglePage({
                 <div key={i} className={`col-md-${variationCols} mb-2`}>
                   <VariationBox
                     canEdit={canEdit}
-                    experimentId={experiment.id}
+                    experiment={experiment}
                     i={i}
                     mutate={mutate}
                     v={v}

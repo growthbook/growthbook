@@ -1,21 +1,26 @@
-import { DomChange } from "back-end/types/experiment";
+import {
+  DomChange,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import stringify from "json-stringify-pretty-compact";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight, FaCode } from "react-icons/fa";
-import Link from "next/link";
 import usePermissions from "@/hooks/usePermissions";
 import Code from "../SyntaxHighlighting/Code";
+import OpenVisualEditorLink from "../OpenVisualEditorLink";
 
 export default function VisualCode({
   dom,
   css,
   control = false,
-  experimentId,
+  experiment,
+  openSettings,
 }: {
   dom: DomChange[];
   css: string;
   control?: boolean;
-  experimentId: string;
+  experiment: ExperimentInterfaceStringDates;
+  openSettings?: () => void;
 }) {
   const permissions = usePermissions();
 
@@ -27,7 +32,11 @@ export default function VisualCode({
     return control ? null : (
       <div className="alert alert-warning my-2">
         No visual changes yet.{" "}
-        <Link href={`/experiments/designer/${experimentId}`}>Open Editor</Link>
+        <OpenVisualEditorLink
+          visualEditorUrl={experiment.visualEditorUrl}
+          experimentId={experiment.id}
+          openSettings={openSettings}
+        />
       </div>
     );
   }
