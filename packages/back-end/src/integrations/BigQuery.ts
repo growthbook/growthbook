@@ -4,6 +4,9 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
+import { DataSourceType } from "../../types/datasource";
+import { InformationSchema, RawInformationSchema } from "../types/Integration";
+import { formatInformationSchema } from "../util/integrations";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -77,5 +80,47 @@ export default class BigQuery extends SqlIntegration {
   }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
+  }
+
+  async getInformationSchema(
+    dataSourceType: DataSourceType,
+    projectId: string
+  ): Promise<InformationSchema[] | null> {
+    if (!projectId) {
+      return null;
+    }
+
+    const datasets = await this.runQuery(
+      `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
+    );
+
+    const combinedResults: RawInformationSchema[] = [];
+
+    const query: string[] = [];
+
+    for (const dataset of datasets) {
+      query.push(`SELECT
+        "${projectId}" as table_catalog,
+        table_name,
+        column_name,
+        data_type,
+        table_schema
+      FROM
+        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS`);
+    }
+
+    let queryString = query.join(" UNION ALL ");
+
+    queryString = queryString + " ORDER BY table_name;";
+
+    const results = await this.runQuery(queryString);
+
+    for (const result of results) {
+      combinedResults.push(result);
+    }
+
+    return combinedResults.length
+      ? formatInformationSchema(combinedResults, dataSourceType)
+      : null;
   }
 }

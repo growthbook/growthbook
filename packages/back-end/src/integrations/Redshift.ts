@@ -1,6 +1,8 @@
+import { DataSourceType } from "aws-sdk/clients/appsync";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
+import { InformationSchema } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -30,5 +32,12 @@ export default class Redshift extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `${col}::float`;
+  }
+
+  async getInformationSchema(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    dataSourceType: DataSourceType
+  ): Promise<InformationSchema[] | null> {
+    return null;
   }
 }

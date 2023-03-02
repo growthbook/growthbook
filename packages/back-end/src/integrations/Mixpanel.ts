@@ -1,6 +1,7 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
+  DataSourceType,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -11,6 +12,7 @@ import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
+  InformationSchema,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -677,5 +679,12 @@ function is${name}(event) {
 ${getAggregateFunctions()}
 
     `;
+  }
+
+  async getInformationSchema(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    dataSourceType: DataSourceType
+  ): Promise<InformationSchema[] | null> {
+    return null;
   }
 }

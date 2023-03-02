@@ -1,6 +1,8 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
+import { DataSourceType } from "aws-sdk/clients/appsync";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
+import { InformationSchema } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -79,5 +81,11 @@ export default class ClickHouse extends SqlIntegration {
   }
   castToString(col: string): string {
     return `toString(${col})`;
+  }
+  async getInformationSchema(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    dataSourceType: DataSourceType
+  ): Promise<InformationSchema[] | null> {
+    return null;
   }
 }

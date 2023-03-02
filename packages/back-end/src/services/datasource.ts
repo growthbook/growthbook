@@ -113,10 +113,6 @@ export async function generateInformationSchema(
 ): Promise<InformationSchema[] | null> {
   const integration = getSourceIntegrationObject(datasource);
 
-  if (!integration.getInformationSchema) {
-    return null;
-  }
-
   try {
     return await integration.getInformationSchema(
       datasource.type,
@@ -172,7 +168,6 @@ export async function createInitialInformationSchema(
 ): Promise<void> {
   const informationSchema = await generateInformationSchema(datasource);
 
-  // Loop through each database, schema, and table, and create Mongo record for each table's columns.
   if (informationSchema) {
     for (const database of informationSchema) {
       for (const schema of database.schemas) {
