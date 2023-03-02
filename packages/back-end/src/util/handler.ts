@@ -18,14 +18,23 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate(schema: Schema, value: unknown): string[] {
+function validate<T>(
+  schema: Schema<T>,
+  value: unknown
+): { errors: string[]; data?: T } {
   const result = schema.safeParse(value);
   if (!result.success) {
-    return result.error.issues.map((i) => {
-      return "[" + i.path.join(".") + "] " + i.message;
-    });
+    return {
+      errors: result.error.issues.map((i) => {
+        return "[" + i.path.join(".") + "] " + i.message;
+      }),
+    };
   }
-  return [];
+
+  return {
+    errors: [],
+    data: result.data,
+  };
 }
 
 export function createApiRequestHandler<
@@ -53,28 +62,34 @@ export function createApiRequestHandler<
       z.infer<QuerySchema>
     > = async (req, res, next) => {
       try {
-        const errors: string[] = [];
+        const allErrors: string[] = [];
         if (paramsSchema && !(paramsSchema instanceof ZodNever)) {
-          const paramErrors = validate(paramsSchema, req.params);
-          if (paramErrors.length > 0) {
-            errors.push(`Request params: ` + paramErrors.join(", "));
+          const { errors, data } = validate(paramsSchema, req.params);
+          if (errors.length > 0) {
+            allErrors.push(`Request params: ` + errors.join(", "));
+          } else {
+            req.params = data;
           }
         }
         if (querySchema && !(querySchema instanceof ZodNever)) {
-          const queryError = validate(querySchema, req.query);
-          if (queryError.length > 0) {
-            errors.push(`Querystring: ` + queryError.join(", "));
+          const { errors, data } = validate(querySchema, req.query);
+          if (errors.length > 0) {
+            allErrors.push(`Querystring: ` + errors.join(", "));
+          } else {
+            req.query = data;
           }
         }
         if (bodySchema && !(bodySchema instanceof ZodNever)) {
-          const bodyErrors = validate(bodySchema, req.body);
-          if (bodyErrors.length > 0) {
-            errors.push(`Request body: ` + bodyErrors.join(", "));
+          const { errors, data } = validate(bodySchema, req.body);
+          if (errors.length > 0) {
+            allErrors.push(`Request body: ` + errors.join(", "));
+          } else {
+            req.body = data;
           }
         }
-        if (errors.length > 0) {
+        if (allErrors.length > 0) {
           return res.status(400).json({
-            message: errors.join("\n"),
+            message: allErrors.join("\n"),
           });
         }
 
@@ -135,7 +150,7 @@ export function applyPagination<T>(
   if (isNaN(limit) || limit < 1 || limit > 100) {
     throw new Error("Pagination limit must be between 1 and 100");
   }
-  if (isNaN(offset) || offset < 0 || offset >= items.length) {
+  if (isNaN(offset) || offset < 0 || (offset > 0 && offset >= items.length)) {
     throw new Error("Invalid pagination offset");
   }
 

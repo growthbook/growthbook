@@ -1,5 +1,4 @@
 import uniqid from "uniqid";
-import { FilterQuery } from "mongoose";
 import cronParser from "cron-parser";
 import { updateExperimentById } from "../models/ExperimentModel";
 import {
@@ -21,10 +20,7 @@ import {
   MetricValueResult,
   MetricValueParams,
 } from "../types/Integration";
-import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
-} from "../models/ExperimentSnapshotModel";
+import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   MetricInterface,
   MetricStats,
@@ -68,30 +64,6 @@ import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
-
-export async function getLatestSnapshot(
-  experiment: string,
-  phase: number,
-  dimension?: string,
-  withResults: boolean = true
-): Promise<ExperimentSnapshotDocument | undefined> {
-  const query: FilterQuery<ExperimentSnapshotDocument> = {
-    experiment,
-    phase,
-    dimension: dimension || null,
-  };
-
-  if (withResults) {
-    query.results = { $exists: true, $type: "array", $ne: [] };
-  }
-
-  const all = await ExperimentSnapshotModel.find(query, null, {
-    sort: { dateCreated: -1 },
-    limit: 1,
-  }).exec();
-
-  return all[0];
-}
 
 export async function createMetric(data: Partial<MetricInterface>) {
   const metric = insertMetric({
@@ -357,7 +329,7 @@ export async function createManualSnapshot(
     statsEngine,
   };
 
-  const snapshot = await ExperimentSnapshotModel.create(data);
+  const snapshot = await createExperimentSnapshotModel(data);
 
   return snapshot;
 }
@@ -477,7 +449,7 @@ export async function createSnapshot(
   data.multipleExposures = results?.multipleExposures || 0;
   data.hasCorrectedStats = true;
 
-  const snapshot = await ExperimentSnapshotModel.create(data);
+  const snapshot = await createExperimentSnapshotModel(data);
 
   // TODO: https://linear.app/growthbook/issue/GB-20/[be]-create-events-for-experiment-snapshots-experiment-results
 

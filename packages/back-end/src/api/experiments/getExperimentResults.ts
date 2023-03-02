@@ -1,9 +1,7 @@
 import { GetExperimentResultsResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
-import {
-  getLatestSnapshot,
-  toSnapshotApiInterface,
-} from "../../services/experiments";
+import { getLatestSnapshot } from "../../models/ExperimentSnapshotModel";
+import { toSnapshotApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { getExperimentResultsValidator } from "../../validators/openapi";
 
