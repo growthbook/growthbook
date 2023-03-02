@@ -13,7 +13,6 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { getEqualWeights } from "@/services/utils";
 import { generateVariationId } from "@/services/features";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -159,8 +158,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { apiCall } = useAuth();
 
-  const { visualEditorEnabled } = useOrgSettings();
-
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
     if (value.name.length < 1) {
@@ -254,7 +251,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
         )}
-        {visualEditorEnabled && !isImport && (
+        {!isImport && (
           <SelectField
             label="Use Visual Editor"
             options={[
