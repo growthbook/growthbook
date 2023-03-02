@@ -348,7 +348,10 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <AddExperimentModal onClose={() => setOpenNewExperimentModal(false)} />
+        <AddExperimentModal
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="experiment-list"
+        />
       )}
     </>
   );
