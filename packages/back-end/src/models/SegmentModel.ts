@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { ApiSegment } from "../../types/openapi";
 import { SegmentInterface } from "../../types/segment";
 
 const segmentSchema = new mongoose.Schema({
@@ -57,4 +58,17 @@ export async function updateSegment(
   updates: Partial<SegmentInterface>
 ) {
   await SegmentModel.updateOne({ id, organization }, { $set: updates });
+}
+
+export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
+  return {
+    id: segment.id,
+    name: segment.name,
+    owner: segment.owner || "",
+    identifierType: segment.userIdType || "user_id",
+    query: segment.sql,
+    datasourceId: segment.datasource || "",
+    dateCreated: segment.dateCreated.toISOString(),
+    dateUpdated: segment.dateUpdated.toISOString(),
+  };
 }
