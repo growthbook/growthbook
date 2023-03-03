@@ -285,7 +285,10 @@ export async function getManualSnapshotData(
     3
   );
 
-  const srm = checkSrm(users, phase.variationWeights);
+  const srm = checkSrm(
+    users,
+    phase.trafficSplit.map((t) => t.weight)
+  );
 
   return {
     srm,
@@ -651,23 +654,23 @@ export function toExperimentApiInterface(
     archived: !!experiment.archived,
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
-    variations: experiment.variations.map((v, i) => ({
-      variationId: i + "",
-      key: v.key || i + "",
+    variations: experiment.variations.map((v) => ({
+      variationId: v.id,
+      key: v.key,
       name: v.name || "",
       description: v.description || "",
       screenshots: v.screenshots.map((s) => s.path),
     })),
     phases: experiment.phases.map((p) => ({
-      name: p.phase,
+      name: p.name,
       dateStarted: p.dateStarted.toISOString(),
       dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
       reasonForStopping: p.reason || "",
       seed: experiment.trackingKey,
       coverage: p.coverage,
-      trafficSplit: p.variationWeights.map((n, i) => ({
-        variationId: i + "",
-        weight: n,
+      trafficSplit: p.trafficSplit.map((t) => ({
+        variationId: t.variation,
+        weight: t.weight,
       })),
       targetingCondition: "",
     })),

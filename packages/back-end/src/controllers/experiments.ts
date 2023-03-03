@@ -386,6 +386,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
 ) => {
   const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
 
+  const variationIds = expRule.values.map(() => uniqid("var_"));
+
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: expRule.trackingKey || feature.id,
     name: (expRule.trackingKey || feature.id) + " experiment",
@@ -397,6 +399,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name = v.value === "true" ? "On" : "Off";
       }
       return {
+        id: variationIds[i],
+        key: i + "",
         name,
         screenshots: [],
         description: v.value,
@@ -404,7 +408,15 @@ const getExperimentDefinitionFromFeatureAndRule = (
     }),
     phases: [
       {
+        name: "Main",
         coverage: totalPercent,
+        trafficSplit: expRule.values.map((v, i) => ({
+          variation: variationIds[i],
+          weight:
+            totalPercent > 0
+              ? v.weight / totalPercent
+              : 1 / expRule.values.length,
+        })),
         variationWeights: expRule.values.map((v) =>
           totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
         ),
@@ -418,10 +430,17 @@ const getExperimentDefinitionFromFeatureAndRule = (
 };
 
 const validateVariationIds = (variations: Variation[]) => {
-  const ids = variations.map((v, i) => v.key || i + "");
-
-  if (ids.length !== new Set(ids).size) {
-    throw new Error("Variation ids must be unique");
+  variations.forEach((variation, i) => {
+    if (!variation.id) {
+      variation.id = uniqid("var_");
+    }
+    if (!variation.key) {
+      variation.key = i + "";
+    }
+  });
+  const keys = variations.map((v) => v.key);
+  if (keys.length !== new Set(keys).size) {
+    throw new Error("Variation keys must be unique");
   }
 };
 
@@ -483,7 +502,7 @@ export async function postExperiments(
     }
   }
 
-  const obj: Partial<ExperimentInterface> = {
+  const obj = {
     organization: data.organization,
     project: data.project,
     owner: data.owner || userId,
@@ -518,7 +537,7 @@ export async function postExperiments(
   };
 
   try {
-    validateVariationIds(obj.variations || []);
+    validateVariationIds(obj.variations);
 
     // Make sure id is unique
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
@@ -682,6 +701,7 @@ export async function postExperiment(
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
+
   keys.forEach((key) => {
     if (!(key in data)) {
       return;

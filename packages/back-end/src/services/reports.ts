@@ -113,12 +113,15 @@ export async function startExperimentAnalysis(
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
   const experimentPhaseObj: ExperimentPhase = {
+    name: "Report",
     dateStarted: args.startDate,
     dateEnded: args.endDate,
-    phase: "main",
     coverage: 1,
     reason: "",
-    variationWeights: args.variations.map((v) => v.weight),
+    trafficSplit: args.variations.map((v) => ({
+      variation: v.id,
+      weight: v.weight,
+    })),
   };
   const experimentObj: ExperimentInterface = {
     exposureQueryId: args.exposureQueryId,
@@ -151,6 +154,7 @@ export async function startExperimentAnalysis(
     archived: false,
     variations: args.variations.map((v) => {
       return {
+        id: v.id,
         name: v.name,
         key: v.id,
         screenshots: [],

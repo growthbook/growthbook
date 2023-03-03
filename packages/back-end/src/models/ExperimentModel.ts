@@ -19,6 +19,10 @@ import {
 } from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
+import {
+  CURRENT_SCHEMA_VERSION,
+  upgradeExperiment,
+} from "../migrations/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -30,17 +34,8 @@ type FindOrganizationOptions = {
 
 type FilterKeys = ExperimentInterface & { _id: string };
 
-type ProjectionFilter = {
-  [key in keyof Partial<FilterKeys>]: boolean;
-};
-
 type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
-};
-
-type OptionsFilter = {
-  limit?: number;
-  sort?: SortFilter;
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -162,27 +157,41 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  * Convert the Mongo document to an ExperimentInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
-const toInterface = (doc: ExperimentDocument): ExperimentInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
+  const experiment = omit(doc.toJSON(), ["__v", "_id"]);
+  upgradeExperiment(experiment);
+  return experiment;
+};
 
-export const CURRENT_VERSION = 1;
 export async function migrateExperiments() {
   const experiments = await ExperimentModel.find({
     $or: [
       { version: { $exists: false } },
       {
-        version: { $lt: CURRENT_VERSION },
+        version: { $lt: CURRENT_SCHEMA_VERSION },
       },
     ],
   });
 
   for (const experiment of experiments) {
-    const changes = upgradeVersion(toInterface(experiment));
+    const original = cloneDeep(experiment.toJSON());
+    const upgraded = toInterface(experiment);
+
+    // See if anything changed that needs to be persisted
+    const changes: Partial<ExperimentInterface> = {};
+    Object.keys(upgraded).forEach(
+      <T extends keyof ExperimentInterface>(field: T) => {
+        if (!isEqual(upgraded[field], original[field])) {
+          changes[field] = upgraded[field];
+        }
+      }
+    );
+
     if (Object.keys(changes).length > 0) {
       await ExperimentModel.updateOne(
         {
-          organization: experiment.organization,
-          id: experiment.id,
+          organization: original.organization,
+          id: original.id,
         },
         {
           $set: changes,
@@ -192,77 +201,19 @@ export async function migrateExperiments() {
   }
 }
 
-function upgradeVersion(
-  experiment: ExperimentInterface
-): Partial<ExperimentInterface> {
-  const upgraded = cloneDeep(experiment);
-
-  // Upgrade to version 1
-  if (!upgraded.version) {
-    upgraded.version = 1;
-
-    // Add id and key to every variation
-    upgraded.variations.forEach((v, i) => {
-      if (v.key === "" || v.key === undefined || v.key === null) {
-        v.key = i + "";
-      }
-      if (!v.id) {
-        v.id = upgraded.id + "_var_" + i;
-      }
-    });
-
-    // Populate phase names and migrate variationWeights to trafficSplit
-    if (upgraded.phases) {
-      upgraded.phases.forEach((phase) => {
-        if (!phase.name) {
-          const p = phase.phase || "main";
-          phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
-        }
-
-        if (!phase.trafficSplit?.length) {
-          phase.trafficSplit = upgraded.variations.map((v, i) => ({
-            variation: v.id,
-            weight:
-              phase.variationWeights?.[i] || 1 / upgraded.variations.length,
-          }));
-        }
-      });
-    }
-  }
-
-  // Add future upgrades here
-  // if (upgraded.version < 2) {...}
-
-  const changes: Partial<ExperimentInterface> = {};
-  Object.keys(upgraded).forEach(
-    <T extends keyof ExperimentInterface>(field: T) => {
-      if (!isEqual(upgraded[field], experiment[field])) {
-        changes[field] = upgraded[field];
-      }
-    }
-  );
-  return changes;
-}
-
-/**
- * Wraps Mongo's find method and returns results as ExperimentInterface[] with projections
- * @param query
- */
 async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
-  projections?: ProjectionFilter,
   limit?: number,
   sortBy?: SortFilter
 ): Promise<ExperimentInterface[]> {
-  const options: OptionsFilter = {};
-
+  let cursor = ExperimentModel.find(query);
   if (limit) {
-    options.limit = limit;
+    cursor = cursor.limit(limit);
   }
   if (sortBy) {
-    options.sort = sortBy;
+    cursor = cursor.sort(sortBy);
   }
-  const experiments = await ExperimentModel.find(query, projections, options);
+  const experiments = await cursor;
 
   return experiments.map(toInterface);
 }
@@ -353,6 +304,7 @@ export async function createExperiment(
     id: uniqid("exp_"),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
+    version: CURRENT_SCHEMA_VERSION,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
@@ -404,7 +356,7 @@ export async function getExperimentsByMetric(
   };
 
   // Using as a goal metric
-  const goals = await findExperiments(
+  const goals = await ExperimentModel.find(
     {
       organization,
       metrics: metricId,
@@ -419,7 +371,7 @@ export async function getExperimentsByMetric(
   });
 
   // Using as a guardrail metric
-  const guardrails = await findExperiments(
+  const guardrails = await ExperimentModel.find(
     {
       organization,
       guardrails: metricId,
@@ -434,7 +386,7 @@ export async function getExperimentsByMetric(
   });
 
   // Using as an activation metric
-  const activations = await findExperiments(
+  const activations = await ExperimentModel.find(
     {
       organization,
       activationMetric: metricId,
@@ -466,7 +418,7 @@ export async function getExperimentByIdea(
 export async function getExperimentsToUpdate(
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       datasource: {
         $exists: true,
@@ -486,16 +438,21 @@ export async function getExperimentsToUpdate(
       id: true,
       organization: true,
     },
-    100,
-    { nextSnapshotAttempt: 1 }
+    {
+      limit: 100,
+      sort: { nextSnapshotAttempt: 1 },
+    }
   );
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
 }
 
 export async function getExperimentsToUpdateLegacy(
   latestDate: Date
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       datasource: {
         $exists: true,
@@ -514,17 +471,24 @@ export async function getExperimentsToUpdateLegacy(
       id: true,
       organization: true,
     },
-    100,
-    { nextSnapshotAttempt: 1 }
+    {
+      limit: 100,
+      sort: {
+        nextSnapshotAttempt: 1,
+      },
+    }
   );
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
 }
 
 export async function getPastExperimentsByDatasource(
   organization: string,
   datasource: string
 ): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       organization,
       datasource,
@@ -536,7 +500,10 @@ export async function getPastExperimentsByDatasource(
     }
   );
 
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    trackingKey: exp.trackingKey,
+  }));
 }
 
 export async function getRecentExperimentsUsingMetric(
@@ -563,19 +530,18 @@ export async function getRecentExperimentsUsingMetric(
         $ne: true,
       },
     },
-    {
-      _id: false,
-      id: true,
-      name: true,
-      status: true,
-      phases: true,
-      results: true,
-      analysis: true,
-    },
     10,
     { _id: -1 }
   );
-  return experiments;
+
+  return experiments.map((exp) => ({
+    id: exp.id,
+    name: exp.name,
+    status: exp.status,
+    phases: exp.phases,
+    results: exp.results,
+    analysis: exp.analysis,
+  }));
 }
 
 export async function deleteExperimentSegment(
@@ -594,7 +560,7 @@ export async function getExperimentsForActivityFeed(
   org: string,
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       organization: org,
       id: {
@@ -608,7 +574,10 @@ export async function getExperimentsForActivityFeed(
     }
   );
 
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    name: exp.name,
+  }));
 }
 
 export async function removeTagFromExperiment(
