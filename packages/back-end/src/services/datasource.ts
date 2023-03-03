@@ -9,6 +9,7 @@ import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
 import {
   InformationSchema,
+  InformationSchemaTablesInterface,
   SourceIntegrationInterface,
   TestQueryRow,
 } from "../types/Integration";
@@ -168,20 +169,29 @@ export async function createInitialInformationSchema(
 ): Promise<void> {
   const informationSchema = await generateInformationSchema(datasource);
 
+  const tablesToCreate: InformationSchemaTablesInterface[] = [];
+
+  // Loop through each database, schema, and table, and add the table's metadata to the tablesToCreate array
   if (informationSchema) {
     for (const database of informationSchema) {
       for (const schema of database.schemas) {
         for (const table of schema.tables) {
-          const result = await createInformationSchemaTable(
-            table.columns || [],
+          tablesToCreate.push({
             organization,
-            table.table_name
-          );
-          table.id = result.id;
-          delete table.columns;
+            table_name: table.table_name,
+            table_schema: schema.schema_name,
+            database_name: database.database_name,
+            columns: table.columns || [],
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+          });
+          delete table.columns; // MKTODO: This feels risky
         }
       }
     }
+
+    // Now, in a single database call, create all of the necessary table documents
+    await createInformationSchemaTable(tablesToCreate);
 
     // Then, save the updated informationSchema to the InformationSchema collection and get the id.
     const informationSchemaId = await createInformationSchema(

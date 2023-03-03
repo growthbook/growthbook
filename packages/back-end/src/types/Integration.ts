@@ -191,9 +191,10 @@ export interface InformationSchema {
 }
 
 export interface InformationSchemaTablesInterface {
-  id: string;
   organization: string;
   table_name: string;
+  table_schema: string;
+  database_name: string;
   columns: Column[];
   dateCreated: Date;
   dateUpdated: Date;

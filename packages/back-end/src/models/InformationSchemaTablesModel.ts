@@ -1,15 +1,15 @@
 import omit from "lodash/omit";
 import z from "zod";
 import mongoose from "mongoose";
-import uniqid from "uniqid";
-import { Column, InformationSchemaTablesInterface } from "../types/Integration";
+import { InformationSchemaTablesInterface } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
-  id: String,
   organization: String,
   table_name: String,
+  table_schema: String,
+  database_name: String,
   columns: {
     type: [Object],
     required: true,
@@ -27,7 +27,7 @@ const informationSchemaTablesSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Columns name"); //MKTODO: Update this to be more accurate
+          logger.error(errorString, "Invalid Columns name");
         }
 
         return result.success;
@@ -55,18 +55,9 @@ const toInterface = (
 ): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchemaTable(
-  columns: Column[],
-  organization: string,
-  table_name: string
-): Promise<InformationSchemaTablesInterface> {
-  const result = await InformationSchemaTablesModel.create({
-    id: uniqid("table_"),
-    organization,
-    table_name,
-    columns,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  });
+  tables: InformationSchemaTablesInterface[]
+): Promise<InformationSchemaTablesInterface[]> {
+  const results = await InformationSchemaTablesModel.create(tables);
 
-  return toInterface(result);
+  return results.map(toInterface);
 }

@@ -23,7 +23,6 @@ const informationSchema = new mongoose.Schema({
                 path: z.string(),
                 tables: z.array(
                   z.object({
-                    id: z.string(),
                     table_name: z.string(),
                     path: z.string(),
                   })
