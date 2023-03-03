@@ -4,6 +4,7 @@ import each from "lodash/each";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import {
@@ -45,6 +46,10 @@ type OptionsFilter = {
 const experimentSchema = new mongoose.Schema({
   id: String,
   trackingKey: String,
+  version: {
+    type: Number,
+    index: true,
+  },
   organization: {
     type: String,
     index: true,
@@ -93,6 +98,7 @@ const experimentSchema = new mongoose.Schema({
   variations: [
     {
       _id: false,
+      id: String,
       name: String,
       description: String,
       key: String,
@@ -124,6 +130,14 @@ const experimentSchema = new mongoose.Schema({
       dateStarted: Date,
       dateEnded: Date,
       phase: String,
+      name: String,
+      trafficSplit: [
+        {
+          _id: false,
+          variation: String,
+          weight: Number,
+        },
+      ],
       reason: String,
       coverage: Number,
       variationWeights: [Number],
@@ -150,6 +164,85 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  */
 const toInterface = (doc: ExperimentDocument): ExperimentInterface =>
   omit(doc.toJSON(), ["__v", "_id"]);
+
+export const CURRENT_VERSION = 1;
+export async function migrateExperiments() {
+  const experiments = await ExperimentModel.find({
+    $or: [
+      { version: { $exists: false } },
+      {
+        version: { $lt: CURRENT_VERSION },
+      },
+    ],
+  });
+
+  for (const experiment of experiments) {
+    const changes = upgradeVersion(toInterface(experiment));
+    if (Object.keys(changes).length > 0) {
+      await ExperimentModel.updateOne(
+        {
+          organization: experiment.organization,
+          id: experiment.id,
+        },
+        {
+          $set: changes,
+        }
+      );
+    }
+  }
+}
+
+function upgradeVersion(
+  experiment: ExperimentInterface
+): Partial<ExperimentInterface> {
+  const upgraded = cloneDeep(experiment);
+
+  // Upgrade to version 1
+  if (!upgraded.version) {
+    upgraded.version = 1;
+
+    // Add id and key to every variation
+    upgraded.variations.forEach((v, i) => {
+      if (v.key === "" || v.key === undefined || v.key === null) {
+        v.key = i + "";
+      }
+      if (!v.id) {
+        v.id = upgraded.id + "_var_" + i;
+      }
+    });
+
+    // Populate phase names and migrate variationWeights to trafficSplit
+    if (upgraded.phases) {
+      upgraded.phases.forEach((phase) => {
+        if (!phase.name) {
+          const p = phase.phase || "main";
+          phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
+        }
+
+        if (!phase.trafficSplit?.length) {
+          phase.trafficSplit = upgraded.variations.map((v, i) => ({
+            variation: v.id,
+            weight:
+              phase.variationWeights?.[i] || 1 / upgraded.variations.length,
+          }));
+        }
+      });
+    }
+  }
+
+  // Add future upgrades here
+  // if (upgraded.version < 2) {...}
+
+  const changes: Partial<ExperimentInterface> = {};
+  Object.keys(upgraded).forEach(
+    <T extends keyof ExperimentInterface>(field: T) => {
+      if (!isEqual(upgraded[field], experiment[field])) {
+        changes[field] = upgraded[field];
+      }
+    }
+  );
+  return changes;
+}
 
 /**
  * Wraps Mongo's find method and returns results as ExperimentInterface[] with projections

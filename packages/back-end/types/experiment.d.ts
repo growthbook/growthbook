@@ -17,22 +17,34 @@ export interface Screenshot {
 }
 
 export interface Variation {
+  id: string;
   name: string;
   description?: string;
+  /** @deprecated */
   value?: string;
-  key?: string;
+  key: string;
   screenshots: Screenshot[];
+  /** @deprecated */
   css?: string;
+  /** @deprecated */
   dom?: DomChange[];
 }
 
 export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
-  phase: ExperimentPhaseType;
+  name: string;
+  /** @deprecated */
+  phase?: ExperimentPhaseType;
   reason: string;
   coverage: number;
-  variationWeights: number[];
+  /** @deprecated */
+  variationWeights?: number[];
+  trafficSplit: {
+    variation: string;
+    weight: number;
+  }[];
+  /** @deprecated */
   groups?: string[];
 }
 
@@ -62,6 +74,7 @@ export interface ExperimentInterface {
   id: string;
   trackingKey: string;
   organization: string;
+  version?: number;
   project?: string;
   owner: string;
   datasource: string;
