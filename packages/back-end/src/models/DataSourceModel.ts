@@ -16,6 +16,7 @@ import {
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
+import { logger } from "../util/logger";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -213,7 +214,11 @@ async function onDataSourceCreate(
   datasource: DataSourceInterface,
   organization: string
 ): Promise<void> {
-  await createInitialInformationSchema(datasource, organization);
+  try {
+    await createInitialInformationSchema(datasource, organization);
+  } catch (e) {
+    logger.error(e);
+  }
 }
 
 export function toDataSourceApiInterface(
