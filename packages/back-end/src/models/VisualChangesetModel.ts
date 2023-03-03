@@ -11,38 +11,58 @@ const visualChangesetSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
+    required: true,
   },
   organization: {
     type: String,
     index: true,
+    required: true,
   },
-  urlPattern: String,
-  editorUrl: String,
+  urlPattern: {
+    type: String,
+    required: true,
+  },
+  editorUrl: {
+    type: String,
+    required: true,
+  },
   experiment: {
     type: String,
     index: true,
+    required: true,
   },
   // VisualChanges are associated with one of the variations of the experiment
   // associated with the VisualChangeset
-  visualChanges: [
-    {
-      id: String,
-      description: String,
-      css: String,
-      variation: {
-        type: String,
-        index: true,
-      },
-      domMutations: [
-        {
-          selector: String,
-          action: ["append", "set", "remove"],
-          attribute: String,
-          value: String,
+  visualChanges: {
+    type: [
+      {
+        id: {
+          type: String,
+          required: true,
         },
-      ],
-    },
-  ],
+        description: String,
+        css: String,
+        variation: {
+          type: String,
+          index: true,
+          required: true,
+        },
+        domMutations: [
+          {
+            selector: { type: String, required: true },
+            action: {
+              type: String,
+              enum: ["append", "set", "remove"],
+              required: true,
+            },
+            attribute: { type: String, required: true },
+            value: String,
+          },
+        ],
+      },
+    ],
+    required: true,
+  },
 });
 
 export type VisualChangesetDocument = mongoose.Document &
@@ -77,7 +97,7 @@ export function toVisualChangesetApiInterface(
 export async function findVisualChangesetById(
   id: string,
   organization: string
-) {
+): Promise<VisualChangesetInterface | null> {
   const visualChangeset = await VisualChangesetModel.findOne({
     organization,
     id,
@@ -85,7 +105,9 @@ export async function findVisualChangesetById(
   return visualChangeset ? toInterface(visualChangeset) : null;
 }
 
-export async function findVisualChangesetsByOrganization(organization: string) {
+export async function findVisualChangesetsByOrganization(
+  organization: string
+): Promise<VisualChangesetInterface[]> {
   const visualChangesets = await VisualChangesetModel.find({
     organization,
   });
