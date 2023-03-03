@@ -23,7 +23,7 @@ type SegmentDocument = mongoose.Document & SegmentInterface;
 const SegmentModel = mongoose.model<SegmentDocument>("Segment", segmentSchema);
 
 const toInterface = (doc: SegmentDocument): SegmentInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc, ["__v", "_id"]);
 
 export async function createSegment(segment: Partial<SegmentInterface>) {
   return toInterface(await SegmentModel.create(segment));

@@ -1,4 +1,3 @@
-import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
@@ -89,13 +88,13 @@ const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
  * @param doc
  */
 const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc, ["__v", "_id"]);
 
 export async function getAllFeatures(
   organization: string,
   project?: string
 ): Promise<FeatureInterface[]> {
-  const q: FilterQuery<FeatureDocument> = { organization };
+  const q: { organization: string; project?: string } = { organization };
   if (project) {
     q.project = project;
   }

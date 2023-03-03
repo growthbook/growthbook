@@ -48,7 +48,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   }
   const user = await getUserByEmail(String(token.email));
   if (!user) return null;
-  return user.toJSON();
+  return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {

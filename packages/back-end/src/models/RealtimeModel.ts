@@ -20,5 +20,5 @@ export async function getRealtimeUsageByHour(
   hour: string
 ): Promise<RealtimeUsageInterface | null> {
   const realtimeDoc = await RealtimeUsageModel.findOne({ organization, hour });
-  return realtimeDoc ? realtimeDoc.toJSON() : null;
+  return realtimeDoc ? realtimeDoc : null;
 }

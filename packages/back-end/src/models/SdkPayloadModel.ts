@@ -30,15 +30,14 @@ const SDKPayloadModel = mongoose.model<SDKPayloadDocument>(
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
-  const json = doc.toJSON();
   try {
-    const contents = JSON.parse(json.contents);
+    const contents = JSON.parse(doc.contents);
 
     // TODO: better validation here to make sure contents are the correct type?
     if (!contents.features) return null;
 
     return {
-      ...json,
+      ...doc,
       contents,
     };
   } catch (e) {

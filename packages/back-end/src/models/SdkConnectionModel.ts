@@ -75,9 +75,8 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
 }
 
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
-  const conn = doc.toJSON();
-  conn.proxy = addEnvProxySettings(conn.proxy);
-  return conn;
+  doc.proxy = addEnvProxySettings(doc.proxy);
+  return doc;
 }
 
 export async function findSDKConnectionById(id: string) {

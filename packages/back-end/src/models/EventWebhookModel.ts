@@ -206,7 +206,7 @@ export const updateEventWebHook = async (
     }
   );
 
-  return result.nModified === 1;
+  return result.modifiedCount === 1;
 };
 
 type EventWebHookStatusUpdate =

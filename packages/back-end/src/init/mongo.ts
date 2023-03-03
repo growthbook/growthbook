@@ -13,11 +13,7 @@ export default async () => {
       uri = process.env.MONGO_URL || "";
     }
 
-    return await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useCreateIndex: true,
-      useUnifiedTopology: true,
-    });
+    return await mongoose.connect(uri);
   } catch (e) {
     logger.error(e, "Failed to connect to MongoDB");
     throw new Error("MongoDB connection error.");

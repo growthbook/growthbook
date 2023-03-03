@@ -91,7 +91,7 @@ const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
 
 const toInterface = (
   doc: ExperimentSnapshotDocument
-): ExperimentSnapshotInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): ExperimentSnapshotInterface => omit(doc, ["__v", "_id"]);
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,

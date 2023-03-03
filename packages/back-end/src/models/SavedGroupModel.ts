@@ -49,13 +49,12 @@ export function parseSavedGroupString(list: string) {
 export async function createSavedGroup(
   group: CreateSavedGroupProps
 ): Promise<SavedGroupInterface> {
-  const newGroup = await SavedGroupModel.create({
+  return SavedGroupModel.create({
     ...group,
     id: uniqid("grp_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-  return newGroup.toJSON();
 }
 
 export async function getAllSavedGroups(
@@ -74,7 +73,7 @@ export async function getSavedGroupById(
     organization: organization,
   });
 
-  return savedGroup?.toJSON() || null;
+  return savedGroup || null;
 }
 
 export async function updateSavedGroup(

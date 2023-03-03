@@ -5,9 +5,9 @@ let agendaInstance: Agenda;
 
 export const getAgendaInstance = (): Agenda => {
   if (!agendaInstance) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Unable to determine the type because the union type for database options.
     const config: AgendaConfig = {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - For some reason the Mongoose MongoDB instance does not match (missing 5 properties)
       mongo: mongoose.connection.db,
       defaultLockLimit: 5,
     };

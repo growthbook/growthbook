@@ -30,7 +30,7 @@ export async function createReport(
   organization: string,
   initialValue: Partial<ReportInterface>
 ): Promise<ReportInterface> {
-  const report = await ReportModel.create({
+  return ReportModel.create({
     status: "private",
     ...initialValue,
     organization,
@@ -38,8 +38,6 @@ export async function createReport(
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-
-  return report.toJSON();
 }
 
 export async function getReportById(
@@ -51,7 +49,7 @@ export async function getReportById(
     id,
   });
 
-  return report ? report.toJSON() : null;
+  return report ? report : null;
 }
 
 export async function getReportsByOrg(

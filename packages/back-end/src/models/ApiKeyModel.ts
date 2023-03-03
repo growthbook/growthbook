@@ -86,7 +86,7 @@ export async function createApiKey({
 
   const id = uniqid("key_");
 
-  const doc = await ApiKeyModel.create({
+  return ApiKeyModel.create({
     environment,
     project,
     organization,
@@ -98,8 +98,6 @@ export async function createApiKey({
     encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
   });
-
-  return doc.toJSON();
 }
 
 export async function deleteApiKeyById(organization: string, id: string) {
@@ -126,7 +124,7 @@ export async function getApiKeyByIdOrKey(
   const doc = await ApiKeyModel.findOne(
     id ? { organization, id } : { organization, key }
   );
-  return doc ? doc.toJSON() : null;
+  return doc ? doc : null;
 }
 
 export async function lookupOrganizationByApiKey(
@@ -150,7 +148,7 @@ export async function lookupOrganizationByApiKey(
   });
 
   if (!doc || !doc.organization) return {};
-  return doc.toJSON();
+  return doc;
 }
 
 export async function getAllApiKeysByOrganization(
@@ -163,11 +161,10 @@ export async function getAllApiKeysByOrganization(
     { encryptionKey: 0 }
   );
   return docs.map((k) => {
-    const json = k.toJSON();
-    if (json.secret) {
-      json.key = "";
+    if (k.secret) {
+      k.key = "";
     }
-    return json;
+    return k;
   });
 }
 

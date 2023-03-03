@@ -149,7 +149,7 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  * @param doc
  */
 const toInterface = (doc: ExperimentDocument): ExperimentInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc, ["__v", "_id"]);
 
 /**
  * Wraps Mongo's find method and returns results as ExperimentInterface[] with projections

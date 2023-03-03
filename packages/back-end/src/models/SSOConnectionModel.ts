@@ -36,7 +36,7 @@ export async function getSSOConnectionById(
   if (!id) return null;
   const doc = await SSOConnectionModel.findOne({ id });
 
-  return doc ? doc.toJSON() : null;
+  return doc ? doc : null;
 }
 
 export async function getSSOConnectionByEmailDomain(
@@ -45,7 +45,7 @@ export async function getSSOConnectionByEmailDomain(
   if (!emailDomain) return null;
   const doc = await SSOConnectionModel.findOne({ emailDomain });
 
-  return doc ? doc.toJSON() : null;
+  return doc ? doc : null;
 }
 
 export function getSSOConnectionSummary(

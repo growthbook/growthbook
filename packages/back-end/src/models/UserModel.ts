@@ -38,7 +38,7 @@ export async function getAllUsers(): Promise<UserInterface[]> {
 
 export async function findUserById(id: string): Promise<UserInterface | null> {
   const user = await UserModel.findOne({ id });
-  return user ? user.toJSON() : null;
+  return user ? user : null;
 }
 
 export async function deleteUser(id: string): Promise<void> {

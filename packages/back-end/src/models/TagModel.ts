@@ -19,10 +19,9 @@ const MAX_TAG_LENGTH = 64;
 
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
-  const json = doc.toJSON();
-  if (!json.tags) return [];
-  const settings = json.settings || {};
-  return json.tags.map((t) => {
+  if (!doc.tags) return [];
+  const settings = doc.settings || {};
+  return doc.tags.map((t) => {
     return {
       id: t,
       color: settings[t]?.color || "#029dd1",
