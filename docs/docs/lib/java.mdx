@@ -295,13 +295,15 @@ The above code sample sets the following:
 
 #### Supported types
 
-| Type      | Value                                                                                                                                          |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `String`  | A URI-encoded string value                                                                                                                     |
-| `Float`   | A float value, e.g. `3.33`                                                                                                                     |
-| `Double`  | A double value, e.g. `3.33`                                                                                                                    |
-| `Integer` | An integer value, e.g. `1337`                                                                                                                  |
-| `Boolean` | A boolean value, e.g. `true` or `false`. You can also represent boolean values with on/off state as `on` or `off` or binary values `1` or `0`. |
+| Type                          | Value                                                                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `String`                      | A URI-encoded string value                                                                                                                     |
+| `Float`                       | A float value, e.g. `3.33`                                                                                                                     |
+| `Double`                      | A double value, e.g. `3.33`                                                                                                                    |
+| `Integer`                     | An integer value, e.g. `1337`                                                                                                                  |
+| `Boolean`                     | A boolean value, e.g. `true` or `false`. You can also represent boolean values with on/off state as `on` or `off` or binary values `1` or `0`. |
+| JSON as `Gson`-deserializable | A class that can be deserialized using Gson and that does not have any dependencies on custom type adapters.                                   |
+| JSON as `String`              | A URI-encoded string value that should be a valid JSON string that you can deserialize with your own JSON deserialization implementation.      |
 
 The value passed in the URL is cast at runtime based on the generic type argument passed in when evaluating the feature. This means that when you call `<ValueType>getFeatureValue()`, what you pass into the URL must successfully cast as `ValueType` otherwise the value in the URL will be ignored.
 
