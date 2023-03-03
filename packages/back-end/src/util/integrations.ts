@@ -1,5 +1,10 @@
 import { DataSourceType } from "../../types/datasource";
-import { InformationSchema, RawInformationSchema } from "../types/Integration";
+import {
+  InformationSchema,
+  RawInformationSchema,
+  Schema,
+  Table,
+} from "../types/Integration";
 
 type RowType = {
   table_catalog: string;
@@ -90,14 +95,12 @@ export function formatInformationSchema(
   const formattedResultsArr = Array.from(formattedResultsMap.values());
 
   // Convert everything from maps to arrays.
-  formattedResultsArr.forEach((schema) => {
-    schema.schemas = Array.from(schema.schemas.values());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    schema.schemas.forEach((table: any) => {
-      table.tables = Array.from(table.tables.values());
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      table.tables.forEach((column: any) => {
-        column.columns = Array.from(column.columns.values());
+  formattedResultsArr.forEach((informationSchema: InformationSchema) => {
+    informationSchema.schemas = Array.from(informationSchema.schemas.values());
+    informationSchema.schemas.forEach((schema: Schema) => {
+      schema.tables = Array.from(schema.tables.values());
+      schema.tables.forEach((table: Table) => {
+        table.columns = Array.from(table.columns?.values() || []);
       });
     });
   });
