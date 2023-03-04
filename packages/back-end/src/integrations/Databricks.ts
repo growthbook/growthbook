@@ -1,8 +1,6 @@
-import { DataSourceType } from "aws-sdk/clients/appsync";
 import { DatabricksConnectionParams } from "../../types/integrations/databricks";
 import { runDatabricksQuery } from "../services/databricks";
 import { decryptDataSourceParams } from "../services/datasource";
-import { InformationSchema } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -44,10 +42,8 @@ export default class Databricks extends SqlIntegration {
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;
   }
-  async getInformationSchema(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataSourceType: DataSourceType
-  ): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<null> {
+    // This functionality is not yet supported with this datasource.
     return null;
   }
 }

@@ -1481,7 +1481,7 @@ export default abstract class SqlIntegration
   }
 
   abstract getInformationSchema(
-    datasourceType: string,
-    projectId?: string | undefined
+    datasourceType?: string,
+    projectId?: string
   ): Promise<InformationSchema[] | null>;
 }

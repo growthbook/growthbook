@@ -7,7 +7,6 @@ import {
   PastExperimentResponse,
   MetricValueQueryResponse,
   ExperimentQueryResponses,
-  InformationSchema,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -20,7 +19,6 @@ import { sumSquaresFromStats } from "../util/stats";
 import {
   DataSourceProperties,
   DataSourceSettings,
-  DataSourceType,
 } from "../../types/datasource";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
@@ -219,10 +217,8 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     return client;
   }
 
-  async getInformationSchema(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataSourceType: DataSourceType
-  ): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<null> {
+    // This functionality is not yet supported with this datasource.
     return null;
   }
 

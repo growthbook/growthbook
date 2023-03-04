@@ -1,8 +1,6 @@
-import { DataSourceType } from "aws-sdk/clients/appsync";
 import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
-import { InformationSchema } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -59,10 +57,8 @@ export default class Mssql extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
   }
-  async getInformationSchema(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataSourceType: DataSourceType
-  ): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<null> {
+    // This functionality is not yet supported with this datasource.
     return null;
   }
 }

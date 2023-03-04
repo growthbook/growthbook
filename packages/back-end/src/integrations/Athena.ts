@@ -1,9 +1,7 @@
-import { DataSourceType } from "aws-sdk/clients/appsync";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
-import { InformationSchema } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
@@ -48,10 +46,8 @@ export default class Athena extends SqlIntegration {
     return `1.0*${col}`;
   }
 
-  async getInformationSchema(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataSourceType: DataSourceType
-  ): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<null> {
+    // This functionality is not yet supported with this datasource.
     return null;
   }
 }

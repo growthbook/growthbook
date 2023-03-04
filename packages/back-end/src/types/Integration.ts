@@ -225,7 +225,7 @@ export interface SourceIntegrationInterface {
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
   getInformationSchema(
-    datasourceType: string,
+    datasourceType?: string,
     projectId?: string
   ): Promise<null | InformationSchema[]>;
   getTestQuery?(query: string): string;

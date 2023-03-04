@@ -1,10 +1,8 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
-import { DataSourceType } from "aws-sdk/clients/appsync";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
-import { InformationSchema } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -104,10 +102,8 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  async getInformationSchema(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataSourceType: DataSourceType
-  ): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<null> {
+    // This functionality is not yet supported with this datasource.
     return null;
   }
 }
