@@ -26,7 +26,7 @@ import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 import { createInformationSchema } from "../models/InformationSchemaModel";
 import { updateDataSource } from "../models/DataSourceModel";
-import { createInformationSchemaTable } from "../models/InformationSchemaTablesModel";
+import { createInformationSchemaTables } from "../models/InformationSchemaTablesModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -191,7 +191,7 @@ export async function createInitialInformationSchema(
     }
 
     // Now, in a single database call, create all of the necessary table documents
-    await createInformationSchemaTable(tablesToCreate);
+    await createInformationSchemaTables(tablesToCreate);
 
     // Then, save the updated informationSchema to the InformationSchema collection and get the id.
     const informationSchemaId = await createInformationSchema(

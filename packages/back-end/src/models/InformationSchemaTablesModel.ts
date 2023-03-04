@@ -54,7 +54,7 @@ const toInterface = (
   doc: InformationSchemaTablesDocument
 ): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
-export async function createInformationSchemaTable(
+export async function createInformationSchemaTables(
   tables: InformationSchemaTablesInterface[]
 ): Promise<InformationSchemaTablesInterface[]> {
   const results = await InformationSchemaTablesModel.create(tables);
