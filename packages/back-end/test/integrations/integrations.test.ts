@@ -105,22 +105,22 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
                     path:
-                      "`adept-arbor-354914.a_second_data_set.experiment-assignments.TIMESTAMP`",
+                      "`adept-arbor-354914.a_second_data_set.experiment-assignments.timestamp`",
                   },
                   {
                     column_name: "variation",
-                    data_type: "INT64",
+                    data_type: "int64",
                     path:
                       "`adept-arbor-354914.a_second_data_set.experiment-assignments.variation`",
                   },
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
+                    column_name: "userid",
+                    data_type: "string",
                     path:
-                      "`adept-arbor-354914.a_second_data_set.experiment-assignments.USERID`",
+                      "`adept-arbor-354914.a_second_data_set.experiment-assignments.userid`",
                   },
                 ],
                 path:
@@ -136,20 +136,20 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
                     path:
-                      "`adept-arbor-354914.sample_data_set.orders.TIMESTAMP`",
+                      "`adept-arbor-354914.sample_data_set.orders.timestamp`",
                   },
                   {
-                    column_name: "AMOUNT",
-                    data_type: "FLOAT64",
-                    path: "`adept-arbor-354914.sample_data_set.orders.AMOUNT`",
+                    column_name: "amount",
+                    data_type: "float64",
+                    path: "`adept-arbor-354914.sample_data_set.orders.amount`",
                   },
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
-                    path: "`adept-arbor-354914.sample_data_set.orders.USERID`",
+                    column_name: "userid",
+                    data_type: "string",
+                    path: "`adept-arbor-354914.sample_data_set.orders.userid`",
                   },
                 ],
                 path: "`adept-arbor-354914.sample_data_set.orders`",
@@ -158,22 +158,22 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
+                    column_name: "userid",
+                    data_type: "string",
                     path:
-                      "`adept-arbor-354914.sample_data_set.page-visitors.USERID`",
+                      "`adept-arbor-354914.sample_data_set.page-visitors.userid`",
                   },
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
                     path:
-                      "`adept-arbor-354914.sample_data_set.page-visitors.TIMESTAMP`",
+                      "`adept-arbor-354914.sample_data_set.page-visitors.timestamp`",
                   },
                   {
-                    column_name: "BROWSER",
-                    data_type: "STRING",
+                    column_name: "browser",
+                    data_type: "string",
                     path:
-                      "`adept-arbor-354914.sample_data_set.page-visitors.BROWSER`",
+                      "`adept-arbor-354914.sample_data_set.page-visitors.browser`",
                   },
                 ],
                 path: "`adept-arbor-354914.sample_data_set.page-visitors`",
@@ -188,19 +188,19 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "Day",
-                    data_type: "DATE",
-                    path: "`adept-arbor-354914.sample_data.sample_table.Day`",
+                    column_name: "day",
+                    data_type: "date",
+                    path: "`adept-arbor-354914.sample_data.sample_table.day`",
                   },
                   {
-                    column_name: "Top_Term",
-                    data_type: "STRING",
+                    column_name: "top_term",
+                    data_type: "string",
                     path:
-                      "`adept-arbor-354914.sample_data.sample_table.Top_Term`",
+                      "`adept-arbor-354914.sample_data.sample_table.top_term`",
                   },
                   {
                     column_name: "rank",
-                    data_type: "INT64",
+                    data_type: "int64",
                     path: "`adept-arbor-354914.sample_data.sample_table.rank`",
                   },
                 ],
@@ -318,22 +318,22 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
                     path:
-                      "adept-arbor-354914.a_second_data_set.experiment-assignments.TIMESTAMP",
+                      "adept-arbor-354914.a_second_data_set.experiment-assignments.timestamp",
                   },
                   {
                     column_name: "variation",
-                    data_type: "INT64",
+                    data_type: "int64",
                     path:
                       "adept-arbor-354914.a_second_data_set.experiment-assignments.variation",
                   },
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
+                    column_name: "userid",
+                    data_type: "string",
                     path:
-                      "adept-arbor-354914.a_second_data_set.experiment-assignments.USERID",
+                      "adept-arbor-354914.a_second_data_set.experiment-assignments.userid",
                   },
                 ],
                 path:
@@ -349,19 +349,19 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
-                    path: "adept-arbor-354914.sample_data_set.orders.TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
+                    path: "adept-arbor-354914.sample_data_set.orders.timestamp",
                   },
                   {
-                    column_name: "AMOUNT",
-                    data_type: "FLOAT64",
-                    path: "adept-arbor-354914.sample_data_set.orders.AMOUNT",
+                    column_name: "amount",
+                    data_type: "float64",
+                    path: "adept-arbor-354914.sample_data_set.orders.amount",
                   },
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
-                    path: "adept-arbor-354914.sample_data_set.orders.USERID",
+                    column_name: "userid",
+                    data_type: "string",
+                    path: "adept-arbor-354914.sample_data_set.orders.userid",
                   },
                 ],
                 path: "adept-arbor-354914.sample_data_set.orders",
@@ -370,22 +370,22 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
+                    column_name: "userid",
+                    data_type: "string",
                     path:
-                      "adept-arbor-354914.sample_data_set.page-visitors.USERID",
+                      "adept-arbor-354914.sample_data_set.page-visitors.userid",
                   },
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
                     path:
-                      "adept-arbor-354914.sample_data_set.page-visitors.TIMESTAMP",
+                      "adept-arbor-354914.sample_data_set.page-visitors.timestamp",
                   },
                   {
-                    column_name: "BROWSER",
-                    data_type: "STRING",
+                    column_name: "browser",
+                    data_type: "string",
                     path:
-                      "adept-arbor-354914.sample_data_set.page-visitors.BROWSER",
+                      "adept-arbor-354914.sample_data_set.page-visitors.browser",
                   },
                 ],
                 path: "adept-arbor-354914.sample_data_set.page-visitors",
@@ -400,19 +400,19 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "Day",
-                    data_type: "DATE",
-                    path: "adept-arbor-354914.sample_data.sample_table.Day",
+                    column_name: "day",
+                    data_type: "date",
+                    path: "adept-arbor-354914.sample_data.sample_table.day",
                   },
                   {
-                    column_name: "Top_Term",
-                    data_type: "STRING",
+                    column_name: "top_term",
+                    data_type: "string",
                     path:
-                      "adept-arbor-354914.sample_data.sample_table.Top_Term",
+                      "adept-arbor-354914.sample_data.sample_table.top_term",
                   },
                   {
                     column_name: "rank",
-                    data_type: "INT64",
+                    data_type: "int64",
                     path: "adept-arbor-354914.sample_data.sample_table.rank",
                   },
                 ],
@@ -530,19 +530,19 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
-                    path: "experiment-assignments.TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
+                    path: "experiment-assignments.timestamp",
                   },
                   {
                     column_name: "variation",
-                    data_type: "INT64",
+                    data_type: "int64",
                     path: "experiment-assignments.variation",
                   },
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
-                    path: "experiment-assignments.USERID",
+                    column_name: "userid",
+                    data_type: "string",
+                    path: "experiment-assignments.userid",
                   },
                 ],
                 path: "a_second_data_set.experiment-assignments",
@@ -557,19 +557,19 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
-                    path: "orders.TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
+                    path: "orders.timestamp",
                   },
                   {
-                    column_name: "AMOUNT",
-                    data_type: "FLOAT64",
-                    path: "orders.AMOUNT",
+                    column_name: "amount",
+                    data_type: "float64",
+                    path: "orders.amount",
                   },
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
-                    path: "orders.USERID",
+                    column_name: "userid",
+                    data_type: "string",
+                    path: "orders.userid",
                   },
                 ],
                 path: "sample_data_set.orders",
@@ -578,19 +578,19 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "USERID",
-                    data_type: "STRING",
-                    path: "page-visitors.USERID",
+                    column_name: "userid",
+                    data_type: "string",
+                    path: "page-visitors.userid",
                   },
                   {
-                    column_name: "TIMESTAMP",
-                    data_type: "TIMESTAMP",
-                    path: "page-visitors.TIMESTAMP",
+                    column_name: "timestamp",
+                    data_type: "timestamp",
+                    path: "page-visitors.timestamp",
                   },
                   {
-                    column_name: "BROWSER",
-                    data_type: "STRING",
-                    path: "page-visitors.BROWSER",
+                    column_name: "browser",
+                    data_type: "string",
+                    path: "page-visitors.browser",
                   },
                 ],
                 path: "sample_data_set.page-visitors",
@@ -605,18 +605,18 @@ describe("formatInformationSchema", () => {
               {
                 columns: [
                   {
-                    column_name: "Day",
-                    data_type: "DATE",
-                    path: "sample_table.Day",
+                    column_name: "day",
+                    data_type: "date",
+                    path: "sample_table.day",
                   },
                   {
-                    column_name: "Top_Term",
-                    data_type: "STRING",
-                    path: "sample_table.Top_Term",
+                    column_name: "top_term",
+                    data_type: "string",
+                    path: "sample_table.top_term",
                   },
                   {
                     column_name: "rank",
-                    data_type: "INT64",
+                    data_type: "int64",
                     path: "sample_table.rank",
                   },
                 ],
