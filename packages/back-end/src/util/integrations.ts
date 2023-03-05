@@ -15,12 +15,12 @@ type RowType = {
 
 function getPath(dataSource: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
-  let returnValue = pathArray.join(".");
+  let returnValue = pathArray.join(".").toLocaleLowerCase();
   switch (dataSource) {
     // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
     case "mysql":
       if (pathArray.length > 2) {
-        returnValue = pathArray.slice(-2).join(".");
+        returnValue = pathArray.slice(-2).join(".").toLocaleLowerCase();
       }
       return returnValue;
     case "bigquery":
@@ -39,7 +39,7 @@ export function formatInformationSchema(
   results.forEach((row) => {
     if (!formattedResultsMap.has(row.table_catalog)) {
       formattedResultsMap.set(row.table_catalog, {
-        database_name: row.table_catalog,
+        database_name: row.table_catalog.toLocaleLowerCase(),
         schemas: new Map(),
         path: getPath(datasourceType, {
           table_catalog: row.table_catalog,
@@ -51,7 +51,7 @@ export function formatInformationSchema(
 
     if (!currentSchemaCatalog.schemas.has(row.table_schema)) {
       currentSchemaCatalog.schemas.set(row.table_schema, {
-        schema_name: row.table_schema,
+        schema_name: row.table_schema.toLocaleLowerCase(),
         tables: new Map(),
         path: getPath(datasourceType, {
           table_catalog: row.table_catalog,
@@ -66,7 +66,7 @@ export function formatInformationSchema(
 
     if (!currentTableSchema.tables.has(row.table_name)) {
       currentTableSchema.tables.set(row.table_name, {
-        table_name: row.table_name,
+        table_name: row.table_name.toLocaleLowerCase(),
         columns: new Map(),
         path: getPath(datasourceType, {
           table_catalog: row.table_catalog,
@@ -80,8 +80,8 @@ export function formatInformationSchema(
 
     if (!currentColumnsSchema.columns.has(row.column_name)) {
       currentColumnsSchema.columns.set(row.column_name, {
-        column_name: row.column_name,
-        data_type: row.data_type,
+        column_name: row.column_name.toLocaleLowerCase(),
+        data_type: row.data_type.toLocaleLowerCase(),
         path: getPath(datasourceType, {
           table_catalog: row.table_catalog,
           table_schema: row.table_schema,
