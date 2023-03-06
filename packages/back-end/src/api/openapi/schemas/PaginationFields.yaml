@@ -1,0 +1,21 @@
+type: object
+required:
+  - limit
+  - offset
+  - count
+  - total
+  - hasMore
+  - nextOffset
+properties:
+  limit:
+    type: integer
+  offset:
+    type: integer
+  count:
+    type: integer
+  total:
+    type: integer
+  hasMore:
+    type: boolean
+  nextOffset:
+    type: ["integer", "null"]

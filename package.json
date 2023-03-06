@@ -14,6 +14,7 @@
     "prepare": "husky install",
     "plop": "plop",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
+    "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint && yarn run type-check && yarn run test"
   },
   "workspaces": [
