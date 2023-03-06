@@ -101,7 +101,7 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     identifierType: segment.userIdType || "user_id",
     query: segment.sql,
     datasourceId: segment.datasource || "",
-    dateCreated: segment.dateCreated.toISOString(),
-    dateUpdated: segment.dateUpdated.toISOString(),
+    dateCreated: segment.dateCreated?.toISOString() || "",
+    dateUpdated: segment.dateUpdated?.toISOString() || "",
   };
 }
