@@ -4,7 +4,6 @@ import each from "lodash/each";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import isEqual from "lodash/isEqual";
 import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import {
@@ -19,10 +18,7 @@ import {
 } from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
-import {
-  CURRENT_SCHEMA_VERSION,
-  upgradeExperiment,
-} from "../migrations/experiments";
+import { upgradeExperimentDoc } from "../util/migrations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -41,10 +37,6 @@ type SortFilter = {
 const experimentSchema = new mongoose.Schema({
   id: String,
   trackingKey: String,
-  version: {
-    type: Number,
-    index: true,
-  },
   organization: {
     type: String,
     index: true,
@@ -126,13 +118,6 @@ const experimentSchema = new mongoose.Schema({
       dateEnded: Date,
       phase: String,
       name: String,
-      trafficSplit: [
-        {
-          _id: false,
-          variation: String,
-          weight: Number,
-        },
-      ],
       reason: String,
       coverage: Number,
       variationWeights: [Number],
@@ -159,47 +144,8 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  */
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
   const experiment = omit(doc.toJSON(), ["__v", "_id"]);
-  upgradeExperiment(experiment);
-  return experiment;
+  return upgradeExperimentDoc(experiment);
 };
-
-export async function migrateExperiments() {
-  const experiments = await ExperimentModel.find({
-    $or: [
-      { version: { $exists: false } },
-      {
-        version: { $lt: CURRENT_SCHEMA_VERSION },
-      },
-    ],
-  });
-
-  for (const experiment of experiments) {
-    const original = cloneDeep(experiment.toJSON());
-    const upgraded = toInterface(experiment);
-
-    // See if anything changed that needs to be persisted
-    const changes: Partial<ExperimentInterface> = {};
-    Object.keys(upgraded).forEach(
-      <T extends keyof ExperimentInterface>(field: T) => {
-        if (!isEqual(upgraded[field], original[field])) {
-          changes[field] = upgraded[field];
-        }
-      }
-    );
-
-    if (Object.keys(changes).length > 0) {
-      await ExperimentModel.updateOne(
-        {
-          organization: original.organization,
-          id: original.id,
-        },
-        {
-          $set: changes,
-        }
-      );
-    }
-  }
-}
 
 async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
@@ -304,7 +250,6 @@ export async function createExperiment(
     id: uniqid("exp_"),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
-    version: CURRENT_SCHEMA_VERSION,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,

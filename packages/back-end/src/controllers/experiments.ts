@@ -134,11 +134,8 @@ export async function getExperimentsFrequencyMonth(
       dateStarted = e.dateCreated;
     } else {
       e.phases.forEach((p) => {
-        // get the earliest time it was main or ramp:
-        if (p.phase === "main" || p.phase === "ramp") {
-          if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
-            dateStarted = p.dateStarted;
-        }
+        if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
+          dateStarted = p.dateStarted;
       });
     }
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
@@ -410,17 +407,9 @@ const getExperimentDefinitionFromFeatureAndRule = (
       {
         name: "Main",
         coverage: totalPercent,
-        trafficSplit: expRule.values.map((v, i) => ({
-          variation: variationIds[i],
-          weight:
-            totalPercent > 0
-              ? v.weight / totalPercent
-              : 1 / expRule.values.length,
-        })),
         variationWeights: expRule.values.map((v) =>
           totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
         ),
-        phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),
       },

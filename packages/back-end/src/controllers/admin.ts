@@ -235,16 +235,7 @@ export async function addSampleData(
           {
             coverage: 1,
             name: "main",
-            trafficSplit: [
-              {
-                variation: "var_0",
-                weight: 0.5,
-              },
-              {
-                variation: "var_1",
-                weight: 0.1,
-              },
-            ],
+            variationWeights: [0.5, 0.5],
             reason: "",
             dateStarted: imp.start_date,
             dateEnded: imp.end_date,
@@ -272,7 +263,7 @@ export async function addSampleData(
       data.activationMetric = viewedSignup.id;
       data.variations = [
         {
-          id: "var_0",
+          id: "0",
           key: "0",
           name: "Control",
           screenshots: [
@@ -283,7 +274,7 @@ export async function addSampleData(
           ],
         },
         {
-          id: "var_1",
+          id: "1",
           key: "1",
           name: "Google Login",
           screenshots: [
@@ -307,7 +298,7 @@ export async function addSampleData(
         "Adding a dollar amount to the buy button will remove uncertainty from users and cause them to convert at a higher rate.";
       data.variations = [
         {
-          id: "var_0",
+          id: "0",
           key: "0",
           name: "Control",
           screenshots: [
@@ -318,7 +309,7 @@ export async function addSampleData(
           ],
         },
         {
-          id: "var_1",
+          id: "1",
           key: "1",
           name: "Price in CTA",
           screenshots: [
@@ -339,7 +330,7 @@ export async function addSampleData(
         "Removing everything except email and password will reduce friction and increase signups.";
       data.variations = [
         {
-          id: "var_0",
+          id: "0",
           key: "0",
           name: "Control",
           screenshots: [
@@ -350,7 +341,7 @@ export async function addSampleData(
           ],
         },
         {
-          id: "var_1",
+          id: "1",
           key: "1",
           name: "Shorter Reg Modal",
           screenshots: [

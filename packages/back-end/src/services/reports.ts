@@ -118,10 +118,7 @@ export async function startExperimentAnalysis(
     dateEnded: args.endDate,
     coverage: 1,
     reason: "",
-    trafficSplit: args.variations.map((v) => ({
-      variation: v.id,
-      weight: v.weight,
-    })),
+    variationWeights: args.variations.map((v) => v.weight),
   };
   const experimentObj: ExperimentInterface = {
     exposureQueryId: args.exposureQueryId,

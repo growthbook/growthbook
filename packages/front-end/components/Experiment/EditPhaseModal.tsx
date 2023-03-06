@@ -3,14 +3,13 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentPhaseType,
+  Variation,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
-import { generateVariationId } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import { SortableExperimentVariation } from "./ExperimentVariationsInput";
 
 export interface Props {
   close: () => void;
@@ -26,7 +25,7 @@ export default function EditPhaseModal({
   mutate,
 }: Props) {
   const form = useForm<
-    ExperimentPhaseStringDates & { variations: SortableExperimentVariation[] }
+    ExperimentPhaseStringDates & { variations: Variation[] }
   >({
     defaultValues: {
       ...experiment.phases[i],
@@ -34,12 +33,7 @@ export default function EditPhaseModal({
       dateEnded: experiment.phases[i].dateEnded
         ? experiment.phases[i].dateEnded.substr(0, 16)
         : "",
-      variations: experiment.variations.map((v) => {
-        return {
-          ...v,
-          id: generateVariationId(),
-        };
-      }),
+      variations: experiment.variations,
     },
   });
   const { apiCall } = useAuth();

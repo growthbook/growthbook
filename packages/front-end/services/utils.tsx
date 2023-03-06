@@ -7,7 +7,7 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
 }
 
 export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
-  return `${phase.phase === "main" ? "" : phase.phase + ", "}${Math.floor(
+  return `${phase.name === "Main" ? "" : phase.name + ", "}${Math.floor(
     phase.coverage * 100
   )}% traffic, ${formatTrafficSplit(phase.variationWeights)} split`;
 }
@@ -15,13 +15,13 @@ export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
 export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
-  if (!phase?.phase) {
+  if (!phase?.name) {
     return null;
   }
   return (
     <>
       <span className="phase">
-        {phase.phase === "main" ? "" : phase.phase + ", "}
+        {phase.name === "Main" ? "" : phase.name + ", "}
       </span>
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%

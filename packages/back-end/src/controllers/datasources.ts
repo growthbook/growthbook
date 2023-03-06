@@ -109,10 +109,9 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       targetURLRegex: "",
       variations: [
         {
-          id: "var_0",
+          id: "0",
           key: "0",
           name: "Control",
-          value: `{"color": "blue"}`,
           screenshots: [
             {
               path: "/images/pricing-default.png",
@@ -120,10 +119,9 @@ export async function postSampleData(req: AuthRequest, res: Response) {
           ],
         },
         {
-          id: "var_1",
+          id: "1",
           key: "1",
           name: "Variation",
-          value: `{"color": "green"}`,
           screenshots: [
             {
               path: "/images/pricing-green.png",
@@ -156,10 +154,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           name: "Main",
           reason: "",
           coverage: 1,
-          trafficSplit: [
-            { variation: "var_0", weight: 0.5 },
-            { variation: "var_1", weight: 0.5 },
-          ],
+          variationWeights: [0.5, 0.5],
           groups: [],
         },
       ],

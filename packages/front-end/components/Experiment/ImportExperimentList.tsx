@@ -402,6 +402,10 @@ const ImportExperimentList: FC<{
                           className={`btn btn-primary`}
                           onClick={(ev) => {
                             ev.preventDefault();
+                            const variationIds = e.variationKeys.map(() =>
+                              generateVariationId()
+                            );
+
                             const importObj: Partial<ExperimentInterfaceStringDates> = {
                               name: e.experimentName || e.trackingKey,
                               trackingKey: e.trackingKey,
@@ -421,13 +425,13 @@ const ImportExperimentList: FC<{
                                   screenshots: [],
                                   description: "",
                                   key: vKey,
-                                  id: generateVariationId(),
+                                  id: variationIds[i],
                                 };
                               }),
                               phases: [
                                 {
                                   coverage: 1,
-                                  phase: "main",
+                                  name: "Main",
                                   reason: "",
                                   variationWeights: e.weights,
                                   dateStarted:
