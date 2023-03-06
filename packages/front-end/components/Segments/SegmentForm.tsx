@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import DatasourceSchema from "../DatasourceSchema";
 
 const SegmentForm: FC<{
   close: () => void;
@@ -20,6 +21,7 @@ const SegmentForm: FC<{
     datasources,
     getDatasourceById,
     mutateDefinitions,
+    getInformationSchemaById,
   } = useDefinitions();
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
   const form = useForm({
@@ -36,6 +38,14 @@ const SegmentForm: FC<{
   const userIdType = form.watch("userIdType");
 
   const datasource = getDatasourceById(form.watch("datasource"));
+
+  const informationSchema = getInformationSchemaById(
+    datasource.settings.informationSchemaId
+  );
+
+  const informationSchemaSupported = () =>
+    datasource?.type === "postgres" || datasource?.type === "bigquery";
+
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
@@ -47,6 +57,7 @@ const SegmentForm: FC<{
     <Modal
       close={close}
       open={true}
+      size="fill"
       header={current.id ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
@@ -94,20 +105,32 @@ const SegmentForm: FC<{
         />
       )}
       {sql ? (
-        <SQLInputField
-          userEnteredQuery={form.watch("sql")}
-          datasourceId={datasource.id}
-          form={form}
-          requiredColumns={requiredColumns}
-          placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-          helpText={
-            <>
-              Select two columns named <code>{userIdType}</code> and{" "}
-              <code>date</code>
-            </>
-          }
-          queryType="segment"
-        />
+        <div className="container">
+          <div className="row">
+            <div className="col-lg">
+              <SQLInputField
+                userEnteredQuery={form.watch("sql")}
+                datasourceId={datasource.id}
+                form={form}
+                requiredColumns={requiredColumns}
+                placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
+                helpText={
+                  <>
+                    Select two columns named <code>{userIdType}</code> and{" "}
+                    <code>date</code>
+                  </>
+                }
+                queryType="segment"
+              />
+            </div>
+            {informationSchemaSupported() && (
+              <DatasourceSchema
+                datasource={datasource}
+                informationSchema={informationSchema}
+              />
+            )}
+          </div>
+        </div>
       ) : (
         <Field
           label="Event Condition"

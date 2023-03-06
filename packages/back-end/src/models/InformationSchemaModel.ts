@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import z from "zod";
 import uniqid from "uniqid";
+import omit from "lodash/omit";
 import { InformationSchema } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
@@ -54,6 +55,13 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   informationSchema
 );
 
+/**
+ * Convert the Mongo document to an InformationSourceInterface, omitting Mongo default fields __v, _id
+ * @param doc
+ */
+const toInterface = (doc: InformationSchemaDocument): InformationSchema =>
+  omit(doc.toJSON(), ["__v", "_id"]);
+
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string
@@ -67,4 +75,14 @@ export async function createInformationSchema(
   });
 
   return result ? result.id : null;
+}
+
+export async function getAllInformationSchemas(
+  organization: string
+): Promise<InformationSchema[] | null> {
+  const result = await InformationSchemaModel.find({
+    organization,
+  });
+
+  return result ? result.map(toInterface) : null;
 }

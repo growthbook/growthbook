@@ -190,6 +190,14 @@ export interface InformationSchema {
   schemas: Schema[];
 }
 
+export interface InformationSchemaInterface {
+  id: string;
+  databases: InformationSchema[];
+  dateCreated: Date;
+  dateUpdated: Date;
+  organization: string;
+}
+
 export interface InformationSchemaTablesInterface {
   organization: string;
   table_name: string;

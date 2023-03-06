@@ -6,6 +6,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
+import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -18,6 +19,7 @@ type Definitions = {
   groups: string[];
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
+  informationSchemas: InformationSchemaInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -35,6 +37,7 @@ type DefinitionContextValue = Definitions & {
   getProjectById: (id: string) => null | ProjectInterface;
   getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
+  getInformationSchemaById: (id: string) => null | InformationSchemaInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -56,6 +59,7 @@ const defaultValue: DefinitionContextValue = {
   datasources: [],
   dimensions: [],
   segments: [],
+  informationSchemas: [],
   tags: [],
   groups: [],
   savedGroups: [],
@@ -67,6 +71,7 @@ const defaultValue: DefinitionContextValue = {
   getProjectById: () => null,
   getSavedGroupById: () => null,
   getTagById: () => null,
+  getInformationSchemaById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -106,6 +111,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     "/organization/definitions"
   );
 
+  console.log("data", data);
+
   const [project, setProject] = useLocalStorage("gb_current_project", "");
 
   const activeMetrics = useMemo(() => {
@@ -122,6 +129,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
+  const getInformationSchemaById = useGetById(data?.informationSchemas);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -144,6 +152,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       savedGroups: data.savedGroups,
       projects: data.projects,
       project: filteredProject,
+      informationSchemas: data.informationSchemas,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -152,6 +161,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getProjectById,
       getSavedGroupById,
       getTagById,
+      getInformationSchemaById,
       refreshGroups: async (groups) => {
         const newGroups = groups.filter((t) => !data.groups.includes(t));
         if (newGroups.length > 0) {
