@@ -143,8 +143,8 @@ export interface paths {
       };
     };
   };
-  "/visual-changesets": {
-    /** Get all visual changeset */
+  "/experiments/{id}/visual-changesets": {
+    /** Get all visual changesets */
     get: operations["listVisualChangesets"];
   };
   "/visual-changesets/{id}": {
@@ -2186,19 +2186,17 @@ export interface operations {
     };
   };
   listVisualChangesets: {
-    /** Get all visual changeset */
+    /** Get all visual changesets */
     parameters: {
-        /** @description The number of items to return */
-        /** @description How many items to skip (use in conjunction with limit for pagination) */
-      query: {
-        limit?: number;
-        offset?: number;
+        /** @description The experiment id the visual changesets belong to */
+      path: {
+        id: string;
       };
     };
     responses: {
       200: {
         content: {
-          "application/json": ({
+          "application/json": {
             visualChangesets: ({
                 id?: string;
                 urlPattern: string;
@@ -2217,13 +2215,6 @@ export interface operations {
                       })[];
                   })[];
               })[];
-          }) & {
-            limit: number;
-            offset: number;
-            count: number;
-            total: number;
-            hasMore: boolean;
-            nextOffset: OneOf<[number, null]>;
           };
         };
       };

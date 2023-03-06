@@ -105,10 +105,12 @@ export async function findVisualChangesetById(
   return visualChangeset ? toInterface(visualChangeset) : null;
 }
 
-export async function findVisualChangesetsByOrganization(
+export async function findVisualChangesetsByExperiment(
+  experiment: string,
   organization: string
 ): Promise<VisualChangesetInterface[]> {
   const visualChangesets = await VisualChangesetModel.find({
+    experiment,
     organization,
   });
   return visualChangesets.map(toInterface);

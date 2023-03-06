@@ -116,8 +116,8 @@ export const getExperimentResultsValidator = {
 
 export const listVisualChangesetsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional()}).strict(),
-  paramsSchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
 export const getVisualChangesetValidator = {

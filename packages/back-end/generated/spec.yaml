@@ -78,6 +78,9 @@ tags:
   - name: sdk-connections
     x-displayName: SDK Connections
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
+  - name: visual-changesets
+    x-displayName: Visual Changesets
+    description: Groups of visual changes made by the visual editor to a single page
 paths:
   /features:
     get:
@@ -604,19 +607,24 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
-  /visual-changesets:
+  '/experiments/{id}/visual-changesets':
     get:
-      summary: Get all visual changeset
+      summary: Get all visual changesets
       tags:
         - visual-changesets
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
+        - id: null
+          name: id
+          in: path
+          required: true
+          description: The experiment id the visual changesets belong to
+          schema:
+            type: string
       operationId: listVisualChangesets
       x-codeSamples:
         - lang: cURL
           source: |
-            curl https://api.growthbook.io/api/v1/visual-changesets \
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -632,7 +640,6 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/VisualChangeset'
-                  - $ref: '#/components/schemas/PaginationFields'
   '/visual-changesets/{id}':
     parameters:
       - $ref: '#/components/parameters/id'
