@@ -6,10 +6,12 @@ const env: EnvironmentInitValue = {
   cloud: false,
   appOrigin: "",
   apiHost: "",
+  cdnHost: "",
   config: "db",
   defaultConversionWindowHours: 72,
   sentryDSN: "",
   usingSSO: false,
+  storeSegmentsInMongo: false,
 };
 
 export async function initEnv() {
@@ -26,6 +28,10 @@ export async function initEnv() {
 
 export function getAppOrigin(): string {
   return env.appOrigin;
+}
+
+export function getCdnHost(): string {
+  return env.cdnHost;
 }
 
 export function getApiHost(): string {
@@ -54,4 +60,8 @@ export function usingSSO() {
 }
 export function isSentryEnabled() {
   return !!env.sentryDSN;
+}
+
+export function storeSegmentsInMongo() {
+  return env.storeSegmentsInMongo;
 }

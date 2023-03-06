@@ -6,7 +6,7 @@ import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { processMetricValueQueryResponse } from "../services/queries";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { SegmentModel } from "./SegmentModel";
+import { findSegmentById } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
 
 const impactEstimateSchema = new mongoose.Schema({
@@ -66,11 +66,11 @@ export async function getImpactEstimate(
 
   let segmentObj: SegmentInterface | null = null;
   if (segment) {
-    segmentObj = await SegmentModel.findOne({
-      id: segment,
-      organization,
-      datasource: datasource.id,
-    });
+    segmentObj = await findSegmentById(segment, organization);
+  }
+
+  if (segmentObj?.datasource !== metricObj.datasource) {
+    segmentObj = null;
   }
 
   const integration = getSourceIntegrationObject(datasource);

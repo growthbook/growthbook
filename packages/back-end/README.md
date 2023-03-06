@@ -123,7 +123,160 @@ To avoid pulling in Mongo dependencies, all tested code should be in small stand
 
 ## REST API endpoints
 
-_Coming soon_
+We use OpenAPI to document our REST endpoints.
+
+Let's say you want to add a REST endpoint to get a list of projects.
+
+### OpenAPI Spec
+
+First, you would document the endpoint using OpenAPI:
+
+1. Describe the resource (Project) with a JSON schema: `src/api/openapi/schemas/Project.yaml`
+   ```yml
+   type: object
+   required:
+     - id
+     - name
+   properties:
+     id:
+       type: string
+     name:
+       type: string
+   ```
+2. Reference your schema in `src/api/openapi/schemas/_index.yaml`
+   ```yml
+   Project:
+     $ref: "./Project.yaml"
+   ```
+3. Describe the API endpoint in `src/api/openapi/paths/listProjects.yaml`
+   ```yml
+   get:
+     summary: Get all projects
+     tags:
+       - projects
+     parameters:
+       - $ref: "../parameters.yaml#/limit"
+       - $ref: "../parameters.yaml#/offset"
+     operationId: listProjects
+     x-codeSamples:
+       - lang: "cURL"
+         source: |
+           curl https://api.growthbook.io/api/v1/projects \
+             -u secret_abc123DEF456:
+     responses:
+       "200":
+         content:
+           application/json:
+             schema:
+               allOf:
+                 - type: object
+                   required:
+                     - projects
+                   properties:
+                     projects:
+                       type: array
+                       items:
+                         $ref: "../schemas/Project.yaml"
+                 - $ref: "../schemas/PaginationFields.yaml"
+   ```
+4. Add the endpoint to `src/api/openapi/openapi.yaml` under `paths`
+   ```yml
+   /projects:
+     $ref: "./paths/listProjects.yaml"
+   ```
+5. In the same `src/api/openapi/openapi.yaml` file, define the `projects` tag:
+   ```yml
+   - name: projects
+     x-displayName: Projects
+     description: Projects are used to organize your feature flags and experiments
+   ```
+
+We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
+
+```bash
+yarn generate-api-types
+```
+
+### Router and Business Logic
+
+Next, you'll need to create a helper function to convert from our internal DB interface to the API interface:
+
+```ts
+// src/models/ProjectModel.ts
+import { ApiProject } from "../../types/openapi";
+import { ProjectInterface } from "../../types/project";
+
+export function toProjectApiInterface(project: ProjectInterface): ApiProject {
+  return {
+    id: project.id,
+    name: project.name,
+  };
+}
+```
+
+Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
+
+```ts
+import { ListProjectsResponse } from "../../../types/openapi";
+import {
+  findAllProjects,
+  toProjectApiInterface,
+} from "../../models/ProjectModel";
+import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listProjectsValidator } from "../../validators/openapi";
+
+export const listProjects = createApiRequestHandler(listProjectsValidator)(
+  async (req): Promise<ListProjectsResponse> => {
+    const projects = await findAllProjects(req.organization.id);
+    const { filtered, returnFields } = applyPagination(
+      projects.sort((a, b) => a.id.localeCompare(b.id)),
+      req.query
+    );
+    return {
+      projects: filtered.map((project) => toProjectApiInterface(project)),
+      ...returnFields,
+    };
+  }
+);
+```
+
+Then, create a router at `src/api/projects/projects.router.ts`:
+
+```ts
+import { Router } from "express";
+import { listProjects } from "./listProjects";
+
+const router = Router();
+
+// Project Endpoints
+// Mounted at /api/v1/projects
+router.get("/", listProjects);
+
+export default router;
+```
+
+Finally, mount your router in `src/api/api.router.ts`:
+
+```ts
+import projectsRouter from "./projects/projects.router";
+// ...
+
+router.use("/projects", projectsRouter);
+```
+
+That's it! Your API endpoint is live and ready and all the documentation will be auto-generated for you.
+
+### Automating with Plop
+
+We have a Plop script to automate many of the above steps for you.
+
+```bash
+yarn plop
+```
+
+Then, select `api-object` from the list and enter the name of your resource (`project` in this case).
+
+You'll still have to go through all the steps above and make tweaks as needed, but most of the code will be auto-generated for you.
 
 ## Sample Data
 
@@ -134,12 +287,12 @@ To use the analysis parts of GrowthBook, you need to connect to a data source wi
 We have a sample data generator script you can use to seed a database with realistic website traffic:
 
 1. Run `yarn workspace back-end generate-dummy-data`. This will create CSV files in `/tmp/csv`
-2. Start your local server (e.g. Postgres, MySQL)
-3. Connect to your local instance and run the SQL commands matching your server type in `packages/back-end/test/data-generator/sql_scripts/` to create the tables and upload the generated data
+2. Start your local server (e.g. Postgres, MySQL) or ensure your cloud service (e.g. Snowflake, BigQuery) is set up
+3. Connect to your database instance and run the SQL commands matching your server type in `packages/back-end/test/data-generator/sql_scripts/` to create the tables and upload the generated data
 
-We have SQL scripts set up to work with both Postgres and MySQL, but you could modify the SQL scripts to work with another system.
+We have SQL scripts set up to work with Postgres, MySQL, and Snowflake, but you could modify the SQL scripts to work with another system.
 
-WARNING: the purchases.csv file contains `'\N'` to represent null values which may need to be handled differently depending on the DB engine you are using. It works with both provided scripts for Postgres and MySQL.
+WARNING: the purchases.csv file contains `'\N'` to represent null values which may need to be handled differently depending on the DB engine you are using. It works with both the provided scripts discussed below.
 
 **Postgres**
 
@@ -148,7 +301,7 @@ For postgres, launch your connection using `psql` and run this script `packages/
 You can do this from your terminal with the following command, if your local postgres db is running with user `postgres`, database `growthbook_db`,
 
 ```bash
-> psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/sql_scripts/create_postgres.sql
+psql -U postgres -d growthbook_db -a -f packages/back-end/test/data-generator/sql_scripts/create_postgres.sql
 ```
 
 **MySQL**
@@ -158,8 +311,28 @@ Once your local MySQL db is running, you have to ensure that your server allows 
 Then, you can run `packages/back-end/test/data-generator/sql_scripts/create_mysql.sql` from the mysql console or from the terminal like so (using example user `myuser` and example database `growthbook_db`):
 
 ```bash
-> mysql -u myuser -p growthbook_db --local-infile < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
+mysql -u myuser -p growthbook_db --local-infile < packages/back-end/test/data-generator/sql_scripts/create_mysql.sql
 ```
+
+**Snowflake**
+
+Create a database and a schema in your Snowflake. Then, you can run `packages/back-end/test/data-generator/sql_scripts/create_snowflake.sql` using the `snowsql` command line client (see their [docs](https://docs.snowflake.com/en/user-guide/snowsql.html)). For example, you can run the following in your Mac or Linux terminal if you have a database called `growthbook_db`, a schema called `sample`, account name called `account-name`, and you want to use user `myuser` to log in.
+
+```bash
+snowsql -d growthbook_db -s sample -a account-name -u myuser -f packages/back-end/test/data-generator/sql_scripts/create_snowflake.sql
+```
+
+Note if you're on a windows machine, you will have to modify `create_snowflake.sql` to point to the files different (see the Snowflake docs [here](https://docs.snowflake.com/en/user-guide/data-load-internal-tutorial-stage-data-files.html).)
+
+**BigQuery**
+
+We don't include a SQL script for BigQuery, but you can easily upload data by running the following kind of command for each csv file from your terminal, if you have set up the `bq` command line tool:
+
+```bash
+bq load --project_id=my-teams-project --skip_leading_rows=1 --source_format=CSV --null_marker="\N" sample.orders /tmp/csv/purchases.csv userId:STRING,anonymousId:STRING,sessionId:STRING,browser:STRING,country:STRING,timestamp:TIMESTAMP,qty:INTEGER,amount:INTEGER
+```
+
+where `my-teams-project` is your BQ project, you have created the dataset `sample`, and want to load `purchases.csv` in to the `orders` table in that dataset.
 
 ### Loading sample data in to Growthbook
 

@@ -1,0 +1,18 @@
+type: object
+required:
+  - metricId
+  - overrides
+properties:
+  metricId:
+    type: string
+  overrides:
+    type: object
+    properties:
+      conversionWindowStart:
+        type: number
+      conversionWindowEnd:
+        type: number
+      winRiskThreshold:
+        type: number
+      loseRiskThreshold:
+        type: number

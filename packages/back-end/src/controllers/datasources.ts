@@ -16,13 +16,14 @@ import {
   testQuery,
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
-import { ExperimentModel } from "../models/ExperimentModel";
-import { QueryModel } from "../models/QueryModel";
 import {
-  createManualSnapshot,
+  logExperimentCreated,
+  createExperiment,
   getSampleExperiment,
-} from "../services/experiments";
-import { SegmentModel } from "../models/SegmentModel";
+} from "../models/ExperimentModel";
+import { QueryModel } from "../models/QueryModel";
+import { findSegmentsByDataSource } from "../models/SegmentModel";
+import { createManualSnapshot } from "../services/experiments";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
 import {
   createDataSource,
@@ -156,7 +157,9 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         },
       ],
     };
-    await ExperimentModel.create(experiment);
+
+    const createdExperiment = await createExperiment(experiment, org);
+    await logExperimentCreated(org, createdExperiment);
 
     await createManualSnapshot(
       experiment,
@@ -230,9 +233,10 @@ export async function deleteDataSource(
   }
 
   // Make sure there are no segments
-  const segments = await SegmentModel.find({
-    datasource: datasource.id,
-  });
+  const segments = await findSegmentsByDataSource(
+    datasource.id,
+    datasource.organization
+  );
   if (segments.length > 0) {
     throw new Error(
       "Error: Please delete all segments tied to this datasource first."

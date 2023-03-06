@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
+import intersection from "lodash/intersection";
 import { z } from "zod";
 import { SlackIntegrationInterface } from "../../types/slack-integration";
 import {
@@ -190,6 +191,66 @@ export const getSlackIntegration = async ({
     return !doc ? null : toInterface(doc);
   } catch (e) {
     logger.error(e, "getSlackIntegration");
+    return null;
+  }
+};
+
+type GetForEventOptions = {
+  organizationId: string;
+  eventName: NotificationEventName;
+  tags: string[];
+  projects: string[];
+};
+
+/**
+ * Filters by the following:
+ *  eventName:
+ *    If the integration's events includes the provided event, or
+ *    if the integration does not specify events,
+ *    it will be included.
+ *  tags:
+ *    If the integration's tags intersects with the integration's tags, or
+ *    if the integration does not specify tags,
+ *    it will be included.
+ *  projects:
+ *    If the integration's projects intersects with the integration's projects, or
+ *    if the integration does not specify projects,
+ *    it will be included.
+ * @param organizationId
+ * @param eventName
+ * @param tags
+ * @param projects
+ */
+export const getSlackIntegrationsForFilters = async ({
+  organizationId,
+  eventName,
+  tags,
+  projects,
+}: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
+  const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.events.length === 0 ||
+    slackIntegration.events.includes(eventName);
+
+  const includesTags = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.tags.length === 0 ||
+    intersection(slackIntegration.tags, tags).length > 0;
+
+  const includesProjects = (slackIntegration: SlackIntegrationDocument) =>
+    slackIntegration.projects.length === 0 ||
+    intersection(slackIntegration.projects, projects).length > 0;
+
+  try {
+    const docs = await SlackIntegrationModel.find({
+      organizationId,
+    });
+
+    return docs
+      .filter(includesEvent)
+      .filter(includesTags)
+      .filter(includesProjects)
+      .map(toInterface);
+  } catch (e) {
+    logger.error(e, "getSlackIntegrationsForEvent");
     return null;
   }
 };

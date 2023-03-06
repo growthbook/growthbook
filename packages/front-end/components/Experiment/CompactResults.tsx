@@ -5,6 +5,7 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import { StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -30,6 +31,7 @@ const CompactResults: FC<{
   metrics: string[];
   metricOverrides: MetricOverride[];
   id: string;
+  statsEngine?: StatsEngine;
 }> = ({
   results,
   variations,
@@ -42,6 +44,7 @@ const CompactResults: FC<{
   metrics,
   metricOverrides,
   id,
+  statsEngine,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
@@ -105,6 +108,7 @@ const CompactResults: FC<{
           {...risk}
           labelHeader="Metric"
           users={users}
+          statsEngine={statsEngine}
           renderLabelColumn={(label, metric) => {
             const metricLink = (
               <Tooltip

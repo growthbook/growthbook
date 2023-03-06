@@ -1,0 +1,41 @@
+[
+  {
+    "id": "nonbinom__purchased_items",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
+  },
+  {
+    "id": "nonbinom_null__purchased_value",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders"
+  },
+  {
+    "id": "binomial__any_item_in_cart",
+    "type": "binomial",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Add to Cart'"
+  },
+  {
+    "id": "ratio_binom_binom__any_purchase_over_any_item_in_cart",
+    "type": "binomial",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM orders",
+    "denominator": "binomial__any_item_in_cart"
+  },
+  {
+    "id": "ratio_nonbinom_binom__purchased_value_over_any_item_in_cart",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "denominator": "binomial__any_item_in_cart"
+  },
+  {
+    "id": "ratio_nonbinom_nonbinom__purchased_value_over_purchased_items",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "denominator": "nonbinom__purchased_items"
+  }
+]

@@ -678,7 +678,6 @@ const EditorPage: FC = () => {
                 label: v.name,
               }))}
             />
-            `
           </div>
           <div className="col text-left d-flex">
             <div className="mr-2 d-none d-lg-block">{data.experiment.name}</div>

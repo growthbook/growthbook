@@ -1,0 +1,119 @@
+type: object
+required:
+  - id
+  - dateUpdated
+  - experimentId
+  - phase
+  - dimension
+  - dateStart
+  - dateEnd
+  - settings
+  - queryIds
+  - results
+properties:
+  id:
+    type: string
+  dateUpdated:
+    type: string
+  experimentId:
+    type: string
+  phase:
+    type: string
+  dateStart:
+    type: string
+  dateEnd:
+    type: string
+  dimension:
+    type: object
+    required:
+      - type
+    properties:
+      type:
+        type: string
+      id:
+        type: string
+  settings:
+    $ref: "./ExperimentAnalysisSettings.yaml"
+  queryIds:
+    type: array
+    items:
+      type: string
+  results:
+    type: array
+    items:
+      type: object
+      required:
+        - dimension
+        - totalUsers
+        - checks
+        - metrics
+      properties:
+        dimension:
+          type: string
+        totalUsers:
+          type: number
+        checks:
+          type: object
+          required:
+            - srm
+          properties:
+            srm:
+              type: number
+        metrics:
+          type: array
+          items:
+            type: object
+            required:
+              - metricId
+              - variations
+            properties:
+              metricId:
+                type: string
+              variations:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - variationId
+                    - analyses
+                  properties:
+                    variationId:
+                      type: string
+                    analyses:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - engine
+                          - numerator
+                          - denominator
+                          - mean
+                          - stddev
+                          - percentChange
+                          - ciLow
+                          - ciHigh
+                        properties:
+                          engine:
+                            enum:
+                              - bayesian
+                              - frequentist
+                          numerator:
+                            type: number
+                          denominator:
+                            type: number
+                          mean:
+                            type: number
+                          stddev:
+                            type: number
+                          percentChange:
+                            type: number
+                          ciLow:
+                            type: number
+                          ciHigh:
+                            type: number
+                          pValue:
+                            type: number
+                          risk:
+                            type: number
+                          chanceToBeatControl:
+                            type: number

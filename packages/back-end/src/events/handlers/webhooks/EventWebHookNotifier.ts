@@ -10,8 +10,8 @@ import { getSavedGroupMap } from "../../../services/features";
 import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
+import { cancellableFetch } from "../../../util/http.util";
 import {
-  cancellableFetch,
   EventWebHookErrorResult,
   EventWebHookResult,
   EventWebHookSuccessResult,
@@ -107,6 +107,11 @@ export class EventWebHookNotifier implements Notifier {
       organization,
       savedGroupMap,
     });
+
+    if (!payload) {
+      // Unsupported events return a null payload
+      return;
+    }
 
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,

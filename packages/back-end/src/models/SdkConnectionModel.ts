@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { ApiSDKConnectionInterface } from "../../types/api";
+import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -10,8 +10,8 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "../../types/sdk-connection";
-import { cancellableFetch } from "../events/handlers/webhooks/event-webhooks-utils";
 import { queueSingleProxyUpdate } from "../jobs/proxyUpdate";
+import { cancellableFetch } from "../util/http.util";
 import {
   IS_CLOUD,
   PROXY_ENABLED,
@@ -39,6 +39,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   encryptPayload: Boolean,
   encryptionKey: String,
   connected: Boolean,
+  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -368,7 +369,7 @@ export async function testProxyConnection(
 
 export function toApiSDKConnectionInterface(
   connection: SDKConnectionInterface
-): ApiSDKConnectionInterface {
+): ApiSdkConnection {
   return {
     id: connection.id,
     name: connection.name,

@@ -37,7 +37,7 @@ const growthbook = new GrowthBook({
     // ${trackingComment}
     console.log("Viewed Experiment", {
       experimentId: experiment.key,
-      variationId: result.variationId
+      variationId: result.key
     });
   }
 });
@@ -70,7 +70,7 @@ const growthbook = new GrowthBook({
     // ${trackingComment}
     console.log("Viewed Experiment", {
       experimentId: experiment.key,
-      variationId: result.variationId
+      variationId: result.key
     });
   }
 });
@@ -152,7 +152,7 @@ app.use(function(req, res, next) {
       // ${trackingComment}
       console.log("Viewed Experiment", {
         experimentId: experiment.key,
-        variationId: result.variationId
+        variationId: result.key
       });
     }
   });
@@ -441,13 +441,26 @@ TrackingCallback trackingCallback = new TrackingCallback() {
         Create a GrowthBook instance
         <Code
           language="java"
-          code={`
+          code={
+            encryptionKey
+              ? `
 GBContext context = GBContext.builder()
     .featuresJson(featuresJson)
+    .attributesJson(userAttributesObj.toString()) // Optional
+    .encryptionKey("${encryptionKey}") // You may want to store this in an environment variable
     .trackingCallback(trackingCallback)
     .build();
 GrowthBook growthBook = new GrowthBook(context);
-            `.trim()}
+            `.trim()
+              : `
+GBContext context = GBContext.builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesObj.toString()) // Optional
+    .trackingCallback(trackingCallback)
+    .build();
+GrowthBook growthBook = new GrowthBook(context);
+            `.trim()
+          }
         />
       </>
     );
