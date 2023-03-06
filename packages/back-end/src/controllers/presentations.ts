@@ -6,12 +6,12 @@ import {
   createPresentation,
   deletePresentationById,
 } from "../services/presentations";
-import { getLatestSnapshot } from "../services/experiments";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
 import { getExperimentsByIds } from "../models/ExperimentModel";
+import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -70,6 +70,7 @@ export async function getPresentation(
     });
 
     const snapshot = await getLatestSnapshot(experiment.id, phase);
+    if (!snapshot) return;
     withSnapshots[i] = {
       experiment,
       snapshot,
@@ -118,6 +119,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
         if (p.phase === "main") phase = j;
       });
       const snapshot = await getLatestSnapshot(experiment.id, phase);
+      if (!snapshot) return;
       withSnapshots[i] = {
         experiment,
         snapshot,

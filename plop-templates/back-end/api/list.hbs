@@ -1,0 +1,26 @@
+import { List{{pascalCase object}}sResponse } from "../../../types/openapi";
+import { 
+  find{{pascalCase object}}sByOrganization, 
+  to{{pascalCase object}}ApiInterface 
+} from "../../models/{{pascalCase object}}Model";
+import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { list{{pascalCase object}}sValidator } from "../../validators/openapi";
+
+export const list{{pascalCase object}}s = createApiRequestHandler(list{{pascalCase object}}sValidator)(
+  async (req): Promise<List{{pascalCase object}}sResponse> => {
+    const {{camelCase object}}s = await find{{pascalCase object}}sByOrganization(req.organization.id);
+
+    // TODO: Move sorting/limiting to the database query for better performance
+    const { filtered, returnFields } = applyPagination(
+      {{camelCase object}}s.sort((a, b) => a.id.localeCompare(b.id)),
+      req.query
+    );
+
+    return {
+      {{camelCase object}}s: filtered.map(({{camelCase object}}) =>
+        to{{pascalCase object}}ApiInterface({{camelCase object}})
+      ),
+      ...returnFields,
+    };
+  }
+);

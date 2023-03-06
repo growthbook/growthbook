@@ -3,12 +3,14 @@ import { useMemo } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
 import { OrganizationSettings } from "back-end/types/organization";
+import { SegmentInterface } from "back-end/types/segment";
 
 type Props = {
   metrics: MetricInterface[];
   dimensions: DimensionInterface[];
   datasources: DataSourceInterfaceWithParams[];
   settings: OrganizationSettings;
+  segments: SegmentInterface[];
 };
 
 export function useConfigJson({
@@ -16,6 +18,7 @@ export function useConfigJson({
   dimensions,
   datasources,
   settings,
+  segments,
 }: Props) {
   return useMemo(() => {
     const config: {
@@ -25,6 +28,7 @@ export function useConfigJson({
       datasources?: Record<string, Partial<DataSourceInterfaceWithParams>>;
       metrics?: Record<string, Partial<MetricInterface>>;
       dimensions?: Record<string, Partial<DimensionInterface>>;
+      segments?: Record<string, Partial<SegmentInterface>>;
     } = {};
 
     config.organization = {
@@ -42,6 +46,17 @@ export function useConfigJson({
         params: d.params,
         settings: d.settings,
       } as Partial<DataSourceInterfaceWithParams>;
+    });
+
+    if (segments?.length) config.segments = {};
+    segments?.forEach((s) => {
+      config.segments[s.id] = {
+        name: s.name,
+        datasource: s.datasource,
+        owner: s.owner,
+        sql: s.sql,
+        userIdType: s.userIdType,
+      } as Partial<SegmentInterface>;
     });
 
     if (metrics.length) config.metrics = {};
@@ -103,5 +118,5 @@ export function useConfigJson({
     });
 
     return config;
-  }, [metrics, dimensions, datasources, settings]);
+  }, [metrics, dimensions, datasources, settings, segments]);
 }

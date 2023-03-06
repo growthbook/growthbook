@@ -1,4 +1,5 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
+import omit from "lodash/omit";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
@@ -80,10 +81,102 @@ experimentSnapshotSchema.index({
   dateCreated: -1,
 });
 
-export type ExperimentSnapshotDocument = mongoose.Document &
+type ExperimentSnapshotDocument = mongoose.Document &
   ExperimentSnapshotInterface;
 
-export const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
+const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
   "ExperimentSnapshot",
   experimentSnapshotSchema
 );
+
+const toInterface = (
+  doc: ExperimentSnapshotDocument
+): ExperimentSnapshotInterface => omit(doc.toJSON(), ["__v", "_id"]);
+
+export async function updateSnapshotsOnPhaseDelete(
+  organization: string,
+  experiment: string,
+  phase: number
+) {
+  // Delete all snapshots for the phase
+  await ExperimentSnapshotModel.deleteMany({
+    organization,
+    experiment,
+    phase,
+  });
+
+  // Decrement the phase index for all later phases
+  await ExperimentSnapshotModel.updateMany(
+    {
+      organization,
+      experiment,
+      phase: {
+        $gt: phase,
+      },
+    },
+    {
+      $inc: {
+        phase: -1,
+      },
+    }
+  );
+}
+
+export async function updateSnapshot(
+  organization: string,
+  id: string,
+  updates: Partial<ExperimentSnapshotInterface>
+) {
+  await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+    },
+    {
+      $set: updates,
+    }
+  );
+}
+
+export async function deleteSnapshotById(organization: string, id: string) {
+  await ExperimentSnapshotModel.deleteOne({ organization, id });
+}
+
+export async function findSnapshotById(
+  organization: string,
+  id: string
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOne({ organization, id });
+  return doc ? toInterface(doc) : null;
+}
+
+export async function getLatestSnapshot(
+  experiment: string,
+  phase: number,
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface | null> {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    experiment,
+    phase,
+    dimension: dimension || null,
+  };
+
+  if (withResults) {
+    query.results = { $exists: true, $type: "array", $ne: [] };
+  }
+
+  const all = await ExperimentSnapshotModel.find(query, null, {
+    sort: { dateCreated: -1 },
+    limit: 1,
+  }).exec();
+
+  return all[0] ? toInterface(all[0]) : null;
+}
+
+export async function createExperimentSnapshotModel(
+  data: ExperimentSnapshotInterface
+): Promise<ExperimentSnapshotInterface> {
+  const created = await ExperimentSnapshotModel.create(data);
+  return toInterface(created);
+}

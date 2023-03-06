@@ -1,0 +1,32 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+get:
+  summary: Get results for an experiment
+  tags:
+    - experiments
+  operationId: getExperimentResults
+  x-codeSamples:
+    - lang: 'cURL'
+      source: |
+        curl https://api.growthbook.io/api/v1/experiments/exp_123abc/results \
+          -u secret_abc123DEF456:
+  parameters:
+    - name: phase
+      in: query
+      schema:
+        type: string
+    - name: dimension
+      in: query
+      schema:
+        type: string
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - experiment
+            properties:
+              result:
+                $ref: "../schemas/ExperimentResults.yaml"
