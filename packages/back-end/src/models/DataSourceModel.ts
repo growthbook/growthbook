@@ -9,7 +9,7 @@ import {
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  createInitialInformationSchema,
+  initializeDatasourceInformationSchema,
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
@@ -215,7 +215,7 @@ async function onDataSourceCreate(
   organization: string
 ): Promise<void> {
   try {
-    await createInitialInformationSchema(datasource, organization);
+    await initializeDatasourceInformationSchema(datasource, organization);
   } catch (e) {
     logger.error(e);
   }
