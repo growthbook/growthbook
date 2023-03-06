@@ -6,7 +6,10 @@ import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   table_name: String,
   table_schema: String,
   database_name: String,

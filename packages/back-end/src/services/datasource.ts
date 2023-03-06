@@ -163,7 +163,7 @@ export async function testQuery(
   }
 }
 
-export async function createInitialInformationSchema(
+export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
 ): Promise<void> {

@@ -8,7 +8,10 @@ import { logger } from "../util/logger";
 
 const informationSchema = new mongoose.Schema({
   id: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   databases: {
     required: true,
     type: [Object],
