@@ -1,5 +1,15 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
+openapi=$(git status --porcelain | grep "back-end/src/api/openapi" || true )
+if [ -n "$openapi" ]
+  then
+    echo "#### OpenAPI Spec changed, generating new Typescript types"
+    yarn generate-api-types
+    git add packages/back-end/types/openapi.d.ts
+    git add packages/back-end/generated/spec.yaml
+    git add packages/back-end/src/validators/openapi.ts
+fi
+
 echo "#### Linting typescript, scss, and markdown files"
 yarn lint-staged

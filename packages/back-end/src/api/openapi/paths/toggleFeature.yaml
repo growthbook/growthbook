@@ -1,0 +1,49 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+post:
+  summary: Toggle a feature in one or more environments
+  tags:
+    - features
+  operationId: toggleFeature
+  x-codeSamples:
+    - lang: 'cURL'
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
+          -u secret_abc123DEF456: \
+          -d "environments[production]"=false \
+          -d reason="Kill switch activated"
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - environments
+          properties:
+            reason:
+              type: string
+            environments:
+              type: object
+              additionalProperties:
+                enum:
+                  - true
+                  - false
+                  - "true"
+                  - "false"
+                  - "1"
+                  - "0"
+                  - 1
+                  - 0
+                  - ""
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - feature
+            properties:
+              feature:
+                $ref: "../schemas/Feature.yaml"
