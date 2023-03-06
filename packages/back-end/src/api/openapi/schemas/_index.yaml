@@ -34,3 +34,5 @@ ExperimentResults:
   $ref: './ExperimentResults.yaml'
 DataSource:
   $ref: './DataSource.yaml'
+VisualChangeset:
+  $ref: './VisualChangeset.yaml'
