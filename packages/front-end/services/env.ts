@@ -11,6 +11,7 @@ const env: EnvironmentInitValue = {
   defaultConversionWindowHours: 72,
   sentryDSN: "",
   usingSSO: false,
+  storeSegmentsInMongo: false,
 };
 
 export async function initEnv() {
@@ -59,4 +60,8 @@ export function usingSSO() {
 }
 export function isSentryEnabled() {
   return !!env.sentryDSN;
+}
+
+export function storeSegmentsInMongo() {
+  return env.storeSegmentsInMongo;
 }
