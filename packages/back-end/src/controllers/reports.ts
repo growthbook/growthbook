@@ -4,7 +4,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
-import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import {
   createReport,
   getReportById,
@@ -27,10 +27,7 @@ export async function postReportFromSnapshot(
 ) {
   const { org } = getOrgFromReq(req);
 
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    id: req.params.snapshot,
-    organization: org.id,
-  });
+  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
 
   if (!snapshot) {
     throw new Error("Invalid snapshot id");

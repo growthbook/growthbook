@@ -1,0 +1,27 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - owner
+  - datasourceId
+  - identifierType
+  - name
+  - query
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+  dateUpdated:
+    type: string
+  owner:
+    type: string
+  datasourceId:
+    type: string
+  identifierType:
+    type: string
+  name:
+    type: string
+  query:
+    type: string

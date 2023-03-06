@@ -76,6 +76,8 @@ pre[class*="language-"] {
   }
   code {
     font-size: 0.81529rem;
+  }
+  :not(pre) > code {
     color: var(--code-block-default-color);
   }
 }
