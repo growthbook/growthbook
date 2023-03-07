@@ -234,10 +234,9 @@ const gb = new GrowthBook({
 
 :::note
 
-If the attribute you used for targeting an experiment (split by) is not set or is null when the SDK assigns a user, then
-the feature will return null or off and the `trackingCallback` will not be called. For JS/React SDKs you can use our
+If your experiment is not firing the `trackingCallback` you can use our
 [Chrome developer tool](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
-to help you debug.
+to help you debug and make sure the user attributes are being set correctly.
 
 :::
 
