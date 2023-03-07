@@ -683,8 +683,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           max="99"
                           style={{
                             width: "80px",
+                            borderColor: highlightColor,
                             backgroundColor: highlightColor
-                              ? highlightColor + "20"
+                              ? highlightColor + "15"
                               : "",
                           }}
                           className={`ml-2`}
@@ -718,8 +719,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           max="0.5"
                           min="0.001"
                           style={{
+                            borderColor: pHighlightColor,
                             backgroundColor: pHighlightColor
-                              ? pHighlightColor + "20"
+                              ? pHighlightColor + "15"
                               : "",
                           }}
                           className={`ml-2`}
