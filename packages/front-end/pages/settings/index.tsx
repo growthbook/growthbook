@@ -173,7 +173,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     const enabledVisualEditor =
       !settings?.visualEditorEnabled && value.visualEditorEnabled;
 
-    const transformedOrgSettings: Partial<OrganizationSettings> = {
+    const transformedOrgSettings = {
       ...value,
       metricDefaults: {
         ...value.metricDefaults,
@@ -235,9 +235,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     value.pValueThreshold === 0.5
       ? "This is as high as it goes"
       : value.pValueThreshold > 0.25
-      ? "P-values thresholds this high are not recommended"
+      ? "P-value thresholds this high are not recommended"
       : value.pValueThreshold > 0.2
-      ? "P-values thresholds this high are not recommended"
+      ? "P-value thresholds this high are not recommended"
       : value.pValueThreshold > 0.1
       ? "Use caution with values above 0.1"
       : value.pValueThreshold <= 0.01
