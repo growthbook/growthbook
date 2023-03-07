@@ -7,9 +7,9 @@ slug: GA4-google-analytics
 
 # A/B Testing with Google Analytics 4 (GA4) and GrowthBook
 
-This guide walks you through using GrowthBook with Google Analytics 4 (GA4) to track and report on the impact of your experiments
-on your business. There are a few parts to this, connecting GA4 to BigQuery, connecting GrowthBook to BigQuery, and then configuring
-GrowthBook to track correctly with GA4.
+This guide walks you through using GrowthBook with Google Analytics 4 (GA4) for A/B testing. There are a few parts to
+this, connecting GA4 to BigQuery, connecting GrowthBook to BigQuery, and then configuring GrowthBook to track correctly
+with GA4.
 
 ## Configuring GrowthBook to use Google Analytics GA4 as a data source
 
@@ -146,9 +146,16 @@ when a user is exposed to an experiment.
 
 ## Running experiments with GrowthBook and GA4
 
-With the data source connected, you can use the GrowthBook SDK run A/B tests defined in the GrowthBook UI, and send the
-experiment events to GA4. The best way to do this is to use the GrowthBook SDK. Once implemented, SDK will automatically
-send the experiment exposure event to GA4, and you can use the GrowthBook UI to create your experiment and track the results.
+With the data source connected, you can use the GrowthBook SDK run A/B tests. The SDK lets you run experiments where the
+variations are defined in code, and controlled from UI. Once implemented, the SDK will do the random assignments and send
+the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
+
+:::info
+
+We do have a visual editor for creating experiments, but it is meant for simple experiments. Experiments that are more
+complex are best created with a change in the code.
+
+:::
 
 ### SDK integration for GA4
 
@@ -178,17 +185,17 @@ Once you have your **Client ID** and/or **User Id**, you can pass it to the Grow
 
 ```js
 const gb = new GrowthBook({
-apiHost: "https://cdn.growthbook.io",
-clientKey: "sdk-abc123",
-// Enable easier debugging during development
-enableDevMode: true,
-// Targeting attributes
-attributes: {
-  clientId: gaUserId,
-  userId: userId,
-  country: "US",
-  ...
-}
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Enable easier debugging during development
+  enableDevMode: true,
+  // Targeting attributes
+  attributes: {
+    clientId: gaUserId,
+    userId: userId,
+    country: "US",
+    ...
+  }
 });
 ```
 
@@ -200,28 +207,28 @@ The only additional event required is when a user is exposed to an experiment. T
 
 ```js
 const gb = new GrowthBook({
-apiHost: "https://cdn.growthbook.io",
-clientKey: "sdk-abc123",
-// Targeting attributes
-attributes: {
-  clientId: gaUserId,
-  userId: userId,
-  country: country,
-  ...
-},
-trackingCallback: (experiment, result) => {
-  // track using GA4
-  if ("gtag" in window) {
-    window.gtag("event", "experiment_viewed", {
-      event_category: "experiment",
-      experiment_id: experiment.key,
-      variation_id: result.variationId,
-      ...
-    });
-  } else {
-    console.log("no gtag");
-  }
-},
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Targeting attributes
+  attributes: {
+    clientId: gaUserId,
+    userId: userId,
+    country: country,
+    ...
+  },
+  trackingCallback: (experiment, result) => {
+    // track using GA4
+    if ("gtag" in window) {
+      window.gtag("event", "experiment_viewed", {
+        event_category: "experiment",
+        experiment_id: experiment.key,
+        variation_id: result.variationId,
+        ...
+      });
+    } else {
+      console.log("no gtag");
+    }
+  },
 });
 ```
 
@@ -229,8 +236,10 @@ trackingCallback: (experiment, result) => {
 
 If the attribute you used for targeting an experiment (split by) is not set or is null when the SDK assigns a user, then
 the feature will return null or off and the `trackingCallback` will not be called. For JS/React SDKs you can use our
-[Chrome developer tool](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to help you debug
+[Chrome developer tool](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
+to help you debug.
 
 :::
 
-Implementing the experiment variations can be done with code, using the feature flags, or by using our visual editor.
+Implementing the experiment variations can be done with code with inline experiments, using the feature flags, or by
+using our visual editor.
