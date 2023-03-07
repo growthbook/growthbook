@@ -5,7 +5,7 @@ import {
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
 import React, { useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
-import { FaDatabase } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaDatabase, FaTable } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import DatasourceTableData from "./DatasourceTableData";
 import LoadingOverlay from "./LoadingOverlay";
@@ -43,26 +43,41 @@ export default function DatasourceSchema({
         <div
           key="database"
           className="border rounded p-1"
-          style={{ minHeight: "150px" }}
+          style={{
+            height: "210px",
+            overflowY: "scroll",
+          }}
         >
           {informationSchema.databases.map((database) => {
             return (
               <>
                 {database.schemas.map((schema) => {
                   return (
-                    <>
+                    <div key={schema.schema_name} className="pb-2">
                       <Collapsible
                         className="pb-1"
                         key={database.database_name + schema.schema_name}
-                        trigger={`${database.database_name}.${schema.schema_name}`}
+                        trigger={
+                          <>
+                            <FaAngleRight />
+                            {`${database.database_name}.${schema.schema_name}`}
+                          </>
+                        }
+                        triggerWhenOpen={
+                          <>
+                            <FaAngleDown />
+                            {`${database.database_name}.${schema.schema_name}`}
+                          </>
+                        }
                         triggerStyle={{
                           fontWeight: "bold",
                         }}
+                        transitionTime={100}
                       >
                         {schema.tables.map((table) => {
                           return (
                             <div
-                              className="pl-3"
+                              className="pl-3 pb-1"
                               role="button"
                               key={
                                 database.database_name +
@@ -89,12 +104,12 @@ export default function DatasourceSchema({
                                 }
                               }}
                             >
-                              {table.table_name}
+                              <FaTable /> {table.table_name}
                             </div>
                           );
                         })}
                       </Collapsible>
-                    </>
+                    </div>
                   );
                 })}
               </>

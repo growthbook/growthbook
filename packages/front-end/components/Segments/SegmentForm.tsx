@@ -106,7 +106,7 @@ const SegmentForm: FC<{
       )}
       {sql ? (
         <div className="row">
-          <div className="col-8">
+          <div className="col-7">
             <SQLInputField
               userEnteredQuery={form.watch("sql")}
               datasourceId={datasource.id}
@@ -123,7 +123,7 @@ const SegmentForm: FC<{
             />
           </div>
           {informationSchemaSupported() && (
-            <div className="col-4">
+            <div className="col-5">
               <DatasourceSchema
                 datasource={datasource}
                 informationSchema={informationSchema}

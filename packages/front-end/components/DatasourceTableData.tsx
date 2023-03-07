@@ -22,7 +22,10 @@ export default function DatasourceSchema({ table, loading }: Props) {
           )}
         </div>
       </label>
-      <table className="table table-sm border w-100">
+      <table
+        className="table table-sm border w-100"
+        style={{ maxHeight: "200px", overflowY: "scroll" }}
+      >
         <thead>
           <tr>
             <th>Column</th>
