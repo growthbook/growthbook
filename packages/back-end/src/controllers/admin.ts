@@ -234,7 +234,7 @@ export async function addSampleData(
         phases: [
           {
             coverage: 1,
-            name: "main",
+            name: "Main",
             variationWeights: [0.5, 0.5],
             reason: "",
             dateStarted: imp.start_date,

@@ -20,9 +20,6 @@ export function phaseSummary(
   }
   return (
     <>
-      <span className="phase">
-        {phase.name === "Main" ? "" : phase.name + ", "}
-      </span>
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%
       </span>{" "}
