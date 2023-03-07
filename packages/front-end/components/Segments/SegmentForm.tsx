@@ -105,31 +105,31 @@ const SegmentForm: FC<{
         />
       )}
       {sql ? (
-        <div className="container">
-          <div className="row">
-            <div className="col-lg">
-              <SQLInputField
-                userEnteredQuery={form.watch("sql")}
-                datasourceId={datasource.id}
-                form={form}
-                requiredColumns={requiredColumns}
-                placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-                helpText={
-                  <>
-                    Select two columns named <code>{userIdType}</code> and{" "}
-                    <code>date</code>
-                  </>
-                }
-                queryType="segment"
-              />
-            </div>
-            {informationSchemaSupported() && (
+        <div className="row">
+          <div className="col-8">
+            <SQLInputField
+              userEnteredQuery={form.watch("sql")}
+              datasourceId={datasource.id}
+              form={form}
+              requiredColumns={requiredColumns}
+              placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
+              helpText={
+                <>
+                  Select two columns named <code>{userIdType}</code> and{" "}
+                  <code>date</code>
+                </>
+              }
+              queryType="segment"
+            />
+          </div>
+          {informationSchemaSupported() && (
+            <div className="col-4">
               <DatasourceSchema
                 datasource={datasource}
                 informationSchema={informationSchema}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       ) : (
         <Field
