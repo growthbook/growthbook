@@ -166,10 +166,18 @@ send the experiment exposure event to GA4.
 #### Using GA's Client ID
 
 GA generates a **Client ID** (sometimes called a device Id) for each visitor, and then stores this unique ID in a cookie
-(ga\_). There are a few ways to grab this Id from your code. One of the easiest ways with Javascript is using the following code:
+(\_ga). There are a few ways to grab this Id from your code. Here are a few ways with Javascript:
 
 ```js
-const gaUserId = document.cookie.match(/_ga=(.+?);/)[1].split('.').slice(-2).join(".")
+gtag('get', 'G-[your google property id]', 'client_id', (clientId) => {
+  console.log(clientId)
+});
+```
+
+or
+
+```js
+const clientId = document.cookie.match(/_ga=(.+?);/)[1].split('.').slice(-2).join(".")
 ```
 
 You can read more about getting this ID [here](https://stackoverflow.com/questions/20053949/how-to-get-the-google-analytics-client-id)
@@ -178,6 +186,12 @@ You can read more about getting this ID [here](https://stackoverflow.com/questio
 
 If you have a custom **User Id** already, you can use this with GA4 instead (or as well) as the **Client Id**.
 You can read Google's official instructions on how to pass a custom **User Id** [here](https://developers.google.com/analytics/devguides/collection/ga4/user-id?client_type=gtag).
+
+:::info
+
+A **User Id** in this case would be something you pass to GA4, not something GA4 generates for you. You can use this ID throughout your GA4 reports.
+
+:::
 
 #### Passing Attributes to the SDK
 
@@ -191,7 +205,7 @@ const gb = new GrowthBook({
   enableDevMode: true,
   // Targeting attributes
   attributes: {
-    clientId: gaUserId,
+    clientId: clientId,
     userId: userId,
     country: "US",
     ...
