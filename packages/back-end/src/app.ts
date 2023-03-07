@@ -68,6 +68,11 @@ const featuresController = wrapController(featuresControllerRaw);
 import * as slackControllerRaw from "./controllers/slack";
 const slackController = wrapController(slackControllerRaw);
 
+import * as informationSchemsControllerRaw from "./controllers/informationSchemas";
+const informationSchemsController = wrapController(
+  informationSchemsControllerRaw
+);
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -454,6 +459,12 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+
+// Information Schemas
+app.get(
+  "/database/:databaseName/schema/:schemaName/table/:tableName",
+  informationSchemsController.getTableData
+);
 
 // Events
 app.use("/events", eventsRouter);

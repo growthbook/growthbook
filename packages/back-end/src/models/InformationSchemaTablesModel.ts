@@ -64,3 +64,19 @@ export async function createInformationSchemaTables(
 
   return results.map(toInterface);
 }
+
+export async function getTableDataByPath(
+  organization: string,
+  databaseName: string,
+  schemaName: string,
+  tableName: string
+): Promise<InformationSchemaTablesInterface | null> {
+  const table = await InformationSchemaTablesModel.findOne({
+    organization,
+    database_name: databaseName,
+    table_schema: schemaName,
+    table_name: tableName,
+  });
+
+  return table ? toInterface(table) : null;
+}
