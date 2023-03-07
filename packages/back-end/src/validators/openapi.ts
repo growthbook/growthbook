@@ -113,3 +113,15 @@ export const getExperimentResultsValidator = {
   querySchema: z.object({"phase":z.string().optional(),"dimension":z.string().optional()}).strict(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
+
+export const listVisualChangesetsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const getVisualChangesetValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};

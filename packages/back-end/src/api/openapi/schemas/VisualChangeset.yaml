@@ -1,0 +1,47 @@
+type: object
+required:
+  - urlPattern
+  - editorUrl
+  - experiment
+  - visualChanges
+properties:
+  id:
+    type: string
+  urlPattern:
+    type: string
+  editorUrl:
+    type: string
+  experiment:
+    type: string
+  visualChanges:
+    type: array
+    items:
+      type: object
+      required:
+        - variation
+        - domMutations
+      properties:
+        description:
+          type: string
+        css:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            required:
+              - selector
+              - action
+              - attribute
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum: [append, set, remove]
+              attribute:
+                type: string
+              value:
+                type: string
