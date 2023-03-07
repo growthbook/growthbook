@@ -39,21 +39,21 @@ const AddExperimentModal: FC<{
 
   const ctas: CTA[] = [
     {
-      cta: "Create Visually",
-      description:
-        "Load your website in our Visual Editor and create variations directly on the page.",
-      Icon: GoBrowser,
-      onClick: () => {
-        setMode("visual");
-      },
-    },
-    {
       cta: "Create from Data Source",
       description:
         "Create an experiment by importing existing experiment data from one of your data sources.",
       Icon: GoDatabase,
       onClick: () => {
         setMode("import");
+      },
+    },
+    {
+      cta: "Create Visually",
+      description:
+        "Load your website in our Visual Editor and create variations directly on the page.",
+      Icon: GoBrowser,
+      onClick: () => {
+        setMode("visual");
       },
     },
     {
@@ -76,7 +76,24 @@ const AddExperimentModal: FC<{
     default:
       return (
         <Modal open close={() => onClose()} size="lg" header="Add Experiment">
-          <h2>Chose your method of creating an Experiment</h2>
+          <h2>
+            Did you already start running this experiment and just need to
+            analyze results?
+          </h2>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+            }}
+          >
+            <CreateExperimentCTA
+              cta={ctas[0].cta}
+              Icon={ctas[0].Icon}
+              onClick={ctas[0].onClick}
+              description={ctas[0].description}
+            />
+          </div>
+          <h2>Or is this a brand new experiment you&apos;re creating?</h2>
           <div
             style={{
               display: "flex",
@@ -84,7 +101,7 @@ const AddExperimentModal: FC<{
               justifyContent: "center",
             }}
           >
-            {ctas.map(({ cta, description, Icon, onClick }, index) => (
+            {ctas.slice(1).map(({ cta, description, Icon, onClick }, index) => (
               <CreateExperimentCTA
                 key={index}
                 cta={cta}
