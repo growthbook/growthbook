@@ -77,6 +77,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "guide/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
+        },
+        {
+          type: "doc",
           id: "guide/GA-universal-analytics",
           label: "Google Analytics (UA)",
         },
@@ -129,6 +134,12 @@ const sidebars = {
           type: "doc",
           id: "tools/vscode-extension",
           label: "Visual Studio Code Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/cli",
+          className: "pill-new",
+          label: "Command Line Interface (CLI)",
         },
       ],
     },

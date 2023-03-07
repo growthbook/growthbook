@@ -1,0 +1,50 @@
+type: object
+required:
+  - defaultValue
+properties:
+  defaultValue:
+    type:
+      - string
+      - number
+      - array
+      - object
+      - "null"
+  rules:
+    type: array
+    items:
+      type: object
+      properties:
+        force:
+          type:
+            - string
+            - number
+            - array
+            - object
+            - "null"
+        weights:
+          type: array
+          items: number
+        variations:
+          type: array
+          items:
+            type:
+              - string
+              - number
+              - array
+              - object
+              - "null"
+        hashAttribute:
+          type: string
+        namespace:
+          type: array
+          items:
+            type: ["number", "string"]
+          minItems: 3
+          maxItems: 3
+        key:
+          type: string
+        coverage:
+          type: number
+        condition:
+          type: object
+          additionalProperties: true
