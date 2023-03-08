@@ -9,14 +9,13 @@ import {
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  initializeDatasourceInformationSchema,
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
-import { logger } from "../util/logger";
+import queueCreateInformationSchema from "../jobs/informationSchema";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -167,7 +166,7 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
 
-  await onDataSourceCreate(datasource, organization);
+  await queueCreateInformationSchema(datasource, organization);
 
   return toInterface(model);
 }
@@ -208,17 +207,6 @@ export async function _dangerousGetAllDatasources(): Promise<
 > {
   const all = await DataSourceModel.find();
   return all.map(toInterface);
-}
-
-async function onDataSourceCreate(
-  datasource: DataSourceInterface,
-  organization: string
-): Promise<void> {
-  try {
-    await initializeDatasourceInformationSchema(datasource, organization);
-  } catch (e) {
-    logger.error(e);
-  }
 }
 
 export function toDataSourceApiInterface(
