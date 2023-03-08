@@ -651,23 +651,23 @@ export function toExperimentApiInterface(
     archived: !!experiment.archived,
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
-    variations: experiment.variations.map((v, i) => ({
-      variationId: i + "",
-      key: v.key || i + "",
+    variations: experiment.variations.map((v) => ({
+      variationId: v.id,
+      key: v.key,
       name: v.name || "",
       description: v.description || "",
       screenshots: v.screenshots.map((s) => s.path),
     })),
     phases: experiment.phases.map((p) => ({
-      name: p.phase,
+      name: p.name,
       dateStarted: p.dateStarted.toISOString(),
       dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
       reasonForStopping: p.reason || "",
       seed: experiment.trackingKey,
       coverage: p.coverage,
-      trafficSplit: p.variationWeights.map((n, i) => ({
-        variationId: i + "",
-        weight: n,
+      trafficSplit: experiment.variations.map((v, i) => ({
+        variationId: v.id,
+        weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: "",
     })),
@@ -739,6 +739,8 @@ export function toSnapshotApiInterface(
 
   const activationMetric = experiment.activationMetric;
 
+  const variationIds = experiment.variations.map((v) => v.id);
+
   return {
     id: snapshot.id,
     dateUpdated: snapshot.dateCreated.toISOString(),
@@ -785,7 +787,7 @@ export function toSnapshotApiInterface(
           variations: s.variations.map((v, i) => {
             const data = v.metrics[m];
             return {
-              variationId: i + "",
+              variationId: variationIds[i],
               analyses: [
                 {
                   engine: snapshot.statsEngine || "bayesian",
