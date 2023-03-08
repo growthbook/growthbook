@@ -4,7 +4,6 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { DataSourceType } from "../../types/datasource";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
 import { formatInformationSchema } from "../util/integrations";
 import SqlIntegration from "./SqlIntegration";
@@ -82,10 +81,9 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(
-    dataSourceType: DataSourceType,
-    projectId: string
-  ): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<InformationSchema[] | null> {
+    const projectId = this.params.projectId;
+
     if (!projectId) {
       return null;
     }
@@ -120,7 +118,7 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return combinedResults.length
-      ? formatInformationSchema(combinedResults, dataSourceType)
+      ? formatInformationSchema(combinedResults, "bigquery")
       : null;
   }
 }

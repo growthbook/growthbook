@@ -116,10 +116,7 @@ export async function generateInformationSchema(
   const integration = getSourceIntegrationObject(datasource);
 
   try {
-    return await integration.getInformationSchema(
-      datasource.type,
-      integration.params.projectId
-    );
+    return await integration.getInformationSchema();
   } catch (e) {
     return null;
   }
