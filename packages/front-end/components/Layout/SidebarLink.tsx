@@ -128,61 +128,65 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             [styles.open]: open || selected,
           })}
         >
-          {props.subLinks.map((l) => {
-            if (l.superAdmin && !admin) return null;
+          {props.subLinks
+            .filter(
+              (subLink) => !subLink.feature || growthbook.isOn(subLink.feature)
+            )
+            .map((l) => {
+              if (l.superAdmin && !admin) return null;
 
-            if (l.permissions) {
-              for (let i = 0; i < l.permissions.length; i++) {
-                if (!permissions[l.permissions[i]]) {
-                  return null;
+              if (l.permissions) {
+                for (let i = 0; i < l.permissions.length; i++) {
+                  if (!permissions[l.permissions[i]]) {
+                    return null;
+                  }
                 }
               }
-            }
-            if (l.cloudOnly && !isCloud()) {
-              return null;
-            }
-            if (l.selfHostedOnly && isCloud()) {
-              return null;
-            }
-            if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
-              return null;
-            }
+              if (l.cloudOnly && !isCloud()) {
+                return null;
+              }
+              if (l.selfHostedOnly && isCloud()) {
+                return null;
+              }
+              if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
+                return null;
+              }
 
-            const sublinkSelected = l.path.test(path);
+              const sublinkSelected = l.path.test(path);
 
-            return (
-              <li
-                key={l.href}
-                className={clsx(
-                  "sidebarlink sublink",
-                  styles.link,
-                  styles.sublink,
-                  {
-                    [styles.subdivider]: l.divider,
-                    [styles.selected]: sublinkSelected,
-                    selected: sublinkSelected,
-                    [styles.collapsed]: !open && !sublinkSelected,
-                  }
-                )}
-              >
-                <Link href={l.href}>
-                  <a className="align-middle">
-                    {showSubMenuIcons && (
-                      <>
-                        {l.Icon && <l.Icon className={styles.icon} />}
-                        {l.icon && (
-                          <span>
-                            <img src={`/icons/${l.icon}`} />
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {l.name}
-                  </a>
-                </Link>
-              </li>
-            );
-          })}
+              return (
+                <li
+                  key={l.href}
+                  className={clsx(
+                    "sidebarlink sublink",
+                    styles.link,
+                    styles.sublink,
+                    {
+                      [styles.subdivider]: l.divider,
+                      [styles.selected]: sublinkSelected,
+                      selected: sublinkSelected,
+                      [styles.collapsed]: !open && !sublinkSelected,
+                    }
+                  )}
+                >
+                  <Link href={l.href}>
+                    <a className="align-middle">
+                      {showSubMenuIcons && (
+                        <>
+                          {l.Icon && <l.Icon className={styles.icon} />}
+                          {l.icon && (
+                            <span>
+                              <img src={`/icons/${l.icon}`} />
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {l.name}
+                    </a>
+                  </Link>
+                </li>
+              );
+            })}
         </ul>
       )}
     </>
