@@ -7,6 +7,7 @@ required:
   - project
   - hypothesis
   - description
+  - hashAttribute
   - tags
   - owner
   - archived
@@ -44,6 +45,8 @@ properties:
     type: string
   autoRefresh:
     type: boolean
+  hashAttribute:
+    type: string
   variations:
     type: array
     items:

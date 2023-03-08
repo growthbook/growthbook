@@ -619,6 +619,7 @@ export interface components {
       archived: boolean;
       status: string;
       autoRefresh: boolean;
+      hashAttribute: string;
       variations: ({
           variationId: string;
           key: string;
@@ -1905,6 +1906,7 @@ export interface operations {
                 archived: boolean;
                 status: string;
                 autoRefresh: boolean;
+                hashAttribute: string;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2011,6 +2013,7 @@ export interface operations {
               archived: boolean;
               status: string;
               autoRefresh: boolean;
+              hashAttribute: string;
               variations: ({
                   variationId: string;
                   key: string;

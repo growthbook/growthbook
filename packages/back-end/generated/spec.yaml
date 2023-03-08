@@ -1287,6 +1287,7 @@ components:
         - project
         - hypothesis
         - description
+        - hashAttribute
         - tags
         - owner
         - archived
@@ -1324,6 +1325,8 @@ components:
           type: string
         autoRefresh:
           type: boolean
+        hashAttribute:
+          type: string
         variations:
           type: array
           items:

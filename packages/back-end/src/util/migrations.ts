@@ -378,9 +378,12 @@ export function upgradeExperimentDoc(
 
       phase.coverage = phase.coverage ?? 1;
       phase.condition = phase.condition || "";
-      phase.hashAttribute = phase.hashAttribute || "id";
+      phase.seed = phase.seed || experiment.trackingKey;
     });
   }
+
+  // Add hashAttribute field
+  experiment.hashAttribute = experiment.hashAttribute || "";
 
   // Old `observations` field
   if (!experiment.description && experiment.observations) {

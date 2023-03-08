@@ -30,23 +30,20 @@ export interface Variation {
   dom?: DomChange[];
 }
 
-export interface Targeting {
-  condition: string;
-  hashAttribute: string;
-  coverage: number;
-  namespace?: NamespaceValue;
-}
-
 export interface LegacyExperimentPhase extends ExperimentPhase {
   /** @deprecated */
   phase?: ExperimentPhaseType;
 }
 
-export interface ExperimentPhase extends Targeting {
+export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
   name: string;
   reason: string;
+  coverage: number;
+  condition: string;
+  namespace?: NamespaceValue;
+  seed?: string;
   variationWeights: number[];
   /** @deprecated */
   groups?: string[];
@@ -96,6 +93,7 @@ export interface ExperimentInterface {
    * @deprecated
    */
   userIdType?: "anonymous" | "user";
+  hashAttribute: string;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
