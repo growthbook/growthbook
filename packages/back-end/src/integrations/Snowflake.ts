@@ -35,4 +35,14 @@ export default class Snowflake extends SqlIntegration {
     // This functionality is not yet supported with this datasource.
     return null;
   }
+  async getTableData(
+    /* eslint-disable */
+    databaseName: string,
+    schemaName: string,
+    tableName: string
+    /* eslint-enable */
+  ): Promise<null | unknown[]> {
+    // This functionality is not yet supported with this datasource.
+    return null;
+  }
 }

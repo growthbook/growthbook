@@ -107,6 +107,23 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   return obj;
 }
 
+export async function fetchTableData(
+  databaseName: string,
+  tableSchema: string,
+  tableName: string,
+  datasource: DataSourceInterface
+): Promise<unknown[] | null> {
+  const integration = getSourceIntegrationObject(datasource);
+
+  const tableData = await integration.getTableData(
+    databaseName,
+    tableSchema,
+    tableName
+  );
+
+  return tableData;
+}
+
 export async function generateInformationSchema(
   datasource: DataSourceInterface
 ): Promise<InformationSchema[] | null> {

@@ -232,6 +232,11 @@ export interface SourceIntegrationInterface {
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
   getInformationSchema(): Promise<null | InformationSchema[]>;
+  getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<null | unknown[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

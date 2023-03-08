@@ -53,4 +53,27 @@ export default class Postgres extends SqlIntegration {
       ? formatInformationSchema(results as RawInformationSchema[], "postgres")
       : null;
   }
+
+  async getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<null | unknown[]> {
+    const sql = `SELECT
+        data_type,
+        column_name
+      FROM
+        information_schema.columns
+      WHERE
+        table_catalog
+      IN ('${databaseName}')
+      AND
+        table_schema
+      IN ('${tableSchema}')
+      AND
+        table_name
+      IN ('${tableName}')`;
+
+    return (await this.runQuery(sql)) || null;
+  }
 }

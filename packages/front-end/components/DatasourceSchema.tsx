@@ -102,7 +102,7 @@ export default function DatasourceSchema({
                                     status: number;
                                     table?: InformationSchemaTablesInterface;
                                   }>(
-                                    `/database/${database.databaseName}/schema/${schema.schemaName}/table/${table.tableName}`,
+                                    `/datasourceId/${datasource.id}/database/${database.databaseName}/schema/${schema.schemaName}/table/${table.tableName}`,
                                     {
                                       method: "GET",
                                     }

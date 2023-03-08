@@ -119,4 +119,24 @@ export default class BigQuery extends SqlIntegration {
       ? formatInformationSchema(combinedResults, "bigquery")
       : null;
   }
+
+  async getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<null | unknown[]> {
+    const sql = `SELECT
+          data_type,
+          column_name
+        FROM
+          ${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS
+        WHERE
+          table_name
+        IN ('${tableName}')
+        AND
+          table_schema
+        IN ('${tableSchema}')`;
+
+    return (await this.runQuery(sql)) || null;
+  }
 }

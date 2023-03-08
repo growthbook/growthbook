@@ -1480,8 +1480,11 @@ export default abstract class SqlIntegration
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
 
-  abstract getInformationSchema(
-    datasourceType?: string,
-    projectId?: string
-  ): Promise<InformationSchema[] | null>;
+  abstract getInformationSchema(): Promise<InformationSchema[] | null>;
+
+  abstract getTableData(
+    databaseName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<null | unknown[]>;
 }

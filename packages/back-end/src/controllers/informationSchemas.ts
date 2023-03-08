@@ -10,6 +10,7 @@ export async function getTableData(
       databaseName: string;
       schemaName: string;
       tableName: string;
+      datasourceId: string;
     }
   >,
   res: Response
@@ -18,7 +19,7 @@ export async function getTableData(
 
   // TODO: Validate user has permission
 
-  const { databaseName, schemaName, tableName } = req.params;
+  const { databaseName, schemaName, tableName, datasourceId } = req.params;
 
   if (!databaseName || !schemaName || !tableName) {
     res.status(400).json({
@@ -33,7 +34,8 @@ export async function getTableData(
       org.id,
       databaseName,
       schemaName,
-      tableName
+      tableName,
+      datasourceId
     );
 
     res.status(200).json({
