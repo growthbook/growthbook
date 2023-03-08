@@ -248,8 +248,7 @@ const DateGraph: FC<{
         } else if (e.results === "lost") {
           expLines.color = "rgb(199,51,51)";
         }
-        // get the earliest start date, and the latest end date - this might not be what we want,
-        // we may want to only look at the 'main' phase, or ignore the holdouts.
+        // get the earliest start date, and the latest end date.
         if (e?.phases) {
           e?.phases.forEach((p) => {
             if (!expLines.dateStarted) expLines.dateStarted = p.dateStarted;
