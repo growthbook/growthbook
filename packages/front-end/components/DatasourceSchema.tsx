@@ -32,19 +32,11 @@ export default function DatasourceSchema({
     setCurrentTable(null);
   }, [datasource]);
 
-  console.log("informationSchema.databases", informationSchema.databases);
-
   const { items, searchInputProps } = useSearch({
     items: informationSchema.databases || [],
-    searchFields: ["database_name", "schemas"], //MKTODO: Update this so nested search works correctly
-    // searchFields: ["path", "database_name", "schemas", "schemas.path"],
-    // searchFields: ["database_name.schemas.path"],
-    // searchFields: [
-    //   { name: "database_name", getFn: (database) => database.database_name },
-    //   { name: "schema_name", getFn: (database) => database.schema.schema_name },
-    // ],
+    searchFields: ["databaseName", "schemas"], //MKTODO: Update this so nested search works correctly
     localStorageKey: "datasources",
-    defaultSortField: "database_name",
+    defaultSortField: "databaseName",
   });
 
   if (!datasource || !informationSchema) {
@@ -71,20 +63,20 @@ export default function DatasourceSchema({
               <>
                 {database.schemas.map((schema) => {
                   return (
-                    <div key={schema.schema_name} className="pb-2">
+                    <div key={schema.schemaName} className="pb-2">
                       <Collapsible
                         className="pb-1"
-                        key={database.database_name + schema.schema_name}
+                        key={database.databaseName + schema.schemaName}
                         trigger={
                           <>
                             <FaAngleRight />
-                            {`${database.database_name}.${schema.schema_name}`}
+                            {`${database.databaseName}.${schema.schemaName}`}
                           </>
                         }
                         triggerWhenOpen={
                           <>
                             <FaAngleDown />
-                            {`${database.database_name}.${schema.schema_name}`}
+                            {`${database.databaseName}.${schema.schemaName}`}
                           </>
                         }
                         triggerStyle={{
@@ -98,9 +90,9 @@ export default function DatasourceSchema({
                               className="pl-3 pb-1"
                               role="button"
                               key={
-                                database.database_name +
-                                schema.schema_name +
-                                table.table_name
+                                database.databaseName +
+                                schema.schemaName +
+                                table.tableName
                               }
                               onClick={async () => {
                                 try {
@@ -110,11 +102,12 @@ export default function DatasourceSchema({
                                     status: number;
                                     table?: InformationSchemaTablesInterface;
                                   }>(
-                                    `/database/${database.database_name}/schema/${schema.schema_name}/table/${table.table_name}`,
+                                    `/database/${database.databaseName}/schema/${schema.schemaName}/table/${table.tableName}`,
                                     {
                                       method: "GET",
                                     }
                                   );
+                                  console.log("res", res);
                                   setCurrentTable(res.table);
                                   setLoading(false);
                                 } catch (e) {
@@ -122,7 +115,7 @@ export default function DatasourceSchema({
                                 }
                               }}
                             >
-                              <FaTable /> {table.table_name}
+                              <FaTable /> {table.tableName}
                             </div>
                           );
                         })}

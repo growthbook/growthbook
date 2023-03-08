@@ -16,7 +16,7 @@ export default function DatasourceSchema({ table, loading }: Props) {
         <div>
           <FaTable />{" "}
           {table ? (
-            `${table.table_schema}.${table.table_name}`
+            `${table.tableSchema}.${table.tableName}`
           ) : (
             <LoadingSpinner />
           )}
@@ -35,9 +35,9 @@ export default function DatasourceSchema({ table, loading }: Props) {
         <tbody>
           {table?.columns.map((column) => {
             return (
-              <tr key={table.table_name + column.column_name}>
-                <td>{column.column_name}</td>
-                <td>{column.data_type}</td>
+              <tr key={table.tableName + column.columnName}>
+                <td>{column.columnName}</td>
+                <td>{column.dataType}</td>
               </tr>
             );
           })}

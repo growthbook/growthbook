@@ -57,7 +57,7 @@ const SegmentForm: FC<{
     <Modal
       close={close}
       open={true}
-      size="fill"
+      size="max"
       header={current.id ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {

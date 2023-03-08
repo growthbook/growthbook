@@ -74,9 +74,9 @@ export async function getTableDataByPath(
 ): Promise<InformationSchemaTablesInterface | null> {
   const table = await InformationSchemaTablesModel.findOne({
     organization,
-    database_name: databaseName,
-    table_schema: schemaName,
-    table_name: tableName,
+    databaseName: databaseName,
+    tableSchema: schemaName,
+    tableName: tableName,
   });
 
   return table ? toInterface(table) : null;
