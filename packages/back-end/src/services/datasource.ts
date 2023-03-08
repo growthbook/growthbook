@@ -1,5 +1,4 @@
 import { AES, enc } from "crypto-js";
-import uniqid from "uniqid";
 import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
@@ -10,7 +9,6 @@ import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
 import {
   InformationSchema,
-  InformationSchemaTablesInterface,
   SourceIntegrationInterface,
   TestQueryRow,
 } from "../types/Integration";
@@ -27,7 +25,6 @@ import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 import { createInformationSchema } from "../models/InformationSchemaModel";
 import { updateDataSource } from "../models/DataSourceModel";
-import { createInformationSchemaTables } from "../models/InformationSchemaTablesModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -167,32 +164,9 @@ export async function initializeDatasourceInformationSchema(
 ): Promise<void> {
   const informationSchema = await generateInformationSchema(datasource);
 
-  const tablesToCreate: InformationSchemaTablesInterface[] = [];
-
   // Loop through each database, schema, and table, and add the table's metadata to the tablesToCreate array
   if (informationSchema) {
-    for (const database of informationSchema) {
-      for (const schema of database.schemas) {
-        for (const table of schema.tables) {
-          tablesToCreate.push({
-            id: uniqid("tbl_"),
-            organization,
-            tableName: table.tableName,
-            tableSchema: schema.schemaName,
-            databaseName: database.databaseName,
-            columns: table.columns || [],
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-          });
-          delete table.columns; // MKTODO: This feels risky
-        }
-      }
-    }
-
-    // Now, in a single database call, create all of the necessary table documents
-    await createInformationSchemaTables(tablesToCreate);
-
-    // Then, save the updated informationSchema to the InformationSchema collection and get the id.
+    // Save the updated informationSchema to the InformationSchema collection and get the id.
     const informationSchemaId = await createInformationSchema(
       informationSchema,
       organization

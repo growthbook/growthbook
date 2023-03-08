@@ -98,10 +98,8 @@ export default class BigQuery extends SqlIntegration {
 
     for (const dataset of datasets) {
       query.push(`SELECT
+        DISTINCT table_name,
         "${projectId}" as table_catalog,
-        table_name,
-        column_name,
-        data_type,
         table_schema
       FROM
         ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS`);
