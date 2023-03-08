@@ -159,8 +159,6 @@ export interface TestQueryResult {
 
 export interface RawInformationSchema {
   table_name: string;
-  column_name: string;
-  data_type: string;
   table_catalog: string;
   table_schema: string;
 }

@@ -37,17 +37,15 @@ export default class Postgres extends SqlIntegration {
 
   async getInformationSchema(): Promise<InformationSchema[] | null> {
     const sql = `SELECT
-        table_name,
-        column_name,
-        data_type,
-        table_catalog,
-        table_schema
-      FROM
-        information_schema.columns
-      WHERE
-        table_schema
-      NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-      ORDER BY table_name;`;
+     DISTINCT table_name,
+    table_catalog,
+    table_schema
+  FROM
+    information_schema.columns
+  WHERE
+    table_schema
+  NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+  ORDER BY table_name;`;
 
     const results = await this.runQuery(sql);
 

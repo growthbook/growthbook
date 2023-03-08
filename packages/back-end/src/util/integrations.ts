@@ -3,7 +3,6 @@ import {
   InformationSchema,
   RawInformationSchema,
   Schema,
-  Table,
 } from "../types/Integration";
 
 type RowType = {
@@ -72,27 +71,6 @@ export function formatInformationSchema(
     if (!currentTableSchema.tables.has(row.table_name)) {
       currentTableSchema.tables.set(row.table_name, {
         tableName: row.table_name.toLocaleLowerCase(),
-        columns: new Map(),
-        path: getPath(datasourceType, {
-          tableCatalog: row.table_catalog,
-          tableSchema: row.table_schema,
-          tableName: row.table_name,
-        }),
-      });
-    }
-
-    const currentColumnsSchema = currentTableSchema.tables.get(row.table_name);
-
-    if (!currentColumnsSchema.columns.has(row.column_name)) {
-      currentColumnsSchema.columns.set(row.column_name, {
-        columnName: row.column_name.toLocaleLowerCase(),
-        dataType: row.data_type.toLocaleLowerCase(),
-        path: getPath(datasourceType, {
-          tableCatalog: row.table_catalog,
-          tableSchema: row.table_schema,
-          tableName: row.table_name,
-          columnName: row.column_name,
-        }),
       });
     }
   });
@@ -104,9 +82,6 @@ export function formatInformationSchema(
     informationSchema.schemas = Array.from(informationSchema.schemas.values());
     informationSchema.schemas.forEach((schema: Schema) => {
       schema.tables = Array.from(schema.tables.values());
-      schema.tables.forEach((table: Table) => {
-        table.columns = Array.from(table.columns?.values() || []);
-      });
     });
   });
 
