@@ -32,12 +32,10 @@ export default function ExperimentList({
           endDate;
 
         test.phases.forEach((p) => {
-          if (p.phase === "main" || p.phase === "ramp") {
-            if (!startDate || p.dateStarted < startDate) {
-              startDate = p.dateStarted;
-            }
-            if (!endDate || p.dateEnded > endDate) endDate = p.dateEnded;
+          if (!startDate || p.dateStarted < startDate) {
+            startDate = p.dateStarted;
           }
+          if (!endDate || p.dateEnded > endDate) endDate = p.dateEnded;
         });
         const currentPhase = test.phases[test.phases.length - 1];
         return (
@@ -63,8 +61,7 @@ export default function ExperimentList({
                     <div style={{ flex: 1 }} />
                     <div>
                       {" "}
-                      {test.variations.length} variations, {currentPhase?.phase}{" "}
-                      phase
+                      {currentPhase?.name} ({test.variations.length} variations)
                     </div>
                   </div>
                 </a>

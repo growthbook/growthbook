@@ -19,6 +19,7 @@ import {
 } from "../events/base-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
+import { upgradeExperimentDoc } from "../util/migrations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -30,17 +31,8 @@ type FindOrganizationOptions = {
 
 type FilterKeys = ExperimentInterface & { _id: string };
 
-type ProjectionFilter = {
-  [key in keyof Partial<FilterKeys>]: boolean;
-};
-
 type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
-};
-
-type OptionsFilter = {
-  limit?: number;
-  sort?: SortFilter;
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -94,6 +86,7 @@ const experimentSchema = new mongoose.Schema({
   variations: [
     {
       _id: false,
+      id: String,
       name: String,
       description: String,
       key: String,
@@ -125,6 +118,7 @@ const experimentSchema = new mongoose.Schema({
       dateStarted: Date,
       dateEnded: Date,
       phase: String,
+      name: String,
       reason: String,
       coverage: Number,
       variationWeights: [Number],
@@ -149,28 +143,24 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  * Convert the Mongo document to an ExperimentInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
-const toInterface = (doc: ExperimentDocument): ExperimentInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
+  const experiment = omit(doc.toJSON(), ["__v", "_id"]);
+  return upgradeExperimentDoc(experiment);
+};
 
-/**
- * Wraps Mongo's find method and returns results as ExperimentInterface[] with projections
- * @param query
- */
 async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
-  projections?: ProjectionFilter,
   limit?: number,
   sortBy?: SortFilter
 ): Promise<ExperimentInterface[]> {
-  const options: OptionsFilter = {};
-
+  let cursor = ExperimentModel.find(query);
   if (limit) {
-    options.limit = limit;
+    cursor = cursor.limit(limit);
   }
   if (sortBy) {
-    options.sort = sortBy;
+    cursor = cursor.sort(sortBy);
   }
-  const experiments = await ExperimentModel.find(query, projections, options);
+  const experiments = await cursor;
 
   return experiments.map(toInterface);
 }
@@ -312,7 +302,7 @@ export async function getExperimentsByMetric(
   };
 
   // Using as a goal metric
-  const goals = await findExperiments(
+  const goals = await ExperimentModel.find(
     {
       organization,
       metrics: metricId,
@@ -327,7 +317,7 @@ export async function getExperimentsByMetric(
   });
 
   // Using as a guardrail metric
-  const guardrails = await findExperiments(
+  const guardrails = await ExperimentModel.find(
     {
       organization,
       guardrails: metricId,
@@ -342,7 +332,7 @@ export async function getExperimentsByMetric(
   });
 
   // Using as an activation metric
-  const activations = await findExperiments(
+  const activations = await ExperimentModel.find(
     {
       organization,
       activationMetric: metricId,
@@ -374,7 +364,7 @@ export async function getExperimentByIdea(
 export async function getExperimentsToUpdate(
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       datasource: {
         $exists: true,
@@ -394,16 +384,21 @@ export async function getExperimentsToUpdate(
       id: true,
       organization: true,
     },
-    100,
-    { nextSnapshotAttempt: 1 }
+    {
+      limit: 100,
+      sort: { nextSnapshotAttempt: 1 },
+    }
   );
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
 }
 
 export async function getExperimentsToUpdateLegacy(
   latestDate: Date
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       datasource: {
         $exists: true,
@@ -422,17 +417,24 @@ export async function getExperimentsToUpdateLegacy(
       id: true,
       organization: true,
     },
-    100,
-    { nextSnapshotAttempt: 1 }
+    {
+      limit: 100,
+      sort: {
+        nextSnapshotAttempt: 1,
+      },
+    }
   );
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
 }
 
 export async function getPastExperimentsByDatasource(
   organization: string,
   datasource: string
 ): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       organization,
       datasource,
@@ -444,7 +446,10 @@ export async function getPastExperimentsByDatasource(
     }
   );
 
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    trackingKey: exp.trackingKey,
+  }));
 }
 
 export async function getRecentExperimentsUsingMetric(
@@ -471,19 +476,18 @@ export async function getRecentExperimentsUsingMetric(
         $ne: true,
       },
     },
-    {
-      _id: false,
-      id: true,
-      name: true,
-      status: true,
-      phases: true,
-      results: true,
-      analysis: true,
-    },
     10,
     { _id: -1 }
   );
-  return experiments;
+
+  return experiments.map((exp) => ({
+    id: exp.id,
+    name: exp.name,
+    status: exp.status,
+    phases: exp.phases,
+    results: exp.results,
+    analysis: exp.analysis,
+  }));
 }
 
 export async function deleteExperimentSegment(
@@ -502,7 +506,7 @@ export async function getExperimentsForActivityFeed(
   org: string,
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
-  const experiments = await findExperiments(
+  const experiments = await ExperimentModel.find(
     {
       organization: org,
       id: {
@@ -516,7 +520,10 @@ export async function getExperimentsForActivityFeed(
     }
   );
 
-  return experiments;
+  return experiments.map((exp) => ({
+    id: exp.id,
+    name: exp.name,
+  }));
 }
 
 export async function removeTagFromExperiment(
