@@ -71,6 +71,12 @@ export function formatInformationSchema(
     if (!currentTableSchema.tables.has(row.table_name)) {
       currentTableSchema.tables.set(row.table_name, {
         tableName: row.table_name.toLocaleLowerCase(),
+        path: getPath(datasourceType, {
+          tableCatalog: row.table_catalog,
+          tableSchema: row.table_schema,
+          tableName: row.table_name,
+        }),
+        tableId: "",
       });
     }
   });

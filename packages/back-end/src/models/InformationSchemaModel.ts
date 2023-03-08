@@ -28,8 +28,8 @@ const informationSchema = new mongoose.Schema({
                 tables: z.array(
                   z.object({
                     tableName: z.string(),
-                    // path: z.string(),
-                    // reference the table id here
+                    path: z.string(),
+                    tableId: z.string(),
                     // add count of number of columns
                   })
                 ),
