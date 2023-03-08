@@ -166,35 +166,36 @@ export interface RawInformationSchema {
 }
 
 export interface Column {
-  column_name: string;
+  columnName: string;
   path?: string;
-  data_type: string;
+  dataType: string;
 }
 
 export interface Table {
-  table_name: string;
+  tableName: string;
   path?: string;
   columns?: Column[];
   id?: string;
 }
 
 export interface Schema {
-  schema_name: string;
+  schemaName: string;
   tables: Table[];
   path?: string;
 }
 
 export interface InformationSchema {
-  database_name: string;
+  databaseName: string;
   path?: string;
   schemas: Schema[];
 }
 
 export interface InformationSchemaTablesInterface {
+  id: string;
   organization: string;
-  table_name: string;
-  table_schema: string;
-  database_name: string;
+  tableName: string;
+  tableSchema: string;
+  databaseName: string;
   columns: Column[];
   dateCreated: Date;
   dateUpdated: Date;

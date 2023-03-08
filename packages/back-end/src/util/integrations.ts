@@ -7,22 +7,27 @@ import {
 } from "../types/Integration";
 
 type RowType = {
-  table_catalog: string;
-  table_schema?: string;
-  table_name?: string;
-  column_name?: string;
+  tableCatalog: string;
+  tableSchema?: string;
+  tableName?: string;
+  columnName?: string;
 };
 
 function getPath(dataSource: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
-  let returnValue = pathArray.join(".").toLocaleLowerCase();
+  const returnValue = pathArray.join(".").toLocaleLowerCase();
   switch (dataSource) {
     // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
     case "mysql":
-      if (pathArray.length > 2) {
-        returnValue = pathArray.slice(-2).join(".").toLocaleLowerCase();
+      if (pathArray.length === 1) {
+        return "";
+      } else {
+        return pathArray
+          .slice(1, pathArray.length)
+          .join(".")
+          .toLocaleLowerCase();
       }
-      return returnValue;
+
     case "bigquery":
       return "`" + returnValue + "`"; // BigQuery requires backticks around the path
     default:
@@ -39,10 +44,10 @@ export function formatInformationSchema(
   results.forEach((row) => {
     if (!formattedResultsMap.has(row.table_catalog)) {
       formattedResultsMap.set(row.table_catalog, {
-        database_name: row.table_catalog.toLocaleLowerCase(),
+        databaseName: row.table_catalog.toLocaleLowerCase(),
         schemas: new Map(),
         path: getPath(datasourceType, {
-          table_catalog: row.table_catalog,
+          tableCatalog: row.table_catalog,
         }),
       });
     }
@@ -51,11 +56,11 @@ export function formatInformationSchema(
 
     if (!currentSchemaCatalog.schemas.has(row.table_schema)) {
       currentSchemaCatalog.schemas.set(row.table_schema, {
-        schema_name: row.table_schema.toLocaleLowerCase(),
+        schemaName: row.table_schema.toLocaleLowerCase(),
         tables: new Map(),
         path: getPath(datasourceType, {
-          table_catalog: row.table_catalog,
-          table_schema: row.table_schema,
+          tableCatalog: row.table_catalog,
+          tableSchema: row.table_schema,
         }),
       });
     }
@@ -66,12 +71,12 @@ export function formatInformationSchema(
 
     if (!currentTableSchema.tables.has(row.table_name)) {
       currentTableSchema.tables.set(row.table_name, {
-        table_name: row.table_name.toLocaleLowerCase(),
+        tableName: row.table_name.toLocaleLowerCase(),
         columns: new Map(),
         path: getPath(datasourceType, {
-          table_catalog: row.table_catalog,
-          table_schema: row.table_schema,
-          table_name: row.table_name,
+          tableCatalog: row.table_catalog,
+          tableSchema: row.table_schema,
+          tableName: row.table_name,
         }),
       });
     }
@@ -80,13 +85,13 @@ export function formatInformationSchema(
 
     if (!currentColumnsSchema.columns.has(row.column_name)) {
       currentColumnsSchema.columns.set(row.column_name, {
-        column_name: row.column_name.toLocaleLowerCase(),
-        data_type: row.data_type.toLocaleLowerCase(),
+        columnName: row.column_name.toLocaleLowerCase(),
+        dataType: row.data_type.toLocaleLowerCase(),
         path: getPath(datasourceType, {
-          table_catalog: row.table_catalog,
-          table_schema: row.table_schema,
-          table_name: row.table_name,
-          column_name: row.column_name,
+          tableCatalog: row.table_catalog,
+          tableSchema: row.table_schema,
+          tableName: row.table_name,
+          columnName: row.column_name,
         }),
       });
     }
