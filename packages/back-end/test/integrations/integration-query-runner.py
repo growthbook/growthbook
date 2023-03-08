@@ -301,6 +301,8 @@ def main():
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
 
+        print(test_case['name'])
+        print_sql(test_case['sql'])
         key = engine + "::" + test_case["sql"]
         print_sql(test_case['sql'])
         if key in cache:

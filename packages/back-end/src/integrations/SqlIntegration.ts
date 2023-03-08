@@ -456,7 +456,7 @@ export default abstract class SqlIntegration
         variation: row.variation ?? "",
         dimension: row.dimension || "",
         users: parseInt(row.users) || 0,
-        count: parseInt(row.count) || 0,
+        count: parseInt(row.users) || 0,
         statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
         main_sum: parseFloat(row.main_sum) || 0,
@@ -557,6 +557,7 @@ export default abstract class SqlIntegration
   private getActivatedUsersCTE(
     baseIdType: string,
     metrics: MetricInterface[],
+    ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__activationMetric",
     initialTable: string = "__experiment"
   ) {
@@ -564,8 +565,12 @@ export default abstract class SqlIntegration
     return `
       SELECT
         initial.${baseIdType},
-        t${metrics.length - 1}.conversion_start as conversion_start,
-        t${metrics.length - 1}.conversion_end as conversion_end
+        t${metrics.length - 1}.conversion_start as conversion_start
+        ${
+          ignoreConversionEnd
+            ? ""
+            : `, t${metrics.length - 1}.conversion_end as conversion_end`
+        }
       FROM
         ${initialTable} initial
         ${metrics
@@ -584,7 +589,11 @@ export default abstract class SqlIntegration
             const alias = `t${i}`;
             return `
               ${alias}.timestamp >= ${prevAlias}.conversion_start
-              AND ${alias}.timestamp <= ${prevAlias}.conversion_end`;
+              ${
+                ignoreConversionEnd
+                  ? ""
+                  : `AND ${alias}.timestamp <= ${prevAlias}.conversion_end`
+              }`;
           })
           .join("\n AND ")}`;
   }
@@ -604,11 +613,13 @@ export default abstract class SqlIntegration
         "d.value"
       )}),'${missing_dim_string}')`;
     } else if (dimension.type === "date") {
-      return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))}`;
+      return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return `REGEXP_REPLACE(MIN(CONCAT(e.timestamp, '____', coalesce(${this.castToString(
+      return `REGEXP_REPLACE(MIN(CONCAT(${this.castToString(
+        "e.timestamp"
+      )}, '____', coalesce(${this.castToString(
         "e.dimension"
-      )},'${missing_dim_string}'))), r'.*____', '')`;
+      )},'${missing_dim_string}'))), '.*____', '')`;
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
@@ -616,12 +627,8 @@ export default abstract class SqlIntegration
 
   private getMetricConversionBase(
     col: string,
-    denominatorMetrics: boolean,
     activationMetrics: boolean
   ): string {
-    if (denominatorMetrics) {
-      return `du.${col}`;
-    }
     if (activationMetrics) {
       return `a.${col}`;
     }
@@ -645,8 +652,13 @@ export default abstract class SqlIntegration
     return metricStart;
   }
 
-  private getMetricEnd(metrics: MetricInterface[], initial?: Date) {
+  private getMetricEnd(
+    metrics: MetricInterface[],
+    initial?: Date,
+    ignoreConversionEnd?: boolean
+  ): Date | null {
     if (!initial) return null;
+    if (ignoreConversionEnd) return initial;
 
     const metricEnd = new Date(initial);
     let runningHours = 0;
@@ -716,12 +728,18 @@ export default abstract class SqlIntegration
       experiment.userIdType
     );
 
+    const ignoreConversionEnd = experiment.attributionModel === "allExposures";
+
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
       .concat([metric]);
     const metricStart = this.getMetricStart(orderedMetrics, phase.dateStarted);
-    const metricEnd = this.getMetricEnd(orderedMetrics, phase.dateEnded);
+    const metricEnd = this.getMetricEnd(
+      orderedMetrics,
+      phase.dateEnded,
+      ignoreConversionEnd
+    );
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
@@ -758,6 +776,12 @@ export default abstract class SqlIntegration
     // When the denominator is a count, it's a real ratio, dividing two quantities
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const isRatio = denominator?.type === "count";
+    // However, even if we use a count as denominator, GB 1.9 and earlier would
+    // filter out users who had 0 values for the denominator. However, we may want
+    // to enable more generic ratio metrics where we just sum numerator and denominator
+    // across all users. The following flag determines whether to filter out users
+    // that have no denominator values
+    const ratioIsFunnel = true; // @todo: allow this to be configured
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -778,11 +802,13 @@ export default abstract class SqlIntegration
         conversionDelayHours: intialMetric.conversionDelayHours || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
+        ignoreConversionEnd,
       })})
       , __metric as (${this.getMetricCTE({
         metric,
         baseIdType,
         idJoinMap,
+        ignoreConversionEnd: ignoreConversionEnd,
         startDate: metricStart,
         endDate: metricEnd,
         experimentId: experiment.trackingKey,
@@ -815,6 +841,7 @@ export default abstract class SqlIntegration
               nextMetric.conversionWindowHours ||
               DEFAULT_CONVERSION_WINDOW_HOURS,
             conversionDelayHours: nextMetric.conversionDelayHours,
+            ignoreConversionEnd: ignoreConversionEnd,
             baseIdType,
             idJoinMap,
             startDate: metricStart,
@@ -827,7 +854,8 @@ export default abstract class SqlIntegration
         activationMetrics.length > 0
           ? `, __activatedUsers as (${this.getActivatedUsersCTE(
               baseIdType,
-              activationMetrics
+              activationMetrics,
+              ignoreConversionEnd
             )})`
           : ""
       }
@@ -840,6 +868,7 @@ export default abstract class SqlIntegration
               nextMetric.conversionWindowHours ||
               DEFAULT_CONVERSION_WINDOW_HOURS,
             conversionDelayHours: nextMetric.conversionDelayHours,
+            ignoreConversionEnd: ignoreConversionEnd,
             baseIdType,
             idJoinMap,
             startDate: metricStart,
@@ -848,6 +877,19 @@ export default abstract class SqlIntegration
           })})`;
         })
         .join("\n")}
+      ${
+        denominatorMetrics.length > 0 && ratioIsFunnel
+          ? `, __denominatorUsers as (${this.getActivatedUsersCTE(
+              baseIdType,
+              denominatorMetrics,
+              ignoreConversionEnd,
+              "__denominator",
+              dimension?.type !== "activation" && activationMetrics.length > 0
+                ? "__activatedUsers"
+                : "__experiment"
+            )})`
+          : ""
+      }
       , __distinctUsers as (
         -- One row per user
         SELECT
@@ -860,14 +902,17 @@ export default abstract class SqlIntegration
           )} as variation,
           MIN(${this.getMetricConversionBase(
             "conversion_start",
-            denominatorMetrics.length > 0,
             activationMetrics.length > 0 && dimension?.type !== "activation"
-          )}) as conversion_start,
-          MIN(${this.getMetricConversionBase(
-            "conversion_end",
-            denominatorMetrics.length > 0,
-            activationMetrics.length > 0 && dimension?.type !== "activation"
-          )}) as conversion_end
+          )}) as conversion_start
+          ${
+            ignoreConversionEnd
+              ? ""
+              : `, MIN(${this.getMetricConversionBase(
+                  "conversion_end",
+                  activationMetrics.length > 0 &&
+                    dimension?.type !== "activation"
+                )}) as conversion_end`
+          }
         FROM
           __experiment e
           ${
@@ -890,91 +935,69 @@ export default abstract class SqlIntegration
           )`
               : ""
           }
+          ${
+            denominatorMetrics.length > 0 && ratioIsFunnel
+              ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
+              : ""
+          }
         ${segment ? `WHERE s.date <= e.timestamp` : ""}
         GROUP BY
           e.${baseIdType}
       )
       , __userMetric as (
-        -- Merge in metric values for each user
-        SELECT
-          u.variation,
-          u.dimension,
-          u.${baseIdType},
-          ${this.ifElse(
-            `(m.timestamp >= u.conversion_start
-              AND m.timestamp <= u.conversion_end)`,
-            "m.value",
-            "NULL"
-          )}) 0 as value
-          ${
-            isRatio
-              ? `, ${this.ifElse(
-                  `(m.timestamp >= u.conversion_start
-                AND m.timestamp <= u.conversion_end)`,
-                  "d.value",
-                  "NULL"
-                )} as denominator_value`
-              : ""
-          }
-        FROM
-          __distinctUsers u 
-          LEFT JOIN __metric m ON (
-            u.${baseIdType} = m.${baseIdType}
-          )
-        ${
-          isRatio
-            ? `
-            LEFT JOIN __denominator${denominatorMetrics.length - 1} d ON (
-              u.${baseIdType} = d.${baseIdType}
-            )`
-            : ""
-        }
-      )
-      , __userMetricAgg AS (
-        -- Aggregate metric values at user level
-        SELECT
-          variation,
-          dimension,
-          ${baseIdType},
-          ${aggregate} as value
-          ${
-            isRatio
-              ? `, ${this.getAggregateMetricColumn(
-                  denominator,
-                  "m"
-                )} as denominator_value`
-              : ""
-          }
-        FROM
-          __userMetric m
-        GROUP BY
-          variation, dimension, ${baseIdType}
-      )
+        -- Add in the aggregate metric value for each user
+        ${this.getUserMetricCTE(
+          baseIdType,
+          aggregate,
+          "__metric",
+          ignoreConversionEnd
+        )})
+      ${
+        isRatio
+          ? `, __userDenominator as (
+            -- Add in the aggregate denominator value for each user
+            ${this.getUserMetricCTE(
+              baseIdType,
+              this.getAggregateMetricColumn(denominator, "m"),
+              `__denominator${denominatorMetrics.length - 1}`,
+              ignoreConversionEnd
+            )})`
+          : ""
+      }
       -- One row per variation/dimension with aggregations
       SELECT
-        variation,
-        dimension,
-        COUNT(*) AS count,
+        u.variation,
+        u.dimension,
         COUNT(*) AS users,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        SUM(value) AS main_sum,
-        SUM(POWER(value, 2)) AS main_sum_squares
+        SUM(COALESCE(m.value, 0)) AS main_sum,
+        SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
         ${
           isRatio
             ? `,
-          '${denominator?.type}' as denominator_metric_type,
-          SUM(denominator_value, 0)) AS denominator_sum,
-          SUM(POWER(denominator_value, 2)) AS denominator_sum_squares,
-          SUM(value * denominator_value) AS main_denominator_sum_product
+            '${denominator?.type}' as denominator_metric_type,
+          SUM(COALESCE(d.value, 0)) AS denominator_sum,
+          SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
+          SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
         `
             : ""
         }
       FROM
-        __userMetricAgg
+        __distinctUsers u
+        LEFT JOIN __userMetric m ON (
+          u.${baseIdType} = m.${baseIdType}
+        )
+        ${
+          isRatio
+            ? `LEFT JOIN __userDenominator d ON (
+              u.${baseIdType} = d.${baseIdType}
+            )`
+            : ""
+        }
       GROUP BY
-        variation,
-        dimension
+        u.variation,
+        u.dimension
     `,
       this.getFormatDialect()
     );
@@ -994,6 +1017,7 @@ export default abstract class SqlIntegration
     metric,
     conversionWindowHours = 0,
     conversionDelayHours = 0,
+    ignoreConversionEnd = false,
     baseIdType,
     idJoinMap,
     startDate,
@@ -1003,6 +1027,7 @@ export default abstract class SqlIntegration
     metric: MetricInterface;
     conversionWindowHours?: number;
     conversionDelayHours?: number;
+    ignoreConversionEnd?: boolean;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
@@ -1045,6 +1070,7 @@ export default abstract class SqlIntegration
     if (startDate) {
       where.push(`${timestampCol} >= ${this.toTimestamp(startDate)}`);
     }
+    // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
       where.push(`${timestampCol} <= ${this.toTimestamp(endDate)}`);
     }
@@ -1054,14 +1080,15 @@ export default abstract class SqlIntegration
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
         ${timestampCol} as timestamp,
-        ${this.addHours(
-          timestampCol,
-          conversionDelayHours
-        )} as conversion_start,
-        ${this.addHours(
-          timestampCol,
-          conversionDelayHours + conversionWindowHours
-        )} as conversion_end
+        ${this.addHours(timestampCol, conversionDelayHours)} as conversion_start
+        ${
+          ignoreConversionEnd
+            ? ""
+            : `, ${this.addHours(
+                timestampCol,
+                conversionDelayHours + conversionWindowHours
+              )} as conversion_end`
+        }
       FROM
         ${
           queryFormat === "sql"
@@ -1118,6 +1145,7 @@ export default abstract class SqlIntegration
     conversionWindowHours = 0,
     conversionDelayHours = 0,
     experimentDimension = null,
+    ignoreConversionEnd = false,
   }: {
     experiment: ExperimentInterface;
     baseIdType: string;
@@ -1125,6 +1153,7 @@ export default abstract class SqlIntegration
     conversionWindowHours: number;
     conversionDelayHours: number;
     experimentDimension: string | null;
+    ignoreConversionEnd: boolean;
   }) {
     conversionWindowHours =
       conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
@@ -1145,12 +1174,16 @@ export default abstract class SqlIntegration
       ${this.addHours(
         timestampColumn,
         conversionDelayHours
-      )} as conversion_start,
-      ${experimentDimension ? `e.${experimentDimension} as dimension,` : ""}
-      ${this.addHours(
-        timestampColumn,
-        conversionDelayHours + conversionWindowHours
-      )} as conversion_end
+      )} as conversion_start
+      ${experimentDimension ? `, e.${experimentDimension} as dimension` : ""}
+      ${
+        ignoreConversionEnd
+          ? ""
+          : `, ${this.addHours(
+              timestampColumn,
+              conversionDelayHours + conversionWindowHours
+            )} as conversion_end`
+      }    
     FROM
         __rawExperiment e
     WHERE
@@ -1226,6 +1259,29 @@ export default abstract class SqlIntegration
 
     return `-- Dimension (${dimension.name})
     ${dimension.sql}
+    `;
+  }
+
+  private getUserMetricCTE(
+    baseIdType: string,
+    aggregateColumn: string,
+    metricTable: string,
+    ignoreConversionEnd: boolean
+  ) {
+    return `
+    SELECT
+      d.${baseIdType},
+      ${aggregateColumn} as value
+    FROM
+      __distinctUsers d
+      JOIN ${metricTable} m ON (
+        m.${baseIdType} = d.${baseIdType}
+      )
+    WHERE
+      m.timestamp >= d.conversion_start
+      ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
+    GROUP BY
+      d.${baseIdType}
     `;
   }
 
