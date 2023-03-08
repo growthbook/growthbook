@@ -64,7 +64,9 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
           <div className="d-flex">
             <div className="mr-2">{phaseIndex + 1}:</div>
             <div className="small">
-              <div>{phaseSummary(phase)}</div>
+              <div>
+                {phase.name === "Main" ? phaseSummary(phase) : phase.name}
+              </div>
               <div>
                 <strong>{date(phase.dateStarted)}</strong> to{" "}
                 <strong>
