@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import uniqid from "uniqid";
 import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
@@ -115,10 +116,7 @@ export async function generateInformationSchema(
   const integration = getSourceIntegrationObject(datasource);
 
   try {
-    return await integration.getInformationSchema(
-      datasource.type,
-      integration.params.projectId
-    );
+    return await integration.getInformationSchema();
   } catch (e) {
     return null;
   }
@@ -177,10 +175,11 @@ export async function initializeDatasourceInformationSchema(
       for (const schema of database.schemas) {
         for (const table of schema.tables) {
           tablesToCreate.push({
+            id: uniqid("tbl_"),
             organization,
-            table_name: table.table_name,
-            table_schema: schema.schema_name,
-            database_name: database.database_name,
+            tableName: table.tableName,
+            tableSchema: schema.schemaName,
+            databaseName: database.databaseName,
             columns: table.columns || [],
             dateCreated: new Date(),
             dateUpdated: new Date(),

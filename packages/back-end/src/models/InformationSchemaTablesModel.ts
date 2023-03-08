@@ -6,13 +6,14 @@ import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
+  id: String,
   organization: {
     type: String,
     index: true,
   },
-  table_name: String,
-  table_schema: String,
-  database_name: String,
+  tableName: String,
+  tableSchema: String,
+  databaseName: String,
   columns: {
     type: [Object],
     required: true,
@@ -20,9 +21,9 @@ const informationSchemaTablesSchema = new mongoose.Schema({
       validator(value: unknown) {
         const zodSchema = z.array(
           z.object({
-            column_name: z.string(),
+            columnName: z.string(),
             path: z.string(),
-            data_type: z.string(),
+            dataType: z.string(),
           })
         );
 
@@ -60,7 +61,7 @@ const toInterface = (
 export async function createInformationSchemaTables(
   tables: InformationSchemaTablesInterface[]
 ): Promise<InformationSchemaTablesInterface[]> {
-  const results = await InformationSchemaTablesModel.create(tables);
+  const results = await InformationSchemaTablesModel.insertMany(tables);
 
   return results.map(toInterface);
 }

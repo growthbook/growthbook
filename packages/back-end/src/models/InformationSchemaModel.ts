@@ -19,15 +19,15 @@ const informationSchema = new mongoose.Schema({
       validator(value: unknown) {
         const zodSchema = z.array(
           z.object({
-            database_name: z.string(),
+            databaseName: z.string(),
             path: z.string(),
             schemas: z.array(
               z.object({
-                schema_name: z.string(),
+                schemaName: z.string(),
                 path: z.string(),
                 tables: z.array(
                   z.object({
-                    table_name: z.string(),
+                    tableName: z.string(),
                     path: z.string(),
                   })
                 ),
@@ -70,7 +70,7 @@ export async function createInformationSchema(
   organization: string
 ): Promise<string | null> {
   const result = await InformationSchemaModel.create({
-    id: uniqid("info-schema-"),
+    id: uniqid("inf_"),
     organization,
     databases: informationSchema,
     dateCreated: new Date(),
