@@ -128,11 +128,13 @@ const navlinks: SidebarLinkProps[] = [
     Icon: BsPlug,
     path: /^(integrations)/,
     autoClose: true,
+    feature: "slack-integration",
     subLinks: [
       {
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
+        feature: "slack-integration",
       },
     ],
   },
