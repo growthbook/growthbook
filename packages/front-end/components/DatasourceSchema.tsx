@@ -7,8 +7,10 @@ import React, { useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaDatabase, FaTable } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
+import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
 import LoadingOverlay from "./LoadingOverlay";
+import Field from "./Forms/Field";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
@@ -30,6 +32,21 @@ export default function DatasourceSchema({
     setCurrentTable(null);
   }, [datasource]);
 
+  console.log("informationSchema.databases", informationSchema.databases);
+
+  const { items, searchInputProps } = useSearch({
+    items: informationSchema.databases || [],
+    searchFields: ["database_name", "schemas"], //MKTODO: Update this so nested search works correctly
+    // searchFields: ["path", "database_name", "schemas", "schemas.path"],
+    // searchFields: ["database_name.schemas.path"],
+    // searchFields: [
+    //   { name: "database_name", getFn: (database) => database.database_name },
+    //   { name: "schema_name", getFn: (database) => database.schema.schema_name },
+    // ],
+    localStorageKey: "datasources",
+    defaultSortField: "database_name",
+  });
+
   if (!datasource || !informationSchema) {
     return <LoadingOverlay />;
   }
@@ -40,6 +57,7 @@ export default function DatasourceSchema({
         <label className="font-weight-bold mb-1">
           <FaDatabase /> {datasource.name}
         </label>
+        <Field placeholder="Search..." type="search" {...searchInputProps} />
         <div
           key="database"
           className="border rounded p-1"
@@ -48,7 +66,7 @@ export default function DatasourceSchema({
             overflowY: "scroll",
           }}
         >
-          {informationSchema.databases.map((database) => {
+          {items.map((database) => {
             return (
               <>
                 {database.schemas.map((schema) => {
