@@ -6,16 +6,10 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
   return weights.map((w) => +((w / sum) * 100).toFixed(decimals)).join("/");
 }
 
-export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
-  return `${phase.name === "Main" ? "" : phase.name + ", "}${Math.floor(
-    phase.coverage * 100
-  )}% traffic, ${formatTrafficSplit(phase.variationWeights)} split`;
-}
-
 export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
-  if (!phase?.name) {
+  if (!phase) {
     return null;
   }
   return (

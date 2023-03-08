@@ -383,8 +383,6 @@ const getExperimentDefinitionFromFeatureAndRule = (
 ) => {
   const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
 
-  const variationIds = expRule.values.map(() => uniqid("var_"));
-
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: expRule.trackingKey || feature.id,
     name: (expRule.trackingKey || feature.id) + " experiment",
@@ -396,7 +394,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name = v.value === "true" ? "On" : "Off";
       }
       return {
-        id: variationIds[i],
+        id: uniqid("var_"),
         key: i + "",
         name,
         screenshots: [],
