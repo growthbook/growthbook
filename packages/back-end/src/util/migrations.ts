@@ -15,7 +15,10 @@ import {
 } from "../../types/feature";
 import { MemberRole, OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
-import { ExperimentInterface } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  LegacyExperimentInterface,
+} from "../../types/experiment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -351,10 +354,11 @@ export function upgradeOrganizationDoc(
 }
 
 export function upgradeExperimentDoc(
-  orig: ExperimentInterface
+  orig: LegacyExperimentInterface
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
 
+  // Add missing variation keys and ids
   experiment.variations.forEach((v, i) => {
     if (v.key === "" || v.key === undefined || v.key === null) {
       v.key = i + "";
@@ -364,15 +368,24 @@ export function upgradeExperimentDoc(
     }
   });
 
-  // Populate phase names
+  // Populate phase names and targeting properties
   if (experiment.phases) {
     experiment.phases.forEach((phase) => {
       if (!phase.name) {
         const p = phase.phase || "main";
         phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
       }
+
+      phase.coverage = phase.coverage ?? 1;
+      phase.condition = phase.condition || "";
+      phase.hashAttribute = phase.hashAttribute || "id";
     });
   }
 
-  return experiment;
+  // Old `observations` field
+  if (!experiment.description && experiment.observations) {
+    experiment.description = experiment.observations;
+  }
+
+  return experiment as ExperimentInterface;
 }

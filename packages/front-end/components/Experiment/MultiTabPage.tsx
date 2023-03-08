@@ -401,7 +401,7 @@ const MultiTabPage = ({
               )}
               <h2 className="mb-4">{experiment.name}</h2>
               <MarkdownInlineEdit
-                value={experiment.description || experiment.observations}
+                value={experiment.description}
                 save={async (description) => {
                   await apiCall(`/experiment/${experiment.id}`, {
                     method: "POST",

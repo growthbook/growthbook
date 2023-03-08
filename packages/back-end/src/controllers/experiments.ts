@@ -410,6 +410,9 @@ const getExperimentDefinitionFromFeatureAndRule = (
         ),
         reason: "",
         dateStarted: new Date().toISOString(),
+        condition: expRule.condition || "",
+        hashAttribute: expRule.hashAttribute,
+        namespace: expRule.namespace,
       },
     ],
   };
@@ -489,11 +492,15 @@ export async function postExperiments(
     }
   }
 
-  const obj = {
+  const obj: Omit<ExperimentInterface, "id"> = {
     organization: data.organization,
+    archived: false,
+    autoSnapshots: true,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
     project: data.project,
     owner: data.owner || userId,
-    trackingKey: data.trackingKey || undefined,
+    trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
@@ -516,10 +523,10 @@ export async function postExperiments(
     status: data.status || "draft",
     results: data.results || undefined,
     analysis: data.analysis || "",
+    releasedVariationId: "",
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
-    data: data.data || "",
     ideaSource: data.ideaSource || "",
   };
 
@@ -682,7 +689,7 @@ export async function postExperiment(
     "autoAssign",
     "previewURL",
     "targetURLRegex",
-    "data",
+    "releasedVariationId",
     "autoSnapshots",
     "project",
   ];

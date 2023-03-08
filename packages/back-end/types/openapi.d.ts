@@ -689,6 +689,7 @@ export interface components {
         status: string;
         winner: string;
         conclusions: string;
+        releasedVariationId: string;
       };
     };
     ExperimentMetric: {
@@ -1974,6 +1975,7 @@ export interface operations {
                   status: string;
                   winner: string;
                   conclusions: string;
+                  releasedVariationId: string;
                 };
               })[];
           }) & {
@@ -2079,6 +2081,7 @@ export interface operations {
                 status: string;
                 winner: string;
                 conclusions: string;
+                releasedVariationId: string;
               };
             };
           };

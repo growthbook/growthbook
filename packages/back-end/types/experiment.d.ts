@@ -1,3 +1,5 @@
+import { NamespaceValue } from "./feature";
+
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
@@ -28,14 +30,23 @@ export interface Variation {
   dom?: DomChange[];
 }
 
-export interface ExperimentPhase {
+export interface Targeting {
+  condition: string;
+  hashAttribute: string;
+  coverage: number;
+  namespace?: NamespaceValue;
+}
+
+export interface LegacyExperimentPhase extends ExperimentPhase {
+  /** @deprecated */
+  phase?: ExperimentPhaseType;
+}
+
+export interface ExperimentPhase extends Targeting {
   dateStarted: Date;
   dateEnded?: Date;
   name: string;
-  /** @deprecated */
-  phase?: ExperimentPhaseType;
   reason: string;
-  coverage: number;
   variationWeights: number[];
   /** @deprecated */
   groups?: string[];
@@ -63,6 +74,15 @@ export type MetricOverride = {
   loseRisk?: number;
 };
 
+export interface LegacyExperimentInterface
+  extends Omit<ExperimentInterface, "phases"> {
+  /**
+   * @deprecated
+   */
+  observations?: string;
+  phases: LegacyExperimentPhase[];
+}
+
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -81,10 +101,6 @@ export interface ExperimentInterface {
   dateUpdated: Date;
   tags: string[];
   description?: string;
-  /**
-   * @deprecated
-   */
-  observations?: string;
   hypothesis?: string;
   metrics: string[];
   metricOverrides?: MetricOverride[];
@@ -105,7 +121,7 @@ export interface ExperimentInterface {
   results?: ExperimentResultsType;
   winner?: number;
   analysis?: string;
-  data?: string;
+  releasedVariationId: string;
   lastSnapshotAttempt?: Date;
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;

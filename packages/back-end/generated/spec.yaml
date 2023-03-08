@@ -1406,6 +1406,7 @@ components:
           required:
             - status
             - winner
+            - releasedVariationId
             - conclusions
           properties:
             status:
@@ -1413,6 +1414,8 @@ components:
             winner:
               type: string
             conclusions:
+              type: string
+            releasedVariationId:
               type: string
     ExperimentMetric:
       type: object

@@ -128,6 +128,7 @@ properties:
     required:
       - status
       - winner
+      - releasedVariationId
       - conclusions
     properties:
       status:
@@ -135,4 +136,6 @@ properties:
       winner:
         type: string
       conclusions:
+        type: string
+      releasedVariationId:
         type: string

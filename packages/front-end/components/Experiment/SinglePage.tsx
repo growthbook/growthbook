@@ -453,7 +453,7 @@ export default function SinglePage({
         <div className="col-md-8">
           <div className="appbox p-3 h-100">
             <MarkdownInlineEdit
-              value={experiment.description || experiment.observations}
+              value={experiment.description}
               save={async (description) => {
                 await apiCall(`/experiment/${experiment.id}`, {
                   method: "POST",

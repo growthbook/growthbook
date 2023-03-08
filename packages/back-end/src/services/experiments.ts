@@ -697,8 +697,9 @@ export function toExperimentApiInterface(
       ? {
           resultSummary: {
             status: experiment.results,
-            winner: (experiment.winner ?? 1) + "",
+            winner: experiment.variations[experiment.winner ?? 0]?.id || "",
             conclusions: experiment.analysis || "",
+            releasedVariationId: experiment.releasedVariationId || "",
           },
         }
       : null),

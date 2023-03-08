@@ -77,7 +77,7 @@ type ExperimentValue = {
   name?: string;
 };
 
-type NamespaceValue = {
+export type NamespaceValue = {
   enabled: boolean;
   name: string;
   range: [number, number];
