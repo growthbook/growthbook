@@ -4,18 +4,9 @@
     "attributionModel": "firstExposure"
   },
   {
-    "id": "base_allExposures",
-    "attributionModel": "allExposures"
-  },
-  {
     "id": "activation",
     "activationMetric": "cart_loaded",
     "attributionModel": "firstExposure"
-  },
-  {
-    "id": "activation_allExposures",
-    "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
   },
   {
     "id": "negativeconversion",
@@ -27,17 +18,6 @@
       }
     ],
     "attributionModel": "firstExposure"
-  },
-  {
-    "id": "base_allExposures_negativeconversion",
-    "metricOverrides": [
-      {
-        "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": -24
-      }
-    ],
-    "attributionModel": "allExposures"
   },
   {
     "id": "activation_negativeconversion",
@@ -52,18 +32,6 @@
     "attributionModel": "firstExposure"
   },
   {
-    "id": "activation_allExposures_negativeconversion",
-    "metricOverrides": [
-      {
-        "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": -24
-      }
-    ],
-    "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
-  },
-  {
     "id": "positiveconversion",
     "metricOverrides": [
       {
@@ -73,17 +41,6 @@
       }
     ],
     "attributionModel": "firstExposure"
-  },
-  {
-    "id": "base_allExposures_positiveconversion",
-    "metricOverrides": [
-      {
-        "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": 24
-      }
-    ],
-    "attributionModel": "allExposures"
   },
   {
     "id": "activation_positiveconversion",
@@ -96,18 +53,6 @@
     ],
     "activationMetric": "cart_loaded",
     "attributionModel": "firstExposure"
-  },
-  {
-    "id": "activation_allExposures_positiveconversion",
-    "metricOverrides": [
-      {
-        "id": "OVERRWITTENINSCRIPT",
-        "conversionWindowHours": 48,
-        "conversionDelayHours": 24
-      }
-    ],
-    "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
   },
   {
     "id": "dimension_date",

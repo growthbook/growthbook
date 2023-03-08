@@ -302,6 +302,7 @@ def main():
             runners[engine] = get_sql_runner(engine)
 
         key = engine + "::" + test_case["sql"]
+        print_sql(test_case['sql'])
         if key in cache:
             results.append(cache[key])
         else:

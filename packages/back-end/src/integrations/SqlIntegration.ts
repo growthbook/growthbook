@@ -590,20 +590,25 @@ export default abstract class SqlIntegration
   }
 
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
+    const missing_dim_string = "__NULL_DIMENSION";
     if (!dimension) {
       return this.castToString("'All'");
     } else if (dimension.type === "activation") {
-      return this.ifElse(
+      return `MAX(${this.ifElse(
         `a.${baseIdType} IS NULL`,
         "'Not Activated'",
         "'Activated'"
-      );
+      )})`;
     } else if (dimension.type === "user") {
-      return `coalesce(${this.castToString("d.value")},'')`;
+      return `COALESCE(MAX(${this.castToString(
+        "d.value"
+      )}),'${missing_dim_string}')`;
     } else if (dimension.type === "date") {
-      return this.formatDate(this.dateTrunc("e.timestamp"));
+      return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))}`;
     } else if (dimension.type === "experiment") {
-      return `coalesce(${this.castToString("e.dimension")},'')`;
+      return `REGEXP_REPLACE(MIN(CONCAT(e.timestamp, '____', coalesce(${this.castToString(
+        "e.dimension"
+      )},'${missing_dim_string}'))), r'.*____', '')`;
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
@@ -736,15 +741,9 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const removeMultipleExposures = !!experiment.removeMultipleExposures;
-    const useAllExposures = experiment.attributionModel === "allExposures";
-
     const aggregate = this.getAggregateMetricColumn(metric, "m");
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
-    const dimensionGroupBy = this.useAliasInGroupBy()
-      ? "dimension"
-      : dimensionCol;
 
     const intialMetric =
       activationMetrics.length > 0
@@ -849,78 +848,16 @@ export default abstract class SqlIntegration
           })})`;
         })
         .join("\n")}
-      ${
-        denominatorMetrics.length > 0
-          ? `, __denominatorUsers as (${this.getActivatedUsersCTE(
-              baseIdType,
-              denominatorMetrics,
-              "__denominator",
-              dimension?.type !== "activation" && activationMetrics.length > 0
-                ? "__activatedUsers"
-                : "__experiment"
-            )})`
-          : ""
-      }
-      ${
-        useAllExposures
-          ? `, __distinctConversions as (
-        -- One row per included metric conversion
-        SELECT
-          m.${baseIdType},  
-          m.timestamp as ts,
-          m.value
-        FROM
-          __metric m
-          JOIN ${
-            denominatorMetrics.length > 0
-              ? "__denominatorUsers"
-              : dimension?.type !== "activation" && activationMetrics.length > 0
-              ? "__activatedUsers"
-              : "__experiment"
-          } u ON (u.${baseIdType} = m.${baseIdType})
-        WHERE
-          m.timestamp >= u.conversion_start
-          AND m.timestamp <= u.conversion_end
-        GROUP BY
-          m.${baseIdType}, m.timestamp, m.value
-      )`
-          : ""
-      }
-      ${
-        useAllExposures && isRatio
-          ? `, __distinctDenominator as (
-        -- One row per included denominator conversion
-        SELECT
-          m.${baseIdType},
-          m.timestamp as ts,
-          m.value
-        FROM
-          __denominator${denominatorMetrics.length - 1} m
-          JOIN __denominatorUsers u ON (u.${baseIdType} = m.${baseIdType})
-        WHERE
-          m.timestamp >= u.conversion_start
-          AND m.timestamp <= u.conversion_end
-        GROUP BY
-          m.${baseIdType}, m.timestamp, m.value
-      )`
-          : ""
-      }
       , __distinctUsers as (
-        -- One row per user/dimension${
-          removeMultipleExposures ? "" : "/variation"
-        }
+        -- One row per user
         SELECT
           e.${baseIdType},
           ${dimensionCol} as dimension,
-          ${
-            removeMultipleExposures
-              ? this.ifElse(
-                  "count(distinct e.variation) > 1",
-                  "'__multiple__'",
-                  "max(e.variation)"
-                )
-              : "e.variation"
-          } as variation,
+          ${this.ifElse(
+            "count(distinct e.variation) > 1",
+            "'__multiple__'",
+            "max(e.variation)"
+          )} as variation,
           MIN(${this.getMetricConversionBase(
             "conversion_start",
             denominatorMetrics.length > 0,
@@ -940,7 +877,7 @@ export default abstract class SqlIntegration
           }
           ${
             dimension?.type === "user"
-              ? `JOIN __dimension d ON (d.${baseIdType} = e.${baseIdType})`
+              ? `LEFT JOIN __dimension d ON (d.${baseIdType} = e.${baseIdType})`
               : ""
           }
           ${
@@ -953,139 +890,91 @@ export default abstract class SqlIntegration
           )`
               : ""
           }
-          ${
-            denominatorMetrics.length > 0
-              ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
-              : ""
-          }
         ${segment ? `WHERE s.date <= e.timestamp` : ""}
         GROUP BY
-        ${dimension ? dimensionGroupBy + ", " : ""}e.${baseIdType}${
-        removeMultipleExposures ? "" : ", e.variation"
-      }
+          e.${baseIdType}
       )
-      ${
-        isRatio
-          ? `
-      , __userDenominator as (
-        -- Add in the aggregate denominator value for each user
-        SELECT
-          d.variation,
-          d.dimension,
-          d.${baseIdType},
-          ${this.getAggregateMetricColumn(denominator, "m")} as value
-        FROM
-          __distinctUsers d
-          JOIN ${
-            useAllExposures
-              ? "__distinctDenominator"
-              : `__denominator${denominatorMetrics.length - 1}`
-          } m ON (
-            m.${baseIdType} = d.${baseIdType}
-          )
-        ${
-          useAllExposures
-            ? ""
-            : `WHERE
-          m.timestamp >= d.conversion_start
-          AND m.timestamp <= d.conversion_end`
-        }
-        GROUP BY
-          variation, dimension, d.${baseIdType}
-      )`
-          : ""
-      }
       , __userMetric as (
-        -- Add in the aggregate metric value for each user
+        -- Merge in metric values for each user
         SELECT
-          d.variation,
-          d.dimension,
-          d.${baseIdType},
-          ${aggregate} as value
+          u.variation,
+          u.dimension,
+          u.${baseIdType},
+          ${this.ifElse(
+            `(m.timestamp >= u.conversion_start
+              AND m.timestamp <= u.conversion_end)`,
+            "m.value",
+            "NULL"
+          )}) 0 as value
+          ${
+            isRatio
+              ? `, ${this.ifElse(
+                  `(m.timestamp >= u.conversion_start
+                AND m.timestamp <= u.conversion_end)`,
+                  "d.value",
+                  "NULL"
+                )} as denominator_value`
+              : ""
+          }
         FROM
-          __distinctUsers d
-          JOIN ${useAllExposures ? "__distinctConversions" : "__metric"} m ON (
-            m.${baseIdType} = d.${baseIdType}
+          __distinctUsers u 
+          LEFT JOIN __metric m ON (
+            u.${baseIdType} = m.${baseIdType}
           )
         ${
-          useAllExposures
-            ? ""
-            : `WHERE
-          m.timestamp >= d.conversion_start
-          AND m.timestamp <= d.conversion_end`
+          isRatio
+            ? `
+            LEFT JOIN __denominator${denominatorMetrics.length - 1} d ON (
+              u.${baseIdType} = d.${baseIdType}
+            )`
+            : ""
         }
-        GROUP BY
-          variation, dimension, d.${baseIdType}
       )
-      , __overallUsers as (
-        -- Number of users in each variation
+      , __userMetricAgg AS (
+        -- Aggregate metric values at user level
         SELECT
           variation,
           dimension,
-          COUNT(*) as users
-        FROM
-          __distinctUsers
-        GROUP BY
-          variation,
-          dimension
-      )
-      , __stats as (
-        -- One row per variation/dimension with aggregations
-        SELECT
-          ${isRatio ? `d` : `m`}.variation,
-          ${isRatio ? `d` : `m`}.dimension,
-          COUNT(*) AS count,
-          SUM(COALESCE(m.value, 0)) AS main_sum,
-          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+          ${baseIdType},
+          ${aggregate} as value
           ${
             isRatio
-              ? `,
-            SUM(COALESCE(d.value, 0)) AS denominator_sum,
-            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
-          `
+              ? `, ${this.getAggregateMetricColumn(
+                  denominator,
+                  "m"
+                )} as denominator_value`
               : ""
           }
         FROM
-          ${
-            isRatio
-              ? `__userDenominator d
-          LEFT JOIN __userMetric m ON (
-            d.${baseIdType} = m.${baseIdType}
-            AND d.dimension = m.dimension
-            AND d.variation = m.variation
-          )`
-              : `__userMetric m`
-          }
+          __userMetric m
         GROUP BY
-          ${isRatio ? `d` : `m`}.variation,
-          ${isRatio ? `d` : `m`}.dimension
+          variation, dimension, ${baseIdType}
       )
+      -- One row per variation/dimension with aggregations
       SELECT
-        u.variation,
-        u.dimension,
-        ${this.getVariationUsers(metric)} as users,
-        ${this.getVariationUsers(metric)} as count,
+        variation,
+        dimension,
+        COUNT(*) AS count,
+        COUNT(*) AS users,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        COALESCE(s.main_sum, 0) AS main_sum,
-        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
+        SUM(value) AS main_sum,
+        SUM(POWER(value, 2)) AS main_sum_squares
         ${
           isRatio
             ? `,
           '${denominator?.type}' as denominator_metric_type,
-          COALESCE(s.denominator_sum, 0) AS denominator_sum,
-          COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
-          COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
-          `
+          SUM(denominator_value, 0)) AS denominator_sum,
+          SUM(POWER(denominator_value, 2)) AS denominator_sum_squares,
+          SUM(value * denominator_value) AS main_denominator_sum_product
+        `
             : ""
         }
       FROM
-        __overallUsers u
-        LEFT JOIN __stats s ON (
-          s.variation = u.variation
-          AND s.dimension = u.dimension
-        )
+        __userMetricAgg
+      GROUP BY
+        variation,
+        dimension
     `,
       this.getFormatDialect()
     );
@@ -1099,13 +988,6 @@ export default abstract class SqlIntegration
 
   private getMetricQueryFormat(metric: MetricInterface) {
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
-  }
-
-  private getVariationUsers(metric: MetricInterface) {
-    if (metric.ignoreNulls) {
-      return `coalesce(s.count,0)`;
-    }
-    return `u.users`;
   }
 
   private getMetricCTE({
