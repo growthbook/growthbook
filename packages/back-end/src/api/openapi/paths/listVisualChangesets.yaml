@@ -1,0 +1,32 @@
+get:
+  summary: Get all visual changesets
+  tags:
+    - visual-changesets
+  parameters:
+    - id:
+      name: id
+      in: path
+      required: true
+      description: The experiment id the visual changesets belong to
+      schema:
+        type: string
+  operationId: listVisualChangesets
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
+          -u secret_abc123DEF456:
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                required:
+                  - visualChangesets
+                properties:
+                  visualChangesets:
+                    type: array
+                    items:
+                      $ref: "../schemas/VisualChangeset.yaml"

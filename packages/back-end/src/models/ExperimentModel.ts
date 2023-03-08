@@ -10,6 +10,7 @@ import {
   determineNextDate,
   experimentUpdated,
   generateTrackingKey,
+  toExperimentApiInterface,
 } from "../services/experiments";
 import {
   ExperimentCreatedNotificationEvent,
@@ -573,7 +574,7 @@ export const logExperimentCreated = async (
     object: "experiment",
     event: "experiment.created",
     data: {
-      current: experiment,
+      current: toExperimentApiInterface(organization, experiment),
     },
   };
 
@@ -601,8 +602,8 @@ export const logExperimentUpdated = async ({
     object: "experiment",
     event: "experiment.updated",
     data: {
-      previous,
-      current,
+      previous: toExperimentApiInterface(organization, previous),
+      current: toExperimentApiInterface(organization, current),
     },
   };
 
@@ -786,7 +787,7 @@ export const logExperimentDeleted = async (
     object: "experiment",
     event: "experiment.deleted",
     data: {
-      previous: experiment,
+      previous: toExperimentApiInterface(organization, experiment),
     },
   };
 
