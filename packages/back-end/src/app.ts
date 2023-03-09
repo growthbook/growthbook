@@ -205,7 +205,14 @@ app.options(
 );
 
 // Secret API routes (no JWT or CORS)
-app.use("/api/v1", apiRouter);
+app.use(
+  "/api/v1",
+  // TODO add authentication
+  cors({
+    origin: "*",
+  }),
+  apiRouter
+);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
