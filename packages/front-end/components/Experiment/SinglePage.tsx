@@ -641,6 +641,7 @@ export default function SinglePage({
                     <div key={i} className={`${i ? "mt-2" : ""} d-flex`}>
                       <div className="mr-2">{i + 1}:</div>
                       <div className="small">
+                        <div style={{ fontSize: "1.2em" }}>{phase.name}</div>
                         <div>{phaseSummary(phase)}</div>
                         <div>
                           <strong>{date(phase.dateStarted)}</strong> to{" "}
