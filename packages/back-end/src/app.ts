@@ -465,6 +465,10 @@ app.get(
   "/datasourceId/:datasourceId/database/:databaseName/schema/:schemaName/table/:tableName",
   informationSchemsController.getTableData
 );
+app.post(
+  "/datasource/:datasourceId/informationSchema",
+  informationSchemsController.postInformationSchema
+);
 
 // Events
 app.use("/events", eventsRouter);

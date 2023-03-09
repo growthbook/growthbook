@@ -9,8 +9,8 @@ import { FaAngleDown, FaAngleRight, FaDatabase, FaTable } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
-import LoadingOverlay from "./LoadingOverlay";
 import Field from "./Forms/Field";
+import Button from "./Button";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
@@ -33,14 +33,14 @@ export default function DatasourceSchema({
   }, [datasource]);
 
   const { items, searchInputProps } = useSearch({
-    items: informationSchema.databases || [],
+    items: informationSchema?.databases || [],
     searchFields: ["databaseName", "schemas"], //MKTODO: Update this so nested search works correctly
     localStorageKey: "datasources",
     defaultSortField: "databaseName",
   });
 
-  if (!datasource || !informationSchema) {
-    return <LoadingOverlay />;
+  if (!datasource) {
+    return null;
   }
 
   return (
@@ -49,84 +49,114 @@ export default function DatasourceSchema({
         <label className="font-weight-bold mb-1">
           <FaDatabase /> {datasource.name}
         </label>
-        <Field placeholder="Search..." type="search" {...searchInputProps} />
-        <div
-          key="database"
-          className="border rounded p-1"
-          style={{
-            height: "210px",
-            overflowY: "scroll",
-          }}
-        >
-          {items.map((database) => {
-            return (
-              <>
-                {database.schemas.map((schema) => {
-                  return (
-                    <div key={schema.schemaName} className="pb-2">
-                      <Collapsible
-                        className="pb-1"
-                        key={database.databaseName + schema.schemaName}
-                        trigger={
-                          <>
-                            <FaAngleRight />
-                            {`${database.databaseName}.${schema.schemaName}`}
-                          </>
-                        }
-                        triggerWhenOpen={
-                          <>
-                            <FaAngleDown />
-                            {`${database.databaseName}.${schema.schemaName}`}
-                          </>
-                        }
-                        triggerStyle={{
-                          fontWeight: "bold",
-                        }}
-                        transitionTime={100}
-                      >
-                        {schema.tables.map((table) => {
-                          return (
-                            <div
-                              className="pl-3 pb-1"
-                              role="button"
-                              key={
-                                database.databaseName +
-                                schema.schemaName +
-                                table.tableName
-                              }
-                              onClick={async () => {
-                                try {
-                                  setLoading(true);
-                                  setCurrentTable(null);
-                                  const res = await apiCall<{
-                                    status: number;
-                                    table?: InformationSchemaTablesInterface;
-                                  }>(
-                                    `/datasourceId/${datasource.id}/database/${database.databaseName}/schema/${schema.schemaName}/table/${table.tableName}`,
-                                    {
-                                      method: "GET",
-                                    }
-                                  );
-                                  console.log("res", res);
-                                  setCurrentTable(res.table);
-                                  setLoading(false);
-                                } catch (e) {
-                                  console.log("e", e);
-                                }
-                              }}
-                            >
-                              <FaTable /> {table.tableName}
-                            </div>
-                          );
-                        })}
-                      </Collapsible>
-                    </div>
+        {!informationSchema ? (
+          <div>
+            <div className="alert alert-info d-flex justify-content-between align-items-center">
+              <span>
+                Need help building your query? Click the button to the right to
+                get insight into what tables and columns are available in the
+                datasource.
+              </span>
+              <Button
+                onClick={async () => {
+                  console.log("datasource.id", datasource.id);
+                  await apiCall(
+                    `/datasource/${datasource.id}/informationSchema`,
+                    { method: "POST" }
                   );
-                })}
-              </>
-            );
-          })}
-        </div>
+                  //MKTODO: Update this once we get a return type
+                }}
+              >
+                Generate Information Schema
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+            <div
+              key="database"
+              className="border rounded p-1"
+              style={{
+                height: "210px",
+                overflowY: "scroll",
+              }}
+            >
+              {items.map((database) => {
+                return (
+                  <>
+                    {database.schemas.map((schema) => {
+                      return (
+                        <div key={schema.schemaName} className="pb-2">
+                          <Collapsible
+                            className="pb-1"
+                            key={database.databaseName + schema.schemaName}
+                            trigger={
+                              <>
+                                <FaAngleRight />
+                                {`${database.databaseName}.${schema.schemaName}`}
+                              </>
+                            }
+                            triggerWhenOpen={
+                              <>
+                                <FaAngleDown />
+                                {`${database.databaseName}.${schema.schemaName}`}
+                              </>
+                            }
+                            triggerStyle={{
+                              fontWeight: "bold",
+                            }}
+                            transitionTime={100}
+                          >
+                            {schema.tables.map((table) => {
+                              return (
+                                <div
+                                  className="pl-3 pb-1"
+                                  role="button"
+                                  key={
+                                    database.databaseName +
+                                    schema.schemaName +
+                                    table.tableName
+                                  }
+                                  onClick={async () => {
+                                    try {
+                                      setLoading(true);
+                                      setCurrentTable(null);
+                                      const res = await apiCall<{
+                                        status: number;
+                                        table?: InformationSchemaTablesInterface;
+                                      }>(
+                                        `/datasourceId/${datasource.id}/database/${database.databaseName}/schema/${schema.schemaName}/table/${table.tableName}`,
+                                        {
+                                          method: "GET",
+                                        }
+                                      );
+                                      console.log("res", res);
+                                      setCurrentTable(res.table);
+                                      setLoading(false);
+                                    } catch (e) {
+                                      console.log("e", e);
+                                    }
+                                  }}
+                                >
+                                  <FaTable /> {table.tableName}
+                                </div>
+                              );
+                            })}
+                          </Collapsible>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
       <DatasourceTableData table={currentTable} loading={loading} />
     </div>

@@ -1,5 +1,7 @@
 import { Response } from "express";
+import { getDataSourceById } from "../models/DataSourceModel";
 import { getTableDataByPath } from "../models/InformationSchemaTablesModel";
+import { initializeDatasourceInformationSchema } from "../services/datasource";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 
@@ -17,8 +19,6 @@ export async function getTableData(
 ) {
   const { org } = getOrgFromReq(req);
 
-  // TODO: Validate user has permission
-
   const { databaseName, schemaName, tableName, datasourceId } = req.params;
 
   if (!databaseName || !schemaName || !tableName) {
@@ -28,6 +28,14 @@ export async function getTableData(
     });
     return;
   }
+
+  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+
+  //MKTODO: Make sure this is correct
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
 
   try {
     const table = await getTableDataByPath(
@@ -48,4 +56,39 @@ export async function getTableData(
       message: e.message || "An error occurred.",
     });
   }
+}
+
+export async function postInformationSchema(
+  req: AuthRequest<null, { datasourceId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+
+  //MKTODO: Make sure this is correct
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
+
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "No datasource found",
+    });
+    return;
+  }
+
+  if (datasource?.type !== ("postgres" || "bigquery")) {
+    return res.status(400).json({
+      status: 400,
+      message: "Datasource type does not support information schema",
+    });
+  }
+
+  //MKTODO: Update the return type of the method above so we know if it was created successfully.
+  await initializeDatasourceInformationSchema(datasource, org.id);
+
+  res.status(200).json({ status: 200, message: "OK" });
 }
