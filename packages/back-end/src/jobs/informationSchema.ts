@@ -1,6 +1,7 @@
 import { DataSourceInterface } from "../../types/datasource";
 import { initializeDatasourceInformationSchema } from "../services/datasource";
 import { getAgendaInstance } from "../services/queueing";
+import { logger } from "../util/logger";
 
 export default async function queueCreateInformationSchema(
   datasource: DataSourceInterface,
@@ -9,7 +10,16 @@ export default async function queueCreateInformationSchema(
   const agenda = getAgendaInstance();
 
   agenda.define("generate datasource informationSchema", async () => {
-    await initializeDatasourceInformationSchema(datasource, organization);
+    const informationSchemaId = await initializeDatasourceInformationSchema(
+      datasource,
+      organization
+    );
+
+    if (!informationSchemaId) {
+      logger.error(
+        "Unable to generate information schema for datasource: " + datasource.id
+      );
+    }
   });
 
   (async function () {
