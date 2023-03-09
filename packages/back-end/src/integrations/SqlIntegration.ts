@@ -627,8 +627,12 @@ export default abstract class SqlIntegration
 
   private getMetricConversionBase(
     col: string,
+    denominatorMetrics: boolean,
     activationMetrics: boolean
   ): string {
+    if (denominatorMetrics) {
+      return `du.${col}`;
+    }
     if (activationMetrics) {
       return `a.${col}`;
     }
@@ -902,6 +906,7 @@ export default abstract class SqlIntegration
           )} as variation,
           MIN(${this.getMetricConversionBase(
             "conversion_start",
+            denominatorMetrics.length > 0,
             activationMetrics.length > 0 && dimension?.type !== "activation"
           )}) as conversion_start
           ${
@@ -909,6 +914,7 @@ export default abstract class SqlIntegration
               ? ""
               : `, MIN(${this.getMetricConversionBase(
                   "conversion_end",
+                  denominatorMetrics.length > 0,
                   activationMetrics.length > 0 &&
                     dimension?.type !== "activation"
                 )}) as conversion_end`
@@ -946,28 +952,52 @@ export default abstract class SqlIntegration
       )
       , __userMetric as (
         -- Add in the aggregate metric value for each user
-        ${this.getUserMetricCTE(
-          baseIdType,
-          aggregate,
-          "__metric",
-          ignoreConversionEnd
-        )})
+        SELECT
+          d.variation,
+          d.dimension,
+          d.${baseIdType},
+          ${aggregate} as value
+        FROM
+          __distinctUsers d
+          JOIN __metric m ON (
+            m.${baseIdType} = d.${baseIdType}
+          )
+        WHERE
+          m.timestamp >= d.conversion_start
+          ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
+        GROUP BY
+          d.variation,
+          d.dimension,
+          d.${baseIdType}
+      )
       ${
         isRatio
           ? `, __userDenominator as (
-            -- Add in the aggregate denominator value for each user
-            ${this.getUserMetricCTE(
-              baseIdType,
-              this.getAggregateMetricColumn(denominator, "m"),
-              `__denominator${denominatorMetrics.length - 1}`,
-              ignoreConversionEnd
-            )})`
+              -- Add in the aggregate denominator value for each user
+              SELECT
+                d.${baseIdType},
+                ${aggregate} as value
+              FROM
+                __distinctUsers d
+                JOIN __denominator${denominatorMetrics.length - 1} m ON (
+                  m.${baseIdType} = d.${baseIdType}
+                )
+              WHERE
+                m.timestamp >= d.conversion_start
+                ${
+                  ignoreConversionEnd
+                    ? ""
+                    : "AND m.timestamp <= d.conversion_end"
+                }
+              GROUP BY
+                d.${baseIdType}
+            )`
           : ""
       }
       -- One row per variation/dimension with aggregations
       SELECT
-        u.variation,
-        u.dimension,
+        m.variation,
+        m.dimension,
         COUNT(*) AS users,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
         '${metric.type}' as main_metric_type,
@@ -984,20 +1014,17 @@ export default abstract class SqlIntegration
             : ""
         }
       FROM
-        __distinctUsers u
-        LEFT JOIN __userMetric m ON (
-          u.${baseIdType} = m.${baseIdType}
-        )
+        __userMetric m
         ${
           isRatio
             ? `LEFT JOIN __userDenominator d ON (
-              u.${baseIdType} = d.${baseIdType}
+              m.${baseIdType} = d.${baseIdType}
             )`
             : ""
         }
       GROUP BY
-        u.variation,
-        u.dimension
+        m.variation,
+        m.dimension
     `,
       this.getFormatDialect()
     );
@@ -1259,29 +1286,6 @@ export default abstract class SqlIntegration
 
     return `-- Dimension (${dimension.name})
     ${dimension.sql}
-    `;
-  }
-
-  private getUserMetricCTE(
-    baseIdType: string,
-    aggregateColumn: string,
-    metricTable: string,
-    ignoreConversionEnd: boolean
-  ) {
-    return `
-    SELECT
-      d.${baseIdType},
-      ${aggregateColumn} as value
-    FROM
-      __distinctUsers d
-      JOIN ${metricTable} m ON (
-        m.${baseIdType} = d.${baseIdType}
-      )
-    WHERE
-      m.timestamp >= d.conversion_start
-      ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
-    GROUP BY
-      d.${baseIdType}
     `;
   }
 
