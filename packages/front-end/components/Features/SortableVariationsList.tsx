@@ -14,15 +14,13 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { SortableExperimentVariation } from "../Experiment/ExperimentVariationsInput";
+import { Variation } from "back-end/types/experiment";
 import { SortableVariation } from "./SortableFeatureVariationRow";
 
 const SortableVariationsList: FC<{
   children: ReactNode;
-  variations: (SortableVariation | SortableExperimentVariation)[];
-  setVariations: (
-    variations: (SortableVariation | SortableExperimentVariation)[]
-  ) => void;
+  variations: (SortableVariation | Variation)[];
+  setVariations: (variations: (SortableVariation | Variation)[]) => void;
   sortingStrategy?: "vertical" | "rect";
 }> = ({
   children,
@@ -55,9 +53,11 @@ const SortableVariationsList: FC<{
 
           if (oldIndex === -1 || newIndex === -1) return;
 
-          const newVariations = arrayMove<
-            SortableVariation | SortableExperimentVariation
-          >(variations, oldIndex, newIndex);
+          const newVariations = arrayMove<SortableVariation | Variation>(
+            variations,
+            oldIndex,
+            newIndex
+          );
 
           setVariations(newVariations);
         }

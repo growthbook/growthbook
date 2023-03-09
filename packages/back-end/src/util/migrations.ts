@@ -15,6 +15,7 @@ import {
 } from "../../types/feature";
 import { MemberRole, OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
+import { ExperimentInterface } from "../../types/experiment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -347,4 +348,31 @@ export function upgradeOrganizationDoc(
   });
 
   return org;
+}
+
+export function upgradeExperimentDoc(
+  orig: ExperimentInterface
+): ExperimentInterface {
+  const experiment = cloneDeep(orig);
+
+  experiment.variations.forEach((v, i) => {
+    if (v.key === "" || v.key === undefined || v.key === null) {
+      v.key = i + "";
+    }
+    if (!v.id) {
+      v.id = i + "";
+    }
+  });
+
+  // Populate phase names
+  if (experiment.phases) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.name) {
+        const p = phase.phase || "main";
+        phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
+      }
+    });
+  }
+
+  return experiment;
 }

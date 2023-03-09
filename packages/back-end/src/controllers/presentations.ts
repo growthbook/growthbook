@@ -6,12 +6,12 @@ import {
   createPresentation,
   deletePresentationById,
 } from "../services/presentations";
-import { getLatestSnapshot } from "../services/experiments";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
 import { getExperimentsByIds } from "../models/ExperimentModel";
+import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -63,13 +63,9 @@ export async function getPresentation(
     snapshot: ExperimentSnapshotInterface;
   }[] = [];
   const promises = experiments.map(async (experiment, i) => {
-    // get best phase to show:
-    let phase = experiment.phases.length - 1;
-    experiment.phases.forEach((p, j) => {
-      if (p.phase === "main") phase = j;
-    });
-
+    const phase = experiment.phases.length - 1;
     const snapshot = await getLatestSnapshot(experiment.id, phase);
+    if (!snapshot) return;
     withSnapshots[i] = {
       experiment,
       snapshot,
@@ -113,11 +109,9 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
     // only show experiments that you have permission to view
     if (await userHasAccess(req, experiment.organization)) {
       // get best phase to show:
-      let phase = experiment.phases.length - 1;
-      experiment.phases.forEach((p, j) => {
-        if (p.phase === "main") phase = j;
-      });
+      const phase = experiment.phases.length - 1;
       const snapshot = await getLatestSnapshot(experiment.id, phase);
+      if (!snapshot) return;
       withSnapshots[i] = {
         experiment,
         snapshot,

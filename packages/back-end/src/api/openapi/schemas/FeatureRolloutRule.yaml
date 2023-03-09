@@ -1,0 +1,27 @@
+type: object
+required:
+  - description
+  - condition
+  - id
+  - enabled
+  - type
+  - value
+  - coverage
+  - hashAttribute
+properties:
+  description:
+    type: string
+  condition:
+    type: string
+  id:
+    type: string
+  enabled:
+    type: boolean
+  type:
+    type: string
+  value:
+    type: string
+  coverage:
+    type: number
+  hashAttribute:
+    type: string

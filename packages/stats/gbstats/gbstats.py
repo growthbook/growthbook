@@ -33,6 +33,17 @@ SUM_COLS = [
 ]
 
 
+SUM_COLS = [
+    "users",
+    "count",
+    "main_sum",
+    "main_sum_squares",
+    "denominator_sum",
+    "denominator_sum_squares",
+    "main_denominator_sum_product",
+]
+
+
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
     unknown_var_ids = []
@@ -237,7 +248,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "stats": stats,
                     }
                 )
@@ -247,7 +258,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],

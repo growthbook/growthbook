@@ -1,0 +1,55 @@
+type: object
+required:
+  - description
+  - condition
+  - id
+  - enabled
+  - type
+properties:
+  description:
+    type: string
+  condition:
+    type: string
+  id:
+    type: string
+  enabled:
+    type: boolean
+  type:
+    type: string
+  trackingKey:
+    type: string
+  hashAttribute:
+    type: string
+  namespace:
+    type: obect
+    required:
+      - enabled
+      - name
+      - range
+    properties:
+      enabled:
+        type: boolean
+      name:
+        type: string
+      range:
+        type: array
+        items:
+          type: number
+        minItems: 2
+        maxItems: 2
+  coverage:
+    type: number
+  value:
+    type: array
+    items:
+      type: object
+      required:
+        - value
+        - weight
+      properties:
+        value:
+          type: string
+        weight:
+          type: number
+        name:
+          type: string
