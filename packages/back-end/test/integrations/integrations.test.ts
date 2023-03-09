@@ -79,6 +79,9 @@ describe("formatInformationSchema", () => {
             schemaName: "a_second_data_set",
             tables: [
               {
+                path:
+                  "`adept-arbor-354914.a_second_data_set.experiment-assignments`",
+                id: "",
                 tableName: "experiment-assignments",
               },
             ],
@@ -88,9 +91,13 @@ describe("formatInformationSchema", () => {
             schemaName: "sample_data_set",
             tables: [
               {
+                path: "`adept-arbor-354914.sample_data_set.orders`",
+                id: "",
                 tableName: "orders",
               },
               {
+                path: "`adept-arbor-354914.sample_data_set.page-visitors`",
+                id: "",
                 tableName: "page-visitors",
               },
             ],
@@ -100,6 +107,8 @@ describe("formatInformationSchema", () => {
             schemaName: "sample_data",
             tables: [
               {
+                path: "`adept-arbor-354914.sample_data.sample_table`",
+                id: "",
                 tableName: "sample_table",
               },
             ],
@@ -187,6 +196,9 @@ describe("formatInformationSchema", () => {
             schemaName: "a_second_data_set",
             tables: [
               {
+                path:
+                  "adept-arbor-354914.a_second_data_set.experiment-assignments",
+                id: "",
                 tableName: "experiment-assignments",
               },
             ],
@@ -196,9 +208,13 @@ describe("formatInformationSchema", () => {
             schemaName: "sample_data_set",
             tables: [
               {
+                path: "adept-arbor-354914.sample_data_set.orders",
+                id: "",
                 tableName: "orders",
               },
               {
+                path: "adept-arbor-354914.sample_data_set.page-visitors",
+                id: "",
                 tableName: "page-visitors",
               },
             ],
@@ -208,6 +224,8 @@ describe("formatInformationSchema", () => {
             schemaName: "sample_data",
             tables: [
               {
+                path: "adept-arbor-354914.sample_data.sample_table",
+                id: "",
                 tableName: "sample_table",
               },
             ],
@@ -295,6 +313,8 @@ describe("formatInformationSchema", () => {
             schemaName: "a_second_data_set",
             tables: [
               {
+                path: "a_second_data_set.experiment-assignments",
+                id: "",
                 tableName: "experiment-assignments",
               },
             ],
@@ -304,9 +324,13 @@ describe("formatInformationSchema", () => {
             schemaName: "sample_data_set",
             tables: [
               {
+                path: "sample_data_set.orders",
+                id: "",
                 tableName: "orders",
               },
               {
+                path: "sample_data_set.page-visitors",
+                id: "",
                 tableName: "page-visitors",
               },
             ],
@@ -316,6 +340,8 @@ describe("formatInformationSchema", () => {
             schemaName: "sample_data",
             tables: [
               {
+                path: "sample_data.sample_table",
+                id: "",
                 tableName: "sample_table",
               },
             ],
