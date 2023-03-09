@@ -209,7 +209,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         />
       )}
 
-      <div className="container-fluid pagecontents">
+      <div className="container-fluid pagecontents pb-5">
         {saveMsg && (
           <TempMessage
             close={() => {
@@ -234,7 +234,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         )}
         <h1>General Settings</h1>
 
-        <div className="mb-1">
+        <div className="mb-5">
           <div className=" bg-white p-3 border">
             <div className="row mb-0">
               <div className="col-sm-3">
