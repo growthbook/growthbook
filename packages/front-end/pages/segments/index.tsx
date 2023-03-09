@@ -4,6 +4,7 @@ import { SegmentInterface } from "back-end/types/segment";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { ago } from "@/services/dates";
 import Button from "@/components/Button";
@@ -14,6 +15,8 @@ import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
+import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
+import { DocLink } from "@/components/DocLink";
 
 const SegmentPage: FC = () => {
   const {
@@ -26,6 +29,17 @@ const SegmentPage: FC = () => {
   } = useDefinitions();
 
   const permissions = usePermissions();
+
+  function canAddEditRemoveSegments(): boolean {
+    if (!permissions.createSegments) {
+      return false;
+    }
+
+    if (hasFileConfig() && !storeSegmentsInMongo()) {
+      return false;
+    }
+    return true;
+  }
 
   const [
     segmentForm,
@@ -204,7 +218,7 @@ const SegmentPage: FC = () => {
           <h1>Segments</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {permissions.createSegments && (
+        {canAddEditRemoveSegments() && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -233,7 +247,11 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            <table className="table appbox gbtable table-hover">
+            <table
+              className={clsx("table appbox gbtable", {
+                "table-hover": !hasFileConfig(),
+              })}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -241,8 +259,8 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  {permissions.createSegments && <th></th>}
+                  {canAddEditRemoveSegments() && <th>Date Updated</th>}
+                  {canAddEditRemoveSegments() && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -286,8 +304,10 @@ const SegmentPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      <td>{ago(s.dateUpdated)}</td>
-                      {permissions.createSegments && (
+                      {canAddEditRemoveSegments() && (
+                        <td>{ago(s.dateUpdated)}</td>
+                      )}
+                      {canAddEditRemoveSegments() && (
                         <td>
                           <a
                             href="#"
@@ -327,11 +347,30 @@ const SegmentPage: FC = () => {
           </div>
         </div>
       )}
-      {segments.length === 0 && (
+      {segments.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any segments defined yet.{" "}
           {permissions.createSegments &&
             "Click the button above to create your first one."}
+        </div>
+      )}
+      {segments.length === 0 && hasFileConfig() && storeSegmentsInMongo() && (
+        <div className="alert alert-info">
+          You don&apos;t have any segments defined yet. You can add them to your{" "}
+          <code>config.yml</code> file and remove the{" "}
+          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
+          {permissions.createSegments &&
+            " or click the button above to create your first one"}
+          . <DocLink docSection="config_yml">View Documentation</DocLink>
+        </div>
+      )}
+      {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
+        <div className="alert alert-info">
+          It looks like you have a <code>config.yml</code> file. Segments
+          defined there will show up on this page. If you would like to store
+          and access segments in MongoDB instead, please add the{" "}
+          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
+          <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>
       )}
     </div>
