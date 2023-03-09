@@ -54,10 +54,11 @@ const NorthStarMetricDisplay = ({
 
   return (
     <>
-      <div>
+      <div className="mt-2">
         {analysis && analysis?.dates && analysis.dates.length > 0 ? (
           <div className="mb-4">
-            <h5 className="mb-3">{metric.name}</h5>
+            <h4 className="mb-3">{metric.name}</h4>
+            <strong className="ml-4 align-bottom">Daily Average</strong>
             <DateGraph
               type={metric.type}
               dates={analysis.dates}
@@ -69,7 +70,7 @@ const NorthStarMetricDisplay = ({
           </div>
         ) : (
           <div className="mb-4">
-            <h5 className="my-3">{metric.name}</h5>
+            <h4 className="my-3">{metric.name}</h4>
             {permissions.check("runQueries", "") && (
               <form
                 onSubmit={async (e) => {

@@ -14,7 +14,6 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import setDay from "date-fns/setDay";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, getValidDate } from "@/services/dates";
 import { formatConversionRate } from "@/services/metrics";
@@ -42,24 +41,6 @@ function addStddev(
   return add ? value + err : Math.max(0, value - err);
 }
 
-function correctStddev(
-  n: number,
-  x: number,
-  sx: number,
-  m: number,
-  y: number,
-  sy: number
-) {
-  const s2x = Math.pow(sx, 2);
-  const s2y = Math.pow(sy, 2);
-  const t = n + m;
-
-  return Math.sqrt(
-    ((n - 1) * s2x + (m - 1) * s2y) / (t - 1) +
-      (n * m * Math.pow(x - y, 2)) / (t * (t - 1))
-  );
-}
-
 type ExperimentDisplayData = {
   id: string;
   name: string;
@@ -80,81 +61,51 @@ type ExperimentDisplayData = {
 const DateGraph: FC<{
   type: MetricType;
   groupby?: "day" | "week";
+  method?: "avg" | "sum";
   dates: Datapoint[];
   showStdDev?: boolean;
   experiments?: Partial<ExperimentInterfaceStringDates>[];
   height?: number;
 }> = ({
   type,
-  dates,
   groupby = "day",
+  method = "avg",
+  dates,
   showStdDev = true,
   experiments = [],
   height = 220,
 }) => {
   const data = useMemo(
     () =>
-      dates
-        .reduce(
-          (
-            dates: {
-              key: number;
-              total: number;
-              stddev: number;
-              count: number;
-            }[],
-            { d, v, s, c }
-          ) => {
-            const key = (groupby === "day"
-              ? getValidDate(d)
-              : setDay(getValidDate(d), 0)
-            ).getTime();
+      dates.map((row, i) => {
+        const key = getValidDate(row.d).getTime();
+        let value = method === "avg" ? row.v : row.v * row.c;
+        let stddev = method === "avg" ? row.s : 0;
+        const count = row.c || 1;
 
-            const count = c || 1;
-            const total = v * count;
-            const stddev = s;
+        if (groupby === "week") {
+          // get 7 day average (or < 7 days if at beginning of data)
+          const windowedDates = dates.slice(Math.max(i - 6, 0), i + 1);
+          const days = windowedDates.length;
+          const sumValue = windowedDates.reduce((acc, cur) => {
+            return acc + (method === "avg" ? cur.v : cur.v * cur.c);
+          }, 0);
+          const sumStddev = windowedDates.reduce((acc, cur) => {
+            return acc + (method === "avg" ? cur.s : 0);
+          }, 0);
+          value = days ? sumValue / days : 0;
+          stddev = days ? sumStddev / days : 0;
+        }
 
-            for (let i = 0; i < dates.length; i++) {
-              if (dates[i].key === key) {
-                const clone = [...dates];
-                clone[i] = {
-                  key,
-                  total: dates[i].total + total,
-                  count: dates[i].count + count,
-                  stddev: correctStddev(
-                    dates[i].count,
-                    dates[i].total / dates[i].count,
-                    dates[i].stddev,
-                    count,
-                    v,
-                    stddev
-                  ),
-                };
-                return clone;
-              }
-            }
+        return {
+          d: key,
+          v: value,
+          s: stddev,
+          c: count,
+        };
+      }),
 
-            return [
-              ...dates,
-              {
-                key,
-                total,
-                count,
-                stddev,
-              },
-            ];
-          },
-          []
-        )
-        .map((row) => {
-          return {
-            d: row.key,
-            v: row.total / row.count,
-            s: row.stddev,
-            c: row.count,
-          };
-        }),
-    [dates, groupby]
+    [dates, groupby, method]
   );
 
   const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
@@ -178,11 +129,12 @@ const DateGraph: FC<{
         ) : (
           <>
             <div className={styles.val}>
-              &mu;: {formatConversionRate(type, d.v as number)}
+              {method === "sum" ? `Σ` : `μ`}:{" "}
+              {formatConversionRate(type, d.v as number)}
             </div>
-            {"s" in d && (
+            {"s" in d && method === "avg" && (
               <div className={styles.secondary}>
-                &sigma;: {formatConversionRate(type, d.s)}
+                {`σ`}: {formatConversionRate(type, d.s)}
               </div>
             )}
             <div className={styles.secondary}>

@@ -6,7 +6,6 @@ import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -51,6 +50,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
+import Toggle from "@/components/Forms/Toggle";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -71,9 +71,14 @@ const MetricPage: FC = () => {
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
-  const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
-    storageKey,
+  const storageKeyAvg = `metric_groupby`; // to make metric-specific, include `${mid}`
+  const storageKeySum = `metric_groupby_sum`; // to make metric-specific, include `${mid}`
+  const [groupbyAvg, setGroupbyAvg] = useLocalStorage<"day" | "week">(
+    storageKeyAvg,
+    "day"
+  );
+  const [groupbySum, setGroupbySum] = useLocalStorage<"day" | "week">(
+    storageKeySum,
     "day"
   );
 
@@ -608,7 +613,7 @@ const MetricPage: FC = () => {
                       )}
                       {analysis?.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
-                          <div className="row mb-3">
+                          <div className="row mt-3">
                             <div className="col-auto">
                               <h5 className="mb-1 mt-1">
                                 {metric.type === "binomial"
@@ -617,40 +622,78 @@ const MetricPage: FC = () => {
                                 Over Time
                               </h5>
                             </div>
-                            <div className="col-auto">
-                              <a
-                                className={clsx("badge badge-pill mr-2", {
-                                  "badge-light": groupby === "week",
-                                  "badge-primary": groupby === "day",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("day");
-                                }}
-                              >
-                                day
-                              </a>
-                              <a
-                                className={clsx("badge badge-pill", {
-                                  "badge-light": groupby === "day",
-                                  "badge-primary": groupby === "week",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("week");
-                                }}
-                              >
-                                week
-                              </a>
-                            </div>
                           </div>
 
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <strong className="ml-4 align-bottom">
+                                Daily Average
+                              </strong>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-avg"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={groupbyAvg === "week"}
+                                  setValue={() =>
+                                    setGroupbyAvg(
+                                      groupbyAvg === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-avg"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
                           <DateGraph
                             type={metric.type}
+                            method="avg"
                             dates={analysis.dates}
-                            groupby={groupby}
+                            groupby={groupbyAvg}
+                          />
+
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <strong className="ml-4 align-bottom">
+                                Daily Sum
+                              </strong>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={groupbySum === "week"}
+                                  setValue={() =>
+                                    setGroupbySum(
+                                      groupbySum === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <DateGraph
+                            type={metric.type}
+                            method="sum"
+                            dates={analysis.dates}
+                            groupby={groupbySum}
                           />
                         </div>
                       )}
