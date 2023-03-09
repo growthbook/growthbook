@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import z from "zod";
 import uniqid from "uniqid";
-import { InformationSchema } from "../types/Integration";
+import {
+  InformationSchemaInterface,
+  InformationSchema,
+} from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 
@@ -28,7 +31,7 @@ const informationSchema = new mongoose.Schema({
                   z.object({
                     tableName: z.string(),
                     path: z.string(),
-                    tableId: z.string(),
+                    id: z.string(),
                     // add count of number of columns
                   })
                 ),
@@ -52,7 +55,7 @@ const informationSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type InformationSchemaDocument = mongoose.Document & InformationSchema;
+type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
 
 const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   "InformationSchema",

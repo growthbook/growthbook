@@ -12,7 +12,7 @@ type RowType = {
   columnName?: string;
 };
 
-function getPath(dataSource: DataSourceType, path: RowType): string {
+export function getPath(dataSource: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
   const returnValue = pathArray.join(".").toLocaleLowerCase();
   switch (dataSource) {
