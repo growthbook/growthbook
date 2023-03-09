@@ -116,6 +116,7 @@ export interface Props {
   editProject?: () => void;
   newPhase?: () => void;
   editPhases?: () => void;
+  editPhase?: (i: number | null) => void;
 }
 
 export default function SinglePage({
@@ -130,6 +131,7 @@ export default function SinglePage({
   editProject,
   newPhase,
   editPhases,
+  editPhase,
 }: Props) {
   const {
     getProjectById,
@@ -637,7 +639,12 @@ export default function SinglePage({
               {experiment.phases?.length > 0 ? (
                 <div>
                   {experiment.phases.map((phase, i) => (
-                    <ExpandablePhaseSummary key={i} phase={phase} i={i} />
+                    <ExpandablePhaseSummary
+                      key={i}
+                      phase={phase}
+                      i={i}
+                      editPhase={editPhase}
+                    />
                   ))}
                 </div>
               ) : (

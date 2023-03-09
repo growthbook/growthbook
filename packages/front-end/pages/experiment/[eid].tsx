@@ -23,6 +23,7 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import track from "@/services/track";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
+import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -42,6 +43,7 @@ const ExperimentPage = (): ReactElement => {
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
+  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -80,6 +82,7 @@ const ExperimentPage = (): ReactElement => {
   const editProject = canEditProject ? () => setProjectModalOpen(true) : null;
   const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
   const editPhases = canEdit ? () => setEditPhasesOpen(true) : null;
+  const editPhase = canEdit ? (i: number | null) => setEditPhaseId(i) : null;
 
   return (
     <div>
@@ -148,6 +151,14 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+        />
+      )}
+      {editPhaseId !== null && (
+        <EditPhaseModal
+          close={() => setEditPhaseId(null)}
+          experiment={experiment}
+          mutate={mutate}
+          i={editPhaseId}
         />
       )}
       {editPhasesOpen && (
@@ -220,6 +231,7 @@ const ExperimentPage = (): ReactElement => {
               editTags={editTags}
               newPhase={newPhase}
               editPhases={editPhases}
+              editPhase={editPhase}
             />
           ) : (
             <MultiTabPage

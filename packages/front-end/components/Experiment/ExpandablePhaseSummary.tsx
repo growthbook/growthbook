@@ -4,10 +4,12 @@ import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { date } from "@/services/dates";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "../Features/ConditionDisplay";
+import { GBEdit } from "../Icons";
 
 export interface Props {
   i: number;
   phase: ExperimentPhaseStringDates;
+  editPhase?: (i: number | null) => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -15,7 +17,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export default function ExpandablePhaseSummary({ i, phase }: Props) {
+export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
@@ -47,6 +49,19 @@ export default function ExpandablePhaseSummary({ i, phase }: Props) {
       </a>
       {expanded && (
         <div className="mx-3">
+          {editPhase && (
+            <div className="mb-2">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editPhase(i);
+                }}
+              >
+                <GBEdit /> edit phase
+              </a>
+            </div>
+          )}
           <table className="table table-sm">
             <tr>
               <th className="small">Coverage</th>
