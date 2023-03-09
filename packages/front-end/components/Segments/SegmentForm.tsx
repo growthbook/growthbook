@@ -127,6 +127,7 @@ const SegmentForm: FC<{
               <DatasourceSchema
                 datasource={datasource}
                 informationSchema={informationSchema}
+                mutate={mutateDefinitions}
               />
             </div>
           )}

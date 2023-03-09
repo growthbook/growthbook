@@ -81,14 +81,25 @@ export async function postInformationSchema(
   }
 
   if (datasource?.type !== ("postgres" || "bigquery")) {
-    return res.status(400).json({
+    res.status(400).json({
       status: 400,
       message: "Datasource type does not support information schema",
     });
+    return;
   }
 
-  //MKTODO: Update the return type of the method above so we know if it was created successfully.
-  await initializeDatasourceInformationSchema(datasource, org.id);
+  const informationSchemaId = await initializeDatasourceInformationSchema(
+    datasource,
+    org.id
+  );
 
-  res.status(200).json({ status: 200, message: "OK" });
+  if (!informationSchemaId) {
+    res.status(400).json({
+      status: 400,
+      message: "Unable to generate information schema",
+    });
+    return;
+  }
+
+  res.status(200).json({ status: 200 });
 }

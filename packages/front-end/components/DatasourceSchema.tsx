@@ -11,15 +11,18 @@ import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
 import Field from "./Forms/Field";
 import Button from "./Button";
+import LoadingSpinner from "./LoadingSpinner";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
   informationSchema: InformationSchemaInterface;
+  mutate: () => void;
 };
 
 export default function DatasourceSchema({
   datasource,
   informationSchema,
+  mutate,
 }: Props) {
   const { apiCall } = useAuth();
   const [
@@ -27,6 +30,11 @@ export default function DatasourceSchema({
     setCurrentTable,
   ] = useState<InformationSchemaTablesInterface | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<null | string>(null);
+  const [
+    generatingInformationSchema,
+    setGeneratingInformationSchema,
+  ] = useState(false);
 
   useEffect(() => {
     setCurrentTable(null);
@@ -59,16 +67,26 @@ export default function DatasourceSchema({
               </span>
               <Button
                 onClick={async () => {
-                  console.log("datasource.id", datasource.id);
-                  await apiCall(
-                    `/datasource/${datasource.id}/informationSchema`,
-                    { method: "POST" }
-                  );
-                  //MKTODO: Update this once we get a return type
+                  setGeneratingInformationSchema(true);
+                  setError(null);
+                  const res = await apiCall<{
+                    status: number;
+                    message?: string;
+                  }>(`/datasource/${datasource.id}/informationSchema`, {
+                    method: "POST",
+                  });
+
+                  setGeneratingInformationSchema(false);
+                  if (res.status > 200) {
+                    setError(res.message);
+                  }
+                  mutate();
                 }}
               >
                 Generate Information Schema
               </Button>
+              {generatingInformationSchema && <LoadingSpinner />}
+              {error && <div className="alert alert-warning">{error}</div>}
             </div>
           </div>
         ) : (
