@@ -1,17 +1,14 @@
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useFeature } from "@growthbook/growthbook-react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
-import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
 import GuidedGetStarted from "../components/GuidedGetStarted/GuidedGetStarted";
 
 const GetStartedPage = (): React.ReactElement => {
   const permissions = usePermissions();
-  const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
 
   const { ready, error: definitionsError } = useDefinitions();
 
@@ -40,7 +37,7 @@ const GetStartedPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  if (permissions.organizationSettings && guidedOnboarding) {
+  if (permissions.organizationSettings) {
     return (
       <>
         <div className="container pagecontents position-relative">
@@ -54,16 +51,11 @@ const GetStartedPage = (): React.ReactElement => {
     );
   } else {
     return (
-      <>
-        <div className="container pagecontents position-relative">
-          <GetStarted
-            experiments={experiments?.experiments || []}
-            features={features}
-            mutateExperiments={mutateExperiments}
-            onboardingType={null}
-          />
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
         </div>
-      </>
+      </div>
     );
   }
 };

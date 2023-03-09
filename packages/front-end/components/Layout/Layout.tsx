@@ -23,7 +23,7 @@ const navlinks: SidebarLinkProps[] = [
     Icon: BsLightbulb,
     path: /^getstarted/,
     className: styles.first,
-    feature: "guided-onboarding-test-august-2022",
+    permissions: ["organizationSettings"],
   },
   {
     name: "Features",
