@@ -1,67 +1,80 @@
+import { RawInformationSchema } from "../../src/types/Integration";
 import { formatInformationSchema } from "../../src/util/integrations";
 
 describe("formatInformationSchema", () => {
   it("Correctly formats a rawInformationSchema for BigQuery correctly", () => {
-    const rawInformationSchema = [
+    const rawInformationSchema: RawInformationSchema[] = [
       {
         table_catalog: "adept-arbor-354914",
         table_name: "experiment-assignments",
         table_schema: "a_second_data_set",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "experiment-assignments",
         table_schema: "a_second_data_set",
+        column_count: "3",
+      },
+      {
+        table_catalog: "adept-arbor-354914",
+        table_name: "experiment-assignments",
+        table_schema: "a_second_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
     ];
     const formattedResults = formatInformationSchema(
@@ -123,66 +136,78 @@ describe("formatInformationSchema", () => {
   });
 
   it("Correctly formats a rawInformationSchema for Postgres correctly", () => {
-    const rawInformationSchema = [
+    const rawInformationSchema: RawInformationSchema[] = [
       {
         table_catalog: "adept-arbor-354914",
         table_name: "experiment-assignments",
         table_schema: "a_second_data_set",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "experiment-assignments",
         table_schema: "a_second_data_set",
+        column_count: "3",
+      },
+      {
+        table_catalog: "adept-arbor-354914",
+        table_name: "experiment-assignments",
+        table_schema: "a_second_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
     ];
     const formattedResults = formatInformationSchema(
@@ -244,66 +269,78 @@ describe("formatInformationSchema", () => {
   });
 
   it("Correctly formats a rawInformationSchema for MySQL correctly", () => {
-    const rawInformationSchema = [
+    const rawInformationSchema: RawInformationSchema[] = [
       {
         table_catalog: "adept-arbor-354914",
         table_name: "experiment-assignments",
         table_schema: "a_second_data_set",
-      },
-      {
-        table_catalog: "adept-arbor-354914",
-        table_name: "experiment-assignments",
-        table_schema: "a_second_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "experiment-assignments",
         table_schema: "a_second_data_set",
+        column_count: "3",
+      },
+      {
+        table_catalog: "adept-arbor-354914",
+        table_name: "experiment-assignments",
+        table_schema: "a_second_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "orders",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "page-visitors",
         table_schema: "sample_data_set",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
       {
         table_catalog: "adept-arbor-354914",
         table_name: "sample_table",
         table_schema: "sample_data",
+        column_count: "3",
       },
     ];
     const formattedResults = formatInformationSchema(
