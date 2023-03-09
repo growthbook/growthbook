@@ -676,7 +676,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <div>
                       <div className="form-group mb-2 mr-2 form-inline flex-wrap">
                         <Field
-                          label="Bayesian confidence threshold"
+                          label="Bayesian chance to win threshold"
                           type="number"
                           step="any"
                           min="70"
