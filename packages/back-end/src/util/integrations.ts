@@ -76,7 +76,7 @@ export function formatInformationSchema(
           tableSchema: row.table_schema,
           tableName: row.table_name,
         }),
-        tableId: "",
+        id: "",
       });
     }
   });
