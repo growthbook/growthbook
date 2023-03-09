@@ -10,14 +10,24 @@ export default async function queueCreateInformationSchema(
   const agenda = getAgendaInstance();
 
   agenda.define("generate datasource informationSchema", async () => {
-    const informationSchemaId = await initializeDatasourceInformationSchema(
-      datasource,
-      organization
-    );
+    try {
+      const informationSchemaId = await initializeDatasourceInformationSchema(
+        datasource,
+        organization
+      );
 
-    if (!informationSchemaId) {
+      if (!informationSchemaId) {
+        logger.error(
+          "Unable to generate information schema for datasource: " +
+            datasource.id
+        );
+      }
+    } catch (e) {
       logger.error(
-        "Unable to generate information schema for datasource: " + datasource.id
+        "Unable to generate information schema for datasource: " +
+          "datasource.id." +
+          " Error: " +
+          e.message
       );
     }
   });

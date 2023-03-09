@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { InformationSchemaTablesInterface } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
+import { usingFileConfig } from "../init/config";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
@@ -61,6 +62,10 @@ const toInterface = (
 export async function createInformationSchemaTables(
   tables: InformationSchemaTablesInterface[]
 ): Promise<InformationSchemaTablesInterface[]> {
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
   const results = await InformationSchemaTablesModel.insertMany(tables);
 
   return results.map(toInterface);
