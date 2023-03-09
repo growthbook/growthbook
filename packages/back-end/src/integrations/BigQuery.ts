@@ -100,7 +100,8 @@ export default class BigQuery extends SqlIntegration {
       query.push(`SELECT
         DISTINCT table_name,
         "${projectId}" as table_catalog,
-        table_schema
+        table_schema,
+        column_name
       FROM
         ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS`);
     }

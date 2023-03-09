@@ -171,9 +171,9 @@ export interface Column {
 
 export interface Table {
   tableName: string;
-  path?: string;
-  columns?: Column[];
-  id?: string;
+  path: string;
+  id: string;
+  numberOfColumns: number;
 }
 
 export interface Schema {

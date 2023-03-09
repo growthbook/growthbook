@@ -82,6 +82,7 @@ describe("formatInformationSchema", () => {
                 path:
                   "`adept-arbor-354914.a_second_data_set.experiment-assignments`",
                 id: "",
+                numOfColumns: 3,
                 tableName: "experiment-assignments",
               },
             ],
@@ -93,11 +94,13 @@ describe("formatInformationSchema", () => {
               {
                 path: "`adept-arbor-354914.sample_data_set.orders`",
                 id: "",
+                numOfColumns: 3,
                 tableName: "orders",
               },
               {
                 path: "`adept-arbor-354914.sample_data_set.page-visitors`",
                 id: "",
+                numOfColumns: 3,
                 tableName: "page-visitors",
               },
             ],
@@ -109,6 +112,7 @@ describe("formatInformationSchema", () => {
               {
                 path: "`adept-arbor-354914.sample_data.sample_table`",
                 id: "",
+                numOfColumns: 3,
                 tableName: "sample_table",
               },
             ],
@@ -199,6 +203,7 @@ describe("formatInformationSchema", () => {
                 path:
                   "adept-arbor-354914.a_second_data_set.experiment-assignments",
                 id: "",
+                numOfColumns: 3,
                 tableName: "experiment-assignments",
               },
             ],
@@ -210,11 +215,13 @@ describe("formatInformationSchema", () => {
               {
                 path: "adept-arbor-354914.sample_data_set.orders",
                 id: "",
+                numOfColumns: 3,
                 tableName: "orders",
               },
               {
                 path: "adept-arbor-354914.sample_data_set.page-visitors",
                 id: "",
+                numOfColumns: 3,
                 tableName: "page-visitors",
               },
             ],
@@ -226,6 +233,7 @@ describe("formatInformationSchema", () => {
               {
                 path: "adept-arbor-354914.sample_data.sample_table",
                 id: "",
+                numOfColumns: 3,
                 tableName: "sample_table",
               },
             ],
@@ -315,6 +323,7 @@ describe("formatInformationSchema", () => {
               {
                 path: "a_second_data_set.experiment-assignments",
                 id: "",
+                numOfColumns: 3,
                 tableName: "experiment-assignments",
               },
             ],
@@ -326,11 +335,13 @@ describe("formatInformationSchema", () => {
               {
                 path: "sample_data_set.orders",
                 id: "",
+                numOfColumns: 3,
                 tableName: "orders",
               },
               {
                 path: "sample_data_set.page-visitors",
                 id: "",
+                numOfColumns: 3,
                 tableName: "page-visitors",
               },
             ],
@@ -342,6 +353,7 @@ describe("formatInformationSchema", () => {
               {
                 path: "sample_data.sample_table",
                 id: "",
+                numOfColumns: 3,
                 tableName: "sample_table",
               },
             ],
