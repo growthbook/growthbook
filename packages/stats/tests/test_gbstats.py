@@ -9,6 +9,7 @@ from gbstats.gbstats import (
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_df,
+    format_results,
 )
 from gbstats.shared.constants import StatsEngine
 
@@ -415,6 +416,20 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
+
+
+class TestFormatResults(TestCase):
+    def test_format_results_denominator(self):
+        rows = RATIO_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = format_results(
+            analyze_metric_df(
+                df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
+            )
+        )
+        for res in result:
+            for i, v in enumerate(res["variations"]):
+                self.assertEqual(v["denominator"], 510 if i == 0 else 500)
 
 
 if __name__ == "__main__":

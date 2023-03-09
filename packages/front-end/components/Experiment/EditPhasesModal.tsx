@@ -58,6 +58,7 @@ export default function EditPhasesModal({
         <thead>
           <tr>
             <th></th>
+            <th>Name</th>
             <th>Dates</th>
             <th>Traffic</th>
             <th>Reason for Stopping</th>
@@ -68,6 +69,7 @@ export default function EditPhasesModal({
           {experiment.phases.map((phase, i) => (
             <tr className="border p-2 m-2" key={i}>
               <td>{i + 1}</td>
+              <td>{phase.name}</td>
               <td>
                 <strong title={datetime(phase.dateStarted)}>
                   {date(phase.dateStarted)}

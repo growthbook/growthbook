@@ -9,7 +9,6 @@ import {
   ensureWatching,
   experimentUpdated,
   getExperimentWatchers,
-  getLatestSnapshot,
   getManualSnapshotData,
   processPastExperiments,
 } from "../services/experiments";
@@ -25,8 +24,11 @@ import {
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
+  deleteSnapshotById,
+  findSnapshotById,
+  updateSnapshot,
+  updateSnapshotsOnPhaseDelete,
+  getLatestSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
@@ -65,6 +67,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import { logger } from "../util/logger";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -131,11 +134,8 @@ export async function getExperimentsFrequencyMonth(
       dateStarted = e.dateCreated;
     } else {
       e.phases.forEach((p) => {
-        // get the earliest time it was main or ramp:
-        if (p.phase === "main" || p.phase === "ramp") {
-          if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
-            dateStarted = p.dateStarted;
-        }
+        if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
+          dateStarted = p.dateStarted;
       });
     }
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
@@ -313,7 +313,7 @@ export async function getSnapshots(
 
   const ids = idsString.split(",");
 
-  let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];
+  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
   snapshotsPromises = ids.map(async (i) => {
     return await _getSnapshot(org.id, i);
   });
@@ -321,7 +321,7 @@ export async function getSnapshots(
 
   res.status(200).json({
     status: 200,
-    snapshots,
+    snapshots: snapshots.filter((s) => !!s),
   });
   return;
 }
@@ -394,6 +394,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name = v.value === "true" ? "On" : "Off";
       }
       return {
+        id: uniqid("var_"),
+        key: i + "",
         name,
         screenshots: [],
         description: v.value,
@@ -401,11 +403,11 @@ const getExperimentDefinitionFromFeatureAndRule = (
     }),
     phases: [
       {
+        name: "Main",
         coverage: totalPercent,
         variationWeights: expRule.values.map((v) =>
           totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
         ),
-        phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),
       },
@@ -415,10 +417,17 @@ const getExperimentDefinitionFromFeatureAndRule = (
 };
 
 const validateVariationIds = (variations: Variation[]) => {
-  const ids = variations.map((v, i) => v.key || i + "");
-
-  if (ids.length !== new Set(ids).size) {
-    throw new Error("Variation ids must be unique");
+  variations.forEach((variation, i) => {
+    if (!variation.id) {
+      variation.id = uniqid("var_");
+    }
+    if (!variation.key) {
+      variation.key = i + "";
+    }
+  });
+  const keys = variations.map((v) => v.key);
+  if (keys.length !== new Set(keys).size) {
+    throw new Error("Variation keys must be unique");
   }
 };
 
@@ -480,7 +489,7 @@ export async function postExperiments(
     }
   }
 
-  const obj: Partial<ExperimentInterface> = {
+  const obj = {
     organization: data.organization,
     project: data.project,
     owner: data.owner || userId,
@@ -515,7 +524,7 @@ export async function postExperiments(
   };
 
   try {
-    validateVariationIds(obj.variations || []);
+    validateVariationIds(obj.variations);
 
     // Make sure id is unique
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
@@ -679,6 +688,7 @@ export async function postExperiment(
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
+
   keys.forEach((key) => {
     if (!(key in data)) {
       return;
@@ -1036,28 +1046,7 @@ export async function deleteExperimentPhase(
   }
   const updated = await updateExperimentById(org.id, experiment, changes);
 
-  // Delete all snapshots for the phase
-  await ExperimentSnapshotModel.deleteMany({
-    organization: org.id,
-    experiment: id,
-    phase: phaseIndex,
-  });
-
-  // Decrement the phase index for all later phases
-  await ExperimentSnapshotModel.updateMany(
-    {
-      organization: org.id,
-      experiment: id,
-      phase: {
-        $gt: phaseIndex,
-      },
-    },
-    {
-      $inc: {
-        phase: -1,
-      },
-    }
-  );
+  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
   // Add audit entry
   await req.audit({
@@ -1332,7 +1321,7 @@ export async function getSnapshotStatus(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({ id });
+  const snapshot = await findSnapshotById(org.id, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1361,23 +1350,16 @@ export async function getSnapshotStatus(
         org.settings?.statsEngine
       ),
     async (updates, results, error) => {
-      await ExperimentSnapshotModel.updateOne(
-        {
-          id,
-        },
-        {
-          $set: {
-            ...updates,
-            hasCorrectedStats: true,
-            unknownVariations:
-              results?.unknownVariations || snapshot.unknownVariations || [],
-            multipleExposures:
-              results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-            results: results?.dimensions || snapshot.results,
-            error,
-          },
-        }
-      );
+      await updateSnapshot(org.id, id, {
+        ...updates,
+        hasCorrectedStats: true,
+        unknownVariations:
+          results?.unknownVariations || snapshot.unknownVariations || [],
+        multipleExposures:
+          results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
+        results: results?.dimensions || snapshot.results,
+        error,
+      });
     },
     snapshot.error
   );
@@ -1391,10 +1373,7 @@ export async function cancelSnapshot(
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const snapshot = await findSnapshotById(org.id, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1403,9 +1382,7 @@ export async function cancelSnapshot(
   }
   res.status(200).json(
     await cancelRun(snapshot, org.id, async () => {
-      await ExperimentSnapshotModel.deleteOne({
-        id,
-      });
+      await deleteSnapshotById(org.id, id);
     })
   );
 }

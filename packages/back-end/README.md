@@ -123,7 +123,160 @@ To avoid pulling in Mongo dependencies, all tested code should be in small stand
 
 ## REST API endpoints
 
-_Coming soon_
+We use OpenAPI to document our REST endpoints.
+
+Let's say you want to add a REST endpoint to get a list of projects.
+
+### OpenAPI Spec
+
+First, you would document the endpoint using OpenAPI:
+
+1. Describe the resource (Project) with a JSON schema: `src/api/openapi/schemas/Project.yaml`
+   ```yml
+   type: object
+   required:
+     - id
+     - name
+   properties:
+     id:
+       type: string
+     name:
+       type: string
+   ```
+2. Reference your schema in `src/api/openapi/schemas/_index.yaml`
+   ```yml
+   Project:
+     $ref: "./Project.yaml"
+   ```
+3. Describe the API endpoint in `src/api/openapi/paths/listProjects.yaml`
+   ```yml
+   get:
+     summary: Get all projects
+     tags:
+       - projects
+     parameters:
+       - $ref: "../parameters.yaml#/limit"
+       - $ref: "../parameters.yaml#/offset"
+     operationId: listProjects
+     x-codeSamples:
+       - lang: "cURL"
+         source: |
+           curl https://api.growthbook.io/api/v1/projects \
+             -u secret_abc123DEF456:
+     responses:
+       "200":
+         content:
+           application/json:
+             schema:
+               allOf:
+                 - type: object
+                   required:
+                     - projects
+                   properties:
+                     projects:
+                       type: array
+                       items:
+                         $ref: "../schemas/Project.yaml"
+                 - $ref: "../schemas/PaginationFields.yaml"
+   ```
+4. Add the endpoint to `src/api/openapi/openapi.yaml` under `paths`
+   ```yml
+   /projects:
+     $ref: "./paths/listProjects.yaml"
+   ```
+5. In the same `src/api/openapi/openapi.yaml` file, define the `projects` tag:
+   ```yml
+   - name: projects
+     x-displayName: Projects
+     description: Projects are used to organize your feature flags and experiments
+   ```
+
+We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
+
+```bash
+yarn generate-api-types
+```
+
+### Router and Business Logic
+
+Next, you'll need to create a helper function to convert from our internal DB interface to the API interface:
+
+```ts
+// src/models/ProjectModel.ts
+import { ApiProject } from "../../types/openapi";
+import { ProjectInterface } from "../../types/project";
+
+export function toProjectApiInterface(project: ProjectInterface): ApiProject {
+  return {
+    id: project.id,
+    name: project.name,
+  };
+}
+```
+
+Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
+
+```ts
+import { ListProjectsResponse } from "../../../types/openapi";
+import {
+  findAllProjects,
+  toProjectApiInterface,
+} from "../../models/ProjectModel";
+import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listProjectsValidator } from "../../validators/openapi";
+
+export const listProjects = createApiRequestHandler(listProjectsValidator)(
+  async (req): Promise<ListProjectsResponse> => {
+    const projects = await findAllProjects(req.organization.id);
+    const { filtered, returnFields } = applyPagination(
+      projects.sort((a, b) => a.id.localeCompare(b.id)),
+      req.query
+    );
+    return {
+      projects: filtered.map((project) => toProjectApiInterface(project)),
+      ...returnFields,
+    };
+  }
+);
+```
+
+Then, create a router at `src/api/projects/projects.router.ts`:
+
+```ts
+import { Router } from "express";
+import { listProjects } from "./listProjects";
+
+const router = Router();
+
+// Project Endpoints
+// Mounted at /api/v1/projects
+router.get("/", listProjects);
+
+export default router;
+```
+
+Finally, mount your router in `src/api/api.router.ts`:
+
+```ts
+import projectsRouter from "./projects/projects.router";
+// ...
+
+router.use("/projects", projectsRouter);
+```
+
+That's it! Your API endpoint is live and ready and all the documentation will be auto-generated for you.
+
+### Automating with Plop
+
+We have a Plop script to automate many of the above steps for you.
+
+```bash
+yarn plop
+```
+
+Then, select `api-object` from the list and enter the name of your resource (`project` in this case).
+
+You'll still have to go through all the steps above and make tweaks as needed, but most of the code will be auto-generated for you.
 
 ## Sample Data
 
