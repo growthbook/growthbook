@@ -6,19 +6,16 @@ import {
 import { NotificationEventPayload } from "../../../base-types";
 import { ApiFeature } from "../../../../../types/openapi";
 import { getApiFeatureObj } from "../../../../services/features";
-import { BasePayloadCreatorOptions } from "./base-payloads";
+import { PayloadCreator } from "./base-payloads";
 
-export const getPayloadForFeatureCreated = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: FeatureCreatedNotificationEvent;
-}): NotificationEventPayload<
-  "feature.created",
-  "feature",
-  { feature: ApiFeature }
-> => ({
+export const getPayloadForFeatureCreated: PayloadCreator<
+  FeatureCreatedNotificationEvent,
+  NotificationEventPayload<
+    "feature.created",
+    "feature",
+    { feature: ApiFeature }
+  >
+> = ({ event, organization, savedGroupMap }) => ({
   ...event,
   data: {
     ...event.data,
@@ -26,17 +23,14 @@ export const getPayloadForFeatureCreated = ({
   },
 });
 
-export const getPayloadForFeatureUpdated = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: FeatureUpdatedNotificationEvent;
-}): NotificationEventPayload<
-  "feature.updated",
-  "feature",
-  { current: ApiFeature; previous: ApiFeature }
-> => ({
+export const getPayloadForFeatureUpdated: PayloadCreator<
+  FeatureUpdatedNotificationEvent,
+  NotificationEventPayload<
+    "feature.updated",
+    "feature",
+    { current: ApiFeature; previous: ApiFeature }
+  >
+> = ({ event, organization, savedGroupMap }) => ({
   ...event,
   data: {
     ...event.data,
@@ -49,17 +43,14 @@ export const getPayloadForFeatureUpdated = ({
   },
 });
 
-export const getPayloadForFeatureDeleted = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: FeatureDeletedNotificationEvent;
-}): NotificationEventPayload<
-  "feature.deleted",
-  "feature",
-  { previous: ApiFeature }
-> => ({
+export const getPayloadForFeatureDeleted: PayloadCreator<
+  FeatureDeletedNotificationEvent,
+  NotificationEventPayload<
+    "feature.deleted",
+    "feature",
+    { previous: ApiFeature }
+  >
+> = ({ event, organization, savedGroupMap }) => ({
   ...event,
   data: {
     ...event.data,
