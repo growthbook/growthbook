@@ -10,13 +10,11 @@ import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
-import { getSavedGroupMap } from "../../../services/features";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
   EventWebHookSuccessResult,
   getEventWebHookSignatureForPayload,
-  getPayloadForNotificationEvent,
 } from "./event-webhooks-utils";
 
 let jobDefined = false;
@@ -101,12 +99,7 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const savedGroupMap = await getSavedGroupMap(organization);
-    const payload = await getPayloadForNotificationEvent({
-      event: event.data,
-      organization,
-      savedGroupMap,
-    });
+    const payload = event.data;
 
     if (!payload) {
       // Unsupported events return a null payload

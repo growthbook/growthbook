@@ -11,7 +11,9 @@ import {
 } from "../../types/feature";
 import {
   generateRuleId,
+  getApiFeatureObj,
   getNextScheduledUpdate,
+  getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "../services/features";
 import { upgradeFeatureInterface } from "../util/migrations";
@@ -142,12 +144,14 @@ async function logFeatureUpdatedEvent(
   previous: FeatureInterface,
   current: FeatureInterface
 ): Promise<string> {
+  const savedGroupMap = await getSavedGroupMap(organization);
+
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current,
-      previous,
+      current: getApiFeatureObj(current, organization, savedGroupMap),
+      previous: getApiFeatureObj(previous, organization, savedGroupMap),
     },
   };
 
@@ -166,11 +170,13 @@ async function logFeatureCreatedEvent(
   organization: OrganizationInterface,
   feature: FeatureInterface
 ): Promise<string> {
+  const savedGroupMap = await getSavedGroupMap(organization);
+
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
     data: {
-      current: feature,
+      current: getApiFeatureObj(feature, organization, savedGroupMap),
     },
   };
 
@@ -182,18 +188,19 @@ async function logFeatureCreatedEvent(
 
 /**
  * @param organization
- * @param feature
- * @returns event.id
+ * @param previousFeature
  */
 async function logFeatureDeletedEvent(
   organization: OrganizationInterface,
   previousFeature: FeatureInterface
 ): Promise<string> {
+  const savedGroupMap = await getSavedGroupMap(organization);
+
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
     data: {
-      previous: previousFeature,
+      previous: getApiFeatureObj(previousFeature, organization, savedGroupMap),
     },
   };
 

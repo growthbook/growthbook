@@ -1,16 +1,4 @@
 import { createHmac } from "crypto";
-import { NotificationEvent } from "../../base-events";
-import {
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "../../base-types";
-import { BasePayloadCreatorOptions } from "./payloads/base-payloads";
-import {
-  getPayloadForFeatureCreated,
-  getPayloadForFeatureDeleted,
-  getPayloadForFeatureUpdated,
-} from "./payloads/feature-payloads";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -48,51 +36,3 @@ export const getEventWebHookSignatureForPayload = <T>({
 };
 
 // endregion Web hook signing
-
-// region Web hook Payload creation
-
-/**
- * Get the payload for the notification event. Some payloads need to be transformed.
- * @param event
- * @param organization
- * @param savedGroupMap
- */
-export const getPayloadForNotificationEvent = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: NotificationEvent;
-}): NotificationEventPayload<
-  NotificationEventName,
-  NotificationEventResource,
-  unknown
-> | null => {
-  switch (event.event) {
-    case "experiment.created":
-    case "experiment.updated":
-    case "experiment.deleted":
-      return event;
-
-    case "feature.created":
-      return getPayloadForFeatureCreated({
-        event,
-        organization,
-        savedGroupMap,
-      });
-    case "feature.updated":
-      return getPayloadForFeatureUpdated({
-        event,
-        organization,
-        savedGroupMap,
-      });
-    case "feature.deleted":
-      return getPayloadForFeatureDeleted({
-        event,
-        organization,
-        savedGroupMap,
-      });
-  }
-};
-
-// endregion Web hook Payload creation
