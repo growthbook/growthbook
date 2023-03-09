@@ -129,11 +129,7 @@ export async function generateInformationSchema(
 ): Promise<InformationSchema[] | null> {
   const integration = getSourceIntegrationObject(datasource);
 
-  try {
-    return await integration.getInformationSchema();
-  } catch (e) {
-    return null;
-  }
+  return await integration.getInformationSchema();
 }
 
 export async function testDataSourceConnection(

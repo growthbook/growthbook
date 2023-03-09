@@ -8,6 +8,7 @@ import {
 } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
+import { usingFileConfig } from "../init/config";
 
 const informationSchema = new mongoose.Schema({
   id: String,
@@ -75,6 +76,10 @@ export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string
 ): Promise<string | null> {
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
   const result = await InformationSchemaModel.create({
     id: uniqid("inf_"),
     organization,
@@ -101,6 +106,10 @@ export async function updateInformationSchemaById(
   id: string,
   updates: Partial<InformationSchemaInterface>
 ): Promise<void> {
+  if (usingFileConfig()) {
+    throw new Error("Cannot update. Data sources managed by config.yml");
+  }
+
   await InformationSchemaModel.updateOne(
     { id, organization },
     {

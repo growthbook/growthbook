@@ -7,6 +7,7 @@ import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { fetchTableData } from "../services/datasource";
 import { getPath } from "../util/integrations";
+import { usingFileConfig } from "../init/config";
 import { getDataSourceById } from "./DataSourceModel";
 import {
   getInformationSchemaById,
@@ -69,6 +70,10 @@ const toInterface = (
 export async function createInformationSchemaTables(
   tables: InformationSchemaTablesInterface[]
 ): Promise<InformationSchemaTablesInterface[]> {
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
   const results = await InformationSchemaTablesModel.insertMany(tables);
 
   return results.map(toInterface);
@@ -89,6 +94,10 @@ export async function getTableDataByPath(
   tableName: string,
   datasourceId: string
 ): Promise<InformationSchemaTablesInterface | null> {
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
   const table = await InformationSchemaTablesModel.findOne({
     organization,
     databaseName: databaseName,
