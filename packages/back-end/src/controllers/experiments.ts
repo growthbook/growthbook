@@ -951,7 +951,14 @@ export async function postExperimentStop(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { reason, results, analysis, winner, dateEnded } = req.body;
+  const {
+    reason,
+    results,
+    analysis,
+    winner,
+    dateEnded,
+    releasedVariationId,
+  } = req.body;
 
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
@@ -995,6 +1002,7 @@ export async function postExperimentStop(
   changes.winner = winner;
   changes.results = results;
   changes.analysis = analysis;
+  changes.releasedVariationId = releasedVariationId;
 
   try {
     const updated = await updateExperimentById(org.id, experiment, changes);

@@ -366,6 +366,9 @@ export function upgradeExperimentDoc(
     if (!v.id) {
       v.id = i + "";
     }
+    if (!v.name) {
+      v.name = i ? `Variation ${i}` : `Control`;
+    }
   });
 
   // Populate phase names and targeting properties
@@ -393,6 +396,22 @@ export function upgradeExperimentDoc(
   // Old `observations` field
   if (!experiment.description && experiment.observations) {
     experiment.description = experiment.observations;
+  }
+
+  // releasedVariationId
+  if (!("releasedVariationId" in experiment)) {
+    if (experiment.status === "stopped") {
+      if (experiment.results === "lost") {
+        experiment.releasedVariationId = experiment.variations[0]?.id || "";
+      } else if (experiment.results === "won") {
+        experiment.releasedVariationId =
+          experiment.variations[experiment.winner || 1]?.id || "";
+      } else {
+        experiment.releasedVariationId = "";
+      }
+    } else {
+      experiment.releasedVariationId = "";
+    }
   }
 
   return experiment as ExperimentInterface;

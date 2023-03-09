@@ -22,6 +22,7 @@ const StopExperimentForm: FC<{
     defaultValues: {
       reason: "",
       winner: experiment.winner || 0,
+      releasedVariationId: experiment.releasedVariationId || "",
       analysis: experiment.analysis || "",
       results: experiment.results || "dnf",
       dateEnded: new Date().toISOString().substr(0, 16),
@@ -118,6 +119,18 @@ const StopExperimentForm: FC<{
             })}
           />
         )}
+      </div>
+      <div className="row">
+        <Field
+          label="Variation to Release"
+          containerClassName="col"
+          {...form.register("releasedVariationId")}
+          helpText="Which variation should be rolled out to 100% of users?"
+          initialOption="None"
+          options={experiment.variations.map((v) => {
+            return { value: v.id, display: v.name };
+          })}
+        />
       </div>
       <div className="row">
         <div className="form-group col-lg">

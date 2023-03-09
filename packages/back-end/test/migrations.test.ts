@@ -772,11 +772,10 @@ describe("backend", () => {
       trackingKey: "test",
       variations: [
         {
-          name: "Test",
           screenshots: [],
+          name: "",
         },
         {
-          name: "Another",
           screenshots: [],
         },
         {
@@ -797,20 +796,21 @@ describe("backend", () => {
       ],
     };
 
-    expect(upgradeExperimentDoc(exp)).toEqual({
+    const upgraded = {
       trackingKey: "test",
       hashAttribute: "",
+      releasedVariationId: "",
       variations: [
         {
           id: "0",
           key: "0",
-          name: "Test",
+          name: "Control",
           screenshots: [],
         },
         {
           id: "1",
           key: "1",
-          name: "Another",
+          name: "Variation 1",
           screenshots: [],
         },
         {
@@ -846,6 +846,61 @@ describe("backend", () => {
           },
         },
       ],
+    };
+
+    expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "dnf",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "dnf",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "lost",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "lost",
+      releasedVariationId: "0",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      releasedVariationId: "1",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 2,
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 2,
+      releasedVariationId: "foo",
     });
   });
 });
