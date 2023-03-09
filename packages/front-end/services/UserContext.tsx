@@ -30,6 +30,7 @@ import { isCloud, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
+import { AppFeatures } from "@/types/app-features";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -103,6 +104,7 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  verified: boolean;
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
@@ -188,6 +190,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   if (!user && data) {
     user = {
       email: data.email,
+      verified: data.verified,
       id: data.userId,
       environments: [],
       limitAccessByEnvironment: false,
@@ -250,7 +253,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   // Update growthbook tarageting attributes
-  const growthbook = useGrowthBook();
+  const growthbook = useGrowthBook<AppFeatures>();
   useEffect(() => {
     growthbook.setAttributes({
       id: data?.userId || "",

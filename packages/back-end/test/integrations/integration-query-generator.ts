@@ -66,15 +66,17 @@ const engines: DataSourceType[] = [
   "redshift",
   "athena",
   "presto",
+  "databricks",
   "mysql",
   "mssql",
   "clickhouse",
+  "databricks",
 ];
 
 const baseExperimentPhase: ExperimentPhase = {
   dateStarted: startDate,
   dateEnded: endDate,
-  phase: "main",
+  name: "Main",
   reason: "",
   coverage: 1,
   variationWeights: [0.34, 0.33, 0.33],
@@ -98,9 +100,9 @@ const baseExperiment: ExperimentInterface = {
   autoAssign: false,
   targetURLRegex: "",
   variations: [
-    { name: "Control" },
-    { name: "Variation 1" },
-    { name: "Variation 2" },
+    { name: "Control", key: "0", id: "0" },
+    { name: "Variation 1", key: "1", id: "1" },
+    { name: "Variation 2", key: "2", id: "2" },
   ] as Variation[],
   archived: false,
   phases: [baseExperimentPhase],

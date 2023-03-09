@@ -2,13 +2,12 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ExperimentPhaseType,
+  Variation,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import VariationsInput from "../Features/VariationsInput";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 
 export interface Props {
   close: () => void;
@@ -23,13 +22,16 @@ export default function EditPhaseModal({
   experiment,
   mutate,
 }: Props) {
-  const form = useForm<ExperimentPhaseStringDates>({
+  const form = useForm<
+    ExperimentPhaseStringDates & { variations: Variation[] }
+  >({
     defaultValues: {
       ...experiment.phases[i],
       dateStarted: experiment.phases[i].dateStarted.substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
         ? experiment.phases[i].dateEnded.substr(0, 16)
         : "",
+      variations: experiment.variations,
     },
   });
   const { apiCall } = useAuth();
@@ -48,19 +50,7 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
-      <SelectField
-        label="Type of Phase"
-        value={form.watch("phase")}
-        onChange={(v) => {
-          const phaseType = v as ExperimentPhaseType;
-          form.setValue("phase", phaseType);
-        }}
-        options={[
-          { label: "ramp", value: "ramp" },
-          { value: "main", label: "main (default)" },
-          { label: "holdout", value: "holdout" },
-        ]}
-      />
+      <Field label="Phase Name" {...form.register("name")} required />
       <Field
         label="Start Time (UTC)"
         type="datetime-local"
@@ -94,7 +84,7 @@ export default function EditPhaseModal({
         />
       )}
 
-      <VariationsInput
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -103,11 +93,12 @@ export default function EditPhaseModal({
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          form.watch("variations").map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }

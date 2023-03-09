@@ -1,12 +1,9 @@
 import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
-import z, { Schema } from "zod";
-import {
-  ApiErrorResponse,
-  ApiPaginationFields,
-  ApiRequestLocals,
-} from "../../types/api";
+import z, { Schema, ZodNever } from "zod";
+import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
+import { ApiPaginationFields } from "../../types/openapi";
 
 type ApiRequest<
   ResponseType = never,
@@ -21,14 +18,32 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate(schema: Schema, value: unknown): string[] {
+function validate<T>(
+  schema: Schema<T>,
+  value: unknown
+):
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      errors: string[];
+    } {
   const result = schema.safeParse(value);
   if (!result.success) {
-    return result.error.issues.map((i) => {
-      return "[" + i.path.join(".") + "] " + i.message;
-    });
+    return {
+      success: false,
+      errors: result.error.issues.map((i) => {
+        return "[" + i.path.join(".") + "] " + i.message;
+      }),
+    };
   }
-  return [];
+
+  return {
+    success: true,
+    data: result.data,
+  };
 }
 
 export function createApiRequestHandler<
@@ -56,28 +71,34 @@ export function createApiRequestHandler<
       z.infer<QuerySchema>
     > = async (req, res, next) => {
       try {
-        const errors: string[] = [];
-        if (paramsSchema) {
-          const paramErrors = validate(paramsSchema, req.params);
-          if (paramErrors.length > 0) {
-            errors.push(`Request params: ` + paramErrors.join(", "));
+        const allErrors: string[] = [];
+        if (paramsSchema && !(paramsSchema instanceof ZodNever)) {
+          const validated = validate(paramsSchema, req.params);
+          if (!validated.success) {
+            allErrors.push(`Request params: ` + validated.errors.join(", "));
+          } else {
+            req.params = validated.data;
           }
         }
-        if (querySchema) {
-          const queryError = validate(querySchema, req.query);
-          if (queryError.length > 0) {
-            errors.push(`Querystring: ` + queryError.join(", "));
+        if (querySchema && !(querySchema instanceof ZodNever)) {
+          const validated = validate(querySchema, req.query);
+          if (!validated.success) {
+            allErrors.push(`Querystring: ` + validated.errors.join(", "));
+          } else {
+            req.query = validated.data;
           }
         }
-        if (bodySchema) {
-          const bodyErrors = validate(bodySchema, req.body);
-          if (bodyErrors.length > 0) {
-            errors.push(`Request body: ` + bodyErrors.join(", "));
+        if (bodySchema && !(bodySchema instanceof ZodNever)) {
+          const validated = validate(bodySchema, req.body);
+          if (!validated.success) {
+            allErrors.push(`Request body: ` + validated.errors.join(", "));
+          } else {
+            req.body = validated.data;
           }
         }
-        if (errors.length > 0) {
+        if (allErrors.length > 0) {
           return res.status(400).json({
-            message: errors.join("\n"),
+            message: allErrors.join("\n"),
           });
         }
 
@@ -128,17 +149,17 @@ export function getBuild() {
 
 export function applyPagination<T>(
   items: T[],
-  query: { limit?: string | undefined; offset?: string | undefined }
+  query: { limit?: number | undefined; offset?: number | undefined }
 ): {
   filtered: T[];
   returnFields: ApiPaginationFields;
 } {
-  const limit = parseInt(query.limit || "10");
-  const offset = parseInt(query.offset || "0");
+  const limit = query.limit || 10;
+  const offset = query.offset || 0;
   if (isNaN(limit) || limit < 1 || limit > 100) {
     throw new Error("Pagination limit must be between 1 and 100");
   }
-  if (isNaN(offset) || offset < 0 || offset >= items.length) {
+  if (isNaN(offset) || offset < 0 || (offset > 0 && offset >= items.length)) {
     throw new Error("Invalid pagination offset");
   }
 
@@ -157,4 +178,26 @@ export function applyPagination<T>(
       nextOffset: hasMore ? nextOffset : null,
     },
   };
+}
+
+export function applyFilter<T>(
+  queryValue: T,
+  actualValue: T | T[],
+  arrayAsFilter: boolean = false
+): boolean {
+  // If we're not filtering on anything, return true immediately
+  if (queryValue === null || queryValue === undefined) return true;
+
+  // If we are filtering, but the actual value is missing, return false
+  if (actualValue === null || actualValue === undefined) return false;
+
+  // If we're checking if the filter value is part of an array
+  if (Array.isArray(actualValue)) {
+    // Sometimes, arrays are used as a filter and when it's empty that means include everything
+    if (arrayAsFilter && actualValue.length === 0) return true;
+    return actualValue.includes(queryValue);
+  }
+
+  // Otherwise, check if the values are equal
+  return queryValue === actualValue;
 }

@@ -12,8 +12,18 @@ function hashFnv32a(str: string): number {
   return hval >>> 0;
 }
 
-export function hash(str: string): number {
-  return (hashFnv32a(str) % 1000) / 1000;
+export function hash(seed: string, value: string, version: number): number {
+  // New unbiased hashing algorithm
+  if (version === 2) {
+    return (hashFnv32a(hashFnv32a(seed + value) + "") % 10000) / 10000;
+  }
+  // Original biased hashing algorithm (keep for backwards compatibility)
+  if (version === 1) {
+    return (hashFnv32a(value + seed) % 1000) / 1000;
+  }
+
+  // Unknown hash version
+  return -1;
 }
 
 export function getEqualWeights(n: number): number[] {
@@ -21,17 +31,21 @@ export function getEqualWeights(n: number): number[] {
   return new Array(n).fill(1 / n);
 }
 
+export function inRange(n: number, range: VariationRange): boolean {
+  return n >= range[0] && n < range[1];
+}
+
 export function inNamespace(
   hashValue: string,
   namespace: [string, number, number]
 ): boolean {
-  const n = hash(hashValue + "__" + namespace[0]);
+  const n = hash("__" + namespace[0], hashValue, 1);
   return n >= namespace[1] && n < namespace[2];
 }
 
 export function chooseVariation(n: number, ranges: VariationRange[]): number {
   for (let i = 0; i < ranges.length; i++) {
-    if (n >= ranges[i][0] && n < ranges[i][1]) {
+    if (inRange(n, ranges[i])) {
       return i;
     }
   }
@@ -50,9 +64,11 @@ export function getUrlRegExp(regexString: string): RegExp | undefined {
 
 export function getBucketRanges(
   numVariations: number,
-  coverage: number = 1,
+  coverage: number | undefined,
   weights?: number[]
 ): VariationRange[] {
+  coverage = coverage === undefined ? 1 : coverage;
+
   // Make sure coverage is within bounds
   if (coverage < 0) {
     if (process.env.NODE_ENV !== "production") {
@@ -92,7 +108,7 @@ export function getBucketRanges(
   return weights.map((w) => {
     const start = cumulative;
     cumulative += w;
-    return [start, start + coverage * w];
+    return [start, start + (coverage as number) * w];
   }) as VariationRange[];
 }
 

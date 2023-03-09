@@ -7,12 +7,7 @@ import {
   updateOrganization,
 } from "../models/OrganizationModel";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import {
-  createExperiment,
-  createMetric,
-  createSnapshot,
-} from "../services/experiments";
-import { SegmentModel } from "../models/SegmentModel";
+import { createMetric, createSnapshot } from "../services/experiments";
 import { createDimension } from "../models/DimensionModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { ExperimentInterface } from "../../types/experiment";
@@ -22,6 +17,8 @@ import {
 } from "../models/DataSourceModel";
 import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
+import { createExperiment } from "../models/ExperimentModel";
+import { createSegment } from "../models/SegmentModel";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -182,7 +179,7 @@ export async function addSampleData(
   });
 
   // Example segment
-  await SegmentModel.create({
+  await createSegment({
     datasource: datasource.id,
     name: "Male",
     sql:
@@ -237,8 +234,7 @@ export async function addSampleData(
         phases: [
           {
             coverage: 1,
-            phase: "main",
-            // TODO: support uneven variation weights
+            name: "Main",
             variationWeights: [0.5, 0.5],
             reason: "",
             dateStarted: imp.start_date,
@@ -267,6 +263,8 @@ export async function addSampleData(
       data.activationMetric = viewedSignup.id;
       data.variations = [
         {
+          id: "0",
+          key: "0",
           name: "Control",
           screenshots: [
             {
@@ -276,6 +274,8 @@ export async function addSampleData(
           ],
         },
         {
+          id: "1",
+          key: "1",
           name: "Google Login",
           screenshots: [
             {
@@ -298,6 +298,8 @@ export async function addSampleData(
         "Adding a dollar amount to the buy button will remove uncertainty from users and cause them to convert at a higher rate.";
       data.variations = [
         {
+          id: "0",
+          key: "0",
           name: "Control",
           screenshots: [
             {
@@ -307,6 +309,8 @@ export async function addSampleData(
           ],
         },
         {
+          id: "1",
+          key: "1",
           name: "Price in CTA",
           screenshots: [
             {
@@ -326,6 +330,8 @@ export async function addSampleData(
         "Removing everything except email and password will reduce friction and increase signups.";
       data.variations = [
         {
+          id: "0",
+          key: "0",
           name: "Control",
           screenshots: [
             {
@@ -335,6 +341,8 @@ export async function addSampleData(
           ],
         },
         {
+          id: "1",
+          key: "1",
           name: "Shorter Reg Modal",
           screenshots: [
             {

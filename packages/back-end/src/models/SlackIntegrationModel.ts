@@ -198,7 +198,6 @@ export const getSlackIntegration = async ({
 type GetForEventOptions = {
   organizationId: string;
   eventName: NotificationEventName;
-  environments: string[];
   tags: string[];
   projects: string[];
 };
@@ -208,10 +207,6 @@ type GetForEventOptions = {
  *  eventName:
  *    If the integration's events includes the provided event, or
  *    if the integration does not specify events,
- *    it will be included.
- *  environments:
- *    If the integration's environments intersects with the integration's environments, or
- *    if the integration does not specify environments,
  *    it will be included.
  *  tags:
  *    If the integration's tags intersects with the integration's tags, or
@@ -223,24 +218,18 @@ type GetForEventOptions = {
  *    it will be included.
  * @param organizationId
  * @param eventName
- * @param environments
  * @param tags
  * @param projects
  */
 export const getSlackIntegrationsForFilters = async ({
   organizationId,
   eventName,
-  environments,
   tags,
   projects,
 }: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
   const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.events.length === 0 ||
     slackIntegration.events.includes(eventName);
-
-  const includesEnvironments = (slackIntegration: SlackIntegrationDocument) =>
-    slackIntegration.environments.length === 0 ||
-    intersection(slackIntegration.environments, environments).length > 0;
 
   const includesTags = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.tags.length === 0 ||
@@ -257,7 +246,6 @@ export const getSlackIntegrationsForFilters = async ({
 
     return docs
       .filter(includesEvent)
-      .filter(includesEnvironments)
       .filter(includesTags)
       .filter(includesProjects)
       .map(toInterface);

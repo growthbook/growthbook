@@ -6,6 +6,8 @@ import { ExperimentStatus } from "back-end/types/experiment";
 import {
   hasEnoughData,
   isBelowMinChange,
+  isExpectedDirection,
+  isStatSig,
   isSuspiciousUplift,
   shouldHighlight as _shouldHighlight,
   pValueFormatter,
@@ -59,10 +61,9 @@ const PValueColumn: FC<{
     suspiciousChange,
     belowMinChange,
   });
-  const expectedDirection = metric.inverse
-    ? stats.expected < 0
-    : stats.expected > 0;
-  const statSig = stats.pValue < pValueThreshold;
+
+  const statSig = isStatSig(stats, pValueThreshold);
+  const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
   let className = "";
@@ -78,7 +79,7 @@ const PValueColumn: FC<{
       </>
     );
     className = "lost";
-  } else if (belowMinChange && statSig) {
+  } else if (enoughData && belowMinChange && statSig) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
     className += " draw";
@@ -125,7 +126,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats.pValue)}</>
+          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
         )}
       </Tooltip>
     </td>

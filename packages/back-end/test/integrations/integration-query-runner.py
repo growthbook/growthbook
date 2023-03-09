@@ -5,6 +5,7 @@ import os
 import sys
 import time
 
+from databricks import sql as databricks_sql
 from dotenv import dotenv_values
 from google.oauth2 import service_account
 from google.cloud import bigquery
@@ -23,12 +24,16 @@ RESULT_FILE_PREFIX = "/tmp/json/query_results"
 # gets executed by yarn
 ENV_FILE = "./test/integrations/.env"
 
+CONNECTION_FAILED_ERROR = "runner configured, but connection failed"
+
 config = {**dotenv_values(ENV_FILE)}
+
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
-            return str(obj)
+            # similar to what JS does (all number are float)
+            return float(obj)
         return json.JSONEncoder.default(self, obj)
 
 
@@ -128,18 +133,19 @@ class prestoRunner(sqlRunner):
         return res
 
 
-class dummyRunner(sqlRunner):
+class databricksRunner(sqlRunner):
     def open_connection(self):
-        self.connection = None
+        self.connection = databricks_sql.connect(
+            server_hostname=config["DATABRICKS_TEST_HOST"],
+            http_path=config["DATABRICKS_TEST_PATH"],
+            access_token=config["DATABRICKS_TEST_TOKEN"],
+        )
 
-    def get_query_result(self, sql: str) -> dict:
-        return {"error": "no runner configured"}
-
-    def run_query(self, sql: str):
-        pass
-
-    def close_connection(self):
-        pass
+    def run_query(self, sql: str) -> list:
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        return [row.asDict() for row in rows]
 
 
 class bigqueryRunner(sqlRunner):
@@ -154,6 +160,24 @@ class bigqueryRunner(sqlRunner):
         query_job = self.connection.query(query=sql)
         res = query_job.result()
         return [dict(row) for row in res]
+
+
+class dummyRunner(sqlRunner):
+    def __init__(self, error_message: str):
+        super().__init__()
+        self.error_message = error_message
+
+    def open_connection(self):
+        self.connection = None
+
+    def get_query_result(self, sql: str) -> dict:
+        return {"error": self.error_message}
+
+    def run_query(self, sql: str):
+        pass
+
+    def close_connection(self):
+        pass
 
 
 def read_queries_json() -> dict:
@@ -188,18 +212,25 @@ def write_cache(cache):
 
 
 def get_sql_runner(engine) -> sqlRunner:
-    if engine == "mysql":
-        return mysqlRunner()
-    elif engine == "postgres":
-        return postgresRunner()
-    elif engine == "bigquery":
-        return bigqueryRunner()
-    elif engine == "snowflake":
-        return snowflakeRunner()
-    elif engine == "presto":
-        return prestoRunner()
-    else:
-        return dummyRunner()
+    try:
+        if engine == "mysql":
+            return mysqlRunner()
+        elif engine == "postgres":
+            return postgresRunner()
+        elif engine == "bigquery":
+            return bigqueryRunner()
+        elif engine == "snowflake":
+            return snowflakeRunner()
+        elif engine == "presto":
+            return prestoRunner()
+        #elif engine == "databricks":
+        #    return databricksRunner()
+        else:
+            return dummyRunner("no runner configured")
+    except Exception as e:
+        print(e)
+        print(f"failure connection to {engine} engine")
+        return dummyRunner(CONNECTION_FAILED_ERROR)
 
 
 def execute_query(sql, engine) -> dict:

@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import { OrganizationInterface } from "../../../../types/organization";
-import { getApiFeatureObj, getSavedGroupMap } from "../../../services/features";
+import { getApiFeatureObj } from "../../../services/features";
 import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
@@ -12,7 +12,8 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "../../base-types";
-import { ApiFeatureInterface } from "../../../../types/api";
+import { GroupMap } from "../../../../types/saved-group";
+import { ApiFeature } from "../../../../types/openapi";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -55,133 +56,109 @@ export const getEventWebHookSignatureForPayload = <T>({
 
 type BasePayloadCreatorOptions = {
   organization: OrganizationInterface;
+  savedGroupMap: GroupMap;
 };
 
-export const getPayloadForNotificationEvent = async ({
+export const getPayloadForNotificationEvent = ({
   event,
   organization,
+  savedGroupMap,
 }: BasePayloadCreatorOptions & {
   event: NotificationEvent;
-}): Promise<NotificationEventPayload<
+}): NotificationEventPayload<
   NotificationEventName,
   NotificationEventResource,
   unknown
-> | null> => {
+> | null => {
   switch (event.event) {
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
-      // TODO: We need to shape this data. BLOCKED on ApiExperimentInterface being ready
-      return event;
+      // TODO: https://linear.app/growthbook/issue/GB-18
+      return null;
 
     case "feature.created":
-      return await getPayloadForFeatureCreated({
+      return getPayloadForFeatureCreated({
         event,
         organization,
+        savedGroupMap,
       });
-
     case "feature.updated":
-      return await getPayloadForFeatureUpdated({
+      return getPayloadForFeatureUpdated({
         event,
         organization,
+        savedGroupMap,
       });
-
     case "feature.deleted":
-      return await getPayloadForFeatureDeleted({
+      return getPayloadForFeatureDeleted({
         event,
         organization,
+        savedGroupMap,
       });
   }
 };
 
-// region Feature
-
-const getPayloadForFeatureCreated = async ({
+const getPayloadForFeatureCreated = ({
   event,
   organization,
+  savedGroupMap,
 }: BasePayloadCreatorOptions & {
   event: FeatureCreatedNotificationEvent;
-}): Promise<
-  NotificationEventPayload<
-    "feature.created",
-    "feature",
-    { feature: ApiFeatureInterface }
-  >
-> => {
-  const savedGroupMap = await getSavedGroupMap(organization);
+}): NotificationEventPayload<
+  "feature.created",
+  "feature",
+  { feature: ApiFeature }
+> => ({
+  ...event,
+  data: {
+    ...event.data,
+    feature: getApiFeatureObj(event.data.current, organization, savedGroupMap),
+  },
+});
 
-  return {
-    ...event,
-    data: {
-      ...event.data,
-      feature: getApiFeatureObj(
-        event.data.current,
-        organization,
-        savedGroupMap
-      ),
-    },
-  };
-};
-
-const getPayloadForFeatureUpdated = async ({
+const getPayloadForFeatureUpdated = ({
   event,
   organization,
+  savedGroupMap,
 }: BasePayloadCreatorOptions & {
   event: FeatureUpdatedNotificationEvent;
-}): Promise<
-  NotificationEventPayload<
-    "feature.updated",
-    "feature",
-    { current: ApiFeatureInterface; previous: ApiFeatureInterface }
-  >
-> => {
-  const savedGroupMap = await getSavedGroupMap(organization);
+}): NotificationEventPayload<
+  "feature.updated",
+  "feature",
+  { current: ApiFeature; previous: ApiFeature }
+> => ({
+  ...event,
+  data: {
+    ...event.data,
+    current: getApiFeatureObj(event.data.current, organization, savedGroupMap),
+    previous: getApiFeatureObj(
+      event.data.previous,
+      organization,
+      savedGroupMap
+    ),
+  },
+});
 
-  return {
-    ...event,
-    data: {
-      ...event.data,
-      current: getApiFeatureObj(
-        event.data.current,
-        organization,
-        savedGroupMap
-      ),
-      previous: getApiFeatureObj(
-        event.data.previous,
-        organization,
-        savedGroupMap
-      ),
-    },
-  };
-};
-
-const getPayloadForFeatureDeleted = async ({
+const getPayloadForFeatureDeleted = ({
   event,
   organization,
+  savedGroupMap,
 }: BasePayloadCreatorOptions & {
   event: FeatureDeletedNotificationEvent;
-}): Promise<
-  NotificationEventPayload<
-    "feature.deleted",
-    "feature",
-    { previous: ApiFeatureInterface }
-  >
-> => {
-  const savedGroupMap = await getSavedGroupMap(organization);
-
-  return {
-    ...event,
-    data: {
-      ...event.data,
-      previous: getApiFeatureObj(
-        event.data.previous,
-        organization,
-        savedGroupMap
-      ),
-    },
-  };
-};
-
-// endregion Feature
+}): NotificationEventPayload<
+  "feature.deleted",
+  "feature",
+  { previous: ApiFeature }
+> => ({
+  ...event,
+  data: {
+    ...event.data,
+    previous: getApiFeatureObj(
+      event.data.previous,
+      organization,
+      savedGroupMap
+    ),
+  },
+});
 
 // endregion Web hook Payload creation

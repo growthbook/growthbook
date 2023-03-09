@@ -7,7 +7,7 @@ import { addTag, removeTag } from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { removeTagFromExperiments } from "../../services/experiments";
+import { removeTagFromExperiments } from "../../models/ExperimentModel";
 
 // region POST /tag
 

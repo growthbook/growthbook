@@ -18,6 +18,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
+import uniqid from "uniqid";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
@@ -203,6 +204,10 @@ export function getVariationColor(i: number) {
     "#6cc160",
   ];
   return colors[i % colors.length];
+}
+
+export function generateVariationId() {
+  return uniqid("var_");
 }
 
 export function useAttributeSchema(showArchived = false) {
@@ -724,6 +729,8 @@ export function getExperimentDefinitionFromFeature(
       }
       return {
         name,
+        key: i + "",
+        id: generateVariationId(),
         screenshots: [],
         description: v.value,
       };
@@ -732,7 +739,7 @@ export function getExperimentDefinitionFromFeature(
       {
         coverage: expRule.coverage || 1,
         variationWeights: expRule.values.map((v) => v.weight),
-        phase: "main",
+        name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
       },

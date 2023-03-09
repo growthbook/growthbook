@@ -30,8 +30,14 @@ const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
   SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
   EventSource: globalThis.EventSource,
-  localStorage: globalThis.localStorage,
 };
+try {
+  if (globalThis.localStorage) {
+    polyfills.localStorage = globalThis.localStorage;
+  }
+} catch (e) {
+  // Ignore localStorage errors
+}
 
 // Global state
 const subscribedInstances: Map<RepositoryKey, Set<GrowthBook>> = new Map();
@@ -93,6 +99,7 @@ export function unsubscribe(instance: GrowthBook): void {
 // Private functions
 async function updatePersistentCache() {
   try {
+    if (!polyfills.localStorage) return;
     await polyfills.localStorage.setItem(
       cacheSettings.cacheKey,
       JSON.stringify(Array.from(cache.entries()))
@@ -162,8 +169,8 @@ function promiseTimeout<T>(
 async function initializeCache(): Promise<void> {
   if (cacheInitialized) return;
   cacheInitialized = true;
-  if (polyfills.localStorage) {
-    try {
+  try {
+    if (polyfills.localStorage) {
       const value = await polyfills.localStorage.getItem(
         cacheSettings.cacheKey
       );
@@ -178,9 +185,9 @@ async function initializeCache(): Promise<void> {
           });
         }
       }
-    } catch (e) {
-      // Ignore localStorage errors
     }
+  } catch (e) {
+    // Ignore localStorage errors
   }
 }
 

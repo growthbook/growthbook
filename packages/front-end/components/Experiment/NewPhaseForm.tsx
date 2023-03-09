@@ -2,7 +2,6 @@ import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -10,11 +9,10 @@ import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
-import VariationsInput from "../Features/VariationsInput";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -30,7 +28,7 @@ const NewPhaseForm: FC<{
 
   const form = useForm({
     defaultValues: {
-      phase: prevPhase.phase || "main",
+      name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
@@ -38,6 +36,7 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       groups: prevPhase.groups || [],
+      variations: experiment.variations,
     },
   });
 
@@ -86,6 +85,14 @@ const NewPhaseForm: FC<{
       size="lg"
     >
       <div className="row">
+        <Field
+          label="Name"
+          containerClassName="col-lg"
+          required
+          {...form.register("name")}
+        />
+      </div>
+      <div className="row">
         {!firstPhase && (
           <Field
             containerClassName="col-12"
@@ -100,22 +107,6 @@ const NewPhaseForm: FC<{
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
-        />
-      </div>
-      <div className="row">
-        <SelectField
-          label="Type of Phase"
-          value={form.watch("phase")}
-          containerClassName="col-lg"
-          onChange={(v) => {
-            const phaseType = v as ExperimentPhaseType;
-            form.setValue("phase", phaseType);
-          }}
-          options={[
-            { label: "ramp", value: "ramp" },
-            { value: "main", label: "main (default)" },
-            { label: "holdout", value: "holdout" },
-          ]}
         />
       </div>
       {(experiment.implementation === "visual" || showGroups) && (
@@ -136,7 +127,7 @@ const NewPhaseForm: FC<{
           </div>
         </div>
       )}
-      <VariationsInput
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -145,11 +136,12 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          form.watch("variations").map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }

@@ -1,4 +1,4 @@
-import math
+from dataclasses import asdict
 
 import pandas as pd
 from scipy.stats.distributions import chi2
@@ -7,29 +7,13 @@ from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTes
 from gbstats.frequentist.tests import TwoSidedTTest
 from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
-    BayesianTestResult,
-    FrequentistTestResult,
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RatioStatistic,
     Statistic,
     TestResult,
 )
 from gbstats.shared.tests import BaseABTest
-
-
-# Calculates a combined standard deviation of two sets of data
-# From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
-def correctStddev(n, x, sx, m, y, sy):
-    if n + m <= 1:
-        return 0
-
-    return math.sqrt(
-        ((n - 1) * (sx ** 2) + (m - 1) * (sy ** 2)) / (n + m - 1)
-        + (n * m * ((x - y) ** 2)) / ((n + m) * (n + m - 1))
-    )
-
-
-# Combines two means together with proper weighting
-def correctMean(n, x, m, y):
-    return (n * x + m * y) / (n + m) if (n + m >= 1) else 0
 
 
 # Looks for any variation ids that are not in the provided map
@@ -47,9 +31,6 @@ def get_metric_df(
     rows,
     var_id_map,
     var_names,
-    ignore_nulls=False,
-    type="binomial",
-    needs_correction=True,
 ):
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
@@ -63,6 +44,11 @@ def get_metric_df(
             dimensions[dim] = {
                 "dimension": dim,
                 "variations": len(var_names),
+                "statistic_type": row.statistic_type,
+                "main_metric_type": row.main_metric_type,
+                "denominator_metric_type": getattr(
+                    row, "denominator_metric_type", None
+                ),
                 "total_users": 0,
             }
             # Add columns for each variation (including baseline)
@@ -73,43 +59,32 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 dimensions[dim][f"{prefix}_users"] = 0
                 dimensions[dim][f"{prefix}_count"] = 0
-                dimensions[dim][f"{prefix}_mean"] = 0
-                dimensions[dim][f"{prefix}_stddev"] = 0
-                dimensions[dim][f"{prefix}_total"] = 0
+                dimensions[dim][f"{prefix}_main_sum"] = 0
+                dimensions[dim][f"{prefix}_main_sum_squares"] = 0
+                dimensions[dim][f"{prefix}_denominator_sum"] = 0
+                dimensions[dim][f"{prefix}_denominator_sum_squares"] = 0
+                dimensions[dim][f"{prefix}_main_denominator_sum_product"] = 0
 
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
         if key in var_id_map:
             i = var_id_map[key]
 
-            stats = {
-                "users": row.users,
-                "count": row.count,
-                "mean": row.mean,
-                "stddev": row.stddev,
-                "total": row.mean * row.count,
-            }
-
-            # Legacy usage of this library required mean/stddev correction
-            if needs_correction:
-                # Mean/stddev in SQL results are only based on converting users
-                # If we need to add in unconverting users, we need to correct the values
-                stats = get_adjusted_stats(
-                    x=row.mean,
-                    sx=row.stddev,
-                    c=row.count,
-                    n=row.users,
-                    ignore_nulls=ignore_nulls,
-                    type=type,
-                )
-
-            dimensions[dim]["total_users"] += stats["users"]
+            dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-            dimensions[dim][f"{prefix}_users"] = stats["users"]
-            dimensions[dim][f"{prefix}_count"] = stats["count"]
-            dimensions[dim][f"{prefix}_mean"] = stats["mean"]
-            dimensions[dim][f"{prefix}_stddev"] = stats["stddev"]
-            dimensions[dim][f"{prefix}_total"] = stats["total"]
+            dimensions[dim][f"{prefix}_users"] = row.users
+            dimensions[dim][f"{prefix}_count"] = row.count
+            dimensions[dim][f"{prefix}_main_sum"] = row.main_sum
+            dimensions[dim][f"{prefix}_main_sum_squares"] = row.main_sum_squares
+            dimensions[dim][f"{prefix}_denominator_sum"] = getattr(
+                row, "denominator_sum", 0
+            )
+            dimensions[dim][f"{prefix}_denominator_sum_squares"] = getattr(
+                row, "denominator_sum_squares", 0
+            )
+            dimensions[dim][f"{prefix}_main_denominator_sum_product"] = getattr(
+                row, "main_denominator_sum_product", 0
+            )
 
     return pd.DataFrame(dimensions.values())
 
@@ -135,27 +110,25 @@ def reduce_dimensionality(df, max=20):
             current["total_users"] += row["total_users"]
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
-                n = current[f"{prefix}_count"]
-                x = current[f"{prefix}_mean"]
-                sx = current[f"{prefix}_stddev"]
-                m = row[f"{prefix}_count"]
-                y = row[f"{prefix}_mean"]
-                sy = row[f"{prefix}_stddev"]
-
                 current[f"{prefix}_users"] += row[f"{prefix}_users"]
-                current[f"{prefix}_total"] += row[f"{prefix}_total"]
-                current[f"{prefix}_count"] += m
-                # For mean/stddev, instead of adding, we need to do a statistical correction
-                current[f"{prefix}_mean"] = correctMean(n, x, m, y)
-                current[f"{prefix}_stddev"] = correctStddev(n, x, sx, m, y, sy)
+                current[f"{prefix}_count"] += row[f"{prefix}_count"]
+                current[f"{prefix}_main_sum"] += row[f"{prefix}_main_sum"]
+                current[f"{prefix}_main_sum_squares"] += row[
+                    f"{prefix}_main_sum_squares"
+                ]
+                current[f"{prefix}_denominator_sum"] += row[f"{prefix}_denominator_sum"]
+                current[f"{prefix}_denominator_sum_squares"] += row[
+                    f"{prefix}_denominator_sum_squares"
+                ]
+                current[f"{prefix}_main_denominator_sum_product"] += row[
+                    f"{prefix}_main_denominator_sum_product"
+                ]
 
     return pd.DataFrame(newrows)
 
 
 # Run A/B test analysis for each variation and dimension
-def analyze_metric_df(
-    df, weights, type="binomial", inverse=False, engine=StatsEngine.BAYESIAN
-):
+def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
     num_variations = df.at[0, "variations"]
 
     # Add new columns to the dataframe with placeholder values
@@ -164,9 +137,13 @@ def analyze_metric_df(
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
+            df["baseline_mean"] = None
+            df["baseline_stddev"] = None
             df["baseline_risk"] = None
         else:
             df[f"v{i}_cr"] = 0
+            df[f"v{i}_mean"] = None
+            df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
             df[f"v{i}_rawrisk"] = None
@@ -177,13 +154,10 @@ def analyze_metric_df(
     def analyze_row(s):
         s = s.copy()
         # Baseline values
-        stat_a = Statistic(
-            value=s["baseline_mean"],
-            stddev=s["baseline_stddev"],
-            n=s["baseline_users"],
-            count=s["baseline_count"],
-        )
-        s["baseline_cr"] = stat_a.value
+        stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
+        s["baseline_cr"] = stat_a.mean
+        s["baseline_mean"] = stat_a.mean
+        s["baseline_stddev"] = stat_a.stddev
 
         # List of users in each variation (used for SRM check)
         users = [0] * num_variations
@@ -193,24 +167,22 @@ def analyze_metric_df(
         baseline_risk = 0
         for i in range(1, num_variations):
             # Variation values
-            stat_b = Statistic(
-                value=s[f"v{i}_mean"],
-                stddev=s[f"v{i}_stddev"],
-                n=s[f"v{i}_users"],
-                count=s[f"v{i}_count"],
-            )
+            stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
 
-            s[f"v{i}_cr"] = stat_b.value
+            s[f"v{i}_cr"] = stat_b.mean
             s[f"v{i}_expected"] = (
-                (stat_b.value / stat_a.value) - 1 if stat_a.value > 0 else 0
+                (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
             )
+            s[f"v{i}_mean"] = stat_b.mean
+            s[f"v{i}_stddev"] = stat_b.stddev
 
             users[i] = stat_b.n
 
             # Run the A/B test analysis of baseline vs variation
             if engine == StatsEngine.BAYESIAN:
-                if type == "binomial":
-                    # TODO consider refactor so binomial test just takes proportions
+                if isinstance(stat_a, ProportionStatistic) and isinstance(
+                    stat_b, ProportionStatistic
+                ):
                     test: BaseABTest = BinomialBayesianABTest(
                         stat_a, stat_b, inverse=inverse
                     )
@@ -235,7 +207,7 @@ def analyze_metric_df(
                 baseline_risk = None
 
             s.at[f"v{i}_ci"] = res.ci
-            s.at[f"v{i}_uplift"] = res.uplift.__dict__
+            s.at[f"v{i}_uplift"] = asdict(res.uplift)
 
         s["baseline_risk"] = baseline_risk
         s["srm_p"] = check_srm(users, weights)
@@ -264,9 +236,9 @@ def format_results(df):
                 dim["variations"].append(
                     {
                         "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_total"],
+                        "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "stats": stats,
                     }
                 )
@@ -274,9 +246,9 @@ def format_results(df):
                 dim["variations"].append(
                     {
                         "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_total"],
+                        "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],
@@ -290,31 +262,41 @@ def format_results(df):
     return results
 
 
-# Adjust metric stats to account for unconverted users
-def get_adjusted_stats(x, sx, c, n, ignore_nulls=False, type="binomial"):
-    # Binomial metrics always have mean=1 and stddev=0, no need to correct
-    if type == "binomial":
-        p = c / n if n > 0 else 0
-        return {
-            "users": n,
-            "count": n,
-            "mean": p,
-            "stddev": math.sqrt(p * (1 - p)),
-            "total": c,
-        }
-    # Ignore unconverted users
-    elif ignore_nulls:
-        return {"users": c, "count": c, "mean": x, "stddev": sx, "total": c * x}
-    # Add in unconverted users and correct the mean/stddev
+def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Statistic:
+    statistic_type = row["statistic_type"]
+    if statistic_type == "ratio":
+        return RatioStatistic(
+            m_statistic=base_statistic_from_metric_row(row, prefix, "main"),
+            d_statistic=base_statistic_from_metric_row(row, prefix, "denominator"),
+            m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
+            n=row[f"{prefix}_users"],
+        )
+    elif statistic_type == "mean":
+        return base_statistic_from_metric_row(row, prefix, "main")
     else:
-        m = n - c
-        return {
-            "users": n,
-            "count": n,
-            "mean": correctMean(c, x, m, 0),
-            "stddev": correctStddev(c, x, sx, m, 0, 0),
-            "total": c * x,
-        }
+        raise ValueError(
+            f"Unexpected statistic_type {statistic_type}' found in experiment data."
+        )
+
+
+def base_statistic_from_metric_row(
+    row: pd.DataFrame, prefix: str, component: str
+) -> Statistic:
+    metric_type = row[f"{component}_metric_type"]
+    if metric_type == "binomial":
+        return ProportionStatistic(
+            sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
+        )
+    elif metric_type in ["count", "duration", "revenue"]:
+        return SampleMeanStatistic(
+            sum=row[f"{prefix}_{component}_sum"],
+            sum_squares=row[f"{prefix}_{component}_sum_squares"],
+            n=row[f"{prefix}_count"],
+        )
+    else:
+        raise ValueError(
+            f"Unexpected metric_type '{metric_type}' type for '{component}_type in experiment data."
+        )
 
 
 # Run a chi-squared test to make sure the observed traffic split matches the expected one
