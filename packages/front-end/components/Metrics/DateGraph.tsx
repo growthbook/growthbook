@@ -22,9 +22,10 @@ import styles from "./DateGraph.module.scss";
 type TooltipData = { x: number; y: number; d: Datapoint };
 interface Datapoint {
   d: Date | number;
-  v: number;
-  s?: number;
-  c?: number;
+  v: number; // value
+  s?: number; // standard deviation
+  c?: number; // count
+  oor?: boolean; // out of range
 }
 
 function addStddev(
@@ -97,12 +98,16 @@ const DateGraph: FC<{
           stddev = days ? sumStddev / days : 0;
         }
 
-        return {
+        const ret: Datapoint = {
           d: key,
           v: value,
           s: stddev,
           c: count,
         };
+        if (groupby === "week" && i < 6) {
+          ret.oor = true;
+        }
+        return ret;
       }),
 
     [dates, groupby, method]
@@ -122,6 +127,7 @@ const DateGraph: FC<{
   };
 
   const getTooltipContents = (d: Datapoint) => {
+    if (!d || d.oor) return null;
     return (
       <>
         {type === "binomial" ? (
@@ -131,10 +137,18 @@ const DateGraph: FC<{
             <div className={styles.val}>
               {method === "sum" ? `Σ` : `μ`}:{" "}
               {formatConversionRate(type, d.v as number)}
+              {groupby === "week" && (
+                <sub style={{ fontWeight: "normal", fontSize: 8 }}>smooth</sub>
+              )}
             </div>
             {"s" in d && method === "avg" && (
               <div className={styles.secondary}>
                 {`σ`}: {formatConversionRate(type, d.s)}
+                {groupby === "week" && (
+                  <sub style={{ fontWeight: "normal", fontSize: 8 }}>
+                    smooth
+                  </sub>
+                )}
               </div>
             )}
             <div className={styles.secondary}>
@@ -326,7 +340,7 @@ const DateGraph: FC<{
               onPointerMove={handlePointer}
               onPointerLeave={hideTooltip}
             >
-              {tooltipOpen && (
+              {tooltipOpen && !tooltipData?.d?.oor && (
                 <>
                   <div
                     className={styles.positionIndicator}
@@ -396,6 +410,19 @@ const DateGraph: FC<{
                 )}
                 {showStdDev && type !== "binomial" && (
                   <>
+                    <defs>
+                      <pattern
+                        id="stripe-pattern"
+                        patternUnits="userSpaceOnUse"
+                        width="6"
+                        height="6"
+                        patternTransform="rotate(45)"
+                      >
+                        <rect fill="#cccccc" width="2.5" height="6" />
+                        <rect fill="#d6d6d6" x="2.5" width="3.5" height="6" />
+                      </pattern>
+                    </defs>
+
                     <AreaClosed
                       yScale={yScale}
                       data={data}
@@ -404,6 +431,7 @@ const DateGraph: FC<{
                       y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
                       fill={"#dddddd"}
                       opacity={0.5}
+                      defined={(d) => !d?.oor}
                       curve={curveMonotoneX}
                     />
                     <AreaClosed
@@ -414,8 +442,36 @@ const DateGraph: FC<{
                       y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
                       fill={"#cccccc"}
                       opacity={0.5}
+                      defined={(d) => !d?.oor}
                       curve={curveMonotoneX}
                     />
+
+                    {groupby === "week" && (
+                      <>
+                        <AreaClosed
+                          yScale={yScale}
+                          data={data}
+                          x={(d) => xScale(d.d) ?? 0}
+                          y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
+                          y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
+                          fill={"url(#stripe-pattern)"}
+                          opacity={0.3}
+                          defined={(d, i) => d?.oor || data?.[i - 1]?.oor}
+                          curve={curveMonotoneX}
+                        />
+                        <AreaClosed
+                          yScale={yScale}
+                          data={data}
+                          x={(d) => xScale(d.d) ?? 0}
+                          y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
+                          y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
+                          fill={"url(#stripe-pattern)"}
+                          opacity={0.3}
+                          defined={(d, i) => d?.oor || data?.[i - 1]?.oor}
+                          curve={curveMonotoneX}
+                        />
+                      </>
+                    )}
                   </>
                 )}
 
@@ -426,7 +482,21 @@ const DateGraph: FC<{
                   stroke={"#8884d8"}
                   strokeWidth={2}
                   curve={curveMonotoneX}
+                  defined={(d) => !d?.oor}
                 />
+                {groupby === "week" && (
+                  <LinePath
+                    data={data}
+                    x={(d) => xScale(d.d) ?? 0}
+                    y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
+                    stroke={"#8884d8"}
+                    opacity={0.5}
+                    strokeDasharray={"2,5"}
+                    strokeWidth={2}
+                    curve={curveMonotoneX}
+                    defined={(d, i) => d?.oor || data?.[i - 1]?.oor}
+                  />
+                )}
 
                 <AxisBottom
                   top={graphHeight}

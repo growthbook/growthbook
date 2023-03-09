@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
+import { FaAngleLeft, FaChevronRight, FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
@@ -51,6 +51,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -626,9 +627,34 @@ const MetricPage: FC = () => {
 
                           <div className="row mt-4 mb-1">
                             <div className="col">
-                              <strong className="ml-4 align-bottom">
-                                Daily Average
-                              </strong>
+                              <Tooltip
+                                body={
+                                  <>
+                                    <p>
+                                      This figure shows the average metric value
+                                      on a day divided by number of unique units
+                                      (e.g. users) in the metric source on that
+                                      day.
+                                    </p>
+                                    {metric.type !== "binomial" && (
+                                      <p>
+                                        The standard deviation shows the spread
+                                        of the daily user metric values.
+                                      </p>
+                                    )}
+                                    <p>
+                                      When smoothing is turned on, we simply
+                                      average values and standard deviations
+                                      over the 7 trailing days (including the
+                                      selected day).
+                                    </p>
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily Average <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
                             </div>
                             <div className="col">
                               <div className="float-right mr-2">
@@ -662,9 +688,25 @@ const MetricPage: FC = () => {
 
                           <div className="row mt-4 mb-1">
                             <div className="col">
-                              <strong className="ml-4 align-bottom">
-                                Daily Sum
-                              </strong>
+                              <Tooltip
+                                body={
+                                  <>
+                                    <p>
+                                      This figure shows the daily sum of values
+                                      in the metric source on that day.
+                                    </p>
+                                    <p>
+                                      When smoothing is turned on, we simply
+                                      average values over the 7 trailing days
+                                      (including the selected day).
+                                    </p>
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily Sum <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
                             </div>
                             <div className="col">
                               <div className="float-right mr-2">
