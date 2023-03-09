@@ -51,6 +51,12 @@ export const getEventWebHookSignatureForPayload = <T>({
 
 // region Web hook Payload creation
 
+/**
+ * Get the payload for the notification event. Some payloads need to be transformed.
+ * @param event
+ * @param organization
+ * @param savedGroupMap
+ */
 export const getPayloadForNotificationEvent = ({
   event,
   organization,
@@ -66,8 +72,7 @@ export const getPayloadForNotificationEvent = ({
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
-      // TODO: https://linear.app/growthbook/issue/GB-18
-      return null;
+      return event;
 
     case "feature.created":
       return getPayloadForFeatureCreated({

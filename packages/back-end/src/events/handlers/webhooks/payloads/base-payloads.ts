@@ -5,7 +5,7 @@ import {
   NotificationEventPayload,
 } from "../../../base-types";
 
-type BasePayloadCreatorOptions = {
+export type BasePayloadCreatorOptions = {
   organization: OrganizationInterface;
   savedGroupMap: GroupMap;
 };
