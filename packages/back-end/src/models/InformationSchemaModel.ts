@@ -32,7 +32,7 @@ const informationSchema = new mongoose.Schema({
                     tableName: z.string(),
                     path: z.string(),
                     id: z.string(),
-                    // add count of number of columns
+                    numOfColumns: z.number(),
                   })
                 ),
               })

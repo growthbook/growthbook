@@ -39,7 +39,8 @@ export default class Postgres extends SqlIntegration {
     const sql = `SELECT
      DISTINCT table_name,
     table_catalog,
-    table_schema
+    table_schema,
+    column_name
   FROM
     information_schema.columns
   WHERE
