@@ -10,6 +10,7 @@ import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
+import { getSavedGroupMap } from "../../../services/features";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -100,9 +101,11 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    const savedGroupMap = await getSavedGroupMap(organization);
     const payload = await getPayloadForNotificationEvent({
       event: event.data,
       organization,
+      savedGroupMap,
     });
 
     if (!payload) {
