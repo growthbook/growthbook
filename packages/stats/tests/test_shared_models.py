@@ -27,7 +27,6 @@ class TestSampleMeanStatistic(TestCase):
         expected_var = np.var(METRIC_1, ddof=1)
         self.assertEqual(stat.mean, expected_mean)
         self.assertEqual(stat.variance, expected_var)
-    
 
     def test_sample_mean_statistic_low_n(self):
         stat = SampleMeanStatistic(
