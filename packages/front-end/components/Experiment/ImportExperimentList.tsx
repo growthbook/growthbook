@@ -427,7 +427,7 @@ const ImportExperimentList: FC<{
                               phases: [
                                 {
                                   coverage: 1,
-                                  phase: "main",
+                                  name: "Main",
                                   reason: "",
                                   variationWeights: e.weights,
                                   dateStarted:

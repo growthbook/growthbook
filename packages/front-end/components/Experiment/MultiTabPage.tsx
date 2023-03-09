@@ -662,7 +662,7 @@ const MultiTabPage = ({
                     <th>Phase</th>
                     <th>Start</th>
                     <th>End</th>
-                    <th>Type</th>
+                    <th>Name</th>
                     <th>Percent of Traffic</th>
                     <th>Traffic Split</th>
                     <th>Reason for Stopping</th>
@@ -675,7 +675,7 @@ const MultiTabPage = ({
                       <td>{i + 1}</td>
                       <td>{datetime(phase.dateStarted)}</td>
                       <td>{datetime(phase.dateEnded)}</td>
-                      <td>{phase.phase}</td>
+                      <td>{phase.name}</td>
                       <td>{Math.floor(phase.coverage * 100)}%</td>
                       <td>{formatTrafficSplit(phase.variationWeights)}</td>
                       <td>{phase.reason}</td>
