@@ -379,6 +379,11 @@ export function upgradeExperimentDoc(
       phase.coverage = phase.coverage ?? 1;
       phase.condition = phase.condition || "";
       phase.seed = phase.seed || experiment.trackingKey;
+      phase.namespace = phase.namespace || {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      };
     });
   }
 

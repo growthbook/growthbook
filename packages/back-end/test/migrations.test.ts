@@ -769,6 +769,7 @@ describe("backend", () => {
   it("upgrades experiment variation ids, keys, and phase names", () => {
     // eslint-disable-next-line
     const exp: any = {
+      trackingKey: "test",
       variations: [
         {
           name: "Test",
@@ -797,6 +798,8 @@ describe("backend", () => {
     };
 
     expect(upgradeExperimentDoc(exp)).toEqual({
+      trackingKey: "test",
+      hashAttribute: "",
       variations: [
         {
           id: "0",
@@ -821,10 +824,26 @@ describe("backend", () => {
         {
           phase: "main",
           name: "Main",
+          condition: "",
+          coverage: 1,
+          seed: "test",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
         },
         {
           phase: "main",
           name: "New Name",
+          condition: "",
+          coverage: 1,
+          seed: "test",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
         },
       ],
     });
