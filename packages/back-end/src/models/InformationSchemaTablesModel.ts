@@ -6,7 +6,12 @@ import { InformationSchemaTablesInterface } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { fetchTableData } from "../services/datasource";
+import { getPath } from "../util/integrations";
 import { getDataSourceById } from "./DataSourceModel";
+import {
+  getInformationSchemaById,
+  updateInformationSchemaById,
+} from "./InformationSchemaModel";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
@@ -25,7 +30,7 @@ const informationSchemaTablesSchema = new mongoose.Schema({
         const zodSchema = z.array(
           z.object({
             columnName: z.string(),
-            // path: z.string(),
+            path: z.string(),
             dataType: z.string(),
           })
         );
@@ -92,7 +97,8 @@ export async function getTableDataByPath(
   });
 
   if (table) {
-    return table ? toInterface(table) : null;
+    // The table exits in the informationSchemaTables collection, so we just need to return it
+    return toInterface(table);
   }
   let newTable;
 
@@ -117,14 +123,50 @@ export async function getTableDataByPath(
         columns: tableData.map(
           (row: { column_name: string; data_type: string }) => {
             return {
-              columnName: row.column_name,
-              dataType: row.data_type,
+              columnName: row.column_name.toLocaleLowerCase(),
+              dataType: row.data_type.toLocaleLowerCase(),
+              path: getPath(datasource.type, {
+                tableCatalog: databaseName,
+                tableSchema: schemaName,
+                tableName: tableName,
+                columnName: row.column_name,
+              }),
             };
           }
         ),
         dateCreated: new Date(),
         dateUpdated: new Date(),
       });
+
+      const informationSchema = await getInformationSchemaById(
+        organization,
+        datasource.settings.informationSchemaId || ""
+      );
+
+      if (informationSchema && newTable) {
+        const databaseIndex = informationSchema.databases.findIndex(
+          (database) => database.databaseName === databaseName
+        );
+
+        const schemaIndex = informationSchema.databases[
+          databaseIndex
+        ].schemas.findIndex((schema) => schema.schemaName === schemaName);
+
+        const tableIndex = informationSchema.databases[databaseIndex].schemas[
+          schemaIndex
+        ].tables.findIndex((table) => table.tableName === tableName);
+
+        informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
+          tableIndex
+        ].id = newTable.id;
+
+        //MKTODO: Optimize this so we're not replacing the entire informationSchema document
+        await updateInformationSchemaById(
+          organization,
+          informationSchema.id,
+          informationSchema
+        );
+      }
     }
   }
 

@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import z from "zod";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { InformationSchema } from "../types/Integration";
+import {
+  InformationSchema,
+  InformationSchemaInterface,
+} from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 
@@ -29,8 +32,7 @@ const informationSchema = new mongoose.Schema({
                   z.object({
                     tableName: z.string(),
                     path: z.string(),
-                    tableId: z.string(),
-                    // add count of number of columns
+                    id: z.string(),
                   })
                 ),
               })
@@ -53,7 +55,7 @@ const informationSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type InformationSchemaDocument = mongoose.Document & InformationSchema;
+type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
 
 const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   "InformationSchema",
@@ -61,11 +63,12 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
 );
 
 /**
- * Convert the Mongo document to an InformationSourceInterface, omitting Mongo default fields __v, _id
+ * Convert the Mongo document to an InformationSchemaInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
-const toInterface = (doc: InformationSchemaDocument): InformationSchema =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+const toInterface = (
+  doc: InformationSchemaDocument
+): InformationSchemaInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
@@ -84,10 +87,35 @@ export async function createInformationSchema(
 
 export async function getAllInformationSchemas(
   organization: string
-): Promise<InformationSchema[] | null> {
-  const result = await InformationSchemaModel.find({
+): Promise<InformationSchemaInterface[] | null> {
+  const results = await InformationSchemaModel.find({
     organization,
   });
 
-  return result ? result.map(toInterface) : null;
+  return results ? results.map(toInterface) : null;
+}
+
+export async function updateInformationSchemaById(
+  organization: string,
+  id: string,
+  updates: Partial<InformationSchemaInterface>
+): Promise<void> {
+  await InformationSchemaModel.updateOne(
+    { id, organization },
+    {
+      $set: { databases: updates.databases, dateUpdated: new Date() },
+    }
+  );
+}
+
+export async function getInformationSchemaById(
+  organization: string,
+  informationSchemaId: string
+): Promise<InformationSchemaInterface | null> {
+  const result = await InformationSchemaModel.findOne({
+    organization,
+    id: informationSchemaId,
+  });
+
+  return result ? toInterface(result) : null;
 }
