@@ -103,6 +103,8 @@ RATIO_STATISTICS_DF = pd.DataFrame(
     statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
 )
 
+RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
+RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
 
 ONE_USER_DF = pd.DataFrame(
     [
@@ -214,6 +216,52 @@ class TestReduceDimensionality(TestCase):
         self.assertEqual(reduced.at[1, "baseline_users"], 300)
         self.assertEqual(reduced.at[1, "baseline_main_sum"], 1010)
         self.assertEqual(reduced.at[1, "baseline_main_sum_squares"], 4464.38)
+
+    def test_reduce_dimensionality_ratio(self):
+        rows = pd.concat(
+            [RATIO_STATISTICS_DF, RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF]
+        )
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+
+        reduced = reduce_dimensionality(df, 20)
+        self.assertEqual(len(reduced.index), 2)
+        self.assertEqual(reduced.at[0, "dimension"], "one")
+        self.assertEqual(reduced.at[0, "total_users"], 220)
+        self.assertEqual(reduced.at[0, "v1_users"], 120)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 300)
+        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800)
+        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905)
+        self.assertEqual(reduced.at[0, "baseline_users"], 100)
+        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270)
+        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810)
+        self.assertEqual(reduced.at[0, "baseline_main_denominator_sum_product"], -900)
+
+        reduced = reduce_dimensionality(df, 1)
+        self.assertEqual(len(reduced.index), 1)
+        self.assertEqual(reduced.at[0, "dimension"], "(other)")
+        self.assertEqual(reduced.at[0, "total_users"], 220 * 2)
+        self.assertEqual(reduced.at[0, "v1_users"], 120 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 300 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869 * 2)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500 * 2)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905 * 2)
+        self.assertEqual(reduced.at[0, "baseline_users"], 100 * 2)
+        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270 * 2)
+        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79 * 2)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510 * 2)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810 * 2)
+        self.assertEqual(
+            reduced.at[0, "baseline_main_denominator_sum_product"], -900 * 2
+        )
 
 
 class TestAnalyzeMetricDfBayesian(TestCase):
