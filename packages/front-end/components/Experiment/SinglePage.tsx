@@ -15,8 +15,6 @@ import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import { phaseSummary } from "@/services/utils";
-import { date } from "@/services/dates";
 import { getDefaultConversionWindowHours } from "@/services/env";
 import { applyMetricOverrides } from "@/services/experiments";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -43,6 +41,7 @@ import AnalysisForm from "./AnalysisForm";
 import VariationBox from "./VariationBox";
 import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
+import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 
 function getColWidth(v: number) {
   // 2 across
@@ -634,24 +633,11 @@ export default function SinglePage({
             open={editPhases}
             canOpen={!!editPhases}
           >
-            <div className="appbox p-3 mb-0">
+            <div className="appbox mb-0">
               {experiment.phases?.length > 0 ? (
                 <div>
                   {experiment.phases.map((phase, i) => (
-                    <div key={i} className={`${i ? "mt-2" : ""} d-flex`}>
-                      <div className="mr-2">{i + 1}:</div>
-                      <div className="small">
-                        <div style={{ fontSize: "1.2em" }}>{phase.name}</div>
-                        <div>{phaseSummary(phase)}</div>
-                        <div>
-                          <strong>{date(phase.dateStarted)}</strong> to{" "}
-                          <strong>
-                            {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                          </strong>
-                        </div>
-                      </div>
-                      <div></div>
-                    </div>
+                    <ExpandablePhaseSummary key={i} phase={phase} i={i} />
                   ))}
                 </div>
               ) : (
