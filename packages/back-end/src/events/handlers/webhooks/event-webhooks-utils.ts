@@ -1,19 +1,16 @@
 import { createHmac } from "crypto";
-import { OrganizationInterface } from "../../../../types/organization";
-import { getApiFeatureObj } from "../../../services/features";
-import {
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-  NotificationEvent,
-} from "../../base-events";
+import { NotificationEvent } from "../../base-events";
 import {
   NotificationEventName,
   NotificationEventPayload,
   NotificationEventResource,
 } from "../../base-types";
-import { GroupMap } from "../../../../types/saved-group";
-import { ApiFeature } from "../../../../types/openapi";
+import { BasePayloadCreatorOptions } from "./payloads/base-payloads";
+import {
+  getPayloadForFeatureCreated,
+  getPayloadForFeatureDeleted,
+  getPayloadForFeatureUpdated,
+} from "./payloads/feature-payloads";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -54,11 +51,6 @@ export const getEventWebHookSignatureForPayload = <T>({
 
 // region Web hook Payload creation
 
-type BasePayloadCreatorOptions = {
-  organization: OrganizationInterface;
-  savedGroupMap: GroupMap;
-};
-
 export const getPayloadForNotificationEvent = ({
   event,
   organization,
@@ -97,68 +89,5 @@ export const getPayloadForNotificationEvent = ({
       });
   }
 };
-
-const getPayloadForFeatureCreated = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: FeatureCreatedNotificationEvent;
-}): NotificationEventPayload<
-  "feature.created",
-  "feature",
-  { feature: ApiFeature }
-> => ({
-  ...event,
-  data: {
-    ...event.data,
-    feature: getApiFeatureObj(event.data.current, organization, savedGroupMap),
-  },
-});
-
-const getPayloadForFeatureUpdated = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: FeatureUpdatedNotificationEvent;
-}): NotificationEventPayload<
-  "feature.updated",
-  "feature",
-  { current: ApiFeature; previous: ApiFeature }
-> => ({
-  ...event,
-  data: {
-    ...event.data,
-    current: getApiFeatureObj(event.data.current, organization, savedGroupMap),
-    previous: getApiFeatureObj(
-      event.data.previous,
-      organization,
-      savedGroupMap
-    ),
-  },
-});
-
-const getPayloadForFeatureDeleted = ({
-  event,
-  organization,
-  savedGroupMap,
-}: BasePayloadCreatorOptions & {
-  event: FeatureDeletedNotificationEvent;
-}): NotificationEventPayload<
-  "feature.deleted",
-  "feature",
-  { previous: ApiFeature }
-> => ({
-  ...event,
-  data: {
-    ...event.data,
-    previous: getApiFeatureObj(
-      event.data.previous,
-      organization,
-      savedGroupMap
-    ),
-  },
-});
 
 // endregion Web hook Payload creation
