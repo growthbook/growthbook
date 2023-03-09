@@ -42,7 +42,7 @@ export interface ExperimentPhase {
   reason: string;
   coverage: number;
   condition: string;
-  namespace?: NamespaceValue;
+  namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
   /** @deprecated */

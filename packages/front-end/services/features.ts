@@ -742,6 +742,9 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        condition: expRule.condition,
+        namespace: expRule.namespace,
+        seed: trackingKey,
       },
     ],
   };

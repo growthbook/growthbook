@@ -413,7 +413,11 @@ const getExperimentDefinitionFromFeatureAndRule = (
         reason: "",
         dateStarted: new Date().toISOString(),
         condition: expRule.condition || "",
-        namespace: expRule.namespace,
+        namespace: expRule.namespace || {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        },
       },
     ],
   };

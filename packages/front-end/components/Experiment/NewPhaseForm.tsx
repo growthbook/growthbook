@@ -13,6 +13,8 @@ import Modal from "../Modal";
 import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import ConditionInput from "../Features/ConditionInput";
+import NamespaceSelector from "../Features/NamespaceSelector";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -26,7 +28,7 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
-  const form = useForm({
+  const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
@@ -36,7 +38,12 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       groups: prevPhase.groups || [],
-      variations: experiment.variations,
+      condition: "",
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 0.5],
+      },
     },
   });
 
@@ -127,6 +134,12 @@ const NewPhaseForm: FC<{
           </div>
         </div>
       )}
+
+      <ConditionInput
+        defaultValue={form.watch("condition")}
+        onChange={(condition) => form.setValue("condition", condition)}
+      />
+
       <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
@@ -136,7 +149,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          form.watch("variations").map((v, i) => {
+          experiment.variations.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
@@ -145,8 +158,13 @@ const NewPhaseForm: FC<{
             };
           }) || []
         }
-        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
         showPreview={false}
+      />
+
+      <NamespaceSelector
+        form={form}
+        featureId={experiment.trackingKey}
+        trackingKey={experiment.trackingKey}
       />
     </Modal>
   );

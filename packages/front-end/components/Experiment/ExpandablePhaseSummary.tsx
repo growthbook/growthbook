@@ -46,37 +46,41 @@ export default function ExpandablePhaseSummary({ i, phase }: Props) {
         </div>
       </a>
       {expanded && (
-        <div className="mx-4 my-2">
-          <div className="d-flex">
-            <strong>Coverage:</strong>{" "}
-            <div className="ml-auto">{phaseSummary(phase)}</div>
-          </div>
-          <div className="d-flex">
-            <strong>Hash Seed:</strong>{" "}
-            <code className="ml-auto">{phase.seed}</code>
-          </div>
-          <div className="d-flex">
-            <strong>Targeting Condition:</strong>{" "}
-            <div className="ml-auto">
-              {phase.condition ? (
-                <ConditionDisplay condition={phase.condition} />
-              ) : (
-                <em>none</em>
-              )}
-            </div>
-          </div>
-          <div className="d-flex">
-            <strong>Namespace:</strong>{" "}
-            <div className="ml-auto">
-              {hasNamespace ? (
-                `${phase.namespace} (${percentFormatter.format(
-                  namespaceRange
-                )})`
-              ) : (
-                <em>none</em>
-              )}
-            </div>
-          </div>
+        <div className="mx-3">
+          <table className="table table-sm">
+            <tr>
+              <th className="small">Coverage</th>
+              <td>{phaseSummary(phase)}</td>
+            </tr>
+            <tr>
+              <th className="small">Hash Seed</th>
+              <td>
+                <code>{phase.seed}</code>
+              </td>
+            </tr>
+            <tr>
+              <th className="small">Targeting</th>
+              <td>
+                {phase.condition ? (
+                  <ConditionDisplay condition={phase.condition} />
+                ) : (
+                  <em>none</em>
+                )}
+              </td>
+            </tr>
+            <tr>
+              <th className="small">Namespace</th>
+              <td>
+                {hasNamespace ? (
+                  `${phase.namespace.name} (${percentFormatter.format(
+                    namespaceRange
+                  )})`
+                ) : (
+                  <em>none</em>
+                )}
+              </td>
+            </tr>
+          </table>
         </div>
       )}
     </div>

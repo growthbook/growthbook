@@ -80,12 +80,20 @@ const baseExperimentPhase: ExperimentPhase = {
   reason: "",
   coverage: 1,
   variationWeights: [0.34, 0.33, 0.33],
+  condition: "",
+  namespace: {
+    enabled: false,
+    name: "",
+    range: [0, 1],
+  },
 };
 
 const baseExperiment: ExperimentInterface = {
   id: "BASE_ID_TO_BE_REPLACED",
   metrics: metricConfigs.map((m) => m.id),
   exposureQueryId: USER_ID_TYPE,
+  hashAttribute: "",
+  releasedVariationId: "",
   trackingKey: "checkout-layout",
   datasource: "",
   organization: "",

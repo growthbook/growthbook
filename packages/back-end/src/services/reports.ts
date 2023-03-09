@@ -119,10 +119,18 @@ export async function startExperimentAnalysis(
     coverage: 1,
     reason: "",
     variationWeights: args.variations.map((v) => v.weight),
+    condition: "",
+    namespace: {
+      enabled: false,
+      name: "",
+      range: [0, 1],
+    },
   };
   const experimentObj: ExperimentInterface = {
     exposureQueryId: args.exposureQueryId,
     userIdType: args.userIdType,
+    hashAttribute: "",
+    releasedVariationId: "",
     organization,
     skipPartialData: args.skipPartialData,
     trackingKey: args.trackingKey,

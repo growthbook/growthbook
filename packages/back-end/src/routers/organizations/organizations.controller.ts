@@ -89,7 +89,10 @@ import {
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
-import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
+import {
+  getAllExperiments,
+  getExperimentsForActivityFeed,
+} from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -669,6 +672,24 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             environment: env,
           });
         });
+    });
+  });
+
+  const allExperiments = await getAllExperiments(org.id);
+  allExperiments.forEach((e) => {
+    if (!e.phases) return;
+    const phase = e.phases[e.phases.length - 1];
+    if (!phase) return;
+    if (!phase.namespace || !phase.namespace.enabled) return;
+
+    const { name, range } = phase.namespace;
+    namespaces[name] = namespaces[name] || [];
+    namespaces[name].push({
+      featureId: e.trackingKey,
+      trackingKey: e.trackingKey,
+      start: range[0],
+      end: range[1],
+      environment: "",
     });
   });
 

@@ -2,12 +2,13 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  Variation,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import ConditionInput from "../Features/ConditionInput";
+import NamespaceSelector from "../Features/NamespaceSelector";
 
 export interface Props {
   close: () => void;
@@ -22,16 +23,13 @@ export default function EditPhaseModal({
   experiment,
   mutate,
 }: Props) {
-  const form = useForm<
-    ExperimentPhaseStringDates & { variations: Variation[] }
-  >({
+  const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
       dateStarted: experiment.phases[i].dateStarted.substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
         ? experiment.phases[i].dateEnded.substr(0, 16)
         : "",
-      variations: experiment.variations,
     },
   });
   const { apiCall } = useAuth();
@@ -84,6 +82,11 @@ export default function EditPhaseModal({
         />
       )}
 
+      <ConditionInput
+        defaultValue={form.watch("condition")}
+        onChange={(condition) => form.setValue("condition", condition)}
+      />
+
       <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
@@ -93,7 +96,7 @@ export default function EditPhaseModal({
         }
         valueAsId={true}
         variations={
-          form.watch("variations").map((v, i) => {
+          experiment.variations.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
@@ -102,8 +105,13 @@ export default function EditPhaseModal({
             };
           }) || []
         }
-        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
         showPreview={false}
+      />
+
+      <NamespaceSelector
+        form={form}
+        featureId={experiment.trackingKey}
+        trackingKey={experiment.trackingKey}
       />
     </Modal>
   );
