@@ -164,9 +164,7 @@ export async function initializeDatasourceInformationSchema(
 ): Promise<void> {
   const informationSchema = await generateInformationSchema(datasource);
 
-  // Loop through each database, schema, and table, and add the table's metadata to the tablesToCreate array
   if (informationSchema) {
-    // Save the updated informationSchema to the InformationSchema collection and get the id.
     const informationSchemaId = await createInformationSchema(
       informationSchema,
       organization
