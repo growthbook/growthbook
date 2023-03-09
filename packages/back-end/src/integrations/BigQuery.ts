@@ -98,17 +98,16 @@ export default class BigQuery extends SqlIntegration {
 
     for (const dataset of datasets) {
       query.push(`SELECT
-        DISTINCT table_name,
+        table_name,
         "${projectId}" as table_catalog,
         table_schema,
-        column_name
+        COUNT(column_name) as column_count
       FROM
-        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS`);
+        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
+        GROUP BY table_name, table_schema`);
     }
 
-    let queryString = query.join(" UNION ALL ");
-
-    queryString = queryString + " ORDER BY table_name;";
+    const queryString = query.join(" UNION ALL ");
 
     const results = await this.runQuery(queryString);
 

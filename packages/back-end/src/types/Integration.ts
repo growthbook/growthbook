@@ -161,6 +161,7 @@ export interface RawInformationSchema {
   table_name: string;
   table_catalog: string;
   table_schema: string;
+  column_count: string;
 }
 
 export interface Column {

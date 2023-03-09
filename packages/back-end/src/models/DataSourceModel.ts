@@ -167,7 +167,7 @@ export async function createDataSource(
   const model = await DataSourceModel.create(datasource);
 
   // Currently we're only supporting informationSchemas with bigquery and postgres
-  if (type === ("bigquery" || "postgres")) {
+  if (type === "postgres" || type === "bigquery") {
     await queueCreateInformationSchema(datasource, organization);
   }
 

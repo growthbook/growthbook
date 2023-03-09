@@ -76,12 +76,9 @@ export function formatInformationSchema(
           tableSchema: row.table_schema,
           tableName: row.table_name,
         }),
-        numOfColumns: 1,
+        numOfColumns: parseInt(row.column_count, 10),
         id: "",
       });
-    } else {
-      const currentTable = currentTableSchema.tables.get(row.table_name);
-      currentTable.numOfColumns = currentTable.numOfColumns + 1;
     }
   });
 

@@ -37,16 +37,16 @@ export default class Postgres extends SqlIntegration {
 
   async getInformationSchema(): Promise<InformationSchema[] | null> {
     const sql = `SELECT
-     DISTINCT table_name,
-    table_catalog,
-    table_schema,
-    column_name
-  FROM
-    information_schema.columns
-  WHERE
-    table_schema
-  NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-  ORDER BY table_name;`;
+        table_name,
+        table_catalog,
+        table_schema,
+        count(column_name) as column_count
+      FROM
+        information_schema.columns
+      WHERE
+        table_schema
+      NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+      GROUP BY (table_name, table_schema, table_catalog);`;
 
     const results = await this.runQuery(sql);
 
