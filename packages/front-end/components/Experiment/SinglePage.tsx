@@ -25,7 +25,7 @@ import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
 import DiscussionThread from "../DiscussionThread";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import { GBAddCircle, GBEdit } from "../Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
 import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Modal from "../Modal";
@@ -185,6 +185,21 @@ export default function SinglePage({
 
   return (
     <div className="container-fluid experiment-details pagecontents">
+      <div className="mb-2 mt-1">
+        <Link
+          href={`/experiments${
+            experiment.status === "draft"
+              ? "#drafts"
+              : experiment.status === "stopped"
+              ? "#stopped"
+              : ""
+          }`}
+        >
+          <a>
+            <GBCircleArrowLeft /> Back to all experiments
+          </a>
+        </Link>
+      </div>
       {reportSettingsOpen && (
         <AnalysisForm
           cancel={() => setReportSettingsOpen(false)}
