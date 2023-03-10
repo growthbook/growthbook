@@ -157,7 +157,6 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
-          groups: [],
           condition: "",
           namespace: {
             enabled: false,

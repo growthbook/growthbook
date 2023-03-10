@@ -107,7 +107,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
               editResult();
             }}
           >
-            Mark as Finished
+            Stop Experiment
           </a>
         )}
         <strong>This experiment is currently running.</strong>
@@ -133,7 +133,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
               mutateExperiment();
             }}
           >
-            Mark as Running
+            Start Experiment
           </Button>
         )}
         <strong>This is a draft experiment.</strong>

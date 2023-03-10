@@ -132,7 +132,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 .substr(0, 16),
               name: initialValue.phases?.[0].name || "Main",
               reason: "",
-              groups: [],
               variationWeights:
                 initialValue.phases?.[0].variationWeights ||
                 getEqualWeights(
@@ -145,7 +144,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               dateEnded: new Date().toISOString().substr(0, 16),
               name: "Main",
               reason: "",
-              groups: [],
               variationWeights: [0.5, 0.5],
             },
       ],

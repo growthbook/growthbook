@@ -53,7 +53,6 @@ import {
   sendPendingMemberApprovalEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getAllGroups } from "../../services/group";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { WebhookModel } from "../../models/WebhookModel";
@@ -108,7 +107,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
-    groups,
     savedGroups,
     projects,
   ] = await Promise.all([
@@ -117,7 +115,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
-    getAllGroups(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
   ]);
@@ -144,7 +141,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
-    groups,
     savedGroups,
     projects,
   });

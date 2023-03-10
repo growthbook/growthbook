@@ -6,6 +6,7 @@ import {
   FaArrowDown,
   FaExternalLinkAlt,
   FaLink,
+  FaPalette,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
@@ -483,6 +484,16 @@ export default function SinglePage({
               header="Hypothesis"
             />
             <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
+            {experiment.implementation === "visual" && (
+              <div className="alert alert-info">
+                <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
+                {experiment.status === "draft" && canEdit && (
+                  <Link href={`/experiments/designer/${experiment.id}`}>
+                    <a className="d-none d-md-inline">Open the Editor</a>
+                  </Link>
+                )}
+              </div>
+            )}
             <div className="row">
               {experiment.variations.map((v, i) => (
                 <div key={i} className={`col-md-${variationCols} mb-2`}>
@@ -648,7 +659,7 @@ export default function SinglePage({
                   ))}
                 </div>
               ) : (
-                <div className="text-center">
+                <div className="text-center p-3">
                   <em>No experiment phases defined.</em>
                   {newPhase && (
                     <div className="mt-2">

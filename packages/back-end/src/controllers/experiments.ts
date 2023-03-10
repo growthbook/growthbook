@@ -50,7 +50,6 @@ import {
   Variation,
 } from "../../types/experiment";
 import { getMetricById } from "../models/MetricModel";
-import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -1198,8 +1197,6 @@ export async function postExperimentPhase(
   try {
     changes.phases = phases;
     const updated = await updateExperimentById(org.id, experiment, changes);
-
-    await addGroupsDiff(org.id, [], data.groups || []);
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",

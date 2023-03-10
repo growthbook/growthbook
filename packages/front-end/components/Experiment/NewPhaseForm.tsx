@@ -4,13 +4,10 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { useFeature } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
-import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
@@ -37,7 +34,6 @@ const NewPhaseForm: FC<{
         getEqualWeights(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      groups: prevPhase.groups || [],
       condition: "",
       namespace: {
         enabled: false,
@@ -47,13 +43,9 @@ const NewPhaseForm: FC<{
     },
   });
 
-  const { refreshGroups } = useDefinitions();
-
   const { apiCall } = useAuth();
 
   const variationWeights = form.watch("variationWeights");
-
-  const showGroups = useFeature("show-experiment-groups").on;
 
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
@@ -76,7 +68,6 @@ const NewPhaseForm: FC<{
         body: JSON.stringify(body),
       }
     );
-    await refreshGroups(value.groups);
     mutate();
     refreshWatching();
   });
@@ -116,24 +107,6 @@ const NewPhaseForm: FC<{
           {...form.register("dateStarted")}
         />
       </div>
-      {(experiment.implementation === "visual" || showGroups) && (
-        <div className="row">
-          <div className="col">
-            <label>User Groups (optional)</label>
-            <GroupsInput
-              value={form.watch("groups")}
-              onChange={(groups) => {
-                form.setValue("groups", groups);
-              }}
-            />
-            <small className="form-text text-muted">
-              Use this to limit your experiment to specific groups of users
-              (e.g. &quot;internal&quot;, &quot;beta-testers&quot;,
-              &quot;qa&quot;).
-            </small>
-          </div>
-        </div>
-      )}
 
       <ConditionInput
         defaultValue={form.watch("condition")}

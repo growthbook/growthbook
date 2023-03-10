@@ -33,6 +33,8 @@ export interface Variation {
 export interface LegacyExperimentPhase extends ExperimentPhase {
   /** @deprecated */
   phase?: ExperimentPhaseType;
+  /** @deprecated */
+  groups?: string[];
 }
 
 export interface ExperimentPhase {
@@ -45,8 +47,6 @@ export interface ExperimentPhase {
   namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
-  /** @deprecated */
-  groups?: string[];
 }
 
 export type ExperimentPhaseStringDates = Omit<
