@@ -59,8 +59,11 @@ export default function DatasourceSchema({
             <FaDatabase /> {datasource.name}
           </label>
           <Button
-            onClick={async () => alert("This hasn't been implemented yet")}
-            className="btn btn-sm"
+            onClick={async () => {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              console.log("This hasn't been implemented yet");
+            }}
+            color="link text-success btn-sm"
           >
             Refresh Schema
           </Button>
