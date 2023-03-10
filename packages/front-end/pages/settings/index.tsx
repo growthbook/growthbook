@@ -91,7 +91,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       multipleExposureMinPercent: 0.01,
-      confidenceLevel: 95,
+      confidenceLevel: 0.95,
       pValueThreshold: 0.05,
       statsEngine: "bayesian",
     },
@@ -122,7 +122,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const [cronString, setCronString] = useState("");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(
-    !(settings?.confidenceLevel === 0.95 || settings?.pValueThreshold === 0.05)
+    (settings?.confidenceLevel && settings?.confidenceLevel !== 0.95) ||
+      (settings?.pValueThreshold && settings?.pValueThreshold !== 0.05)
   );
 
   function updateCronString(cron?: string) {
@@ -157,7 +158,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
-        if (k === "confidenceLevel") {
+        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
           newVal.confidenceLevel = newVal.confidenceLevel * 100;
         }
       });
