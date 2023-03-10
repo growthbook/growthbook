@@ -58,14 +58,17 @@ const NorthStarMetricDisplay = ({
         {analysis && analysis?.dates && analysis.dates.length > 0 ? (
           <div className="mb-4">
             <h4 className="mb-3">{metric.name}</h4>
-            <strong className="ml-4 align-bottom">Daily Average</strong>
+            <strong className="ml-4 align-bottom">
+              Daily {metric.type !== "binomial" ? "Average" : "Count"}
+            </strong>
             <DateGraph
               type={metric.type}
               dates={analysis.dates}
               experiments={experiments}
               showStdDev={false}
-              groupby={resolution === "week" ? "week" : "day"}
+              smoothBy={resolution === "week" ? "week" : "day"}
               height={300}
+              method={metric.type !== "binomial" ? "avg" : "sum"}
             />
           </div>
         ) : (

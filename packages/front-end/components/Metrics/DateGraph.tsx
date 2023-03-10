@@ -61,7 +61,7 @@ type ExperimentDisplayData = {
 
 const DateGraph: FC<{
   type: MetricType;
-  groupby?: "day" | "week";
+  smoothBy?: "day" | "week";
   method?: "avg" | "sum";
   dates: Datapoint[];
   showStdDev?: boolean;
@@ -69,7 +69,7 @@ const DateGraph: FC<{
   height?: number;
 }> = ({
   type,
-  groupby = "day",
+  smoothBy = "day",
   method = "avg",
   dates,
   showStdDev = true,
@@ -84,7 +84,7 @@ const DateGraph: FC<{
         let stddev = method === "avg" ? row.s : 0;
         const count = row.c || 1;
 
-        if (groupby === "week") {
+        if (smoothBy === "week") {
           // get 7 day average (or < 7 days if at beginning of data)
           const windowedDates = dates.slice(Math.max(i - 6, 0), i + 1);
           const days = windowedDates.length;
@@ -104,13 +104,13 @@ const DateGraph: FC<{
           s: stddev,
           c: count,
         };
-        if (groupby === "week" && i < 6) {
+        if (smoothBy === "week" && i < 6) {
           ret.oor = true;
         }
         return ret;
       }),
 
-    [dates, groupby, method]
+    [dates, smoothBy, method]
   );
 
   const getTooltipData = (mx: number, width: number, yScale): TooltipData => {
@@ -122,7 +122,7 @@ const DateGraph: FC<{
     );
     const d = data[index];
     const x = (data.length > 0 ? index / data.length : 0) * innerWidth;
-    const y = yScale(type === "binomial" ? d.c : d.v) ?? 0;
+    const y = yScale(d.v) ?? 0;
     return { x, y, d };
   };
 
@@ -137,14 +137,14 @@ const DateGraph: FC<{
             <div className={styles.val}>
               {method === "sum" ? `Σ` : `μ`}:{" "}
               {formatConversionRate(type, d.v as number)}
-              {groupby === "week" && (
+              {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}>smooth</sub>
               )}
             </div>
             {"s" in d && method === "avg" && (
               <div className={styles.secondary}>
                 {`σ`}: {formatConversionRate(type, d.s)}
-                {groupby === "week" && (
+                {smoothBy === "week" && (
                   <sub style={{ fontWeight: "normal", fontSize: 8 }}>
                     smooth
                   </sub>
@@ -447,7 +447,7 @@ const DateGraph: FC<{
                       curve={curveMonotoneX}
                     />
 
-                    {groupby === "week" && (
+                    {smoothBy === "week" && (
                       <>
                         <AreaClosed
                           yScale={yScale}
@@ -479,17 +479,17 @@ const DateGraph: FC<{
                 <LinePath
                   data={data}
                   x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
+                  y={(d) => yScale(d.v) ?? 0}
                   stroke={"#8884d8"}
                   strokeWidth={2}
                   curve={curveMonotoneX}
                   defined={(d) => !d?.oor}
                 />
-                {groupby === "week" && (
+                {smoothBy === "week" && (
                   <LinePath
                     data={data}
                     x={(d) => xScale(d.d) ?? 0}
-                    y={(d) => yScale(type === "binomial" ? d.c : d.v) ?? 0}
+                    y={(d) => yScale(d.v) ?? 0}
                     stroke={"#8884d8"}
                     opacity={0.5}
                     strokeDasharray={"2,5"}

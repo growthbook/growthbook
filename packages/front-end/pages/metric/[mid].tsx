@@ -72,13 +72,13 @@ const MetricPage: FC = () => {
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const storageKeyAvg = `metric_groupby`; // to make metric-specific, include `${mid}`
-  const storageKeySum = `metric_groupby_sum`; // to make metric-specific, include `${mid}`
-  const [groupbyAvg, setGroupbyAvg] = useLocalStorage<"day" | "week">(
+  const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
+  const storageKeySum = `metric_smoothBy_sum`;
+  const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
     "day"
   );
-  const [groupbySum, setGroupbySum] = useLocalStorage<"day" | "week">(
+  const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
     "day"
   );
@@ -625,86 +625,111 @@ const MetricPage: FC = () => {
                             </div>
                           </div>
 
-                          <div className="row mt-4 mb-1">
-                            <div className="col">
-                              <Tooltip
-                                body={
-                                  <>
-                                    <p>
-                                      This figure shows the average metric value
-                                      on a day divided by number of unique units
-                                      (e.g. users) in the metric source on that
-                                      day.
-                                    </p>
-                                    {metric.type !== "binomial" && (
-                                      <p>
-                                        The standard deviation shows the spread
-                                        of the daily user metric values.
-                                      </p>
-                                    )}
-                                    <p>
-                                      When smoothing is turned on, we simply
-                                      average values and standard deviations
-                                      over the 7 trailing days (including the
-                                      selected day).
-                                    </p>
-                                  </>
-                                }
-                              >
-                                <strong className="ml-4 align-bottom">
-                                  Daily Average <FaQuestionCircle />
-                                </strong>
-                              </Tooltip>
-                            </div>
-                            <div className="col">
-                              <div className="float-right mr-2">
-                                <label
-                                  className="small my-0 mr-2 text-right align-middle"
-                                  htmlFor="toggle-group-by-avg"
-                                >
-                                  Smoothing
-                                  <br />
-                                  (7 day trailing)
-                                </label>
-                                <Toggle
-                                  value={groupbyAvg === "week"}
-                                  setValue={() =>
-                                    setGroupbyAvg(
-                                      groupbyAvg === "week" ? "day" : "week"
-                                    )
-                                  }
-                                  id="toggle-group-by-avg"
-                                  className="align-middle"
-                                />
+                          {metric.type !== "binomial" && (
+                            <>
+                              <div className="row mt-4 mb-1">
+                                <div className="col">
+                                  <Tooltip
+                                    body={
+                                      <>
+                                        <p>
+                                          This figure shows the average metric
+                                          value on a day divided by number of
+                                          unique units (e.g. users) in the
+                                          metric source on that day.
+                                        </p>
+                                        <p>
+                                          The standard deviation shows the
+                                          spread of the daily user metric
+                                          values.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values and standard deviations
+                                          over the 7 trailing days (including
+                                          the selected day).
+                                        </p>
+                                      </>
+                                    }
+                                  >
+                                    <strong className="ml-4 align-bottom">
+                                      Daily Average <FaQuestionCircle />
+                                    </strong>
+                                  </Tooltip>
+                                </div>
+                                <div className="col">
+                                  <div className="float-right mr-2">
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                    <Toggle
+                                      value={smoothByAvg === "week"}
+                                      setValue={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week"
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                      className="align-middle"
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                          <DateGraph
-                            type={metric.type}
-                            method="avg"
-                            dates={analysis.dates}
-                            groupby={groupbyAvg}
-                          />
+                              <DateGraph
+                                type={metric.type}
+                                method="avg"
+                                dates={analysis.dates}
+                                smoothBy={smoothByAvg}
+                              />
+                            </>
+                          )}
 
                           <div className="row mt-4 mb-1">
                             <div className="col">
                               <Tooltip
                                 body={
                                   <>
-                                    <p>
-                                      This figure shows the daily sum of values
-                                      in the metric source on that day.
-                                    </p>
-                                    <p>
-                                      When smoothing is turned on, we simply
-                                      average values over the 7 trailing days
-                                      (including the selected day).
-                                    </p>
+                                    {metric.type !== "binomial" ? (
+                                      <>
+                                        <p>
+                                          This figure shows the daily sum of
+                                          values in the metric source on that
+                                          day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p>
+                                          This figure shows the total count of
+                                          units (e.g. users) in the metric
+                                          source on that day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average counts over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    )}
                                   </>
                                 }
                               >
                                 <strong className="ml-4 align-bottom">
-                                  Daily Sum <FaQuestionCircle />
+                                  Daily{" "}
+                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
+                                  <FaQuestionCircle />
                                 </strong>
                               </Tooltip>
                             </div>
@@ -719,10 +744,10 @@ const MetricPage: FC = () => {
                                   (7 day trailing)
                                 </label>
                                 <Toggle
-                                  value={groupbySum === "week"}
+                                  value={smoothBySum === "week"}
                                   setValue={() =>
-                                    setGroupbySum(
-                                      groupbySum === "week" ? "day" : "week"
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week"
                                     )
                                   }
                                   id="toggle-group-by-sum"
@@ -735,7 +760,7 @@ const MetricPage: FC = () => {
                             type={metric.type}
                             method="sum"
                             dates={analysis.dates}
-                            groupby={groupbySum}
+                            smoothBy={smoothBySum}
                           />
                         </div>
                       )}
