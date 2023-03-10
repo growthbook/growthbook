@@ -8,7 +8,7 @@ import { logger } from "../util/logger";
 import { fetchTableData } from "../services/datasource";
 import { getPath } from "../util/integrations";
 import { usingFileConfig } from "../init/config";
-import { getDataSourceById } from "./DataSourceModel";
+import { DataSourceInterface } from "../../types/datasource";
 import {
   getInformationSchemaById,
   updateInformationSchemaById,
@@ -92,7 +92,7 @@ export async function getTableDataByPath(
   databaseName: string,
   schemaName: string,
   tableName: string,
-  datasourceId: string
+  datasource: DataSourceInterface
 ): Promise<InformationSchemaTablesInterface | null> {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
@@ -109,74 +109,70 @@ export async function getTableDataByPath(
     // The table exits in the informationSchemaTables collection, so we just need to return it
     return toInterface(table);
   }
-  let newTable;
 
-  const datasource = await getDataSourceById(datasourceId, organization);
+  // Otherwise, we need to fetch table data from the datasource
+  const tableData = await fetchTableData(
+    databaseName,
+    schemaName,
+    tableName,
+    datasource
+  );
 
-  if (datasource) {
-    // We need to fetch table data from the datasource
-    const tableData = await fetchTableData(
-      databaseName,
-      schemaName,
-      tableName,
-      datasource
-    );
-    // If we get the tableData, then we need to create a new document and return it to the user
-    if (tableData) {
-      newTable = await createInformationSchemaTable({
-        id: uniqid("tbl_"),
-        organization,
-        tableName,
-        tableSchema: schemaName,
-        databaseName,
-        columns: tableData.map(
-          (row: { column_name: string; data_type: string }) => {
-            return {
-              columnName: row.column_name.toLocaleLowerCase(),
-              dataType: row.data_type.toLocaleLowerCase(),
-              path: getPath(datasource.type, {
-                tableCatalog: databaseName,
-                tableSchema: schemaName,
-                tableName: tableName,
-                columnName: row.column_name,
-              }),
-            };
-          }
-        ),
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-      });
+  if (!tableData) return null;
 
-      const informationSchema = await getInformationSchemaById(
-        organization,
-        datasource.settings.informationSchemaId || ""
-      );
-
-      if (informationSchema && newTable) {
-        const databaseIndex = informationSchema.databases.findIndex(
-          (database) => database.databaseName === databaseName
-        );
-
-        const schemaIndex = informationSchema.databases[
-          databaseIndex
-        ].schemas.findIndex((schema) => schema.schemaName === schemaName);
-
-        const tableIndex = informationSchema.databases[databaseIndex].schemas[
-          schemaIndex
-        ].tables.findIndex((table) => table.tableName === tableName);
-
-        informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
-          tableIndex
-        ].id = newTable.id;
-
-        //MKTODO: Optimize this so we're not replacing the entire informationSchema document
-        await updateInformationSchemaById(
-          organization,
-          informationSchema.id,
-          informationSchema
-        );
+  // If we get the tableData, then we need to create a new document and return it to the user
+  const newTable = await createInformationSchemaTable({
+    id: uniqid("tbl_"),
+    organization,
+    tableName,
+    tableSchema: schemaName,
+    databaseName,
+    columns: tableData.map(
+      (row: { column_name: string; data_type: string }) => {
+        return {
+          columnName: row.column_name.toLocaleLowerCase(),
+          dataType: row.data_type.toLocaleLowerCase(),
+          path: getPath(datasource.type, {
+            tableCatalog: databaseName,
+            tableSchema: schemaName,
+            tableName: tableName,
+            columnName: row.column_name,
+          }),
+        };
       }
-    }
+    ),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  });
+
+  const informationSchema = await getInformationSchemaById(
+    organization,
+    datasource.settings.informationSchemaId || ""
+  );
+
+  if (informationSchema && newTable) {
+    const databaseIndex = informationSchema.databases.findIndex(
+      (database) => database.databaseName === databaseName
+    );
+
+    const schemaIndex = informationSchema.databases[
+      databaseIndex
+    ].schemas.findIndex((schema) => schema.schemaName === schemaName);
+
+    const tableIndex = informationSchema.databases[databaseIndex].schemas[
+      schemaIndex
+    ].tables.findIndex((table) => table.tableName === tableName);
+
+    informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
+      tableIndex
+    ].id = newTable.id;
+
+    //MKTODO: Optimize this so we're not replacing the entire informationSchema document
+    await updateInformationSchemaById(
+      organization,
+      informationSchema.id,
+      informationSchema
+    );
   }
 
   return newTable || null;

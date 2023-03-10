@@ -54,9 +54,17 @@ export default function DatasourceSchema({
   return (
     <div className="d-flex flex-column">
       <div>
-        <label className="font-weight-bold mb-1">
-          <FaDatabase /> {datasource.name}
-        </label>
+        <div className="d-flex justify-content-between align-items-center pb-1">
+          <label className="font-weight-bold mb-1">
+            <FaDatabase /> {datasource.name}
+          </label>
+          <Button
+            onClick={async () => alert("This hasn't been implemented yet")}
+            className="btn btn-sm"
+          >
+            Refresh Schema
+          </Button>
+        </div>
         {!informationSchema ? (
           <div>
             <div className="alert alert-info d-flex justify-content-between align-items-center">
@@ -95,6 +103,7 @@ export default function DatasourceSchema({
               placeholder="Search..."
               type="search"
               {...searchInputProps}
+              className="mb-2"
             />
             <div
               key="database"

@@ -28,16 +28,16 @@ export default function DatasourceSchema({ table, loading }: Props) {
       >
         <thead>
           <tr>
-            <th>Column</th>
-            <th>Data Type</th>
+            <th className="pl-3">Column</th>
+            <th className="pr-3 text-right">Data Type</th>
           </tr>
         </thead>
         <tbody>
           {table?.columns.map((column) => {
             return (
               <tr key={table.tableName + column.columnName}>
-                <td>{column.columnName}</td>
-                <td>{column.dataType}</td>
+                <td className="pl-3">{column.columnName}</td>
+                <td className="pr-3 text-right">{column.dataType}</td>
               </tr>
             );
           })}

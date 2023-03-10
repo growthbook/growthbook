@@ -29,7 +29,12 @@ export async function getTableData(
     return;
   }
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(datasourceId, org.id);
+
+  if (!datasource) {
+    res.status(404).json({ status: 404, message: "No datasource found" });
+    return;
+  }
 
   //MKTODO: Make sure this is correct
   req.checkPermissions(
@@ -43,7 +48,7 @@ export async function getTableData(
       databaseName,
       schemaName,
       tableName,
-      datasourceId
+      datasource
     );
 
     res.status(200).json({
