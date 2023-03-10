@@ -169,7 +169,11 @@ In some cases where `gtag()` is not yet defined at the time in which we invoke i
 All of these delays, however, can cause render flickering and should be avoided if possible. You might consider loading GA outside of GTM. You could even load GA and GrowthBook in parallel, wrap each load inside its own promise, and use `Promise.all()` to ensure both are loaded before the SDK is instantiated. Specifics will vary depending on your site's configuration, but hopefully this provides some ideas.
 
 In some situations, `gtag()` may never become defined. You can use your browser's developer tools / JavaScript console to confirm this by typing `window.tag`. If undefined, you may need to manually define it — either on your page or in a GTM custom HTML tag — using JavaScript. For example:
-`window.gtag = window.gtag || function() { dataLayer.push(arguments); };`
+
+```js
+window.gtag = window.gtag || function() { dataLayer.push(arguments); };
+```
+
 :::
 
 You may have a custom user ID (website-generated perhaps) that you'd like to propagate through GA4. In this case, you'll want to ensure that this user ID has been pushed to the dataLayer (GA4's local data store). For example:
