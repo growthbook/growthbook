@@ -41,7 +41,6 @@ export type NewExperimentFormProps = {
   onClose?: () => void;
   onCreate?: (id: string) => void;
   inline?: boolean;
-  isVisual?: boolean;
 };
 
 function getDefaultVariations(num: number) {
@@ -74,7 +73,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   idea,
   msg,
   inline,
-  isVisual,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -99,9 +97,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
-      implementation: isVisual
-        ? "visual"
-        : initialValue?.implementation || "code",
+      implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
@@ -151,11 +147,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               variationWeights: [0.5, 0.5],
             },
       ],
-      status: isVisual ? "draft" : initialValue?.status || "running",
+      status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
     },
   });
 
+  const isVisual = form.watch("implementation") === "visual";
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
@@ -229,7 +226,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={isVisual ? "New Visual Experiment" : "New Experiment Analysis"}
+      header="New Experiment Analysis"
       close={onClose}
       docSection="experiments"
       submit={onSubmit}
@@ -259,7 +256,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
         )}
-        {!isImport && !isVisual && (
+        {!isImport && (
           <SelectField
             label="Use Visual Editor"
             options={[

@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { IconType } from "react-icons";
-import { GoPencil, GoBrowser, GoDatabase } from "react-icons/go";
+import { GoBrowser, GoDatabase } from "react-icons/go";
 import Modal from "../Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
@@ -33,13 +33,11 @@ const AddExperimentModal: FC<{
   onClose: () => void;
   source?: string;
 }> = ({ onClose, source }) => {
-  const [mode, setMode] = useState<"visual" | "import" | "scratch" | null>(
-    null
-  );
+  const [mode, setMode] = useState<"new" | "import" | null>(null);
 
   const ctas: CTA[] = [
     {
-      cta: "Create from Data Source",
+      cta: "Analyze an Existing Experiment",
       description:
         "Create an experiment by importing existing experiment data from one of your data sources.",
       Icon: GoDatabase,
@@ -48,60 +46,32 @@ const AddExperimentModal: FC<{
       },
     },
     {
-      cta: "Create Visually",
+      cta: "Create a New Experiment",
       description:
-        "Load your website in our Visual Editor and create variations directly on the page.",
+        "Create an experiment using feature flags and our visual editor to drive your variations.",
       Icon: GoBrowser,
       onClick: () => {
-        setMode("visual");
-      },
-    },
-    {
-      cta: "Create from Scratch",
-      description: "Create a blank experiment and confgure it from scratch.",
-      Icon: GoPencil,
-      onClick: () => {
-        setMode("scratch");
+        setMode("new");
       },
     },
   ];
 
   switch (mode) {
-    case "visual":
-      return <NewExperimentForm isVisual onClose={onClose} source={source} />;
+    case "new":
+      return <NewExperimentForm onClose={onClose} source={source} />;
     case "import":
       return <ImportExperimentModal onClose={onClose} source={source} />;
-    case "scratch":
-      return <NewExperimentForm onClose={onClose} source={source} />;
     default:
       return (
         <Modal open close={() => onClose()} size="lg" header="Add Experiment">
-          <h2>
-            Did you already start running this experiment and just need to
-            analyze results?
-          </h2>
+          <h2>Choose your method of creating an Experiment:</h2>
           <div
             style={{
               display: "flex",
               flexWrap: "wrap",
             }}
           >
-            <CreateExperimentCTA
-              cta={ctas[0].cta}
-              Icon={ctas[0].Icon}
-              onClick={ctas[0].onClick}
-              description={ctas[0].description}
-            />
-          </div>
-          <h2>Or is this a brand new experiment you&apos;re creating?</h2>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
-            {ctas.slice(1).map(({ cta, description, Icon, onClick }, index) => (
+            {ctas.map(({ cta, description, Icon, onClick }, index) => (
               <CreateExperimentCTA
                 key={index}
                 cta={cta}
