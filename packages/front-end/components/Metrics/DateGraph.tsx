@@ -176,8 +176,9 @@ const DateGraph: FC<{
   } = useTooltip<TooltipData>();
 
   const margin = [15, 15, 30, 80];
-  const min = Math.min(...data.map((d) => d.d));
-  const max = Math.max(...data.map((d) => d.d));
+  const dateNums = data.map((d) => getValidDate(d.d).getTime());
+  const min = Math.min(...dateNums);
+  const max = Math.max(...dateNums);
 
   const [toolTipTimer, setToolTipTimer] = useState<null | ReturnType<
     typeof setTimeout
