@@ -2,6 +2,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
+  upgradeExperimentDoc,
   upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -763,5 +764,69 @@ describe("backend", () => {
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
     expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
+  });
+
+  it("upgrades experiment variation ids, keys, and phase names", () => {
+    // eslint-disable-next-line
+    const exp: any = {
+      variations: [
+        {
+          name: "Test",
+          screenshots: [],
+        },
+        {
+          name: "Another",
+          screenshots: [],
+        },
+        {
+          id: "foo",
+          key: "bar",
+          name: "Baz",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          phase: "main",
+        },
+        {
+          phase: "main",
+          name: "New Name",
+        },
+      ],
+    };
+
+    expect(upgradeExperimentDoc(exp)).toEqual({
+      variations: [
+        {
+          id: "0",
+          key: "0",
+          name: "Test",
+          screenshots: [],
+        },
+        {
+          id: "1",
+          key: "1",
+          name: "Another",
+          screenshots: [],
+        },
+        {
+          id: "foo",
+          key: "bar",
+          name: "Baz",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          phase: "main",
+          name: "Main",
+        },
+        {
+          phase: "main",
+          name: "New Name",
+        },
+      ],
+    });
   });
 });

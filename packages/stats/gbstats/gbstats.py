@@ -16,6 +16,17 @@ from gbstats.shared.models import (
 from gbstats.shared.tests import BaseABTest
 
 
+SUM_COLS = [
+    "users",
+    "count",
+    "main_sum",
+    "main_sum_squares",
+    "denominator_sum",
+    "denominator_sum_squares",
+    "main_denominator_sum_product",
+]
+
+
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
     unknown_var_ids = []
@@ -57,13 +68,8 @@ def get_metric_df(
                 prefix = f"v{i}" if i > 0 else "baseline"
                 dimensions[dim][f"{prefix}_id"] = key
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
-                dimensions[dim][f"{prefix}_users"] = 0
-                dimensions[dim][f"{prefix}_count"] = 0
-                dimensions[dim][f"{prefix}_main_sum"] = 0
-                dimensions[dim][f"{prefix}_main_sum_squares"] = 0
-                dimensions[dim][f"{prefix}_denominator_sum"] = 0
-                dimensions[dim][f"{prefix}_denominator_sum_squares"] = 0
-                dimensions[dim][f"{prefix}_main_denominator_sum_product"] = 0
+                for col in SUM_COLS:
+                    dimensions[dim][f"{prefix}_{col}"] = 0
 
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
@@ -72,19 +78,8 @@ def get_metric_df(
 
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-            dimensions[dim][f"{prefix}_users"] = row.users
-            dimensions[dim][f"{prefix}_count"] = row.count
-            dimensions[dim][f"{prefix}_main_sum"] = row.main_sum
-            dimensions[dim][f"{prefix}_main_sum_squares"] = row.main_sum_squares
-            dimensions[dim][f"{prefix}_denominator_sum"] = getattr(
-                row, "denominator_sum", 0
-            )
-            dimensions[dim][f"{prefix}_denominator_sum_squares"] = getattr(
-                row, "denominator_sum_squares", 0
-            )
-            dimensions[dim][f"{prefix}_main_denominator_sum_product"] = getattr(
-                row, "main_denominator_sum_product", 0
-            )
+            for col in SUM_COLS:
+                dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
 
     return pd.DataFrame(dimensions.values())
 
@@ -110,19 +105,8 @@ def reduce_dimensionality(df, max=20):
             current["total_users"] += row["total_users"]
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
-                current[f"{prefix}_users"] += row[f"{prefix}_users"]
-                current[f"{prefix}_count"] += row[f"{prefix}_count"]
-                current[f"{prefix}_main_sum"] += row[f"{prefix}_main_sum"]
-                current[f"{prefix}_main_sum_squares"] += row[
-                    f"{prefix}_main_sum_squares"
-                ]
-                current[f"{prefix}_denominator_sum"] += row[f"{prefix}_denominator_sum"]
-                current[f"{prefix}_denominator_sum_squares"] += row[
-                    f"{prefix}_denominator_sum_squares"
-                ]
-                current[f"{prefix}_main_denominator_sum_product"] += row[
-                    f"{prefix}_main_denominator_sum_product"
-                ]
+                for col in SUM_COLS:
+                    current[f"{prefix}_{col}"] += row[f"{prefix}_{col}"]
 
     return pd.DataFrame(newrows)
 
@@ -168,7 +152,6 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         for i in range(1, num_variations):
             # Variation values
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
-
             s[f"v{i}_cr"] = stat_b.mean
             s[f"v{i}_expected"] = (
                 (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
@@ -238,7 +221,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "stats": stats,
                     }
                 )
@@ -248,7 +231,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],
