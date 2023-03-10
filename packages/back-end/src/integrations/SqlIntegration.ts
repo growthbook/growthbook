@@ -956,15 +956,14 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${aggregate} as value
+          COALESCE(${aggregate}, 0) as value
         FROM
           __distinctUsers d
-          JOIN __metric m ON (
+          LEFT JOIN __metric m ON (
             m.${baseIdType} = d.${baseIdType}
+            AND m.timestamp >= d.conversion_start
+            ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
           )
-        WHERE
-          m.timestamp >= d.conversion_start
-          ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
         GROUP BY
           d.variation,
           d.dimension,
@@ -1299,7 +1298,7 @@ export default abstract class SqlIntegration
 
   private getAggregateMetricColumn(metric: MetricInterface, alias = "m") {
     if (metric.type === "binomial") {
-      return "1";
+      return `MAX(${this.ifElse(`${alias}.timestamp IS NOT NULL`, "1", "0")})`;
     }
 
     const queryFormat = this.getMetricQueryFormat(metric);
