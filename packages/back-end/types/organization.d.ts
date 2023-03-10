@@ -224,7 +224,9 @@ export interface OrganizationInterface {
 export type NamespaceUsage = Record<
   string,
   {
-    featureId: string;
+    link: string;
+    name: string;
+    id: string;
     trackingKey: string;
     environment: string;
     start: number;

@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
+import { useAttributeSchema } from "@/services/features";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -36,11 +37,14 @@ const AnalysisForm: FC<{
     datasources,
   } = useDefinitions();
 
+  const attributeSchema = useAttributeSchema();
+
   const phaseObj = experiment.phases[phase];
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
+      hashAttribute: experiment.hashAttribute || "",
       datasource: experiment.datasource || "",
       exposureQueryId:
         getExposureQuery(
@@ -87,9 +91,12 @@ const AnalysisForm: FC<{
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
+  const hasHashAttributes =
+    attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
   return (
     <Modal
-      header={"Configure Experiment Analysis"}
+      header={"Experiment Settings"}
       open={true}
       close={cancel}
       size="lg"
@@ -178,6 +185,20 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
+      />
+      <SelectField
+        label="Assignment Attribute"
+        labelClassName="font-weight-bold"
+        options={attributeSchema
+          .filter((s) => !hasHashAttributes || s.hashAttribute)
+          .map((s) => ({ label: s.property, value: s.property }))}
+        value={form.watch("hashAttribute")}
+        onChange={(v) => {
+          form.setValue("hashAttribute", v);
+        }}
+        helpText={
+          "Will be hashed and used to assign a variation to each user that views the experiment"
+        }
       />
       {editVariationIds && (
         <div className="form-group">

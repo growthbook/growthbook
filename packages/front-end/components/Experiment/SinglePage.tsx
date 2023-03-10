@@ -526,7 +526,7 @@ export default function SinglePage({
         </div>
         <div className="col-md-4">
           <RightRailSection
-            title="Analysis Settings"
+            title="Experiment Settings"
             open={() => setReportSettingsOpen(true)}
             canOpen={canEdit}
           >
@@ -537,18 +537,21 @@ export default function SinglePage({
                 titleClassName="align-top"
               >
                 {datasource && (
-                  <div className="d-inline-block" style={{ maxWidth: 300 }}>
-                    <div>
-                      <Link href={`/datasources/${datasource?.id}`}>
-                        {datasource?.name}
-                      </Link>
-                    </div>
-                    <div className="text-gray font-weight-normal small text-ellipsis">
-                      {datasource?.description}
-                    </div>
-                  </div>
+                  <Tooltip body={datasource?.description || ""}>
+                    <Link href={`/datasources/${datasource?.id}`}>
+                      {datasource?.name}
+                    </Link>
+                  </Tooltip>
                 )}
               </RightRailSectionGroup>
+              {experiment.hashAttribute && (
+                <RightRailSectionGroup
+                  title="Assignment Attribute"
+                  type="commaList"
+                >
+                  {experiment.hashAttribute}
+                </RightRailSectionGroup>
+              )}
               {exposureQuery && (
                 <RightRailSectionGroup
                   title="Assignment Query"
@@ -564,7 +567,7 @@ export default function SinglePage({
               )}
               {datasource?.properties?.segments && (
                 <RightRailSectionGroup
-                  title="Segment"
+                  title="Analysis Segment"
                   type="commaList"
                   empty="All Users"
                 >

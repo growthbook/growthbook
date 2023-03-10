@@ -661,7 +661,9 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
           const { name, range } = r.namespace as NamespaceValue;
           namespaces[name] = namespaces[name] || [];
           namespaces[name].push({
-            featureId: f.id,
+            link: `/feature/${f.id}`,
+            name: f.id,
+            id: f.id,
             trackingKey: r.trackingKey || f.id,
             start: range[0],
             end: range[1],
@@ -681,7 +683,9 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     const { name, range } = phase.namespace;
     namespaces[name] = namespaces[name] || [];
     namespaces[name].push({
-      featureId: e.trackingKey,
+      link: `/experiment/${e.id}`,
+      name: e.name,
+      id: e.trackingKey,
       trackingKey: e.trackingKey,
       start: range[0],
       end: range[1],
