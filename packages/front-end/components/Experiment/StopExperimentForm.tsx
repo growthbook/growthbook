@@ -109,26 +109,31 @@ const StopExperimentForm: FC<{
           ]}
         />
         {form.watch("results") === "won" && experiment.variations.length > 2 && (
-          <Field
+          <SelectField
             label="Winner"
             containerClassName="col-lg"
-            {...form.register("winner")}
-            options={experiment.variations.map((v, i) => {
-              if (!i) return null;
-              return { value: i, display: v.name };
+            value={form.watch("winner") + ""}
+            onChange={(v) => {
+              form.setValue("winner", parseInt(v) || 0);
+            }}
+            options={experiment.variations.slice(1).map((v, i) => {
+              return { value: i + 1 + "", label: v.name };
             })}
           />
         )}
       </div>
       <div className="row">
-        <Field
+        <SelectField
           label="Variation to Release"
           containerClassName="col"
-          {...form.register("releasedVariationId")}
+          value={form.watch("releasedVariationId")}
+          onChange={(v) => {
+            form.setValue("releasedVariationId", v);
+          }}
           helpText="Which variation should be rolled out to 100% of users?"
           initialOption="None"
           options={experiment.variations.map((v) => {
-            return { value: v.id, display: v.name };
+            return { value: v.id, label: v.name };
           })}
         />
       </div>
