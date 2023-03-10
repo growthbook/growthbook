@@ -866,10 +866,11 @@ pre {
 .experiment-compact {
   border-spacing: 0;
   border: 1px solid var(--border-color-100);
+  border-collapse: separate;
 
   td,
   th {
-    border: 1px solid var(--border-color-100);
+    border: 0.5px solid var(--border-color-100);
   }
 
   thead {

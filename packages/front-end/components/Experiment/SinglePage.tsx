@@ -450,7 +450,7 @@ export default function SinglePage({
         </div>
       )}
       <div className="row mb-4">
-        <div className="col-md-8">
+        <div className="col-lg-8 mb-4">
           <div className="appbox p-3 h-100">
             <MarkdownInlineEdit
               value={experiment.description || experiment.observations}
@@ -497,7 +497,7 @@ export default function SinglePage({
             </div>
           </div>
         </div>
-        <div className="col-md-4">
+        <div className="col-lg-4">
           <RightRailSection
             title="Analysis Settings"
             open={() => setReportSettingsOpen(true)}
@@ -583,13 +583,16 @@ export default function SinglePage({
               <div className="row mb-1 text-muted">
                 <div className="col-5">Goals</div>
                 <div className="col-5">
-                  Conversion Window{" "}
-                  <Tooltip
-                    body={`After a user sees the experiment, only include
-                          metric conversions within the specified time window.`}
-                  >
-                    <FaQuestionCircle />
-                  </Tooltip>
+                  Conversion{" "}
+                  <span style={{ whiteSpace: "nowrap" }}>
+                    Window{" "}
+                    <Tooltip
+                      body={`After a user sees the experiment, only include
+                            metric conversions within the specified time window.`}
+                    >
+                      <FaQuestionCircle />
+                    </Tooltip>
+                  </span>
                 </div>
                 <div className="col-sm-2">Behavior</div>
               </div>
@@ -685,7 +688,7 @@ export default function SinglePage({
             <FaLink />
           </a>
         </h3>
-        <div className="appbox">
+        <div className="appbox" style={{ overflowX: "initial" }}>
           {experiment.phases?.length > 0 ? (
             <Results
               experiment={experiment}
