@@ -33,17 +33,6 @@ SUM_COLS = [
 ]
 
 
-SUM_COLS = [
-    "users",
-    "count",
-    "main_sum",
-    "main_sum_squares",
-    "denominator_sum",
-    "denominator_sum_squares",
-    "main_denominator_sum_product",
-]
-
-
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
     unknown_var_ids = []
@@ -289,7 +278,7 @@ def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statisti
             pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
             post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
             n=row[f"{prefix}_users"],
-            # Theta should be overriden with correct value later, 0 allows for unadjusted mean
+            # Theta should be overriden with correct value later
             theta=0,
         )
     else:
