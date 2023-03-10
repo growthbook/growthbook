@@ -111,8 +111,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     "/organization/definitions"
   );
 
-  console.log("data", data);
-
   const [project, setProject] = useLocalStorage("gb_current_project", "");
 
   const activeMetrics = useMemo(() => {

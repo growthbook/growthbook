@@ -1,4 +1,5 @@
 import {
+  InformationSchema,
   InformationSchemaInterface,
   InformationSchemaTablesInterface,
 } from "@/../back-end/src/types/Integration";
@@ -6,23 +7,29 @@ import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
 import React, { useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaDatabase, FaTable } from "react-icons/fa";
+import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
 import Field from "./Forms/Field";
 import Button from "./Button";
 import LoadingSpinner from "./LoadingSpinner";
+import { CursorData } from "./Segments/SegmentForm";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
   informationSchema: InformationSchemaInterface;
   mutate: () => void;
+  cursorData: CursorData;
+  updateSqlInput: (sql: string) => void;
 };
 
 export default function DatasourceSchema({
   datasource,
   informationSchema,
   mutate,
+  updateSqlInput,
+  cursorData,
 }: Props) {
   const { apiCall } = useAuth();
   const [
@@ -36,20 +43,89 @@ export default function DatasourceSchema({
     setGeneratingInformationSchema,
   ] = useState(false);
 
+  function pastePathIntoExistingQuery(
+    existingQuery: string,
+    index: number,
+    pathToPaste: string
+  ) {
+    if (index === existingQuery.length - 1) return existingQuery + pathToPaste;
+    return (
+      existingQuery.substring(0, index) +
+      pathToPaste +
+      existingQuery.substring(index)
+    );
+  }
+
+  const row = cursorData?.row;
+  const column = cursorData?.column;
+  const inputArray = cursorData?.input;
+
   useEffect(() => {
     setCurrentTable(null);
   }, [datasource]);
 
   const { items, searchInputProps } = useSearch({
-    items: informationSchema?.databases || [],
-    searchFields: ["databaseName", "schemas"], //MKTODO: Update this so nested search works correctly
-    localStorageKey: "datasources",
+    items: (informationSchema?.databases as InformationSchema[]) || [],
+    // searchFields: ["schemas.tables.path"], //MKTODO: Figure out how to get nested search working
+    // localStorageKey: "schemas.tables.path",
+    // defaultSortField: "schemas.tables.path",
+    searchFields: ["databaseName"],
+    localStorageKey: "databaseName",
     defaultSortField: "databaseName",
   });
 
   if (!datasource) {
     return null;
   }
+
+  const handleClick = async (
+    e,
+    databaseName: string,
+    schemaName: string,
+    tableName: string,
+    path: string
+  ) => {
+    if (e.detail === 2) {
+      const updatedStr = pastePathIntoExistingQuery(
+        inputArray[row],
+        column,
+        path
+      );
+
+      const updatedInputArray = cloneDeep(cursorData.input);
+      // inputArray[row] = updatedStr; //This is a stateful variable, so i cant just update it
+      updatedInputArray[row] = updatedStr;
+
+      updateSqlInput(updatedInputArray.join("\n"));
+    }
+
+    // If the table is already fetched, dont' fetch it again
+    if (
+      currentTable?.tableName === tableName &&
+      currentTable?.databaseName === databaseName &&
+      currentTable?.tableSchema === schemaName
+    )
+      return;
+
+    try {
+      setLoading(true);
+      setCurrentTable(null);
+
+      const res = await apiCall<{
+        status: number;
+        table?: InformationSchemaTablesInterface;
+      }>(
+        `/datasourceId/${datasource.id}/database/${databaseName}/schema/${schemaName}/table/${tableName}`,
+        {
+          method: "GET",
+        }
+      );
+      setCurrentTable(res.table);
+      setLoading(false);
+    } catch (e) {
+      console.log("e", e);
+    }
+  };
 
   return (
     <div className="d-flex flex-column">
@@ -70,13 +146,12 @@ export default function DatasourceSchema({
         </div>
         {!informationSchema ? (
           <div>
-            <div className="alert alert-info d-flex justify-content-between align-items-center">
-              <span>
-                Need help building your query? Click the button to the right to
-                get insight into what tables and columns are available in the
-                datasource.
-              </span>
+            <div className="alert alert-info">
+              Need help building your query? Click the button to the right to
+              get insight into what tables and columns are available in the
+              datasource.
               <Button
+                className="mt-2"
                 onClick={async () => {
                   setGeneratingInformationSchema(true);
                   setError(null);
@@ -112,7 +187,8 @@ export default function DatasourceSchema({
               key="database"
               className="border rounded p-1"
               style={{
-                height: "210px",
+                minHeight: "100px",
+                maxHeight: "210px",
                 overflowY: "scroll",
               }}
             >
@@ -146,32 +222,22 @@ export default function DatasourceSchema({
                               return (
                                 <div
                                   className="pl-3 pb-1"
+                                  style={{ userSelect: "none" }}
                                   role="button"
                                   key={
                                     database.databaseName +
                                     schema.schemaName +
                                     table.tableName
                                   }
-                                  onClick={async () => {
-                                    try {
-                                      setLoading(true);
-                                      setCurrentTable(null);
-                                      const res = await apiCall<{
-                                        status: number;
-                                        table?: InformationSchemaTablesInterface;
-                                      }>(
-                                        `/datasourceId/${datasource.id}/database/${database.databaseName}/schema/${schema.schemaName}/table/${table.tableName}`,
-                                        {
-                                          method: "GET",
-                                        }
-                                      );
-                                      console.log("res", res);
-                                      setCurrentTable(res.table);
-                                      setLoading(false);
-                                    } catch (e) {
-                                      console.log("e", e);
-                                    }
-                                  }}
+                                  onClick={async (e) =>
+                                    handleClick(
+                                      e,
+                                      database.databaseName,
+                                      schema.schemaName,
+                                      table.tableName,
+                                      table.path
+                                    )
+                                  }
                                 >
                                   <FaTable /> {table.tableName}
                                 </div>

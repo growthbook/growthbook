@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import Field from "@/components/Forms/Field";
@@ -10,6 +10,12 @@ import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DatasourceSchema from "../DatasourceSchema";
+
+export type CursorData = {
+  row: number;
+  column: number;
+  input: string[];
+};
 
 const SegmentForm: FC<{
   close: () => void;
@@ -34,6 +40,7 @@ const SegmentForm: FC<{
       owner: current.owner || "",
     },
   });
+  const [cursorData, setCursorData] = useState<null | CursorData>(null);
 
   const userIdType = form.watch("userIdType");
 
@@ -52,6 +59,10 @@ const SegmentForm: FC<{
   const requiredColumns = useMemo(() => {
     return new Set([userIdType, "date"]);
   }, [userIdType]);
+
+  const updateSqlInput = (sql: string) => {
+    form.setValue("sql", sql);
+  };
 
   return (
     <Modal
@@ -113,6 +124,7 @@ const SegmentForm: FC<{
               form={form}
               requiredColumns={requiredColumns}
               placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
+              setCursorData={setCursorData}
               helpText={
                 <>
                   Select two columns named <code>{userIdType}</code> and{" "}
@@ -125,9 +137,11 @@ const SegmentForm: FC<{
           {informationSchemaSupported() && (
             <div className="col-5">
               <DatasourceSchema
+                updateSqlInput={updateSqlInput}
                 datasource={datasource}
                 informationSchema={informationSchema}
                 mutate={mutateDefinitions}
+                cursorData={cursorData}
               />
             </div>
           )}

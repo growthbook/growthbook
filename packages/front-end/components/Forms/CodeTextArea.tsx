@@ -1,6 +1,7 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { CursorData } from "../Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(
@@ -31,6 +32,7 @@ export type Props = Omit<
   language: Language;
   value: string;
   setValue: (value: string) => void;
+  setCursorData?: (data: CursorData) => void;
   minLines?: number;
   maxLines?: number;
 };
@@ -45,6 +47,7 @@ export default function CodeTextArea({
   placeholder,
   minLines = 10,
   maxLines = 50,
+  setCursorData,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -72,10 +75,19 @@ export default function CodeTextArea({
                 theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
                 value={value}
-                onChange={(newValue) => setValue(newValue)}
+                onChange={(newValue) => {
+                  setValue(newValue);
+                }}
                 placeholder={placeholder}
                 minLines={minLines}
                 maxLines={maxLines}
+                onCursorChange={(e) =>
+                  setCursorData({
+                    row: e.cursor.row,
+                    column: e.cursor.column,
+                    input: e.cursor.document.$lines,
+                  })
+                }
               />
             </div>
           </>
