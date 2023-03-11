@@ -239,6 +239,12 @@ export async function addSampleData(
             reason: "",
             dateStarted: imp.start_date,
             dateEnded: imp.end_date,
+            condition: "",
+            namespace: {
+              enabled: false,
+              name: "",
+              range: [0, 1],
+            },
           },
         ],
       };

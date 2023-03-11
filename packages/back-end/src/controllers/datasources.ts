@@ -139,6 +139,8 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       owner: userId,
       trackingKey: "sample-experiment",
       exposureQueryId: "",
+      hashAttribute: "",
+      releasedVariationId: "",
       tags: [],
       results: "won",
       winner: 1,
@@ -155,7 +157,12 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
-          groups: [],
+          condition: "",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
         },
       ],
     };
