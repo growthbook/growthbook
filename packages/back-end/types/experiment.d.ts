@@ -18,16 +18,19 @@ export interface Screenshot {
   description?: string;
 }
 
+export interface LegacyVariation extends Variation {
+  /** @deprecated */
+  css?: string;
+  /** @deprecated */
+  dom?: DomChange[];
+}
+
 export interface Variation {
   id: string;
   name: string;
   description?: string;
   key: string;
   screenshots: Screenshot[];
-  /** @deprecated */
-  css?: string;
-  /** @deprecated */
-  dom?: DomChange[];
 }
 
 export interface LegacyExperimentPhase extends ExperimentPhase {
@@ -72,11 +75,13 @@ export type MetricOverride = {
 };
 
 export interface LegacyExperimentInterface
-  extends Omit<ExperimentInterface, "phases"> {
+  extends Omit<ExperimentInterface, "phases" | "variations"> {
   /**
    * @deprecated
    */
   observations?: string;
+
+  variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
 }
 

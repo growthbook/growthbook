@@ -1,4 +1,4 @@
-import { Variation } from "back-end/types/experiment";
+import { LegacyVariation, Variation } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
@@ -42,8 +42,8 @@ export default function VariationBox({
         {v.description && <p>{v.description}</p>}
         {isVisual && (
           <VisualCode
-            dom={v.dom || []}
-            css={v.css || ""}
+            dom={(v as LegacyVariation).dom || []}
+            css={(v as LegacyVariation).css || ""}
             experimentId={experimentId}
             control={i === 0}
           />

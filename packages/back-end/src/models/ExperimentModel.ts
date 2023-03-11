@@ -125,6 +125,7 @@ const experimentSchema = new mongoose.Schema({
       coverage: Number,
       condition: String,
       namespace: {},
+      seed: String,
       variationWeights: [Number],
       groups: [String],
     },
