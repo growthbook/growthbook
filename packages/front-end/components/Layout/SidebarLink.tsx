@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { AccountPlan, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 import { isCloud } from "../../services/env";
 import { useUser } from "../../services/UserContext";
 import styles from "./SidebarLink.module.scss";
@@ -26,12 +27,12 @@ export type SidebarLinkProps = {
   permissions?: Permission[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
-  feature?: string;
+  feature?: keyof AppFeatures;
   accountPlans?: AccountPlan[];
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const growthbook = useGrowthBook();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const { permissions, admin, accountPlan } = useUser();
   const router = useRouter();

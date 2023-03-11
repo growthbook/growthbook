@@ -8,6 +8,7 @@
     "start": "next start",
     "type-check": "tsc --pretty --noEmit",
     "test": "jest --forceExit --verbose --detectOpenHandles",
+    "type-gen": "growthbook features generate-types --output ./types --profile growthbook",
     "storybook": "BROWSER=none start-storybook -p 6006",
     "build-storybook": "build-storybook"
   },

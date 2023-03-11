@@ -85,6 +85,11 @@ const sidebars = {
           id: "guide/GA-universal-analytics",
           label: "Google Analytics (UA)",
         },
+        {
+          type: "doc",
+          id: "guide/google-tag-manager-and-growthbook",
+          label: "Google Tag Manager (GTM)",
+        },
         { type: "doc", id: "guide/mixpanel", label: "Mixpanel" },
         { type: "doc", id: "guide/matomo", label: "Matomo" },
         { type: "doc", id: "guide/bigquery", label: "BigQuery" },

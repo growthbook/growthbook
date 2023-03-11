@@ -23,6 +23,15 @@ class Statistic(ABC):
     def mean(self):
         pass
 
+    @property
+    def unadjusted_mean(self):
+        """
+        Return the mean that has no regression adjustments.
+        Must be over-ridden if regular `mean` function is adjusted,
+        as it is for RegressionAdjustedStatistic
+        """
+        return self.mean
+
 
 @dataclass
 class SampleMeanStatistic(Statistic):
@@ -96,6 +105,64 @@ class RatioStatistic(Statistic):
             self.m_d_sum_of_products
             - self.m_statistic.sum * self.d_statistic.sum / self.n
         ) / (self.n - 1)
+
+
+@dataclass
+class RegressionAdjustedStatistic(Statistic):
+    post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    post_pre_sum_of_products: float
+    theta: float
+
+    @property
+    def mean(self):
+        return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+
+    @property
+    def unadjusted_mean(self):
+        return self.post_statistic.mean
+
+    @property
+    def variance(self):
+        if self.n <= 1:
+            return 0
+        return (
+            self.post_statistic.variance
+            + pow(self.theta, 2) * self.pre_statistic.variance
+            - 2 * self.theta * self.covariance
+        )
+
+    @property
+    def covariance(self):
+        if self.n <= 1:
+            return 0
+        return (
+            self.post_pre_sum_of_products
+            - self.post_statistic.sum * self.pre_statistic.sum / self.n
+        ) / (self.n - 1)
+
+
+def compute_theta(
+    a: RegressionAdjustedStatistic, b: RegressionAdjustedStatistic
+) -> float:
+    n = a.n + b.n
+    joint = RegressionAdjustedStatistic(
+        n=n,
+        post_statistic=SampleMeanStatistic(
+            n,
+            a.post_statistic.sum + b.post_statistic.sum,
+            a.post_statistic.sum_squares + b.post_statistic.sum_squares,
+        ),
+        pre_statistic=SampleMeanStatistic(
+            n,
+            a.pre_statistic.sum + b.pre_statistic.sum,
+            a.pre_statistic.sum_squares + b.pre_statistic.sum_squares,
+        ),
+        post_pre_sum_of_products=a.post_pre_sum_of_products
+        + b.post_pre_sum_of_products,
+        theta=0,
+    )
+    return joint.covariance / joint.pre_statistic.variance
 
 
 # Data classes for the results of tests
