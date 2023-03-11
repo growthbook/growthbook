@@ -6,6 +6,7 @@ import { APP_ORIGIN } from "../util/secrets";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
+  LegacyVariation,
 } from "../../types/experiment";
 import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
 import { getExperimentOverrides } from "../services/organizations";
@@ -18,7 +19,8 @@ export function canAutoAssignExperiment(
 
   return (
     experiment.variations.filter(
-      (v) => (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
+      (v: LegacyVariation) =>
+        (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
     ).length > 0
   );
 }
@@ -136,7 +138,7 @@ export async function getExperimentsScript(
         key,
         draft: exp.status === "draft",
         anon: exp.userIdType === "anonymous",
-        variationCode: exp.variations.map((v) => {
+        variationCode: exp.variations.map((v: LegacyVariation) => {
           const commands: string[] = [];
           if (v.css) {
             commands.push("injectStyles(" + JSON.stringify(v.css) + ")");
