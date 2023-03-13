@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from warnings import warn
 import numpy as np
-from scipy.stats import beta, norm, rv_continuous
-from scipy.special import digamma, polygamma, roots_hermitenorm
+from scipy.stats import beta, norm, rv_continuous  # type: ignore
+from scipy.special import digamma, polygamma, roots_hermitenorm  # type: ignore
 from .orthogonal import roots_sh_jacobi
 from gbstats.bayesian.constants import EPSILON
 

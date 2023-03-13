@@ -1,6 +1,6 @@
 import numpy as np
-from scipy import linalg
-from scipy.special import betaln, eval_jacobi
+from scipy import linalg  # type: ignore
+from scipy.special import betaln, eval_jacobi  # type: ignore
 
 
 """

@@ -42,7 +42,7 @@ jobs:
           yarn install
 
           # Stats engine
-          pip install numpy scipy pandas pytest black flake8 nbformat gbstats
+          pip install numpy scipy pandas pytest black flake8 mypy nbformat gbstats
 
       - name: Build, lint, type-check, and test 
         run: |

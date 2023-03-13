@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import List
 
 import numpy as np
-from scipy.stats import t
+from scipy.stats import t  # type: ignore
 
 from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest

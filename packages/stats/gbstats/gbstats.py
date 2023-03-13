@@ -1,7 +1,8 @@
 from dataclasses import asdict
+from typing import Union
 
 import pandas as pd
-from scipy.stats.distributions import chi2
+from scipy.stats.distributions import chi2  # type: ignore
 
 from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTest
 from gbstats.frequentist.tests import TwoSidedTTest
@@ -289,7 +290,7 @@ def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statisti
 
 def base_statistic_from_metric_row(
     row: pd.Series, prefix: str, component: str
-) -> Statistic:
+) -> Union[ProportionStatistic, SampleMeanStatistic]:
     metric_type = row[f"{component}_metric_type"]
     if metric_type == "binomial":
         return ProportionStatistic(

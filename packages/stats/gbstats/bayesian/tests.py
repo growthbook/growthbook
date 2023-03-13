@@ -2,11 +2,17 @@ from abc import abstractmethod
 from typing import Tuple, Dict, Union, List
 
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm  # type: ignore
 
 from gbstats.bayesian.dists import Beta, Norm
 from gbstats.bayesian.constants import BETA_PRIOR, NORM_PRIOR, EPSILON
-from gbstats.shared.models import BayesianTestResult, Statistic, Uplift
+from gbstats.shared.models import (
+    BayesianTestResult,
+    ProportionStatistic,
+    RatioStatistic,
+    SampleMeanStatistic,
+    Uplift,
+)
 from gbstats.shared.tests import BaseABTest
 
 """
@@ -21,8 +27,8 @@ Original code:
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: Union[ProportionStatistic, RatioStatistic, SampleMeanStatistic],
+        stat_b: Union[ProportionStatistic, RatioStatistic, SampleMeanStatistic],
         inverse: bool = False,
         ccr: float = 0.05,
     ):
