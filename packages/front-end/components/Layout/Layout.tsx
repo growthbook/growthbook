@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsLightbulb, BsPlug } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "../../services/env";
 import useOrgSettings from "../../hooks/useOrgSettings";
@@ -119,6 +119,22 @@ const navlinks: SidebarLinkProps[] = [
         name: "Presentations",
         href: "/presentations",
         path: /^presentation/,
+      },
+    ],
+  },
+  {
+    name: "Integrations",
+    href: "/integrations",
+    Icon: BsPlug,
+    path: /^(integrations)/,
+    autoClose: true,
+    feature: "slack-integration",
+    subLinks: [
+      {
+        name: "Slack",
+        href: "/integrations/slack",
+        path: /^integrations\/slack/,
+        feature: "slack-integration",
       },
     ],
   },

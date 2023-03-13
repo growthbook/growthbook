@@ -7,13 +7,16 @@ from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTes
 from gbstats.frequentist.tests import TwoSidedTTest
 from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
+    compute_theta,
     ProportionStatistic,
     SampleMeanStatistic,
     RatioStatistic,
+    RegressionAdjustedStatistic,
     Statistic,
     TestResult,
 )
 from gbstats.shared.tests import BaseABTest
+from gbstats.messages import raise_error_if_bayesian_ra
 
 
 SUM_COLS = [
@@ -24,6 +27,9 @@ SUM_COLS = [
     "denominator_sum",
     "denominator_sum_squares",
     "main_denominator_sum_product",
+    "covariate_sum",
+    "covariate_sum_squares",
+    "main_covariate_sum_product",
 ]
 
 
@@ -60,6 +66,7 @@ def get_metric_df(
                 "denominator_metric_type": getattr(
                     row, "denominator_metric_type", None
                 ),
+                "covariate_metric_type": getattr(row, "covariate_metric_type", None),
                 "total_users": 0,
             }
             # Add columns for each variation (including baseline)
@@ -139,8 +146,9 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         s = s.copy()
         # Baseline values
         stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
-        s["baseline_cr"] = stat_a.mean
-        s["baseline_mean"] = stat_a.mean
+        raise_error_if_bayesian_ra(stat_a, engine)
+        s["baseline_cr"] = stat_a.unadjusted_mean
+        s["baseline_mean"] = stat_a.unadjusted_mean
         s["baseline_stddev"] = stat_a.stddev
 
         # List of users in each variation (used for SRM check)
@@ -150,13 +158,21 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
         # Loop through each non-baseline variation and run an analysis
         baseline_risk = 0
         for i in range(1, num_variations):
-            # Variation values
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
-            s[f"v{i}_cr"] = stat_b.mean
+            raise_error_if_bayesian_ra(stat_b, engine)
+
+            if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
+                stat_a, RegressionAdjustedStatistic
+            ):
+                theta = compute_theta(stat_a, stat_b)
+                stat_a.theta = theta
+                stat_b.theta = theta
+
+            s[f"v{i}_cr"] = stat_b.unadjusted_mean
             s[f"v{i}_expected"] = (
                 (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
             )
-            s[f"v{i}_mean"] = stat_b.mean
+            s[f"v{i}_mean"] = stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = stat_b.stddev
 
             users[i] = stat_b.n
@@ -245,7 +261,7 @@ def format_results(df):
     return results
 
 
-def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Statistic:
+def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statistic:
     statistic_type = row["statistic_type"]
     if statistic_type == "ratio":
         return RatioStatistic(
@@ -256,6 +272,15 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
         )
     elif statistic_type == "mean":
         return base_statistic_from_metric_row(row, prefix, "main")
+    elif statistic_type == "mean_ra":
+        return RegressionAdjustedStatistic(
+            post_statistic=base_statistic_from_metric_row(row, prefix, "main"),
+            pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
+            post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
+            n=row[f"{prefix}_users"],
+            # Theta should be overriden with correct value later
+            theta=0,
+        )
     else:
         raise ValueError(
             f"Unexpected statistic_type {statistic_type}' found in experiment data."
@@ -263,7 +288,7 @@ def variation_statistic_from_metric_row(row: pd.DataFrame, prefix: str) -> Stati
 
 
 def base_statistic_from_metric_row(
-    row: pd.DataFrame, prefix: str, component: str
+    row: pd.Series, prefix: str, component: str
 ) -> Statistic:
     metric_type = row[f"{component}_metric_type"]
     if metric_type == "binomial":
