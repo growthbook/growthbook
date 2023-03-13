@@ -86,6 +86,7 @@ export default function DatasourceSchema({
     path: string
   ) => {
     if (e.detail === 2) {
+      if (!inputArray) return;
       const updatedStr = pastePathIntoExistingQuery(
         inputArray[row],
         column,
@@ -93,7 +94,6 @@ export default function DatasourceSchema({
       );
 
       const updatedInputArray = cloneDeep(cursorData.input);
-      // inputArray[row] = updatedStr; //This is a stateful variable, so i cant just update it
       updatedInputArray[row] = updatedStr;
 
       updateSqlInput(updatedInputArray.join("\n"));
