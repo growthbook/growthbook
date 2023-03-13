@@ -26,6 +26,11 @@ import Mssql from "../integrations/Mssql";
 import { createInformationSchema } from "../models/InformationSchemaModel";
 import { updateDataSource } from "../models/DataSourceModel";
 
+export const DATASOURCES_THAT_SUPPORT_INFORMATION_SCHEMA = [
+  "postgres",
+  "bigquery",
+];
+
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
 ): T {
@@ -163,7 +168,8 @@ export async function initializeDatasourceInformationSchema(
   if (informationSchema) {
     const informationSchemaId = await createInformationSchema(
       informationSchema,
-      organization
+      organization,
+      datasource.id
     );
 
     // Then, update the datasource.settings.informationSchemaId to the id of the newly created informationSchema.

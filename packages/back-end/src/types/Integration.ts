@@ -174,7 +174,7 @@ export interface Table {
   tableName: string;
   path: string;
   id: string;
-  numberOfColumns: number;
+  numOfColumns: number;
 }
 
 export interface Schema {
@@ -191,6 +191,7 @@ export interface InformationSchema {
 
 export interface InformationSchemaInterface {
   id: string;
+  datasourceId: string;
   databases: InformationSchema[];
   dateCreated: Date;
   dateUpdated: Date;
@@ -199,6 +200,7 @@ export interface InformationSchemaInterface {
 
 export interface InformationSchemaTablesInterface {
   id: string;
+  datasourceId: string;
   organization: string;
   tableName: string;
   tableSchema: string;

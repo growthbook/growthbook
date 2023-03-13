@@ -9,13 +9,14 @@ import {
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
+  DATASOURCES_THAT_SUPPORT_INFORMATION_SCHEMA,
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
-import queueCreateInformationSchema from "../jobs/informationSchema";
+import { queueCreateInformationSchema } from "../jobs/informationSchema";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -166,8 +167,7 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
 
-  // Currently we're only supporting informationSchemas with bigquery and postgres
-  if (type === "postgres" || type === "bigquery") {
+  if (DATASOURCES_THAT_SUPPORT_INFORMATION_SCHEMA.includes(type)) {
     await queueCreateInformationSchema(datasource, organization);
   }
 

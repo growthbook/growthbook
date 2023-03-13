@@ -15,6 +15,7 @@ const informationSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  datasourceId: String,
   databases: {
     required: true,
     type: [Object],
@@ -65,14 +66,17 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
-  organization: string
+  organization: string,
+  datasourceId: string
 ): Promise<string | null> {
+  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
 
   const result = await InformationSchemaModel.create({
     id: uniqid("inf_"),
+    datasourceId,
     organization,
     databases: informationSchema,
     dateCreated: new Date(),
