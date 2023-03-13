@@ -7,6 +7,7 @@ required:
   - project
   - hypothesis
   - description
+  - hashAttribute
   - tags
   - owner
   - archived
@@ -44,6 +45,8 @@ properties:
     type: string
   autoRefresh:
     type: boolean
+  hashAttribute:
+    type: string
   variations:
     type: array
     items:
@@ -128,6 +131,7 @@ properties:
     required:
       - status
       - winner
+      - releasedVariationId
       - conclusions
     properties:
       status:
@@ -135,4 +139,6 @@ properties:
       winner:
         type: string
       conclusions:
+        type: string
+      releasedVariationId:
         type: string

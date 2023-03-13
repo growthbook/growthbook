@@ -15,7 +15,7 @@ GrowthBook also offers a [visual editor](https://docs.growthbook.io/app/visual) 
 
 In this guide, we will assume familiarity with the GTM platform. We also assume the ability to apply a unique user ID via Google Analytics (`client_id`), cookies, etc; as well as the ability to track events (GA or otherwise).
 
-## Choosing a strategy: scalable and easy versus page speed
+## Choosing a strategy: performance vs flexibility
 
 There are two strategies that we can use to implement AB tests with GrowthBook via GTM.
 
@@ -92,7 +92,7 @@ Here, we will need to add pass in SDK connection parameters, user attributes, an
 
 ### Connection parameters
 
-Let's first pass in our SDK connection parameters. To find them, you will need to find your SDK in the GrowthBook app (in **Features > SDKs**), and select "Javascript" for implementation instructions. Here you will see values for `apiKey`, `clientKey`, and in some cases `decryptionKey`. (Note: if you've decided to use Strategy 2 - page speed, you won't actually need to include these connection parameters.)
+Let's first pass in our SDK connection parameters. To find them, you will need to find your SDK in the GrowthBook app (in **Features > SDKs**), and select "Javascript" for implementation instructions. Here you will see values for `apiHost`, `clientKey`, and in some cases `decryptionKey`. (Note: if you've decided to use Strategy 2 - page speed, you won't actually need to include these connection parameters.)
 
 ### User attributes
 
@@ -164,9 +164,16 @@ gtag('get', 'G-XXXXXX', 'client_id', function(cid) {
 ...or you could use async/await or promises to prevent additional nesting.
 
 :::tip
-In some cases where `gtag()` is also not yet defined, we may need to force our GrowthBook snippet to load after GA has successfully loaded. You may be able to use `window.onload()` to ensure GA has loaded before the SDK is instantiated (although GA loaded through GTM can sometimes complicate this). Alternatively, you can use a GTM trigger such as "Window Loaded" to ensure that the GrowthBook SDK is loaded after GA has loaded.
+In some cases where `gtag()` is not yet defined at the time in which we invoke it, we may need to force our GrowthBook snippet to load after GA has successfully loaded. You may be able to use `window.onload()` to ensure GA has loaded before the SDK is instantiated (although GA loaded through GTM can sometimes complicate this). Alternatively, you can use a GTM trigger such as "Window Loaded" to ensure that the GrowthBook SDK is loaded after GA has loaded.
 
-All of these delays, however, can cause render flickering and should be avoided if possible. You might consider loading GA outside of GTM. You could even load GA and GrowthBook in parallel, wrap each load inside it's own promise, and use `Promise.all()` to ensure both are loaded before the SDK is instantiated. Specifics will vary depending on your site's configuration, but hopefully this provides some ideas.
+All of these delays, however, can cause render flickering and should be avoided if possible. You might consider loading GA outside of GTM. You could even load GA and GrowthBook in parallel, wrap each load inside its own promise, and use `Promise.all()` to ensure both are loaded before the SDK is instantiated. Specifics will vary depending on your site's configuration, but hopefully this provides some ideas.
+
+In some situations, `gtag()` may never become defined. You can use your browser's developer tools / JavaScript console to confirm this by typing `window.tag`. If undefined, you may need to manually define it — either on your page or in a GTM custom HTML tag — using JavaScript. For example:
+
+```js
+window.gtag = window.gtag || function() { dataLayer.push(arguments); };
+```
+
 :::
 
 You may have a custom user ID (website-generated perhaps) that you'd like to propagate through GA4. In this case, you'll want to ensure that this user ID has been pushed to the dataLayer (GA4's local data store). For example:

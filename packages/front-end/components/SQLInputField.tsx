@@ -30,7 +30,7 @@ type Props = {
   identityTypes?: UserIdType[];
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
   className?: string;
-  setCursorData: (data: CursorData) => void;
+  setCursorData?: (data: CursorData) => void;
 };
 
 export default function SQLInputField({

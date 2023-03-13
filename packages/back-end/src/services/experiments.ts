@@ -651,6 +651,7 @@ export function toExperimentApiInterface(
     archived: !!experiment.archived,
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
+    hashAttribute: experiment.hashAttribute || "id",
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -663,13 +664,19 @@ export function toExperimentApiInterface(
       dateStarted: p.dateStarted.toISOString(),
       dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
       reasonForStopping: p.reason || "",
-      seed: experiment.trackingKey,
+      seed: p.seed || experiment.trackingKey,
       coverage: p.coverage,
       trafficSplit: experiment.variations.map((v, i) => ({
         variationId: v.id,
         weight: p.variationWeights[i] || 0,
       })),
-      targetingCondition: "",
+      targetingCondition: p.condition || "",
+      namespace: p.namespace.enabled
+        ? {
+            namespaceId: p.namespace.name,
+            range: p.namespace.range,
+          }
+        : undefined,
     })),
     settings: {
       datasourceId: experiment.datasource || "",
@@ -697,8 +704,9 @@ export function toExperimentApiInterface(
       ? {
           resultSummary: {
             status: experiment.results,
-            winner: (experiment.winner ?? 1) + "",
+            winner: experiment.variations[experiment.winner ?? 0]?.id || "",
             conclusions: experiment.analysis || "",
+            releasedVariationId: experiment.releasedVariationId || "",
           },
         }
       : null),

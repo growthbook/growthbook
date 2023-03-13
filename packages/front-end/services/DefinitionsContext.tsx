@@ -16,7 +16,6 @@ type Definitions = {
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
-  groups: string[];
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
   informationSchemas: InformationSchemaInterface[];
@@ -28,7 +27,6 @@ type DefinitionContextValue = Definitions & {
   project: string;
   setProject: (id: string) => void;
   refreshTags: (newTags: string[]) => Promise<void>;
-  refreshGroups: (newGroups: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
   getMetricById: (id: string) => null | MetricInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
@@ -48,9 +46,6 @@ const defaultValue: DefinitionContextValue = {
   refreshTags: async () => {
     /* do nothing */
   },
-  refreshGroups: async () => {
-    /* do nothing */
-  },
   setProject: () => {
     /* do nothing */
   },
@@ -61,7 +56,6 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   informationSchemas: [],
   tags: [],
-  groups: [],
   savedGroups: [],
   projects: [],
   getMetricById: () => null,
@@ -146,7 +140,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       dimensions: data.dimensions,
       segments: data.segments,
       tags: data.tags,
-      groups: data.groups,
       savedGroups: data.savedGroups,
       projects: data.projects,
       project: filteredProject,
@@ -160,18 +153,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getSavedGroupById,
       getTagById,
       getInformationSchemaById,
-      refreshGroups: async (groups) => {
-        const newGroups = groups.filter((t) => !data.groups.includes(t));
-        if (newGroups.length > 0) {
-          await mutate(
-            {
-              ...data,
-              groups: data.groups.concat(newGroups),
-            },
-            false
-          );
-        }
-      },
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
