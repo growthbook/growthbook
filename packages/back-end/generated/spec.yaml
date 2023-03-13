@@ -664,6 +664,62 @@ paths:
                 properties:
                   visualChangeset:
                     $ref: '#/components/schemas/VisualChangeset'
+  '/visual-changesets/{id}/visual-change':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags:
+        - visual-changesets
+      summary: Create a visual change for a visual changeset
+      operationId: postVisualChange
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - visualChange
+                properties:
+                  visualChange:
+                    type: object
+                    required:
+                      - variation
+                    properties:
+                      description:
+                        type: string
+                      css:
+                        type: string
+                      variation:
+                        type: string
+                      domMutations:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - selector
+                            - action
+                            - attribute
+                          properties:
+                            selector:
+                              type: string
+                            action:
+                              type: string
+                              enum:
+                                - append
+                                - set
+                                - remove
+                            attribute:
+                              type: string
+                            value:
+                              type: string
 components:
   parameters:
     id:

@@ -1,7 +1,10 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { ApiVisualChangeset } from "../../types/openapi";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "../../types/visual-changeset";
 
 /**
  * VisualChangeset is a collection of visual changes that are grouped together
@@ -114,4 +117,31 @@ export async function findVisualChangesetsByExperiment(
     organization,
   });
   return visualChangesets.map(toInterface);
+}
+
+export async function createVisualChange(
+  id: string,
+  organization: string,
+  visualChange: VisualChange
+): Promise<void> {
+  const visualChangeset = await VisualChangesetModel.findOne({
+    id,
+    organization,
+  });
+
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  await VisualChangesetModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    {
+      $set: {
+        visualChanges: [...visualChangeset.visualChanges, visualChange],
+      },
+    }
+  );
 }

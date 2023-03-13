@@ -1,0 +1,25 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+get:
+  tags:
+    - visual-changesets
+  summary: Create a visual change for a visual changeset
+  operationId: postVisualChange
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
+          -u secret_abc123DEF456 \
+          -H "Content-Type: application/json" \
+          -d '{"variation": "v_123abc", "domMutations":"[]"}'
+  responses:
+    "201":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - visualChange
+            properties:
+              visualChange:
+                $ref: "../schemas/VisualChange.yaml"

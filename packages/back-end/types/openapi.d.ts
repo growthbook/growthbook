@@ -157,6 +157,16 @@ export interface paths {
       };
     };
   };
+  "/visual-changesets/{id}/visual-change": {
+    /** Create a visual change for a visual changeset */
+    get: operations["postVisualChange"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -2255,6 +2265,29 @@ export interface operations {
       };
     };
   };
+  postVisualChange: {
+    /** Create a visual change for a visual changeset */
+    responses: {
+      201: {
+        content: {
+          "application/json": {
+            visualChange: {
+              description?: string;
+              css?: string;
+              variation: string;
+              domMutations?: ({
+                  selector: string;
+                  /** @enum {string} */
+                  action: "append" | "set" | "remove";
+                  attribute: string;
+                  value?: string;
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -2299,3 +2332,4 @@ export type GetExperimentResponse = operations["getExperiment"]["responses"]["20
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
