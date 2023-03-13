@@ -1,11 +1,13 @@
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
 import each from "lodash/each";
+import flatten from "lodash/flatten";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import {
   determineNextDate,
   experimentUpdated,
@@ -23,6 +25,7 @@ import { upgradeExperimentDoc } from "../util/migrations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
+import { findVisualChangesets } from "./VisualChangesetModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -802,4 +805,37 @@ export const logExperimentDeleted = async (
   return emittedEvent.id;
 };
 
-// endregion Events
+export const getAllVisualExperiments = async (
+  organization: string
+): Promise<
+  Array<{
+    experiment: ExperimentInterface;
+    visualChangeset: VisualChangesetInterface;
+  }>
+> => {
+  const visualChangesets = await findVisualChangesets(organization);
+  const allVisualChanges = flatten(
+    visualChangesets.map((vc) => vc.visualChanges)
+  );
+  const experiments = (
+    await ExperimentModel.find({
+      id: {
+        $in: visualChangesets.map((changeset) => changeset.experiment),
+      },
+      organization,
+      archived: false,
+    })
+  ).filter(
+    // If the experiment is stopped and the released variation doesn’t have any visual changes, it should be excluded
+    (e) =>
+      e.status !== "stopped" ||
+      allVisualChanges.some((vc) => vc.variation === e.releasedVariationId)
+  );
+  // @ts-expect-error filter boolean
+  return visualChangesets
+    .map((c) => ({
+      experiment: experiments.find((e) => e.id === c.experiment),
+      visualChangeset: c,
+    }))
+    .filter((e) => e.experiment);
+};

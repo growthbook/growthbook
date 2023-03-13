@@ -9,6 +9,7 @@ import {
   FeatureRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
+import { getAllVisualExperiments } from "../models/ExperimentModel";
 import { getFeatureDefinition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
@@ -17,9 +18,11 @@ import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKExperiment, SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
+import { ExperimentInterface } from "../../types/experiment";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -42,6 +45,55 @@ function generatePayload(
   });
 
   return defs;
+}
+
+// TODO Put this in a better place?
+function generateVisualExperimentsPayload(
+  visualExperiments: Array<{
+    experiment: ExperimentInterface;
+    visualChangeset: VisualChangesetInterface;
+  }>,
+  _environment: string,
+  _groupMap: GroupMap
+): SDKExperiment[] {
+  return visualExperiments.map(({ experiment: e, visualChangeset: v }) => {
+    const phase = e.phases.slice(-1)[0];
+    const forcedVariation =
+      e.status === "stopped" && e.releasedVariationId
+        ? e.variations.find((v) => v.id === e.releasedVariationId)
+        : null;
+
+    return {
+      key: e.trackingKey,
+      variations: v.visualChanges.map((vc) => ({
+        css: vc.css,
+        domMutations: vc.domMutations,
+      })),
+      hashVersion: 2,
+      hashAttribute: e.hashAttribute,
+      urlPatterns: [v.urlPattern],
+      weights: phase.variationWeights,
+      meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+      filters: phase.namespace.enabled
+        ? [
+            {
+              attribute: e.hashAttribute,
+              seed: phase.namespace.name,
+              hashVersion: 2,
+              ranges: [phase.namespace.range],
+            },
+          ]
+        : [],
+      seed: phase.seed,
+      name: e.name,
+      phase: `${e.phases.length - 1}`,
+      force: forcedVariation
+        ? e.variations.indexOf(forcedVariation)
+        : undefined,
+      condition: phase.condition,
+      coverage: phase.coverage,
+    };
+  });
 }
 
 export async function getSavedGroupMap(
@@ -89,6 +141,7 @@ export async function refreshSDKPayloadCache(
   );
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
+  const allVisualExperiments = await getAllVisualExperiments(organization.id);
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
@@ -101,11 +154,20 @@ export async function refreshSDKPayloadCache(
     const projectFeatures = key.project
       ? allFeatures.filter((f) => f.project === key.project)
       : allFeatures;
+    const projectExperiments = key.project
+      ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
+      : allVisualExperiments;
 
-    if (!projectFeatures.length) continue;
+    if (!projectFeatures.length && !projectExperiments) continue;
 
     const featureDefinitions = generatePayload(
       projectFeatures,
+      key.environment,
+      groupMap
+    );
+
+    const experimentsDefinitions = generateVisualExperimentsPayload(
+      projectExperiments,
       key.environment,
       groupMap
     );
@@ -116,6 +178,7 @@ export async function refreshSDKPayloadCache(
         project: key.project,
         environment: key.environment,
         featureDefinitions,
+        experimentsDefinitions,
       });
     });
   }
@@ -198,12 +261,22 @@ export async function getFeatureDefinitions(
   const groupMap = await getSavedGroupMap(org);
   const featureDefinitions = generatePayload(features, environment, groupMap);
 
+  const allVisualExperiments = await getAllVisualExperiments(organization);
+
+  // Generate visual experiments
+  const experimentsDefinitions = generateVisualExperimentsPayload(
+    allVisualExperiments,
+    environment,
+    groupMap
+  );
+
   // Cache in Mongo
   await updateSDKPayload({
     organization,
     project: project || "",
     environment,
     featureDefinitions,
+    experimentsDefinitions,
   });
 
   return await getFeatureDefinitionsResponse(

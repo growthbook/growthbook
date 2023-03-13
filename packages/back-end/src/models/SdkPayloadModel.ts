@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { FeatureDefinition } from "../../types/api";
 import {
+  SDKExperiment,
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
@@ -69,14 +70,17 @@ export async function updateSDKPayload({
   project,
   environment,
   featureDefinitions,
+  experimentsDefinitions,
 }: {
   organization: string;
   project: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinition>;
+  experimentsDefinitions: SDKExperiment[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
+    experiments: experimentsDefinitions,
   };
 
   await SDKPayloadModel.updateOne(
