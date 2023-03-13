@@ -23,6 +23,7 @@ export const eventWebHookEventOptions: {
   id: NotificationEventName;
   name: NotificationEventName;
 }[] = [
+  // Features
   {
     id: "feature.updated",
     name: "feature.updated",
@@ -34,6 +35,19 @@ export const eventWebHookEventOptions: {
   {
     id: "feature.deleted",
     name: "feature.deleted",
+  },
+  // Experiments
+  {
+    id: "experiment.created",
+    name: "experiment.created",
+  },
+  {
+    id: "experiment.updated",
+    name: "experiment.updated",
+  },
+  {
+    id: "experiment.deleted",
+    name: "experiment.deleted",
   },
 ];
 
