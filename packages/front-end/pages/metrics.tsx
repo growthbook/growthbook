@@ -49,7 +49,9 @@ const MetricsPage = (): React.ReactElement => {
   const tagsFilter = useTagsFilter("metrics");
 
   const [showArchived, setShowArchived] = useState(false);
-  const [recentlyArchived, setRecentlyArchived] = useState<string[]>([]);
+  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
+    new Set()
+  );
 
   const metrics = useAddComputedFields(
     data?.metrics,
@@ -75,7 +77,7 @@ const MetricsPage = (): React.ReactElement => {
     (items: typeof filteredMetrics) => {
       if (!showArchived) {
         items = items.filter((m) => {
-          return m.status !== "archived" || recentlyArchived.includes(m.id);
+          return m.status !== "archived" || recentlyArchived.has(m.id);
         });
       }
       items = filterByTags(items, tagsFilter.tags);
@@ -390,10 +392,13 @@ const MetricsPage = (): React.ReactElement => {
                           }),
                         });
                         if (newStatus === "archived") {
-                          setRecentlyArchived((arr) => [...arr, metric.id]);
+                          setRecentlyArchived(
+                            (set) => new Set([...set, metric.id])
+                          );
                         } else {
-                          setRecentlyArchived((arr) =>
-                            arr.filter((id) => id !== metric.id)
+                          setRecentlyArchived(
+                            (set) =>
+                              new Set([...set].filter((id) => id !== metric.id))
                           );
                         }
                         mutateDefinitions({});
