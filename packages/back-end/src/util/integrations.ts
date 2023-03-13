@@ -53,6 +53,8 @@ export function formatInformationSchema(
         databaseName: row.table_catalog.toLocaleLowerCase(),
         schemas: [],
         path: dbPath,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
       };
       databases.set(dbPath, database);
     }
@@ -67,6 +69,8 @@ export function formatInformationSchema(
         schemaName: row.table_schema.toLocaleLowerCase(),
         tables: [],
         path: schemaPath,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
       };
       schemas.set(schemaPath, schema);
       database.schemas.push(schema);
@@ -85,6 +89,8 @@ export function formatInformationSchema(
         path: tablePath,
         numOfColumns: parseInt(row.column_count, 10),
         id: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
       };
       tables.set(tablePath, table);
       const schemaIndex = database.schemas.findIndex(

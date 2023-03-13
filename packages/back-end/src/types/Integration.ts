@@ -175,27 +175,33 @@ export interface Table {
   path: string;
   id: string;
   numOfColumns: number;
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface Schema {
   schemaName: string;
   tables: Table[];
   path?: string;
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface InformationSchema {
   databaseName: string;
   path?: string;
   schemas: Schema[];
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface InformationSchemaInterface {
   id: string;
   datasourceId: string;
   databases: InformationSchema[];
+  organization: string;
   dateCreated: Date;
   dateUpdated: Date;
-  organization: string;
 }
 
 export interface InformationSchemaTablesInterface {
