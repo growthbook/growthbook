@@ -202,16 +202,30 @@ export default function DatasourceSchema({
                             className="pb-1"
                             key={database.databaseName + schema.schemaName}
                             trigger={
-                              <>
-                                <FaAngleRight />
-                                {`${database.databaseName}.${schema.schemaName}`}
-                              </>
+                              datasource.type === ("bigquery" || "postgres") ? (
+                                <>
+                                  <FaAngleRight />
+                                  {`${database.databaseName}.${schema.schemaName}`}
+                                </>
+                              ) : (
+                                <>
+                                  <FaAngleRight />
+                                  {`${schema.schemaName}`}
+                                </>
+                              )
                             }
                             triggerWhenOpen={
-                              <>
-                                <FaAngleDown />
-                                {`${database.databaseName}.${schema.schemaName}`}
-                              </>
+                              datasource.type === ("bigquery" || "postgres") ? (
+                                <>
+                                  <FaAngleDown />
+                                  {`${database.databaseName}.${schema.schemaName}`}
+                                </>
+                              ) : (
+                                <>
+                                  <FaAngleDown />
+                                  {`${schema.schemaName}`}
+                                </>
+                              )
                             }
                             triggerStyle={{
                               fontWeight: "bold",
