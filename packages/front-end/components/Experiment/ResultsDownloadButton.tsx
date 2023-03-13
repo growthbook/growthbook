@@ -86,7 +86,7 @@ export default function ResultsDownloadButton({
             perUserValueStdDev: stats.stats.stddev || null,
             chanceToBeatControl: stats.chanceToWin || null,
             percentChange: stats.expected || null,
-            percentChangePValue: stats.pValue || null,
+            percentChangePValue: stats.pValue ?? null,
             percentChangeCILower: stats.ci?.[0] || null,
             percentChangeCIUpper: stats.ci?.[1] || null,
           });
