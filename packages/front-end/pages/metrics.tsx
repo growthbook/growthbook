@@ -345,7 +345,7 @@ const MetricsPage = (): React.ReactElement => {
                     innerClassName="p-2"
                     tipMinWidth="auto"
                   >
-                    <FaArchive alt={"Archived"} />
+                    <FaArchive />
                   </Tooltip>
                 )}
               </td>
