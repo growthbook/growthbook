@@ -42,7 +42,7 @@ class TTest(BaseABTest):
 
     @property
     def point_estimate(self) -> float:
-        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.mean
+        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.unadjusted_mean
 
     @property
     def critical_value(self) -> float:
@@ -94,6 +94,8 @@ class TTest(BaseABTest):
                 note the values are with respect to percent uplift,
                 not absolute differences
         """
+        if self.stat_a.mean == 0:
+            return self._default_output()
         if self._has_zero_variance():
             return self._default_output()
         return FrequentistTestResult(

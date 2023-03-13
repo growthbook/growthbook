@@ -5,13 +5,17 @@ import numpy as np
 import pandas as pd
 
 from gbstats.gbstats import (
+    base_statistic_from_metric_row,
     detect_unknown_variations,
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_df,
     format_results,
+    variation_statistic_from_metric_row,
 )
+from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.shared.constants import StatsEngine
+from gbstats.shared.models import RegressionAdjustedStatistic, SampleMeanStatistic
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -103,6 +107,8 @@ RATIO_STATISTICS_DF = pd.DataFrame(
     statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
 )
 
+RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
+RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
 
 ONE_USER_DF = pd.DataFrame(
     [
@@ -154,6 +160,102 @@ ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
 ).assign(
     statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
 )
+
+
+RA_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "All",
+            "variation": "one",
+            "main_sum": 222,
+            "main_sum_squares": 555,
+            "covariate_sum": 120,
+            "covariate_sum_squares": 405,
+            "main_covariate_sum_product": -10,
+            "users": 3000,
+            "count": 3000,
+        },
+        {
+            "dimension": "All",
+            "variation": "zero",
+            "main_sum": 333,
+            "main_sum_squares": 999,
+            "covariate_sum": 210,
+            "covariate_sum_squares": 415,
+            "main_covariate_sum_product": -20,
+            "users": 3001,
+            "count": 3001,
+        },
+    ]
+).assign(
+    statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
+)
+
+
+class TestBaseStatisticBuilder(TestCase):
+    def test_unknown_metric_type(self):
+        with self.assertRaisesRegex(ValueError, expected_regex="metric_type.*not_real"):
+            base_statistic_from_metric_row(
+                pd.Series({"test_metric_type": "not_real"}), prefix="", component="test"
+            )
+
+    # TODO add more unit tests in follow-up PR
+
+
+class TestVariationStatisticBuilder(TestCase):
+    def test_unknown_statistic_type(self):
+        with self.assertRaisesRegex(
+            ValueError, expected_regex="statistic_type.*not_real.*"
+        ):
+            variation_statistic_from_metric_row(
+                pd.Series({"statistic_type": "not_real"}), prefix=""
+            )
+
+    def test_ra_statistic_type(self):
+        test_row = pd.Series(
+            {
+                "statistic_type": "mean_ra",
+                "main_metric_type": "count",
+                "covariate_metric_type": "count",
+                "baseline_main_sum": 222,
+                "baseline_main_sum_squares": 555,
+                "baseline_covariate_sum": 120,
+                "baseline_covariate_sum_squares": 405,
+                "baseline_main_covariate_sum_product": -10,
+                "baseline_users": 3000,
+                "baseline_count": 3000,
+                "v1_main_sum": 333,
+                "v1_main_sum_squares": 999,
+                "v1_covariate_sum": 210,
+                "v1_covariate_sum_squares": 415,
+                "v1_main_covariate_sum_product": -20,
+                "v1_users": 3001,
+                "v1_count": 3001,
+            }
+        )
+        baseline_stat = variation_statistic_from_metric_row(test_row, prefix="baseline")
+        v1_stat = variation_statistic_from_metric_row(test_row, prefix="v1")
+        self.assertIsInstance(baseline_stat, RegressionAdjustedStatistic)
+        self.assertIsInstance(v1_stat, RegressionAdjustedStatistic)
+
+        expected_baseline_post_stat = SampleMeanStatistic(
+            n=3000, sum=222, sum_squares=555
+        )
+        expected_baseline_pre_stat = SampleMeanStatistic(
+            n=3000, sum=120, sum_squares=405
+        )
+        expected_baseline_pre_post_sum_product = -10
+        expected_baseline_n = 3000
+        self.assertEqual(
+            baseline_stat,
+            RegressionAdjustedStatistic(
+                post_statistic=expected_baseline_post_stat,
+                pre_statistic=expected_baseline_pre_stat,
+                post_pre_sum_of_products=expected_baseline_pre_post_sum_product,
+                n=expected_baseline_n,
+                theta=0,
+            ),
+        )
 
 
 class TestDetectVariations(TestCase):
@@ -214,6 +316,52 @@ class TestReduceDimensionality(TestCase):
         self.assertEqual(reduced.at[1, "baseline_users"], 300)
         self.assertEqual(reduced.at[1, "baseline_main_sum"], 1010)
         self.assertEqual(reduced.at[1, "baseline_main_sum_squares"], 4464.38)
+
+    def test_reduce_dimensionality_ratio(self):
+        rows = pd.concat(
+            [RATIO_STATISTICS_DF, RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF]
+        )
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+
+        reduced = reduce_dimensionality(df, 20)
+        self.assertEqual(len(reduced.index), 2)
+        self.assertEqual(reduced.at[0, "dimension"], "one")
+        self.assertEqual(reduced.at[0, "total_users"], 220)
+        self.assertEqual(reduced.at[0, "v1_users"], 120)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 300)
+        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800)
+        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905)
+        self.assertEqual(reduced.at[0, "baseline_users"], 100)
+        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270)
+        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810)
+        self.assertEqual(reduced.at[0, "baseline_main_denominator_sum_product"], -900)
+
+        reduced = reduce_dimensionality(df, 1)
+        self.assertEqual(len(reduced.index), 1)
+        self.assertEqual(reduced.at[0, "dimension"], "(other)")
+        self.assertEqual(reduced.at[0, "total_users"], 220 * 2)
+        self.assertEqual(reduced.at[0, "v1_users"], 120 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 300 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869 * 2)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500 * 2)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905 * 2)
+        self.assertEqual(reduced.at[0, "baseline_users"], 100 * 2)
+        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270 * 2)
+        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79 * 2)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510 * 2)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810 * 2)
+        self.assertEqual(
+            reduced.at[0, "baseline_main_denominator_sum_product"], -900 * 2
+        )
 
 
 class TestAnalyzeMetricDfBayesian(TestCase):
@@ -368,6 +516,43 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
+
+
+class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
+    def test_analyze_metric_df_ra(self):
+        rows = RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
+        )
+
+        # Test that meric mean is unadjusted
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "All")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.110963012)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.110963012)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
+        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.337439635)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000069244)
+        # But difference is not just DIM / control mean, like it used to be
+        self.assertNotEqual(
+            np.round(result.at[0, "v1_expected"], 3),
+            (0.074 - 0.110963012) / 0.110963012,
+        )
+
+    def test_analyze_metric_df_ra_errors_bayesian(self):
+        rows = RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        with self.assertRaisesRegex(
+            ValueError, expected_regex=RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
+        ):
+            analyze_metric_df(
+                df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.BAYESIAN
+            )
 
 
 class TestFormatResults(TestCase):
