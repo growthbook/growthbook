@@ -165,6 +165,19 @@ const sidebars = {
         },
       ],
     },
+    {
+      type: "category",
+      label: "Integrations",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "integrations/slack",
+          label: "Slack alerts",
+          className: "pill-new",
+        },
+      ],
+    },
     { type: "doc", id: "faq", label: "FAQ" },
 
     //     href: "/self-host",

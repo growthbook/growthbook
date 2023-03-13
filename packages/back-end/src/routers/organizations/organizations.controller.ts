@@ -53,7 +53,6 @@ import {
   sendPendingMemberApprovalEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getAllGroups } from "../../services/group";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { WebhookModel } from "../../models/WebhookModel";
@@ -89,7 +88,10 @@ import {
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import licenseInit, { getLicense, setLicense } from "../../init/license";
-import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
+import {
+  getAllExperiments,
+  getExperimentsForActivityFeed,
+} from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -105,7 +107,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
-    groups,
     savedGroups,
     projects,
   ] = await Promise.all([
@@ -114,7 +115,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
-    getAllGroups(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
   ]);
@@ -141,7 +141,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
-    groups,
     savedGroups,
     projects,
   });
@@ -662,13 +661,35 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
           const { name, range } = r.namespace as NamespaceValue;
           namespaces[name] = namespaces[name] || [];
           namespaces[name].push({
-            featureId: f.id,
+            link: `/feature/${f.id}`,
+            name: f.id,
+            id: f.id,
             trackingKey: r.trackingKey || f.id,
             start: range[0],
             end: range[1],
             environment: env,
           });
         });
+    });
+  });
+
+  const allExperiments = await getAllExperiments(org.id);
+  allExperiments.forEach((e) => {
+    if (!e.phases) return;
+    const phase = e.phases[e.phases.length - 1];
+    if (!phase) return;
+    if (!phase.namespace || !phase.namespace.enabled) return;
+
+    const { name, range } = phase.namespace;
+    namespaces[name] = namespaces[name] || [];
+    namespaces[name].push({
+      link: `/experiment/${e.id}`,
+      name: e.name,
+      id: e.trackingKey,
+      trackingKey: e.trackingKey,
+      start: range[0],
+      end: range[1],
+      environment: "",
     });
   });
 
