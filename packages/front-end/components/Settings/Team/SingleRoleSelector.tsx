@@ -14,12 +14,14 @@ export default function SingleRoleSelector({
   label,
   includeAdminRole = false,
   disabled = false,
+  id,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
   includeAdminRole?: boolean;
   disabled?: boolean;
+  id: string;
 }) {
   const { roles, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -61,7 +63,7 @@ export default function SingleRoleSelector({
       {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (
         <div>
           <div className="form-group">
-            <label htmlFor="role-modal">
+            <label htmlFor={`role-modal--${id}`}>
               <PremiumTooltip commercialFeature="advanced-permissions">
                 Restrict Access to Specific Environments
               </PremiumTooltip>
@@ -69,7 +71,7 @@ export default function SingleRoleSelector({
             <div>
               <Toggle
                 disabled={!hasFeature}
-                id={"role-modal"}
+                id={`role-modal--${id}`}
                 value={value.limitAccessByEnvironment}
                 setValue={(limitAccessByEnvironment) => {
                   setValue({

@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import uniqid from "uniqid";
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import UpgradeMessage from "../../Marketing/UpgradeMessage";
 import SingleRoleSelector from "./SingleRoleSelector";
@@ -12,9 +14,12 @@ export default function RoleSelector({
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal: () => void;
 }) {
+  const id = useMemo(() => uniqid(), []);
+
   return (
     <div>
       <SingleRoleSelector
+        id={id}
         value={{
           role: value.role,
           environments: value.environments,
