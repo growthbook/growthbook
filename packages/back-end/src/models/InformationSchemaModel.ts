@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import z from "zod";
 import uniqid from "uniqid";
+import omit from "lodash/omit";
 import {
   InformationSchemaInterface,
   InformationSchema,
@@ -59,6 +60,8 @@ const informationSchema = new mongoose.Schema({
       },
     },
   },
+  status: String,
+  error: String,
   dateCreated: Date,
   dateUpdated: Date,
 });
@@ -70,11 +73,19 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   informationSchema
 );
 
+/**
+ * Convert the Mongo document to an InformationSchemaInterface, omitting Mongo default fields __v, _id
+ * @param doc
+ */
+const toInterface = (
+  doc: InformationSchemaDocument
+): InformationSchemaInterface => omit(doc.toJSON(), ["__v", "_id"]);
+
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string,
   datasourceId: string
-): Promise<string | null> {
+): Promise<InformationSchemaInterface> {
   //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
@@ -84,10 +95,46 @@ export async function createInformationSchema(
     id: uniqid("inf_"),
     datasourceId,
     organization,
+    status: "PENDING",
     databases: informationSchema,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
 
-  return result ? result.id : null;
+  return toInterface(result);
+}
+
+export async function updateInformationSchemaById(
+  organization: string,
+  id: string,
+  updates: Partial<InformationSchemaInterface>
+): Promise<void> {
+  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
+  await InformationSchemaModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    {
+      $set: updates,
+    }
+  );
+}
+
+export async function getInformationSchemaByDatasourceId(
+  datasourceId: string,
+  organization: string
+): Promise<InformationSchemaInterface | null> {
+  const result = await InformationSchemaModel.findOne({
+    organization,
+    datasourceId,
+  });
+
+  if (!result) return null;
+
+  return toInterface(result);
 }

@@ -200,6 +200,8 @@ export interface InformationSchemaInterface {
   datasourceId: string;
   databases: InformationSchema[];
   organization: string;
+  status: "PENDING" | "COMPLETE";
+  error?: string;
   dateCreated: Date;
   dateUpdated: Date;
 }

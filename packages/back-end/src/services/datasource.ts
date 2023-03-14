@@ -23,7 +23,10 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
-import { createInformationSchema } from "../models/InformationSchemaModel";
+import {
+  createInformationSchema,
+  updateInformationSchemaById,
+} from "../models/InformationSchemaModel";
 import { updateDataSource } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
@@ -162,36 +165,25 @@ export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
 ): Promise<void> {
-  await updateDataSource(datasource.id, organization, {
-    settings: {
-      ...datasource.settings,
-      informationSchema: {
-        id: undefined,
-        status: "generating",
-        error: undefined,
-      },
-    },
-  });
-
-  const informationSchema = await generateInformationSchema(datasource);
-
-  const informationSchemaId = await createInformationSchema(
-    informationSchema,
+  // Create an empty informationSchema
+  const informationSchema = await createInformationSchema(
+    [],
     organization,
     datasource.id
   );
 
-  if (!informationSchemaId)
-    throw new Error("Unable to create information schema");
-
+  // Update the datasource with the informationSchemaId
   await updateDataSource(datasource.id, organization, {
     settings: {
       ...datasource.settings,
-      informationSchema: {
-        id: informationSchemaId,
-        status: "complete",
-        error: undefined,
-      },
+      informationSchemaId: informationSchema.id,
     },
+  });
+
+  // Update the empty informationSchema record with the actual informationSchema
+  await updateInformationSchemaById(organization, informationSchema.id, {
+    ...informationSchema,
+    databases: await generateInformationSchema(datasource),
+    status: "COMPLETE",
   });
 }
