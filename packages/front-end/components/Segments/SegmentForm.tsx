@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DatasourceSchema from "../DatasourceSchema";
+import SchemaBrowser from "../SchemaBrowser";
 
 export type CursorData = {
   row: number;
@@ -41,17 +41,19 @@ const SegmentForm: FC<{
     },
   });
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
+  const updateSqlInput = (sql: string) => {
+    form.setValue("sql", sql);
+  };
 
   const userIdType = form.watch("userIdType");
 
   const datasource = getDatasourceById(form.watch("datasource"));
 
-  console.log("datasource", datasource);
-
   const informationSchema = getInformationSchemaById(
     datasource.settings.informationSchemaId
   );
 
+  //MKTODO: Explore a more programatic way to handle this?
   const informationSchemaSupported = () =>
     datasource?.type === "postgres" || datasource?.type === "bigquery";
 
@@ -61,10 +63,6 @@ const SegmentForm: FC<{
   const requiredColumns = useMemo(() => {
     return new Set([userIdType, "date"]);
   }, [userIdType]);
-
-  const updateSqlInput = (sql: string) => {
-    form.setValue("sql", sql);
-  };
 
   return (
     <Modal
@@ -138,7 +136,7 @@ const SegmentForm: FC<{
           </div>
           {informationSchemaSupported() && (
             <div className="col-5">
-              <DatasourceSchema
+              <SchemaBrowser
                 updateSqlInput={updateSqlInput}
                 datasource={datasource}
                 informationSchema={informationSchema}

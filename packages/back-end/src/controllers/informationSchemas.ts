@@ -1,7 +1,7 @@
 import { Response } from "express";
+import { queueCreateInformationSchema } from "../jobs/informationSchema";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { getTableDataByPath } from "../models/InformationSchemaTablesModel";
-import { initializeDatasourceInformationSchema } from "../services/datasource";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 
@@ -71,12 +71,6 @@ export async function postInformationSchema(
 
   const datasource = await getDataSourceById(req.params.datasourceId, org.id);
 
-  //MKTODO: Make sure this is correct
-  req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
-  );
-
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -85,26 +79,13 @@ export async function postInformationSchema(
     return;
   }
 
-  if (datasource?.type !== ("postgres" || "bigquery")) {
-    res.status(400).json({
-      status: 400,
-      message: "Datasource type does not support information schema",
-    });
-    return;
-  }
-
-  const informationSchemaId = await initializeDatasourceInformationSchema(
-    datasource,
-    org.id
+  //MKTODO: Make sure this is correct
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : ""
   );
 
-  if (!informationSchemaId) {
-    res.status(400).json({
-      status: 400,
-      message: "Unable to generate information schema",
-    });
-    return;
-  }
+  await queueCreateInformationSchema(datasource.id, org.id);
 
-  res.status(200).json({ status: 200 });
+  res.status(200).json({ message: "Job scheduled successfully" });
 }

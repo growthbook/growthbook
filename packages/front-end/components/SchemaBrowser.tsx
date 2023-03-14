@@ -13,7 +13,6 @@ import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
 import Field from "./Forms/Field";
 import Button from "./Button";
-import LoadingSpinner from "./LoadingSpinner";
 import { CursorData } from "./Segments/SegmentForm";
 
 type Props = {
@@ -24,7 +23,7 @@ type Props = {
   updateSqlInput: (sql: string) => void;
 };
 
-export default function DatasourceSchema({
+export default function SchemaBrowser({
   datasource,
   informationSchema,
   mutate,
@@ -37,11 +36,11 @@ export default function DatasourceSchema({
     setCurrentTable,
   ] = useState<InformationSchemaTablesInterface | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<null | string>(null);
-  const [
-    generatingInformationSchema,
-    setGeneratingInformationSchema,
-  ] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  const row = cursorData?.row;
+  const column = cursorData?.column;
+  const inputArray = cursorData?.input;
 
   function pastePathIntoExistingQuery(
     existingQuery: string,
@@ -55,14 +54,6 @@ export default function DatasourceSchema({
       existingQuery.substring(index)
     );
   }
-
-  const row = cursorData?.row;
-  const column = cursorData?.column;
-  const inputArray = cursorData?.input;
-
-  useEffect(() => {
-    setCurrentTable(null);
-  }, [datasource]);
 
   const { items, searchInputProps } = useSearch({
     items: (informationSchema?.databases as InformationSchema[]) || [],
@@ -95,12 +86,13 @@ export default function DatasourceSchema({
       updateSqlInput(updatedInputArray.join("\n"));
     }
 
-    // If the table is already fetched, dont' fetch it again
+    // If the table is already fetched, don't fetch it again
     if (
       currentTable?.tableName === tableName &&
       currentTable?.databaseName === databaseName &&
       currentTable?.tableSchema === schemaName
     )
+      //TODO: Add stale-while-revalidate caching level here
       return;
 
     try {
@@ -123,69 +115,93 @@ export default function DatasourceSchema({
     }
   };
 
-  if (!datasource) {
-    return null;
-  }
+  useEffect(() => {
+    setCurrentTable(null);
+  }, [datasource]);
 
-  if (informationSchema?.status === "PENDING") {
+  if (informationSchema?.error)
     return (
-      <div className="alert alert-info">
-        We&apos;re generating the information schema for this datasource. This
-        may take a few minutes.
+      //TODO: Make this wrapper reusable
+      <div className="d-flex flex-column">
+        <div>
+          <label className="font-weight-bold mb-1">
+            <FaDatabase /> {datasource.name}
+          </label>
+        </div>
+        <div className="alert alert-warning d-flex align-items-center">
+          {informationSchema.error}
+          <Button
+            color="link"
+            onClick={async () => console.log("not yet wired up")}
+          >
+            Retry
+          </Button>
+        </div>
       </div>
     );
-  }
 
-  if (informationSchema?.error) {
-    return <div className="alert alert-warning">{informationSchema.error}</div>;
+  if (informationSchema?.status === "PENDING" || pending) {
+    return (
+      <div className="d-flex flex-column">
+        <div>
+          <label className="font-weight-bold mb-1">
+            <FaDatabase /> {datasource.name}
+          </label>
+        </div>
+        <div className="alert alert-info d-flex align-items-center">
+          We&apos;re generating the information schema for this datasource. This
+          may take up to a minute.
+          <Button
+            color="link"
+            onClick={async () => {
+              await mutate();
+              setPending(false);
+            }}
+          >
+            Refresh
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="d-flex flex-column">
       <div>
-        <div className="d-flex justify-content-between align-items-center pb-1">
-          <label className="font-weight-bold mb-1">
-            <FaDatabase /> {datasource.name}
-          </label>
-          <Button
-            onClick={async () => {
-              await new Promise((resolve) => setTimeout(resolve, 2000));
-              console.log("This hasn't been implemented yet");
-            }}
-            color="link text-success btn-sm"
-          >
-            Refresh Schema
-          </Button>
-        </div>
-        {!informationSchema ? (
+        <label className="font-weight-bold mb-1">
+          <FaDatabase /> {datasource.name}
+        </label>
+        {!informationSchema || !informationSchema.databases.length ? (
           <div>
             <div className="alert alert-info">
-              Need help building your query? Click the button to the right to
-              get insight into what tables and columns are available in the
-              datasource.
+              <div>
+                Need help building your query? Click the button below to get
+                insight into what tables and columns are available in the
+                datasource.
+              </div>
               <Button
                 className="mt-2"
                 onClick={async () => {
-                  setGeneratingInformationSchema(true);
-                  setError(null);
-                  const res = await apiCall<{
-                    status: number;
-                    message?: string;
-                  }>(`/datasource/${datasource.id}/informationSchema`, {
-                    method: "POST",
-                  });
-
-                  setGeneratingInformationSchema(false);
-                  if (res.status > 200) {
-                    setError(res.message);
+                  try {
+                    await apiCall<{
+                      status: number;
+                      message?: string;
+                    }>(`/datasource/${datasource.id}/informationSchema`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        informationSchemaId: informationSchema?.id || "",
+                      }),
+                    });
+                    setPending(true);
+                    mutate();
+                  } catch (e) {
+                    mutate();
+                    //MKTODO: Should we catch the error and surface it?
                   }
-                  mutate();
                 }}
               >
                 Generate Information Schema
               </Button>
-              {generatingInformationSchema && <LoadingSpinner />}
-              {error && <div className="alert alert-warning">{error}</div>}
             </div>
           </div>
         ) : (
