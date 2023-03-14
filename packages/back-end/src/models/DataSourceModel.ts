@@ -166,7 +166,7 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
 
-  await queueCreateInformationSchema(datasource, organization);
+  await queueCreateInformationSchema(datasource.id, organization);
 
   return toInterface(model);
 }

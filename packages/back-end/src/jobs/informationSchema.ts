@@ -1,12 +1,11 @@
 import Agenda, { Job } from "agenda";
-import { DataSourceInterface } from "../../types/datasource";
 import { initializeDatasourceInformationSchema } from "../services/datasource";
 import { logger } from "../util/logger";
-import { updateDataSource } from "../models/DataSourceModel";
+import { getDataSourceById, updateDataSource } from "../models/DataSourceModel";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
-  datasource: DataSourceInterface;
+  datasourceId: string;
   organization: string;
 }>;
 
@@ -17,10 +16,13 @@ export default function (ag: Agenda) {
   agenda.define(
     CREATE_INFORMATION_SCHEMA_JOB_NAME,
     async (job: CreateInformationSchemaJob) => {
-      if (!job.attrs.data) return;
-      const { datasource, organization } = job.attrs.data;
+      const { datasourceId, organization } = job.attrs.data;
 
-      if (!datasource || !organization) return;
+      if (!datasourceId || !organization) return;
+
+      const datasource = await getDataSourceById(datasourceId, organization);
+
+      if (!datasource) return;
 
       try {
         await initializeDatasourceInformationSchema(datasource, organization);
@@ -30,7 +32,7 @@ export default function (ag: Agenda) {
           settings: {
             ...datasource.settings,
             informationSchema: {
-              id: undefined,
+              id: datasource.settings.informationSchema?.id || undefined,
               status: "complete",
               error: e.message,
             },
@@ -39,7 +41,7 @@ export default function (ag: Agenda) {
         logger.error(
           e,
           "Unable to generate information schema for datasource: " +
-            "datasource.id." +
+            datasource.id +
             " Error: " +
             e.message
         );
@@ -49,16 +51,16 @@ export default function (ag: Agenda) {
 }
 
 export async function queueCreateInformationSchema(
-  datasource: DataSourceInterface,
+  datasourceId: string,
   organization: string
 ) {
-  if (!datasource || !organization) return;
+  if (!datasourceId || !organization) return;
 
   const job = agenda.create(CREATE_INFORMATION_SCHEMA_JOB_NAME, {
-    datasource,
+    datasourceId,
     organization,
   }) as CreateInformationSchemaJob;
-  job.unique({ datasource: datasource.id, organization });
+  job.unique({ datasource: datasourceId, organization });
   job.schedule(new Date());
   await job.save();
 }
