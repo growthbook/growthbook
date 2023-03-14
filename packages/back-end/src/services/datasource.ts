@@ -162,6 +162,17 @@ export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
 ): Promise<void> {
+  await updateDataSource(datasource.id, organization, {
+    settings: {
+      ...datasource.settings,
+      informationSchema: {
+        id: undefined,
+        status: "generating",
+        error: undefined,
+      },
+    },
+  });
+
   const informationSchema = await generateInformationSchema(datasource);
 
   const informationSchemaId = await createInformationSchema(

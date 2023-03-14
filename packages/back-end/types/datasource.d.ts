@@ -135,7 +135,7 @@ export type DataSourceSettings = {
   notebookRunQuery?: string;
   informationSchema?: {
     id?: string;
-    status?: "loading" | "complete";
+    status?: "generating" | "complete";
     error?: string;
   };
   schemaFormat?: SchemaFormat;
