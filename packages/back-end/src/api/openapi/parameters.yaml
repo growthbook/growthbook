@@ -33,3 +33,10 @@ datasourceId:
   description: Filter by Data Source
   schema:
     type: string
+visualChangeId:
+  name: visualChangeId
+  in: path
+  required: true
+  description: Specify a specific visual change
+  schema:
+    type: string

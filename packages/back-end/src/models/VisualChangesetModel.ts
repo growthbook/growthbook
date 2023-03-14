@@ -145,3 +145,44 @@ export async function createVisualChange(
     }
   );
 }
+
+export async function updateVisualChange({
+  changesetId,
+  visualChangeId,
+  organization,
+  payload,
+}: {
+  changesetId: string;
+  visualChangeId: string;
+  organization: string;
+  payload: VisualChange;
+}): Promise<void> {
+  const visualChangeset = await VisualChangesetModel.findOne({
+    id: changesetId,
+    organization,
+  });
+
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const visualChanges = visualChangeset.visualChanges.map((visualChange) => {
+    if (visualChange.id === visualChangeId) {
+      return {
+        ...visualChange,
+        ...payload,
+      };
+    }
+    return visualChange;
+  });
+
+  await VisualChangesetModel.updateOne(
+    {
+      id: changesetId,
+      organization,
+    },
+    {
+      $set: { visualChanges },
+    }
+  );
+}

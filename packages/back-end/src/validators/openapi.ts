@@ -131,3 +131,9 @@ export const postVisualChangeValidator = {
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
+
+export const putVisualChangeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string(),"visualChangeId":z.string()}).strict(),
+};

@@ -125,6 +125,8 @@ paths:
     $ref: "./paths/getVisualChangeset.yaml"
   /visual-changesets/{id}/visual-change:
     $ref: "./paths/postVisualChange.yaml"
+  /visual-changesets/{id}/visual-change/{visualChangeId}:
+    $ref: "./paths/putVisualChange.yaml"
 components:
   parameters:
     $ref: "./parameters.yaml"
