@@ -38,6 +38,11 @@ const NorthStar: FC<{
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
 
+  const [northstarHoverDate, setNorthstarHoverDate] = useState<number | null>(null);
+  const onNorthstarHoverCallback = (ret: {d: number | null}) => {
+    setNorthstarHoverDate(ret.d);
+  };
+
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
@@ -78,6 +83,8 @@ const NorthStar: FC<{
                 metricId={mid}
                 window={northStar?.window}
                 resolution={northStar?.resolution ?? "week"}
+                hoverDate={northstarHoverDate}
+                onHoverCallback={onNorthstarHoverCallback}
               />
             </div>
           ))}

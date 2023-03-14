@@ -16,10 +16,14 @@ const NorthStarMetricDisplay = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   window,
   resolution,
+  hoverDate,
+  onHoverCallback,
 }: {
   metricId: string;
   window?: number | string;
   resolution?: string;
+  hoverDate?: number | null;
+  onHoverCallback?: (ret: { d: number | null }) => void;
 }): React.ReactElement => {
   const { project } = useDefinitions();
   const permissions = usePermissions();
@@ -69,6 +73,8 @@ const NorthStarMetricDisplay = ({
               smoothBy={resolution === "week" ? "week" : "day"}
               height={300}
               method={metric.type !== "binomial" ? "avg" : "sum"}
+              onHover={onHoverCallback}
+              hoverDate={hoverDate}
             />
           </div>
         ) : (
