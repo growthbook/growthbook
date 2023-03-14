@@ -250,29 +250,6 @@ const DateGraph: FC<{
     round: true,
   });
 
-  useEffect(() => {
-    if (!hoverDate) {
-      hideTooltip();
-      return;
-    }
-    const datapoint = getDatapointFromDate(hoverDate);
-    if (!datapoint) {
-      hideTooltip();
-      return;
-    }
-    const tooltipData = getTooltipDataFromDatapoint(datapoint);
-    if (!tooltipData) {
-      hideTooltip();
-      return;
-    }
-    showTooltip({
-      tooltipLeft: tooltipData.x,
-      tooltipTop: tooltipData.y,
-      tooltipData: tooltipData,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hoverDate]);
-
   const getDateFromX = (x: number) => {
     const innerWidth = width - margin[1] - margin[3] + width / data.length - 1;
     const px = x / innerWidth;
@@ -361,10 +338,32 @@ const DateGraph: FC<{
     setHighlightExp,
   ] = useState<null | ExperimentDisplayData>(null);
 
+  useEffect(() => {
+    if (!hoverDate) {
+      hideTooltip();
+      return;
+    }
+    const datapoint = getDatapointFromDate(hoverDate);
+    if (!datapoint) {
+      hideTooltip();
+      return;
+    }
+    const tooltipData = getTooltipDataFromDatapoint(datapoint);
+    if (!tooltipData) {
+      hideTooltip();
+      return;
+    }
+    showTooltip({
+      tooltipLeft: tooltipData.x,
+      tooltipTop: tooltipData.y,
+      tooltipData: tooltipData,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoverDate]);
+
   return (
     <ParentSizeModern style={{ position: "relative" }}>
       {({ width }) => {
-        // const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
 
         const handlePointerMove = (

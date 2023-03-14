@@ -38,8 +38,10 @@ const NorthStar: FC<{
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
 
-  const [northstarHoverDate, setNorthstarHoverDate] = useState<number | null>(null);
-  const onNorthstarHoverCallback = (ret: {d: number | null}) => {
+  const [northstarHoverDate, setNorthstarHoverDate] = useState<number | null>(
+    null
+  );
+  const onNorthstarHoverCallback = (ret: { d: number | null }) => {
     setNorthstarHoverDate(ret.d);
   };
 
