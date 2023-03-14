@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { ApiSDKConnectionInterface } from "../../types/api";
+import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -39,6 +39,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   encryptPayload: Boolean,
   encryptionKey: String,
   connected: Boolean,
+  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -368,7 +369,7 @@ export async function testProxyConnection(
 
 export function toApiSDKConnectionInterface(
   connection: SDKConnectionInterface
-): ApiSDKConnectionInterface {
+): ApiSdkConnection {
   return {
     id: connection.id,
     name: connection.name,

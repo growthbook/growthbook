@@ -144,7 +144,7 @@ const InviteList: FC<{
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}
-            <th></th>
+            <th style={{ width: 50 }} />
           </tr>
         </thead>
         <tbody>

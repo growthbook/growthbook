@@ -11,6 +11,7 @@ import {
   EMAIL_HOST_PASSWORD,
   EMAIL_HOST_USER,
   EMAIL_PORT,
+  STORE_SEGMENTS_IN_MONGO,
 } from "../util/secrets";
 import {
   DataSourceInterface,
@@ -22,6 +23,7 @@ import { encryptParams } from "../services/datasource";
 import { OrganizationSettings } from "../../types/organization";
 import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
 import { logger } from "../util/logger";
+import { SegmentInterface } from "../../types/segment";
 
 export type ConfigFile = {
   organization?: {
@@ -48,6 +50,12 @@ export type ConfigFile = {
   dimensions?: {
     [key: string]: Omit<
       DimensionInterface,
+      "id" | "organization" | "dateCreated" | "dateUpdated"
+    >;
+  };
+  segments?: {
+    [key: string]: Omit<
+      SegmentInterface,
       "id" | "organization" | "dateCreated" | "dateUpdated"
     >;
   };
@@ -135,6 +143,13 @@ export function usingFileConfig(): boolean {
   return !!config;
 }
 
+export function usingFileConfigForSegments(): boolean {
+  reloadConfigIfNeeded();
+  // This should only return true if the org has a config file &&
+  // env variable STORE_SEGMENTS_IN_MONGO is false
+  return !!config && !STORE_SEGMENTS_IN_MONGO;
+}
+
 export function getConfigDatasources(
   organization: string
 ): DataSourceInterface[] {
@@ -204,4 +219,22 @@ export function getConfigDimensions(
 export function getConfigOrganizationSettings(): OrganizationSettings {
   reloadConfigIfNeeded();
   return config?.organization?.settings || {};
+}
+
+export function getConfigSegments(organization: string): SegmentInterface[] {
+  reloadConfigIfNeeded();
+  if (!config || !config.segments) return [];
+  const segments = config.segments;
+
+  return Object.keys(segments).map((id) => {
+    const d = segments[id];
+
+    return {
+      id,
+      ...d,
+      organization,
+      dateCreated: null,
+      dateUpdated: null,
+    };
+  });
 }

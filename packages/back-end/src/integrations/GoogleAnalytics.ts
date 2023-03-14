@@ -15,6 +15,7 @@ import {
   GOOGLE_OAUTH_CLIENT_SECRET,
   APP_ORIGIN,
 } from "../util/secrets";
+import { sumSquaresFromStats } from "../util/stats";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -155,11 +156,19 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           mean = value;
         }
 
+        // Rebuild sum and sums of squares to match SQL integration
+        // TODO: refactor above queries to just build these values directly
+        const sum = count * mean;
+        const sum_squares = sumSquaresFromStats(
+          sum,
+          Math.pow(stddev, 2),
+          count
+        );
         dates.push({
           date,
           count,
-          mean,
-          stddev,
+          main_sum: sum,
+          main_sum_squares: sum_squares,
         });
       });
     }
@@ -291,27 +300,30 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
           }
 
           const mean = Math.round(value) / users;
+          const sum = value;
           const count = users;
 
           // GA doesn't expose standard deviations, so we have to guess
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
           // For binomial metrics, we can use the Normal approximation for a bernouli random variable
-          const stddev =
+          const variance =
             metric.type === "duration"
-              ? mean
+              ? Math.pow(mean, 2)
               : metric.type === "count"
-              ? Math.sqrt(mean)
+              ? mean
               : metric.type === "binomial"
-              ? Math.sqrt(mean * (1 - mean))
+              ? mean * (1 - mean)
               : 0;
 
+          // because of above guessing about stddev, we have to backout the implied sum_squares
+          const sum_squares = sumSquaresFromStats(mean, variance, count);
           return {
             metric: metric.id,
-            users,
-            count,
-            mean,
-            stddev,
+            metric_type: metric.type,
+            count: count,
+            main_sum: sum,
+            main_sum_squares: sum_squares,
           };
         }),
       };

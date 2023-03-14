@@ -17,7 +17,7 @@ export default function MetricValueColumn({
 }) {
   return (
     <td className={className}>
-      {metric && stats.value ? (
+      {metric && stats.users ? (
         <>
           <div className="result-number">
             {formatConversionRate(metric?.type, stats.cr)}

@@ -1,0 +1,165 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - owner
+  - datasourceId
+  - name 
+  - description
+  - type
+  - tags
+  - projects
+  - archived
+  - behavior
+  - query
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+  dateUpdated:
+    type: string
+  owner:
+    type: string
+  datasourceId:
+    type: string
+  name:
+    type: string
+  description:
+    type: string
+  type:
+    type: string
+  tags:
+    type: array
+    items:
+      type: string
+  projects:
+    type: array
+    items:
+      type: string
+  archived:
+    type: boolean
+  behavior:
+    type: object
+    required:
+      - goal
+      - cap
+      - conversionWindowStart
+      - conversionWindowEnd
+      - riskThresholdSuccess
+      - riskThresholdDanger
+      - minPercentChange
+      - maxPercentChange
+      - minSampleSize
+    properties:
+      goal: 
+        type: string
+        enum:
+          - increase
+          - decrease
+      cap: 
+        type: number
+      conversionWindowStart: 
+        type: number
+      conversionWindowEnd: 
+        type: number
+      riskThresholdSuccess: 
+        type: number
+      riskThresholdDanger: 
+        type: number
+      minPercentChange: 
+        type: number
+      maxPercentChange: 
+        type: number
+      minSampleSize: 
+        type: number
+  sql:
+    type: object
+    required:
+      - identifierTypes
+      - conversionSQL
+      - userAggregationSQL
+      - denominatorMetricId
+    properties:
+      identifierTypes:
+        type: array
+        items:
+          type: string
+      conversionSQL: 
+        type: string
+      userAggregationSQL:  
+        type: string
+      denominatorMetricId:  
+        type: string
+      builder:
+        type: object
+        required:
+          - identifierTypeColumns
+          - tableName
+          - valueColumnName
+          - timestampColumnName
+          - conditions
+        properties:
+          identifierTypeColumns:
+            type: array
+            items:
+              type: object
+              required:
+                - identifierType
+                - columnName
+              properties:
+                identifierType:
+                  type: string
+                columnName:
+                  type: string
+          tableName:
+            type: string
+          valueColumnName: 
+            type: string
+          timestampColumnName: 
+            type: string
+          conditions: 
+            type: array
+            items:
+              type: object
+              required:
+                - column
+                - operator
+                - value
+              properties:
+                column:
+                  type: string
+                operator:
+                  type: string
+                value:
+                  type: string
+  mixpanel:
+    type: object
+    required:
+      - eventName
+      - eventValue
+      - userAggregation
+      - conditions
+    properties:
+      eventName:
+        type: string
+      eventValue: 
+        type: string
+      userAggregation: 
+        type: string
+      conditions: 
+        type: array
+        items:
+          type: object
+          required:
+            - property
+            - operator
+            - value
+          properties:
+            property:
+              type: string
+            operator:
+              type: string
+            value:
+              type: string

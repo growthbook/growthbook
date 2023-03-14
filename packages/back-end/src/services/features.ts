@@ -1,11 +1,7 @@
 import { webcrypto as crypto } from "node:crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import {
-  ApiFeatureEnvironmentInterface,
-  ApiFeatureInterface,
-  FeatureDefinition,
-} from "../../types/api";
+import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -23,6 +19,7 @@ import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
+import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -308,47 +305,61 @@ export function getApiFeatureObj(
   feature: FeatureInterface,
   organization: OrganizationInterface,
   groupMap: GroupMap
-): ApiFeatureInterface {
-  const featureEnvironments: Record<
-    string,
-    ApiFeatureEnvironmentInterface
-  > = {};
+): ApiFeature {
+  const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironments(organization);
   environments.forEach((env) => {
     const defaultValue = feature.defaultValue;
     const envSettings = feature.environmentSettings?.[env.id];
     const enabled = !!envSettings?.enabled;
-    const rules = envSettings?.rules || [];
+    const rules = (envSettings?.rules || []).map((rule) => ({
+      ...rule,
+      condition: rule.condition || "",
+      enabled: !!rule.enabled,
+    }));
     const definition = getFeatureDefinition({
       feature,
       groupMap,
       environment: env.id,
     });
 
-    const draft = feature.draft?.active
+    const draft: null | ApiFeatureEnvironment["draft"] = feature.draft?.active
       ? {
           enabled,
           defaultValue: feature.draft?.defaultValue ?? defaultValue,
-          rules: feature.draft?.rules?.[env.id] ?? rules,
-          definition: getFeatureDefinition({
-            feature,
-            groupMap,
-            environment: env.id,
-            useDraft: true,
-          }),
+          rules: (feature.draft?.rules?.[env.id] ?? rules).map((rule) => ({
+            ...rule,
+            condition: rule.condition || "",
+            enabled: !!rule.enabled,
+          })),
         }
       : null;
+    if (draft) {
+      const draftDefinition = getFeatureDefinition({
+        feature,
+        groupMap,
+        environment: env.id,
+        useDraft: true,
+      });
+      if (draftDefinition) {
+        draft.definition = draftDefinition;
+      }
+    }
 
     featureEnvironments[env.id] = {
       defaultValue,
       enabled,
       rules,
-      draft,
-      definition,
     };
+    if (draft) {
+      featureEnvironments[env.id].draft = draft;
+    }
+    if (definition) {
+      featureEnvironments[env.id].definition = definition;
+    }
   });
 
-  const featureRecord: ApiFeatureInterface = {
+  const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
     archived: !!feature.archived,

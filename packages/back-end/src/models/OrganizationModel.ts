@@ -8,54 +8,55 @@ import {
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 
+const baseMemberFields = {
+  _id: false,
+  role: String,
+  dateCreated: Date,
+  limitAccessByEnvironment: Boolean,
+  environments: [String],
+  projectRoles: [
+    {
+      _id: false,
+      project: String,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+    },
+  ],
+};
+
 const organizationSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
   },
   dateCreated: Date,
+  verifiedDomain: String,
   url: String,
   name: String,
   ownerEmail: String,
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
+  autoApproveMembers: Boolean,
   members: [
     {
-      _id: false,
+      ...baseMemberFields,
       id: String,
-      role: String,
-      dateCreated: Date,
-      limitAccessByEnvironment: Boolean,
-      environments: [String],
-      projectRoles: [
-        {
-          _id: false,
-          project: String,
-          role: String,
-          limitAccessByEnvironment: Boolean,
-          environments: [String],
-        },
-      ],
     },
   ],
   invites: [
     {
-      _id: false,
+      ...baseMemberFields,
       email: String,
       key: String,
-      dateCreated: Date,
-      role: String,
-      limitAccessByEnvironment: Boolean,
-      environments: [String],
-      projectRoles: [
-        {
-          _id: false,
-          project: String,
-          role: String,
-          limitAccessByEnvironment: Boolean,
-          environments: [String],
-        },
-      ],
+    },
+  ],
+  pendingMembers: [
+    {
+      ...baseMemberFields,
+      id: String,
+      name: String,
+      email: String,
     },
   ],
   stripeCustomerId: String,
@@ -104,17 +105,25 @@ function toInterface(doc: OrganizationDocument): OrganizationInterface {
   return upgradeOrganizationDoc(doc.toJSON());
 }
 
-export async function createOrganization(
-  email: string,
-  userId: string,
-  name: string,
-  url: string
-) {
+export async function createOrganization({
+  email,
+  userId,
+  name,
+  url = "",
+  verifiedDomain = "",
+}: {
+  email: string;
+  userId: string;
+  name: string;
+  url?: string;
+  verifiedDomain?: string;
+}) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
     name,
     url,
+    verifiedDomain,
     invites: [],
     members: [
       {
@@ -260,4 +269,9 @@ export async function removeProjectFromProjectRoles(
   if (Object.keys(updates).length > 0) {
     await OrganizationModel.updateOne({ id: org.id }, { $set: updates });
   }
+}
+
+export async function findOrganizationsByDomain(domain: string) {
+  const docs = await OrganizationModel.find({ verifiedDomain: domain });
+  return docs.map(toInterface);
 }

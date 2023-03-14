@@ -76,16 +76,24 @@ const engines: DataSourceType[] = [
 const baseExperimentPhase: ExperimentPhase = {
   dateStarted: startDate,
   dateEnded: endDate,
-  phase: "main",
+  name: "Main",
   reason: "",
   coverage: 1,
   variationWeights: [0.34, 0.33, 0.33],
+  condition: "",
+  namespace: {
+    enabled: false,
+    name: "",
+    range: [0, 1],
+  },
 };
 
 const baseExperiment: ExperimentInterface = {
   id: "BASE_ID_TO_BE_REPLACED",
   metrics: metricConfigs.map((m) => m.id),
   exposureQueryId: USER_ID_TYPE,
+  hashAttribute: "",
+  releasedVariationId: "",
   trackingKey: "checkout-layout",
   datasource: "",
   organization: "",
@@ -100,9 +108,9 @@ const baseExperiment: ExperimentInterface = {
   autoAssign: false,
   targetURLRegex: "",
   variations: [
-    { name: "Control" },
-    { name: "Variation 1" },
-    { name: "Variation 2" },
+    { name: "Control", key: "0", id: "0" },
+    { name: "Variation 1", key: "1", id: "1" },
+    { name: "Variation 2", key: "2", id: "2" },
   ] as Variation[],
   archived: false,
   phases: [baseExperimentPhase],

@@ -1,0 +1,15 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  {{ name }} ({{ email }})
+{% endblock %}
+
+{% block title %}
+  You&apos;ve been approved as a member with {{ organization }} on GrowthBook
+{% endblock %}
+
+{% block top %}
+  <p style='text-align:center; margin: 20px 0 30px;'>You&apos;re all set to start using GrowthBook with {{organization}}</p>
+  {{ utils.button("Visit GrowthBook", mainUrl) }}
+{% endblock %}

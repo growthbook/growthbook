@@ -136,11 +136,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
+        const hasExistingMetrics = typeof settings?.[k] !== "undefined";
         newVal[k] = settings?.[k] || newVal[k];
 
         // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
         // Transform these values from the UI format
-        if (k === "metricDefaults") {
+        if (k === "metricDefaults" && hasExistingMetrics) {
           newVal.metricDefaults = {
             ...newVal.metricDefaults,
             maxPercentageChange:

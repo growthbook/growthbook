@@ -140,12 +140,6 @@ export default abstract class SqlIntegration
   avg(col: string) {
     return `AVG(${this.ensureFloat(col)})`;
   }
-  variance(col: string) {
-    return `VAR_SAMP(${col})`;
-  }
-  covariance(y: string, x: string): string {
-    return `COVAR_SAMP(${y}, ${x})`;
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -381,8 +375,8 @@ export default abstract class SqlIntegration
         , __overall as (
           SELECT
             COUNT(*) as count,
-            ${this.avg("coalesce(value,0)")} as mean,
-            ${this.stddev("coalesce(value,0)")} as stddev
+            COALESCE(SUM(value), 0) as main_sum,
+            COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
           from
             __userMetric
         )
@@ -409,8 +403,8 @@ export default abstract class SqlIntegration
             SELECT
               date,
               COUNT(*) as count,
-              ${this.avg("coalesce(value,0)")} as mean,
-              ${this.stddev("coalesce(value,0)")} as stddev
+              COALESCE(SUM(value), 0) as main_sum,
+              COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
             FROM
               __userMetricDates d
             GROUP BY
@@ -418,23 +412,36 @@ export default abstract class SqlIntegration
           )`
             : ""
         }
-      SELECT
-        ${params.includeByDate ? "null as date," : ""}
-        o.*
-      FROM
-        __overall o
       ${
         params.includeByDate
           ? `
-        UNION ALL SELECT
-          o.*
+        , __union as (
+          SELECT 
+            null as date,
+            o.*
+          FROM
+            __overall o
+          UNION ALL
+          SELECT
+            d.*
+          FROM
+            __byDateOverall d
+        )
+        SELECT
+          *
         FROM
-          __byDateOverall o
+          __union
         ORDER BY
           date ASC
       `
-          : ""
+          : `
+        SELECT
+          o.*
+        FROM
+          __overall o
+      `
       }
+      
       `,
       this.getFormatDialect()
     );
@@ -449,9 +456,18 @@ export default abstract class SqlIntegration
         variation: row.variation ?? "",
         dimension: row.dimension || "",
         users: parseInt(row.users) || 0,
-        count: parseFloat(row.count) || 0,
-        mean: parseFloat(row.mean) || 0,
-        stddev: parseFloat(row.stddev) || 0,
+        count: parseInt(row.count) || 0,
+        statistic_type: row.statistic_type ?? "",
+        main_metric_type: row.main_metric_type ?? "",
+        main_sum: parseFloat(row.main_sum) || 0,
+        main_sum_squares: parseFloat(row.main_sum_squares) || 0,
+        ...(row.denominator_metric_type && {
+          denominator_metric_type: row.denominator_metric_type ?? "",
+          denominator_sum: parseFloat(row.denominator_sum) || 0,
+          denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
+          main_denominator_sum_product:
+            parseFloat(row.main_denominator_sum_product) || 0,
+        }),
       };
     });
   }
@@ -460,13 +476,13 @@ export default abstract class SqlIntegration
     const rows = await this.runQuery(query);
 
     return rows.map((row) => {
-      const { date, count, mean, stddev } = row;
+      const { date, count, main_sum, main_sum_squares } = row;
 
       const ret: MetricValueQueryResponseRow = {
         date: date ? this.convertDate(date).toISOString() : "",
         count: parseFloat(count) || 0,
-        mean: parseFloat(mean) || 0,
-        stddev: parseFloat(stddev) || 0,
+        main_sum: parseFloat(main_sum) || 0,
+        main_sum_squares: parseFloat(main_sum_squares) || 0,
       };
 
       return ret;
@@ -1006,7 +1022,7 @@ export default abstract class SqlIntegration
         SELECT
           variation,
           dimension,
-          ${this.ensureFloat("COUNT(*)")} as users
+          COUNT(*) as users
         FROM
           __distinctUsers
         GROUP BY
@@ -1018,20 +1034,15 @@ export default abstract class SqlIntegration
         SELECT
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
-          ${this.ensureFloat("COUNT(*)")} as count,
-          ${this.avg("coalesce(m.value,0)")} as m_mean,
-          ${this.variance("coalesce(m.value,0)")} as m_var,
-          ${this.ensureFloat("sum(m.value)")} as m_sum
+          COUNT(*) AS count,
+          SUM(COALESCE(m.value, 0)) AS main_sum,
+          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
           ${
             isRatio
               ? `,
-            ${this.avg("coalesce(d.value,0)")} as d_mean,
-            ${this.variance("coalesce(d.value,0)")} as d_var,
-            ${this.ensureFloat("sum(d.value)")} as d_sum,
-            ${this.covariance(
-              "coalesce(d.value,0)",
-              "coalesce(m.value,0)"
-            )} as covar
+            SUM(COALESCE(d.value, 0)) AS denominator_sum,
+            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
+            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
           `
               : ""
           }
@@ -1049,30 +1060,32 @@ export default abstract class SqlIntegration
         GROUP BY
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension
-      ),
-      __overall as (
-        SELECT
-          u.variation,
-          u.dimension,
-          ${this.getVariationDenominator(isRatio, metric)} as count,
-          ${this.getVariationMean(isRatio, metric)} as mean,
-          ${this.getVariationVariance(isRatio, metric)} as variance,
-          ${this.getVariationUsers(metric)} as users
-        FROM
-          __overallUsers u
-          LEFT JOIN __stats s ON (
-            s.variation = u.variation
-            AND s.dimension = u.dimension
-          )
       )
-    SELECT
-      variation,
-      dimension,
-      count,
-      mean,
-      ${this.ifElse(`variance > 0`, `sqrt(variance)`, `0`)} as stddev,
-      users
-    FROM __overall
+      SELECT
+        u.variation,
+        u.dimension,
+        ${this.getVariationUsers(metric)} as users,
+        ${this.getVariationUsers(metric)} as count,
+        '${isRatio ? `ratio` : `mean`}' as statistic_type,
+        '${metric.type}' as main_metric_type,
+        COALESCE(s.main_sum, 0) AS main_sum,
+        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
+        ${
+          isRatio
+            ? `,
+          '${denominator?.type}' as denominator_metric_type,
+          COALESCE(s.denominator_sum, 0) AS denominator_sum,
+          COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
+          COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
+          `
+            : ""
+        }
+      FROM
+        __overallUsers u
+        LEFT JOIN __stats s ON (
+          s.variation = u.variation
+          AND s.dimension = u.dimension
+        )
     `,
       this.getFormatDialect()
     );
@@ -1093,63 +1106,6 @@ export default abstract class SqlIntegration
       return `coalesce(s.count,0)`;
     }
     return `u.users`;
-  }
-  private getVariationDenominator(isRatio: boolean, metric: MetricInterface) {
-    // Ratio metrics use the sum of the denominator metric
-    if (isRatio) {
-      return `s.d_sum`;
-    }
-    // If we're ignoring nulls, we only want to use the converted user count
-    if (metric.ignoreNulls) {
-      return `s.count`;
-    }
-    // Otherwise, the denominator is the number of users in the experiment
-    return `u.users`;
-  }
-  private getVariationMean(isRatio: boolean, metric: MetricInterface) {
-    // The mean of a ratio metric is the ratio of the sums
-    if (isRatio) {
-      return this.ifElse("s.d_sum>0", `s.m_sum / s.d_sum`, "0");
-    }
-    // If we're ignoring non-converted users, we don't need any corrections
-    if (metric.ignoreNulls) {
-      return `s.m_mean`;
-    }
-    // For everything else, the raw mean only considered converted users.
-    // We need to adjust to include all users
-    return `s.m_mean * s.count / u.users`;
-  }
-  private getVariationVariance(isRatio: boolean, metric: MetricInterface) {
-    // For binomial metrics, we use the normal approximation for a bernouli random variable
-    // variance = p*(1-p) where p is the conversion rate (count/users)
-    if (metric.type === "binomial") {
-      return `(s.count/u.users)*(1-s.count/u.users)`;
-    }
-    // For ratio metrics (e.g. pages/session) the units are correlated.
-    // We need to use the Delta method to get the correct variance
-    // https://stats.stackexchange.com/questions/291594/estimation-of-population-ratio-using-delta-method/291652#291652
-    if (isRatio) {
-      return this.ifElse(
-        "s.d_mean>0",
-        `s.m_var/power(s.d_mean,2)
-        - 2*s.m_mean*s.covar/power(s.d_mean,3)
-        + power(s.m_mean,2)*s.d_var/power(s.d_mean,4)`,
-        "0"
-      );
-    }
-    // If we're ignoring non-converting users, the variance is already correct
-    if (metric.ignoreNulls) {
-      return `s.m_var`;
-    }
-    // For all other metrics, variance only considers converted users.
-    // Need to adjust it to include all users (non-converted have a mean/variance of 0)
-    // From https://math.stackexchange.com/questions/2971315/how-do-i-combine-standard-deviations-of-two-groups
-    return this.ifElse(
-      "u.users>1",
-      `(s.count-1)*s.m_var/(u.users-1)
-        + s.count*(u.users-s.count)*power(s.m_mean,2)/(u.users*(u.users-1))`,
-      "0"
-    );
   }
 
   private getMetricCTE({

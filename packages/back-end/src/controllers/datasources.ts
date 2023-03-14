@@ -17,15 +17,13 @@ import {
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  ExperimentModel,
   logExperimentCreated,
+  createExperiment,
+  getSampleExperiment,
 } from "../models/ExperimentModel";
 import { QueryModel } from "../models/QueryModel";
-import {
-  createManualSnapshot,
-  getSampleExperiment,
-} from "../services/experiments";
-import { SegmentModel } from "../models/SegmentModel";
+import { findSegmentsByDataSource } from "../models/SegmentModel";
+import { createManualSnapshot } from "../services/experiments";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
 import {
   createDataSource,
@@ -111,8 +109,9 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       targetURLRegex: "",
       variations: [
         {
+          id: "0",
+          key: "0",
           name: "Control",
-          value: `{"color": "blue"}`,
           screenshots: [
             {
               path: "/images/pricing-default.png",
@@ -120,8 +119,9 @@ export async function postSampleData(req: AuthRequest, res: Response) {
           ],
         },
         {
+          id: "1",
+          key: "1",
           name: "Variation",
-          value: `{"color": "green"}`,
           screenshots: [
             {
               path: "/images/pricing-green.png",
@@ -139,6 +139,8 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       owner: userId,
       trackingKey: "sample-experiment",
       exposureQueryId: "",
+      hashAttribute: "",
+      releasedVariationId: "",
       tags: [],
       results: "won",
       winner: 1,
@@ -151,16 +153,21 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         {
           dateStarted: lastWeek,
           dateEnded: new Date(),
-          phase: "main",
+          name: "Main",
           reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
-          groups: [],
+          condition: "",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
         },
       ],
     };
 
-    const createdExperiment = await ExperimentModel.create(experiment);
+    const createdExperiment = await createExperiment(experiment, org);
     await logExperimentCreated(org, createdExperiment);
 
     await createManualSnapshot(
@@ -235,9 +242,10 @@ export async function deleteDataSource(
   }
 
   // Make sure there are no segments
-  const segments = await SegmentModel.find({
-    datasource: datasource.id,
-  });
+  const segments = await findSegmentsByDataSource(
+    datasource.id,
+    datasource.organization
+  );
   if (segments.length > 0) {
     throw new Error(
       "Error: Please delete all segments tied to this datasource first."

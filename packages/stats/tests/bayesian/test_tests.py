@@ -5,7 +5,12 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTest
-from gbstats.shared.models import BayesianTestResult, Uplift, Statistic
+from gbstats.shared.models import (
+    BayesianTestResult,
+    Uplift,
+    ProportionStatistic,
+    SampleMeanStatistic,
+)
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -26,10 +31,8 @@ def round_results_dict(result_dict):
 
 class TestBinom(TestCase):
     def test_bayesian_binomial_ab_test(self):
-        # This interface is really clunky for a proportion,
-        # but it is designed this way to mirror the output from SQL
-        stat_a = Statistic(49 / 100, np.sqrt((49 / 100) * (1 - 49 / 100)), 100, 100)
-        stat_b = Statistic(51 / 100, np.sqrt((51 / 100) * (1 - 51 / 100)), 100, 100)
+        stat_a = ProportionStatistic(sum=49, n=100)
+        stat_b = ProportionStatistic(sum=51, n=100)
         result = BinomialBayesianABTest(stat_a, stat_b).compute_result()
 
         expected_rounded_dict = asdict(
@@ -48,8 +51,8 @@ class TestBinom(TestCase):
 
     def test_missing_data(self):
         result = BinomialBayesianABTest(
-            Statistic(0, 0, 0, 0),
-            Statistic(0, 0, 0, 0),
+            ProportionStatistic(0, 0),
+            ProportionStatistic(0, 0),
         ).compute_result()
         self.assertEqual(result.chance_to_win, 0.5)
         self.assertEqual(result.expected, 0)
@@ -58,8 +61,8 @@ class TestBinom(TestCase):
 class TestNorm(TestCase):
     def test_bayesian_gaussian_ab_test(self):
         result = GaussianBayesianABTest(
-            Statistic(10, 0.5, 10, 10),
-            Statistic(10.5, 1, 10, 10),
+            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
+            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
         ).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
@@ -77,8 +80,8 @@ class TestNorm(TestCase):
 
     def test_missing_data(self):
         result = GaussianBayesianABTest(
-            Statistic(0, 0, 0, 0),
-            Statistic(0, 0, 0, 0),
+            SampleMeanStatistic(sum=0, sum_squares=0, n=0),
+            SampleMeanStatistic(sum=0, sum_squares=0, n=0),
         ).compute_result()
         self.assertEqual(result.chance_to_win, 0.5)
         self.assertEqual(result.expected, 0)
@@ -93,8 +96,10 @@ class TestNorm(TestCase):
         }
 
         result = GaussianBayesianABTest(
-            Statistic(0.26, 5.12, 381, 381),
-            Statistic(0.84, 12.26, 24145, 24145),
+            SampleMeanStatistic(sum=99.06, sum_squares=9987.2276, n=381),
+            SampleMeanStatistic(sum=20281.8, sum_squares=3646063.4064, n=381),
+            # Statistic(0.26, 5.12, 381, 381),
+            # Statistic(0.84, 12.26, 24145, 24145),
         ).compute_result()
 
         for key in expected.keys():

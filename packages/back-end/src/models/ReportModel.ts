@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { ReportInterface } from "../../types/report";
-import { getExperimentsByOrganization } from "../services/experiments";
+import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
 const reportSchema = new mongoose.Schema({
@@ -61,12 +61,11 @@ export async function getReportsByOrg(
   let reports = await ReportModel.find({ organization });
   // filter by project assigned to the experiment:
   if (reports && project) {
-    const allExperiments = await getExperimentsByOrganization(
-      organization,
-      project
-    );
+    const allExperiments = await getAllExperiments(organization, project);
     const expIds = new Set(allExperiments.map((e) => e.id));
-    reports = reports.filter((r) => expIds.has(r.experimentId));
+    reports = reports.filter(
+      (r) => r.experimentId && expIds.has(r.experimentId)
+    );
   }
   return reports;
 }

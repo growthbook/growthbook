@@ -2,6 +2,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
+  upgradeExperimentDoc,
   upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -763,5 +764,143 @@ describe("backend", () => {
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
     expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
+  });
+
+  it("upgrades experiment variation ids, keys, and phase names", () => {
+    // eslint-disable-next-line
+    const exp: any = {
+      trackingKey: "test",
+      variations: [
+        {
+          screenshots: [],
+          name: "",
+        },
+        {
+          screenshots: [],
+        },
+        {
+          id: "foo",
+          key: "bar",
+          name: "Baz",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          phase: "main",
+        },
+        {
+          phase: "main",
+          name: "New Name",
+        },
+      ],
+    };
+
+    const upgraded = {
+      trackingKey: "test",
+      hashAttribute: "",
+      releasedVariationId: "",
+      variations: [
+        {
+          id: "0",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+        },
+        {
+          id: "1",
+          key: "1",
+          name: "Variation 1",
+          screenshots: [],
+        },
+        {
+          id: "foo",
+          key: "bar",
+          name: "Baz",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          phase: "main",
+          name: "Main",
+          condition: "",
+          coverage: 1,
+          seed: "test",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
+        },
+        {
+          phase: "main",
+          name: "New Name",
+          condition: "",
+          coverage: 1,
+          seed: "test",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
+        },
+      ],
+    };
+
+    expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "dnf",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "dnf",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "lost",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "lost",
+      releasedVariationId: "0",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      releasedVariationId: "1",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 2,
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 2,
+      releasedVariationId: "foo",
+    });
   });
 });

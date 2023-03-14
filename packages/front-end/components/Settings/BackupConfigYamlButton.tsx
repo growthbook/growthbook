@@ -10,13 +10,14 @@ export default function BackupConfigYamlButton({
 }: {
   settings?: OrganizationSettings;
 }) {
-  const { datasources, metrics, dimensions } = useDefinitions();
+  const { datasources, metrics, dimensions, segments } = useDefinitions();
 
   const config = useConfigJson({
     datasources,
     metrics,
     dimensions,
     settings,
+    segments,
   });
 
   const href = useMemo(() => {

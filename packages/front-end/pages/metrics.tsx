@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { FaPlus, FaRegCopy } from "react-icons/fa";
+import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -24,6 +24,8 @@ import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { checkMetricProjectPermissions } from "@/services/metrics";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useAuth } from "@/services/auth";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -42,10 +44,14 @@ const MetricsPage = (): React.ReactElement => {
   const { getUserDisplay } = useUser();
 
   const permissions = usePermissions();
+  const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
 
   const [showArchived, setShowArchived] = useState(false);
+  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
+    new Set()
+  );
 
   const metrics = useAddComputedFields(
     data?.metrics,
@@ -70,12 +76,14 @@ const MetricsPage = (): React.ReactElement => {
   const filterResults = useCallback(
     (items: typeof filteredMetrics) => {
       if (!showArchived) {
-        items = items.filter((m) => m.status !== "archived");
+        items = items.filter((m) => {
+          return m.status !== "archived" || recentlyArchived.has(m.id);
+        });
       }
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [showArchived, tagsFilter.tags]
+    [showArchived, recentlyArchived, tagsFilter.tags]
   );
   const editMetricsPermissions: { [id: string]: boolean } = {};
   filteredMetrics.forEach((m) => {
@@ -271,8 +279,8 @@ const MetricsPage = (): React.ReactElement => {
                 Last Updated
               </SortableTH>
             )}
-            {showArchived && <th>status</th>}
-            {!hasFileConfig() && <th></th>}
+            <th></th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -332,16 +340,28 @@ const MetricsPage = (): React.ReactElement => {
                   {ago(metric.dateUpdated)}
                 </td>
               )}
-              {showArchived && (
-                <td className="text-muted">
-                  {metric.status === "archived" ? "archived" : "active"}
-                </td>
-              )}
-              {!hasFileConfig() && (
-                <td>
-                  {editMetricsPermissions[metric.id] && (
+              <td className="text-muted">
+                {metric.status === "archived" && (
+                  <Tooltip
+                    body={"Archived"}
+                    innerClassName="p-2"
+                    tipMinWidth="auto"
+                  >
+                    <FaArchive />
+                  </Tooltip>
+                )}
+              </td>
+              <td
+                style={{ cursor: "initial" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+              >
+                <MoreMenu>
+                  {!hasFileConfig() && editMetricsPermissions[metric.id] && (
                     <button
-                      className="tr-hover btn btn-secondary btn-sm float-right"
+                      className="btn dropdown-item py-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -358,8 +378,39 @@ const MetricsPage = (): React.ReactElement => {
                       <FaRegCopy /> Duplicate
                     </button>
                   )}
-                </td>
-              )}
+                  {!hasFileConfig() && editMetricsPermissions[metric.id] && (
+                    <button
+                      className="btn dropdown-item py-2"
+                      color=""
+                      onClick={async () => {
+                        const newStatus =
+                          metric.status === "archived" ? "active" : "archived";
+                        await apiCall(`/metric/${metric.id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            status: newStatus,
+                          }),
+                        });
+                        if (newStatus === "archived") {
+                          setRecentlyArchived(
+                            (set) => new Set([...set, metric.id])
+                          );
+                        } else {
+                          setRecentlyArchived(
+                            (set) =>
+                              new Set([...set].filter((id) => id !== metric.id))
+                          );
+                        }
+                        mutateDefinitions({});
+                        mutate();
+                      }}
+                    >
+                      <FaArchive />{" "}
+                      {metric.status === "archived" ? "Unarchive" : "Archive"}
+                    </button>
+                  )}
+                </MoreMenu>
+              </td>
             </tr>
           ))}
 

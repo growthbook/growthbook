@@ -43,9 +43,6 @@ export default class Mysql extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;
   }
-  covariance(y: string, x: string): string {
-    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
-  }
   stddev(col: string) {
     return `STDDEV_SAMP(${col})`;
   }

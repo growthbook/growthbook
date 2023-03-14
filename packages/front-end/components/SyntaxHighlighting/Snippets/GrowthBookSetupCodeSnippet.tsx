@@ -37,7 +37,7 @@ const growthbook = new GrowthBook({
     // ${trackingComment}
     console.log("Viewed Experiment", {
       experimentId: experiment.key,
-      variationId: result.variationId
+      variationId: result.key
     });
   }
 });
@@ -70,7 +70,7 @@ const growthbook = new GrowthBook({
     // ${trackingComment}
     console.log("Viewed Experiment", {
       experimentId: experiment.key,
-      variationId: result.variationId
+      variationId: result.key
     });
   }
 });
@@ -152,7 +152,7 @@ app.use(function(req, res, next) {
       // ${trackingComment}
       console.log("Viewed Experiment", {
         experimentId: experiment.key,
-        variationId: result.variationId
+        variationId: result.key
       });
     }
   });

@@ -16,7 +16,7 @@ import cases from "./cases.json";
 type Cases = {
   specVersion: string;
   // value, hash
-  hash: [string, number][];
+  hash: [string, string, number, number][];
   // name, context, experiment, value, inExperiment
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
@@ -67,9 +67,12 @@ describe("json test suite", () => {
     }
   );
 
-  it.each((cases as Cases).hash)("hash[%#] %s", (value, expected) => {
-    expect(hash(value as string)).toEqual(expected);
-  });
+  it.each((cases as Cases).hash)(
+    "hash[%#] hash(`%s`, `%s`, %s)",
+    (seed, value, version, expected) => {
+      expect(hash(seed, value, version)).toEqual(expected);
+    }
+  );
 
   it.each((cases as Cases).getBucketRange)(
     "getBucketRange[%#] %s",

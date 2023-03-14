@@ -175,3 +175,45 @@ export async function sendNewMemberEmail(
     text: `Organization: ${organization}\nName: ${name}\nEmail: ${email}`,
   });
 }
+
+export async function sendPendingMemberEmail(
+  name: string,
+  email: string,
+  organization: string,
+  ownerEmail: string,
+  teamUrl: string
+) {
+  const html = nunjucks.render("pending-member.jinja", {
+    name,
+    email,
+    organization,
+    teamUrl,
+  });
+
+  await sendMail({
+    html,
+    subject: `A new user is requesting to join your GrowthBook account: ${name} (${email})`,
+    to: ownerEmail,
+    text: `Organization: ${organization}\nName: ${name}\nEmail: ${email}`,
+  });
+}
+
+export async function sendPendingMemberApprovalEmail(
+  name: string,
+  email: string,
+  organization: string,
+  mainUrl: string
+) {
+  const html = nunjucks.render("pending-member-approval.jinja", {
+    name,
+    organization,
+    mainUrl,
+  });
+
+  await sendMail({
+    html,
+    subject: `You've been approved as a member with ${organization} on GrowthBook`,
+    to: email,
+    text: `Join ${organization} on GrowthBook`,
+  });
+}

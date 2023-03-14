@@ -5,6 +5,7 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import { StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -35,6 +36,7 @@ const BreakDownResults: FC<{
   reportDate: Date;
   activationMetric?: string;
   status: ExperimentStatus;
+  statsEngine?: StatsEngine;
 }> = ({
   dimensionId,
   results,
@@ -47,6 +49,7 @@ const BreakDownResults: FC<{
   activationMetric,
   status,
   reportDate,
+  statsEngine,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -151,6 +154,7 @@ const BreakDownResults: FC<{
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}
               fullStats={fullStats}
+              statsEngine={statsEngine}
               {...risk}
             />
           </div>

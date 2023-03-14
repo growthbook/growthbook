@@ -48,12 +48,6 @@ export default class Mssql extends SqlIntegration {
   stddev(col: string) {
     return `STDEV(${col})`;
   }
-  variance(col: string) {
-    return `VAR(${col})`;
-  }
-  covariance(y: string, x: string): string {
-    return `(SUM(${x}*${y})-SUM(${x})*SUM(${y})/COUNT(*))/(COUNT(*)-1)`;
-  }
   ensureFloat(col: string): string {
     return `CAST(${col} as FLOAT)`;
   }

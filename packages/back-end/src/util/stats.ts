@@ -25,3 +25,27 @@ export function checkSrm(users: number[], weights: number[]) {
   });
   return 1 - jStat.chisquare.cdf(x, data.length - 1);
 }
+
+function returnZeroIfNotFinite(x: number): number {
+  if (isFinite(x)) {
+    return x;
+  }
+  return 0;
+}
+
+export function sumSquaresFromStats(
+  sum: number,
+  variance: number,
+  n: number
+): number {
+  return returnZeroIfNotFinite(variance * (n - 1) + Math.pow(sum, 2) / n);
+}
+
+export function meanVarianceFromSums(
+  sum: number,
+  sum_squares: number,
+  n: number
+): number {
+  const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
+  return returnZeroIfNotFinite(variance);
+}

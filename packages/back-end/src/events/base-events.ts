@@ -1,5 +1,5 @@
 import { FeatureInterface } from "../../types/feature";
-import { ExperimentInterface } from "../../types/experiment";
+import { ApiExperiment } from "../../types/openapi";
 import { NotificationEventPayload } from "./base-types";
 
 // region Feature
@@ -37,7 +37,7 @@ export type ExperimentCreatedNotificationEvent = NotificationEventPayload<
   "experiment.created",
   "experiment",
   {
-    current: ExperimentInterface;
+    current: ApiExperiment;
   }
 >;
 
@@ -45,8 +45,8 @@ export type ExperimentUpdatedNotificationEvent = NotificationEventPayload<
   "experiment.updated",
   "experiment",
   {
-    current: ExperimentInterface;
-    previous: ExperimentInterface;
+    current: ApiExperiment;
+    previous: ApiExperiment;
   }
 >;
 
@@ -54,7 +54,7 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
   "experiment.deleted",
   "experiment",
   {
-    previous: ExperimentInterface;
+    previous: ApiExperiment;
   }
 >;
 

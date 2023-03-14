@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
@@ -6,6 +7,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -22,9 +24,11 @@ export default function ConfigureReport({
   mutate: () => void;
   viewResults: () => void;
 }) {
+  const settings = useOrgSettings();
   const { apiCall } = useAuth();
   const { metrics, segments, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
+  const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -41,6 +45,7 @@ export default function ConfigureReport({
         .toISOString()
         .substr(0, 16),
       endDate: getValidDate(report.args.endDate).toISOString().substr(0, 16),
+      statsEngine: report.args.statsEngine || settings.statsEngine,
     },
   });
 
@@ -61,6 +66,16 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+
+  const setStatsEngineToDefault = useCallback(
+    (enable: boolean) => {
+      if (enable) {
+        form.setValue("statsEngine", settings.statsEngine);
+      }
+      setUsingStatsEngineDefault(enable);
+    },
+    [form, setUsingStatsEngineDefault, settings.statsEngine]
+  );
 
   return (
     <Modal
@@ -308,6 +323,42 @@ export default function ConfigureReport({
           ]}
         />
       )}
+
+      <div className="d-flex flex-row no-gutters align-items-center">
+        <div className="col-2">
+          <SelectField
+            disabled={usingStatsEngineDefault}
+            label={<strong>Stats Engine</strong>}
+            value={form.watch("statsEngine")}
+            onChange={(value) =>
+              form.setValue(
+                "statsEngine",
+                value === "frequentist" ? "frequentist" : "bayesian"
+              )
+            }
+            options={[
+              {
+                label: "Bayesian",
+                value: "bayesian",
+              },
+              {
+                label: "Frequentist",
+                value: "frequentist",
+              },
+            ]}
+          />
+        </div>
+        <label className="ml-5 mt-3">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={usingStatsEngineDefault}
+            onChange={(e) => setStatsEngineToDefault(e.target.checked)}
+          />
+          Use Organization Default
+        </label>
+      </div>
+
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
           <div className="col">

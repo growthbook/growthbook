@@ -35,14 +35,14 @@ class TTest(BaseABTest):
     @property
     def variance(self) -> float:
         return self.stat_b.variance / (
-            pow(self.stat_a.value, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.value, 2) / (
-            pow(self.stat_a.value, 4) * self.stat_a.n
+            pow(self.stat_a.mean, 2) * self.stat_b.n
+        ) + self.stat_a.variance * pow(self.stat_b.mean, 2) / (
+            pow(self.stat_a.mean, 4) * self.stat_a.n
         )
 
     @property
     def point_estimate(self) -> float:
-        return (self.stat_b.value - self.stat_a.value) / self.stat_a.value
+        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.unadjusted_mean
 
     @property
     def critical_value(self) -> float:
@@ -70,6 +70,21 @@ class TTest(BaseABTest):
     def confidence_interval(self) -> List[float]:
         pass
 
+    def _default_output(self) -> FrequentistTestResult:
+        """Return uninformative output when AB test analysis can't be performed
+        adequately
+        """
+        return FrequentistTestResult(
+            expected=0,
+            ci=[0, 0],
+            p_value=1,
+            uplift=Uplift(
+                dist="normal",
+                mean=0,
+                stddev=0,
+            ),
+        )
+
     def compute_result(self) -> FrequentistTestResult:
         """Compute the test statistics and return them
         for the main gbstats runner
@@ -79,6 +94,10 @@ class TTest(BaseABTest):
                 note the values are with respect to percent uplift,
                 not absolute differences
         """
+        if self.stat_a.mean == 0:
+            return self._default_output()
+        if self._has_zero_variance():
+            return self._default_output()
         return FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,

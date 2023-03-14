@@ -19,6 +19,9 @@ export type {
   FeatureRule,
   JSONValue,
   SubscriptionFunction,
+  Filter,
+  VariationMeta,
+  VariationRange,
 } from "@growthbook/growthbook";
 
 export type {
