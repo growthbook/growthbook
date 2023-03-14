@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MetricType } from "back-end/types/metric";
-import { FC, useState, useMemo, Fragment } from "react";
+import { FC, useState, useMemo, Fragment, useEffect } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -59,6 +59,12 @@ type ExperimentDisplayData = {
   };
 };
 
+export interface OnHoverProps {
+  id: string;
+  event: "hover" | "leave";
+  containerX?: number;
+}
+
 const DateGraph: FC<{
   type: MetricType;
   smoothBy?: "day" | "week";
@@ -67,6 +73,9 @@ const DateGraph: FC<{
   showStdDev?: boolean;
   experiments?: Partial<ExperimentInterfaceStringDates>[];
   height?: number;
+  onHover?: (OnHoverProps) => void;
+  hoverData?: OnHoverProps;
+  id?: string;
 }> = ({
   type,
   smoothBy = "day",
@@ -75,6 +84,9 @@ const DateGraph: FC<{
   showStdDev = true,
   experiments = [],
   height = 220,
+  onHover,
+  hoverData,
+  id,
 }) => {
   const data = useMemo(
     () =>
@@ -176,6 +188,43 @@ const DateGraph: FC<{
   } = useTooltip<TooltipData>();
 
   const margin = [15, 15, 30, 80];
+
+  // Used for setting cross-graph hover effect
+  const [onHoverBlocked, setOnHoverBlocked] = useState(false);
+  useEffect(() => {
+    if (!id || !hoverData?.id || id === hoverData?.id) return;
+    if (hoverData.event === "leave") {
+      hideTooltip();
+      return;
+    }
+    if (hoverData.event === "hover") {
+      if (!containerBounds?.width || !containerBounds?.height) return;
+      const width = containerBounds?.width + margin[1] + margin[3];
+      const graphHeight = containerBounds?.height;
+      const yScale = scaleLinear<number>({
+        domain: [
+          0,
+          Math.max(
+            ...data.map((d) =>
+              type === "binomial"
+                ? d.c
+                : Math.min(d.v * 2, d.v + (d.s ?? 0) * 2)
+            )
+          ),
+        ],
+        range: [graphHeight, 0],
+        round: true,
+      });
+      const tooltipData = getTooltipData(hoverData.containerX, width, yScale);
+      showTooltip({
+        tooltipLeft: tooltipData.x,
+        tooltipTop: tooltipData.y,
+        tooltipData: tooltipData,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, hoverData, containerBounds]);
+
   const dateNums = data.map((d) => getValidDate(d.d).getTime());
   const min = Math.min(...dateNums);
   const max = Math.max(...dateNums);
@@ -325,6 +374,16 @@ const DateGraph: FC<{
             tooltipTop: data.y,
             tooltipData: data,
           });
+          if (onHover && !onHoverBlocked) {
+            onHover({
+              id,
+              event: "hover",
+              containerX,
+            });
+            // slight debounce on the cross-graph synchronization callback:
+            setOnHoverBlocked(true);
+            setTimeout(() => setOnHoverBlocked(false), 10);
+          }
         };
 
         return (
@@ -339,7 +398,12 @@ const DateGraph: FC<{
                 marginTop: margin[0],
               }}
               onPointerMove={handlePointer}
-              onPointerLeave={hideTooltip}
+              onPointerLeave={() => {
+                hideTooltip();
+                if (onHover) {
+                  onHover({ id: id, event: "leave" });
+                }
+              }}
             >
               {tooltipOpen && !tooltipData?.d?.oor && (
                 <>

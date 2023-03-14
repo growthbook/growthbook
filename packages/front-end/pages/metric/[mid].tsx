@@ -31,7 +31,7 @@ import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import HistoryTable from "@/components/HistoryTable";
-import DateGraph from "@/components/Metrics/DateGraph";
+import DateGraph, { OnHoverProps } from "@/components/Metrics/DateGraph";
 import { date } from "@/services/dates";
 import RunQueriesButton, {
   getQueryStatus,
@@ -87,6 +87,10 @@ const MetricPage: FC = () => {
     storageKeySum,
     "day"
   );
+
+  const [hoverDateGraphData, setHoverDateGraphData] = useState<
+    OnHoverProps | undefined
+  >(undefined);
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -689,10 +693,13 @@ const MetricPage: FC = () => {
                                 </div>
                               </div>
                               <DateGraph
+                                id="dg_1"
                                 type={metric.type}
                                 method="avg"
                                 dates={analysis.dates}
                                 smoothBy={smoothByAvg}
+                                hoverData={hoverDateGraphData}
+                                onHover={(res) => setHoverDateGraphData(res)}
                               />
                             </>
                           )}
@@ -763,10 +770,13 @@ const MetricPage: FC = () => {
                             </div>
                           </div>
                           <DateGraph
+                            id="dg_2"
                             type={metric.type}
                             method="sum"
                             dates={analysis.dates}
                             smoothBy={smoothBySum}
+                            hoverData={hoverDateGraphData}
+                            onHover={(res) => setHoverDateGraphData(res)}
                           />
                         </div>
                       )}
