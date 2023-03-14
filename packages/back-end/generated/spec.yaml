@@ -81,6 +81,63 @@ tags:
   - name: visual-changesets
     x-displayName: Visual Changesets
     description: Groups of visual changes made by the visual editor to a single page
+  - name: DataSource_model
+    x-displayName: DataSource
+    description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
+  - name: Dimension_model
+    x-displayName: Dimension
+    description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
+  - name: Experiment_model
+    x-displayName: Experiment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
+  - name: ExperimentAnalysisSettings_model
+    x-displayName: ExperimentAnalysisSettings
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentAnalysisSettings" />
+  - name: ExperimentMetric_model
+    x-displayName: ExperimentMetric
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetric" />
+  - name: ExperimentResults_model
+    x-displayName: ExperimentResults
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: Feature_model
+    x-displayName: Feature
+    description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
+  - name: FeatureDefinition_model
+    x-displayName: FeatureDefinition
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
+  - name: FeatureEnvironment_model
+    x-displayName: FeatureEnvironment
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureExperimentRule_model
+    x-displayName: FeatureExperimentRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRule" />
+  - name: FeatureForceRule_model
+    x-displayName: FeatureForceRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRolloutRule_model
+    x-displayName: FeatureRolloutRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
+  - name: FeatureRule_model
+    x-displayName: FeatureRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: Metric_model
+    x-displayName: Metric
+    description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: PaginationFields_model
+    x-displayName: PaginationFields
+    description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
+  - name: Project_model
+    x-displayName: Project
+    description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: SdkConnection_model
+    x-displayName: SdkConnection
+    description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: Segment_model
+    x-displayName: Segment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
+  - name: VisualChangeset_model
+    x-displayName: VisualChangeset
+    description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
 paths:
   /features:
     get:
@@ -1800,3 +1857,36 @@ components:
 security:
   - bearerAuth: []
   - basicAuth: []
+x-tagGroups:
+  - name: Endpoints
+    tags:
+      - projects
+      - features
+      - data-sources
+      - metrics
+      - experiments
+      - dimensions
+      - segments
+      - sdk-connections
+      - visual-changesets
+  - name: Models
+    tags:
+      - DataSource_model
+      - Dimension_model
+      - Experiment_model
+      - ExperimentAnalysisSettings_model
+      - ExperimentMetric_model
+      - ExperimentResults_model
+      - Feature_model
+      - FeatureDefinition_model
+      - FeatureEnvironment_model
+      - FeatureExperimentRule_model
+      - FeatureForceRule_model
+      - FeatureRolloutRule_model
+      - FeatureRule_model
+      - Metric_model
+      - PaginationFields_model
+      - Project_model
+      - SdkConnection_model
+      - Segment_model
+      - VisualChangeset_model
