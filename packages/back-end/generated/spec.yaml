@@ -1269,6 +1269,8 @@ components:
           type: boolean
         encryptionKey:
           type: string
+        visualExperimentsEnabled:
+          type: boolean
         key:
           type: string
         proxyEnabled:
