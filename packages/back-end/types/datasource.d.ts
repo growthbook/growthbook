@@ -133,7 +133,11 @@ export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
-  informationSchemaId?: string;
+  informationSchema?: {
+    id?: string;
+    status?: "generating" | "complete";
+    error?: string;
+  };
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];

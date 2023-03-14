@@ -16,6 +16,7 @@ const informationSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  datasourceId: String,
   databases: {
     required: true,
     type: [Object],
@@ -25,16 +26,22 @@ const informationSchema = new mongoose.Schema({
           z.object({
             databaseName: z.string(),
             path: z.string(),
+            dateCreated: z.date(),
+            dateUpdated: z.date(),
             schemas: z.array(
               z.object({
                 schemaName: z.string(),
                 path: z.string(),
+                dateCreated: z.date(),
+                dateUpdated: z.date(),
                 tables: z.array(
                   z.object({
                     tableName: z.string(),
                     path: z.string(),
                     id: z.string(),
                     numOfColumns: z.number(),
+                    dateCreated: z.date(),
+                    dateUpdated: z.date(),
                   })
                 ),
               })
@@ -74,14 +81,17 @@ const toInterface = (
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
-  organization: string
+  organization: string,
+  datasourceId: string
 ): Promise<string | null> {
+  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
 
   const result = await InformationSchemaModel.create({
     id: uniqid("inf_"),
+    datasourceId,
     organization,
     databases: informationSchema,
     dateCreated: new Date(),

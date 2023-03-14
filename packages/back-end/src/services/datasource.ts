@@ -126,8 +126,12 @@ export async function fetchTableData(
 
 export async function generateInformationSchema(
   datasource: DataSourceInterface
-): Promise<InformationSchema[] | null> {
+): Promise<InformationSchema[]> {
   const integration = getSourceIntegrationObject(datasource);
+
+  if (!integration.getInformationSchema) {
+    throw new Error("Information schema not supported for this data source");
+  }
 
   return await integration.getInformationSchema();
 }
@@ -174,27 +178,37 @@ export async function testQuery(
 export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
-): Promise<string | null> {
+): Promise<void> {
+  await updateDataSource(datasource.id, organization, {
+    settings: {
+      ...datasource.settings,
+      informationSchema: {
+        id: undefined,
+        status: "generating",
+        error: undefined,
+      },
+    },
+  });
+
   const informationSchema = await generateInformationSchema(datasource);
 
-  if (informationSchema) {
-    const informationSchemaId = await createInformationSchema(
-      informationSchema,
-      organization
-    );
+  const informationSchemaId = await createInformationSchema(
+    informationSchema,
+    organization,
+    datasource.id
+  );
 
-    // Then, update the datasource.settings.informationSchemaId to the id of the newly created informationSchema.
-    if (informationSchemaId) {
-      await updateDataSource(datasource.id, organization, {
-        settings: {
-          ...datasource.settings,
-          informationSchemaId: informationSchemaId,
-        },
-      });
-    }
+  if (!informationSchemaId)
+    throw new Error("Unable to create information schema");
 
-    return informationSchemaId;
-  }
-
-  return null;
+  await updateDataSource(datasource.id, organization, {
+    settings: {
+      ...datasource.settings,
+      informationSchema: {
+        id: informationSchemaId,
+        status: "complete",
+        error: undefined,
+      },
+    },
+  });
 }

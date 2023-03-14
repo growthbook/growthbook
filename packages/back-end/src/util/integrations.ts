@@ -3,6 +3,7 @@ import {
   InformationSchema,
   RawInformationSchema,
   Schema,
+  Table,
 } from "../types/Integration";
 
 type RowType = {
@@ -38,59 +39,67 @@ export function formatInformationSchema(
   results: RawInformationSchema[],
   datasourceType: DataSourceType
 ): InformationSchema[] {
-  const formattedResultsMap = new Map();
+  const databases = new Map<string, InformationSchema>();
+  const schemas = new Map<string, Schema>();
+  const tables = new Map<string, Table>();
+
+  const date = new Date();
 
   results.forEach((row) => {
-    if (!formattedResultsMap.has(row.table_catalog)) {
-      formattedResultsMap.set(row.table_catalog, {
+    const dbPath = getPath(datasourceType, {
+      tableCatalog: row.table_catalog,
+    });
+    let database = databases.get(dbPath);
+    if (!database) {
+      database = {
         databaseName: row.table_catalog.toLocaleLowerCase(),
-        schemas: new Map(),
-        path: getPath(datasourceType, {
-          tableCatalog: row.table_catalog,
-        }),
-      });
+        schemas: [],
+        path: dbPath,
+        dateCreated: date,
+        dateUpdated: date,
+      };
+      databases.set(dbPath, database);
     }
 
-    const currentSchemaCatalog = formattedResultsMap.get(row.table_catalog);
-
-    if (!currentSchemaCatalog.schemas.has(row.table_schema)) {
-      currentSchemaCatalog.schemas.set(row.table_schema, {
+    const schemaPath = getPath(datasourceType, {
+      tableCatalog: row.table_catalog,
+      tableSchema: row.table_schema,
+    });
+    let schema = schemas.get(schemaPath);
+    if (!schema) {
+      schema = {
         schemaName: row.table_schema.toLocaleLowerCase(),
-        tables: new Map(),
-        path: getPath(datasourceType, {
-          tableCatalog: row.table_catalog,
-          tableSchema: row.table_schema,
-        }),
-      });
+        tables: [],
+        path: schemaPath,
+        dateCreated: date,
+        dateUpdated: date,
+      };
+      schemas.set(schemaPath, schema);
+      database.schemas.push(schema);
     }
 
-    const currentTableSchema = currentSchemaCatalog.schemas.get(
-      row.table_schema
-    );
-
-    if (!currentTableSchema.tables.has(row.table_name)) {
-      currentTableSchema.tables.set(row.table_name, {
+    // Do the same for tables
+    const tablePath = getPath(datasourceType, {
+      tableCatalog: row.table_catalog,
+      tableSchema: row.table_schema,
+      tableName: row.table_name,
+    });
+    let table = tables.get(tablePath);
+    if (!table) {
+      table = {
         tableName: row.table_name.toLocaleLowerCase(),
-        path: getPath(datasourceType, {
-          tableCatalog: row.table_catalog,
-          tableSchema: row.table_schema,
-          tableName: row.table_name,
-        }),
+        path: tablePath,
         numOfColumns: parseInt(row.column_count, 10),
         id: "",
-      });
+        dateCreated: date,
+        dateUpdated: date,
+      };
+      tables.set(tablePath, table);
+      const schemaIndex = database.schemas.findIndex(
+        (schema) => schema.schemaName === row.table_schema.toLocaleLowerCase()
+      );
+      database.schemas[schemaIndex].tables.push(table);
     }
   });
-
-  const formattedResultsArr = Array.from(formattedResultsMap.values());
-
-  // Convert everything from maps to arrays.
-  formattedResultsArr.forEach((informationSchema: InformationSchema) => {
-    informationSchema.schemas = Array.from(informationSchema.schemas.values());
-    informationSchema.schemas.forEach((schema: Schema) => {
-      schema.tables = Array.from(schema.tables.values());
-    });
-  });
-
-  return formattedResultsArr;
+  return Array.from(databases.values());
 }

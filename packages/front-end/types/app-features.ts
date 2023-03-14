@@ -15,4 +15,5 @@ export type AppFeatures = {
   "secret-api-keys": boolean;
   "stats-engine-setting": boolean;
   "proxy-cloud": boolean;
+  "slack-integration": boolean;
 };

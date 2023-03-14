@@ -46,8 +46,10 @@ const SegmentForm: FC<{
 
   const datasource = getDatasourceById(form.watch("datasource"));
 
+  console.log("datasource", datasource);
+
   const informationSchema = getInformationSchemaById(
-    datasource.settings.informationSchemaId
+    datasource.settings.informationSchema.id
   );
 
   const informationSchemaSupported = () =>

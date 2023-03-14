@@ -174,31 +174,39 @@ export interface Table {
   tableName: string;
   path: string;
   id: string;
-  numberOfColumns: number;
+  numOfColumns: number;
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface Schema {
   schemaName: string;
   tables: Table[];
   path?: string;
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface InformationSchema {
   databaseName: string;
   path?: string;
   schemas: Schema[];
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface InformationSchemaInterface {
   id: string;
+  datasourceId: string;
   databases: InformationSchema[];
+  organization: string;
   dateCreated: Date;
   dateUpdated: Date;
-  organization: string;
 }
 
 export interface InformationSchemaTablesInterface {
   id: string;
+  datasourceId: string;
   organization: string;
   tableName: string;
   tableSchema: string;
@@ -232,12 +240,12 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  getInformationSchema(): Promise<null | InformationSchema[]>;
   getTableData(
     databaseName: string,
     tableSchema: string,
     tableName: string
   ): Promise<null | unknown[]>;
+  getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

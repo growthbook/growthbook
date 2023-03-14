@@ -77,6 +77,7 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
+    const date = new Date();
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
       "bigquery"
@@ -85,13 +86,19 @@ describe("formatInformationSchema", () => {
     expect(formattedResults).toEqual([
       {
         databaseName: "adept-arbor-354914",
+        dateCreated: date,
+        dateUpdated: date,
         path: "`adept-arbor-354914`",
         schemas: [
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "`adept-arbor-354914.a_second_data_set`",
             schemaName: "a_second_data_set",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path:
                   "`adept-arbor-354914.a_second_data_set.experiment-assignments`",
                 id: "",
@@ -101,16 +108,22 @@ describe("formatInformationSchema", () => {
             ],
           },
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "`adept-arbor-354914.sample_data_set`",
             schemaName: "sample_data_set",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "`adept-arbor-354914.sample_data_set.orders`",
                 id: "",
                 numOfColumns: 3,
                 tableName: "orders",
               },
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "`adept-arbor-354914.sample_data_set.page-visitors`",
                 id: "",
                 numOfColumns: 3,
@@ -119,10 +132,14 @@ describe("formatInformationSchema", () => {
             ],
           },
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "`adept-arbor-354914.sample_data`",
             schemaName: "sample_data",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "`adept-arbor-354914.sample_data.sample_table`",
                 id: "",
                 numOfColumns: 3,
@@ -210,6 +227,7 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
+    const date = new Date();
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
       "postgres"
@@ -219,12 +237,18 @@ describe("formatInformationSchema", () => {
       {
         databaseName: "adept-arbor-354914",
         path: "adept-arbor-354914",
+        dateCreated: date,
+        dateUpdated: date,
         schemas: [
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "adept-arbor-354914.a_second_data_set",
             schemaName: "a_second_data_set",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path:
                   "adept-arbor-354914.a_second_data_set.experiment-assignments",
                 id: "",
@@ -234,16 +258,22 @@ describe("formatInformationSchema", () => {
             ],
           },
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "adept-arbor-354914.sample_data_set",
             schemaName: "sample_data_set",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "adept-arbor-354914.sample_data_set.orders",
                 id: "",
                 numOfColumns: 3,
                 tableName: "orders",
               },
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "adept-arbor-354914.sample_data_set.page-visitors",
                 id: "",
                 numOfColumns: 3,
@@ -252,10 +282,14 @@ describe("formatInformationSchema", () => {
             ],
           },
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "adept-arbor-354914.sample_data",
             schemaName: "sample_data",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "adept-arbor-354914.sample_data.sample_table",
                 id: "",
                 numOfColumns: 3,
@@ -343,6 +377,7 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
+    const date = new Date();
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
       "mysql"
@@ -350,14 +385,20 @@ describe("formatInformationSchema", () => {
 
     expect(formattedResults).toEqual([
       {
+        dateCreated: date,
+        dateUpdated: date,
         databaseName: "adept-arbor-354914",
         path: "",
         schemas: [
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "a_second_data_set",
             schemaName: "a_second_data_set",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "a_second_data_set.experiment-assignments",
                 id: "",
                 numOfColumns: 3,
@@ -366,16 +407,22 @@ describe("formatInformationSchema", () => {
             ],
           },
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "sample_data_set",
             schemaName: "sample_data_set",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "sample_data_set.orders",
                 id: "",
                 numOfColumns: 3,
                 tableName: "orders",
               },
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "sample_data_set.page-visitors",
                 id: "",
                 numOfColumns: 3,
@@ -384,10 +431,14 @@ describe("formatInformationSchema", () => {
             ],
           },
           {
+            dateCreated: date,
+            dateUpdated: date,
             path: "sample_data",
             schemaName: "sample_data",
             tables: [
               {
+                dateCreated: date,
+                dateUpdated: date,
                 path: "sample_data.sample_table",
                 id: "",
                 numOfColumns: 3,

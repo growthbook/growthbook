@@ -15,7 +15,7 @@ import {
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
-import queueCreateInformationSchema from "../jobs/informationSchema";
+import { queueCreateInformationSchema } from "../jobs/informationSchema";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -166,10 +166,7 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
 
-  // Currently we're only supporting informationSchemas with bigquery and postgres
-  if (type === "postgres" || type === "bigquery") {
-    await queueCreateInformationSchema(datasource, organization);
-  }
+  await queueCreateInformationSchema(datasource, organization);
 
   return toInterface(model);
 }

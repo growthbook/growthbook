@@ -102,10 +102,6 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
   async getTableData(
     /* eslint-disable */
     databaseName: string,

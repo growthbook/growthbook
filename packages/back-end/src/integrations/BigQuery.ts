@@ -81,12 +81,10 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<InformationSchema[]> {
     const projectId = this.params.projectId;
 
-    if (!projectId) {
-      return null;
-    }
+    if (!projectId) throw new Error("No project id found");
 
     const datasets = await this.runQuery(
       `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
@@ -99,13 +97,15 @@ export default class BigQuery extends SqlIntegration {
     for (const dataset of datasets) {
       query.push(`SELECT
         table_name,
-        "${projectId}" as table_catalog,
+        '${projectId}' as table_catalog,
         table_schema,
         COUNT(column_name) as column_count
       FROM
-        ${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS
+        \`${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS\`
         GROUP BY table_name, table_schema`);
     }
+
+    if (query.length > 10) throw new Error("Datasource too large.");
 
     const queryString = query.join(" UNION ALL ");
 
@@ -115,9 +115,9 @@ export default class BigQuery extends SqlIntegration {
       combinedResults.push(result);
     }
 
-    return combinedResults.length
-      ? formatInformationSchema(combinedResults, "bigquery")
-      : null;
+    if (!combinedResults.length) throw new Error("No information schema found");
+
+    return formatInformationSchema(combinedResults, "bigquery");
   }
 
   async getTableData(

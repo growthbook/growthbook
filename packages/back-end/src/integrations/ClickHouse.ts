@@ -80,10 +80,6 @@ export default class ClickHouse extends SqlIntegration {
   castToString(col: string): string {
     return `toString(${col})`;
   }
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
 
   async getTableData(
     /* eslint-disable */

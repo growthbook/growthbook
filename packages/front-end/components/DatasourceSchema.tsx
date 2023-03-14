@@ -74,10 +74,6 @@ export default function DatasourceSchema({
     defaultSortField: "databaseName",
   });
 
-  if (!datasource) {
-    return null;
-  }
-
   const handleClick = async (
     e,
     databaseName: string,
@@ -126,6 +122,27 @@ export default function DatasourceSchema({
       console.log("e", e);
     }
   };
+
+  if (!datasource) {
+    return null;
+  }
+
+  if (datasource.settings.informationSchema?.status === "generating") {
+    return (
+      <div className="alert alert-info">
+        We&apos;re generating the information schema for this datasource. This
+        may take a few minutes.
+      </div>
+    );
+  }
+
+  if (datasource.settings.informationSchema?.error) {
+    return (
+      <div className="alert alert-warning">
+        {datasource.settings.informationSchema?.error}
+      </div>
+    );
+  }
 
   return (
     <div className="d-flex flex-column">

@@ -35,7 +35,7 @@ export default class Postgres extends SqlIntegration {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
 
-  async getInformationSchema(): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `SELECT
         table_name,
         table_catalog,
@@ -50,9 +50,14 @@ export default class Postgres extends SqlIntegration {
 
     const results = await this.runQuery(sql);
 
-    return results.length
-      ? formatInformationSchema(results as RawInformationSchema[], "postgres")
-      : null;
+    if (!results.length) {
+      throw new Error("No information schema found");
+    }
+
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      "postgres"
+    );
   }
 
   async getTableData(

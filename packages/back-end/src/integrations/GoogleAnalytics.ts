@@ -1,12 +1,12 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import {
   SourceIntegrationConstructor,
-  SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
   MetricValueQueryResponse,
   ExperimentQueryResponses,
+  SourceIntegrationInterface,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -215,11 +215,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       refresh_token: this.params.refreshToken,
     });
     return client;
-  }
-
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
   }
 
   async getTableData(

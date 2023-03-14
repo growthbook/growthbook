@@ -46,11 +46,6 @@ export default class Athena extends SqlIntegration {
     return `1.0*${col}`;
   }
 
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
-
   async getTableData(
     /* eslint-disable */
     databaseName: string,
