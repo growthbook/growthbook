@@ -2,7 +2,12 @@ import { useRouter } from "next/router";
 import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaAngleLeft, FaChevronRight, FaQuestionCircle } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaArchive,
+  FaChevronRight,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
@@ -349,7 +354,7 @@ const MetricPage: FC = () => {
           <div className="col-auto">
             <MoreMenu>
               <DeleteButton
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this metric"
                 getConfirmationContent={getMetricUsage(metric)}
@@ -360,11 +365,11 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
-                useIcon={false}
+                useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
               <Button
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 color=""
                 onClick={async () => {
                   const newStatus =
@@ -379,6 +384,7 @@ const MetricPage: FC = () => {
                   mutate();
                 }}
               >
+                <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
             </MoreMenu>

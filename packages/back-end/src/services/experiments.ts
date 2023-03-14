@@ -671,7 +671,7 @@ export function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
-      namespace: p.namespace.enabled
+      namespace: p.namespace?.enabled
         ? {
             namespaceId: p.namespace.name,
             range: p.namespace.range,
