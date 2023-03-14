@@ -81,12 +81,10 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(): Promise<InformationSchema[] | null> {
+  async getInformationSchema(): Promise<InformationSchema[]> {
     const projectId = this.params.projectId;
 
-    if (!projectId) {
-      return null;
-    }
+    if (!projectId) throw new Error("No project id found");
 
     const datasets = await this.runQuery(
       `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
@@ -107,8 +105,7 @@ export default class BigQuery extends SqlIntegration {
         GROUP BY table_name, table_schema`);
     }
 
-    // Limit to 10 datasets for now.
-    if (query.length > 10) return null;
+    if (query.length > 10) throw new Error("Datasource too large.");
 
     const queryString = query.join(" UNION ALL ");
 
@@ -118,8 +115,8 @@ export default class BigQuery extends SqlIntegration {
       combinedResults.push(result);
     }
 
-    return combinedResults.length
-      ? formatInformationSchema(combinedResults, "bigquery")
-      : null;
+    if (!combinedResults.length) throw new Error("No information schema found");
+
+    return formatInformationSchema(combinedResults, "bigquery");
   }
 }

@@ -17,7 +17,6 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
-  InformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -1479,6 +1478,4 @@ export default abstract class SqlIntegration
 
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
-
-  abstract getInformationSchema(): Promise<InformationSchema[] | null>;
 }

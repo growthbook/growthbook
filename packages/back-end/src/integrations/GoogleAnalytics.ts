@@ -217,11 +217,6 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     return client;
   }
 
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
-
   getExperimentResultsQuery(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,

@@ -57,8 +57,4 @@ export default class Mssql extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
   }
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
 }

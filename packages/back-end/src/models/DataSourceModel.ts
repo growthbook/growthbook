@@ -9,7 +9,6 @@ import {
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  DATASOURCES_THAT_SUPPORT_INFORMATION_SCHEMA,
   encryptParams,
   testDataSourceConnection,
 } from "../services/datasource";
@@ -167,9 +166,7 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
 
-  if (DATASOURCES_THAT_SUPPORT_INFORMATION_SCHEMA.includes(type)) {
-    await queueCreateInformationSchema(datasource, organization);
-  }
+  await queueCreateInformationSchema(datasource, organization);
 
   return toInterface(model);
 }

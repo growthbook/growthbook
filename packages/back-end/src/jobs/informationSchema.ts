@@ -2,6 +2,7 @@ import Agenda, { Job } from "agenda";
 import { DataSourceInterface } from "../../types/datasource";
 import { initializeDatasourceInformationSchema } from "../services/datasource";
 import { logger } from "../util/logger";
+import { updateDataSource } from "../models/DataSourceModel";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
@@ -22,19 +23,19 @@ export default function (ag: Agenda) {
       if (!datasource || !organization) return;
 
       try {
-        const informationSchemaId = await initializeDatasourceInformationSchema(
-          datasource,
-          organization
-        );
-
-        if (!informationSchemaId) {
-          logger.error(
-            datasource.id,
-            "Unable to generate information schema for datasource: " +
-              datasource.id
-          );
-        }
+        await initializeDatasourceInformationSchema(datasource, organization);
       } catch (e) {
+        // Update the datasource.settings.informationSchema object to reflect the error.
+        await updateDataSource(datasource.id, organization, {
+          settings: {
+            ...datasource.settings,
+            informationSchema: {
+              id: undefined,
+              status: "complete",
+              error: e.message,
+            },
+          },
+        });
         logger.error(
           e,
           "Unable to generate information schema for datasource: " +

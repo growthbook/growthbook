@@ -42,8 +42,4 @@ export default class Databricks extends SqlIntegration {
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;
   }
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
 }

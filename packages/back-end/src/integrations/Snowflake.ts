@@ -31,8 +31,4 @@ export default class Snowflake extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  async getInformationSchema(): Promise<null> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
 }
