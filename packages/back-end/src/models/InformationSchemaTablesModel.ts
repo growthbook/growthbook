@@ -147,11 +147,12 @@ export async function getTableDataByPath(
     ),
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    datasourceId: datasource.id,
   });
 
   const informationSchema = await getInformationSchemaById(
     organization,
-    datasource.settings.informationSchemaId || ""
+    datasource.settings.informationSchema?.id || ""
   );
 
   if (informationSchema && newTable) {

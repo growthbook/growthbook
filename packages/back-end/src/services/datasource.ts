@@ -178,7 +178,7 @@ export async function testQuery(
 export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
-): Promise<void> {
+): Promise<string> {
   await updateDataSource(datasource.id, organization, {
     settings: {
       ...datasource.settings,
@@ -211,4 +211,6 @@ export async function initializeDatasourceInformationSchema(
       },
     },
   });
+
+  return informationSchemaId;
 }
