@@ -14,8 +14,8 @@ import {
   NotificationEvent,
 } from "../../base-events";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
+import { FeatureInterface } from "../../../../types/feature";
 import { APP_ORIGIN } from "../../../util/secrets";
-import { ApiFeature } from "../../../../types/openapi";
 
 // region Filtering
 
@@ -180,11 +180,12 @@ const filterFeatureUpdateEventForRelevance = (
   const changedEnvironments = new Set<string>();
 
   // Some of the feature keys that change affect all enabled environments
-  const relevantKeysForAllEnvs: (keyof ApiFeature)[] = [
+  const relevantKeysForAllEnvs: (keyof FeatureInterface)[] = [
     "archived",
     "defaultValue",
     "project",
     "valueType",
+    "nextScheduledUpdate",
   ];
   if (relevantKeysForAllEnvs.some((k) => !isEqual(previous[k], current[k]))) {
     // Some of the relevant keys for all environments has changed.
@@ -192,14 +193,14 @@ const filterFeatureUpdateEventForRelevance = (
   }
 
   const allEnvs = new Set([
-    ...Object.keys(previous.environments),
-    ...Object.keys(current.environments),
+    ...Object.keys(previous.environmentSettings),
+    ...Object.keys(current.environmentSettings),
   ]);
 
   // Add in environments if their specific settings changed
   allEnvs.forEach((env) => {
-    const previousEnvSettings = previous.environments[env];
-    const currentEnvSettings = current.environments[env];
+    const previousEnvSettings = previous.environmentSettings[env];
+    const currentEnvSettings = current.environmentSettings[env];
 
     // If the environment is disabled both before and after the change, ignore changes
     if (!previousEnvSettings?.enabled && !currentEnvSettings?.enabled) {
