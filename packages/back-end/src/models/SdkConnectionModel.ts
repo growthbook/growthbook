@@ -387,7 +387,7 @@ export function toApiSDKConnectionInterface(
     encryptPayload: connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
     visualExperimentsEnabled: connection.visualExperimentsEnabled,
-    visualExperimentsEnabled: connection.includeDraftExperiments,
+    includeDraftExperiments: connection.includeDraftExperiments,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
