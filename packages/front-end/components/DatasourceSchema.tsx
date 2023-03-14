@@ -127,7 +127,7 @@ export default function DatasourceSchema({
     return null;
   }
 
-  if (datasource.settings.informationSchema?.status === "generating") {
+  if (informationSchema?.status === "PENDING") {
     return (
       <div className="alert alert-info">
         We&apos;re generating the information schema for this datasource. This
@@ -136,12 +136,8 @@ export default function DatasourceSchema({
     );
   }
 
-  if (datasource.settings.informationSchema?.error) {
-    return (
-      <div className="alert alert-warning">
-        {datasource.settings.informationSchema?.error}
-      </div>
-    );
+  if (informationSchema?.error) {
+    return <div className="alert alert-warning">{informationSchema.error}</div>;
   }
 
   return (

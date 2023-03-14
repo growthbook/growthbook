@@ -60,6 +60,8 @@ const informationSchema = new mongoose.Schema({
       },
     },
   },
+  status: String,
+  error: String,
   dateCreated: Date,
   dateUpdated: Date,
 });
@@ -83,7 +85,7 @@ export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string,
   datasourceId: string
-): Promise<string | null> {
+): Promise<InformationSchemaInterface> {
   //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
@@ -93,12 +95,48 @@ export async function createInformationSchema(
     id: uniqid("inf_"),
     datasourceId,
     organization,
+    status: "PENDING",
     databases: informationSchema,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
 
-  return result ? result.id : null;
+  return toInterface(result);
+}
+
+export async function updateInformationSchemaById(
+  organization: string,
+  id: string,
+  updates: Partial<InformationSchemaInterface>
+): Promise<void> {
+  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
+  await InformationSchemaModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    {
+      $set: updates,
+    }
+  );
+}
+
+export async function getInformationSchemaByDatasourceId(
+  datasourceId: string,
+  organization: string
+): Promise<InformationSchemaInterface | null> {
+  const result = await InformationSchemaModel.findOne({
+    organization,
+    datasourceId,
+  });
+
+  if (!result) return null;
+
+  return toInterface(result);
 }
 
 export async function getAllInformationSchemas(
@@ -109,23 +147,6 @@ export async function getAllInformationSchemas(
   });
 
   return results ? results.map(toInterface) : null;
-}
-
-export async function updateInformationSchemaById(
-  organization: string,
-  id: string,
-  updates: Partial<InformationSchemaInterface>
-): Promise<void> {
-  if (usingFileConfig()) {
-    throw new Error("Cannot update. Data sources managed by config.yml");
-  }
-
-  await InformationSchemaModel.updateOne(
-    { id, organization },
-    {
-      $set: { databases: updates.databases, dateUpdated: new Date() },
-    }
-  );
 }
 
 export async function getInformationSchemaById(

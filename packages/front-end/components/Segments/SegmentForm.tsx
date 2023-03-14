@@ -49,7 +49,7 @@ const SegmentForm: FC<{
   console.log("datasource", datasource);
 
   const informationSchema = getInformationSchemaById(
-    datasource.settings.informationSchema.id
+    datasource.settings.informationSchemaId
   );
 
   const informationSchemaSupported = () =>

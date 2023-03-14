@@ -46,7 +46,7 @@ export default class Postgres extends SqlIntegration {
       WHERE
         table_schema
       NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-      GROUP BY (table_name, table_schema, table_catalog);`;
+      GROUP BY (table_name, table_schema, table_catalog)`;
 
     const results = await this.runQuery(sql);
 

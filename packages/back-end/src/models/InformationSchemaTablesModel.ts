@@ -152,7 +152,7 @@ export async function getTableDataByPath(
 
   const informationSchema = await getInformationSchemaById(
     organization,
-    datasource.settings.informationSchema?.id || ""
+    datasource.settings.informationSchemaId || ""
   );
 
   if (informationSchema && newTable) {
