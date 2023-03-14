@@ -43,6 +43,8 @@ export function formatInformationSchema(
   const schemas = new Map<string, Schema>();
   const tables = new Map<string, Table>();
 
+  const date = new Date();
+
   results.forEach((row) => {
     const dbPath = getPath(datasourceType, {
       tableCatalog: row.table_catalog,
@@ -53,8 +55,8 @@ export function formatInformationSchema(
         databaseName: row.table_catalog.toLocaleLowerCase(),
         schemas: [],
         path: dbPath,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
+        dateCreated: date,
+        dateUpdated: date,
       };
       databases.set(dbPath, database);
     }
@@ -69,8 +71,8 @@ export function formatInformationSchema(
         schemaName: row.table_schema.toLocaleLowerCase(),
         tables: [],
         path: schemaPath,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
+        dateCreated: date,
+        dateUpdated: date,
       };
       schemas.set(schemaPath, schema);
       database.schemas.push(schema);
@@ -89,8 +91,8 @@ export function formatInformationSchema(
         path: tablePath,
         numOfColumns: parseInt(row.column_count, 10),
         id: "",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
+        dateCreated: date,
+        dateUpdated: date,
       };
       tables.set(tablePath, table);
       const schemaIndex = database.schemas.findIndex(
