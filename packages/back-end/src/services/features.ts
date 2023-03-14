@@ -10,7 +10,10 @@ import {
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import { getAllVisualExperiments } from "../models/ExperimentModel";
-import { getFeatureDefinition } from "../util/features";
+import {
+  getFeatureDefinition,
+  replaceSavedGroupsInCondition,
+} from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
@@ -21,7 +24,7 @@ import { GroupMap } from "../../types/saved-group";
 import { SDKExperiment, SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
-import { ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
@@ -54,10 +57,10 @@ function generateVisualExperimentsPayload(
     visualChangeset: VisualChangesetInterface;
   }>,
   _environment: string,
-  _groupMap: GroupMap
+  groupMap: GroupMap
 ): SDKExperiment[] {
   return visualExperiments.map(({ experiment: e, visualChangeset: v }) => {
-    const phase = e.phases.slice(-1)[0];
+    const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
     const forcedVariation =
       e.status === "stopped" && e.releasedVariationId
         ? e.variations.find((v) => v.id === e.releasedVariationId)
@@ -72,26 +75,28 @@ function generateVisualExperimentsPayload(
       hashVersion: 2,
       hashAttribute: e.hashAttribute,
       urlPatterns: [v.urlPattern],
-      weights: phase.variationWeights,
+      weights: phase?.variationWeights,
       meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-      filters: phase.namespace.enabled
+      filters: phase?.namespace.enabled
         ? [
             {
               attribute: e.hashAttribute,
-              seed: phase.namespace.name,
+              seed: phase?.namespace.name,
               hashVersion: 2,
-              ranges: [phase.namespace.range],
+              ranges: [phase?.namespace.range],
             },
           ]
         : [],
-      seed: phase.seed,
+      seed: phase?.seed,
       name: e.name,
       phase: `${e.phases.length - 1}`,
       force: forcedVariation
         ? e.variations.indexOf(forcedVariation)
         : undefined,
-      condition: phase.condition,
-      coverage: phase.coverage,
+      condition: JSON.parse(
+        replaceSavedGroupsInCondition(phase?.condition, groupMap)
+      ),
+      coverage: phase?.coverage,
     };
   });
 }
@@ -158,7 +163,7 @@ export async function refreshSDKPayloadCache(
       ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
       : allVisualExperiments;
 
-    if (!projectFeatures.length && !projectExperiments) continue;
+    if (!projectFeatures.length && !projectExperiments.length) continue;
 
     const featureDefinitions = generatePayload(
       projectFeatures,

@@ -1,13 +1,15 @@
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
 import each from "lodash/each";
-import flatten from "lodash/flatten";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "../../types/visual-changeset";
 import {
   determineNextDate,
   experimentUpdated,
@@ -814,28 +816,39 @@ export const getAllVisualExperiments = async (
   }>
 > => {
   const visualChangesets = await findVisualChangesets(organization);
-  const allVisualChanges = flatten(
-    visualChangesets.map((vc) => vc.visualChanges)
+  const visualChangesByExperimentId = visualChangesets.reduce(
+    (acc: Record<string, Array<VisualChange>>, c) => {
+      if (!acc[c.experiment]) acc[c.experiment] = [];
+      acc[c.experiment] = acc[c.experiment].concat(c.visualChanges);
+      return acc;
+    },
+    {}
   );
   const experiments = (
-    await ExperimentModel.find({
+    await findExperiments({
       id: {
         $in: visualChangesets.map((changeset) => changeset.experiment),
       },
       organization,
       archived: false,
     })
-  ).filter(
+  )
+    // filter out losing experiments
+    .filter((e) => e.releasedVariationId !== "0")
     // If the experiment is stopped and the released variation doesn’t have any visual changes, it should be excluded
-    (e) =>
-      e.status !== "stopped" ||
-      allVisualChanges.some((vc) => vc.variation === e.releasedVariationId)
-  );
+    .filter(
+      (e) =>
+        e.status !== "stopped" ||
+        visualChangesByExperimentId[e.id].some(
+          (vc) => vc.variation === e.releasedVariationId
+        )
+    );
+
   // @ts-expect-error filter boolean
   return visualChangesets
     .map((c) => ({
       experiment: experiments.find((e) => e.id === c.experiment),
       visualChangeset: c,
     }))
-    .filter((e) => e.experiment);
+    .filter((e) => !!e.experiment);
 };
