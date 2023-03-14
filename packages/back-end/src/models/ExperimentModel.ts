@@ -816,6 +816,9 @@ export const getAllVisualExperiments = async (
   }>
 > => {
   const visualChangesets = await findVisualChangesets(organization);
+
+  if (!visualChangesets.length) return [];
+
   const visualChangesByExperimentId = visualChangesets.reduce(
     (acc: Record<string, Array<VisualChange>>, c) => {
       if (!acc[c.experiment]) acc[c.experiment] = [];
@@ -833,8 +836,8 @@ export const getAllVisualExperiments = async (
       archived: false,
     })
   )
-    // filter out losing experiments
-    .filter((e) => e.releasedVariationId !== "0")
+    // exclude experiments that are stopped and don't have a released variation
+    .filter((e) => e.status !== "stopped" || e.releasedVariationId !== null)
     // If the experiment is stopped and the released variation doesn’t have any visual changes, it should be excluded
     .filter(
       (e) =>

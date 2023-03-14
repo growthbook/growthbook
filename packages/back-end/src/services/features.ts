@@ -59,46 +59,50 @@ function generateVisualExperimentsPayload(
   _environment: string,
   groupMap: GroupMap
 ): SDKExperiment[] {
-  return visualExperiments.map(({ experiment: e, visualChangeset: v }) => {
-    const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
-    const forcedVariation =
-      e.status === "stopped" && e.releasedVariationId
-        ? e.variations.find((v) => v.id === e.releasedVariationId)
-        : null;
+  return visualExperiments
+    .map(({ experiment: e, visualChangeset: v }) => {
+      const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
+      const forcedVariation =
+        e.status === "stopped" && e.releasedVariationId
+          ? e.variations.find((v) => v.id === e.releasedVariationId)
+          : null;
 
-    return {
-      key: e.trackingKey,
-      variations: v.visualChanges.map((vc) => ({
-        css: vc.css,
-        domMutations: vc.domMutations,
-      })),
-      hashVersion: 2,
-      hashAttribute: e.hashAttribute,
-      urlPatterns: [v.urlPattern],
-      weights: phase?.variationWeights,
-      meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-      filters: phase?.namespace.enabled
-        ? [
-            {
-              attribute: e.hashAttribute,
-              seed: phase?.namespace.name,
-              hashVersion: 2,
-              ranges: [phase?.namespace.range],
-            },
-          ]
-        : [],
-      seed: phase?.seed,
-      name: e.name,
-      phase: `${e.phases.length - 1}`,
-      force: forcedVariation
-        ? e.variations.indexOf(forcedVariation)
-        : undefined,
-      condition: JSON.parse(
-        replaceSavedGroupsInCondition(phase?.condition, groupMap)
-      ),
-      coverage: phase?.coverage,
-    };
-  });
+      if (!phase) return null;
+
+      return {
+        key: e.trackingKey,
+        variations: v.visualChanges.map((vc) => ({
+          css: vc.css,
+          domMutations: vc.domMutations,
+        })),
+        hashVersion: 2,
+        hashAttribute: e.hashAttribute,
+        urlPatterns: [v.urlPattern],
+        weights: phase.variationWeights,
+        meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+        filters: phase.namespace.enabled
+          ? [
+              {
+                attribute: e.hashAttribute,
+                seed: phase.namespace.name,
+                hashVersion: 2,
+                ranges: [phase.namespace.range],
+              },
+            ]
+          : [],
+        seed: phase.seed,
+        name: e.name,
+        phase: `${e.phases.length - 1}`,
+        force: forcedVariation
+          ? e.variations.indexOf(forcedVariation)
+          : undefined,
+        condition: JSON.parse(
+          replaceSavedGroupsInCondition(phase.condition, groupMap)
+        ),
+        coverage: phase.coverage,
+      };
+    })
+    .filter(Boolean);
 }
 
 export async function getSavedGroupMap(
