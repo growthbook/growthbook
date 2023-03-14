@@ -975,7 +975,7 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${aggregate} as value
+                ${this.getAggregateMetricColumn(denominator, "m")} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1312,7 +1312,9 @@ export default abstract class SqlIntegration
     return this.capValue(
       metric.cap,
       metric.type === "count"
-        ? `COUNT(${metric.column ? `DISTINCT ${alias}.value` : "*"})`
+        ? `COUNT(${
+            metric.column ? `DISTINCT ${alias}.value` : `${alias}.timestamp`
+          })`
         : `MAX(${alias}.value)`
     );
   }
