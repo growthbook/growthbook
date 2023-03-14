@@ -376,7 +376,7 @@ const DateGraph: FC<{
           });
           if (onHover && !onHoverBlocked) {
             onHover({
-              id,
+              id: id || "",
               event: "hover",
               containerX,
             });
@@ -401,7 +401,7 @@ const DateGraph: FC<{
               onPointerLeave={() => {
                 hideTooltip();
                 if (onHover) {
-                  onHover({ id: id, event: "leave" });
+                  onHover({ id: id || "", event: "leave" });
                 }
               }}
             >
