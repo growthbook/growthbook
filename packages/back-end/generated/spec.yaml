@@ -1105,7 +1105,8 @@ components:
           items:
             $ref: '#/components/schemas/FeatureRule'
         definition:
-          $ref: '#/components/schemas/FeatureDefinition'
+          type: string
+          description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
         draft:
           type: object
           required:
@@ -1122,7 +1123,8 @@ components:
               items:
                 $ref: '#/components/schemas/FeatureRule'
             definition:
-              $ref: '#/components/schemas/FeatureDefinition'
+              type: string
+              description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     FeatureRule:
       anyOf:
         - $ref: '#/components/schemas/FeatureForceRule'

@@ -342,7 +342,7 @@ export function getApiFeatureObj(
         useDraft: true,
       });
       if (draftDefinition) {
-        draft.definition = draftDefinition;
+        draft.definition = JSON.stringify(draftDefinition);
       }
     }
 
@@ -355,7 +355,7 @@ export function getApiFeatureObj(
       featureEnvironments[env.id].draft = draft;
     }
     if (definition) {
-      featureEnvironments[env.id].definition = definition;
+      featureEnvironments[env.id].definition = JSON.stringify(definition);
     }
   });
 
