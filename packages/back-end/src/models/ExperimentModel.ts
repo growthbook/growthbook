@@ -6,10 +6,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { Changeset, ExperimentInterface } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
-import {
-  VisualChange,
-  VisualChangesetInterface,
-} from "../../types/visual-changeset";
+import { VisualChange } from "../../types/visual-changeset";
 import {
   determineNextDate,
   experimentUpdated,
@@ -24,6 +21,7 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
+import { VisualExperiment } from "../services/features";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -807,14 +805,13 @@ export const logExperimentDeleted = async (
   return emittedEvent.id;
 };
 
+const isValidVisualExperiment = (
+  e: Partial<VisualExperiment>
+): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
+
 export const getAllVisualExperiments = async (
   organization: string
-): Promise<
-  Array<{
-    experiment: ExperimentInterface;
-    visualChangeset: VisualChangesetInterface;
-  }>
-> => {
+): Promise<Array<VisualExperiment>> => {
   const visualChangesets = await findVisualChangesets(organization);
 
   if (!visualChangesets.length) return [];
@@ -827,6 +824,7 @@ export const getAllVisualExperiments = async (
     },
     {}
   );
+
   const experiments = (
     await findExperiments({
       id: {
@@ -847,11 +845,12 @@ export const getAllVisualExperiments = async (
         )
     );
 
-  // @ts-expect-error filter boolean
-  return visualChangesets
-    .map((c) => ({
-      experiment: experiments.find((e) => e.id === c.experiment),
-      visualChangeset: c,
-    }))
-    .filter((e) => !!e.experiment);
+  const visualExperiments: Array<
+    Partial<VisualExperiment>
+  > = visualChangesets.map((c) => ({
+    experiment: experiments.find((e) => e.id === c.experiment),
+    visualChangeset: c,
+  }));
+
+  return visualExperiments.filter(isValidVisualExperiment);
 };

@@ -50,17 +50,21 @@ function generatePayload(
   return defs;
 }
 
+export type VisualExperiment = {
+  experiment: ExperimentInterface;
+  visualChangeset: VisualChangesetInterface;
+};
+
 // TODO Put this in a better place?
 function generateVisualExperimentsPayload(
-  visualExperiments: Array<{
-    experiment: ExperimentInterface;
-    visualChangeset: VisualChangesetInterface;
-  }>,
+  visualExperiments: Array<VisualExperiment>,
   _environment: string,
   groupMap: GroupMap
 ): SDKExperiment[] {
-  return visualExperiments
-    .map(({ experiment: e, visualChangeset: v }) => {
+  const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
+    !!e;
+  const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
+    ({ experiment: e, visualChangeset: v }) => {
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
@@ -101,8 +105,9 @@ function generateVisualExperimentsPayload(
         ),
         coverage: phase.coverage,
       };
-    })
-    .filter(Boolean);
+    }
+  );
+  return sdkExperiments.filter(isValidSDKExperiment);
 }
 
 export async function getSavedGroupMap(
