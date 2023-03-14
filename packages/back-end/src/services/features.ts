@@ -155,12 +155,12 @@ export async function refreshSDKPayloadCache(
   );
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
-  const allVisualExperiments = await getAllVisualExperiments(organization.id);
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
+  const allVisualExperiments = await getAllVisualExperiments(organization.id);
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];

@@ -841,7 +841,9 @@ export const getAllVisualExperiments = async (
       (e) =>
         e.status !== "stopped" ||
         visualChangesByExperimentId[e.id].some(
-          (vc) => vc.variation === e.releasedVariationId
+          (vc) =>
+            vc.variation === e.releasedVariationId &&
+            (!!vc.css || !!vc.domMutations.length)
         )
     );
 
