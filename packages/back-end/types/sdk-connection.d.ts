@@ -62,7 +62,7 @@ export interface SDKConnectionInterface {
   project: string;
   encryptPayload: boolean;
   encryptionKey: string;
-  visualExperimentsEnabled: boolean;
+  visualExperimentsEnabled?: boolean;
 
   // URL slug for fetching features from the API
   key: string;
