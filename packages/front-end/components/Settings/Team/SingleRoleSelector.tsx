@@ -1,5 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
+import uniqid from "uniqid";
 import { useUser } from "../../../services/UserContext";
 import { useEnvironments } from "../../../services/features";
 import MultiSelectField from "../../Forms/MultiSelectField";
@@ -25,6 +26,8 @@ export default function SingleRoleSelector({
   const hasFeature = hasCommercialFeature("advanced-permissions");
 
   const availableEnvs = useEnvironments();
+
+  const id = useMemo(() => uniqid(), []);
 
   return (
     <div>
@@ -61,7 +64,7 @@ export default function SingleRoleSelector({
       {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (
         <div>
           <div className="form-group">
-            <label htmlFor="role-modal">
+            <label htmlFor={`role-modal--${id}`}>
               <PremiumTooltip commercialFeature="advanced-permissions">
                 Restrict Access to Specific Environments
               </PremiumTooltip>
@@ -69,7 +72,7 @@ export default function SingleRoleSelector({
             <div>
               <Toggle
                 disabled={!hasFeature}
-                id={"role-modal"}
+                id={`role-modal--${id}`}
                 value={value.limitAccessByEnvironment}
                 setValue={(limitAccessByEnvironment) => {
                   setValue({
