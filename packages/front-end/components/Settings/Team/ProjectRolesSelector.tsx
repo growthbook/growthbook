@@ -48,7 +48,6 @@ export default function ProjectRolesSelector({
             </a>
           </div>
           <SingleRoleSelector
-            id={`project-role_${i}`}
             value={{
               role: projectRole.role,
               environments: projectRole.environments,

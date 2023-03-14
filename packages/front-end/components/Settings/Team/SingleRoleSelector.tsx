@@ -1,5 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
+import uniqid from "uniqid";
 import { useUser } from "../../../services/UserContext";
 import { useEnvironments } from "../../../services/features";
 import MultiSelectField from "../../Forms/MultiSelectField";
@@ -14,19 +15,19 @@ export default function SingleRoleSelector({
   label,
   includeAdminRole = false,
   disabled = false,
-  id,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
   includeAdminRole?: boolean;
   disabled?: boolean;
-  id: string;
 }) {
   const { roles, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
 
   const availableEnvs = useEnvironments();
+
+  const id = useMemo(() => uniqid(), []);
 
   return (
     <div>
