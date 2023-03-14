@@ -619,6 +619,7 @@ export interface components {
       archived: boolean;
       status: string;
       autoRefresh: boolean;
+      hashAttribute: string;
       variations: ({
           variationId: string;
           key: string;
@@ -689,6 +690,7 @@ export interface components {
         status: string;
         winner: string;
         conclusions: string;
+        releasedVariationId: string;
       };
     };
     ExperimentMetric: {
@@ -1904,6 +1906,7 @@ export interface operations {
                 archived: boolean;
                 status: string;
                 autoRefresh: boolean;
+                hashAttribute: string;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -1974,6 +1977,7 @@ export interface operations {
                   status: string;
                   winner: string;
                   conclusions: string;
+                  releasedVariationId: string;
                 };
               })[];
           }) & {
@@ -2009,6 +2013,7 @@ export interface operations {
               archived: boolean;
               status: string;
               autoRefresh: boolean;
+              hashAttribute: string;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2079,6 +2084,7 @@ export interface operations {
                 status: string;
                 winner: string;
                 conclusions: string;
+                releasedVariationId: string;
               };
             };
           };

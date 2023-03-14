@@ -15,7 +15,10 @@ import {
 } from "../../types/feature";
 import { MemberRole, OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
-import { ExperimentInterface } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  LegacyExperimentInterface,
+} from "../../types/experiment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -351,10 +354,11 @@ export function upgradeOrganizationDoc(
 }
 
 export function upgradeExperimentDoc(
-  orig: ExperimentInterface
+  orig: LegacyExperimentInterface
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
 
+  // Add missing variation keys and ids
   experiment.variations.forEach((v, i) => {
     if (v.key === "" || v.key === undefined || v.key === null) {
       v.key = i + "";
@@ -362,17 +366,53 @@ export function upgradeExperimentDoc(
     if (!v.id) {
       v.id = i + "";
     }
+    if (!v.name) {
+      v.name = i ? `Variation ${i}` : `Control`;
+    }
   });
 
-  // Populate phase names
+  // Populate phase names and targeting properties
   if (experiment.phases) {
     experiment.phases.forEach((phase) => {
       if (!phase.name) {
         const p = phase.phase || "main";
         phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
       }
+
+      phase.coverage = phase.coverage ?? 1;
+      phase.condition = phase.condition || "";
+      phase.seed = phase.seed || experiment.trackingKey;
+      phase.namespace = phase.namespace || {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      };
     });
   }
 
-  return experiment;
+  // Add hashAttribute field
+  experiment.hashAttribute = experiment.hashAttribute || "";
+
+  // Old `observations` field
+  if (!experiment.description && experiment.observations) {
+    experiment.description = experiment.observations;
+  }
+
+  // releasedVariationId
+  if (!("releasedVariationId" in experiment)) {
+    if (experiment.status === "stopped") {
+      if (experiment.results === "lost") {
+        experiment.releasedVariationId = experiment.variations[0]?.id || "";
+      } else if (experiment.results === "won") {
+        experiment.releasedVariationId =
+          experiment.variations[experiment.winner || 1]?.id || "";
+      } else {
+        experiment.releasedVariationId = "";
+      }
+    } else {
+      experiment.releasedVariationId = "";
+    }
+  }
+
+  return experiment as ExperimentInterface;
 }
