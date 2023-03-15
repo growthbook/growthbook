@@ -12,9 +12,11 @@ import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
 import Field from "./Forms/Field";
-import Button from "./Button";
 import { CursorData } from "./Segments/SegmentForm";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
+import BuildInformationSchemaCard from "./BuildInformationSchemaCard";
+import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
+import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
@@ -37,7 +39,6 @@ export default function SchemaBrowser({
     setCurrentTable,
   ] = useState<InformationSchemaTablesInterface | null>(null);
   const [loading, setLoading] = useState(false);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const row = cursorData?.row || 0;
@@ -67,7 +68,7 @@ export default function SchemaBrowser({
     defaultSortField: "databaseName",
   });
 
-  const handleClick = async (
+  const handleTableClick = async (
     e,
     databaseName: string,
     schemaName: string,
@@ -121,55 +122,26 @@ export default function SchemaBrowser({
     setCurrentTable(null);
   }, [datasource]);
 
-  if (informationSchema?.error && !pending) {
+  if (informationSchema?.error) {
     return (
       <SchemaBrowserWrapper datasourceName={datasource.name}>
-        <div className="alert alert-warning d-flex align-items-center">
-          {informationSchema.error}
-          <Button
-            color="link"
-            onClick={async () => {
-              try {
-                await apiCall<{
-                  status: number;
-                  message?: string;
-                }>(`/datasource/${datasource.id}/informationSchema`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    informationSchemaId: informationSchema.id,
-                  }),
-                });
-                setPending(true);
-                mutate();
-              } catch (e) {
-                mutate();
-                setError(e.message);
-              }
-            }}
-          >
-            Retry
-          </Button>
-        </div>
+        <RetryInformationSchemaCard
+          datasourceId={datasource.id}
+          mutate={mutate}
+          informationSchemaError={informationSchema.error}
+          informationSchemaId={informationSchema.id}
+        />
       </SchemaBrowserWrapper>
     );
   }
 
-  if (informationSchema?.status === "PENDING" || pending) {
+  if (informationSchema?.status === "PENDING") {
     return (
       <SchemaBrowserWrapper datasourceName={datasource.name}>
-        <div className="alert alert-info d-flex align-items-center">
-          We&apos;re generating the information schema for this datasource. This
-          may take a minute, depending on the size of the datasource.
-          <Button
-            color="link"
-            onClick={async () => {
-              await mutate();
-              setPending(false);
-            }}
-          >
-            Refresh
-          </Button>
-        </div>
+        <PendingInformationSchemaCard
+          datasourceId={datasource.id}
+          mutate={mutate}
+        />
       </SchemaBrowserWrapper>
     );
   }
@@ -178,36 +150,10 @@ export default function SchemaBrowser({
     <>
       <SchemaBrowserWrapper datasourceName={datasource.name}>
         {!informationSchema || !informationSchema.databases.length ? (
-          <div>
-            <div className="alert alert-info">
-              <div>
-                Need help building your query? Click the button below to get
-                insight into what tables and columns are available in the
-                datasource.
-              </div>
-              <Button
-                className="mt-2"
-                onClick={async () => {
-                  try {
-                    await apiCall<{
-                      status: number;
-                      message?: string;
-                    }>(`/datasource/${datasource.id}/informationSchema`, {
-                      method: "POST",
-                    });
-                    setPending(true);
-                    mutate();
-                  } catch (e) {
-                    mutate();
-                    setError(e.message);
-                  }
-                }}
-              >
-                Generate Information Schema
-              </Button>
-            </div>
-            {error && <div className="alert alert-danger">{error}</div>}
-          </div>
+          <BuildInformationSchemaCard
+            datasourceId={datasource.id}
+            mutate={mutate}
+          />
         ) : (
           <>
             <Field
@@ -277,7 +223,7 @@ export default function SchemaBrowser({
                                     table.tableName
                                   }
                                   onClick={async (e) =>
-                                    handleClick(
+                                    handleTableClick(
                                       e,
                                       database.databaseName,
                                       schema.schemaName,
@@ -301,6 +247,7 @@ export default function SchemaBrowser({
           </>
         )}
       </SchemaBrowserWrapper>
+      {error && <div className="alert alert-warning">{error}</div>}
       <DatasourceTableData table={currentTable} loading={loading} />
     </>
   );

@@ -473,6 +473,10 @@ app.put(
   "/datasource/:datasourceId/informationSchema",
   informationSchemsController.putInformationSchema
 );
+app.get(
+  "/datasource/:datasourceId/informationSchema/status",
+  informationSchemsController.getInformationSchemaStatus
+);
 
 // Events
 app.use("/events", eventsRouter);

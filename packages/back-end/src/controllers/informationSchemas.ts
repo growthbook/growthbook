@@ -2,6 +2,7 @@ import { Response } from "express";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "../jobs/updateInformationSchema";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { getInformationSchemaById } from "../models/InformationSchemaModel";
 import { getTableDataByPath } from "../models/InformationSchemaTablesModel";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
@@ -118,4 +119,47 @@ export async function putInformationSchema(
   );
 
   res.status(200).json({ message: "Job scheduled successfully" });
+}
+
+export async function getInformationSchemaStatus(
+  req: AuthRequest<null, { datasourceId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Unable to find datasource.",
+    });
+    return;
+  }
+
+  if (!datasource.settings.informationSchemaId) {
+    res.status(404).json({
+      status: 404,
+      message: "No information schema found.",
+    });
+    return;
+  }
+
+  const informationSchema = await getInformationSchemaById(
+    org.id,
+    datasource.settings.informationSchemaId
+  );
+
+  if (!informationSchema) {
+    res.status(404).json({
+      status: 404,
+      message: "Unable to find information schema.",
+    });
+    return;
+  }
+
+  return res.status(200).json({
+    status: 200,
+    isComplete: informationSchema.status === "COMPLETE",
+  });
 }
