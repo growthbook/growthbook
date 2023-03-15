@@ -303,7 +303,13 @@ def main():
 
         key = engine + "::" + test_case["sql"]
         if key in cache:
-            results.append(cache[key])
+            update_fields = ['engine', 'name']
+            results.append({
+                # prevent drawing wrong test case from cache when different
+                # configs produce the exact same SQL
+                **{k: v for k, v in cache[key].items() if k not in update_fields},
+                **{k: v for k, v in test_case.items() if k in update_fields}
+            })
         else:
             if engine not in nonlinted_engines:
                 validate(test_case)
