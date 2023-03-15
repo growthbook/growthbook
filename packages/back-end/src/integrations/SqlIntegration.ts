@@ -31,6 +31,7 @@ import {
   replaceSQLVars,
   format,
   FormatDialect,
+  replaceCountStar,
 } from "../util/sql";
 
 export default abstract class SqlIntegration
@@ -336,7 +337,11 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart([params.metric], params.from);
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(params.metric, "m");
+    const aggregate = this.getAggregateMetricColumn(
+      params.metric,
+      baseIdType,
+      "m"
+    );
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -763,7 +768,7 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const aggregate = this.getAggregateMetricColumn(metric, "m");
+    const aggregate = this.getAggregateMetricColumn(metric, baseIdType, "m");
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
@@ -975,7 +980,11 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, "m")} as value
+                ${this.getAggregateMetricColumn(
+                  denominator,
+                  baseIdType,
+                  "m"
+                )} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1296,17 +1305,37 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  private getAggregateMetricColumn(metric: MetricInterface, alias = "m") {
+  private getAggregateMetricColumn(
+    metric: MetricInterface,
+    baseIdType: string,
+    alias: string = "m"
+  ) {
     if (metric.type === "binomial") {
-      return `MAX(${this.ifElse(`${alias}.timestamp IS NOT NULL`, "1", "0")})`;
+      return `MAX(${this.ifElse(
+        `${alias}.${baseIdType} IS NOT NULL`,
+        "1",
+        "NULL"
+      )})`;
     }
 
     const queryFormat = this.getMetricQueryFormat(metric);
     if (queryFormat === "sql") {
-      return this.capValue(
-        metric.cap,
-        metric.aggregation || `SUM(${alias}.value)`
-      );
+      let aggregation = `SUM(${alias}.value)`;
+      if (metric.aggregation) {
+        if (Number(metric.aggregation)) {
+          return `MAX(${this.ifElse(
+            `${alias}.${baseIdType} IS NOT NULL`,
+            `${aggregation}`,
+            "NULL"
+          )})`;
+        }
+        aggregation = replaceCountStar(
+          metric.aggregation,
+          `${alias}.${baseIdType}`
+        );
+      }
+
+      return this.capValue(metric.cap, aggregation);
     }
 
     return this.capValue(
