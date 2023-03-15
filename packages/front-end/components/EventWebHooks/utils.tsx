@@ -5,6 +5,7 @@ import { BsCheck, BsQuestion, BsX } from "react-icons/bs";
 export type EventWebHookEditParams = {
   name: string;
   url: string;
+  enabled: boolean;
   events: NotificationEventName[];
 };
 
