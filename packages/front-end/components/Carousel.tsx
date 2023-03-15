@@ -32,7 +32,7 @@ const Carousel: FC<{
   }
 
   return (
-    <div className="carousel slide">
+    <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
           open={true}

@@ -885,7 +885,7 @@ export interface components {
     };
     VisualChangeset: {
       id?: string;
-      urlPattern: string;
+      urlPatterns: (string)[];
       editorUrl: string;
       experiment: string;
       visualChanges: ({
@@ -2229,7 +2229,7 @@ export interface operations {
           "application/json": {
             visualChangesets: ({
                 id?: string;
-                urlPattern: string;
+                urlPatterns: (string)[];
                 editorUrl: string;
                 experiment: string;
                 visualChanges: ({
@@ -2258,7 +2258,7 @@ export interface operations {
           "application/json": {
             visualChangeset: {
               id?: string;
-              urlPattern: string;
+              urlPatterns: (string)[];
               editorUrl: string;
               experiment: string;
               visualChanges: ({

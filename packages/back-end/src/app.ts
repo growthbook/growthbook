@@ -415,6 +415,10 @@ app.post(
   "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

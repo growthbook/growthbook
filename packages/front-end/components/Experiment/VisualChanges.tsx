@@ -9,7 +9,7 @@ import usePermissions from "@/hooks/usePermissions";
 import Code from "../SyntaxHighlighting/Code";
 import OpenVisualEditorLink from "../OpenVisualEditorLink";
 
-export default function VisualCode({
+export default function VisualChanges({
   dom,
   css,
   control = false,
@@ -30,8 +30,7 @@ export default function VisualCode({
 
   if (!hasCode && permissions.check("createAnalyses", "")) {
     return control ? null : (
-      <div className="alert alert-warning my-2">
-        No visual changes yet.{" "}
+      <div className="my-2">
         <OpenVisualEditorLink
           visualEditorUrl={experiment.visualEditorUrl}
           experimentId={experiment.id}

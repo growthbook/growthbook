@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import qs from "query-string";
 import Modal from "./Modal";
 
@@ -10,7 +10,7 @@ const OpenVisualEditorLink: FC<{
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
-  const onClick = () => {
+  const onClick = useCallback(() => {
     if (!visualEditorUrl) {
       setShowEditorUrlDialog(true);
       return;
@@ -26,24 +26,26 @@ const OpenVisualEditorLink: FC<{
       return;
     }
 
+    // find or create visual changeset
+
     const parsed = qs.parse(
       visualEditorUrl.indexOf("?") > -1 ? visualEditorUrl.split("?")[1] : ""
     );
 
     const queryParams = {
       ...parsed,
-      "visual-exp-id": experimentId,
+      "vc-id": experimentId,
     };
 
     const root = visualEditorUrl.split("?")[0];
 
     window.location.href = `${root}?${qs.stringify(queryParams)}`;
-  };
+  }, [visualEditorUrl, experimentId]);
 
   return (
     <>
       <a className="d-none d-md-inline cursor-pointer" onClick={onClick}>
-        Open the Editor
+        Preview
       </a>
 
       {showEditorUrlDialog && openSettings && (

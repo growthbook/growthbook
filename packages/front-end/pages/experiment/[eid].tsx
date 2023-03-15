@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "@/hooks/useApi";
@@ -39,6 +40,7 @@ const ExperimentPage = (): ReactElement => {
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
+    visualChangesets: VisualChangesetInterface[];
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization);
@@ -52,7 +54,7 @@ const ExperimentPage = (): ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const { experiment, idea } = data;
+  const { experiment, idea, visualChangesets = [] } = data;
 
   const canEdit =
     permissions.check("createAnalyses", experiment.project) &&
@@ -160,6 +162,7 @@ const ExperimentPage = (): ReactElement => {
           <SinglePage
             experiment={experiment}
             idea={idea}
+            visualChangesets={visualChangesets}
             mutate={mutate}
             editMetrics={editMetrics}
             editResult={editResult}

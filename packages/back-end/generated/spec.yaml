@@ -1809,15 +1809,17 @@ components:
     VisualChangeset:
       type: object
       required:
-        - urlPattern
+        - urlPatterns
         - editorUrl
         - experiment
         - visualChanges
       properties:
         id:
           type: string
-        urlPattern:
-          type: string
+        urlPatterns:
+          type: array
+          items:
+            type: string
         editorUrl:
           type: string
         experiment:

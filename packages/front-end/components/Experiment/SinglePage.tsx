@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -6,7 +7,6 @@ import {
   FaArrowDown,
   FaExternalLinkAlt,
   FaLink,
-  FaPalette,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
@@ -39,21 +39,10 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentReportsList from "./ExperimentReportsList";
 import AnalysisForm from "./AnalysisForm";
-import VariationBox from "./VariationBox";
 import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
-
-function getColWidth(v: number) {
-  // 2 across
-  if (v <= 2) return 6;
-
-  // 3 across
-  if (v === 3 || v === 6 || v === 9) return 4;
-
-  // 4 across
-  return 3;
-}
+import VariationsTable from "./VariationsTable";
 
 function drawMetricRow(
   m: string,
@@ -108,6 +97,7 @@ function drawMetricRow(
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   idea?: IdeaInterface;
+  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   editMetrics?: () => void;
   editResult?: () => void;
@@ -123,6 +113,7 @@ export interface Props {
 export default function SinglePage({
   experiment,
   idea,
+  visualChangesets,
   mutate,
   editMetrics,
   editResult,
@@ -174,8 +165,6 @@ export default function SinglePage({
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
   const canEdit = hasPermission && !experiment.archived;
-
-  const variationCols = getColWidth(experiment.variations.length);
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -499,28 +488,13 @@ export default function SinglePage({
               header="Hypothesis"
             />
             <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
-            {experiment.implementation === "visual" && (
-              <div className="alert alert-info">
-                <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
-                {experiment.status === "draft" && canEdit && (
-                  <Link href={`/experiments/designer/${experiment.id}`}>
-                    <a className="d-none d-md-inline">Open the Editor</a>
-                  </Link>
-                )}
-              </div>
-            )}
             <div className="row">
-              {experiment.variations.map((v, i) => (
-                <div key={i} className={`col-md-${variationCols} mb-2`}>
-                  <VariationBox
-                    canEdit={canEdit}
-                    experiment={experiment}
-                    i={i}
-                    mutate={mutate}
-                    v={v}
-                  />
-                </div>
-              ))}
+              <VariationsTable
+                experiment={experiment}
+                visualChangesets={visualChangesets}
+                mutate={mutate}
+                canEdit={canEdit}
+              />
             </div>
           </div>
         </div>

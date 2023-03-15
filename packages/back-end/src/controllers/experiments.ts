@@ -24,6 +24,10 @@ import {
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
+  createVisualChangeset,
+  findVisualChangesetsByExperiment,
+} from "../models/VisualChangesetModel";
+import {
   deleteSnapshotById,
   findSnapshotById,
   updateSnapshot,
@@ -211,9 +215,15 @@ export async function getExperiment(
       })) || undefined;
   }
 
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    org.id
+  );
+
   res.status(200).json({
     status: 200,
     experiment,
+    visualChangesets,
     idea,
   });
 }
@@ -1861,4 +1871,42 @@ export async function postPastExperiments(
       },
     });
   }
+}
+
+export async function postVisualChangeset(
+  req: AuthRequest<
+    {
+      urlPatterns: string[];
+      editorUrl: string;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.body.urlPatterns) {
+    throw new Error("urlPatterns needs to be defined");
+  }
+
+  if (!req.body.editorUrl) {
+    throw new Error("editorUrl needs to be defined");
+  }
+
+  const experiment = await getExperimentById(org.id, req.params.id);
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const visualChangeset = await createVisualChangeset({
+    urlPatterns: req.body.urlPatterns,
+    editorUrl: req.body.editorUrl,
+    experiment: experiment.id,
+    organization: org.id,
+  });
+
+  res.json({
+    visualChangeset,
+  });
 }

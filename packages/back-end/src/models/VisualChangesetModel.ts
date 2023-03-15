@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import uniqid from "uniqid";
 import { ApiVisualChangeset } from "../../types/openapi";
 import {
   VisualChange,
@@ -21,8 +22,8 @@ const visualChangesetSchema = new mongoose.Schema({
     index: true,
     required: true,
   },
-  urlPattern: {
-    type: String,
+  urlPatterns: {
+    type: [String],
     required: true,
   },
   editorUrl: {
@@ -84,7 +85,7 @@ export function toVisualChangesetApiInterface(
 ): ApiVisualChangeset {
   return {
     id: visualChangeset.id,
-    urlPattern: visualChangeset.urlPattern,
+    urlPatterns: visualChangeset.urlPatterns,
     editorUrl: visualChangeset.editorUrl,
     experiment: visualChangeset.experiment,
     visualChanges: visualChangeset.visualChanges.map((c) => ({
@@ -186,3 +187,25 @@ export async function updateVisualChange({
     }
   );
 }
+
+export const createVisualChangeset = async ({
+  experiment,
+  organization,
+  urlPatterns,
+  editorUrl,
+}: {
+  experiment: string;
+  organization: string;
+  urlPatterns: string[];
+  editorUrl: string;
+}): Promise<VisualChangesetInterface> => {
+  const visualChangeset = await VisualChangesetModel.create({
+    id: uniqid("vcs_"),
+    experiment,
+    organization,
+    urlPatterns,
+    editorUrl,
+    visualChanges: [],
+  });
+  return visualChangeset;
+};
