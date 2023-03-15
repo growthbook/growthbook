@@ -9,6 +9,7 @@ import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
 import {
   InformationSchema,
+  InformationSchemaInterface,
   SourceIntegrationInterface,
   TestQueryRow,
 } from "../types/Integration";
@@ -202,6 +203,29 @@ export async function initializeDatasourceInformationSchema(
     ...informationSchema,
     databases: await generateInformationSchema(datasource),
     status: "COMPLETE",
+  });
+
+  return informationSchema.id;
+}
+
+export async function updateDatasourceInformationSchema(
+  datasource: DataSourceInterface,
+  organization: string,
+  informationSchema: InformationSchemaInterface
+): Promise<string> {
+  // Reset the informationSchema to remove any errors and change status to "PENDING"
+  await updateInformationSchemaById(organization, informationSchema.id, {
+    ...informationSchema,
+    status: "PENDING",
+    error: undefined,
+  });
+
+  // Update the empty informationSchema record with the actual informationSchema
+  await updateInformationSchemaById(organization, informationSchema.id, {
+    ...informationSchema,
+    databases: await generateInformationSchema(datasource),
+    status: "COMPLETE",
+    error: undefined,
   });
 
   return informationSchema.id;

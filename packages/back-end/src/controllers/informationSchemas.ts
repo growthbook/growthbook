@@ -1,5 +1,6 @@
 import { Response } from "express";
-import { queueCreateInformationSchema } from "../jobs/informationSchema";
+import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
+import { queueUpdateInformationSchema } from "../jobs/updateInformationSchema";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { getTableDataByPath } from "../models/InformationSchemaTablesModel";
 import { getOrgFromReq } from "../services/organizations";
@@ -36,12 +37,12 @@ export async function getTableData(
     return;
   }
 
-  //MKTODO: Make sure this is correct
   req.checkPermissions(
     "editDatasourceSettings",
     datasource?.projects?.length ? datasource.projects : ""
   );
 
+  //MKTODO: Should this be a job, instead?
   try {
     const table = await getTableDataByPath(
       org.id,
@@ -74,18 +75,48 @@ export async function postInformationSchema(
   if (!datasource) {
     res.status(404).json({
       status: 404,
-      message: "No datasource found",
+      message: "Unable to find datasource.",
     });
     return;
   }
 
-  //MKTODO: Make sure this is correct
   req.checkPermissions(
     "editDatasourceSettings",
     datasource?.projects?.length ? datasource.projects : ""
   );
 
   await queueCreateInformationSchema(datasource.id, org.id);
+
+  res.status(200).json({ message: "Job scheduled successfully" });
+}
+
+export async function putInformationSchema(
+  req: AuthRequest<{ informationSchemaId: string }, { datasourceId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { informationSchemaId } = req.body;
+
+  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Unable to find datasource.",
+    });
+    return;
+  }
+
+  req.checkPermissions(
+    "editDatasourceSettings",
+    datasource?.projects?.length ? datasource.projects : ""
+  );
+
+  await queueUpdateInformationSchema(
+    datasource.id,
+    org.id,
+    informationSchemaId
+  );
 
   res.status(200).json({ message: "Job scheduled successfully" });
 }

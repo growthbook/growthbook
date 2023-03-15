@@ -4,7 +4,8 @@ import addWebhooksJob from "../jobs/webhooks";
 import addCacheInvalidateJob from "../jobs/cacheInvalidate";
 import addMetricUpdateJob from "../jobs/updateMetrics";
 import addProxyUpdateJob from "../jobs/proxyUpdate";
-import createInformationSchemaJob from "../jobs/informationSchema";
+import createInformationSchemaJob from "../jobs/createInformationSchema";
+import updateInformationSchemaJob from "../jobs/updateInformationSchema";
 import { CRON_ENABLED } from "../util/secrets";
 import { getAgendaInstance } from "../services/queueing";
 
@@ -20,6 +21,7 @@ export async function queueInit() {
   addCacheInvalidateJob(agenda);
   addProxyUpdateJob(agenda);
   createInformationSchemaJob(agenda);
+  updateInformationSchemaJob(agenda);
 
   await agenda.start();
 }

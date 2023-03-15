@@ -469,6 +469,10 @@ app.post(
   "/datasource/:datasourceId/informationSchema",
   informationSchemsController.postInformationSchema
 );
+app.put(
+  "/datasource/:datasourceId/informationSchema",
+  informationSchemsController.putInformationSchema
+);
 
 // Events
 app.use("/events", eventsRouter);

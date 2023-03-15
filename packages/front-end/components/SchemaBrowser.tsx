@@ -6,7 +6,7 @@ import {
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
 import React, { useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
-import { FaAngleDown, FaAngleRight, FaDatabase, FaTable } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
@@ -14,6 +14,7 @@ import DatasourceTableData from "./DatasourceTableData";
 import Field from "./Forms/Field";
 import Button from "./Button";
 import { CursorData } from "./Segments/SegmentForm";
+import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
@@ -37,10 +38,11 @@ export default function SchemaBrowser({
   ] = useState<InformationSchemaTablesInterface | null>(null);
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const row = cursorData?.row;
-  const column = cursorData?.column;
-  const inputArray = cursorData?.input;
+  const row = cursorData?.row || 0;
+  const column = cursorData?.column || 0;
+  const inputArray = cursorData?.input || [];
 
   function pastePathIntoExistingQuery(
     existingQuery: string,
@@ -111,7 +113,7 @@ export default function SchemaBrowser({
       setCurrentTable(res.table);
       setLoading(false);
     } catch (e) {
-      console.log("e", e);
+      setError(e.message);
     }
   };
 
@@ -119,38 +121,45 @@ export default function SchemaBrowser({
     setCurrentTable(null);
   }, [datasource]);
 
-  if (informationSchema?.error)
+  if (informationSchema?.error && !pending) {
     return (
-      //TODO: Make this wrapper reusable
-      <div className="d-flex flex-column">
-        <div>
-          <label className="font-weight-bold mb-1">
-            <FaDatabase /> {datasource.name}
-          </label>
-        </div>
+      <SchemaBrowserWrapper datasourceName={datasource.name}>
         <div className="alert alert-warning d-flex align-items-center">
           {informationSchema.error}
           <Button
             color="link"
-            onClick={async () => console.log("not yet wired up")}
+            onClick={async () => {
+              try {
+                await apiCall<{
+                  status: number;
+                  message?: string;
+                }>(`/datasource/${datasource.id}/informationSchema`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    informationSchemaId: informationSchema.id,
+                  }),
+                });
+                setPending(true);
+                mutate();
+              } catch (e) {
+                mutate();
+                setError(e.message);
+              }
+            }}
           >
             Retry
           </Button>
         </div>
-      </div>
+      </SchemaBrowserWrapper>
     );
+  }
 
   if (informationSchema?.status === "PENDING" || pending) {
     return (
-      <div className="d-flex flex-column">
-        <div>
-          <label className="font-weight-bold mb-1">
-            <FaDatabase /> {datasource.name}
-          </label>
-        </div>
+      <SchemaBrowserWrapper datasourceName={datasource.name}>
         <div className="alert alert-info d-flex align-items-center">
           We&apos;re generating the information schema for this datasource. This
-          may take up to a minute.
+          may take a minute, depending on the size of the datasource.
           <Button
             color="link"
             onClick={async () => {
@@ -161,16 +170,13 @@ export default function SchemaBrowser({
             Refresh
           </Button>
         </div>
-      </div>
+      </SchemaBrowserWrapper>
     );
   }
 
   return (
-    <div className="d-flex flex-column">
-      <div>
-        <label className="font-weight-bold mb-1">
-          <FaDatabase /> {datasource.name}
-        </label>
+    <>
+      <SchemaBrowserWrapper datasourceName={datasource.name}>
         {!informationSchema || !informationSchema.databases.length ? (
           <div>
             <div className="alert alert-info">
@@ -188,21 +194,19 @@ export default function SchemaBrowser({
                       message?: string;
                     }>(`/datasource/${datasource.id}/informationSchema`, {
                       method: "POST",
-                      body: JSON.stringify({
-                        informationSchemaId: informationSchema?.id || "",
-                      }),
                     });
                     setPending(true);
                     mutate();
                   } catch (e) {
                     mutate();
-                    //MKTODO: Should we catch the error and surface it?
+                    setError(e.message);
                   }
                 }}
               >
                 Generate Information Schema
               </Button>
             </div>
+            {error && <div className="alert alert-danger">{error}</div>}
           </div>
         ) : (
           <>
@@ -296,8 +300,8 @@ export default function SchemaBrowser({
             </div>
           </>
         )}
-      </div>
+      </SchemaBrowserWrapper>
       <DatasourceTableData table={currentTable} loading={loading} />
-    </div>
+    </>
   );
 }
