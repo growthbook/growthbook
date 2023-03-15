@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Toggle from "@/components/Forms/Toggle";
 import {
   EventWebHookEditParams,
   eventWebHookEventOptions,
@@ -36,6 +37,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             name: "",
             events: [],
             url: "",
+            enabled: true,
           },
   });
 
@@ -53,6 +55,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
     const schema = z.object({
       url: z.string().url(),
       name: z.string().trim().min(2),
+      enabled: z.boolean(),
       events: z.array(z.enum(notificationEventNames)).min(1),
     });
 
@@ -118,6 +121,20 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           handleFormValidation();
         }}
       />
+
+      <div className="form-group">
+        <Toggle
+          id="EventWebHookAddModal-enabled"
+          value={form.watch("enabled")}
+          setValue={(value) => {
+            form.setValue("enabled", value);
+            handleFormValidation();
+          }}
+        />
+        <label htmlFor="EventWebHookAddModal-enabled">
+          Enable the webhook?
+        </label>
+      </div>
     </Modal>
   );
 };
