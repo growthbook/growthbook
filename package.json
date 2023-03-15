@@ -6,6 +6,7 @@
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
+    "dead-code-check": "wsrun -m dead-code-check",
     "test": "wsrun -m test",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && wsrun -p '*-end' -m dev",
     "build": "wsrun -p '*-end' -m build",
@@ -39,6 +40,7 @@
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^2.2.1",
+    "ts-unused-exports": "^9.0.4",
     "typescript": "4.7.4"
   },
   "lint-staged": {
