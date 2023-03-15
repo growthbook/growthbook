@@ -22,6 +22,8 @@ import usePermissions from "@/hooks/usePermissions";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
+import Toggle from "@/components/Forms/Toggle";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -40,6 +42,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     apiKeys,
     accountPlan,
     license,
+    hasCommercialFeature,
   } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
@@ -47,6 +50,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
 
   const permissions = usePermissions();
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -94,6 +100,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
       statsEngine: "bayesian",
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentDays: 14,
     },
   });
   const { apiCall } = useAuth();
@@ -118,6 +126,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
     pValueThreshold: form.watch("pValueThreshold"),
+    regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
+    regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -219,6 +229,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "#B39F01"
       : "";
 
+  const regressionAdjustmentDaysHighlightColor =
+    value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
+      ? "#e27202"
+      : "";
+
   const warningMsg =
     value.confidenceLevel === 70
       ? "This is as low as it goes"
@@ -243,6 +258,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Use caution with values above 0.1"
       : value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
+
+  const regressionAdjustmentDaysWarningMsg =
+    value.regressionAdjustmentDays > 28
+      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+      : value.regressionAdjustmentDays < 7
+      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
   if (!permissions.organizationSettings) {
@@ -648,6 +670,73 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
                   </div>
                 </div>
+
+                <div className="p-3 my-3 border rounded">
+                  <h5 className="font-weight-bold mb-1">
+                    <PremiumTooltip commercialFeature="regression-adjustment">
+                      Regression Adjustment (CUPED)
+                    </PremiumTooltip>
+                  </h5>
+                  <small className="d-inline-block mb-4 text-muted">
+                    Only applicable to Frequentist analyses
+                  </small>
+                  <div className="form-group mb-3 mr-2 form-inline">
+                    <label
+                      className="mr-1"
+                      htmlFor="toggle-regressionAdjustmentEnabled"
+                    >
+                      Enable Regression Adjustment
+                    </label>
+                    <Toggle
+                      id={"toggle-regressionAdjustmentEnabled"}
+                      value={!!form.watch("regressionAdjustmentEnabled")}
+                      setValue={(value) => {
+                        form.setValue("regressionAdjustmentEnabled", value);
+                      }}
+                      disabled={
+                        !hasRegressionAdjustmentFeature || hasFileConfig()
+                      }
+                    />
+                  </div>
+                  <div className="form-group mb-0 mr-2 form-inline">
+                    <Field
+                      label="Pre-exposure lookback period (days)"
+                      type="number"
+                      style={{
+                        borderColor: regressionAdjustmentDaysHighlightColor,
+                        backgroundColor: regressionAdjustmentDaysHighlightColor
+                          ? regressionAdjustmentDaysHighlightColor + "15"
+                          : "",
+                      }}
+                      className={`ml-2`}
+                      containerClassName="mb-2"
+                      append="days"
+                      min="0"
+                      max="100"
+                      disabled={
+                        !hasRegressionAdjustmentFeature || hasFileConfig()
+                      }
+                      helpText={
+                        <>
+                          <span className="ml-2">(14 is default)</span>
+                        </>
+                      }
+                      {...form.register("regressionAdjustmentDays", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                    {regressionAdjustmentDaysWarningMsg && (
+                      <small
+                        style={{
+                          color: regressionAdjustmentDaysHighlightColor,
+                        }}
+                      >
+                        {regressionAdjustmentDaysWarningMsg}
+                      </small>
+                    )}
+                  </div>
+                </div>
+
                 <div className="form-check mb-2 mt-2">
                   <input
                     type="checkbox"
