@@ -45,6 +45,7 @@ const informationSchemaTablesSchema = new mongoose.Schema({
       },
     },
   },
+  refreshMS: Number,
   dateCreated: Date,
   dateUpdated: Date,
 });
@@ -110,12 +111,12 @@ export async function getTableDataByPath(
   });
 
   if (table) {
-    // The table exits in the informationSchemaTables collection, so we just need to return it
+    // The table exists in the informationSchemaTables collection, so just return it
     return toInterface(table);
   }
 
   // Otherwise, we need to fetch table data from the datasource
-  const tableData = await fetchTableData(
+  const { tableData, refreshMS } = await fetchTableData(
     databaseName,
     schemaName,
     tableName,
@@ -145,6 +146,7 @@ export async function getTableDataByPath(
         };
       }
     ),
+    refreshMS,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     datasourceId: datasource.id,

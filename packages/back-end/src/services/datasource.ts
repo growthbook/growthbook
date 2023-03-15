@@ -116,16 +116,20 @@ export async function fetchTableData(
   tableSchema: string,
   tableName: string,
   datasource: DataSourceInterface
-): Promise<unknown[] | null> {
+): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
   const integration = getSourceIntegrationObject(datasource);
 
-  const tableData = await integration.getTableData(
+  if (!integration.getTableData) {
+    throw new Error("Table data not supported for this data source");
+  }
+
+  const { tableData, refreshMS } = await integration.getTableData(
     databaseName,
     tableSchema,
     tableName
   );
 
-  return tableData;
+  return { tableData, refreshMS };
 }
 
 export async function generateInformationSchema(

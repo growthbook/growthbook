@@ -42,7 +42,6 @@ export async function getTableData(
     datasource?.projects?.length ? datasource.projects : ""
   );
 
-  //MKTODO: Should this be a job, instead?
   try {
     const table = await getTableDataByPath(
       org.id,

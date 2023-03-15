@@ -124,7 +124,7 @@ export default class BigQuery extends SqlIntegration {
     databaseName: string,
     tableSchema: string,
     tableName: string
-  ): Promise<null | unknown[]> {
+  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
     const sql = `SELECT
           data_type,
           column_name
@@ -137,6 +137,10 @@ export default class BigQuery extends SqlIntegration {
           table_schema
         IN ('${tableSchema}')`;
 
-    return (await this.runQuery(sql)) || null;
+    const queryStartTime = Date.now();
+    const tableData = await this.runQuery(sql);
+    const queryEndTime = Date.now();
+
+    return { tableData, refreshMS: queryEndTime - queryStartTime };
   }
 }

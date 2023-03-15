@@ -57,14 +57,4 @@ export default class Mssql extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
   }
-  async getTableData(
-    /* eslint-disable */
-    databaseName: string,
-    schemaName: string,
-    tableName: string
-    /* eslint-enable */
-  ): Promise<null | unknown[]> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
 }

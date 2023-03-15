@@ -31,14 +31,4 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
-  async getTableData(
-    /* eslint-disable */
-    databaseName: string,
-    schemaName: string,
-    tableName: string
-    /* eslint-enable */
-  ): Promise<null | unknown[]> {
-    // This functionality is not yet supported with this datasource.
-    return null;
-  }
 }

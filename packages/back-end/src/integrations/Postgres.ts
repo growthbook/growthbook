@@ -64,7 +64,7 @@ export default class Postgres extends SqlIntegration {
     databaseName: string,
     tableSchema: string,
     tableName: string
-  ): Promise<null | unknown[]> {
+  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
     const sql = `SELECT
         data_type,
         column_name
@@ -80,6 +80,10 @@ export default class Postgres extends SqlIntegration {
         table_name
       IN ('${tableName}')`;
 
-    return (await this.runQuery(sql)) || null;
+    const queryStartTime = Date.now();
+    const tableData = await this.runQuery(sql);
+    const queryEndTime = Date.now();
+
+    return { tableData, refreshMS: queryEndTime - queryStartTime };
   }
 }

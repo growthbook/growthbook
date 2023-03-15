@@ -214,6 +214,7 @@ export interface InformationSchemaTablesInterface {
   tableSchema: string;
   databaseName: string;
   columns: Column[];
+  refreshMS: number;
   dateCreated: Date;
   dateUpdated: Date;
 }
@@ -242,11 +243,11 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  getTableData(
+  getTableData?(
     databaseName: string,
     tableSchema: string,
     tableName: string
-  ): Promise<null | unknown[]>;
+  ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
