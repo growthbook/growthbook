@@ -1,77 +1,29 @@
-import {
-  DomChange,
-  ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
-import stringify from "json-stringify-pretty-compact";
-import { useState } from "react";
-import { FaCaretDown, FaCaretRight, FaCode } from "react-icons/fa";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import usePermissions from "@/hooks/usePermissions";
-import Code from "../SyntaxHighlighting/Code";
 import OpenVisualEditorLink from "../OpenVisualEditorLink";
 
 export default function VisualChanges({
-  dom,
-  css,
-  control = false,
-  experiment,
-  openSettings,
+  changeIndex,
+  visualChangeset,
 }: {
-  dom: DomChange[];
-  css: string;
-  control?: boolean;
-  experiment: ExperimentInterfaceStringDates;
-  openSettings?: () => void;
+  changeIndex: number;
+  visualChangeset: VisualChangesetInterface;
 }) {
   const permissions = usePermissions();
+  const isControl = changeIndex === 0;
+  const visualChanges = visualChangeset.visualChanges[changeIndex];
+  const changeCount =
+    visualChanges.domMutations.length + (visualChanges.css ? 1 : 0);
 
-  const [open, setOpen] = useState(false);
-
-  const hasCode = dom.length > 0 || css.length > 0;
-
-  if (!hasCode && permissions.check("createAnalyses", "")) {
-    return control ? null : (
+  if (permissions.check("createAnalyses", "")) {
+    return isControl ? null : (
       <div className="my-2">
         <OpenVisualEditorLink
-          visualEditorUrl={experiment.visualEditorUrl}
-          experimentId={experiment.id}
-          openSettings={openSettings}
+          id={visualChangeset.id}
+          visualEditorUrl={visualChangeset.editorUrl}
         />
+        <div style={{ fontSize: "0.75rem" }}>{changeCount} changes</div>
       </div>
     );
   }
-
-  return (
-    <div className="my-2">
-      <a
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(!open);
-        }}
-      >
-        <FaCode /> {open ? "hide code" : "show code"}
-        {open ? <FaCaretDown /> : <FaCaretRight />}
-      </a>
-      {open && (
-        <div style={{ marginTop: -8 }}>
-          <Code
-            language="json"
-            code={stringify(
-              {
-                mutations: dom.map((d) => [
-                  d.selector,
-                  d.action + " " + d.attribute,
-                  d.value,
-                ]),
-                css: css || "",
-              },
-              {
-                maxLength: 50,
-              }
-            )}
-          />
-        </div>
-      )}
-    </div>
-  );
 }

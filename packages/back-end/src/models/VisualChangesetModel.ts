@@ -1,6 +1,7 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { ExperimentInterface } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import {
   VisualChange,
@@ -188,24 +189,31 @@ export async function updateVisualChange({
   );
 }
 
+// TODO On creating a variation, we need to create a visual change for each
 export const createVisualChangeset = async ({
   experiment,
   organization,
   urlPatterns,
   editorUrl,
 }: {
-  experiment: string;
+  experiment: ExperimentInterface;
   organization: string;
   urlPatterns: string[];
   editorUrl: string;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = await VisualChangesetModel.create({
     id: uniqid("vcs_"),
-    experiment,
+    experiment: experiment.id,
     organization,
     urlPatterns,
     editorUrl,
-    visualChanges: [],
+    visualChanges: experiment.variations.map((variation) => ({
+      id: uniqid("vc_"),
+      variation: variation.id,
+      description: "",
+      css: "",
+      domMutations: [],
+    })),
   });
   return visualChangeset;
 };

@@ -1900,9 +1900,9 @@ export async function postVisualChangeset(
   }
 
   const visualChangeset = await createVisualChangeset({
+    experiment,
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
-    experiment: experiment.id,
     organization: org.id,
   });
 

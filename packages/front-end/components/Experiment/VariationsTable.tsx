@@ -24,14 +24,14 @@ const NewVisualChangesetModal: FC<{
   onClose: () => void;
   onSubmit: (args: { editorUrl: string; urlPatterns: string[] }) => void;
 }> = ({ onClose, onSubmit }) => {
-  const [editorUrl, setEditorUrl] = useState("");
-  const [urlPatterns, setUrlPatterns] = useState([""]);
-  const setUrlPattern = (p, i) => {
+  const [editorUrl, setEditorUrl] = useState<string>("");
+  const [urlPatterns, setUrlPatterns] = useState<string[]>([""]);
+  const setUrlPattern = (p: string, i: number) => {
     const newUrlPatterns = [...urlPatterns];
     newUrlPatterns[i] = p;
     setUrlPatterns(newUrlPatterns);
   };
-  const removeUrlPattern = (i) => {
+  const removeUrlPattern = (i: number) => {
     const newUrlPatterns = [...urlPatterns];
     newUrlPatterns.splice(i, 1);
     setUrlPatterns(newUrlPatterns);
@@ -247,13 +247,9 @@ const VariationsTable: FC<Props> = ({
               <strong>Visual Changes</strong>
             </td>
 
-            {variations.map((v, j) => (
+            {vc.visualChanges.map((_v, j) => (
               <td key={j}>
-                <VisualChanges
-                  css={vc.visualChanges[j]?.css ?? ""}
-                  dom={vc.visualChanges[j]?.domMutations ?? []}
-                  experiment={experiment}
-                />
+                <VisualChanges changeIndex={j} visualChangeset={vc} />
               </td>
             ))}
           </tr>

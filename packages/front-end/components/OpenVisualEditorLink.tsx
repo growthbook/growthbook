@@ -4,9 +4,9 @@ import Modal from "./Modal";
 
 const OpenVisualEditorLink: FC<{
   visualEditorUrl?: string;
-  experimentId: string;
+  id: string;
   openSettings?: () => void;
-}> = ({ experimentId, visualEditorUrl, openSettings }) => {
+}> = ({ id, visualEditorUrl, openSettings }) => {
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
@@ -34,18 +34,18 @@ const OpenVisualEditorLink: FC<{
 
     const queryParams = {
       ...parsed,
-      "vc-id": experimentId,
+      "vc-id": id,
     };
 
     const root = visualEditorUrl.split("?")[0];
 
     window.location.href = `${root}?${qs.stringify(queryParams)}`;
-  }, [visualEditorUrl, experimentId]);
+  }, [visualEditorUrl, id]);
 
   return (
     <>
       <a className="d-none d-md-inline cursor-pointer" onClick={onClick}>
-        Preview
+        Preview / Edit
       </a>
 
       {showEditorUrlDialog && openSettings && (
