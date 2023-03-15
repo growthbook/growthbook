@@ -13,6 +13,15 @@
     "aggregation": "COUNT(*)"
   },
   {
+    "id": "nonbinomcustom__purchased_items_regressionadjusted",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders",
+    "aggregation": "COUNT(*)",
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
     "id": "nonbinom_null__purchased_value",
     "type": "count",
     "ignoreNulls": false,

@@ -1092,6 +1092,7 @@ export default abstract class SqlIntegration
         ${
           isRegressionAdjusted
             ? `,
+            '${metric.type}' as covariate_metric_type,
             SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
             SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
             SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
@@ -1262,7 +1263,7 @@ export default abstract class SqlIntegration
     }`;
 
     if (isRegressionAdjusted) {
-      return `(${conversionWindowFilter}) OR (m.timestamp <= ${userAlias}.preexposure_start AND m.timestamp >= ${userAlias}.preexposure_end)`;
+      return `(${conversionWindowFilter}) OR (m.timestamp >= ${userAlias}.preexposure_start AND m.timestamp < ${userAlias}.preexposure_end)`;
     }
     return conversionWindowFilter;
   }
