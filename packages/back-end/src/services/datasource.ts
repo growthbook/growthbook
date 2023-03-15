@@ -164,7 +164,7 @@ export async function testQuery(
 export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
-): Promise<string> {
+): Promise<void> {
   // Create an empty informationSchema
   const informationSchema = await createInformationSchema(
     [],
@@ -186,6 +186,4 @@ export async function initializeDatasourceInformationSchema(
     databases: await generateInformationSchema(datasource),
     status: "COMPLETE",
   });
-
-  return informationSchema.id;
 }
