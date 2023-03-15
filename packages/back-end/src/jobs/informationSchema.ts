@@ -26,7 +26,8 @@ export default function (ag: Agenda) {
 
       const datasource = await getDataSourceById(datasourceId, organization);
 
-      if (datasource?.type !== ("bigquery" || "postgres")) return;
+      if (datasource?.type !== "postgres" && datasource?.type !== "bigquery")
+        return;
 
       try {
         await initializeDatasourceInformationSchema(datasource, organization);
