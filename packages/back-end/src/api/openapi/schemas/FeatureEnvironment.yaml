@@ -1,5 +1,5 @@
 type: object
-required: 
+required:
   - enabled
   - defaultValue
   - rules
@@ -13,7 +13,8 @@ properties:
     items:
       $ref: "./FeatureRule.yaml"
   definition:
-    $ref: "./FeatureDefinition.yaml"
+    type: string
+    description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
   draft:
     type: object
     required:
@@ -30,4 +31,5 @@ properties:
         items:
           $ref: "./FeatureRule.yaml"
       definition:
-        $ref: "./FeatureDefinition.yaml"
+        type: string
+        description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
