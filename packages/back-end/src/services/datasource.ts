@@ -134,7 +134,10 @@ export async function fetchTableData(
 
 export async function generateInformationSchema(
   datasource: DataSourceInterface
-): Promise<InformationSchema[]> {
+): Promise<{
+  informationSchema: InformationSchema[];
+  refreshMS: number;
+}> {
   const integration = getSourceIntegrationObject(datasource);
 
   if (!integration.getInformationSchema) {
@@ -186,9 +189,9 @@ export async function testQuery(
 export async function initializeDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string
-): Promise<string> {
+): Promise<void> {
   // Create an empty informationSchema
-  const informationSchema = await createInformationSchema(
+  const emptyInformationSchema = await createInformationSchema(
     [],
     organization,
     datasource.id
@@ -198,18 +201,21 @@ export async function initializeDatasourceInformationSchema(
   await updateDataSource(datasource.id, organization, {
     settings: {
       ...datasource.settings,
-      informationSchemaId: informationSchema.id,
+      informationSchemaId: emptyInformationSchema.id,
     },
   });
 
-  // Update the empty informationSchema record with the actual informationSchema
-  await updateInformationSchemaById(organization, informationSchema.id, {
-    ...informationSchema,
-    databases: await generateInformationSchema(datasource),
-    status: "COMPLETE",
-  });
+  const { informationSchema, refreshMS } = await generateInformationSchema(
+    datasource
+  );
 
-  return informationSchema.id;
+  // Update the empty informationSchema record with the actual informationSchema
+  await updateInformationSchemaById(organization, emptyInformationSchema.id, {
+    ...emptyInformationSchema,
+    databases: informationSchema,
+    status: "COMPLETE",
+    refreshMS,
+  });
 }
 
 export async function updateDatasourceInformationSchema(
@@ -224,12 +230,18 @@ export async function updateDatasourceInformationSchema(
     error: undefined,
   });
 
+  const {
+    informationSchema: updatedInformationSchema,
+    refreshMS,
+  } = await generateInformationSchema(datasource);
+
   // Update the empty informationSchema record with the actual informationSchema
   await updateInformationSchemaById(organization, informationSchema.id, {
     ...informationSchema,
-    databases: await generateInformationSchema(datasource),
+    databases: updatedInformationSchema,
     status: "COMPLETE",
     error: undefined,
+    refreshMS,
   });
 
   return informationSchema.id;

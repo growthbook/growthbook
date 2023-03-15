@@ -81,7 +81,10 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(): Promise<InformationSchema[]> {
+  async getInformationSchema(): Promise<{
+    informationSchema: InformationSchema[];
+    refreshMS: number;
+  }> {
     const projectId = this.params.projectId;
 
     if (!projectId) throw new Error("No project id found");
@@ -109,7 +112,9 @@ export default class BigQuery extends SqlIntegration {
 
     const queryString = query.join(" UNION ALL ");
 
+    const queryStartTime = Date.now();
     const results = await this.runQuery(queryString);
+    const queryEndTime = Date.now();
 
     for (const result of results) {
       combinedResults.push(result);
@@ -117,7 +122,10 @@ export default class BigQuery extends SqlIntegration {
 
     if (!combinedResults.length) throw new Error("No information schema found");
 
-    return formatInformationSchema(combinedResults, "bigquery");
+    return {
+      informationSchema: formatInformationSchema(combinedResults, "bigquery"),
+      refreshMS: queryEndTime - queryStartTime,
+    };
   }
 
   async getTableData(

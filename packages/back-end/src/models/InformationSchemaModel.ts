@@ -62,6 +62,7 @@ const informationSchema = new mongoose.Schema({
   },
   status: String,
   error: String,
+  refreshMS: Number,
   dateCreated: Date,
   dateUpdated: Date,
 });

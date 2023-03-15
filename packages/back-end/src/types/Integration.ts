@@ -202,6 +202,7 @@ export interface InformationSchemaInterface {
   organization: string;
   status: "PENDING" | "COMPLETE";
   error?: string;
+  refreshMS: number;
   dateCreated: Date;
   dateUpdated: Date;
 }
@@ -248,7 +249,10 @@ export interface SourceIntegrationInterface {
     tableSchema: string,
     tableName: string
   ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
-  getInformationSchema?(): Promise<InformationSchema[]>;
+  getInformationSchema?(): Promise<{
+    informationSchema: InformationSchema[];
+    refreshMS: number;
+  }>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
