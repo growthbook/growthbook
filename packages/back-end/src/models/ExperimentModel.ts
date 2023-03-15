@@ -835,17 +835,16 @@ export const getAllVisualExperiments = async (
     })
   )
     // exclude experiments that are stopped and don't have a released variation
-    .filter((e) => e.status !== "stopped" || e.releasedVariationId !== null)
-    // If the experiment is stopped and the released variation doesn’t have any visual changes, it should be excluded
-    .filter(
-      (e) =>
-        e.status !== "stopped" ||
-        visualChangesByExperimentId[e.id].some(
-          (vc) =>
-            vc.variation === e.releasedVariationId &&
-            (!!vc.css || !!vc.domMutations.length)
-        )
-    );
+    // exclude experiments that are stopped and the released variation doesn’t have any visual changes
+    .filter((e) => {
+      if (e.status !== "stopped") return true;
+      if (!e.releasedVariationId) return false;
+      return visualChangesByExperimentId[e.id].some(
+        (vc) =>
+          vc.variation === e.releasedVariationId &&
+          (!!vc.css || !!vc.domMutations.length)
+      );
+    });
 
   const visualExperiments: Array<
     Partial<VisualExperiment>
