@@ -8,7 +8,7 @@ import {
   updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
 
-const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
+const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
 type UpdateInformationSchemaJob = Job<{
   datasourceId: string;
   organization: string;
