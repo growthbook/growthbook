@@ -9,7 +9,7 @@ import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import Tag from "@/components/Tags/Tag";
+import Badge from "@/components/Badge";
 import { EventWebHookEditParams, useIconForState } from "../utils";
 import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
@@ -159,9 +159,9 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           <div className="col-xs-12 col-md-6">
             <div className="mt-2">
               {eventWebHook.enabled ? (
-                <Tag tag="Webhook enabled" color="#28a745" />
+                <Badge className="badge-green" content="Webhook enabled" />
               ) : (
-                <Tag tag="Webhook disabled" color="#dc3545" />
+                <Badge className="badge-red" content="Webhook disabled" />
               )}
             </div>
           </div>
