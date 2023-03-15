@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { ApiSDKConnectionInterface } from "../../types/api";
+import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -369,7 +369,7 @@ export async function testProxyConnection(
 
 export function toApiSDKConnectionInterface(
   connection: SDKConnectionInterface
-): ApiSDKConnectionInterface {
+): ApiSdkConnection {
   return {
     id: connection.id,
     name: connection.name,

@@ -5,14 +5,10 @@ import SortableVariationsList from "../Features/SortableVariationsList";
 import { SortableExperimentVariationCard } from "./SortableVariationData";
 
 export interface Props {
-  variations: SortableExperimentVariation[];
-  setVariations?: (variations: SortableExperimentVariation[]) => void;
+  variations: Variation[];
+  setVariations?: (variations: Variation[]) => void;
   className?: string;
 }
-
-export type SortableExperimentVariation = Variation & {
-  id: string;
-};
 
 export default function ExperimentVariationsInput({
   variations,
@@ -57,8 +53,7 @@ export default function ExperimentVariationsInput({
                 newVariations.push({
                   name: `Variation ${variations.length}`,
                   description: "",
-                  key: "",
-                  value: "",
+                  key: variations.length + "",
                   screenshots: [],
                   id: generateVariationId(),
                 });

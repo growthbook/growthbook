@@ -60,6 +60,79 @@ module.exports = function (plop) {
     ],
   });
 
+  plop.setGenerator("api-object", {
+    description: "[back-end] Generate REST API list and get endpoints",
+    prompts: [
+      {
+        type: "input",
+        name: "object",
+        message:
+          "The singular name of the API object (e.g. 'metric' or 'data source')",
+      },
+    ],
+    actions: [
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/{{kebabCase object}}s.router.ts",
+        templateFile: "./plop-templates/back-end/api/router.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/list{{pascalCase object}}s.ts",
+        templateFile: "./plop-templates/back-end/api/list.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/get{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/get.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/list{{pascalCase object}}s.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_list.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/get{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
+      },
+      {
+        type: "append",
+        path: "./packages/back-end/src/api/openapi/schemas/_index.yaml",
+        template: `
+{{pascalCase object}}:
+  $ref: './{{pascalCase object}}.yaml'
+`.trim(),
+      },
+      {
+        type: "append",
+        path: "./packages/back-end/src/api/openapi/openapi.yaml",
+        pattern: /PLOP_INSERT_PATHS_HERE/,
+        template: `  /{{kebabCase object}}s:
+    $ref: "./paths/list{{pascalCase object}}s.yaml"
+  /{{kebabCase object}}s/{id}:
+    $ref: "./paths/get{{pascalCase object}}.yaml"`,
+      },
+    ],
+  });
+
   plop.setGenerator("next-page", {
     description: "[front-end] Generates a Next.js page",
     prompts: [

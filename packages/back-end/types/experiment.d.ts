@@ -1,3 +1,5 @@
+import { NamespaceValue } from "./feature";
+
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
@@ -16,24 +18,38 @@ export interface Screenshot {
   description?: string;
 }
 
+export interface LegacyVariation extends Variation {
+  /** @deprecated */
+  css?: string;
+  /** @deprecated */
+  dom?: DomChange[];
+}
+
 export interface Variation {
+  id: string;
   name: string;
   description?: string;
-  value?: string;
-  key?: string;
+  key: string;
   screenshots: Screenshot[];
-  css?: string;
-  dom?: DomChange[];
+}
+
+export interface LegacyExperimentPhase extends ExperimentPhase {
+  /** @deprecated */
+  phase?: ExperimentPhaseType;
+  /** @deprecated */
+  groups?: string[];
 }
 
 export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
-  phase: ExperimentPhaseType;
+  name: string;
   reason: string;
   coverage: number;
+  condition: string;
+  namespace: NamespaceValue;
+  seed?: string;
   variationWeights: number[];
-  groups?: string[];
 }
 
 export type ExperimentPhaseStringDates = Omit<
@@ -58,6 +74,17 @@ export type MetricOverride = {
   loseRisk?: number;
 };
 
+export interface LegacyExperimentInterface
+  extends Omit<ExperimentInterface, "phases" | "variations"> {
+  /**
+   * @deprecated
+   */
+  observations?: string;
+
+  variations: LegacyVariation[];
+  phases: LegacyExperimentPhase[];
+}
+
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -71,15 +98,12 @@ export interface ExperimentInterface {
    * @deprecated
    */
   userIdType?: "anonymous" | "user";
+  hashAttribute: string;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
   tags: string[];
   description?: string;
-  /**
-   * @deprecated
-   */
-  observations?: string;
   hypothesis?: string;
   metrics: string[];
   metricOverrides?: MetricOverride[];
@@ -100,7 +124,7 @@ export interface ExperimentInterface {
   results?: ExperimentResultsType;
   winner?: number;
   analysis?: string;
-  data?: string;
+  releasedVariationId: string;
   lastSnapshotAttempt?: Date;
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;

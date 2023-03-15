@@ -8,13 +8,14 @@
     "start": "next start",
     "type-check": "tsc --pretty --noEmit",
     "test": "jest --forceExit --verbose --detectOpenHandles",
+    "type-gen": "growthbook features generate-types --output ./types --profile growthbook",
     "storybook": "BROWSER=none start-storybook -p 6006",
     "build-storybook": "build-storybook"
   },
   "dependencies": {
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
-    "@growthbook/growthbook-react": "^0.12.0",
+    "@growthbook/growthbook-react": "^0.13.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
@@ -53,7 +54,6 @@
     "react": "^18.2.0",
     "react-ace": "^10.1.0",
     "react-beautiful-dnd": "^13.1.0",
-    "react-bootstrap-typeahead": "^6.0.0-rc.3",
     "react-colorful": "^5.3.0",
     "react-diff-viewer": "^3.1.1",
     "react-dom": "^18.2.0",
@@ -70,7 +70,7 @@
     "spectacle": "^8.3.0",
     "swr": "^0.5.4",
     "uniqid": "^5.3.0",
-    "zod": "^3.19.1"
+    "zod": "^3.20.6"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
@@ -83,7 +83,6 @@
     "@types/node": "^16.11.65",
     "@types/prismjs": "^1.26.0",
     "@types/react": "^18.0.15",
-    "@types/react-bootstrap-typeahead": "^5.1.8",
     "@types/react-dom": "^18.0.6",
     "@types/react-paginate": "^7.1.1",
     "@types/react-redux": "^7.1.24",

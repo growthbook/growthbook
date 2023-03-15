@@ -1,51 +1,37 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  Variation,
+} from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
 import Modal from "../Modal";
-import ExperimentVariationsInput, {
-  SortableExperimentVariation,
-} from "./ExperimentVariationsInput";
+import ExperimentVariationsInput from "./ExperimentVariationsInput";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const form = useForm<
-    Partial<
-      Omit<ExperimentInterfaceStringDates, "variations"> & {
-        variations: SortableExperimentVariation[];
-      }
-    >
-  >({
+  const form = useForm<{
+    variations: Variation[];
+  }>({
     defaultValues: {
       variations: experiment.variations
-        ? experiment.variations.map((v) => {
-            return {
-              name: "",
-              description: "",
-              value: "",
-              key: "",
-              ...v,
-              id: generateVariationId(),
-            };
-          })
+        ? experiment.variations
         : [
             {
               name: "Control",
-              value: "",
               description: "",
-              key: "",
+              key: "0",
               screenshots: [],
               id: generateVariationId(),
             },
             {
               name: "Variation",
               description: "",
-              value: "",
-              key: "",
+              key: "1",
               screenshots: [],
               id: generateVariationId(),
             },

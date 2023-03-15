@@ -79,7 +79,7 @@ const PValueColumn: FC<{
       </>
     );
     className = "lost";
-  } else if (belowMinChange && statSig) {
+  } else if (enoughData && belowMinChange && statSig) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
     className += " draw";

@@ -1,5 +1,4 @@
 import uniqid from "uniqid";
-import { FilterQuery } from "mongoose";
 import cronParser from "cron-parser";
 import { updateExperimentById } from "../models/ExperimentModel";
 import {
@@ -21,10 +20,7 @@ import {
   MetricValueResult,
   MetricValueParams,
 } from "../types/Integration";
-import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
-} from "../models/ExperimentSnapshotModel";
+import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   MetricInterface,
   MetricStats,
@@ -40,7 +36,10 @@ import { findDimensionById } from "../models/DimensionModel";
 import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import {
+  DEFAULT_CONVERSION_WINDOW_HOURS,
+  EXPERIMENT_REFRESH_FREQUENCY,
+} from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
@@ -48,6 +47,13 @@ import {
 import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
+import { DataSourceInterface } from "../../types/datasource";
+import {
+  ApiExperiment,
+  ApiMetric,
+  ApiExperimentResults,
+  ApiExperimentMetric,
+} from "../../types/openapi";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -58,30 +64,6 @@ import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
-
-export async function getLatestSnapshot(
-  experiment: string,
-  phase: number,
-  dimension?: string,
-  withResults: boolean = true
-) {
-  const query: FilterQuery<ExperimentSnapshotDocument> = {
-    experiment,
-    phase,
-    dimension: dimension || null,
-  };
-
-  if (withResults) {
-    query.results = { $exists: true, $type: "array", $ne: [] };
-  }
-
-  const all = await ExperimentSnapshotModel.find(query, null, {
-    sort: { dateCreated: -1 },
-    limit: 1,
-  }).exec();
-
-  return all[0];
-}
 
 export async function createMetric(data: Partial<MetricInterface>) {
   const metric = insertMetric({
@@ -347,7 +329,7 @@ export async function createManualSnapshot(
     statsEngine,
   };
 
-  const snapshot = await ExperimentSnapshotModel.create(data);
+  const snapshot = await createExperimentSnapshotModel(data);
 
   return snapshot;
 }
@@ -467,7 +449,7 @@ export async function createSnapshot(
   data.multipleExposures = results?.multipleExposures || 0;
   data.hasCorrectedStats = true;
 
-  const snapshot = await ExperimentSnapshotModel.create(data);
+  const snapshot = await createExperimentSnapshotModel(data);
 
   // TODO: https://linear.app/growthbook/issue/GB-20/[be]-create-events-for-experiment-snapshots-experiment-results
 
@@ -622,4 +604,309 @@ export async function experimentUpdated(
       ? `/js/${key}.js`
       : `/config/${key}`;
   });
+}
+
+function getExperimentMetric(
+  experiment: ExperimentInterface,
+  id: string
+): ApiExperimentMetric {
+  const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+  const ret: ApiExperimentMetric = {
+    metricId: id,
+    overrides: {},
+  };
+
+  if (overrides?.conversionDelayHours) {
+    ret.overrides.conversionWindowStart = overrides.conversionDelayHours;
+  }
+  if (overrides?.conversionWindowHours) {
+    ret.overrides.conversionWindowEnd =
+      overrides.conversionWindowHours + (overrides?.conversionDelayHours || 0);
+  }
+  if (overrides?.winRisk) {
+    ret.overrides.winRiskThreshold = overrides.winRisk;
+  }
+  if (overrides?.loseRisk) {
+    ret.overrides.loseRiskThreshold = overrides.loseRisk;
+  }
+
+  return ret;
+}
+
+export function toExperimentApiInterface(
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): ApiExperiment {
+  const activationMetric = experiment.activationMetric;
+  return {
+    id: experiment.id,
+    name: experiment.name || "",
+    project: experiment.project || "",
+    hypothesis: experiment.hypothesis || "",
+    description: experiment.description || "",
+    tags: experiment.tags || [],
+    owner: experiment.owner || "",
+    dateCreated: experiment.dateCreated.toISOString(),
+    dateUpdated: experiment.dateUpdated.toISOString(),
+    archived: !!experiment.archived,
+    status: experiment.status,
+    autoRefresh: !!experiment.autoSnapshots,
+    hashAttribute: experiment.hashAttribute || "id",
+    variations: experiment.variations.map((v) => ({
+      variationId: v.id,
+      key: v.key,
+      name: v.name || "",
+      description: v.description || "",
+      screenshots: v.screenshots.map((s) => s.path),
+    })),
+    phases: experiment.phases.map((p) => ({
+      name: p.name,
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
+      reasonForStopping: p.reason || "",
+      seed: p.seed || experiment.trackingKey,
+      coverage: p.coverage,
+      trafficSplit: experiment.variations.map((v, i) => ({
+        variationId: v.id,
+        weight: p.variationWeights[i] || 0,
+      })),
+      targetingCondition: p.condition || "",
+      namespace: p.namespace?.enabled
+        ? {
+            namespaceId: p.namespace.name,
+            range: p.namespace.range,
+          }
+        : undefined,
+    })),
+    settings: {
+      datasourceId: experiment.datasource || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: experiment.segment || "",
+      queryFilter: experiment.queryFilter || "",
+      inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
+      multipleVariations: experiment.removeMultipleExposures
+        ? "exclude"
+        : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      statsEngine: organization.settings?.statsEngine || "bayesian",
+      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
+      guardrails: (experiment.guardrails || []).map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      ...(activationMetric
+        ? {
+            activationMetric: getExperimentMetric(experiment, activationMetric),
+          }
+        : null),
+    },
+    ...(experiment.status === "stopped" && experiment.results
+      ? {
+          resultSummary: {
+            status: experiment.results,
+            winner: experiment.variations[experiment.winner ?? 0]?.id || "",
+            conclusions: experiment.analysis || "",
+            releasedVariationId: experiment.releasedVariationId || "",
+          },
+        }
+      : null),
+  };
+}
+
+export function toSnapshotApiInterface(
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface
+): ApiExperimentResults {
+  const dimension = !snapshot.dimension
+    ? {
+        type: "none",
+      }
+    : snapshot.dimension.match(/^exp:/)
+    ? {
+        type: "experiment",
+        id: snapshot.dimension.substring(4),
+      }
+    : snapshot.dimension.match(/^pre:/)
+    ? {
+        type: snapshot.dimension.substring(4),
+      }
+    : {
+        type: "user",
+        id: snapshot.dimension,
+      };
+
+  const phase = experiment.phases[snapshot.phase];
+
+  const metricIds = new Set([
+    ...experiment.metrics,
+    ...(experiment.guardrails || []),
+  ]);
+  if (experiment.activationMetric) {
+    metricIds.add(experiment.activationMetric);
+  }
+
+  const activationMetric = experiment.activationMetric;
+
+  const variationIds = experiment.variations.map((v) => v.id);
+
+  return {
+    id: snapshot.id,
+    dateUpdated: snapshot.dateCreated.toISOString(),
+    experimentId: snapshot.experiment,
+    phase: snapshot.phase + "",
+    dimension: dimension,
+    dateStart: phase?.dateStarted?.toISOString() || "",
+    dateEnd:
+      phase?.dateEnded?.toISOString() ||
+      snapshot.runStarted?.toISOString() ||
+      "",
+    settings: {
+      datasourceId: experiment.datasource || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: snapshot.segment || "",
+      queryFilter: snapshot.queryFilter || "",
+      inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
+      multipleVariations: experiment.removeMultipleExposures
+        ? "exclude"
+        : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      statsEngine: snapshot.statsEngine || "bayesian",
+      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
+      guardrails: (experiment.guardrails || []).map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      ...(activationMetric
+        ? {
+            activationMetric: getExperimentMetric(experiment, activationMetric),
+          }
+        : null),
+    },
+    queryIds: snapshot.queries.map((q) => q.query),
+    results: (snapshot.results || []).map((s) => {
+      return {
+        dimension: s.name,
+        totalUsers: s.variations.reduce((sum, v) => sum + v.users, 0),
+        checks: {
+          srm: s.srm,
+        },
+        metrics: Array.from(metricIds).map((m) => ({
+          metricId: m,
+          variations: s.variations.map((v, i) => {
+            const data = v.metrics[m];
+            return {
+              variationId: variationIds[i],
+              analyses: [
+                {
+                  engine: snapshot.statsEngine || "bayesian",
+                  numerator: data?.value || 0,
+                  denominator: data?.denominator || data?.users || 0,
+                  mean: data?.stats?.mean || 0,
+                  stddev: data?.stats?.stddev || 0,
+                  percentChange: data?.expected || 0,
+                  ciLow: data?.ci?.[0] ?? 0,
+                  ciHigh: data?.ci?.[1] ?? 0,
+                  pValue: data?.pValue || 0,
+                  risk: data?.risk?.[1] || 0,
+                  chanceToBeatControl: data?.chanceToWin || 0,
+                },
+              ],
+            };
+          }),
+        })),
+      };
+    }),
+  };
+}
+
+export function toMetricApiInterface(
+  organization: OrganizationInterface,
+  metric: MetricInterface,
+  datasource: DataSourceInterface | null
+): ApiMetric {
+  const metricDefaults = organization.settings?.metricDefaults;
+
+  let conversionStart = metric.conversionDelayHours || 0;
+  const conversionEnd =
+    conversionStart +
+    (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS);
+  if (!conversionStart && metric.earlyStart) {
+    conversionStart = -0.5;
+  }
+
+  const obj: ApiMetric = {
+    id: metric.id,
+    name: metric.name,
+    description: metric.description || "",
+    dateCreated: metric.dateCreated?.toISOString() || "",
+    dateUpdated: metric.dateUpdated?.toISOString() || "",
+    archived: metric.status === "archived",
+    datasourceId: datasource?.id || "",
+    owner: metric.owner || "",
+    projects: metric.projects || [],
+    tags: metric.tags || [],
+    type: metric.type,
+    behavior: {
+      goal: metric.inverse ? "decrease" : "increase",
+      cap: metric.cap || 0,
+      minPercentChange:
+        metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
+      maxPercentChange:
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
+      minSampleSize:
+        metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
+      riskThresholdDanger: metric.loseRisk ?? 0.0125,
+      riskThresholdSuccess: metric.winRisk ?? 0.0025,
+      conversionWindowStart: conversionStart,
+      conversionWindowEnd: conversionEnd,
+    },
+  };
+
+  if (datasource) {
+    if (datasource.type === "mixpanel") {
+      obj.mixpanel = {
+        eventName: metric.table || "",
+        eventValue: metric.column || "",
+        userAggregation: metric.aggregation || "sum(values)",
+        conditions: (metric.conditions || []).map((c) => ({
+          property: c.column,
+          operator: c.operator,
+          value: c.value,
+        })),
+      };
+    } else if (datasource.type !== "google_analytics") {
+      const identifierTypes = metric.userIdTypes ?? [
+        metric.userIdType ?? "user_id",
+      ];
+      obj.sql = {
+        identifierTypes,
+        // TODO: if builder mode is selected, use that to generate the SQL here
+        conversionSQL: metric.sql || "",
+        userAggregationSQL: metric.aggregation || "SUM(value)",
+        denominatorMetricId: metric.denominator || "",
+      };
+
+      if (metric.queryFormat === "builder") {
+        obj.sql.builder = {
+          identifierTypeColumns: identifierTypes.map((t) => ({
+            identifierType: t,
+            columnName:
+              metric.userIdColumns?.[t] ||
+              (t === "user_id"
+                ? metric.userIdColumn
+                : t === "anonymous_id"
+                ? metric.anonymousIdColumn
+                : t) ||
+              t,
+          })),
+          tableName: metric.table || "",
+          valueColumnName: metric.column || "",
+          timestampColumnName: metric.timestampColumn || "timestamp",
+          conditions: metric.conditions || [],
+        };
+      }
+    }
+  }
+
+  return obj;
 }

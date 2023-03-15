@@ -1,0 +1,48 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - name
+  - languages
+  - environment
+  - project
+  - encryptPayload
+  - encryptionKey
+  - key
+  - proxyEnabled
+  - proxyHost
+  - proxySigningKey
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  name:
+    type: string
+  languages:
+    type: array
+    items:
+      type: string
+  environment:
+    type: string
+  project:
+    type: string
+  encryptPayload:
+    type: boolean
+  encryptionKey:
+    type: string
+  key:
+    type: string
+  proxyEnabled:
+    type: boolean
+  proxyHost:
+    type: string
+  proxySigningKey:
+    type: string
+
+

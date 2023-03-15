@@ -9,7 +9,6 @@ import {
   ensureWatching,
   experimentUpdated,
   getExperimentWatchers,
-  getLatestSnapshot,
   getManualSnapshotData,
   processPastExperiments,
 } from "../services/experiments";
@@ -25,8 +24,11 @@ import {
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
+  deleteSnapshotById,
+  findSnapshotById,
+  updateSnapshot,
+  updateSnapshotsOnPhaseDelete,
+  getLatestSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
@@ -48,7 +50,6 @@ import {
   Variation,
 } from "../../types/experiment";
 import { getMetricById } from "../models/MetricModel";
-import { addGroupsDiff } from "../services/group";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -65,6 +66,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import { logger } from "../util/logger";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -131,11 +133,8 @@ export async function getExperimentsFrequencyMonth(
       dateStarted = e.dateCreated;
     } else {
       e.phases.forEach((p) => {
-        // get the earliest time it was main or ramp:
-        if (p.phase === "main" || p.phase === "ramp") {
-          if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
-            dateStarted = p.dateStarted;
-        }
+        if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
+          dateStarted = p.dateStarted;
       });
     }
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
@@ -313,7 +312,7 @@ export async function getSnapshots(
 
   const ids = idsString.split(",");
 
-  let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];
+  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
   snapshotsPromises = ids.map(async (i) => {
     return await _getSnapshot(org.id, i);
   });
@@ -321,7 +320,7 @@ export async function getSnapshots(
 
   res.status(200).json({
     status: 200,
-    snapshots,
+    snapshots: snapshots.filter((s) => !!s),
   });
   return;
 }
@@ -387,6 +386,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
     trackingKey: expRule.trackingKey || feature.id,
     name: (expRule.trackingKey || feature.id) + " experiment",
     hypothesis: expRule.description || "",
+    hashAttribute: expRule.hashAttribute,
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
@@ -394,6 +394,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name = v.value === "true" ? "On" : "Off";
       }
       return {
+        id: uniqid("var_"),
+        key: i + "",
         name,
         screenshots: [],
         description: v.value,
@@ -401,13 +403,20 @@ const getExperimentDefinitionFromFeatureAndRule = (
     }),
     phases: [
       {
+        name: "Main",
+        seed: expRule.trackingKey || feature.id,
         coverage: totalPercent,
         variationWeights: expRule.values.map((v) =>
           totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
         ),
-        phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        condition: expRule.condition || "",
+        namespace: expRule.namespace || {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        },
       },
     ],
   };
@@ -415,10 +424,17 @@ const getExperimentDefinitionFromFeatureAndRule = (
 };
 
 const validateVariationIds = (variations: Variation[]) => {
-  const ids = variations.map((v, i) => v.key || i + "");
-
-  if (ids.length !== new Set(ids).size) {
-    throw new Error("Variation ids must be unique");
+  variations.forEach((variation, i) => {
+    if (!variation.id) {
+      variation.id = uniqid("var_");
+    }
+    if (!variation.key) {
+      variation.key = i + "";
+    }
+  });
+  const keys = variations.map((v) => v.key);
+  if (keys.length !== new Set(keys).size) {
+    throw new Error("Variation keys must be unique");
   }
 };
 
@@ -480,11 +496,16 @@ export async function postExperiments(
     }
   }
 
-  const obj: Partial<ExperimentInterface> = {
+  const obj: Omit<ExperimentInterface, "id"> = {
     organization: data.organization,
+    archived: false,
+    hashAttribute: data.hashAttribute || "",
+    autoSnapshots: true,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
     project: data.project,
     owner: data.owner || userId,
-    trackingKey: data.trackingKey || undefined,
+    trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
@@ -507,15 +528,15 @@ export async function postExperiments(
     status: data.status || "draft",
     results: data.results || undefined,
     analysis: data.analysis || "",
+    releasedVariationId: "",
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
-    data: data.data || "",
     ideaSource: data.ideaSource || "",
   };
 
   try {
-    validateVariationIds(obj.variations || []);
+    validateVariationIds(obj.variations);
 
     // Make sure id is unique
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
@@ -651,6 +672,7 @@ export async function postExperiment(
     "datasource",
     "exposureQueryId",
     "userIdType",
+    "hashAttribute",
     "name",
     "tags",
     "description",
@@ -673,12 +695,13 @@ export async function postExperiment(
     "autoAssign",
     "previewURL",
     "targetURLRegex",
-    "data",
+    "releasedVariationId",
     "autoSnapshots",
     "project",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
+
   keys.forEach((key) => {
     if (!(key in data)) {
       return;
@@ -927,7 +950,14 @@ export async function postExperimentStop(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { reason, results, analysis, winner, dateEnded } = req.body;
+  const {
+    reason,
+    results,
+    analysis,
+    winner,
+    dateEnded,
+    releasedVariationId,
+  } = req.body;
 
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
@@ -971,6 +1001,7 @@ export async function postExperimentStop(
   changes.winner = winner;
   changes.results = results;
   changes.analysis = analysis;
+  changes.releasedVariationId = releasedVariationId;
 
   try {
     const updated = await updateExperimentById(org.id, experiment, changes);
@@ -1036,28 +1067,7 @@ export async function deleteExperimentPhase(
   }
   const updated = await updateExperimentById(org.id, experiment, changes);
 
-  // Delete all snapshots for the phase
-  await ExperimentSnapshotModel.deleteMany({
-    organization: org.id,
-    experiment: id,
-    phase: phaseIndex,
-  });
-
-  // Decrement the phase index for all later phases
-  await ExperimentSnapshotModel.updateMany(
-    {
-      organization: org.id,
-      experiment: id,
-      phase: {
-        $gt: phaseIndex,
-      },
-    },
-    {
-      $inc: {
-        phase: -1,
-      },
-    }
-  );
+  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
   // Add audit entry
   await req.audit({
@@ -1187,8 +1197,6 @@ export async function postExperimentPhase(
   try {
     changes.phases = phases;
     const updated = await updateExperimentById(org.id, experiment, changes);
-
-    await addGroupsDiff(org.id, [], data.groups || []);
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -1332,7 +1340,7 @@ export async function getSnapshotStatus(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({ id });
+  const snapshot = await findSnapshotById(org.id, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1361,23 +1369,16 @@ export async function getSnapshotStatus(
         org.settings?.statsEngine
       ),
     async (updates, results, error) => {
-      await ExperimentSnapshotModel.updateOne(
-        {
-          id,
-        },
-        {
-          $set: {
-            ...updates,
-            hasCorrectedStats: true,
-            unknownVariations:
-              results?.unknownVariations || snapshot.unknownVariations || [],
-            multipleExposures:
-              results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-            results: results?.dimensions || snapshot.results,
-            error,
-          },
-        }
-      );
+      await updateSnapshot(org.id, id, {
+        ...updates,
+        hasCorrectedStats: true,
+        unknownVariations:
+          results?.unknownVariations || snapshot.unknownVariations || [],
+        multipleExposures:
+          results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
+        results: results?.dimensions || snapshot.results,
+        error,
+      });
     },
     snapshot.error
   );
@@ -1391,10 +1392,7 @@ export async function cancelSnapshot(
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const snapshot = await findSnapshotById(org.id, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1403,9 +1401,7 @@ export async function cancelSnapshot(
   }
   res.status(200).json(
     await cancelRun(snapshot, org.id, async () => {
-      await ExperimentSnapshotModel.deleteOne({
-        id,
-      });
+      await deleteSnapshotById(org.id, id);
     })
   );
 }

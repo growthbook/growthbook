@@ -105,8 +105,10 @@ export function useFeature<T extends JSONValue = any>(
   return feature(id, growthbook);
 }
 
-export function useFeatureIsOn(id: string): boolean {
-  const growthbook = useGrowthBook();
+export function useFeatureIsOn<
+  AppFeatures extends Record<string, any> = Record<string, any>
+>(id: string & keyof AppFeatures): boolean {
+  const growthbook = useGrowthBook<AppFeatures>();
   return growthbook ? growthbook.isOn(id) : false;
 }
 
@@ -120,9 +122,11 @@ export function useFeatureValue<T extends JSONValue = any>(
     : (fallback as WidenPrimitives<T>);
 }
 
-export function useGrowthBook() {
+export function useGrowthBook<
+  AppFeatures extends Record<string, any> = Record<string, any>
+>(): GrowthBook<AppFeatures> | undefined {
   const { growthbook } = React.useContext(GrowthBookContext);
-  return growthbook;
+  return growthbook as GrowthBook<AppFeatures> | undefined;
 }
 
 export function FeaturesReady({

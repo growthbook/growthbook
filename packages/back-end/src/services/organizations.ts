@@ -44,7 +44,14 @@ import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { getDefaultRole } from "../util/organization.util";
+import { SegmentInterface } from "../../types/segment";
+import {
+  createSegment,
+  findSegmentById,
+  updateSegment,
+} from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
+import { LegacyExperimentPhase } from "../../types/experiment";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -652,6 +659,42 @@ export async function importConfig(
       })
     );
   }
+
+  if (config.segments) {
+    await Promise.all(
+      Object.keys(config.segments).map(async (k) => {
+        const s = config.segments?.[k];
+        if (!s) return;
+        k = k.toLowerCase();
+
+        if (s.datasource) {
+          s.datasource = s.datasource.toLowerCase();
+        }
+
+        try {
+          const existing = await findSegmentById(k, organization.id);
+          if (existing) {
+            const updates: Partial<SegmentInterface> = {
+              ...s,
+            };
+            delete updates.organization;
+
+            await updateSegment(k, organization.id, updates);
+          } else {
+            await createSegment({
+              ...s,
+              id: k,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              organization: organization.id,
+            });
+          }
+        } catch (e) {
+          throw new Error(`Segment ${k}: ${e.message}`);
+        }
+      })
+    );
+  }
 }
 
 export async function getEmailFromUserId(userId: string) {
@@ -676,8 +719,9 @@ export async function getExperimentOverrides(
     const groups: string[] = [];
 
     const phase = exp.phases[exp.phases.length - 1];
-    if (phase && phase.groups && phase.groups.length > 0) {
-      groups.push(...phase.groups);
+    const phaseGroups = (phase as LegacyExperimentPhase)?.groups;
+    if (phaseGroups && phaseGroups.length > 0) {
+      groups.push(...phaseGroups);
     }
 
     const override: ExperimentOverride = {

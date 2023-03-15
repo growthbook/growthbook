@@ -1,0 +1,21 @@
+type: object
+required:
+  - description
+  - condition
+  - id
+  - enabled
+  - type
+  - value
+properties:
+  description:
+    type: string
+  condition:
+    type: string
+  id:
+    type: string
+  enabled:
+    type: boolean
+  type:
+    type: string
+  value:
+    type: string

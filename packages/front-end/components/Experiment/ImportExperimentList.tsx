@@ -427,7 +427,7 @@ const ImportExperimentList: FC<{
                               phases: [
                                 {
                                   coverage: 1,
-                                  phase: "main",
+                                  name: "Main",
                                   reason: "",
                                   variationWeights: e.weights,
                                   dateStarted:
@@ -438,6 +438,12 @@ const ImportExperimentList: FC<{
                                     getValidDate(e.endDate)
                                       .toISOString()
                                       .substr(0, 10) + "T23:59:59Z",
+                                  condition: "",
+                                  namespace: {
+                                    enabled: false,
+                                    name: "",
+                                    range: [0, 1],
+                                  },
                                 },
                               ],
                               // Default to stopped if the last data was more than 3 days ago

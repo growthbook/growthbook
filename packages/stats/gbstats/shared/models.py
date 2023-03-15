@@ -27,8 +27,8 @@ class Statistic(ABC):
     def unadjusted_mean(self):
         """
         Return the mean that has no regression adjustments.
-        Defaults to just `mean` for all statistic types besides
-        RegressionAdjustedStatistic
+        Must be over-ridden if regular `mean` function is adjusted,
+        as it is for RegressionAdjustedStatistic
         """
         return self.mean
 

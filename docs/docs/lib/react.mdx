@@ -3,6 +3,7 @@ title: React SDK
 description: GrowthBook SDK for React
 sidebar_label: React
 slug: react
+toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
@@ -492,7 +493,72 @@ class OtherComponent extends React.Component {
 export default withRunExperiment(OtherComponent);
 ```
 
+## TypeScript support
+
+Some hooks are available in type-safe versions. These require you to pass in your generated types as the generic argument.
+
+See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Scrict Typing](/lib/js#strict-typing) for how to use them.
+
+### useGrowthBook&lt;T&gt;()
+
+A type-safe version of the `useGrowthBook()` hook is available. Everywhere you use `useGrowthBook()`, pass the generated features as the generic argument:
+
+```ts
+const growthbook = useGrowthBook<AppFeatures>()
+```
+
+In that case, the hook will return `GrowthBook<AppFeatures> | undefined`.
+
+You can reduce this boilerplate by creating your own hook, e.g.:
+
+```ts
+// ./src/utils/growthbook.ts
+import { useGrowthBook as _useGrowthBook } from "@growthbook/growthbook-react";
+
+export const useGrowthBook = (): GrowthBook<AppFeatures> | undefined =>
+  _useGrowthBook<AppFeatures>();
+```
+
+You can now reference the hook you created instead of the one from the official package:
+
+```ts
+import { useGrowthBook } from "@/src/utils/growthbook"
+
+const growthbook = useGrowthBook();
+
+growthbook?.getFeatureValue(knownKey, defaultValueOfValidType)
+```
+
+### useFeatureIsOn&lt;T&gt;()
+
+The React SDK also provides access to a type-safe `useFeatureIsOn<AppFeatures>()` hook.
+
+```ts
+const isDarkModeOn = useFeatureIsOn<AppFeatures>("dark_mode");
+```
+
+This will only allow you to pass known keys to the hook.
+
+You can reduce the boilerplate for this hook by creating your own and using that instead:
+
+```ts
+// ./src/utils/growthbook.ts
+import { useFeatureIsOn as _useFeatureIsOn } from "@growthbook/growthbook-react";
+
+export const useFeatureIsOn = (id: keyof AppFeatures & string): boolean =>
+  _useFeatureIsOn<AppFeatures>(id);
+```
+
+And then reference the hook you created instead of the one from the official package:
+
+```ts
+import { useFeatureIsOn } from "@/src/utils/growthbook"
+
+const isDarkModeOn = useFeatureIsOn("dark_mode");
+```
+
 ## Examples
 
 - [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
+- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).

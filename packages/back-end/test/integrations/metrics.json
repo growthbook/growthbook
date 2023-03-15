@@ -6,6 +6,13 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
   },
   {
+    "id": "nonbinomcustom__purchased_items",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders",
+    "aggregation": "COUNT(*)"
+  },
+  {
     "id": "nonbinom_null__purchased_value",
     "type": "count",
     "ignoreNulls": false,
@@ -61,5 +68,13 @@
     "ignoreNulls": false,
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
     "denominator": "nonbinom__purchased_items"
+  },
+  {
+    "id": "ratio_nonbinomcustom_nonbinomcustom__purchased_value_over_purchased_items",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "denominator": "nonbinomcustom__purchased_items",
+    "aggregation": "COUNT(*)"
   }
 ]

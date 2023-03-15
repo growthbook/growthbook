@@ -1,0 +1,65 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - archived
+  - description
+  - owner
+  - project
+  - valueType
+  - defaultValue
+  - tags
+  - environments
+  - revision
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  archived: 
+    type: boolean
+  description: 
+    type: string
+  owner: 
+    type: string
+  project: 
+    type: string
+  valueType: 
+    type: string
+    enum:
+      - boolean
+      - string
+      - number
+      - json
+  defaultValue: 
+    type: string
+  tags:
+    type: array
+    items:
+      type: string
+  environments:
+    type: object
+    additionalProperties:
+      $ref: "./FeatureEnvironment.yaml"
+  revision:
+    type: object
+    required:
+      - version
+      - comment
+      - date
+      - publishedBy
+    properties:
+      version:
+        type: integer
+      comment:
+        type: string
+      date:
+        type: string
+        format: date-time
+      publishedBy:
+        type: string

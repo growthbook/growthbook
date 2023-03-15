@@ -237,7 +237,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "stats": stats,
                     }
                 )
@@ -247,7 +247,7 @@ def format_results(df):
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
                         "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_count"],
+                        "denominator": row[f"{prefix}_denominator_sum"],
                         "expected": row[f"{prefix}_expected"],
                         "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
                         "pValue": row[f"{prefix}_p_value"],
@@ -278,7 +278,7 @@ def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statisti
             pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
             post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
             n=row[f"{prefix}_users"],
-            # Theta should be overriden with correct value later, 0 allows for unadjusted mean
+            # Theta should be overriden with correct value later
             theta=0,
         )
     else:

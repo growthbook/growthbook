@@ -85,6 +85,11 @@ const sidebars = {
           id: "guide/GA-universal-analytics",
           label: "Google Analytics (UA)",
         },
+        {
+          type: "doc",
+          id: "guide/google-tag-manager-and-growthbook",
+          label: "Google Tag Manager (GTM)",
+        },
         { type: "doc", id: "guide/mixpanel", label: "Mixpanel" },
         { type: "doc", id: "guide/matomo", label: "Matomo" },
         { type: "doc", id: "guide/bigquery", label: "BigQuery" },
@@ -157,6 +162,19 @@ const sidebars = {
           type: "doc",
           id: "statistics/aggregation",
           label: "Aggregate Data",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Integrations",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "integrations/slack",
+          label: "Slack alerts",
+          className: "pill-new",
         },
       ],
     },

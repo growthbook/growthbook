@@ -152,7 +152,7 @@ export function findGaps(
   const ranges = [
     ...experiments.filter(
       // Exclude the current feature/experiment
-      (e) => e.featureId !== featureId || e.trackingKey !== trackingKey
+      (e) => e.id !== featureId || e.trackingKey !== trackingKey
     ),
     { start: 1, end: 1 },
   ];
@@ -207,7 +207,7 @@ export function getVariationColor(i: number) {
 }
 
 export function generateVariationId() {
-  return uniqid("variation-");
+  return uniqid("var_");
 }
 
 export function useAttributeSchema(showArchived = false) {
@@ -729,6 +729,8 @@ export function getExperimentDefinitionFromFeature(
       }
       return {
         name,
+        key: i + "",
+        id: generateVariationId(),
         screenshots: [],
         description: v.value,
       };
@@ -737,9 +739,12 @@ export function getExperimentDefinitionFromFeature(
       {
         coverage: expRule.coverage || 1,
         variationWeights: expRule.values.map((v) => v.weight),
-        phase: "main",
+        name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        condition: expRule.condition,
+        namespace: expRule.namespace,
+        seed: trackingKey,
       },
     ],
   };

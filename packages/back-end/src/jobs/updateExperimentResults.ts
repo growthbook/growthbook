@@ -7,15 +7,11 @@ import {
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
-import {
-  createSnapshot,
-  getExperimentWatchers,
-  getLatestSnapshot,
-} from "../services/experiments";
+import { createSnapshot, getExperimentWatchers } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
+  updateSnapshot,
+  getLatestSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
@@ -25,6 +21,7 @@ import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -118,8 +115,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experiment = await getExperimentById(organization, experimentId);
   if (!experiment) return;
 
-  let lastSnapshot: ExperimentSnapshotDocument;
-  let currentSnapshot: ExperimentSnapshotDocument;
+  let lastSnapshot: ExperimentSnapshotInterface | null;
+  let currentSnapshot: ExperimentSnapshotInterface;
 
   try {
     log.info("Start Refreshing Results");
@@ -166,18 +163,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
             );
           },
           async (updates, results, error) => {
-            await ExperimentSnapshotModel.updateOne(
-              { id: currentSnapshot.id },
-              {
-                $set: {
-                  ...updates,
-                  unknownVariations: results?.unknownVariations || [],
-                  multipleExposures: results?.multipleExposures || 0,
-                  results: results?.dimensions || currentSnapshot.results,
-                  error,
-                },
-              }
-            );
+            await updateSnapshot(experiment.organization, currentSnapshot.id, {
+              ...updates,
+              unknownVariations: results?.unknownVariations || [],
+              multipleExposures: results?.multipleExposures || 0,
+              results: results?.dimensions || currentSnapshot.results,
+              error,
+            });
           },
           currentSnapshot.error
         );
@@ -198,7 +190,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     log.info("Success");
 
-    await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    if (lastSnapshot) {
+      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    }
   } catch (e) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
@@ -215,8 +209,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
 async function sendSignificanceEmail(
   experiment: ExperimentInterface,
-  lastSnapshot: ExperimentSnapshotDocument,
-  currentSnapshot: ExperimentSnapshotDocument
+  lastSnapshot: ExperimentSnapshotInterface,
+  currentSnapshot: ExperimentSnapshotInterface
 ) {
   const log = logger.child({
     cron: "sendSignificanceEmail",

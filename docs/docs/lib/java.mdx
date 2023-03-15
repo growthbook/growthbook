@@ -56,7 +56,7 @@ Next, add the dependency with the latest version to your project's dependencies:
 <dependency>
     <groupId>com.github.growthbook</groupId>
     <artifactId>growthbook-sdk-java</artifactId>
-    <version>0.2.2</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
@@ -77,7 +77,7 @@ The GrowthBook context `GBContext` can be created either by implementing the bui
 | `featuresJson`        | `String`               | The features JSON served by the GrowthBook API (or equivalent). See [Features](#features).                                                                                                                                                                                                                                                                     |
 | `enabled`             | `Boolean`              | Whether to enable the functionality of the SDK (default: `true`)                                                                                                                                                                                                                                                                                               |
 | `isQaMode`            | `Boolean`              | Whether the SDK is in QA mode. Not for production use. If true, random assignment is disabled and only explicitly forced variations are used (default: `false`)                                                                                                                                                                                                |
-| `url`                 | `String`               | The URL of the current page. Useful when evaluating features based on the page URL.                                                                                                                                                                                                                                                                            |
+| `url`                 | `String`               | The URL of the current page. Useful when evaluating features and experiments based on the page URL.                                                                                                                                                                                                                                                            |
 | `forcedVariationsMap` | `Map<String, Integer>` | Force specific experiments to always assign a specific variation (used for QA)                                                                                                                                                                                                                                                                                 |
 | `trackingCallback`    | `TrackingCallback`     | A callback that will be invoked with every experiment evaluation where the user **is** included in the experiment. See [TrackingCallback](#tracking-callback). To subscribe to all evaluated events regardless of whether the user is in the experiment, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback). |
 
@@ -266,6 +266,48 @@ For more references, see the [Examples](#code-examples) below.
 The `GBFeaturesRepository` will automatically refresh the features when the features become stale. Features are considered stale every 60 seconds. This amount is configurable with the `ttlSeconds` option.
 
 When you fetch features and they are considered stale, the stale features are returned from the `getFeaturesJson()` method and a network call to refresh the features is enqueued asynchronously. When that request succeeds, the features are updated with the newest features, and the next call to `getFeaturesJson()` will return the refreshed features.
+
+## Overriding Feature Values
+
+The Java SDK allows you to override feature values and experiments using the URL.
+
+### Force Experiment Variations
+
+You can force an experiment variation by passing the experiment key and variation index as query parameters in the URL you set on the `GBContext`. For example, if you add `?my-experiment-id=2` to the URL, users will be forced into the variation at index 2 in the variations list when evaluating the experiment with key `my-experiment-id`.
+
+### Force Feature Values via the URL
+
+You can force a value for a feature by passing the key, prefixed by `gb~`, and the URI-encoded value in the URL's query parameters. You must also set `allowUrlOverrides` to true when building your `GBContext` in order to enable this feature as it is not enabled by default.
+
+```java
+GBContext context = GBContext
+    .builder()
+    .url("http://localhost:8080/url-feature-force?gb~dark_mode=true&gb~donut_price=3.33&gb~banner_text=Hello%2C%20everyone!%20I%20hope%20you%20are%20all%20doing%20well!")
+    .allowUrlOverrides(true)
+    .build();
+```
+
+The above code sample sets the following:
+
+- `dark_mode`: `true`
+- `banner_text`: `"Hello, everyone! I hope you are all doing well!"`
+- `donut_price`: `3.33`
+
+#### Supported types
+
+| Type                          | Value                                                                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `String`                      | A URI-encoded string value                                                                                                                     |
+| `Float`                       | A float value, e.g. `3.33`                                                                                                                     |
+| `Double`                      | A double value, e.g. `3.33`                                                                                                                    |
+| `Integer`                     | An integer value, e.g. `1337`                                                                                                                  |
+| `Boolean`                     | A boolean value, e.g. `true` or `false`. You can also represent boolean values with on/off state as `on` or `off` or binary values `1` or `0`. |
+| JSON as `Gson`-deserializable | A class that can be deserialized using Gson and that does not have any dependencies on custom type adapters.                                   |
+| JSON as `String`              | A URI-encoded string value that should be a valid JSON string that you can deserialize with your own JSON deserialization implementation.      |
+
+The value passed in the URL is cast at runtime based on the generic type argument passed in when evaluating the feature. This means that when you call `<ValueType>getFeatureValue()`, what you pass into the URL must successfully cast as `ValueType` otherwise the value in the URL will be ignored.
+
+All keys must be prefixed with `gb~`.
 
 ## Code Examples
 

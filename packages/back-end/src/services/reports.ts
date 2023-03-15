@@ -113,16 +113,24 @@ export async function startExperimentAnalysis(
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
   const experimentPhaseObj: ExperimentPhase = {
+    name: "Report",
     dateStarted: args.startDate,
     dateEnded: args.endDate,
-    phase: "main",
     coverage: 1,
     reason: "",
     variationWeights: args.variations.map((v) => v.weight),
+    condition: "",
+    namespace: {
+      enabled: false,
+      name: "",
+      range: [0, 1],
+    },
   };
   const experimentObj: ExperimentInterface = {
     exposureQueryId: args.exposureQueryId,
     userIdType: args.userIdType,
+    hashAttribute: "",
+    releasedVariationId: "",
     organization,
     skipPartialData: args.skipPartialData,
     trackingKey: args.trackingKey,
@@ -151,6 +159,7 @@ export async function startExperimentAnalysis(
     archived: false,
     variations: args.variations.map((v) => {
       return {
+        id: v.id,
         name: v.name,
         key: v.id,
         screenshots: [],
