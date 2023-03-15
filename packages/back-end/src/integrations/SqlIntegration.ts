@@ -344,8 +344,9 @@ export default abstract class SqlIntegration
 
     const aggregate = this.getAggregateMetricColumn(
       params.metric,
-      baseIdType,
-      "m"
+      "m",
+      "",
+      "noWindow"
     );
 
     return format(
@@ -1017,12 +1018,7 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${this.getAggregateMetricColumn(
-            metric,
-            "m",
-            "d",
-            isRegressionAdjusted ? "post" : "postOnly"
-          )} as value
+          ${this.getAggregateMetricColumn(metric, "m", "d", "post")} as value
           ${
             isRegressionAdjusted
               ? `, ${this.getAggregateMetricColumn(
@@ -1036,9 +1032,12 @@ export default abstract class SqlIntegration
         FROM
           __distinctUsers d
           LEFT JOIN __metric m ON (
-            m.${baseIdType} = d.${baseIdType}
-            AND m.timestamp >= d.conversion_start
-            ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
+            m.${baseIdType} = d.${baseIdType} AND
+            ${this.getMetricWindowWhereClause(
+              isRegressionAdjusted,
+              ignoreConversionEnd,
+              "d"
+            )}
           )
         GROUP BY
           d.variation,
@@ -1051,11 +1050,7 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(
-                  denominator,
-                  baseIdType,
-                  "m"
-                )} as value
+                ${this.getAggregateMetricColumn(denominator, "m")} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1257,9 +1252,14 @@ export default abstract class SqlIntegration
 
   private getMetricWindowWhereClause(
     isRegressionAdjusted: boolean,
+    ignoreConversionEnd: boolean,
     userAlias: string
   ): string {
-    const conversionWindowFilter = `m.timestamp <= ${userAlias}.conversion_end AND m.timestamp >= ${userAlias}.conversion_start`;
+    const conversionWindowFilter = `m.timestamp >= ${userAlias}.conversion_start ${
+      ignoreConversionEnd
+        ? ""
+        : ` AND m.timestamp <= ${userAlias}.conversion_end`
+    }`;
 
     if (isRegressionAdjusted) {
       return `(${conversionWindowFilter}) OR (m.timestamp <= ${userAlias}.preexposure_start AND m.timestamp >= ${userAlias}.preexposure_end)`;
@@ -1430,7 +1430,8 @@ export default abstract class SqlIntegration
         `${col}`,
         `NULL`
       )}`;
-    } else if (timePeriod === "post") {
+    }
+    if (timePeriod === "post") {
       return `${this.ifElse(
         `${mcol} >= ${userAlias}.conversion_start`,
         `${col}`,
@@ -1442,10 +1443,9 @@ export default abstract class SqlIntegration
 
   private getAggregateMetricColumn(
     metric: MetricInterface,
-    baseIdType: string,
     metricAlias = "m",
     userAlias = "d",
-    timePeriod: AggregateType = "postOnly"
+    timePeriod: AggregateType = "post"
   ) {
     if (metric.type === "binomial") {
       return `MAX(${this.addPrePostTimeFilter(
@@ -1454,11 +1454,6 @@ export default abstract class SqlIntegration
         userAlias,
         timePeriod
       )})`;
-      // `MAX(${this.ifElse(
-      //   `${alias}.${baseIdType} IS NOT NULL`,
-      //   "1",
-      //   "NULL"
-      // )})`;
     }
 
     const queryFormat = this.getMetricQueryFormat(metric);
@@ -1469,18 +1464,19 @@ export default abstract class SqlIntegration
         userAlias,
         timePeriod
       )})`;
-      // @todo: let custom aggregation work with RA
+
       if (metric.aggregation) {
         if (Number(metric.aggregation)) {
-          return `MAX(${this.ifElse(
-            `${metricAlias}.${baseIdType} IS NOT NULL`,
+          return `MAX(${this.addPrePostTimeFilter(
             `${aggregation}`,
-            "NULL"
+            metricAlias,
+            userAlias,
+            timePeriod
           )})`;
         }
         aggregation = replaceCountStar(
           metric.aggregation,
-          `${metricAlias}.${baseIdType}`
+          `${metricAlias}.timestamp`
         );
       }
 
