@@ -148,18 +148,7 @@ type ExperimentDisplayData = {
   };
 };
 
-const DateGraph: FC = ({
-  type,
-  smoothBy = "day",
-  method = "avg",
-  dates,
-  showStdDev = true,
-  experiments = [],
-  height = 220,
-  margin = [15, 15, 30, 80],
-  onHover,
-  hoverDate,
-}: {
+interface DateGraphProps {
   type: MetricType;
   smoothBy?: "day" | "week";
   method?: "avg" | "sum";
@@ -170,7 +159,20 @@ const DateGraph: FC = ({
   margin?: [number, number, number, number];
   onHover?: (ret: { d: number | null }) => void;
   hoverDate?: number | null;
-}) => {
+}
+
+const DateGraph: FC<DateGraphProps> = ({
+  type,
+  smoothBy = "day",
+  method = "avg",
+  dates,
+  showStdDev = true,
+  experiments = [],
+  height = 220,
+  margin = [15, 15, 30, 80],
+  onHover,
+  hoverDate,
+}: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
 
   const data = useMemo(
