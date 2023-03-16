@@ -7,7 +7,6 @@ import {
   createManualSnapshot,
   createSnapshot,
   ensureWatching,
-  experimentUpdated,
   getExperimentWatchers,
   getManualSnapshotData,
   processPastExperiments,
@@ -21,6 +20,7 @@ import {
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
   logExperimentUpdated,
+  onExperimentUpdate,
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
@@ -566,7 +566,7 @@ export async function postExperiments(
 
     await ensureWatching(userId, org.id, experiment.id, "experiments");
 
-    await experimentUpdated(experiment);
+    await onExperimentUpdate({ organization: org, newExperiment: experiment });
 
     res.status(200).json({
       status: 200,
@@ -1276,7 +1276,10 @@ export async function deleteExperiment(
     details: auditDetailsDelete(experiment),
   });
 
-  await experimentUpdated(experiment);
+  await onExperimentUpdate({
+    organization: org,
+    newExperiment: experiment,
+  });
 
   res.status(200).json({
     status: 200,

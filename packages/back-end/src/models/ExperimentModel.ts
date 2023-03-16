@@ -1,6 +1,4 @@
-import omit from "lodash/omit";
-import uniqBy from "lodash/uniqBy";
-import each from "lodash/each";
+import { each, flatten, isEqual, omit, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -9,7 +7,6 @@ import { OrganizationInterface } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
 import {
   determineNextDate,
-  experimentUpdated,
   generateTrackingKey,
   toExperimentApiInterface,
 } from "../services/experiments";
@@ -22,15 +19,15 @@ import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
+import { SDKPayloadKey } from "../../types/sdk-payload";
+import { queueWebhook } from "../jobs/webhooks";
+import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
+import { getSDKPayloadKeys } from "../util/features";
+import { getOrganizationById } from "../services/organizations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
-import {
-  findVisualChangesets,
-  findVisualChangesetsByExperiment,
-} from "./VisualChangesetModel";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { flatten, isEqual, uniqWith } from "lodash";
+import { findVisualChangesetsByExperiment } from "./VisualChangesetModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -298,8 +295,13 @@ export async function updateExperimentById(
 
   const updated = { ...experiment, ...changes };
 
-  // TODO Replace with onExperimentUpdate
-  await experimentUpdated(updated);
+  const org = await getOrganizationById(organization);
+  if (org) {
+    await onExperimentUpdate({
+      organization: org,
+      newExperiment: updated,
+    });
+  }
 
   return updated;
 }
@@ -913,17 +915,48 @@ const onExperimentCreate = async (
   refreshSDKPayloadCache(organization, payloadKeys);
 };
 
-const onExperimentUpdate = async (
-  organization: OrganizationInterface,
-  oldExperiment: ExperimentInterface,
-  newExperiment: ExperimentInterface
+const _legacyOnExperimentUpdate = async (
+  experiment: ExperimentInterface,
+  previousProject: string = ""
 ) => {
-  const oldChanges = await _getAllVisualChanges(organization, oldExperiment);
+  const payloadKeys = getSDKPayloadKeys(
+    new Set(["dev", "production"]),
+    new Set(["", previousProject || "", experiment.project || ""])
+  );
+
+  // fire the webhook:
+  await queueWebhook(experiment.organization, payloadKeys, false);
+
+  // invalidate the CDN
+  await queueCDNInvalidate(experiment.organization, (key) => {
+    // Which url to invalidate depends on the type of experiment
+    return experiment.implementation === "visual"
+      ? `/js/${key}.js`
+      : `/config/${key}`;
+  });
+};
+
+export const onExperimentUpdate = async ({
+  organization,
+  oldExperiment,
+  newExperiment,
+}: {
+  organization: OrganizationInterface;
+  oldExperiment?: ExperimentInterface;
+  newExperiment: ExperimentInterface;
+}) => {
+  _legacyOnExperimentUpdate(newExperiment, oldExperiment?.project);
+
+  const oldChanges = oldExperiment
+    ? await _getAllVisualChanges(organization, oldExperiment)
+    : [];
   const newChanges = await _getAllVisualChanges(organization, newExperiment);
 
   if (isEqual(oldChanges, newChanges)) return;
 
-  const oldPayloadKeys = _getPayloadKeys(organization, oldExperiment);
+  const oldPayloadKeys = oldExperiment
+    ? _getPayloadKeys(organization, oldExperiment)
+    : [];
   const newPayloadKeys = _getPayloadKeys(organization, newExperiment);
   const payloadKeys = uniqWith([...oldPayloadKeys, ...newPayloadKeys], isEqual);
 
