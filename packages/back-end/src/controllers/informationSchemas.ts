@@ -62,8 +62,19 @@ export async function getTableData(
 
   // If the table exists, just return it and update it in the background if it's out of date.
   if (table) {
-    //TODO: Add logic to check if the table is stale and if so, update it.
-    await queueUpdateStaleInformationSchemaTable(org.id, table.id);
+    const currentDate = new Date();
+    const dateLastUpdated = new Date(table.dateUpdated);
+
+    // To calculate the time difference of two dates
+    const diffInMilliseconds =
+      currentDate.getTime() - dateLastUpdated.getTime();
+
+    // To calculate the no. of days between two dates
+    const diffInDays = Math.floor(diffInMilliseconds / (1000 * 3600 * 24));
+
+    if (diffInDays > 30) {
+      await queueUpdateStaleInformationSchemaTable(org.id, table.id);
+    }
     res.status(200).json({
       status: 200,
       table,

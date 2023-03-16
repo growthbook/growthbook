@@ -13,12 +13,12 @@ export default function BuildInformationSchemaCard({
   const [error, setError] = useState<null | string>(null);
   const { apiCall } = useAuth();
 
-  let fetchCount = 1;
+  let retryCount = 1;
 
   async function pollStatus() {
-    const interval = fetchCount * 1000;
+    const interval = retryCount * 1000;
 
-    if (fetchCount === 8) {
+    if (retryCount >= 8) {
       setFetching(false);
       setError(
         "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
@@ -38,7 +38,7 @@ export default function BuildInformationSchemaCard({
         mutate();
         return;
       }
-      fetchCount = fetchCount * 2;
+      retryCount = retryCount * 2;
       pollStatus();
     }, interval);
   }
