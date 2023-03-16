@@ -94,7 +94,10 @@ function drawMetricRow(
       <div className="col-sm-1">
         <div className="small">
           {overrideFields.includes("winRisk") ||
-          overrideFields.includes("loseRisk") ? (
+          overrideFields.includes("loseRisk") ||
+          overrideFields.includes("regressionAdjustmentOverride") ||
+          overrideFields.includes("regressionAdjustmentEnabled") ||
+          overrideFields.includes("regressionAdjustmentDays") ? (
             <span className="font-italic text-purple">override</span>
           ) : (
             <span className="text-muted">default</span>

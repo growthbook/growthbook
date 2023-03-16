@@ -241,6 +241,18 @@ export function applyMetricOverrides(
       newMetric.loseRisk = metricOverride.loseRisk;
       overrideFields.push("loseRisk");
     }
+    if ("regressionAdjustmentOverride" in metricOverride) {
+      newMetric.regressionAdjustmentOverride = metricOverride.regressionAdjustmentOverride;
+      overrideFields.push("regressionAdjustmentOverride");
+    }
+    if ("regressionAdjustmentEnabled" in metricOverride) {
+      newMetric.regressionAdjustmentEnabled = metricOverride.regressionAdjustmentEnabled;
+      overrideFields.push("regressionAdjustmentEnabled");
+    }
+    if ("regressionAdjustmentDays" in metricOverride) {
+      newMetric.regressionAdjustmentDays = metricOverride.regressionAdjustmentDays;
+      overrideFields.push("regressionAdjustmentDays");
+    }
   }
   return { newMetric, overrideFields };
 }

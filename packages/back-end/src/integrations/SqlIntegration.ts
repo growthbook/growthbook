@@ -180,6 +180,15 @@ export default abstract class SqlIntegration
       if ("loseRisk" in metricOverride) {
         metric.loseRisk = metricOverride.loseRisk;
       }
+      if ("regressionAdjustmentOverride" in metricOverride) {
+        metric.regressionAdjustmentOverride = metricOverride.regressionAdjustmentOverride;
+      }
+      if ("regressionAdjustmentEnabled" in metricOverride) {
+        metric.regressionAdjustmentEnabled = metricOverride.regressionAdjustmentEnabled;
+      }
+      if ("regressionAdjustmentDays" in metricOverride) {
+        metric.regressionAdjustmentDays = metricOverride.regressionAdjustmentDays;
+      }
     }
     return;
   }

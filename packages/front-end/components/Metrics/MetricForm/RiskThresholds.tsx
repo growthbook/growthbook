@@ -38,7 +38,7 @@ const RiskThresholds: FC<{
                 position: "absolute",
                 top: "-20px",
                 color: "#009a6d",
-                fontSize: "0.75rem",
+                fontSize: "0.7rem",
               }}
             >
               acceptable risk under {winRisk}%
@@ -104,9 +104,9 @@ const RiskThresholds: FC<{
               style={{
                 position: "absolute",
                 top: "-20px",
-                right: "15px",
+                right: "10px",
                 color: "#c50f0f",
-                fontSize: "0.75rem",
+                fontSize: "0.7rem",
               }}
             >
               too much risk over {loseRisk}%

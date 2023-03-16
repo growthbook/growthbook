@@ -72,6 +72,9 @@ export type MetricOverride = {
   conversionDelayHours?: number;
   winRisk?: number;
   loseRisk?: number;
+  regressionAdjustmentOverride?: boolean;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
 };
 
 export interface LegacyExperimentInterface

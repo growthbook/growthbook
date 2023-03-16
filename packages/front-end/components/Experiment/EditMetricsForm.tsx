@@ -12,6 +12,7 @@ import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -23,6 +24,9 @@ export interface EditMetricsFormInterface {
     conversionDelayHours?: number;
     winRisk?: number;
     loseRisk?: number;
+    regressionAdjustmentOverride?: boolean;
+    regressionAdjustmentEnabled?: boolean;
+    regressionAdjustmentDays?: number;
   }[];
 }
 
@@ -35,6 +39,7 @@ const EditMetricsForm: FC<{
   const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
     false
   );
+  const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
@@ -61,6 +66,14 @@ const EditMetricsForm: FC<{
         ].includes(key)
       ) {
         defaultMetricOverrides[i][key] *= 100;
+      }
+    }
+    if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
+      const metricDefinition = metrics.find((m) => m.id === defaultMetricOverrides[i].id);
+      if (metricDefinition?.regressionAdjustmentOverride) {
+        defaultMetricOverrides[i].regressionAdjustmentDays = metricDefinition.regressionAdjustmentDays;
+      } else {
+        defaultMetricOverrides[i].regressionAdjustmentDays = settings.regressionAdjustmentDays ?? 14;
       }
     }
   }
