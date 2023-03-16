@@ -1326,11 +1326,6 @@ export default abstract class SqlIntegration
 
     const queryFormat = this.getMetricQueryFormat(metric);
     if (queryFormat === "sql") {
-      let aggregation = `SUM(${this.addPrePostTimeFilter(
-        `m.value`,
-        metricTimeWindow
-      )})`;
-
       if (metric.aggregation) {
         if (Number(metric.aggregation)) {
           return `MAX(${this.addPrePostTimeFilter(
@@ -1338,10 +1333,17 @@ export default abstract class SqlIntegration
             metricTimeWindow
           )})`;
         }
-        aggregation = replaceCountStar(metric.aggregation, `m.timestamp`);
+        // prePostTimeFilter (and regression adjustment) not implemented for
+        // custom aggregate metrics
+        return this.capValue(
+          metric.cap,
+          replaceCountStar(metric.aggregation, `m.timestamp`)
+        );
       }
-
-      return this.capValue(metric.cap, aggregation);
+      return this.capValue(
+        metric.cap,
+        `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+      );
     }
 
     // builder fomat
