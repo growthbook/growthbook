@@ -61,8 +61,10 @@ const informationSchema = new mongoose.Schema({
     },
   },
   status: String,
-  error: String,
-  refreshMS: Number,
+  error: {
+    errorType: String,
+    message: String,
+  },
   dateCreated: Date,
   dateUpdated: Date,
 });

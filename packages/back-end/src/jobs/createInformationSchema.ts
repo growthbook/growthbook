@@ -6,6 +6,11 @@ import {
   getInformationSchemaByDatasourceId,
   updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
+import {
+  DataSourceNotSupportedError,
+  InformationSchemaError,
+  NoDefaultDatasetError,
+} from "../types/Integration";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
@@ -31,6 +36,16 @@ export default function (ag: Agenda) {
       try {
         await initializeDatasourceInformationSchema(datasource, organization);
       } catch (e) {
+        const error: InformationSchemaError = {
+          errorType: "generic",
+          message: e.message,
+        };
+        if (e instanceof DataSourceNotSupportedError) {
+          error.errorType = "not_supported";
+        }
+        if (e instanceof NoDefaultDatasetError) {
+          error.errorType = "no_default_dataset";
+        }
         const informationSchema = await getInformationSchemaByDatasourceId(
           datasource.id,
           organization
@@ -42,7 +57,7 @@ export default function (ag: Agenda) {
             {
               ...informationSchema,
               status: "COMPLETE",
-              error: e.message,
+              error,
             }
           );
         }
@@ -51,7 +66,7 @@ export default function (ag: Agenda) {
           "Unable to generate information schema for datasource: " +
             datasource.id +
             " Error: " +
-            e.message
+            error
         );
       }
     }

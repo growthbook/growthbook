@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { InformationSchemaError } from "@/../back-end/src/types/Integration";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "./LoadingSpinner";
 
@@ -10,7 +11,7 @@ export default function RetryInformationSchemaCard({
 }: {
   datasourceId: string;
   mutate: () => void;
-  informationSchemaError: string | null;
+  informationSchemaError: InformationSchemaError;
   informationSchemaId: string;
 }) {
   const [fetching, setFetching] = useState(false);
@@ -76,7 +77,7 @@ export default function RetryInformationSchemaCard({
               This may take a minute, depending on the size of the datasource.
             </span>
           ) : (
-            <span>{informationSchemaError}</span>
+            <span>{informationSchemaError.message}</span>
           )}
         </div>
         <button
