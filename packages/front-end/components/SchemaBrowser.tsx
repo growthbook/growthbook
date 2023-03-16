@@ -78,12 +78,12 @@ export default function SchemaBrowser({
     if (e.detail === 2) {
       if (!inputArray) return;
       const updatedStr = pastePathIntoExistingQuery(
-        inputArray[row],
+        inputArray[row] || "",
         column,
         path
       );
 
-      const updatedInputArray = cloneDeep(cursorData.input);
+      const updatedInputArray = cloneDeep(inputArray);
       updatedInputArray[row] = updatedStr;
 
       updateSqlInput(updatedInputArray.join("\n"));
