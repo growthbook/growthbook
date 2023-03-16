@@ -129,10 +129,19 @@ export default function ResultsTable({
               {i > 0 && (
                 <th className={`variation${i} text-center`}>
                   Percent Change{" "}
-                  {hasRisk && fullStats && (
-                    <Tooltip body="The true value is more likely to be in the thicker parts of the graph">
-                      <FaQuestionCircle />
-                    </Tooltip>
+                  {fullStats && (
+                    <>
+                      {hasRisk && statsEngine === "bayesian" && (
+                        <Tooltip body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph.">
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      )}
+                      {statsEngine === "frequentist" && (
+                        <Tooltip body="This is a 95% confidence interval. If you re-ran the experiment 100 times, the true value would be in this range 95% of the time.">
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      )}
+                    </>
                   )}
                 </th>
               )}

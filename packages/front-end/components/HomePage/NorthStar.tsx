@@ -5,6 +5,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Toggle from "@/components/Forms/Toggle";
 import Modal from "../Modal";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
@@ -18,12 +20,17 @@ const NorthStar: FC<{
   const { permissions, refreshOrganization } = useUser();
   const settings = useOrgSettings();
 
+  const smoothByStorageKey = `northstar_metrics_smoothBy`;
+  const [smoothBy, setSmoothBy] = useLocalStorage<"day" | "week">(
+    smoothByStorageKey,
+    "week"
+  );
+
   const form = useForm<{
     title: string;
     window: string | number;
     metrics: string[];
-    resolution: string;
-  }>({ defaultValues: { resolution: "week" } });
+  }>();
 
   useEffect(() => {
     if (settings.northStar?.metricIds) {
@@ -37,6 +44,13 @@ const NorthStar: FC<{
   }, [settings.northStar]);
 
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
+
+  const [northstarHoverDate, setNorthstarHoverDate] = useState<number | null>(
+    null
+  );
+  const onNorthstarHoverCallback = (ret: { d: number | null }) => {
+    setNorthstarHoverDate(ret.d);
+  };
 
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
@@ -65,19 +79,50 @@ const NorthStar: FC<{
               <BsGear />
             </a>
           )}
-          <h2>
-            {northStar?.title
-              ? northStar.title
-              : `North Star Metric${
-                  northStar?.metricIds.length > 1 ? "s" : ""
-                }`}
-          </h2>
+          <div className="row">
+            <div className="col">
+              <h2>
+                {northStar?.title
+                  ? northStar.title
+                  : `North Star Metric${
+                      northStar?.metricIds.length > 1 ? "s" : ""
+                    }`}
+              </h2>
+            </div>
+            <div className="col" style={{ position: "relative" }}>
+              {northStar?.metricIds.length > 0 && (
+                <div
+                  className="float-right mr-3"
+                  style={{ position: "relative", top: 40 }}
+                >
+                  <label
+                    className="small my-0 mr-2 text-right align-middle"
+                    htmlFor="toggle-group-smooth-by"
+                  >
+                    Smoothing
+                    <br />
+                    (7 day trailing)
+                  </label>
+                  <Toggle
+                    value={smoothBy === "week"}
+                    setValue={() =>
+                      setSmoothBy(smoothBy === "week" ? "day" : "week")
+                    }
+                    id="toggle-group-smooth-by"
+                    className="align-middle"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
           {northStar?.metricIds.map((mid) => (
             <div key={mid}>
               <NorthStarMetricDisplay
                 metricId={mid}
                 window={northStar?.window}
-                resolution={northStar?.resolution ?? "week"}
+                smoothBy={smoothBy}
+                hoverDate={northstarHoverDate}
+                onHoverCallback={onNorthstarHoverCallback}
               />
             </div>
           ))}
