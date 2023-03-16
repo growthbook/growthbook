@@ -111,6 +111,7 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   return obj;
 }
 
+//TODO: Move this to a informationSchema service file.
 export async function fetchTableData(
   databaseName: string,
   tableSchema: string,
@@ -222,7 +223,7 @@ export async function updateDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string,
   informationSchema: InformationSchemaInterface
-): Promise<string> {
+): Promise<void> {
   // Reset the informationSchema to remove any errors and change status to "PENDING"
   await updateInformationSchemaById(organization, informationSchema.id, {
     ...informationSchema,
