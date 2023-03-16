@@ -125,7 +125,7 @@ export async function createVisualChange(
   id: string,
   organization: string,
   visualChange: VisualChange
-): Promise<void> {
+): Promise<{ nModified: number }> {
   const visualChangeset = await VisualChangesetModel.findOne({
     id,
     organization,
@@ -135,7 +135,7 @@ export async function createVisualChange(
     throw new Error("Visual Changeset not found");
   }
 
-  await VisualChangesetModel.updateOne(
+  const res = await VisualChangesetModel.updateOne(
     {
       id,
       organization,
@@ -146,6 +146,8 @@ export async function createVisualChange(
       },
     }
   );
+
+  return { nModified: res.nModified };
 }
 
 export async function updateVisualChange({
@@ -158,7 +160,7 @@ export async function updateVisualChange({
   visualChangeId: string;
   organization: string;
   payload: VisualChange;
-}): Promise<void> {
+}): Promise<{ nModified: number }> {
   const visualChangeset = await VisualChangesetModel.findOne({
     id: changesetId,
     organization,
@@ -178,7 +180,7 @@ export async function updateVisualChange({
     return visualChange;
   });
 
-  await VisualChangesetModel.updateOne(
+  const res = await VisualChangesetModel.updateOne(
     {
       id: changesetId,
       organization,
@@ -187,6 +189,8 @@ export async function updateVisualChange({
       $set: { visualChanges },
     }
   );
+
+  return { nModified: res.nModified };
 }
 
 // TODO On creating a variation, we need to create a visual change for each
@@ -215,5 +219,5 @@ export const createVisualChangeset = async ({
       domMutations: [],
     })),
   });
-  return visualChangeset;
+  return toInterface(visualChangeset);
 };

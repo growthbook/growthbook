@@ -12,13 +12,13 @@ export const putVisualChange = createApiRequestHandler(
     const orgId = req.organization.id;
     const payload = req.body;
 
-    const visualChange = await updateVisualChange({
+    const res = await updateVisualChange({
       changesetId,
       visualChangeId,
       organization: orgId,
       payload,
     });
 
-    return { visualChange };
+    return res;
   }
 );

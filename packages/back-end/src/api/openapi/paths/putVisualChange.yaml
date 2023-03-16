@@ -20,7 +20,7 @@ get:
           schema:
             type: object
             required:
-              - visualChange
+              - nModified
             properties:
-              visualChange:
-                $ref: "../schemas/VisualChange.yaml"
+              nModified:
+                type: number

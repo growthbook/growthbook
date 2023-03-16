@@ -2285,18 +2285,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            visualChange: {
-              description?: string;
-              css?: string;
-              variation: string;
-              domMutations?: ({
-                  selector: string;
-                  /** @enum {string} */
-                  action: "append" | "set" | "remove";
-                  attribute: string;
-                  value?: string;
-                })[];
-            };
+            nModified: number;
           };
         };
       };
@@ -2308,18 +2297,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            visualChange: {
-              description?: string;
-              css?: string;
-              variation: string;
-              domMutations?: ({
-                  selector: string;
-                  /** @enum {string} */
-                  action: "append" | "set" | "remove";
-                  attribute: string;
-                  value?: string;
-                })[];
-            };
+            nModified: number;
           };
         };
       };

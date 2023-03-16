@@ -7,14 +7,12 @@ export const postVisualChange = createApiRequestHandler(
   postVisualChangeValidator
 )(
   async (req): Promise<PostVisualChangeResponse> => {
-    const visualChange = await createVisualChange(
+    const res = await createVisualChange(
       req.params.id,
       req.organization.id,
       req.body
     );
 
-    return {
-      visualChange,
-    };
+    return res;
   }
 );
