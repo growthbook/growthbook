@@ -1,5 +1,5 @@
 import { RawInformationSchema } from "../../src/types/Integration";
-import { formatInformationSchema } from "../../src/util/integrations";
+import { formatInformationSchema } from "../../src/util/informationSchemas";
 
 describe("formatInformationSchema", () => {
   it("Correctly formats a rawInformationSchema for BigQuery correctly", () => {

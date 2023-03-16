@@ -152,3 +152,31 @@ export async function getTableByName(
 
   return table ? toInterface(table) : null;
 }
+
+export async function getInformationSchemaTableById(
+  organization: string,
+  id: string
+): Promise<InformationSchemaTablesInterface | null> {
+  const table = await InformationSchemaTablesModel.findOne({
+    organization,
+    id,
+  });
+
+  return table ? toInterface(table) : null;
+}
+
+export async function updateInformationSchemaTableById(
+  organization: string,
+  id: string,
+  updates: Partial<InformationSchemaTablesInterface>
+): Promise<void> {
+  await InformationSchemaTablesModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    {
+      $set: updates,
+    }
+  );
+}

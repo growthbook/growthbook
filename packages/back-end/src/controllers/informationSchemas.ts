@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "../jobs/updateInformationSchema";
+import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   getInformationSchemaById,
@@ -61,7 +62,8 @@ export async function getTableData(
 
   // If the table exists, just return it and update it in the background if it's out of date.
   if (table) {
-    // TODO: Add stale-while-revalidate caching here. Aka. kick off a job to update this table data.
+    //TODO: Add logic to check if the table is stale and if so, update it.
+    await queueUpdateStaleInformationSchemaTable(org.id, table.id);
     res.status(200).json({
       status: 200,
       table,
