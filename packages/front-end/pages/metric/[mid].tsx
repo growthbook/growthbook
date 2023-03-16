@@ -7,6 +7,7 @@ import {
   FaArchive,
   FaChevronRight,
   FaQuestionCircle,
+  FaTimes,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
@@ -68,6 +69,7 @@ const MetricPage: FC = () => {
     getDatasourceById,
     getSegmentById,
     getMetricById,
+    metrics,
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -145,6 +147,14 @@ const MetricPage: FC = () => {
 
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
+
+  let regressionAdjustmentAvailableForMetric = true;
+  if (metric.denominator) {
+    const denominator = metrics.find((m) => m.id === metric.denominator);
+    if (denominator?.type === "count") {
+      regressionAdjustmentAvailableForMetric = false;
+    }
+  }
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async () => {
@@ -1131,7 +1141,7 @@ const MetricPage: FC = () => {
               </RightRailSectionGroup>
 
               <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled mb-4">
+                <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
                       Regression Adjustment (CUPED)
@@ -1140,7 +1150,14 @@ const MetricPage: FC = () => {
                       Only applicable to frequentist analyses
                     </small>
                   </li>
-                  {metric?.regressionAdjustmentOverride ? (
+                  {!regressionAdjustmentAvailableForMetric ? (
+                    <li className="mb-2">
+                      <div className="text-muted small">
+                        <FaTimes className="text-danger" /> Not available for
+                        ratio metrics with <em>count</em> denominators
+                      </div>
+                    </li>
+                  ) : metric?.regressionAdjustmentOverride ? (
                     <>
                       <li className="mb-2">
                         <span className="text-gray">

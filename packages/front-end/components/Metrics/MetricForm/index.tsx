@@ -6,7 +6,7 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle, FaTimes } from "react-icons/fa";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -152,9 +152,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
-  );
+
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
@@ -237,7 +235,10 @@ const MetricForm: FC<MetricFormProps> = ({
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
       regressionAdjustmentEnabled: current.regressionAdjustmentEnabled ?? false,
-      regressionAdjustmentDays: current.regressionAdjustmentDays ?? 14,
+      regressionAdjustmentDays:
+        current.regressionAdjustmentDays ??
+        settings.regressionAdjustmentDays ??
+        14,
     },
   });
 
@@ -310,6 +311,17 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+  let regressionAdjustmentAvailableForMetric = true;
+  if (form.watch("denominator")) {
+    const denominator = metrics.find((m) => m.id === form.watch("denominator"));
+    if (denominator?.type === "count") {
+      regressionAdjustmentAvailableForMetric = false;
+    }
+  }
 
   let table = "Table";
   let column = "Column";
@@ -1024,117 +1036,134 @@ const MetricForm: FC<MetricFormProps> = ({
               Only applicable to frequentist analyses
             </small>
             <div className="px-3 py-2 pb-0 mb-2 border rounded">
-              <div className="form-group mb-0 mr-0 form-inline">
-                <div className="row w-100">
-                  <div className="d-flex col form-inline">
-                    <div className="form-inline">
+              {regressionAdjustmentAvailableForMetric ? (
+                <>
+                  <div className="form-group mb-0 mr-0 form-inline">
+                    <div className="row w-100">
+                      <div className="d-flex col form-inline">
+                        <div className="form-inline">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-regressionAdjustmentOverride"
+                          >
+                            Override organization-level settings
+                          </label>
+                          <Toggle
+                            id={"toggle-regressionAdjustmentOverride"}
+                            value={!!form.watch("regressionAdjustmentOverride")}
+                            setValue={(value) => {
+                              form.setValue(
+                                "regressionAdjustmentOverride",
+                                value
+                              );
+                            }}
+                            disabled={!hasRegressionAdjustmentFeature}
+                          />
+                        </div>
+                        {!!form.watch("regressionAdjustmentOverride") &&
+                          settings.statsEngine === "bayesian" && (
+                            <small className="d-block my-1 text-danger">
+                              <FaExclamationTriangle /> Your organization uses
+                              Bayesian statistics by default
+                            </small>
+                          )}
+                      </div>
+                      <div className="col-6 px-0">
+                        <div className="float-right text-muted small">
+                          <div>Organization defaults:</div>
+                          <div className="ml-2">
+                            Regression adjustment:{" "}
+                            {settings.regressionAdjustmentEnabled
+                              ? "Yes"
+                              : "No"}
+                          </div>
+                          {settings.regressionAdjustmentEnabled && (
+                            <div className="ml-2">
+                              Lookback period (days):{" "}
+                              {settings.regressionAdjustmentDays}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: form.watch("regressionAdjustmentOverride")
+                        ? "block"
+                        : "none",
+                    }}
+                  >
+                    <div className="d-flex my-2 border-bottom"></div>
+                    <div className="form-group mt-3 mb-0 mr-2 form-inline">
                       <label
                         className="mr-1"
-                        htmlFor="toggle-regressionAdjustmentOverride"
+                        htmlFor="toggle-regressionAdjustmentEnabled"
                       >
-                        Override organization-level settings
+                        Apply regression adjustment for this metric
                       </label>
                       <Toggle
-                        id={"toggle-regressionAdjustmentOverride"}
-                        value={!!form.watch("regressionAdjustmentOverride")}
+                        id={"toggle-regressionAdjustmentEnabled"}
+                        value={!!form.watch("regressionAdjustmentEnabled")}
                         setValue={(value) => {
-                          form.setValue("regressionAdjustmentOverride", value);
+                          form.setValue("regressionAdjustmentEnabled", value);
                         }}
                         disabled={!hasRegressionAdjustmentFeature}
                       />
                     </div>
-                    {!!form.watch("regressionAdjustmentOverride") &&
-                      settings.statsEngine === "bayesian" && (
-                        <small className="d-block my-1 text-danger">
-                          <FaExclamationTriangle /> Your organization uses
-                          Bayesian statistics by default
+                    <div
+                      className="form-group mt-4 mb-1 mr-2 form-inline"
+                      style={{
+                        opacity: form.watch("regressionAdjustmentEnabled")
+                          ? "1"
+                          : "0.5",
+                      }}
+                    >
+                      <Field
+                        label="Pre-exposure lookback period (days)"
+                        type="number"
+                        style={{
+                          borderColor: regressionAdjustmentDaysHighlightColor,
+                          backgroundColor: regressionAdjustmentDaysHighlightColor
+                            ? regressionAdjustmentDaysHighlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-0"
+                        append="days"
+                        min="0"
+                        max="100"
+                        disabled={!hasRegressionAdjustmentFeature}
+                        helpText={
+                          <>
+                            <span className="ml-2">
+                              ({settings.regressionAdjustmentDays} is
+                              organization default)
+                            </span>
+                          </>
+                        }
+                        {...form.register("regressionAdjustmentDays", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                      {regressionAdjustmentDaysWarningMsg && (
+                        <small
+                          style={{
+                            color: regressionAdjustmentDaysHighlightColor,
+                          }}
+                        >
+                          {regressionAdjustmentDaysWarningMsg}
                         </small>
-                      )}
-                  </div>
-                  <div className="col-6 px-0">
-                    <div className="float-right text-muted small">
-                      <div>Organization defaults:</div>
-                      <div className="ml-2">
-                        Regression adjustment:{" "}
-                        {settings.regressionAdjustmentEnabled ? "Yes" : "No"}
-                      </div>
-                      {settings.regressionAdjustmentEnabled && (
-                        <div className="ml-2">
-                          Lookback period (days):{" "}
-                          {settings.regressionAdjustmentDays}
-                        </div>
                       )}
                     </div>
                   </div>
+                </>
+              ) : (
+                <div className="text-muted">
+                  <FaTimes className="text-danger" /> Not available for ratio
+                  metrics with <em>count</em> denominators
                 </div>
-              </div>
-              <div
-                style={{
-                  display: form.watch("regressionAdjustmentOverride")
-                    ? "block"
-                    : "none",
-                }}
-              >
-                <div className="d-flex my-2 border-bottom"></div>
-                <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                  <label
-                    className="mr-1"
-                    htmlFor="toggle-regressionAdjustmentEnabled"
-                  >
-                    Apply regression adjustment for this metric
-                  </label>
-                  <Toggle
-                    id={"toggle-regressionAdjustmentEnabled"}
-                    value={!!form.watch("regressionAdjustmentEnabled")}
-                    setValue={(value) => {
-                      form.setValue("regressionAdjustmentEnabled", value);
-                    }}
-                    disabled={!hasRegressionAdjustmentFeature}
-                  />
-                </div>
-                <div
-                  className="form-group mt-4 mb-1 mr-2 form-inline"
-                  style={{
-                    opacity: form.watch("regressionAdjustmentEnabled")
-                      ? "1"
-                      : "0.5",
-                  }}
-                >
-                  <Field
-                    label="Pre-exposure lookback period (days)"
-                    type="number"
-                    style={{
-                      borderColor: regressionAdjustmentDaysHighlightColor,
-                      backgroundColor: regressionAdjustmentDaysHighlightColor
-                        ? regressionAdjustmentDaysHighlightColor + "15"
-                        : "",
-                    }}
-                    className={`ml-2`}
-                    containerClassName="mb-0"
-                    append="days"
-                    min="0"
-                    max="100"
-                    disabled={!hasRegressionAdjustmentFeature}
-                    helpText={
-                      <>
-                        <span className="ml-2">(14 is default)</span>
-                      </>
-                    }
-                    {...form.register("regressionAdjustmentDays", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  {regressionAdjustmentDaysWarningMsg && (
-                    <small
-                      style={{
-                        color: regressionAdjustmentDaysHighlightColor,
-                      }}
-                    >
-                      {regressionAdjustmentDaysWarningMsg}
-                    </small>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           </>
         )}
