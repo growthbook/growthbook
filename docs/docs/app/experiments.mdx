@@ -57,14 +57,14 @@ Here is where much of your experiment analysis is configured. Many of the fields
 
 **Attribution Model**
 
-Attribution models deal with how we attribute metric values (conversions, counts, any arbitrary value to be aggregated at the unit level) to individual units (e.g. users). They rely on the concept of "conversion windows" which is discussed more in depth on the 9Metric documentation page](metrics).
+Attribution models deal with how we attribute metric values (conversions, counts, any arbitrary value to be aggregated at the unit level) to individual units (e.g. users). They rely on the concept of "conversion windows" which is discussed more in depth on the [Metric documentation page](metrics).
 
 There are 2 **Attribution Models** that experiments can use:
 
 - **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment. The conversion window runs from the exposure timestamp + the conversion delay hours and for however many hours the conversion window is set to. For example, if the delay is 12 hours, and the window is 24 hours, then we will aggregate the metric values for each user from 12-36 hours after their first experiment exposure.
 - **Experiment Duration** uses a single conversion window that extends from their first exposure + conversion delay until the end of the experiment or phase. For example, if the delay is 12 hours, then the conversion window will extend from 12 hours after each user is bucketed until the present time or the end of the experiment/phase, if specified.
 
-Currently, all analyses will use the "First Exposure" model by default. The _Experiment Duration_ model replaced _All Exposures_ as of GrowthBook 2.0. You can read more about why [here](BLOGPOST_LINK).
+Currently, all analyses will use the "First Exposure" model by default. The _Experiment Duration_ model replaced _All Exposures_ as of GrowthBook 2.0. You can read more about why TODO BLOG POST.
 
 ### Experiment Metrics
 
@@ -146,7 +146,11 @@ The date dimension shows a time series of the count of users _first_ exposed to 
 
 Take the following results, for example.
 
-![Experiment Date Results](/images/experiment-date-results.png)
+<img
+  src="/images/experiment-date-results.png"
+  alt="Experiment Date Results"
+  style={{ width: 400, margin: "0 auto" }}
+/>
 
 In the first graph, we see the number of users who were first exposed to the experiment on that day.
 
