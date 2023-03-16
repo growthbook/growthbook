@@ -7,7 +7,7 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 
-export type AggregateType = "pre" | "post" | "noWindow";
+export type MetricAggregationType = "pre" | "post" | "noWindow";
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;

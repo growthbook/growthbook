@@ -6,7 +6,6 @@ import {
   ExposureQuery,
 } from "../../types/datasource";
 import {
-  AggregateType,
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
@@ -18,6 +17,7 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
+  MetricAggregationType,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -342,12 +342,7 @@ export default abstract class SqlIntegration
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(
-      params.metric,
-      "m",
-      "",
-      "noWindow"
-    );
+    const aggregate = this.getAggregateMetricColumn(params.metric, "noWindow");
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -1018,13 +1013,11 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${this.getAggregateMetricColumn(metric, "m", "d", "post")} as value
+          ${this.getAggregateMetricColumn(metric, "post")} as value
           ${
             isRegressionAdjusted
               ? `, ${this.getAggregateMetricColumn(
                   metric,
-                  "m",
-                  "d",
                   "pre"
                 )} as covariate_value`
               : ""
@@ -1050,7 +1043,7 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, "m")} as value
+                ${this.getAggregateMetricColumn(denominator, "post")} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1420,21 +1413,15 @@ export default abstract class SqlIntegration
 
   private addPrePostTimeFilter(
     col: string,
-    metricAlias: string,
-    userAlias: string,
-    timePeriod: AggregateType
+    timePeriod: MetricAggregationType
   ): string {
-    const mcol = `${metricAlias}.timestamp`;
+    const mcol = `m.timestamp`;
     if (timePeriod === "pre") {
-      return `${this.ifElse(
-        `${mcol} < ${userAlias}.preexposure_end`,
-        `${col}`,
-        `NULL`
-      )}`;
+      return `${this.ifElse(`${mcol} < d.preexposure_end`, `${col}`, `NULL`)}`;
     }
     if (timePeriod === "post") {
       return `${this.ifElse(
-        `${mcol} >= ${userAlias}.conversion_start`,
+        `${mcol} >= d.conversion_start`,
         `${col}`,
         `NULL`
       )}`;
@@ -1444,41 +1431,27 @@ export default abstract class SqlIntegration
 
   private getAggregateMetricColumn(
     metric: MetricInterface,
-    metricAlias = "m",
-    userAlias = "d",
-    timePeriod: AggregateType = "post"
+    metricTimeWindow: MetricAggregationType = "post"
   ) {
     if (metric.type === "binomial") {
-      return `MAX(${this.addPrePostTimeFilter(
-        "1",
-        metricAlias,
-        userAlias,
-        timePeriod
-      )})`;
+      return `MAX(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
     }
 
     const queryFormat = this.getMetricQueryFormat(metric);
     if (queryFormat === "sql") {
       let aggregation = `SUM(${this.addPrePostTimeFilter(
-        `${metricAlias}.value`,
-        metricAlias,
-        userAlias,
-        timePeriod
+        `m.value`,
+        metricTimeWindow
       )})`;
 
       if (metric.aggregation) {
         if (Number(metric.aggregation)) {
           return `MAX(${this.addPrePostTimeFilter(
             `${aggregation}`,
-            metricAlias,
-            userAlias,
-            timePeriod
+            metricTimeWindow
           )})`;
         }
-        aggregation = replaceCountStar(
-          metric.aggregation,
-          `${metricAlias}.timestamp`
-        );
+        aggregation = replaceCountStar(metric.aggregation, `m.timestamp`);
       }
 
       return this.capValue(metric.cap, aggregation);
@@ -1489,25 +1462,16 @@ export default abstract class SqlIntegration
     if (metric.type === "count") {
       if (metric.column) {
         aggregate = `COUNT(DISTINCT (${this.addPrePostTimeFilter(
-          `${metricAlias}.value`,
-          metricAlias,
-          userAlias,
-          timePeriod
+          `m.value`,
+          metricTimeWindow
         )}))`;
       } else {
-        aggregate = `SUM(${this.addPrePostTimeFilter(
-          "1",
-          metricAlias,
-          userAlias,
-          timePeriod
-        )})`;
+        aggregate = `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
       }
     } else {
       aggregate = `MAX(${this.addPrePostTimeFilter(
-        `${metricAlias}.value`,
-        metricAlias,
-        userAlias,
-        timePeriod
+        `m.value`,
+        metricTimeWindow
       )})`;
     }
     return this.capValue(metric.cap, aggregate);
