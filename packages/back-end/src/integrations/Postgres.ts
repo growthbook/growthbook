@@ -1,3 +1,4 @@
+import { DataSourceProperties } from "../../types/datasource";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
@@ -12,6 +13,12 @@ export default class Postgres extends SqlIntegration {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams
     );
+  }
+  getSourceProperties(): DataSourceProperties {
+    return {
+      ...super.getSourceProperties(),
+      supportsInformationSchema: true,
+    };
   }
   getFormatDialect(): FormatDialect {
     return "postgresql";
