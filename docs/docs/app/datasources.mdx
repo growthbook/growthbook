@@ -97,17 +97,7 @@ Make sure to return the exact column names that GrowthBook is expecting. If your
 
 If a user sees an experiment multiple times, you should return multiple rows in your assignment query, one for each time the user was exposed to the experiment.
 
-This helps in two ways
-
-1. Detecting when users were exposed to more than one variation
-2. Calculating metric conversion windows based on an experiment's Attribution Model
-
-There are 2 **Attribution Models** that experiments can use:
-
-- **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment
-- **All Exposures** uses multiple conversion windows, one for each time the user sees an experiment
-
-Currently, all analyses will use the "First Exposure" model by default. You can change this on a per-experiment basis as needed.
+This helps us detect when users were exposed to more than one variation, and eventually may be useful in helping build interesting time series.
 
 ##### Experiment Dimensions
 
