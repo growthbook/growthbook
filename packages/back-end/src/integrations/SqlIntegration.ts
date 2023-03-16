@@ -1334,7 +1334,7 @@ export default abstract class SqlIntegration
       if (metric.aggregation) {
         if (Number(metric.aggregation)) {
           return `MAX(${this.addPrePostTimeFilter(
-            `${aggregation}`,
+            `${metric.aggregation}`,
             metricTimeWindow
           )})`;
         }
