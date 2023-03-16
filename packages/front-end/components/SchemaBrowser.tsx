@@ -106,16 +106,16 @@ export default function SchemaBrowser({
         status: number;
         table?: InformationSchemaTablesInterface;
       }>(
-        `/datasourceId/${datasource.id}/database/${databaseName}/schema/${schemaName}/table/${tableName}`,
+        `/informationSchema/${informationSchema.id}/${databaseName}/${schemaName}/${tableName}`,
         {
           method: "GET",
         }
       );
       setCurrentTable(res.table);
-      setLoading(false);
     } catch (e) {
       setError(e.message);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -247,7 +247,7 @@ export default function SchemaBrowser({
           </>
         )}
       </SchemaBrowserWrapper>
-      {error && <div className="alert alert-warning">{error}</div>}
+      {error && <div className="alert alert-danger">{error}</div>}
       <DatasourceTableData table={currentTable} loading={loading} />
     </>
   );

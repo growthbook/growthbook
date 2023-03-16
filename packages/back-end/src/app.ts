@@ -462,7 +462,7 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // Information Schemas
 app.get(
-  "/datasourceId/:datasourceId/database/:databaseName/schema/:schemaName/table/:tableName",
+  "/informationSchema/:id/:databaseName/:schemaName/:tableName",
   informationSchemsController.getTableData
 );
 app.post(

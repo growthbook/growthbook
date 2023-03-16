@@ -218,6 +218,7 @@ export interface InformationSchemaTablesInterface {
   refreshMS: number;
   dateCreated: Date;
   dateUpdated: Date;
+  informationSchemaId: string;
 }
 
 export interface SourceIntegrationInterface {

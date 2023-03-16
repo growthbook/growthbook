@@ -2,10 +2,19 @@ import { Response } from "express";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "../jobs/updateInformationSchema";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { getInformationSchemaById } from "../models/InformationSchemaModel";
-import { getTableDataByPath } from "../models/InformationSchemaTablesModel";
+import {
+  getInformationSchemaById,
+  updateInformationSchemaById,
+} from "../models/InformationSchemaModel";
+import {
+  createInformationSchemaTable,
+  getTableDataByPath,
+} from "../models/InformationSchemaTablesModel";
+import { fetchTableData } from "../services/datasource";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
+import { Column } from "../types/Integration";
+import { getPath } from "../util/integrations";
 
 export async function getTableData(
   req: AuthRequest<
@@ -14,54 +23,121 @@ export async function getTableData(
       databaseName: string;
       schemaName: string;
       tableName: string;
-      datasourceId: string;
+      id: string;
     }
   >,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
 
-  const { databaseName, schemaName, tableName, datasourceId } = req.params;
+  const { databaseName, schemaName, tableName, id } = req.params;
 
-  if (!databaseName || !schemaName || !tableName) {
-    res.status(400).json({
-      status: 400,
-      message: "Missing required parameters.",
-    });
+  const informationSchema = await getInformationSchemaById(org.id, id);
+
+  if (!informationSchema) {
+    res
+      .status(404)
+      .json({ status: 404, message: "No informationSchema found" });
     return;
   }
 
-  const datasource = await getDataSourceById(datasourceId, org.id);
+  const datasource = await getDataSourceById(
+    informationSchema.datasourceId,
+    org.id
+  );
 
   if (!datasource) {
     res.status(404).json({ status: 404, message: "No datasource found" });
     return;
   }
 
-  req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
+  const table = await getTableDataByPath(
+    org.id,
+    databaseName,
+    schemaName,
+    tableName,
+    id
   );
 
-  try {
-    const table = await getTableDataByPath(
-      org.id,
-      databaseName,
-      schemaName,
-      tableName,
-      datasource
-    );
-
+  // If the table exists, just return it and update it in the background if it's out of date.
+  if (table) {
+    // TODO: Add stale-while-revalidate caching here. Aka. kick off a job to update this table data.
     res.status(200).json({
       status: 200,
       table,
     });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred.",
-    });
+    return;
   }
+
+  // Otherwise, the table doesn't exist yet, so we need to create it.
+  const { tableData, refreshMS } = await fetchTableData(
+    databaseName,
+    schemaName,
+    tableName,
+    datasource
+  );
+
+  if (!tableData || !refreshMS) {
+    res
+      .status(400)
+      .json({ status: 400, message: "Unable to retrieve table data." });
+    return;
+  }
+
+  const columns: Column[] = tableData.map(
+    (row: { column_name: string; data_type: string }) => {
+      return {
+        columnName: row.column_name.toLocaleLowerCase(),
+        dataType: row.data_type.toLocaleLowerCase(),
+        path: getPath(datasource.type, {
+          tableCatalog: databaseName,
+          tableSchema: schemaName,
+          tableName: tableName,
+          columnName: row.column_name,
+        }),
+      };
+    }
+  );
+
+  // Create the table record in Mongo.
+  const newTable = await createInformationSchemaTable(
+    org.id,
+    tableName,
+    schemaName,
+    databaseName,
+    columns,
+    refreshMS,
+    datasource.id,
+    id
+  );
+
+  const databaseIndex = informationSchema.databases.findIndex(
+    (database) => database.databaseName === databaseName
+  );
+
+  // Update the nested table in the informationSchema document to reference the newly created table.id
+  // and update the dateUpdated fields on that table and on the main informationSchema document.
+  //TODO: Optimize with Maps?
+  const schemaIndex = informationSchema.databases[
+    databaseIndex
+  ].schemas.findIndex((schema) => schema.schemaName === schemaName);
+
+  const tableIndex = informationSchema.databases[databaseIndex].schemas[
+    schemaIndex
+  ].tables.findIndex((table) => table.tableName === tableName);
+
+  informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
+    tableIndex
+  ].id = newTable.id;
+
+  informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
+    tableIndex
+  ].dateUpdated = new Date();
+
+  await updateInformationSchemaById(org.id, informationSchema.id, {
+    databases: informationSchema.databases,
+  });
+  res.status(200).json({ status: 200, table: newTable });
 }
 
 export async function postInformationSchema(

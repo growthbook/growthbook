@@ -2,17 +2,10 @@ import omit from "lodash/omit";
 import z from "zod";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { InformationSchemaTablesInterface } from "../types/Integration";
+import { Column, InformationSchemaTablesInterface } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
-import { fetchTableData } from "../services/datasource";
-import { getPath } from "../util/integrations";
 import { usingFileConfig } from "../init/config";
-import { DataSourceInterface } from "../../types/datasource";
-import {
-  getInformationSchemaById,
-  updateInformationSchemaById,
-} from "./InformationSchemaModel";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
@@ -21,6 +14,7 @@ const informationSchemaTablesSchema = new mongoose.Schema({
   tableName: String,
   tableSchema: String,
   databaseName: String,
+  informationSchemaId: String,
   columns: {
     type: [Object],
     required: true,
@@ -85,11 +79,34 @@ export async function createInformationSchemaTables(
 }
 
 export async function createInformationSchemaTable(
-  table: InformationSchemaTablesInterface
-): Promise<InformationSchemaTablesInterface | null> {
-  const result = await InformationSchemaTablesModel.create(table);
+  organization: string,
+  tableName: string,
+  schemaName: string,
+  databaseName: string,
+  columns: Column[],
+  refreshMS: number,
+  datasourceId: string,
+  informationSchemaId: string
+): Promise<InformationSchemaTablesInterface> {
+  if (usingFileConfig()) {
+    throw new Error("Cannot add. Data sources managed by config.yml");
+  }
 
-  return result ? toInterface(result) : null;
+  const result = await InformationSchemaTablesModel.create({
+    id: uniqid("tbl_"),
+    organization,
+    tableName,
+    tableSchema: schemaName,
+    databaseName,
+    columns,
+    refreshMS,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    datasourceId,
+    informationSchemaId,
+  });
+
+  return toInterface(result);
 }
 
 export async function getTableDataByPath(
@@ -97,90 +114,41 @@ export async function getTableDataByPath(
   databaseName: string,
   schemaName: string,
   tableName: string,
-  datasource: DataSourceInterface
+  informationSchemaId: string
 ): Promise<InformationSchemaTablesInterface | null> {
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Data sources managed by config.yml");
-  }
-
   const table = await InformationSchemaTablesModel.findOne({
     organization,
     databaseName: databaseName,
     tableSchema: schemaName,
     tableName: tableName,
+    informationSchemaId,
   });
 
-  if (table) {
-    // The table exists in the informationSchemaTables collection, so just return it
-    return toInterface(table);
-  }
+  return table ? toInterface(table) : null;
+}
 
-  // Otherwise, we need to fetch table data from the datasource
-  const { tableData, refreshMS } = await fetchTableData(
-    databaseName,
-    schemaName,
-    tableName,
-    datasource
-  );
-
-  if (!tableData) return null;
-
-  // If we get the tableData, then we need to create a new document and return it to the user
-  const newTable = await createInformationSchemaTable({
-    id: uniqid("tbl_"),
+export async function getTableById(
+  organization: string,
+  id: string
+): Promise<InformationSchemaTablesInterface | null> {
+  const table = await InformationSchemaTablesModel.findOne({
     organization,
-    tableName,
-    tableSchema: schemaName,
-    databaseName,
-    columns: tableData.map(
-      (row: { column_name: string; data_type: string }) => {
-        return {
-          columnName: row.column_name.toLocaleLowerCase(),
-          dataType: row.data_type.toLocaleLowerCase(),
-          path: getPath(datasource.type, {
-            tableCatalog: databaseName,
-            tableSchema: schemaName,
-            tableName: tableName,
-            columnName: row.column_name,
-          }),
-        };
-      }
-    ),
-    refreshMS,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    datasourceId: datasource.id,
+    id,
   });
 
-  const informationSchema = await getInformationSchemaById(
+  return table ? toInterface(table) : null;
+}
+
+export async function getTableByName(
+  tableName: string,
+  informationSchemaId: string,
+  organization: string
+): Promise<InformationSchemaTablesInterface | null> {
+  const table = await InformationSchemaTablesModel.findOne({
+    tableName,
+    informationSchemaId,
     organization,
-    datasource.settings.informationSchemaId || ""
-  );
+  });
 
-  if (informationSchema && newTable) {
-    const databaseIndex = informationSchema.databases.findIndex(
-      (database) => database.databaseName === databaseName
-    );
-
-    const schemaIndex = informationSchema.databases[
-      databaseIndex
-    ].schemas.findIndex((schema) => schema.schemaName === schemaName);
-
-    const tableIndex = informationSchema.databases[databaseIndex].schemas[
-      schemaIndex
-    ].tables.findIndex((table) => table.tableName === tableName);
-
-    informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
-      tableIndex
-    ].id = newTable.id;
-
-    //MKTODO: Optimize this so we're not replacing the entire informationSchema document
-    await updateInformationSchemaById(
-      organization,
-      informationSchema.id,
-      informationSchema
-    );
-  }
-
-  return newTable || null;
+  return table ? toInterface(table) : null;
 }
