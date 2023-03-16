@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaExclamationTriangle, FaPencilAlt } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
@@ -677,28 +677,48 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       Regression Adjustment (CUPED)
                     </PremiumTooltip>
                   </h5>
-                  <small className="d-inline-block mb-4 text-muted">
-                    Only applicable to Frequentist analyses
-                  </small>
-                  <div className="form-group mb-3 mr-2 form-inline">
-                    <label
-                      className="mr-1"
-                      htmlFor="toggle-regressionAdjustmentEnabled"
-                    >
-                      Enable Regression Adjustment
-                    </label>
-                    <Toggle
-                      id={"toggle-regressionAdjustmentEnabled"}
-                      value={!!form.watch("regressionAdjustmentEnabled")}
-                      setValue={(value) => {
-                        form.setValue("regressionAdjustmentEnabled", value);
-                      }}
-                      disabled={
-                        !hasRegressionAdjustmentFeature || hasFileConfig()
-                      }
-                    />
+                  <div className="mb-3">
+                    <small className="d-inline-block mb-2 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
                   </div>
-                  <div className="form-group mb-0 mr-2 form-inline">
+                  <div className="form-group mb-0 mr-2">
+                    <div className="d-flex">
+                      <label
+                        className="mr-1"
+                        htmlFor="toggle-regressionAdjustmentEnabled"
+                      >
+                        Apply regression adjustment by default
+                      </label>
+                      <Toggle
+                        id={"toggle-regressionAdjustmentEnabled"}
+                        value={!!form.watch("regressionAdjustmentEnabled")}
+                        setValue={(value) => {
+                          form.setValue("regressionAdjustmentEnabled", value);
+                        }}
+                        disabled={
+                          !hasRegressionAdjustmentFeature || hasFileConfig()
+                        }
+                      />
+                    </div>
+                    {!!form.watch("regressionAdjustmentEnabled") &&
+                      settings.statsEngine === "bayesian" && (
+                        <div className="d-flex">
+                          <small className="mb-1 text-danger">
+                            <FaExclamationTriangle /> Your organization uses
+                            Bayesian statistics by default
+                          </small>
+                        </div>
+                      )}
+                  </div>
+                  <div
+                    className="form-group mt-3 mb-0 mr-2 form-inline"
+                    style={{
+                      opacity: form.watch("regressionAdjustmentEnabled")
+                        ? "1"
+                        : "0.5",
+                    }}
+                  >
                     <Field
                       label="Pre-exposure lookback period (days)"
                       type="number"
@@ -709,7 +729,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           : "",
                       }}
                       className={`ml-2`}
-                      containerClassName="mb-2"
+                      containerClassName="mb-0"
                       append="days"
                       min="0"
                       max="100"

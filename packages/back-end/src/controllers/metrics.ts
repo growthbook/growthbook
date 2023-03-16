@@ -292,6 +292,9 @@ export async function postMetrics(
     maxPercentChange,
     minPercentChange,
     minSampleSize,
+    regressionAdjustmentOverride,
+    regressionAdjustmentEnabled,
+    regressionAdjustmentDays,
     conditions,
     datasource,
     timestampColumn,
@@ -349,6 +352,9 @@ export async function postMetrics(
     maxPercentChange,
     minPercentChange,
     minSampleSize,
+    regressionAdjustmentOverride,
+    regressionAdjustmentEnabled,
+    regressionAdjustmentDays,
   });
 
   res.status(200).json({
@@ -406,6 +412,9 @@ export async function putMetric(
     "maxPercentChange",
     "minPercentChange",
     "minSampleSize",
+    "regressionAdjustmentOverride",
+    "regressionAdjustmentEnabled",
+    "regressionAdjustmentDays",
     "conditions",
     "dateUpdated",
     "table",

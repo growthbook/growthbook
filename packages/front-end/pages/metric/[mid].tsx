@@ -1034,58 +1034,57 @@ const MetricPage: FC = () => {
               open={() => setEditModalOpen(2)}
               canOpen={canEditMetric}
             >
-              <RightRailSectionGroup type="commaList" empty="">
-                {[
-                  metric.inverse ? "inverse" : null,
-                  metric.cap > 0 ? `cap: ${metric.cap}` : null,
-                  metric.ignoreNulls ? "converted users only" : null,
-                ]}
+              <RightRailSectionGroup type="custom" empty="" className="mt-3">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  {metric.inverse && (
+                    <li className="mb-2">
+                      <span className="text-gray">Goal:</span>{" "}
+                      <span className="font-weight-bold">Inverse</span>
+                    </li>
+                  )}
+                  {metric.cap > 0 && (
+                    <li className="mb-2">
+                      <span className="text-gray">Capped value:</span>{" "}
+                      <span className="font-weight-bold">{metric.cap}</span>
+                    </li>
+                  )}
+                  {metric.ignoreNulls && (
+                    <li className="mb-2">
+                      <span className="text-gray">Converted users only:</span>{" "}
+                      <span className="font-weight-bold">Yes</span>
+                    </li>
+                  )}
+                </ul>
               </RightRailSectionGroup>
 
               {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup
-                  type="commaList"
-                  title="Conversion Window"
-                >
-                  <span>
-                    {metric.conversionDelayHours
-                      ? metric.conversionDelayHours + " to "
-                      : ""}
-                    {(metric.conversionDelayHours || 0) +
-                      (metric.conversionWindowHours ||
-                        getDefaultConversionWindowHours())}{" "}
-                    hours
-                  </span>
+                <RightRailSectionGroup type="custom" empty="">
+                  <ul className="right-rail-subsection list-unstyled mb-4">
+                    <li className="mt-3 mb-1">
+                      <span className="uppercase-title lg">
+                        Conversion Window
+                      </span>
+                    </li>
+                    <li>
+                      <span className="font-weight-bold">
+                        {metric.conversionDelayHours
+                          ? metric.conversionDelayHours + " to "
+                          : ""}
+                        {(metric.conversionDelayHours || 0) +
+                          (metric.conversionWindowHours ||
+                            getDefaultConversionWindowHours())}{" "}
+                        hours
+                      </span>
+                    </li>
+                  </ul>
                 </RightRailSectionGroup>
               )}
 
               <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled">
-                  {settings.statsEngine !== "frequentist" && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title">Thresholds</span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.winRisk * 100 ||
-                            defaultWinRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">
-                          Unacceptable risk &gt;
-                        </span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.loseRisk * 100 ||
-                            defaultLoseRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                    </>
-                  )}
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">Thresholds</span>
+                  </li>
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
@@ -1104,6 +1103,99 @@ const MetricPage: FC = () => {
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">Risk Thresholds</span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to Bayesian analyses
+                    </small>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
+                      %
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">
+                      Regression Adjustment (CUPED)
+                    </span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
+                  </li>
+                  {metric?.regressionAdjustmentOverride ? (
+                    <>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Apply regression adjustment:
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentEnabled ? "Yes" : "No"}
+                        </span>
+                      </li>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Lookback period (days):
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentDays}
+                        </span>
+                      </li>
+                    </>
+                  ) : settings.regressionAdjustmentEnabled ? (
+                    <>
+                      <li className="mb-1">
+                        <div className="mb-1">
+                          <em className="text-gray">
+                            Using organization defaults
+                          </em>
+                        </div>
+                        <div className="ml-2 px-2 border-left">
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Apply regression adjustment:
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentEnabled
+                                ? "Yes"
+                                : "No"}
+                            </span>
+                          </div>
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Lookback period (days):
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentDays}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    </>
+                  ) : (
+                    <li className="mb-2">
+                      <div className="mb-1">
+                        <em className="text-gray">Disabled</em>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </RightRailSectionGroup>
             </RightRailSection>

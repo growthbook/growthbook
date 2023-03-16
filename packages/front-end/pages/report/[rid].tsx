@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
@@ -55,8 +54,6 @@ export default function ReportPage() {
       status: data?.report?.status ? data.report.status : "private",
     },
   });
-
-  const settings = useOrgSettings();
 
   useEffect(() => {
     if (data?.report) {
@@ -393,7 +390,7 @@ export default function ReportPage() {
 
                       return (
                         <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
-                          {settings.statsEngine === "frequentist" ? (
+                          {report.args.statsEngine === "frequentist" ? (
                             <PValueGuardrailResults
                               data={data}
                               variations={variations}
