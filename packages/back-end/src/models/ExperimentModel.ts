@@ -21,11 +21,16 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
-import { VisualExperiment } from "../services/features";
+import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
-import { findVisualChangesets } from "./VisualChangesetModel";
+import {
+  findVisualChangesets,
+  findVisualChangesetsByExperiment,
+} from "./VisualChangesetModel";
+import { SDKPayloadKey } from "../../types/sdk-payload";
+import { flatten, isEqual, uniqWith } from "lodash";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -267,6 +272,7 @@ export async function createExperiment(
   });
 
   await logExperimentCreated(organization, exp);
+  await onExperimentCreate(organization, exp);
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
@@ -292,6 +298,7 @@ export async function updateExperimentById(
 
   const updated = { ...experiment, ...changes };
 
+  // TODO Replace with onExperimentUpdate
   await experimentUpdated(updated);
 
   return updated;
@@ -508,6 +515,7 @@ export async function deleteExperimentSegment(
       $set: { segment: "" },
     }
   );
+  // TODO onExperimentUpdate?
 }
 
 export async function getExperimentsForActivityFeed(
@@ -637,6 +645,8 @@ export async function deleteExperimentByIdForOrganization(
       id: experiment.id,
       organization: organization.id,
     });
+
+    await onExperimentDelete(organization, experiment);
   } catch (e) {
     logger.error(e);
   }
@@ -854,4 +864,80 @@ export const getAllVisualExperiments = async (
   }));
 
   return visualExperiments.filter(isValidVisualExperiment);
+};
+
+const _getPayloadKeys = (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): SDKPayloadKey[] => {
+  const environments =
+    organization.settings?.environments?.map((e) => e.id) ?? [];
+  const project = experiment.project ?? "";
+  return environments.map((e) => ({
+    environment: e,
+    project,
+  }));
+};
+
+const _getAllVisualChanges = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+) => {
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    organization.id
+  );
+
+  if (!visualChangesets.length) return [];
+
+  return flatten(visualChangesets.map((vc) => vc.visualChanges));
+};
+
+const _hasVisualChanges = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+) => {
+  const visualChanges = await _getAllVisualChanges(organization, experiment);
+  return visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
+};
+
+const onExperimentCreate = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+) => {
+  // if no visual changes, return early
+  if (!(await _hasVisualChanges(organization, experiment))) return;
+
+  const payloadKeys = _getPayloadKeys(organization, experiment);
+
+  refreshSDKPayloadCache(organization, payloadKeys);
+};
+
+const onExperimentUpdate = async (
+  organization: OrganizationInterface,
+  oldExperiment: ExperimentInterface,
+  newExperiment: ExperimentInterface
+) => {
+  const oldChanges = await _getAllVisualChanges(organization, oldExperiment);
+  const newChanges = await _getAllVisualChanges(organization, newExperiment);
+
+  if (isEqual(oldChanges, newChanges)) return;
+
+  const oldPayloadKeys = _getPayloadKeys(organization, oldExperiment);
+  const newPayloadKeys = _getPayloadKeys(organization, newExperiment);
+  const payloadKeys = uniqWith([...oldPayloadKeys, ...newPayloadKeys], isEqual);
+
+  refreshSDKPayloadCache(organization, payloadKeys);
+};
+
+const onExperimentDelete = async (
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+) => {
+  // if no visual changes, return early
+  if (!(await _hasVisualChanges(organization, experiment))) return;
+
+  const payloadKeys = _getPayloadKeys(organization, experiment);
+
+  refreshSDKPayloadCache(organization, payloadKeys);
 };
