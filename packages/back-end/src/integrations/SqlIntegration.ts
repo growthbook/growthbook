@@ -160,6 +160,12 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
+  castDateToStandardString(col: string): string {
+    return this.castToString(col);
+  }
+  replaceDateDimensionString(minDateDimString: string): string {
+    return `REGEXP_REPLACE(${minDateDimString}, '.*____', '')`;
+  }
 
   applyMetricOverrides(
     metric: MetricInterface,
@@ -601,7 +607,7 @@ export default abstract class SqlIntegration
   }
 
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
-    const missing_dim_string = "__NULL_DIMENSION";
+    const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
       return this.castToString("'All'");
     } else if (dimension.type === "activation") {
@@ -613,15 +619,17 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
         "d.value"
-      )}),'${missing_dim_string}')`;
+      )}),'${missingDimString}')`;
     } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return `REGEXP_REPLACE(MIN(CONCAT(${this.castToString(
-        "e.timestamp"
-      )}, '____', coalesce(${this.castToString(
-        "e.dimension"
-      )},'${missing_dim_string}'))), '.*____', '')`;
+      return this.replaceDateDimensionString(
+        `MIN(CONCAT(${this.castDateToStandardString(
+          "e.timestamp"
+        )}, '____', coalesce(${this.castToString(
+          "e.dimension"
+        )},'${missingDimString}')))`
+      );
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
