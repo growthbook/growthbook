@@ -72,6 +72,7 @@ type PostEventWebHooksRequest = AuthRequest & {
   body: {
     url: string;
     name: string;
+    enabled: boolean;
     events: NotificationEventName[];
   };
 };
@@ -87,14 +88,14 @@ export const createEventWebHook = async (
   req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
-  const { url, name, events } = req.body;
+  const { url, name, events, enabled } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
     name,
     url,
     events,
     organizationId: org.id,
-    enabled: true,
+    enabled,
   });
 
   return res.json({ eventWebHook: created });
@@ -168,6 +169,7 @@ type UpdateEventWebHookRequest = AuthRequest<
   {
     name: string;
     url: string;
+    enabled: boolean;
     events: NotificationEventName[];
   },
   { eventWebHookId: string }
