@@ -55,7 +55,6 @@ export type VisualExperiment = {
   visualChangeset: VisualChangesetInterface;
 };
 
-// TODO Put this in a better place?
 function generateVisualExperimentsPayload(
   visualExperiments: Array<VisualExperiment>,
   _environment: string,
