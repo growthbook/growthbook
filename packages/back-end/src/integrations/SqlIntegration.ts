@@ -17,6 +17,7 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
+  MetricAggregationType,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -337,11 +338,7 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart([params.metric], params.from);
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(
-      params.metric,
-      baseIdType,
-      "m"
-    );
+    const aggregate = this.getAggregateMetricColumn(params.metric, "noWindow");
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -768,7 +765,7 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const aggregate = this.getAggregateMetricColumn(metric, baseIdType, "m");
+    const aggregate = this.getAggregateMetricColumn(metric, "post");
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
@@ -980,11 +977,7 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(
-                  denominator,
-                  baseIdType,
-                  "m"
-                )} as value
+                ${this.getAggregateMetricColumn(denominator, "post")} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1305,47 +1298,70 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
+  private addPrePostTimeFilter(
+    col: string,
+    timePeriod: MetricAggregationType
+  ): string {
+    const mcol = `m.timestamp`;
+    if (timePeriod === "pre") {
+      return `${this.ifElse(`${mcol} < d.preexposure_end`, `${col}`, `NULL`)}`;
+    }
+    if (timePeriod === "post") {
+      return `${this.ifElse(
+        `${mcol} >= d.conversion_start`,
+        `${col}`,
+        `NULL`
+      )}`;
+    }
+    return `${col}`;
+  }
+
   private getAggregateMetricColumn(
     metric: MetricInterface,
-    baseIdType: string,
-    alias: string = "m"
+    metricTimeWindow: MetricAggregationType = "post"
   ) {
     if (metric.type === "binomial") {
-      return `MAX(${this.ifElse(
-        `${alias}.${baseIdType} IS NOT NULL`,
-        "1",
-        "NULL"
-      )})`;
+      return `MAX(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
     }
 
     const queryFormat = this.getMetricQueryFormat(metric);
     if (queryFormat === "sql") {
-      let aggregation = `SUM(${alias}.value)`;
+      let aggregation = `SUM(${this.addPrePostTimeFilter(
+        `m.value`,
+        metricTimeWindow
+      )})`;
+
       if (metric.aggregation) {
         if (Number(metric.aggregation)) {
-          return `MAX(${this.ifElse(
-            `${alias}.${baseIdType} IS NOT NULL`,
+          return `MAX(${this.addPrePostTimeFilter(
             `${aggregation}`,
-            "NULL"
+            metricTimeWindow
           )})`;
         }
-        aggregation = replaceCountStar(
-          metric.aggregation,
-          `${alias}.${baseIdType}`
-        );
+        aggregation = replaceCountStar(metric.aggregation, `m.timestamp`);
       }
 
       return this.capValue(metric.cap, aggregation);
     }
 
-    return this.capValue(
-      metric.cap,
-      metric.type === "count"
-        ? `COUNT(${
-            metric.column ? `DISTINCT ${alias}.value` : `${alias}.timestamp`
-          })`
-        : `MAX(${alias}.value)`
-    );
+    // builder fomat
+    let aggregate = "";
+    if (metric.type === "count") {
+      if (metric.column) {
+        aggregate = `COUNT(DISTINCT (${this.addPrePostTimeFilter(
+          `m.value`,
+          metricTimeWindow
+        )}))`;
+      } else {
+        aggregate = `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
+      }
+    } else {
+      aggregate = `MAX(${this.addPrePostTimeFilter(
+        `m.value`,
+        metricTimeWindow
+      )})`;
+    }
+    return this.capValue(metric.cap, aggregate);
   }
 
   private getMetricColumns(metric: MetricInterface, alias = "m") {
