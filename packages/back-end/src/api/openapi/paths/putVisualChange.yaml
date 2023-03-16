@@ -14,7 +14,7 @@ get:
           -H "Content-Type: application/json" \
           -d '{"variation": "v_123abc", "domMutations":"[]"}'
   responses:
-    "204":
+    "200":
       content:
         application/json:
           schema:

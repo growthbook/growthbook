@@ -2282,7 +2282,7 @@ export interface operations {
   postVisualChange: {
     /** Create a visual change for a visual changeset */
     responses: {
-      201: {
+      200: {
         content: {
           "application/json": {
             visualChange: {
@@ -2305,7 +2305,7 @@ export interface operations {
   putVisualChange: {
     /** Update a visual change for a visual changeset */
     responses: {
-      204: {
+      200: {
         content: {
           "application/json": {
             visualChange: {
