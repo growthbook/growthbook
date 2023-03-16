@@ -91,7 +91,10 @@ export default class BigQuery extends SqlIntegration {
   async getInformationSchema(): Promise<InformationSchema[]> {
     const projectId = this.params.projectId;
 
-    if (!projectId) throw new Error("No project id found");
+    if (!projectId)
+      throw new Error(
+        "No projectId provided. In order to get the information schema, you must provide a projectId."
+      );
     if (!this.params.defaultDataset) throw new NoDefaultDatasetError();
 
     const queryString = `SELECT
@@ -106,7 +109,9 @@ export default class BigQuery extends SqlIntegration {
     const results = await this.runQuery(queryString);
 
     if (!results.length) {
-      throw new Error("No information schema found");
+      throw new Error(
+        `We were unable to generate the information schema for projectId: ${projectId} and dataset: ${this.params.defaultDataset}.`
+      );
     }
 
     return formatInformationSchema(results, "bigquery");

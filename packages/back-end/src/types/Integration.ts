@@ -10,7 +10,7 @@ import { SegmentInterface } from "../../types/segment";
 export class NoDefaultDatasetError extends Error {
   constructor() {
     super(
-      "To view the information schema for a BigQuery dataset, you must define a default dataset."
+      "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
     );
     this.name = "NoDefaultDatasetError";
   }
@@ -18,7 +18,7 @@ export class NoDefaultDatasetError extends Error {
 
 export class DataSourceNotSupportedError extends Error {
   constructor() {
-    super("This data source is not supported yet");
+    super("This data source is not supported yet.");
     this.name = "DataSourceNotSupportedError";
   }
 }
