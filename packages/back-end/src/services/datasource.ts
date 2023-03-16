@@ -243,6 +243,4 @@ export async function updateDatasourceInformationSchema(
     error: undefined,
     refreshMS,
   });
-
-  return informationSchema.id;
 }
