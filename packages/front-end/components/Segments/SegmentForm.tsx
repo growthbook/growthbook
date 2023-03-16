@@ -53,10 +53,6 @@ const SegmentForm: FC<{
     datasource.settings.informationSchemaId
   );
 
-  //MKTODO: Explore a more programatic way to handle this?
-  const informationSchemaSupported = () =>
-    datasource?.type === "postgres" || datasource?.type === "bigquery";
-
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
@@ -134,7 +130,7 @@ const SegmentForm: FC<{
               queryType="segment"
             />
           </div>
-          {informationSchemaSupported() && (
+          {datasource.properties.supportsInformationSchema && (
             <div className="col-5">
               <SchemaBrowser
                 updateSqlInput={updateSqlInput}
