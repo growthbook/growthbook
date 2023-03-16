@@ -8,6 +8,7 @@ import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
 import {
+  DataSourceNotSupportedError,
   InformationSchema,
   SourceIntegrationInterface,
   TestQueryRow,
@@ -116,7 +117,7 @@ export async function generateInformationSchema(
   const integration = getSourceIntegrationObject(datasource);
 
   if (!integration.getInformationSchema) {
-    throw new Error("Information schema not supported for this data source");
+    throw new DataSourceNotSupportedError();
   }
 
   return await integration.getInformationSchema();

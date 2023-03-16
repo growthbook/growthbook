@@ -4,7 +4,7 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { InformationSchema } from "../types/Integration";
+import { InformationSchema, NoDefaultDatasetError } from "../types/Integration";
 import { formatInformationSchema } from "../util/integrations";
 import { DataSourceProperties } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
@@ -92,10 +92,7 @@ export default class BigQuery extends SqlIntegration {
     const projectId = this.params.projectId;
 
     if (!projectId) throw new Error("No project id found");
-    if (!this.params.defaultDataset)
-      throw new Error(
-        "To view the information schema for a BigQuery dataset, you must define a default dataset."
-      );
+    if (!this.params.defaultDataset) throw new NoDefaultDatasetError();
 
     const queryString = `SELECT
     table_name,
@@ -107,6 +104,10 @@ export default class BigQuery extends SqlIntegration {
     GROUP BY table_name, table_schema`;
 
     const results = await this.runQuery(queryString);
+
+    if (!results.length) {
+      throw new Error("No information schema found");
+    }
 
     return formatInformationSchema(results, "bigquery");
   }

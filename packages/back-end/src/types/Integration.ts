@@ -7,6 +7,22 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 
+export class NoDefaultDatasetError extends Error {
+  constructor() {
+    super(
+      "To view the information schema for a BigQuery dataset, you must define a default dataset."
+    );
+    this.name = "NoDefaultDatasetError";
+  }
+}
+
+export class DataSourceNotSupportedError extends Error {
+  constructor() {
+    super("This data source is not supported yet");
+    this.name = "DataSourceNotSupportedError";
+  }
+}
+
 export interface ExperimentMetricStats {
   metric_type: MetricType;
   count: number;
@@ -195,13 +211,18 @@ export interface InformationSchema {
   dateUpdated: Date;
 }
 
+export interface InformationSchemaError {
+  errorType: "generic" | "not_supported" | "no_default_dataset";
+  message: string;
+}
+
 export interface InformationSchemaInterface {
   id: string;
   datasourceId: string;
   databases: InformationSchema[];
   organization: string;
   status: "PENDING" | "COMPLETE";
-  error?: string;
+  error?: InformationSchemaError;
   dateCreated: Date;
   dateUpdated: Date;
 }
