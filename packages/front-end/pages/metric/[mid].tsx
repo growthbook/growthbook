@@ -88,6 +88,11 @@ const MetricPage: FC = () => {
     "day"
   );
 
+  const [hoverDate, setHoverDate] = useState<number | null>(null);
+  const onHoverCallback = (ret: { d: number | null }) => {
+    setHoverDate(ret.d);
+  };
+
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
@@ -693,6 +698,8 @@ const MetricPage: FC = () => {
                                 method="avg"
                                 dates={analysis.dates}
                                 smoothBy={smoothByAvg}
+                                onHover={onHoverCallback}
+                                hoverDate={hoverDate}
                               />
                             </>
                           )}
@@ -767,6 +774,8 @@ const MetricPage: FC = () => {
                             method="sum"
                             dates={analysis.dates}
                             smoothBy={smoothBySum}
+                            onHover={onHoverCallback}
+                            hoverDate={hoverDate}
                           />
                         </div>
                       )}

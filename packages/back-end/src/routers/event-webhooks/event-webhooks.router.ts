@@ -27,6 +27,7 @@ router.post(
         url: z.string().url(),
         name: z.string().trim().min(2),
         events: z.array(z.enum(notificationEventNames)).min(1),
+        enabled: z.boolean(),
       })
       .strict(),
   }),
@@ -98,6 +99,7 @@ router.put(
         url: z.string().url(),
         name: z.string().trim().min(2),
         events: z.array(z.enum(notificationEventNames)).min(1),
+        enabled: z.boolean(),
       })
       .strict(),
   }),
