@@ -94,6 +94,7 @@ export interface DataSourceProperties {
   userIds?: boolean;
   pastExperiments?: boolean;
   separateExperimentResultQueries?: boolean;
+  supportsInformationSchema?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {

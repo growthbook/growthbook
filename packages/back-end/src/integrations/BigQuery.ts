@@ -4,8 +4,9 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { InformationSchema, RawInformationSchema } from "../types/Integration";
 import { formatInformationSchema } from "../util/informationSchemas";
+import { InformationSchema } from "../types/Integration";
+import { DataSourceProperties } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -16,6 +17,12 @@ export default class BigQuery extends SqlIntegration {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
+  }
+  getSourceProperties(): DataSourceProperties {
+    return {
+      ...super.getSourceProperties(),
+      supportsInformationSchema: true,
+    };
   }
   getFormatDialect(): FormatDialect {
     return "bigquery";
@@ -88,42 +95,26 @@ export default class BigQuery extends SqlIntegration {
     const projectId = this.params.projectId;
 
     if (!projectId) throw new Error("No project id found");
+    if (!this.params.defaultDataset)
+      throw new Error(
+        "To view the information schema for a BigQuery dataset, you must define a default dataset."
+      );
 
-    const datasets = await this.runQuery(
-      `SELECT * FROM ${projectId}.INFORMATION_SCHEMA.SCHEMATA;`
-    );
-
-    const combinedResults: RawInformationSchema[] = [];
-
-    const query: string[] = [];
-
-    for (const dataset of datasets) {
-      query.push(`SELECT
-        table_name,
-        '${projectId}' as table_catalog,
-        table_schema,
-        COUNT(column_name) as column_count
-      FROM
-        \`${projectId}.${dataset.schema_name}.INFORMATION_SCHEMA.COLUMNS\`
-        GROUP BY table_name, table_schema`);
-    }
-
-    if (query.length > 10) throw new Error("Datasource too large.");
-
-    const queryString = query.join(" UNION ALL ");
+    const queryString = `SELECT
+    table_name,
+    '${projectId}' as table_catalog,
+    table_schema,
+    COUNT(column_name) as column_count
+  FROM
+    \`${projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
+    GROUP BY table_name, table_schema`;
 
     const queryStartTime = Date.now();
     const results = await this.runQuery(queryString);
     const queryEndTime = Date.now();
 
-    for (const result of results) {
-      combinedResults.push(result);
-    }
-
-    if (!combinedResults.length) throw new Error("No information schema found");
-
     return {
-      informationSchema: formatInformationSchema(combinedResults, "bigquery"),
+      informationSchema: formatInformationSchema(results, "bigquery"),
       refreshMS: queryEndTime - queryStartTime,
     };
   }
