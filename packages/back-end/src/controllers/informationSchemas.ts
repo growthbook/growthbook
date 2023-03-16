@@ -10,11 +10,11 @@ import {
   createInformationSchemaTable,
   getTableDataByPath,
 } from "../models/InformationSchemaTablesModel";
-import { fetchTableData } from "../services/datasource";
+import { fetchTableData } from "../services/informationSchema";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import { Column } from "../types/Integration";
-import { getPath } from "../util/integrations";
+import { getPath } from "../util/informationSchemas";
 
 export async function getTableData(
   req: AuthRequest<

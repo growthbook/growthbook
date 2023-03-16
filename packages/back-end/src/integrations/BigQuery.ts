@@ -5,7 +5,7 @@ import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
-import { formatInformationSchema } from "../util/integrations";
+import { formatInformationSchema } from "../util/informationSchemas";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {

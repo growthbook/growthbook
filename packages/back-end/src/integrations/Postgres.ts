@@ -2,7 +2,7 @@ import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
-import { formatInformationSchema } from "../util/integrations";
+import { formatInformationSchema } from "../util/informationSchemas";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 

@@ -1,5 +1,5 @@
 import Agenda, { Job } from "agenda";
-import { updateDatasourceInformationSchema } from "../services/datasource";
+import { updateDatasourceInformationSchema } from "../services/informationSchema";
 import { logger } from "../util/logger";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
