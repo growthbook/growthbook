@@ -15,17 +15,14 @@ type RowType = {
 
 export function getPath(dataSource: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
-  const returnValue = pathArray.join(".").toLocaleLowerCase();
+  const returnValue = pathArray.join(".");
   switch (dataSource) {
     // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
     case "mysql":
       if (pathArray.length === 1) {
         return "";
       } else {
-        return pathArray
-          .slice(1, pathArray.length)
-          .join(".")
-          .toLocaleLowerCase();
+        return pathArray.slice(1, pathArray.length).join(".");
       }
 
     case "bigquery":
@@ -52,7 +49,7 @@ export function formatInformationSchema(
     let database = databases.get(dbPath);
     if (!database) {
       database = {
-        databaseName: row.table_catalog.toLocaleLowerCase(),
+        databaseName: row.table_catalog,
         schemas: [],
         path: dbPath,
         dateCreated: date,
@@ -68,7 +65,7 @@ export function formatInformationSchema(
     let schema = schemas.get(schemaPath);
     if (!schema) {
       schema = {
-        schemaName: row.table_schema.toLocaleLowerCase(),
+        schemaName: row.table_schema,
         tables: [],
         path: schemaPath,
         dateCreated: date,
@@ -87,7 +84,7 @@ export function formatInformationSchema(
     let table = tables.get(tablePath);
     if (!table) {
       table = {
-        tableName: row.table_name.toLocaleLowerCase(),
+        tableName: row.table_name,
         path: tablePath,
         numOfColumns: parseInt(row.column_count, 10),
         id: "",
@@ -96,7 +93,7 @@ export function formatInformationSchema(
       };
       tables.set(tablePath, table);
       const schemaIndex = database.schemas.findIndex(
-        (schema) => schema.schemaName === row.table_schema.toLocaleLowerCase()
+        (schema) => schema.schemaName === row.table_schema
       );
       database.schemas[schemaIndex].tables.push(table);
     }
