@@ -27,7 +27,10 @@ import { getOrganizationById } from "../services/organizations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
-import { findVisualChangesetsByExperiment } from "./VisualChangesetModel";
+import {
+  findVisualChangesets,
+  findVisualChangesetsByExperiment,
+} from "./VisualChangesetModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -828,14 +831,13 @@ export const getAllVisualExperiments = async (
 
   if (!visualChangesets.length) return [];
 
-  const visualChangesByExperimentId = visualChangesets.reduce(
-    (acc: Record<string, Array<VisualChange>>, c) => {
-      if (!acc[c.experiment]) acc[c.experiment] = [];
-      acc[c.experiment] = acc[c.experiment].concat(c.visualChanges);
-      return acc;
-    },
-    {}
-  );
+  const visualChangesByExperimentId = visualChangesets.reduce<
+    Record<string, Array<VisualChange>>
+  >((acc, c) => {
+    if (!acc[c.experiment]) acc[c.experiment] = [];
+    acc[c.experiment] = acc[c.experiment].concat(c.visualChanges);
+    return acc;
+  }, {});
 
   const experiments = (
     await findExperiments({
