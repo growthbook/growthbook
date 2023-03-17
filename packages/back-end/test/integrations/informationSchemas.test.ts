@@ -1,5 +1,12 @@
-import { RawInformationSchema } from "../../src/types/Integration";
+import {
+  InformationSchema,
+  RawInformationSchema,
+} from "../../src/types/Integration";
 import { formatInformationSchema } from "../../src/util/informationSchemas";
+import {
+  mergeStaleInformationSchemaWithUpdate,
+  removeRecentlyDeletedTables,
+} from "../../src/services/informationSchema";
 
 describe("formatInformationSchema", () => {
   it("Correctly formats a rawInformationSchema for BigQuery correctly", () => {
@@ -449,5 +456,604 @@ describe("formatInformationSchema", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("mergeStaleInformationSchemaWithUpdated", () => {
+  it("Correctly updates the original informationSchema when a new table is added", async () => {
+    const staleInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+      },
+    ];
+    const updatedInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "newly-added-table",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 16,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+            dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+        dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+      },
+    ];
+
+    const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
+      staleInformationSchema,
+      updatedInformationSchema
+    );
+
+    expect(mergedInformationSchema).toEqual([
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "newly-added-table",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 16,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+      },
+    ]);
+  });
+
+  it("Correctly updates the original informationSchema when a column is added to an existing table", async () => {
+    const staleInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "table-with-new-column-added",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 16,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+      },
+    ];
+    const updatedInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "table-with-new-column-added",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 100,
+                dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
+            dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
+        dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+      },
+    ];
+
+    const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
+      staleInformationSchema,
+      updatedInformationSchema
+    );
+
+    expect(mergedInformationSchema).toEqual([
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "table-with-new-column-added",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 100,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-19T15:00:00.300+00:00"),
+      },
+    ]);
+  });
+
+  it("Correclty updates the original informationSchema when a table is removed", async () => {
+    const staleInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "table-to-be-deleted",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 16,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+      },
+    ];
+    const updatedInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+            dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+        dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+      },
+    ];
+
+    const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
+      staleInformationSchema,
+      updatedInformationSchema
+    );
+
+    expect(mergedInformationSchema).toEqual([
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+      },
+    ]);
+  });
+});
+
+describe("removeRecentlyDeletedTables", () => {
+  it("Returns the correct table id's that were recently removed", () => {
+    const staleInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-1",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "sample_table_id-3",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+                dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+              },
+              {
+                tableName: "table-to-be-deleted",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "table_id_to_be_deleted-1234",
+                numOfColumns: 16,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+            dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
+        dateUpdated: new Date("2023-03-17T15:49:29.368+00:00"),
+      },
+    ];
+    const updatedInformationSchema: InformationSchema[] = [
+      {
+        databaseName: "sample_database_name",
+        path: "sample_org_id",
+        schemas: [
+          {
+            schemaName: "sample_schema_name",
+            path: "sample_org_id.sample_database_name",
+            tables: [
+              {
+                tableName: "sample_table_name",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 3,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table_name-with-no-id",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 4,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+              {
+                tableName: "sample_table-3",
+                path:
+                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                id: "",
+                numOfColumns: 8,
+                dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+                dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+              },
+            ],
+            dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+            dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+          },
+        ],
+        dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
+        dateUpdated: new Date("2023-03-18T15:00:00.300+00:00"),
+      },
+    ];
+
+    expect(
+      removeRecentlyDeletedTables(
+        staleInformationSchema,
+        updatedInformationSchema
+      )
+    ).toEqual(["table_id_to_be_deleted-1234"]);
   });
 });
