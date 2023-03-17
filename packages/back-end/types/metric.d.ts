@@ -49,7 +49,7 @@ export interface MetricInterface {
   minPercentChange?: number;
   minSampleSize?: number;
   regressionAdjustmentOverride?: boolean;
-  regressionAdjustmentEnabled?: false;
+  regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
   segment?: string;
   dateCreated: Date | null;

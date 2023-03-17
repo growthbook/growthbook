@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import React, { ReactElement } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
+import { FaHeart, FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -201,6 +201,13 @@ export default function ResultsTable({
             >
               <th className="metricname">
                 {renderLabelColumn(row.label, row.metric)}
+                {row?.regressionAdjustmentInfo?.regressionAdjustmentEnabled && (
+                  <span className="ml-1">
+                    <Tooltip body="CUPED enabled">
+                      <FaHeart style={{ color: "#26be62" }} />
+                    </Tooltip>
+                  </span>
+                )}
               </th>
               {hasRisk && fullStats && (
                 <RiskColumn row={row} riskVariation={riskVariation} />

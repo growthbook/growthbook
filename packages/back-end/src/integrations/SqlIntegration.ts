@@ -180,14 +180,14 @@ export default abstract class SqlIntegration
       if ("loseRisk" in metricOverride) {
         metric.loseRisk = metricOverride.loseRisk;
       }
+      // todo: need to apply overrides using logic from getRegressionAdjustmentsForMetric()
       if ("regressionAdjustmentOverride" in metricOverride) {
-        metric.regressionAdjustmentOverride = metricOverride.regressionAdjustmentOverride;
-      }
-      if ("regressionAdjustmentEnabled" in metricOverride) {
-        metric.regressionAdjustmentEnabled = metricOverride.regressionAdjustmentEnabled;
-      }
-      if ("regressionAdjustmentDays" in metricOverride) {
-        metric.regressionAdjustmentDays = metricOverride.regressionAdjustmentDays;
+        metric.regressionAdjustmentOverride =
+          metricOverride.regressionAdjustmentOverride;
+        metric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+        metric.regressionAdjustmentDays =
+          metricOverride.regressionAdjustmentDays ??
+          metric.regressionAdjustmentDays;
       }
     }
     return;

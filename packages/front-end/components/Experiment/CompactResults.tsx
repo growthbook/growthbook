@@ -11,8 +11,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  getRegressionAdjustmentsForMetric,
   useRiskVariation,
 } from "@/services/experiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -46,14 +48,25 @@ const CompactResults: FC<{
   id,
   statsEngine,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const settings = useOrgSettings();
+  const { getMetricById, ready, metrics: metricDefinitions } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     return metrics
       .map((metricId) => {
         const metric = getMetricById(metricId);
-        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        // todo: support getting org-level RA settings from snapshot, not just current values?
+        // todo: support getting metric definitions from snapshot, not just current values?
+        let { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        const ret = getRegressionAdjustmentsForMetric({
+          metric: newMetric,
+          metrics: metricDefinitions,
+          organizationSettings: settings,
+        });
+        const { regressionAdjustmentInfo } = ret;
+        newMetric = ret.newMetric;
+
         return {
           label: newMetric?.name,
           metric: newMetric,
@@ -61,6 +74,7 @@ const CompactResults: FC<{
           variations: results.variations.map((v) => {
             return v.metrics[metricId];
           }),
+          regressionAdjustmentInfo,
         };
       })
       .filter((row) => row.metric);

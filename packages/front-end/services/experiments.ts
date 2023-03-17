@@ -2,7 +2,10 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { MetricDefaults } from "back-end/types/organization";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
@@ -12,6 +15,11 @@ export type ExperimentTableRow = {
   metric: MetricInterface;
   variations: SnapshotMetric[];
   rowClass?: string;
+  regressionAdjustmentInfo?: {
+    regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentDays: number;
+    reason: string;
+  }; // todo: define this type
 };
 
 export function hasEnoughData(
@@ -221,7 +229,7 @@ export function applyMetricOverrides(
       overrideFields: [],
     };
   }
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<MetricInterface>(metric) as MetricInterface;
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
@@ -242,19 +250,90 @@ export function applyMetricOverrides(
       overrideFields.push("loseRisk");
     }
     if ("regressionAdjustmentOverride" in metricOverride) {
-      newMetric.regressionAdjustmentOverride = metricOverride.regressionAdjustmentOverride;
-      overrideFields.push("regressionAdjustmentOverride");
-    }
-    if ("regressionAdjustmentEnabled" in metricOverride) {
-      newMetric.regressionAdjustmentEnabled = metricOverride.regressionAdjustmentEnabled;
-      overrideFields.push("regressionAdjustmentEnabled");
-    }
-    if ("regressionAdjustmentDays" in metricOverride) {
-      newMetric.regressionAdjustmentDays = metricOverride.regressionAdjustmentDays;
-      overrideFields.push("regressionAdjustmentDays");
+      // only apply RA fields if doing an override
+      newMetric.regressionAdjustmentOverride =
+        metricOverride.regressionAdjustmentOverride;
+      newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      newMetric.regressionAdjustmentDays =
+        metricOverride.regressionAdjustmentDays ??
+        newMetric.regressionAdjustmentDays;
+      overrideFields.push(
+        "regressionAdjustmentOverride",
+        "regressionAdjustmentEnabled",
+        "regressionAdjustmentDays"
+      );
     }
   }
   return { newMetric, overrideFields };
+}
+
+export function getRegressionAdjustmentsForMetric({
+  metric,
+  metrics,
+  organizationSettings,
+  metricOverrides,
+}: {
+  metric: MetricInterface;
+  metrics: MetricInterface[];
+  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
+  metricOverrides?: MetricOverride[];
+}) {
+  const newMetric = cloneDeep<MetricInterface>(metric) as MetricInterface;
+
+  // start with default RA settings
+  let regressionAdjustmentEnabled = false;
+  let regressionAdjustmentDays = 14;
+  let reason = "";
+
+  // get RA settings from organization
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+    regressionAdjustmentDays =
+      organizationSettings.regressionAdjustmentDays ?? regressionAdjustmentDays;
+  }
+
+  // get RA settings from metric
+  if (metric.regressionAdjustmentOverride) {
+    regressionAdjustmentEnabled = !!metric.regressionAdjustmentEnabled;
+    regressionAdjustmentDays = metric.regressionAdjustmentDays ?? 14;
+  }
+
+  // get RA settings from metric override
+  if (metricOverrides) {
+    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    if (metricOverride?.regressionAdjustmentOverride) {
+      regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      regressionAdjustmentDays =
+        metricOverride.regressionAdjustmentDays ?? regressionAdjustmentDays;
+    }
+  }
+
+  // final gatekeeping
+  if (regressionAdjustmentEnabled) {
+    if (metric.denominator) {
+      const denominator = metrics.find((m) => m.id === metric.denominator);
+      if (denominator?.type === "count") {
+        regressionAdjustmentEnabled = false;
+        reason = "denominator is count";
+      }
+    }
+  }
+
+  if (!regressionAdjustmentEnabled) {
+    regressionAdjustmentDays = 0;
+  }
+
+  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
+
+  return {
+    newMetric,
+    regressionAdjustmentInfo: {
+      regressionAdjustmentEnabled,
+      regressionAdjustmentDays,
+      reason,
+    },
+  };
 }
 
 export function isExpectedDirection(
