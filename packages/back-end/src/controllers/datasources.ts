@@ -166,7 +166,10 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       ],
     };
 
-    await createExperiment(experiment, org);
+    await createExperiment({
+      data: experiment,
+      organization: org,
+    });
 
     await createManualSnapshot(
       experiment,

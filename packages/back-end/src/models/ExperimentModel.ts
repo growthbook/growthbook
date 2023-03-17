@@ -234,10 +234,15 @@ export async function getSampleExperiment(
   return exp ? toInterface(exp) : null;
 }
 
-export async function createExperiment(
-  data: Partial<ExperimentInterface>,
-  organization: OrganizationInterface
-): Promise<ExperimentInterface> {
+export async function createExperiment({
+  data,
+  organization,
+  fireWebhooks,
+}: {
+  data: Partial<ExperimentInterface>;
+  organization: OrganizationInterface;
+  fireWebhooks?: boolean;
+}): Promise<ExperimentInterface> {
   data.organization = organization.id;
 
   if (!data.trackingKey) {
@@ -271,7 +276,11 @@ export async function createExperiment(
     nextSnapshotAttempt: nextUpdate,
   });
 
-  await onExperimentCreate(organization, exp);
+  await _onExperimentCreate({
+    organization,
+    experiment: exp,
+    fireWebhooks,
+  });
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
@@ -299,7 +308,7 @@ export async function updateExperimentById(
 
   const org = await getOrganizationById(organization);
   if (org) {
-    await onExperimentUpdate({
+    await _onExperimentUpdate({
       organization: org,
       oldExperiment: experiment,
       newExperiment: updated,
@@ -530,7 +539,7 @@ export async function deleteExperimentSegment(
     current.segment = "";
 
     // TODO Confirm we want to fire webhooks here?
-    onExperimentUpdate({
+    _onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
@@ -647,7 +656,7 @@ export async function deleteExperimentByIdForOrganization(
       organization: organization.id,
     });
 
-    await onExperimentDelete(organization, experiment);
+    await _onExperimentDelete(organization, experiment);
   } catch (e) {
     logger.error(e);
   }
@@ -677,7 +686,7 @@ export const removeTagFromExperiments = async ({
     const current = cloneDeep(previous);
     current.tags = current.tags.filter((t) => t != tag);
 
-    onExperimentUpdate({
+    _onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
@@ -757,7 +766,7 @@ export async function removeMetricFromExperiments(
   each(oldExperiments, async (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
+      await _onExperimentUpdate({
         organization,
         oldExperiment: previous,
         newExperiment: current,
@@ -780,7 +789,7 @@ export async function removeProjectFromExperiments(
     const current = cloneDeep(previous);
     current.project = "";
 
-    onExperimentUpdate({
+    _onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
@@ -903,21 +912,7 @@ const _hasVisualChanges = async (
   return visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
 };
 
-const onExperimentCreate = async (
-  organization: OrganizationInterface,
-  experiment: ExperimentInterface
-) => {
-  // if no visual changes, return early
-  if (!(await _hasVisualChanges(organization, experiment))) return;
-
-  const payloadKeys = _getPayloadKeys(organization, experiment);
-
-  await _logExperimentCreated(organization, experiment);
-
-  refreshSDKPayloadCache(organization, payloadKeys);
-};
-
-const _legacyOnExperimentUpdate = async (
+const _fireWebhoks = async (
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) => {
@@ -938,7 +933,30 @@ const _legacyOnExperimentUpdate = async (
   });
 };
 
-const onExperimentUpdate = async ({
+const _onExperimentCreate = async ({
+  organization,
+  experiment,
+  fireWebhooks = false,
+}: {
+  organization: OrganizationInterface;
+  experiment: ExperimentInterface;
+  fireWebhooks?: boolean;
+}) => {
+  await _logExperimentCreated(organization, experiment);
+
+  if (fireWebhooks) {
+    _fireWebhoks(experiment);
+  }
+
+  // if no visual changes, return early
+  if (!(await _hasVisualChanges(organization, experiment))) return;
+
+  const payloadKeys = _getPayloadKeys(organization, experiment);
+
+  refreshSDKPayloadCache(organization, payloadKeys);
+};
+
+const _onExperimentUpdate = async ({
   organization,
   oldExperiment,
   newExperiment,
@@ -950,9 +968,16 @@ const onExperimentUpdate = async ({
   bypassWebhooks?: boolean;
 }) => {
   if (!bypassWebhooks) {
-    _legacyOnExperimentUpdate(newExperiment, oldExperiment?.project);
+    _fireWebhoks(newExperiment, oldExperiment?.project);
   }
 
+  await _logExperimentUpdated({
+    organization,
+    current: newExperiment,
+    previous: oldExperiment,
+  });
+
+  // if no delta in visual changes, return early
   const oldChanges = oldExperiment
     ? await _getAllVisualChanges(organization, oldExperiment)
     : [];
@@ -967,24 +992,21 @@ const onExperimentUpdate = async ({
   const payloadKeys = uniqWith([...oldPayloadKeys, ...newPayloadKeys], isEqual);
 
   refreshSDKPayloadCache(organization, payloadKeys);
-
-  await _logExperimentUpdated({
-    organization,
-    current: newExperiment,
-    previous: oldExperiment,
-  });
 };
 
-const onExperimentDelete = async (
+const _onExperimentDelete = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ) => {
+  // fire webhooks
+  _fireWebhoks(experiment);
+
+  await _logExperimentDeleted(organization, experiment);
+
   // if no visual changes, return early
   if (!(await _hasVisualChanges(organization, experiment))) return;
 
   const payloadKeys = _getPayloadKeys(organization, experiment);
 
   refreshSDKPayloadCache(organization, payloadKeys);
-
-  await _logExperimentDeleted(organization, experiment);
 };

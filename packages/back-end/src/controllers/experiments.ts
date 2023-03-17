@@ -550,7 +550,11 @@ export async function postExperiments(
       }
     }
 
-    const experiment = await createExperiment(obj, org);
+    const experiment = await createExperiment({
+      data: obj,
+      organization: org,
+      fireWebhooks: true,
+    });
 
     await req.audit({
       event: "experiment.create",

@@ -371,7 +371,10 @@ export async function addSampleData(
       if (!data.name) return;
 
       // Create experiment document
-      const exp = await createExperiment(data, org);
+      const exp = await createExperiment({
+        data,
+        organization: org,
+      });
 
       // Add a few experiments to evidence
       if (
