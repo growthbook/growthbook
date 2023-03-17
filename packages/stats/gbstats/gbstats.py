@@ -170,7 +170,9 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
 
             s[f"v{i}_cr"] = stat_b.unadjusted_mean
             s[f"v{i}_expected"] = (
-                (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
+                (stat_b.mean - stat_a.mean) / stat_a.unadjusted_mean
+                if stat_a.unadjusted_mean > 0
+                else 0
             )
             s[f"v{i}_mean"] = stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = stat_b.stddev
