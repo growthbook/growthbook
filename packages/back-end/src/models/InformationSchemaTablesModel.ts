@@ -180,3 +180,15 @@ export async function updateInformationSchemaTableById(
     }
   );
 }
+
+export async function removeDeletedTables(
+  organization: string,
+  informationSchemaId: string,
+  tableIds: string[]
+): Promise<void> {
+  await InformationSchemaTablesModel.deleteMany({
+    organization,
+    informationSchemaId,
+    id: { $in: tableIds },
+  });
+}

@@ -95,7 +95,6 @@ export default function SchemaBrowser({
       currentTable?.databaseName === databaseName &&
       currentTable?.tableSchema === schemaName
     )
-      //TODO: Add stale-while-revalidate caching level here
       return;
 
     try {
@@ -180,6 +179,36 @@ export default function SchemaBrowser({
                           <Collapsible
                             className="pb-1"
                             key={database.databaseName + schema.schemaName}
+                            onTriggerOpening={async () => {
+                              const currentDate = new Date();
+                              const dateLastUpdated = new Date(
+                                informationSchema.dateUpdated
+                              );
+                              // To calculate the time difference of two dates
+                              const diffInMilliseconds =
+                                currentDate.getTime() -
+                                dateLastUpdated.getTime();
+
+                              // To calculate the no. of days between two dates
+                              const diffInDays = Math.floor(
+                                diffInMilliseconds / (1000 * 3600 * 24)
+                              );
+
+                              if (diffInDays > 30) {
+                                await apiCall<{
+                                  status: number;
+                                  message?: string;
+                                }>(
+                                  `/datasource/${datasource.id}/informationSchema`,
+                                  {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      informationSchemaId: informationSchema.id,
+                                    }),
+                                  }
+                                );
+                              }
+                            }}
                             trigger={
                               datasource.type === ("bigquery" || "postgres") ? (
                                 <>
