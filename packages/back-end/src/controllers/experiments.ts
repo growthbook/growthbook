@@ -19,8 +19,6 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
-  logExperimentUpdated,
-  onExperimentUpdate,
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
@@ -65,7 +63,6 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 export async function getExperiments(
@@ -566,8 +563,6 @@ export async function postExperiments(
 
     await ensureWatching(userId, org.id, experiment.id, "experiments");
 
-    await onExperimentUpdate({ organization: org, newExperiment: experiment });
-
     res.status(200).json({
       status: 200,
       experiment,
@@ -609,8 +604,6 @@ export async function postExperiment(
     });
     return;
   }
-
-  const previousExperiment = cloneDeep(experiment);
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -753,16 +746,6 @@ export async function postExperiment(
     },
     details: auditDetailsUpdate(experiment, updated),
   });
-
-  try {
-    await logExperimentUpdated({
-      organization: org,
-      current: experiment,
-      previous: previousExperiment,
-    });
-  } catch (e) {
-    logger.error(e);
-  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
@@ -1274,11 +1257,6 @@ export async function deleteExperiment(
       id: experiment.id,
     },
     details: auditDetailsDelete(experiment),
-  });
-
-  await onExperimentUpdate({
-    organization: org,
-    newExperiment: experiment,
   });
 
   res.status(200).json({

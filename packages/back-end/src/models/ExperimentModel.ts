@@ -271,7 +271,6 @@ export async function createExperiment(
     nextSnapshotAttempt: nextUpdate,
   });
 
-  await logExperimentCreated(organization, exp);
   await onExperimentCreate(organization, exp);
 
   if (data.tags) {
@@ -302,6 +301,7 @@ export async function updateExperimentById(
   if (org) {
     await onExperimentUpdate({
       organization: org,
+      oldExperiment: experiment,
       newExperiment: updated,
     });
   }
@@ -511,16 +511,31 @@ export async function getRecentExperimentsUsingMetric(
 }
 
 export async function deleteExperimentSegment(
-  organization: string,
+  organization: OrganizationInterface,
   segment: string
 ): Promise<void> {
-  await ExperimentModel.updateOne(
-    { organization, segment },
+  const exps = await getExperimentsUsingSegment(segment, organization.id);
+
+  if (!exps.length) return;
+
+  await ExperimentModel.updateMany(
+    { organization: organization.id, segment },
     {
       $set: { segment: "" },
     }
   );
-  // TODO onExperimentUpdate?
+
+  exps.forEach((previous) => {
+    const current = cloneDeep(previous);
+    current.segment = "";
+
+    // TODO Confirm we want to fire webhooks here?
+    onExperimentUpdate({
+      organization,
+      oldExperiment: previous,
+      newExperiment: current,
+    });
+  });
 }
 
 export async function getExperimentsForActivityFeed(
@@ -547,23 +562,6 @@ export async function getExperimentsForActivityFeed(
   }));
 }
 
-export async function removeTagFromExperiment(
-  organization: string,
-  tagId: string
-): Promise<void> {
-  await ExperimentModel.updateOne(
-    {
-      organization,
-      tags: tagId,
-    },
-    {
-      $pull: {
-        tags: tagId,
-      },
-    }
-  );
-}
-
 /**
  * Finds an experiment for an organization
  * @param experimentId
@@ -587,7 +585,7 @@ export const findExperiment = async ({
  * @param experiment
  * @return event.id
  */
-export const logExperimentCreated = async (
+const _logExperimentCreated = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ): Promise<string> => {
@@ -610,7 +608,7 @@ export const logExperimentCreated = async (
  * @param experiment
  * @return event.id
  */
-export const logExperimentUpdated = async ({
+const _logExperimentUpdated = async ({
   organization,
   current,
   previous,
@@ -644,8 +642,6 @@ export async function deleteExperimentByIdForOrganization(
   organization: OrganizationInterface
 ) {
   try {
-    await logExperimentDeleted(organization, experiment);
-
     await ExperimentModel.deleteOne({
       id: experiment.id,
       organization: organization.id,
@@ -681,10 +677,11 @@ export const removeTagFromExperiments = async ({
     const current = cloneDeep(previous);
     current.tags = current.tags.filter((t) => t != tag);
 
-    logExperimentUpdated({
+    onExperimentUpdate({
       organization,
-      previous,
-      current,
+      oldExperiment: previous,
+      newExperiment: current,
+      bypassWebhooks: true,
     });
   });
 };
@@ -760,10 +757,11 @@ export async function removeMetricFromExperiments(
   each(oldExperiments, async (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await logExperimentUpdated({
+      await onExperimentUpdate({
         organization,
-        current,
-        previous,
+        oldExperiment: previous,
+        newExperiment: current,
+        bypassWebhooks: true,
       });
     }
   });
@@ -782,10 +780,10 @@ export async function removeProjectFromExperiments(
     const current = cloneDeep(previous);
     current.project = "";
 
-    logExperimentUpdated({
+    onExperimentUpdate({
       organization,
-      previous,
-      current,
+      oldExperiment: previous,
+      newExperiment: current,
     });
   });
 }
@@ -802,7 +800,7 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
  * @param experiment
  * @return event.id
  */
-export const logExperimentDeleted = async (
+export const _logExperimentDeleted = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ): Promise<string> => {
@@ -820,7 +818,7 @@ export const logExperimentDeleted = async (
   return emittedEvent.id;
 };
 
-const isValidVisualExperiment = (
+const _isValidVisualExperiment = (
   e: Partial<VisualExperiment>
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
@@ -867,7 +865,7 @@ export const getAllVisualExperiments = async (
     visualChangeset: c,
   }));
 
-  return visualExperiments.filter(isValidVisualExperiment);
+  return visualExperiments.filter(_isValidVisualExperiment);
 };
 
 const _getPayloadKeys = (
@@ -914,6 +912,8 @@ const onExperimentCreate = async (
 
   const payloadKeys = _getPayloadKeys(organization, experiment);
 
+  await _logExperimentCreated(organization, experiment);
+
   refreshSDKPayloadCache(organization, payloadKeys);
 };
 
@@ -938,16 +938,20 @@ const _legacyOnExperimentUpdate = async (
   });
 };
 
-export const onExperimentUpdate = async ({
+const onExperimentUpdate = async ({
   organization,
   oldExperiment,
   newExperiment,
+  bypassWebhooks = false,
 }: {
   organization: OrganizationInterface;
-  oldExperiment?: ExperimentInterface;
+  oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
+  bypassWebhooks?: boolean;
 }) => {
-  _legacyOnExperimentUpdate(newExperiment, oldExperiment?.project);
+  if (!bypassWebhooks) {
+    _legacyOnExperimentUpdate(newExperiment, oldExperiment?.project);
+  }
 
   const oldChanges = oldExperiment
     ? await _getAllVisualChanges(organization, oldExperiment)
@@ -963,6 +967,12 @@ export const onExperimentUpdate = async ({
   const payloadKeys = uniqWith([...oldPayloadKeys, ...newPayloadKeys], isEqual);
 
   refreshSDKPayloadCache(organization, payloadKeys);
+
+  await _logExperimentUpdated({
+    organization,
+    current: newExperiment,
+    previous: oldExperiment,
+  });
 };
 
 const onExperimentDelete = async (
@@ -975,4 +985,6 @@ const onExperimentDelete = async (
   const payloadKeys = _getPayloadKeys(organization, experiment);
 
   refreshSDKPayloadCache(organization, payloadKeys);
+
+  await _logExperimentDeleted(organization, experiment);
 };
