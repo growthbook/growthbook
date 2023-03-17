@@ -834,6 +834,13 @@ const _isValidVisualExperiment = (
 export const getAllVisualExperiments = async (
   organization: string
 ): Promise<Array<VisualExperiment>> => {
+  // TODO encryption
+  // if (!encryptionKey) {
+  //   return {
+  //     features,
+  //     dateUpdated,
+  //   };
+  // }
   const visualChangesets = await findVisualChangesets(organization);
 
   if (!visualChangesets.length) return [];
@@ -944,9 +951,10 @@ const _onExperimentCreate = async ({
 }) => {
   await _logExperimentCreated(organization, experiment);
 
-  if (fireWebhooks) {
-    _fireWebooks(experiment);
-  }
+  if (!fireWebhooks) return;
+
+  // legacy
+  _fireWebooks(experiment);
 
   // if no visual changes, return early
   if (!(await _hasVisualChanges(organization, experiment))) return;
@@ -967,15 +975,16 @@ const _onExperimentUpdate = async ({
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
 }) => {
-  if (!bypassWebhooks) {
-    _fireWebooks(newExperiment, oldExperiment?.project);
-  }
-
   await _logExperimentUpdated({
     organization,
     current: newExperiment,
     previous: oldExperiment,
   });
+
+  if (bypassWebhooks) return;
+
+  // legacy
+  _fireWebooks(newExperiment, oldExperiment?.project);
 
   // if no delta in visual changes, return early
   const oldChanges = oldExperiment

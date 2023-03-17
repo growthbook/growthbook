@@ -143,6 +143,7 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
+// TODO consider renaming this
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
@@ -216,6 +217,7 @@ async function getFeatureDefinitionsResponse(
   dateUpdated: Date | null,
   encryptionKey?: string
 ) {
+  // TODO replicate in visual changeset flow
   if (!encryptionKey) {
     return {
       features,
