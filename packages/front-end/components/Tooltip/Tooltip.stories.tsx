@@ -29,8 +29,8 @@ export const WithIconAndHtml = () => {
             the first time the user views the experiment.
           </div>
           <div>
-            <strong>All Exposures</strong> - Multiple conversion windows, one
-            for each time the user views the experiment.
+            <strong>Experiment Duration</strong> - Multiple conversion windows,
+            one for each time the user views the experiment.
           </div>
         </div>
       }

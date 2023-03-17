@@ -58,12 +58,24 @@ function getColWidth(v: number) {
 function drawMetricRow(
   m: string,
   metric: MetricInterface,
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
+  ignoreConversionEnd: boolean
 ) {
   const { newMetric, overrideFields } = applyMetricOverrides(
     metric,
     experiment.metricOverrides
   );
+  if (!newMetric) return null;
+
+  const conversionStart = newMetric.conversionDelayHours || 0;
+  const conversionEnd =
+    (newMetric.conversionDelayHours || 0) +
+    (newMetric.conversionWindowHours || getDefaultConversionWindowHours());
+
+  const hasOverrides =
+    overrideFields.includes("conversionDelayHours") ||
+    (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
+
   return (
     <div className="row align-items-top" key={m}>
       <div className="col-sm-5">
@@ -79,13 +91,10 @@ function drawMetricRow(
       <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
-            {newMetric.conversionDelayHours || 0} to{" "}
-            {(newMetric.conversionDelayHours || 0) +
-              (newMetric.conversionWindowHours ||
-                getDefaultConversionWindowHours())}{" "}
+            {conversionStart}{" "}
+            {ignoreConversionEnd ? "" : "to " + conversionEnd + " "}
             hours{" "}
-            {(overrideFields.includes("conversionDelayHours") ||
-              overrideFields.includes("conversionWindowHours")) && (
+            {hasOverrides && (
               <span className="font-italic text-purple">(override)</span>
             )}
           </div>
@@ -176,6 +185,9 @@ export default function SinglePage({
   const canEdit = hasPermission && !experiment.archived;
 
   const variationCols = getColWidth(experiment.variations.length);
+
+  const ignoreConversionEnd =
+    experiment.attributionModel === "experimentDuration";
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -594,8 +606,8 @@ export default function SinglePage({
               <RightRailSectionGroup title="Attribution Model" type="custom">
                 <AttributionModelTooltip>
                   <strong>
-                    {experiment.attributionModel === "allExposures"
-                      ? "All Exposures"
+                    {experiment.attributionModel === "experimentDuration"
+                      ? "Experiment Duration"
                       : "First Exposure"}
                   </strong>{" "}
                   <FaQuestionCircle />
@@ -613,10 +625,14 @@ export default function SinglePage({
               <div className="row mb-1 text-muted">
                 <div className="col-5">Goals</div>
                 <div className="col-5">
-                  Conversion Window{" "}
+                  Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
                   <Tooltip
-                    body={`After a user sees the experiment, only include
-                          metric conversions within the specified time window.`}
+                    body={
+                      ignoreConversionEnd
+                        ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                        : `After a user sees the experiment, only include
+                          metric conversions within the specified time window.`
+                    }
                   >
                     <FaQuestionCircle />
                   </Tooltip>
@@ -626,18 +642,30 @@ export default function SinglePage({
               <>
                 {experiment.metrics.map((m) => {
                   const metric = getMetricById(m);
-                  return drawMetricRow(m, metric, experiment);
+                  return drawMetricRow(
+                    m,
+                    metric,
+                    experiment,
+                    ignoreConversionEnd
+                  );
                 })}
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Guardrails</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
-                      return drawMetricRow(m, metric, experiment);
+                      return drawMetricRow(
+                        m,
+                        metric,
+                        experiment,
+                        ignoreConversionEnd
+                      );
                     })}
                   </>
                 )}
@@ -645,13 +673,16 @@ export default function SinglePage({
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Activation Metric</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,
                       getMetricById(experiment.activationMetric),
-                      experiment
+                      experiment,
+                      ignoreConversionEnd
                     )}
                   </>
                 )}

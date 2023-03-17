@@ -57,7 +57,6 @@ export function reportArgsFromSnapshot(
     activationMetric: snapshot.activationMetric,
     queryFilter: snapshot.queryFilter,
     skipPartialData: snapshot.skipPartialData,
-    removeMultipleExposures: !!experiment.removeMultipleExposures,
     attributionModel: experiment.attributionModel || "firstExposure",
   };
 }
@@ -141,7 +140,6 @@ export async function startExperimentAnalysis(
     metrics: args.metrics,
     metricOverrides: args.metricOverrides,
     guardrails: args.guardrails,
-    removeMultipleExposures: !!args.removeMultipleExposures,
     attributionModel: args.attributionModel || "firstExposure",
     id: "",
     name: "",

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../types/metric";
 import {
@@ -201,6 +203,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       id: "",
+      description: "",
       name: "",
       organization: "",
       params: encryptParams({
@@ -253,6 +256,7 @@ describe("backend", () => {
     const ds: DataSourceInterface = {
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      description: "",
       id: "",
       name: "",
       organization: "",
@@ -286,6 +290,7 @@ describe("backend", () => {
 
     expect(upgradeDatasourceObject(cloneDeep(ds)).settings).toEqual({
       ...ds.settings,
+      description: "",
       queries: {
         experimentsQuery: "testing",
         exposure: [
@@ -316,6 +321,7 @@ describe("backend", () => {
       dateUpdated: new Date(),
       id: "",
       name: "",
+      description: "",
       organization: "",
       params: encryptParams({
         database: "",
@@ -384,7 +390,7 @@ describe("backend", () => {
       defaultValue: "true",
       valueType: "boolean",
       id: "",
-    };
+    } as any;
 
     expect(
       upgradeFeatureInterface({
@@ -766,10 +772,10 @@ describe("backend", () => {
     expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
   });
 
-  it("upgrades experiment variation ids, keys, and phase names", () => {
-    // eslint-disable-next-line
+  it("upgrades experiment objects", () => {
     const exp: any = {
       trackingKey: "test",
+      attributionModel: "allExposures",
       variations: [
         {
           screenshots: [],
@@ -800,6 +806,7 @@ describe("backend", () => {
       trackingKey: "test",
       hashAttribute: "",
       releasedVariationId: "",
+      attributionModel: "experimentDuration",
       variations: [
         {
           id: "0",
@@ -901,6 +908,17 @@ describe("backend", () => {
       results: "won",
       winner: 2,
       releasedVariationId: "foo",
+    });
+
+    // Doesn't overwrite other attribution models
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        attributionModel: "firstExposure",
+      })
+    ).toEqual({
+      ...upgraded,
+      attributionModel: "firstExposure",
     });
   });
 });

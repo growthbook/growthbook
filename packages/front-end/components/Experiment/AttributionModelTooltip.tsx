@@ -14,8 +14,9 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
             the first time the user views the experiment.
           </div>
           <div>
-            <strong>All Exposures</strong> - Multiple conversion windows, one
-            for each time the user views the experiment.
+            <strong>Experiment Duration</strong> - Count all conversions that
+            happen between viewing the experiment and the experiment end date.
+            Ignore metric conversion windows.
           </div>
         </div>
       }

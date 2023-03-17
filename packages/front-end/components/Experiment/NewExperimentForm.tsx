@@ -110,7 +110,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
       attributionModel: initialValue?.attributionModel ?? "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],

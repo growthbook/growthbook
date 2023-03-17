@@ -742,7 +742,8 @@ export default abstract class SqlIntegration
       experiment.userIdType
     );
 
-    const ignoreConversionEnd = experiment.attributionModel === "allExposures";
+    const ignoreConversionEnd =
+      experiment.attributionModel === "experimentDuration";
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
@@ -1328,19 +1329,22 @@ export default abstract class SqlIntegration
     metric: MetricInterface,
     metricTimeWindow: MetricAggregationType = "post"
   ) {
+    // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
       return `MAX(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
     }
 
-    const queryFormat = this.getMetricQueryFormat(metric);
-    if (queryFormat === "sql") {
-      if (metric.aggregation) {
-        if (Number(metric.aggregation)) {
-          return `MAX(${this.addPrePostTimeFilter(
-            `${metric.aggregation}`,
-            metricTimeWindow
-          )})`;
-        }
+    // SQL editor
+    if (this.getMetricQueryFormat(metric) === "sql") {
+      // Custom aggregation that's a hardcoded number (e.g. "1")
+      if (metric.aggregation && Number(metric.aggregation)) {
+        return `MAX(${this.addPrePostTimeFilter(
+          metric.aggregation,
+          metricTimeWindow
+        )})`;
+      }
+      // Other custom aggregation
+      else if (metric.aggregation) {
         // prePostTimeFilter (and regression adjustment) not implemented for
         // custom aggregate metrics
         return this.capValue(
@@ -1348,30 +1352,41 @@ export default abstract class SqlIntegration
           replaceCountStar(metric.aggregation, `m.timestamp`)
         );
       }
-      return this.capValue(
-        metric.cap,
-        `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
-      );
-    }
-
-    // builder fomat
-    let aggregate = "";
-    if (metric.type === "count") {
-      if (metric.column) {
-        aggregate = `COUNT(DISTINCT (${this.addPrePostTimeFilter(
-          `m.value`,
-          metricTimeWindow
-        )}))`;
-      } else {
-        aggregate = `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
+      // Standard aggregation (SUM)
+      else {
+        return this.capValue(
+          metric.cap,
+          `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+        );
       }
-    } else {
-      aggregate = `MAX(${this.addPrePostTimeFilter(
-        `m.value`,
-        metricTimeWindow
-      )})`;
     }
-    return this.capValue(metric.cap, aggregate);
+    // Query builder
+    else {
+      // Count metrics that specify a distinct column to count
+      if (metric.type === "count" && metric.column) {
+        return this.capValue(
+          metric.cap,
+          `COUNT(DISTINCT (${this.addPrePostTimeFilter(
+            `m.value`,
+            metricTimeWindow
+          )}))`
+        );
+      }
+      // Count metrics just do a simple count of rows by default
+      else if (metric.type === "count") {
+        return this.capValue(
+          metric.cap,
+          `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`
+        );
+      }
+      // Revenue and duration metrics use MAX by default
+      else {
+        return this.capValue(
+          metric.cap,
+          `MAX(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+        );
+      }
+    }
   }
 
   private getMetricColumns(metric: MetricInterface, alias = "m") {
