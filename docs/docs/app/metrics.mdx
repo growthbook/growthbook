@@ -227,7 +227,7 @@ If set above zero, all values will be capped at this value. So in the above exam
 
 ### Conversion Delay
 
-Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, you would set conversion delay to `24` hours..
+Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a conversion delay to `24` hours.
 
 #### Negative conversion delays
 
@@ -252,7 +252,9 @@ The lower you set this, the more you can be sure that your experiment directly c
 
 However, setting this too low can exclude valid conversions. In the above example, maybe your new checkout page is more memorable and makes people more likely to return later. With a short conversion window you wouldn't be able to capture this data.
 
-If you return multiple rows for the same user/experiment, we unique the list (ie: only counts as one user in the experiment) and count the earliest timestamp. From that point, the user has 72 hours (or whatever you change the window to) to convert.
+If you are using the "First Exposure" attribution model, then we build this conversion window from the first exposure each user has to an experiment. Because it is possible that each user has multiple rows (one for each exposure) in the experiment assignment source, we use the earliest row (measured by `timestamp` in the experiment assignment source) as the basis from which to build the first conversion window.
+
+If you use the "Experiment Duration" attribution model, we effectively ignore the conversion window setting. In this case, we still respect the conversion _delay_ from a user's first experiment exposure timestamp, but we aggregate all metric values/conversions after the conversion delay.
 
 ### Converted Users Only
 
