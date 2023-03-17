@@ -290,7 +290,6 @@ describe("backend", () => {
 
     expect(upgradeDatasourceObject(cloneDeep(ds)).settings).toEqual({
       ...ds.settings,
-      description: "",
       queries: {
         experimentsQuery: "testing",
         exposure: [

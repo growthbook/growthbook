@@ -15,8 +15,8 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
           </div>
           <div>
             <strong>Experiment Duration</strong> - Count all conversions that
-            happen between viewing the experiment and the experiment end date.
-            Ignore metric conversion windows.
+            happen between the start of the first conversion window and the
+            experiment end date. Ignores metric conversion windows.
           </div>
         </div>
       }
