@@ -912,7 +912,7 @@ const _hasVisualChanges = async (
   return visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
 };
 
-const _fireWebhoks = async (
+const _fireWebooks = async (
   experiment: ExperimentInterface,
   previousProject: string = ""
 ) => {
@@ -945,7 +945,7 @@ const _onExperimentCreate = async ({
   await _logExperimentCreated(organization, experiment);
 
   if (fireWebhooks) {
-    _fireWebhoks(experiment);
+    _fireWebooks(experiment);
   }
 
   // if no visual changes, return early
@@ -968,7 +968,7 @@ const _onExperimentUpdate = async ({
   bypassWebhooks?: boolean;
 }) => {
   if (!bypassWebhooks) {
-    _fireWebhoks(newExperiment, oldExperiment?.project);
+    _fireWebooks(newExperiment, oldExperiment?.project);
   }
 
   await _logExperimentUpdated({
@@ -999,7 +999,7 @@ const _onExperimentDelete = async (
   experiment: ExperimentInterface
 ) => {
   // fire webhooks
-  _fireWebhoks(experiment);
+  _fireWebooks(experiment);
 
   await _logExperimentDeleted(organization, experiment);
 
