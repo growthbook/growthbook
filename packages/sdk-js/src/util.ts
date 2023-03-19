@@ -1,4 +1,4 @@
-import { VariationRange } from "./types/growthbook";
+import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
@@ -60,6 +60,34 @@ export function getUrlRegExp(regexString: string): RegExp | undefined {
     console.error(e);
     return undefined;
   }
+}
+
+export function isURLTargeted(url: string, targets: UrlTarget[]) {
+  if (!targets.length) return true;
+  let hasIncludeRules = false;
+  let isIncluded = false;
+
+  for (let i = 0; i < targets.length; i++) {
+    const match = _evalURLTarget(url, targets[i].type, targets[i].pattern);
+    if (targets[i].include === false) {
+      if (match) return false;
+    } else {
+      hasIncludeRules = true;
+      if (match) isIncluded = true;
+    }
+  }
+
+  return isIncluded || !hasIncludeRules;
+}
+
+function _evalURLTarget(
+  url: string,
+  type: UrlTargetType,
+  pattern: string
+): boolean {
+  // TODO: implement
+  console.log(url, type, pattern);
+  return true;
 }
 
 export function getBucketRanges(

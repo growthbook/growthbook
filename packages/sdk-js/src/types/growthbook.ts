@@ -65,6 +65,18 @@ export interface FeatureResult<T = any> {
 /** @deprecated */
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
+export type UrlTargetType = "simple" | "exact" | "regex";
+
+export type UrlTarget = {
+  include: boolean;
+  type: UrlTargetType;
+  pattern: string;
+};
+
+export interface DOMMutator {
+  apply(changes: { domMutations?: DOMMutation[]; css?: string }): () => void;
+}
+
 export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
@@ -74,7 +86,7 @@ export type Experiment<T> = {
   seed?: string;
   name?: string;
   phase?: string;
-
+  urls?: UrlTarget[];
   weights?: number[];
   condition?: ConditionInterface;
   coverage?: number;
@@ -91,6 +103,11 @@ export type Experiment<T> = {
   url?: RegExp;
   /** @deprecated */
   groups?: string[];
+};
+
+export type AutoExperiment = Experiment<AutoExperimentVariation> & {
+  // If true, require the experiment to be manually triggered
+  manual?: boolean;
 };
 
 export type ExperimentOverride = {
@@ -132,6 +149,8 @@ export interface Context {
   attributes?: Attributes;
   url?: string;
   features?: Record<string, FeatureDefinition>;
+  experiments?: AutoExperiment[];
+  domMutator?: DOMMutator;
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
@@ -180,12 +199,26 @@ export type WidenPrimitives<T> = T extends string
   ? boolean
   : T;
 
+export type DOMMutation = {
+  selector: string;
+  action: string;
+  attribute: string;
+  value: string;
+};
+
+export type AutoExperimentVariation = {
+  domMutations?: DOMMutation[];
+  css?: string;
+};
+
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
 export type FeatureApiResponse = {
   features?: FeatureDefinitions;
   dateUpdated?: string;
   encryptedFeatures?: string;
+  experiments?: Experiment<AutoExperimentVariation>[];
+  encryptedExperiments?: string;
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
