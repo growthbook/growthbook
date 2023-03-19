@@ -62,6 +62,7 @@ import {
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -293,6 +294,7 @@ export async function getManualSnapshotData(
   };
 }
 
+// todo: follow createSnapshot example?
 export async function createManualSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
@@ -396,7 +398,9 @@ export async function createSnapshot(
   organization: OrganizationInterface,
   dimensionId: string | null,
   useCache: boolean = false,
-  statsEngine: StatsEngine | undefined
+  statsEngine: StatsEngine | undefined,
+  regressionAdjustmentEnabled: boolean,
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[],
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -423,7 +427,9 @@ export async function createSnapshot(
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
-    statsEngine,
+    statsEngine: statsEngine || organization.settings?.statsEngine || "bayesian",
+    regressionAdjustmentEnabled: regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses || [],
   };
 
   const nextUpdate =

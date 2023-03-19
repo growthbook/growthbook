@@ -263,7 +263,7 @@ const MetricForm: FC<MetricFormProps> = ({
     projects: form.watch("projects"),
     sql: form.watch("sql"),
     conditions: form.watch("conditions"),
-    regressionAdjustmentEnabled: form.watch("regressionAdjustmentOverride"),
+    regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };

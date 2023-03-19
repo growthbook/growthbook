@@ -1,7 +1,10 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
-import { ExperimentReportVariation } from "back-end/types/report";
+import {
+  ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
+} from "back-end/types/report";
 import {
   MetricDefaults,
   OrganizationSettings,
@@ -15,11 +18,7 @@ export type ExperimentTableRow = {
   metric: MetricInterface;
   variations: SnapshotMetric[];
   rowClass?: string;
-  regressionAdjustmentInfo?: {
-    regressionAdjustmentEnabled: boolean;
-    regressionAdjustmentDays: number;
-    reason: string;
-  }; // todo: define this type
+  regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export function hasEnoughData(
@@ -229,7 +228,7 @@ export function applyMetricOverrides(
       overrideFields: [],
     };
   }
-  const newMetric = cloneDeep<MetricInterface>(metric) as MetricInterface;
+  const newMetric = cloneDeep<MetricInterface>(metric);
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
@@ -269,16 +268,19 @@ export function applyMetricOverrides(
 
 export function getRegressionAdjustmentsForMetric({
   metric,
-  metrics,
+  denominatorMetrics,
   organizationSettings,
   metricOverrides,
 }: {
   metric: MetricInterface;
-  metrics: MetricInterface[];
+  denominatorMetrics: MetricInterface[];
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
-}) {
-  const newMetric = cloneDeep<MetricInterface>(metric) as MetricInterface;
+}): {
+  newMetric: MetricInterface;
+  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
+} {
+  const newMetric = cloneDeep<MetricInterface>(metric);
 
   // start with default RA settings
   let regressionAdjustmentEnabled = false;
@@ -289,29 +291,32 @@ export function getRegressionAdjustmentsForMetric({
   if (organizationSettings?.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
     regressionAdjustmentDays =
-      organizationSettings.regressionAdjustmentDays ?? regressionAdjustmentDays;
+      organizationSettings?.regressionAdjustmentDays ??
+      regressionAdjustmentDays;
   }
 
   // get RA settings from metric
-  if (metric.regressionAdjustmentOverride) {
-    regressionAdjustmentEnabled = !!metric.regressionAdjustmentEnabled;
-    regressionAdjustmentDays = metric.regressionAdjustmentDays ?? 14;
+  if (metric?.regressionAdjustmentOverride) {
+    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
+    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
   }
 
   // get RA settings from metric override
   if (metricOverrides) {
     const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
-        metricOverride.regressionAdjustmentDays ?? regressionAdjustmentDays;
+        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
     }
   }
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if (metric.denominator) {
-      const denominator = metrics.find((m) => m.id === metric.denominator);
+    if (metric?.denominator) {
+      const denominator = denominatorMetrics.find(
+        (m) => m.id === metric?.denominator
+      );
       if (denominator?.type === "count") {
         regressionAdjustmentEnabled = false;
         reason = "denominator is count";
@@ -328,7 +333,8 @@ export function getRegressionAdjustmentsForMetric({
 
   return {
     newMetric,
-    regressionAdjustmentInfo: {
+    metricRegressionAdjustmentStatus: {
+      metric: newMetric.id,
       regressionAdjustmentEnabled,
       regressionAdjustmentDays,
       reason,

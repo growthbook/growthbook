@@ -67,6 +67,8 @@ import {
 } from "../services/audit";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { StatsEngine } from "../../types/stats";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1412,6 +1414,9 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      statsEngine?: StatsEngine;
+      regressionAdjustmentEnabled?: boolean,
+      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
     },
     { id: string },
     { force?: string }
@@ -1421,7 +1426,19 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
-  const statsEngine = org.settings?.statsEngine;
+
+  let { statsEngine, regressionAdjustmentEnabled } = req.body;
+  const { metricRegressionAdjustmentStatuses } = req.body;
+
+  statsEngine = (
+    typeof statsEngine === "string" && ["bayesian", "frequentist"].includes(statsEngine)
+      ? statsEngine
+      : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
+
+  regressionAdjustmentEnabled =
+    regressionAdjustmentEnabled !== undefined
+      ? regressionAdjustmentEnabled
+      : org.settings?.regressionAdjustmentEnabled ?? false;
 
   const useCache = !req.query["force"];
 
@@ -1508,7 +1525,9 @@ export async function postSnapshot(
       org,
       dimension || null,
       useCache,
-      org.settings?.statsEngine
+      statsEngine,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses ?? [],
     );
     await req.audit({
       event: "experiment.refresh",

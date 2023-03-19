@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useState } from "react";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariation, MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import { ago, datetime } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -15,6 +15,7 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
+import { StatsEngine } from "back-end/types/stats";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -51,12 +52,18 @@ export default function AnalysisSettingsBar({
   editPhases,
   variations,
   alwaysShowPhaseSelector = false,
+  statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
 }: {
   mutateExperiment: () => void;
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
   alwaysShowPhaseSelector?: boolean;
+  statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }) {
   const {
     experiment,
@@ -145,6 +152,9 @@ export default function AnalysisSettingsBar({
                     body: JSON.stringify({
                       phase,
                       dimension,
+                      statsEngine,
+                      regressionAdjustmentEnabled,
+                      metricRegressionAdjustmentStatuses,
                     }),
                   })
                     .then(() => {
@@ -175,6 +185,9 @@ export default function AnalysisSettingsBar({
                 experiment={experiment}
                 lastSnapshot={snapshot}
                 dimension={dimension}
+                statsEngine={statsEngine}
+                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
               />
             )}
           </div>
@@ -190,6 +203,9 @@ export default function AnalysisSettingsBar({
                   body: JSON.stringify({
                     phase,
                     dimension,
+                    statsEngine,
+                    regressionAdjustmentEnabled,
+                    metricRegressionAdjustmentStatuses,
                   }),
                 }
               )

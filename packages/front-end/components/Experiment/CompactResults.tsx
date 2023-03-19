@@ -2,19 +2,13 @@ import React, { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation,
+  ExperimentReportVariation, MetricRegressionAdjustmentStatus
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  applyMetricOverrides,
-  ExperimentTableRow,
-  getRegressionAdjustmentsForMetric,
-  useRiskVariation,
-} from "@/services/experiments";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import { applyMetricOverrides, ExperimentTableRow, useRiskVariation } from "@/services/experiments";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -34,6 +28,8 @@ const CompactResults: FC<{
   metricOverrides: MetricOverride[];
   id: string;
   statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }> = ({
   results,
   variations,
@@ -47,25 +43,21 @@ const CompactResults: FC<{
   metricOverrides,
   id,
   statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
 }) => {
-  const settings = useOrgSettings();
-  const { getMetricById, ready, metrics: metricDefinitions } = useDefinitions();
+  const { getMetricById, ready } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     return metrics
       .map((metricId) => {
         const metric = getMetricById(metricId);
-        // todo: support getting org-level RA settings from snapshot, not just current values?
-        // todo: support getting metric definitions from snapshot, not just current values?
-        let { newMetric } = applyMetricOverrides(metric, metricOverrides);
-        const ret = getRegressionAdjustmentsForMetric({
-          metric: newMetric,
-          metrics: metricDefinitions,
-          organizationSettings: settings,
-        });
-        const { regressionAdjustmentInfo } = ret;
-        newMetric = ret.newMetric;
+        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        let regressionAdjustmentStatus: MetricRegressionAdjustmentStatus | undefined;
+        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
+          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find((s) => s.metric === metricId);
+        }
 
         return {
           label: newMetric?.name,
@@ -74,11 +66,11 @@ const CompactResults: FC<{
           variations: results.variations.map((v) => {
             return v.metrics[metricId];
           }),
-          regressionAdjustmentInfo,
+          regressionAdjustmentStatus,
         };
       })
       .filter((row) => row.metric);
-  }, [results, metrics, metricOverrides, ready]);
+  }, [results, metrics, metricOverrides, regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses, ready]);
 
   const users = useMemo(() => {
     const vars = results?.variations;

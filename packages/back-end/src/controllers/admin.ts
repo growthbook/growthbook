@@ -383,7 +383,7 @@ export async function addSampleData(
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, org, null, false, org.settings?.statsEngine);
+      await createSnapshot(exp, 0, org, null, false, org.settings?.statsEngine, false, []);
     })
   );
 

@@ -5,6 +5,8 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
+import { StatsEngine } from "back-end/types/stats";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
@@ -12,7 +14,11 @@ const RefreshSnapshotButton: FC<{
   lastSnapshot?: ExperimentSnapshotInterface;
   phase: number;
   dimension?: string;
-}> = ({ mutate, experiment, lastSnapshot, phase, dimension }) => {
+  statsEngine?: StatsEngine
+  regressionAdjustmentEnabled?: boolean,
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
+}> = ({ mutate, experiment, lastSnapshot, phase, dimension,
+  statsEngine, regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses}) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
@@ -34,6 +40,9 @@ const RefreshSnapshotButton: FC<{
         body: JSON.stringify({
           phase,
           dimension,
+          statsEngine,
+          regressionAdjustmentEnabled,
+          metricRegressionAdjustmentStatuses,
         }),
       }
     );

@@ -201,10 +201,17 @@ export default function ResultsTable({
             >
               <th className="metricname">
                 {renderLabelColumn(row.label, row.metric)}
-                {row?.regressionAdjustmentInfo?.regressionAdjustmentEnabled && (
+                {row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled && (
                   <span className="ml-1">
                     <Tooltip body="CUPED enabled">
                       <FaHeart style={{ color: "#26be62" }} />
+                    </Tooltip>
+                  </span>
+                )}
+                {(row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled === false && row?.regressionAdjustmentStatus?.reason) && (
+                  <span className="ml-1">
+                    <Tooltip body={`CUPED disabled: ${row.regressionAdjustmentStatus.reason}`}>
+                      <FaHeart style={{ color: "#be2626" }} />
                     </Tooltip>
                   </span>
                 )}

@@ -15,6 +15,8 @@ import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import PValueGuardrailResults from "./PValueGuardrailResults";
+import { StatsEngine } from "back-end/types/stats";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -31,6 +33,9 @@ const Results: FC<{
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
+  statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }> = ({
   experiment,
   editMetrics,
@@ -39,6 +44,9 @@ const Results: FC<{
   mutateExperiment,
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
+  statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
 }) => {
   const { getMetricById } = useDefinitions();
   const settings = useOrgSettings();
@@ -84,6 +92,7 @@ const Results: FC<{
     };
   });
 
+
   return (
     <>
       <StatusBanner
@@ -96,6 +105,9 @@ const Results: FC<{
         variations={variations}
         editPhases={editPhases}
         alwaysShowPhaseSelector={alwaysShowPhaseSelector}
+        statsEngine={statsEngine}
+        regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+        metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
@@ -196,6 +208,9 @@ const Results: FC<{
             guardrails={experiment.guardrails}
             variations={variations}
             key={snapshot.dimension}
+            statsEngine={snapshot.statsEngine}
+            regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
+            metricRegressionAdjustmentStatuses={snapshot.metricRegressionAdjustmentStatuses}
           />
         ))}
       {hasData && !snapshot.dimension && (
@@ -221,6 +236,9 @@ const Results: FC<{
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
             editMetrics={editMetrics}
+            statsEngine={snapshot.statsEngine}
+            regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
+            metricRegressionAdjustmentStatuses={snapshot.metricRegressionAdjustmentStatuses}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3 p-3">
