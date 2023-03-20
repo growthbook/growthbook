@@ -4,6 +4,7 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { insertAudit } from "../services/audit";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
+import { EventAuditUserApiKey } from "../events/base-types";
 
 export default function authencateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -57,6 +58,12 @@ export default function authencateApiRequestMiddleware(
 
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+
+      const eventAudit: EventAuditUserApiKey = {
+        type: "api_key",
+        apiKey: id || "unknown",
+      };
+      req.eventAudit = eventAudit;
 
       // Add audit method to req
       req.audit = async (data) => {

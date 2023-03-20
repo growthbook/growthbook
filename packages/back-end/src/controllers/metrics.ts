@@ -30,10 +30,11 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import { EventAuditUserForResponseLocals } from "../events/base-types";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
   req.checkPermissions("createAnalyses", "");
 
@@ -65,7 +66,7 @@ export async function deleteMetric(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, org);
+  await removeMetricFromExperiments(metric.id, org, res.locals.eventAudit);
 
   // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);
