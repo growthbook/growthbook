@@ -8,6 +8,7 @@ import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import { removeTagFromExperiments } from "../../models/ExperimentModel";
+import { EventAuditUserForResponseLocals } from "../../events/base-types";
 
 // region POST /tag
 
@@ -57,7 +58,10 @@ type DeleteTagResponse = {
  */
 export const deleteTag = async (
   req: DeleteTagRequest,
-  res: Response<DeleteTagResponse | ApiErrorResponse>
+  res: Response<
+    DeleteTagResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("manageTags");
 
@@ -67,6 +71,7 @@ export const deleteTag = async (
   // experiments
   await removeTagFromExperiments({
     organization: org,
+    user: res.locals.eventAudit,
     tag: id,
   });
 
@@ -74,7 +79,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(org, id);
+  await removeTagInFeature(org, res.locals.eventAudit, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

@@ -67,6 +67,8 @@ import {
 } from "../services/audit";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { ApiErrorResponse } from "../../types/api";
+import { EventAuditUserForResponseLocals } from "../events/base-types";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -449,7 +451,12 @@ export async function postExperiments(
     unknown,
     { allowDuplicateTrackingKey?: boolean }
   >,
-  res: Response
+  res: Response<
+    | { status: 200; experiment: ExperimentInterface }
+    | { status: 200; duplicateTrackingKey: boolean; existingId: string }
+    | ({ status: number } & ApiErrorResponse),
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
 
@@ -553,7 +560,7 @@ export async function postExperiments(
       }
     }
 
-    const experiment = await createExperiment(obj, org);
+    const experiment = await createExperiment(obj, org, res.locals.eventAudit);
 
     await req.audit({
       event: "experiment.create",
@@ -594,7 +601,11 @@ export async function postExperiment(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<
+    | { status: number; experiment?: ExperimentInterface | null }
+    | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -757,6 +768,7 @@ export async function postExperiment(
   try {
     await logExperimentUpdated({
       organization: org,
+      user: res.locals.eventAudit,
       current: experiment,
       previous: previousExperiment,
     });
@@ -1236,7 +1248,10 @@ export async function getWatchingUsers(
 
 export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
-  res: Response
+  res: Response<
+    { status: 200 } | ({ status: number } & ApiErrorResponse),
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1263,7 +1278,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org),
+    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
     removeExperimentFromPresentations(experiment.id),
   ]);
 

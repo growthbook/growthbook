@@ -43,6 +43,23 @@ const eventSchema = new mongoose.Schema({
             event: z.enum(notificationEventNames),
             object: z.enum(notificationEventResources),
             data: z.any(),
+            user: z.union([
+              z
+                .object({
+                  type: z.literal("dashboard"),
+                  id: z.string(),
+                  email: z.string(),
+                  name: z.string(),
+                })
+                .strict(),
+              z
+                .object({
+                  type: z.literal("api_key"),
+                  apiKey: z.string(),
+                })
+                .strict(),
+              z.null(),
+            ]),
           })
           .strict();
 
