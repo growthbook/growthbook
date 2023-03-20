@@ -427,7 +427,7 @@ export async function createSnapshot(
     determineNextDate(organization.settings?.updateSchedule || null) ||
     undefined;
 
-  await updateExperimentById(organization.id, experiment, {
+  await updateExperimentById(organization, experiment, {
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
     autoSnapshots: nextUpdate !== null,

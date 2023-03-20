@@ -374,6 +374,7 @@ export async function addSampleData(
       const exp = await createExperiment({
         data,
         organization: org,
+        bypassWebhooks: true,
       });
 
       // Add a few experiments to evidence

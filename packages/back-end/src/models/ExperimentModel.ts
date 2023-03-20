@@ -20,10 +20,6 @@ import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { queueWebhook } from "../jobs/webhooks";
-import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
-import { getSDKPayloadKeys } from "../util/features";
-import { getOrganizationById } from "../services/organizations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -237,11 +233,11 @@ export async function getSampleExperiment(
 export async function createExperiment({
   data,
   organization,
-  fireWebhooks,
+  bypassWebhooks = false,
 }: {
   data: Partial<ExperimentInterface>;
   organization: OrganizationInterface;
-  fireWebhooks?: boolean;
+  bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   data.organization = organization.id;
 
@@ -279,7 +275,7 @@ export async function createExperiment({
   await _onExperimentCreate({
     organization,
     experiment: exp,
-    fireWebhooks,
+    bypassWebhooks,
   });
 
   if (data.tags) {
@@ -290,14 +286,14 @@ export async function createExperiment({
 }
 
 export async function updateExperimentById(
-  organization: string,
+  organization: OrganizationInterface,
   experiment: ExperimentInterface,
   changes: Changeset
 ): Promise<ExperimentInterface | null> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
-      organization,
+      organization: organization.id,
     },
     {
       $set: changes,
@@ -306,14 +302,11 @@ export async function updateExperimentById(
 
   const updated = { ...experiment, ...changes };
 
-  const org = await getOrganizationById(organization);
-  if (org) {
-    await _onExperimentUpdate({
-      organization: org,
-      oldExperiment: experiment,
-      newExperiment: updated,
-    });
-  }
+  await _onExperimentUpdate({
+    organization,
+    oldExperiment: experiment,
+    newExperiment: updated,
+  });
 
   return updated;
 }
@@ -538,11 +531,11 @@ export async function deleteExperimentSegment(
     const current = cloneDeep(previous);
     current.segment = "";
 
-    // TODO Confirm we want to fire webhooks here?
     _onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
+      bypassWebhooks: true,
     });
   });
 }
@@ -919,42 +912,18 @@ const _hasVisualChanges = async (
   return visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
 };
 
-const _fireWebooks = async (
-  experiment: ExperimentInterface,
-  previousProject: string = ""
-) => {
-  const payloadKeys = getSDKPayloadKeys(
-    new Set(["dev", "production"]),
-    new Set(["", previousProject || "", experiment.project || ""])
-  );
-
-  // fire the webhook:
-  await queueWebhook(experiment.organization, payloadKeys, false);
-
-  // invalidate the CDN
-  await queueCDNInvalidate(experiment.organization, (key) => {
-    // Which url to invalidate depends on the type of experiment
-    return experiment.implementation === "visual"
-      ? `/js/${key}.js`
-      : `/config/${key}`;
-  });
-};
-
 const _onExperimentCreate = async ({
   organization,
   experiment,
-  fireWebhooks = false,
+  bypassWebhooks = false,
 }: {
   organization: OrganizationInterface;
   experiment: ExperimentInterface;
-  fireWebhooks?: boolean;
+  bypassWebhooks?: boolean;
 }) => {
   await _logExperimentCreated(organization, experiment);
 
-  if (!fireWebhooks) return;
-
-  // legacy
-  _fireWebooks(experiment);
+  if (bypassWebhooks) return;
 
   // if no visual changes, return early
   if (!(await _hasVisualChanges(organization, experiment))) return;
@@ -983,9 +952,6 @@ const _onExperimentUpdate = async ({
 
   if (bypassWebhooks) return;
 
-  // legacy
-  _fireWebooks(newExperiment, oldExperiment?.project);
-
   // if no delta in visual changes, return early
   const oldChanges = oldExperiment
     ? await _getAllVisualChanges(organization, oldExperiment)
@@ -1007,9 +973,6 @@ const _onExperimentDelete = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ) => {
-  // fire webhooks
-  _fireWebooks(experiment);
-
   await _logExperimentDeleted(organization, experiment);
 
   // if no visual changes, return early
