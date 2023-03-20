@@ -967,7 +967,7 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          COALESCE(${aggregate}, 0) as value
+          ${aggregate} as value
         FROM
           __distinctUsers d
           LEFT JOIN __metric m ON (
