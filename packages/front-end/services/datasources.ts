@@ -58,7 +58,7 @@ FROM
   UNNEST(event_params) AS variation_id_param
 WHERE
   _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
-  AND event_name = 'viewed_experiment'  
+  AND event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
