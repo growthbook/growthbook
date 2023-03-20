@@ -2,6 +2,7 @@ import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -12,7 +13,6 @@ import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
-import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -69,11 +69,15 @@ const EditMetricsForm: FC<{
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
-      const metricDefinition = metrics.find((m) => m.id === defaultMetricOverrides[i].id);
+      const metricDefinition = metrics.find(
+        (m) => m.id === defaultMetricOverrides[i].id
+      );
       if (metricDefinition?.regressionAdjustmentOverride) {
-        defaultMetricOverrides[i].regressionAdjustmentDays = metricDefinition.regressionAdjustmentDays;
+        defaultMetricOverrides[i].regressionAdjustmentDays =
+          metricDefinition.regressionAdjustmentDays;
       } else {
-        defaultMetricOverrides[i].regressionAdjustmentDays = settings.regressionAdjustmentDays ?? 14;
+        defaultMetricOverrides[i].regressionAdjustmentDays =
+          settings.regressionAdjustmentDays ?? 14;
       }
     }
   }

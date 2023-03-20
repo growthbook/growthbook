@@ -1,6 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { StatsEngine } from "back-end/types/stats";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
@@ -15,8 +17,6 @@ import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import PValueGuardrailResults from "./PValueGuardrailResults";
-import { StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -34,8 +34,10 @@ const Results: FC<{
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
   statsEngine?: StatsEngine;
+  regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }> = ({
   experiment,
   editMetrics,
@@ -45,8 +47,10 @@ const Results: FC<{
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
   statsEngine,
-  regressionAdjustmentEnabled,
+  regressionAdjustmentAvailable = false,
+  regressionAdjustmentEnabled = false,
   metricRegressionAdjustmentStatuses,
+  onRegressionAdjustmentChange,
 }) => {
   const { getMetricById } = useDefinitions();
   const settings = useOrgSettings();
@@ -92,7 +96,6 @@ const Results: FC<{
     };
   });
 
-
   return (
     <>
       <StatusBanner
@@ -106,8 +109,10 @@ const Results: FC<{
         editPhases={editPhases}
         alwaysShowPhaseSelector={alwaysShowPhaseSelector}
         statsEngine={statsEngine}
+        regressionAdjustmentAvailable={regressionAdjustmentAvailable}
         regressionAdjustmentEnabled={regressionAdjustmentEnabled}
         metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
+        onRegressionAdjustmentChange={onRegressionAdjustmentChange}
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
@@ -210,7 +215,9 @@ const Results: FC<{
             key={snapshot.dimension}
             statsEngine={snapshot.statsEngine}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
-            metricRegressionAdjustmentStatuses={snapshot.metricRegressionAdjustmentStatuses}
+            metricRegressionAdjustmentStatuses={
+              snapshot.metricRegressionAdjustmentStatuses
+            }
           />
         ))}
       {hasData && !snapshot.dimension && (
@@ -238,7 +245,9 @@ const Results: FC<{
             editMetrics={editMetrics}
             statsEngine={snapshot.statsEngine}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
-            metricRegressionAdjustmentStatuses={snapshot.metricRegressionAdjustmentStatuses}
+            metricRegressionAdjustmentStatuses={
+              snapshot.metricRegressionAdjustmentStatuses
+            }
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3 p-3">

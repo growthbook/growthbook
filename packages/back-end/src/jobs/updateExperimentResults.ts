@@ -143,7 +143,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       organization.settings?.statsEngine,
       //todo: get RA fields somehow...
       false,
-      [],
+      []
     );
 
     await new Promise<void>((resolve, reject) => {

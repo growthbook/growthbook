@@ -197,10 +197,12 @@ export default function SinglePage({
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
   const [
+    regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
   ] = useMemo(() => {
     const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    let regressionAdjustmentAvailable = false;
     let regressionAdjustmentEnabled = false;
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
@@ -212,19 +214,38 @@ export default function SinglePage({
         organizationSettings: settings,
         metricOverrides: experiment.metricOverrides,
       });
-      // todo: per-experiment toggle overrides this determination:
       if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+        // todo: this is not correct
+        regressionAdjustmentAvailable = true;
         regressionAdjustmentEnabled = true;
       }
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
     }
-    return [regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses];
+    if (!experiment.regressionAdjustmentEnabled) {
+      regressionAdjustmentEnabled = false;
+    }
+    return [
+      regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    ];
   }, [
     allExperimentMetrics,
     denominatorMetrics,
     settings,
+    experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
   ]);
+
+  const onRegressionAdjustmentChange = async (enabled: boolean) => {
+    await apiCall(`/experiment/${experiment.id}/`, {
+      method: "POST",
+      body: JSON.stringify({
+        regressionAdjustmentEnabled: !!enabled,
+      }),
+    });
+    mutate();
+  };
 
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
@@ -773,10 +794,12 @@ export default function SinglePage({
               alwaysShowPhaseSelector={true}
               reportDetailsLink={false}
               statsEngine={statsEngine}
+              regressionAdjustmentAvailable={regressionAdjustmentAvailable}
               regressionAdjustmentEnabled={regressionAdjustmentEnabled}
               metricRegressionAdjustmentStatuses={
                 metricRegressionAdjustmentStatuses
               }
+              onRegressionAdjustmentChange={onRegressionAdjustmentChange}
             />
           ) : (
             <div className="text-center my-5">

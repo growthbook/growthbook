@@ -54,6 +54,7 @@ import {
   ApiExperimentResults,
   ApiExperimentMetric,
 } from "../../types/openapi";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -62,7 +63,6 @@ import {
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -400,7 +400,7 @@ export async function createSnapshot(
   useCache: boolean = false,
   statsEngine: StatsEngine | undefined,
   regressionAdjustmentEnabled: boolean,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[],
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[]
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -427,9 +427,11 @@ export async function createSnapshot(
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
-    statsEngine: statsEngine || organization.settings?.statsEngine || "bayesian",
+    statsEngine:
+      statsEngine || organization.settings?.statsEngine || "bayesian",
     regressionAdjustmentEnabled: regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses || [],
+    metricRegressionAdjustmentStatuses:
+      metricRegressionAdjustmentStatuses || [],
   };
 
   const nextUpdate =

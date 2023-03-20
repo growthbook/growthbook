@@ -138,6 +138,7 @@ const experimentSchema = new mongoose.Schema({
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
   ideaSource: String,
+  regressionAdjustmentEnabled: Boolean,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

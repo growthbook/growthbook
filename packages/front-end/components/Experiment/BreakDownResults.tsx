@@ -2,7 +2,8 @@ import { FC, useMemo, useState } from "react";
 import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation, MetricRegressionAdjustmentStatus
+  ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
@@ -72,9 +73,13 @@ const BreakDownResults: FC<{
       .map((metricId) => {
         const metric = getMetricById(metricId);
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
-        let regressionAdjustmentStatus: MetricRegressionAdjustmentStatus | undefined;
+        let regressionAdjustmentStatus:
+          | MetricRegressionAdjustmentStatus
+          | undefined;
         if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find((s) => s.metric === metricId);
+          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+            (s) => s.metric === metricId
+          );
         }
 
         return {
@@ -93,7 +98,15 @@ const BreakDownResults: FC<{
         };
       })
       .filter((table) => table.metric);
-  }, [results, metrics, metricOverrides, regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses, guardrails, ready]);
+  }, [
+    results,
+    metrics,
+    metricOverrides,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    guardrails,
+    ready,
+  ]);
 
   const risk = useRiskVariation(
     variations.length,

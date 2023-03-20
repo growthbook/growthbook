@@ -132,6 +132,7 @@ export interface ExperimentInterface {
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
+  regressionAdjustmentEnabled?: boolean;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

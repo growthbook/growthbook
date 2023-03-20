@@ -2,13 +2,18 @@ import React, { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation, MetricRegressionAdjustmentStatus
+  ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { applyMetricOverrides, ExperimentTableRow, useRiskVariation } from "@/services/experiments";
+import {
+  applyMetricOverrides,
+  ExperimentTableRow,
+  useRiskVariation,
+} from "@/services/experiments";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -54,9 +59,13 @@ const CompactResults: FC<{
       .map((metricId) => {
         const metric = getMetricById(metricId);
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
-        let regressionAdjustmentStatus: MetricRegressionAdjustmentStatus | undefined;
+        let regressionAdjustmentStatus:
+          | MetricRegressionAdjustmentStatus
+          | undefined;
         if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find((s) => s.metric === metricId);
+          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+            (s) => s.metric === metricId
+          );
         }
 
         return {
@@ -70,7 +79,14 @@ const CompactResults: FC<{
         };
       })
       .filter((row) => row.metric);
-  }, [results, metrics, metricOverrides, regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses, ready]);
+  }, [
+    results,
+    metrics,
+    metricOverrides,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    ready,
+  ]);
 
   const users = useMemo(() => {
     const vars = results?.variations;

@@ -137,6 +137,22 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
+.btn-outline-teal {
+  @include button-outline-variant(
+    colors.$teal,
+    #fff,
+    lighten(colors.$teal, 15%),
+    lighten(colors.$teal, 15%)
+  );
+}
+.btn-outline-teal-off {
+  @include button-outline-variant(
+    #8fb3a8,
+    #fff,
+    lighten(colors.$teal, 15%),
+    lighten(colors.$teal, 15%)
+  );
+}
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
   border: 2px solid #00894f;
@@ -866,6 +882,15 @@ pre {
     }
     label:active:after {
       width: 21px;
+    }
+  }
+
+  &.teal {
+    label {
+      background: #cfe6de;
+    }
+    input:checked + label {
+      background: colors.$teal;
     }
   }
 }

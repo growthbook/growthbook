@@ -83,8 +83,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
       reason: String,
-    }
-  ]
+    },
+  ],
 });
 experimentSnapshotSchema.index({
   experiment: 1,

@@ -700,6 +700,7 @@ export async function postExperiment(
     "releasedVariationId",
     "autoSnapshots",
     "project",
+    "regressionAdjustmentEnabled",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -1415,8 +1416,8 @@ export async function postSnapshot(
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
       statsEngine?: StatsEngine;
-      regressionAdjustmentEnabled?: boolean,
-      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
+      regressionAdjustmentEnabled?: boolean;
+      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
     },
     { id: string },
     { force?: string }
@@ -1430,10 +1431,10 @@ export async function postSnapshot(
   let { statsEngine, regressionAdjustmentEnabled } = req.body;
   const { metricRegressionAdjustmentStatuses } = req.body;
 
-  statsEngine = (
-    typeof statsEngine === "string" && ["bayesian", "frequentist"].includes(statsEngine)
-      ? statsEngine
-      : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
+  statsEngine = (typeof statsEngine === "string" &&
+  ["bayesian", "frequentist"].includes(statsEngine)
+    ? statsEngine
+    : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
 
   regressionAdjustmentEnabled =
     regressionAdjustmentEnabled !== undefined
@@ -1527,7 +1528,7 @@ export async function postSnapshot(
       useCache,
       statsEngine,
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses ?? [],
+      metricRegressionAdjustmentStatuses ?? []
     );
     await req.audit({
       event: "experiment.refresh",

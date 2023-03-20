@@ -2,7 +2,7 @@ import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
-  ReportInterface
+  ReportInterface,
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { QueryDocument } from "../models/QueryModel";
@@ -61,7 +61,8 @@ export function reportArgsFromSnapshot(
     attributionModel: experiment.attributionModel || "firstExposure",
     statsEngine: snapshot.statsEngine || "bayesian",
     regressionAdjustmentEnabled: !!snapshot.regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses: snapshot.metricRegressionAdjustmentStatuses || [],
+    metricRegressionAdjustmentStatuses:
+      snapshot.metricRegressionAdjustmentStatuses || [],
   };
 }
 
