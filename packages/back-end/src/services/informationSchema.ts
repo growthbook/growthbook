@@ -9,6 +9,7 @@ import {
 } from "../types/Integration";
 import { updateDataSource } from "../models/DataSourceModel";
 import { removeDeletedTables } from "../models/InformationSchemaTablesModel";
+import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function removeRecentlyDeletedTables(
@@ -52,7 +53,8 @@ export function removeRecentlyDeletedTables(
 
 export async function mergeStaleInformationSchemaWithUpdate(
   staleInformationSchema: InformationSchema[],
-  updatedInformationSchema: InformationSchema[]
+  updatedInformationSchema: InformationSchema[],
+  organization: string
 ): Promise<InformationSchema[]> {
   updatedInformationSchema.forEach((database) => {
     const correspondingIndex = staleInformationSchema.findIndex(
@@ -78,7 +80,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
             correspondingSchemaIndex
           ].dateCreated;
       }
-      schema.tables.forEach((table) => {
+      schema.tables.forEach(async (table) => {
         const correspondingTableIndex = staleInformationSchema[
           correspondingIndex
         ].schemas[correspondingSchemaIndex].tables.findIndex(
@@ -105,11 +107,15 @@ export async function mergeStaleInformationSchemaWithUpdate(
               staleInformationSchema[correspondingIndex].schemas[
                 correspondingSchemaIndex
               ].tables[correspondingTableIndex].dateUpdated;
+          } else {
+            if (table.id) {
+              // If numOfColumns has changed & the table has an id, then it needs to be updated.
+              await queueUpdateStaleInformationSchemaTable(
+                organization,
+                table.id
+              );
+            }
           }
-
-          //TODO: Should I add a property called 'forceRefresh' to the table object? and then if set
-          // the next time someone goes to fetch it, we'll automatically refresh it?
-          // I can do that if the number of columns changes
         }
       });
     });
@@ -204,7 +210,8 @@ export async function updateDatasourceInformationSchema(
 
   const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
     informationSchema.databases,
-    updatedInformationSchema
+    updatedInformationSchema,
+    organization
   );
 
   const tablesToDelete = await removeRecentlyDeletedTables(

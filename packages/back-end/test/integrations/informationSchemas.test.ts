@@ -563,7 +563,8 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
 
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
-      updatedInformationSchema
+      updatedInformationSchema,
+      "sample_org_id"
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -734,7 +735,8 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
 
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
-      updatedInformationSchema
+      updatedInformationSchema,
+      "sample_org_id"
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -896,7 +898,8 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
 
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
-      updatedInformationSchema
+      updatedInformationSchema,
+      "sample_org_id"
     );
 
     expect(mergedInformationSchema).toEqual([
