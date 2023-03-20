@@ -1,12 +1,12 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import {
   SourceIntegrationConstructor,
+  SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   PastExperimentResponse,
   MetricValueQueryResponse,
   ExperimentQueryResponses,
-  SourceIntegrationInterface,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
