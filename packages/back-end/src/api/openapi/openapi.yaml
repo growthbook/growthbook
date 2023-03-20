@@ -122,7 +122,10 @@ paths:
   /experiments/{id}/visual-changesets:
     $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:
-    $ref: "./paths/getVisualChangeset.yaml"
+    get:
+      $ref: "./paths/getVisualChangeset.yaml"
+    put:
+      $ref: "./paths/putVisualChangeset.yaml"
   /visual-changesets/{id}/visual-change:
     $ref: "./paths/postVisualChange.yaml"
   /visual-changesets/{id}/visual-change/{visualChangeId}:

@@ -221,3 +221,24 @@ export const createVisualChangeset = async ({
   });
   return toInterface(visualChangeset);
 };
+
+export const updateVisualChangeset = async ({
+  changesetId,
+  organization,
+  updates,
+}: {
+  changesetId: string;
+  organization: string;
+  updates: Partial<VisualChangesetInterface>;
+}) => {
+  const res = await VisualChangesetModel.updateOne(
+    {
+      id: changesetId,
+      organization,
+    },
+    {
+      $set: updates,
+    }
+  );
+  return { nModified: res.nModified };
+};

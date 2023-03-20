@@ -150,12 +150,8 @@ export interface paths {
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
     get: operations["getVisualChangeset"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a visual changeset */
+    put: operations["putVisualChangeset"];
   };
   "/visual-changesets/{id}/visual-change": {
     /** Create a visual change for a visual changeset */
@@ -2252,6 +2248,12 @@ export interface operations {
   };
   getVisualChangeset: {
     /** Get a single visual changeset */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2274,6 +2276,24 @@ export interface operations {
                     })[];
                 })[];
             };
+          };
+        };
+      };
+    };
+  };
+  putVisualChangeset: {
+    /** Update a visual changeset */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
           };
         };
       };
@@ -2347,5 +2367,6 @@ export type GetExperimentResponse = operations["getExperiment"]["responses"]["20
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
