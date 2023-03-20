@@ -58,6 +58,7 @@ const eventSchema = new mongoose.Schema({
                   apiKey: z.string(),
                 })
                 .strict(),
+              z.null(),
             ]),
           })
           .strict();

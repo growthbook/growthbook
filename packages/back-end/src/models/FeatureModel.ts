@@ -28,9 +28,9 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "../util/features";
+import { EventAuditUser } from "../events/base-types";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
-import { EventAuditUser } from "../events/base-types";
 
 const featureSchema = new mongoose.Schema({
   id: String,
