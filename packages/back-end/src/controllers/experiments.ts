@@ -26,6 +26,7 @@ import {
 import {
   createVisualChangeset,
   findVisualChangesetsByExperiment,
+  updateVisualChangeset,
 } from "../models/VisualChangesetModel";
 import {
   deleteSnapshotById,
@@ -71,6 +72,7 @@ import {
 } from "../services/audit";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1908,5 +1910,24 @@ export async function postVisualChangeset(
 
   res.json({
     visualChangeset,
+  });
+}
+
+export async function putVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const ret = await updateVisualChangeset({
+    changesetId: req.params.id,
+    organization: org.id,
+    updates: req.body,
+  });
+
+  res.json({
+    nModified: ret.nModified,
+    changesetId: ret.nModified > 0 ? req.params.id : undefined,
+    updates: ret.nModified > 0 ? req.body : undefined,
   });
 }

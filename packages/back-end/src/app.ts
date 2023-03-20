@@ -420,6 +420,9 @@ app.post(
   experimentsController.postVisualChangeset
 );
 
+// Visual Changesets
+app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);

@@ -72,6 +72,9 @@ const VariationsTable: FC<Props> = ({
     VisualChangesetInterface[]
   >(_visualChangesets ?? []);
   const [showVisualChangesetForm, setShowVisualChangesetForm] = useState(false);
+  const [isEditingVisualChangeset, setIsEditingVisualChangeset] = useState(
+    false
+  );
 
   const createVisualChangeset = async ({
     editorUrl,
@@ -91,6 +94,38 @@ const VariationsTable: FC<Props> = ({
     const { visualChangeset } = res;
 
     setVisualChangesets([...visualChangesets, visualChangeset]);
+  };
+
+  const updateVisualChangeset = async ({
+    editorUrl,
+    urlPatterns,
+  }: Partial<VisualChangesetInterface>) => {
+    // This will change when we suport multiple changesets
+    const changesetId = visualChangesets[0].id;
+
+    const res = await apiCall<{
+      nModified: number;
+      changesetId?: string;
+      updates?: Partial<VisualChangesetInterface>;
+    }>(`/visual-changesets/${changesetId}`, {
+      method: "PUT",
+      body: JSON.stringify({ editorUrl, urlPatterns }),
+    });
+
+    if (res.nModified > 0) {
+      setVisualChangesets([
+        ...visualChangesets.map((vc) => {
+          if (vc.id === changesetId) {
+            return {
+              ...vc,
+              ...res.updates,
+            };
+          }
+
+          return vc;
+        }),
+      ]);
+    }
   };
 
   return (
@@ -166,12 +201,26 @@ const VariationsTable: FC<Props> = ({
           </tr>
         ) : null}
 
+        {isEditingVisualChangeset ? (
+          <VisualChangesetModal
+            editorUrl={visualChangesets[0].editorUrl}
+            urlPatterns={visualChangesets[0].urlPatterns}
+            onSubmit={updateVisualChangeset}
+            onClose={() => setIsEditingVisualChangeset(false)}
+          />
+        ) : null}
+
         {visualChangesets.map((vc, i) => (
           <tr key={i}>
             <td>
               <strong>Visual Changes</strong>
               <div>
-                <a className="cursor-pointer">Edit URLs</a>
+                <a
+                  className="cursor-pointer"
+                  onClick={() => setIsEditingVisualChangeset(true)}
+                >
+                  Edit URLs
+                </a>
               </div>
             </td>
 
