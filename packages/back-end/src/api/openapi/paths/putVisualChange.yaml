@@ -1,7 +1,7 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
   - $ref: "../parameters.yaml#/visualChangeId"
-get:
+put:
   tags:
     - visual-changesets
   summary: Update a visual change for a visual changeset

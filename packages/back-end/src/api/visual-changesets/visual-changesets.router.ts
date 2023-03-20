@@ -9,7 +9,7 @@ const router = Router();
 // Mounted at /api/v1/visual-changesets
 router.get("/:id", getVisualChangeset);
 router.post("/:id/visual-change", postVisualChange);
-router.post("/:id/visual-change/:visualChangeId", putVisualChange);
+router.put("/:id/visual-change/:visualChangeId", putVisualChange);
 
 // See experiment router for 'get all' endpoint
 

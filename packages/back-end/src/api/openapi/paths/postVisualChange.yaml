@@ -1,6 +1,6 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
-get:
+post:
   tags:
     - visual-changesets
   summary: Create a visual change for a visual changeset

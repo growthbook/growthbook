@@ -159,7 +159,7 @@ export interface paths {
   };
   "/visual-changesets/{id}/visual-change": {
     /** Create a visual change for a visual changeset */
-    get: operations["postVisualChange"];
+    post: operations["postVisualChange"];
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -169,7 +169,7 @@ export interface paths {
   };
   "/visual-changesets/{id}/visual-change/{visualChangeId}": {
     /** Update a visual change for a visual changeset */
-    get: operations["putVisualChange"];
+    put: operations["putVisualChange"];
     parameters: {
         /** @description The id of the requested resource */
         /** @description Specify a specific visual change */
