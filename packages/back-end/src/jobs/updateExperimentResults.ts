@@ -7,7 +7,11 @@ import {
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
-import { createSnapshot, getExperimentWatchers } from "../services/experiments";
+import {
+  createSnapshot,
+  getExperimentWatchers,
+  getRegressionAdjustmentInfo,
+} from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
   updateSnapshot,
@@ -134,6 +138,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     if (!organization) return;
     if (organization?.settings?.updateSchedule?.type === "never") return;
 
+    const {
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    } = await getRegressionAdjustmentInfo(experiment, organization);
+
     currentSnapshot = await createSnapshot(
       experiment,
       experiment.phases.length - 1,
@@ -141,9 +150,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       null,
       false,
       organization.settings?.statsEngine,
-      //todo: get RA fields somehow...
-      false,
-      []
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses
     );
 
     await new Promise<void>((resolve, reject) => {

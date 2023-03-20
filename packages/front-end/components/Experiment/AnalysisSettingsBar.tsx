@@ -172,19 +172,22 @@ export default function AnalysisSettingsBar({
             (outdated && status !== "running" ? (
               <div
                 className="badge badge-warning d-block py-1"
-                style={{ width: 95, marginBottom: 3 }}
+                style={{ width: 100, marginBottom: 3 }}
               >
                 Out of Date
               </div>
             ) : (
               <div
                 className="text-muted text-right"
-                style={{ width: 95, fontSize: "0.8em", lineHeight: 1.3 }}
+                style={{ width: 100, fontSize: "0.8em" }}
                 title={datetime(snapshot.dateCreated)}
               >
-                last updated
-                <br />
-                {ago(snapshot.dateCreated)}
+                <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
+                  last updated
+                </div>
+                <div className="d-inline-block" style={{ lineHeight: 1 }}>
+                  {ago(snapshot.dateCreated)}
+                </div>
               </div>
             ))}
         </div>
