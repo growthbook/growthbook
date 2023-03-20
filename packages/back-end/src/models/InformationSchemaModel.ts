@@ -142,7 +142,7 @@ export async function getInformationSchemaByDatasourceId(
   return toInterface(result);
 }
 
-export async function getAllInformationSchemas(
+export async function getInformationSchemasByOrganization(
   organization: string
 ): Promise<InformationSchemaInterface[] | null> {
   const results = await InformationSchemaModel.find({
