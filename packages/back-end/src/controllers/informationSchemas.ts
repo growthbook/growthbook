@@ -9,7 +9,7 @@ import {
 } from "../models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
-  getTableDataByPath,
+  getInformationSchemaTableDataByPath,
 } from "../models/InformationSchemaTablesModel";
 import { fetchTableData } from "../services/informationSchema";
 import { getOrgFromReq } from "../services/organizations";
@@ -52,7 +52,7 @@ export async function getTableData(
     return;
   }
 
-  const table = await getTableDataByPath(
+  const table = await getInformationSchemaTableDataByPath(
     org.id,
     databaseName,
     schemaName,

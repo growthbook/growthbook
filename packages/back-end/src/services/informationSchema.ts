@@ -8,11 +8,11 @@ import {
   InformationSchemaInterface,
 } from "../types/Integration";
 import { updateDataSource } from "../models/DataSourceModel";
-import { removeDeletedTables } from "../models/InformationSchemaTablesModel";
+import { removeDeletedInformationSchemaTables } from "../models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
 import { getSourceIntegrationObject } from "./datasource";
 
-export function removeRecentlyDeletedTables(
+export function getRecentlyDeletedTables(
   staleInformationSchema: InformationSchema[],
   updatedInformationSchema: InformationSchema[]
 ): string[] {
@@ -214,20 +214,19 @@ export async function updateDatasourceInformationSchema(
     organization
   );
 
-  const tablesToDelete = await removeRecentlyDeletedTables(
+  const tablesToDelete = await getRecentlyDeletedTables(
     informationSchema.databases,
     updatedInformationSchema
   );
 
   if (tablesToDelete.length > 0) {
-    await removeDeletedTables(
+    await removeDeletedInformationSchemaTables(
       organization,
       informationSchema.id,
       tablesToDelete
     );
   }
 
-  // Update the empty informationSchema record with the actual informationSchema
   await updateInformationSchemaById(organization, informationSchema.id, {
     ...informationSchema,
     databases: mergedInformationSchema,

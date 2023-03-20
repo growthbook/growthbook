@@ -65,19 +65,6 @@ const toInterface = (
   doc: InformationSchemaTablesDocument
 ): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
-export async function createInformationSchemaTables(
-  tables: InformationSchemaTablesInterface[]
-): Promise<InformationSchemaTablesInterface[]> {
-  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Data sources managed by config.yml");
-  }
-
-  const results = await InformationSchemaTablesModel.insertMany(tables);
-
-  return results.map(toInterface);
-}
-
 export async function createInformationSchemaTable(
   organization: string,
   tableName: string,
@@ -109,7 +96,7 @@ export async function createInformationSchemaTable(
   return toInterface(result);
 }
 
-export async function getTableDataByPath(
+export async function getInformationSchemaTableDataByPath(
   organization: string,
   databaseName: string,
   schemaName: string,
@@ -122,32 +109,6 @@ export async function getTableDataByPath(
     tableSchema: schemaName,
     tableName: tableName,
     informationSchemaId,
-  });
-
-  return table ? toInterface(table) : null;
-}
-
-export async function getTableById(
-  organization: string,
-  id: string
-): Promise<InformationSchemaTablesInterface | null> {
-  const table = await InformationSchemaTablesModel.findOne({
-    organization,
-    id,
-  });
-
-  return table ? toInterface(table) : null;
-}
-
-export async function getTableByName(
-  tableName: string,
-  informationSchemaId: string,
-  organization: string
-): Promise<InformationSchemaTablesInterface | null> {
-  const table = await InformationSchemaTablesModel.findOne({
-    tableName,
-    informationSchemaId,
-    organization,
   });
 
   return table ? toInterface(table) : null;
@@ -181,7 +142,7 @@ export async function updateInformationSchemaTableById(
   );
 }
 
-export async function removeDeletedTables(
+export async function removeDeletedInformationSchemaTables(
   organization: string,
   informationSchemaId: string,
   tableIds: string[]
