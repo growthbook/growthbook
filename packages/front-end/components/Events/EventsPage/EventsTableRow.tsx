@@ -37,7 +37,9 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
       }}
     >
       <td>
-        <span className="py-2 d-block">{datetime(event.dateCreated)}</span>
+        <span className="py-2 d-block nowrap">
+          {datetime(event.dateCreated)}
+        </span>
       </td>
       <td>
         <p className="py-2 mb-0">{getEventText(event)}</p>

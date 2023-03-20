@@ -78,6 +78,66 @@ tags:
   - name: sdk-connections
     x-displayName: SDK Connections
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
+  - name: visual-changesets
+    x-displayName: Visual Changesets
+    description: Groups of visual changes made by the visual editor to a single page
+  - name: DataSource_model
+    x-displayName: DataSource
+    description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
+  - name: Dimension_model
+    x-displayName: Dimension
+    description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
+  - name: Experiment_model
+    x-displayName: Experiment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
+  - name: ExperimentAnalysisSettings_model
+    x-displayName: ExperimentAnalysisSettings
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentAnalysisSettings" />
+  - name: ExperimentMetric_model
+    x-displayName: ExperimentMetric
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetric" />
+  - name: ExperimentResults_model
+    x-displayName: ExperimentResults
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: Feature_model
+    x-displayName: Feature
+    description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
+  - name: FeatureDefinition_model
+    x-displayName: FeatureDefinition
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
+  - name: FeatureEnvironment_model
+    x-displayName: FeatureEnvironment
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureExperimentRule_model
+    x-displayName: FeatureExperimentRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRule" />
+  - name: FeatureForceRule_model
+    x-displayName: FeatureForceRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRolloutRule_model
+    x-displayName: FeatureRolloutRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
+  - name: FeatureRule_model
+    x-displayName: FeatureRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: Metric_model
+    x-displayName: Metric
+    description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: PaginationFields_model
+    x-displayName: PaginationFields
+    description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
+  - name: Project_model
+    x-displayName: Project
+    description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: SdkConnection_model
+    x-displayName: SdkConnection
+    description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: Segment_model
+    x-displayName: Segment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
+  - name: VisualChangeset_model
+    x-displayName: VisualChangeset
+    description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
 paths:
   /features:
     get:
@@ -604,6 +664,63 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
+  '/experiments/{id}/visual-changesets':
+    get:
+      summary: Get all visual changesets
+      tags:
+        - visual-changesets
+      parameters:
+        - id: null
+          name: id
+          in: path
+          required: true
+          description: The experiment id the visual changesets belong to
+          schema:
+            type: string
+      operationId: listVisualChangesets
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - visualChangesets
+                    properties:
+                      visualChangesets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualChangeset'
+  '/visual-changesets/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags:
+        - visual-changesets
+      summary: Get a single visual changeset
+      operationId: getVisualChangeset
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/visual-changesets/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - visualChangeset
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
 components:
   parameters:
     id:
@@ -988,7 +1105,8 @@ components:
           items:
             $ref: '#/components/schemas/FeatureRule'
         definition:
-          $ref: '#/components/schemas/FeatureDefinition'
+          type: string
+          description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
         draft:
           type: object
           required:
@@ -1005,7 +1123,8 @@ components:
               items:
                 $ref: '#/components/schemas/FeatureRule'
             definition:
-              $ref: '#/components/schemas/FeatureDefinition'
+              type: string
+              description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     FeatureRule:
       anyOf:
         - $ref: '#/components/schemas/FeatureForceRule'
@@ -1227,6 +1346,7 @@ components:
         - project
         - hypothesis
         - description
+        - hashAttribute
         - tags
         - owner
         - archived
@@ -1264,6 +1384,8 @@ components:
           type: string
         autoRefresh:
           type: boolean
+        hashAttribute:
+          type: string
         variations:
           type: array
           items:
@@ -1346,6 +1468,7 @@ components:
           required:
             - status
             - winner
+            - releasedVariationId
             - conclusions
           properties:
             status:
@@ -1353,6 +1476,8 @@ components:
             winner:
               type: string
             conclusions:
+              type: string
+            releasedVariationId:
               type: string
     ExperimentMetric:
       type: object
@@ -1650,6 +1775,57 @@ components:
               type: string
             extraUserIdProperty:
               type: string
+    VisualChangeset:
+      type: object
+      required:
+        - urlPattern
+        - editorUrl
+        - experiment
+        - visualChanges
+      properties:
+        id:
+          type: string
+        urlPattern:
+          type: string
+        editorUrl:
+          type: string
+        experiment:
+          type: string
+        visualChanges:
+          type: array
+          items:
+            type: object
+            required:
+              - variation
+              - domMutations
+            properties:
+              description:
+                type: string
+              css:
+                type: string
+              variation:
+                type: string
+              domMutations:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - selector
+                    - action
+                    - attribute
+                  properties:
+                    selector:
+                      type: string
+                    action:
+                      type: string
+                      enum:
+                        - append
+                        - set
+                        - remove
+                    attribute:
+                      type: string
+                    value:
+                      type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -1683,3 +1859,36 @@ components:
 security:
   - bearerAuth: []
   - basicAuth: []
+x-tagGroups:
+  - name: Endpoints
+    tags:
+      - projects
+      - features
+      - data-sources
+      - metrics
+      - experiments
+      - dimensions
+      - segments
+      - sdk-connections
+      - visual-changesets
+  - name: Models
+    tags:
+      - DataSource_model
+      - Dimension_model
+      - Experiment_model
+      - ExperimentAnalysisSettings_model
+      - ExperimentMetric_model
+      - ExperimentResults_model
+      - Feature_model
+      - FeatureDefinition_model
+      - FeatureEnvironment_model
+      - FeatureExperimentRule_model
+      - FeatureForceRule_model
+      - FeatureRolloutRule_model
+      - FeatureRule_model
+      - Metric_model
+      - PaginationFields_model
+      - Project_model
+      - SdkConnection_model
+      - Segment_model
+      - VisualChangeset_model

@@ -78,6 +78,9 @@ tags:
   - name: sdk-connections
     x-displayName: SDK Connections
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
+  - name: visual-changesets
+    x-displayName: Visual Changesets
+    description: Groups of visual changes made by the visual editor to a single page
 paths:
   /features:
     $ref: "./paths/listFeatures.yaml"
@@ -115,7 +118,11 @@ paths:
     $ref: "./paths/getExperiment.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
-# PLOP_INSERT_PATHS_HERE
+  # PLOP_INSERT_PATHS_HERE
+  /experiments/{id}/visual-changesets:
+    $ref: "./paths/listVisualChangesets.yaml"
+  /visual-changesets/{id}:
+    $ref: "./paths/getVisualChangeset.yaml"
 components:
   parameters:
     $ref: "./parameters.yaml"

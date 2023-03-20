@@ -2,20 +2,16 @@ import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { useFeature } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { generateVariationId } from "@/services/features";
-import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
-import GroupsInput from "../GroupsInput";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import ConditionInput from "../Features/ConditionInput";
+import NamespaceSelector from "../Features/NamespaceSelector";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -29,32 +25,27 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
-  const form = useForm({
+  const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
-      phase: prevPhase.phase || "main",
+      name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
         getEqualWeights(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      groups: prevPhase.groups || [],
-      variations: experiment.variations.map((v) => {
-        return {
-          ...v,
-          id: generateVariationId(),
-        };
-      }),
+      condition: "",
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 0.5],
+      },
     },
   });
-
-  const { refreshGroups } = useDefinitions();
 
   const { apiCall } = useAuth();
 
   const variationWeights = form.watch("variationWeights");
-
-  const showGroups = useFeature("show-experiment-groups").on;
 
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
@@ -77,7 +68,6 @@ const NewPhaseForm: FC<{
         body: JSON.stringify(body),
       }
     );
-    await refreshGroups(value.groups);
     mutate();
     refreshWatching();
   });
@@ -92,6 +82,14 @@ const NewPhaseForm: FC<{
       closeCta="Cancel"
       size="lg"
     >
+      <div className="row">
+        <Field
+          label="Name"
+          containerClassName="col-lg"
+          required
+          {...form.register("name")}
+        />
+      </div>
       <div className="row">
         {!firstPhase && (
           <Field
@@ -109,40 +107,12 @@ const NewPhaseForm: FC<{
           {...form.register("dateStarted")}
         />
       </div>
-      <div className="row">
-        <SelectField
-          label="Type of Phase"
-          value={form.watch("phase")}
-          containerClassName="col-lg"
-          onChange={(v) => {
-            const phaseType = v as ExperimentPhaseType;
-            form.setValue("phase", phaseType);
-          }}
-          options={[
-            { label: "ramp", value: "ramp" },
-            { value: "main", label: "main (default)" },
-            { label: "holdout", value: "holdout" },
-          ]}
-        />
-      </div>
-      {(experiment.implementation === "visual" || showGroups) && (
-        <div className="row">
-          <div className="col">
-            <label>User Groups (optional)</label>
-            <GroupsInput
-              value={form.watch("groups")}
-              onChange={(groups) => {
-                form.setValue("groups", groups);
-              }}
-            />
-            <small className="form-text text-muted">
-              Use this to limit your experiment to specific groups of users
-              (e.g. &quot;internal&quot;, &quot;beta-testers&quot;,
-              &quot;qa&quot;).
-            </small>
-          </div>
-        </div>
-      )}
+
+      <ConditionInput
+        defaultValue={form.watch("condition")}
+        onChange={(condition) => form.setValue("condition", condition)}
+      />
+
       <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
@@ -152,7 +122,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          form.watch("variations").map((v, i) => {
+          experiment.variations.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
@@ -161,8 +131,13 @@ const NewPhaseForm: FC<{
             };
           }) || []
         }
-        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
         showPreview={false}
+      />
+
+      <NamespaceSelector
+        form={form}
+        featureId={experiment.trackingKey}
+        trackingKey={experiment.trackingKey}
       />
     </Modal>
   );

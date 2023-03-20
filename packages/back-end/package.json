@@ -20,7 +20,8 @@
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch \"dist/**/*\" -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js",
-    "generate-api-types": "swagger-cli bundle -t yaml src/api/openapi/openapi.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
+    "generate-api-models": "node src/scripts/generate-doc-models-for-openapi-schemas.mjs",
+    "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
     "@databricks/sql": "^1.1.0",

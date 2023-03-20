@@ -136,7 +136,7 @@ export default function NamespaceTableRow({
               >
                 <thead>
                   <tr>
-                    <th>Feature</th>
+                    <th>Feature / Experiment</th>
                     <th>Environment</th>
                     <th>Experiment Key</th>
                     <th>Range</th>
@@ -152,12 +152,12 @@ export default function NamespaceTableRow({
                         }}
                       >
                         <td>
-                          <Link href={`/features/${e.featureId}`}>
-                            <a>{e.featureId}</a>
+                          <Link href={e.link}>
+                            <a>{e.name}</a>
                           </Link>
                         </td>
                         <td>{e.environment}</td>
-                        <td>{e.trackingKey || e.featureId}</td>
+                        <td>{e.trackingKey || e.id}</td>
                         <td>
                           {e.start} to {e.end}
                         </td>

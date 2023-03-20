@@ -4,6 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ImplementationType,
+  Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { useWatching } from "@/services/WatchProvider";
@@ -23,9 +24,7 @@ import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import MetricsSelector from "./MetricsSelector";
-import ExperimentVariationsInput, {
-  SortableExperimentVariation,
-} from "./ExperimentVariationsInput";
+import ExperimentVariationsInput from "./ExperimentVariationsInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -49,12 +48,12 @@ function getDefaultVariations(num: number) {
   // Must have at least 2 variations
   num = Math.max(2, num);
 
-  const variations: SortableExperimentVariation[] = [];
+  const variations: Variation[] = [];
   for (let i = 0; i < num; i++) {
     variations.push({
       name: i ? `Variation ${i}` : "Control",
       description: "",
-      key: "",
+      key: i + "",
       screenshots: [],
       id: generateVariationId(),
     });
@@ -96,13 +95,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
-  const form = useForm<
-    Partial<
-      Omit<ExperimentInterfaceStringDates, "variations"> & {
-        variations: SortableExperimentVariation[];
-      }
-    >
-  >({
+  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       implementation: initialValue?.implementation || "code",
@@ -125,12 +118,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       description: initialValue?.description || "",
       guardrails: initialValue?.guardrails || [],
       variations: initialValue?.variations
-        ? initialValue.variations.map((variation) => {
-            return {
-              id: generateVariationId(),
-              ...variation,
-            };
-          })
+        ? initialValue.variations
         : getDefaultVariations(initialNumVariations),
       phases: [
         initialValue
@@ -142,9 +130,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
                 .toISOString()
                 .substr(0, 16),
-              phase: initialValue.phases?.[0].phase || "main",
+              name: initialValue.phases?.[0].name || "Main",
               reason: "",
-              groups: [],
               variationWeights:
                 initialValue.phases?.[0].variationWeights ||
                 getEqualWeights(
@@ -155,9 +142,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               coverage: 1,
               dateStarted: new Date().toISOString().substr(0, 16),
               dateEnded: new Date().toISOString().substr(0, 16),
-              phase: "main",
+              name: "Main",
               reason: "",
-              groups: [],
               variationWeights: [0.5, 0.5],
             },
       ],
@@ -408,14 +394,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         ) : (
           <ExperimentVariationsInput
-            variations={form.watch("variations").map((v) => {
-              return {
-                value: v.key || "",
-                name: v.name,
-                id: v.id,
-                screenshots: [],
-              };
-            })}
+            variations={form.watch("variations")}
             setVariations={(variations) =>
               form.setValue("variations", variations)
             }

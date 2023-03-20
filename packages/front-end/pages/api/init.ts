@@ -16,6 +16,7 @@ export interface EnvironmentInitValue {
   };
   sentryDSN: string;
   usingSSO: boolean;
+  storeSegmentsInMongo: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -29,6 +30,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
     SSO_CONFIG,
+    STORE_SEGMENTS_IN_MONGO,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -69,6 +71,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     usingSSO: !!SSO_CONFIG,
+    storeSegmentsInMongo: !!STORE_SEGMENTS_IN_MONGO,
   };
 
   res.status(200).json(body);

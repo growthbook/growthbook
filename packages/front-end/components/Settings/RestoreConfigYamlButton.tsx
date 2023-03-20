@@ -46,6 +46,7 @@ export default function RestoreConfigYamlButton({
     metrics,
     dimensions,
     mutateDefinitions,
+    segments,
   } = useDefinitions();
 
   const [open, setOpen] = useState(false);
@@ -66,6 +67,7 @@ export default function RestoreConfigYamlButton({
     metrics,
     dimensions,
     settings,
+    segments,
   });
 
   function parseConfig(json) {
@@ -122,6 +124,22 @@ export default function RestoreConfigYamlButton({
             const n = newConfig.dimensions[k];
 
             newConfig.dimensions[k] = {
+              ...o,
+              ...n,
+            };
+          }
+        });
+      }
+
+      if (origConfig.segments) {
+        Object.keys(origConfig.segments).forEach((k) => {
+          if (!newConfig?.segments?.[k]) {
+            delete origConfig.segments[k];
+          } else {
+            const o = origConfig.segments[k];
+            const n = newConfig.segments[k];
+
+            newConfig.segments[k] = {
               ...o,
               ...n,
             };
