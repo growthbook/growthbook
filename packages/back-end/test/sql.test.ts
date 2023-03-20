@@ -208,5 +208,8 @@ from
     expect(replaceCountStar("COUNT(value)", "m.user_id")).toEqual(
       "COUNT(value)"
     );
+    expect(
+      replaceCountStar("SUM(value) / COUNT( * ) + COUNT(*)", "m.user_id")
+    ).toEqual("SUM(value) / COUNT(m.user_id) + COUNT(m.user_id)");
   });
 });

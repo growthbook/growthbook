@@ -105,7 +105,7 @@ This helps in two ways
 There are 2 **Attribution Models** that experiments can use:
 
 - **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment
-- **All Exposures** uses multiple conversion windows, one for each time the user sees an experiment
+- **Experiment Duration** counts all conversions that happen between viewing the experiment the first time + any conversion delay and the experiment end date. This model ignores metric conversion windows.
 
 Currently, all analyses will use the "First Exposure" model by default. You can change this on a per-experiment basis as needed.
 

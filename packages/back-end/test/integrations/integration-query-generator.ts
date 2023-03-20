@@ -114,7 +114,6 @@ const baseExperiment: ExperimentInterface = {
   archived: false,
   phases: [baseExperimentPhase],
   autoSnapshots: false,
-  removeMultipleExposures: true,
 };
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig

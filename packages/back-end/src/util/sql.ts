@@ -136,9 +136,5 @@ export function expandDenominatorMetrics(
 
 // replace COUNT(*) with COUNT(${col}) to prevent counting null rows in some locations
 export function replaceCountStar(aggregation: string, col: string) {
-  if (/count\(\s*\*\s*\)/i.test(aggregation)) {
-    return aggregation.replace(/count\(\s*\*\s*\)/i, `COUNT(${col})`);
-  }
-
-  return aggregation;
+  return aggregation.replace(/count\(\s*\*\s*\)/gi, `COUNT(${col})`);
 }

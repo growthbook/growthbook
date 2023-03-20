@@ -160,6 +160,12 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
+  castDateToStandardString(col: string): string {
+    return this.castToString(col);
+  }
+  replaceDateDimensionString(minDateDimString: string): string {
+    return `REGEXP_REPLACE(${minDateDimString}, '.*____', '')`;
+  }
 
   applyMetricOverrides(
     metric: MetricInterface,
@@ -620,7 +626,7 @@ export default abstract class SqlIntegration
   }
 
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
-    const missing_dim_string = "__NULL_DIMENSION";
+    const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
       return this.castToString("'All'");
     } else if (dimension.type === "activation") {
@@ -632,15 +638,17 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
         "d.value"
-      )}),'${missing_dim_string}')`;
+      )}),'${missingDimString}')`;
     } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return `REGEXP_REPLACE(MIN(CONCAT(${this.castToString(
-        "e.timestamp"
-      )}, '____', coalesce(${this.castToString(
-        "e.dimension"
-      )},'${missing_dim_string}'))), '.*____', '')`;
+      return this.replaceDateDimensionString(
+        `MIN(CONCAT(${this.castDateToStandardString(
+          "e.timestamp"
+        )}, '____', coalesce(${this.castToString(
+          "e.dimension"
+        )},'${missingDimString}')))`
+      );
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
@@ -776,6 +784,7 @@ export default abstract class SqlIntegration
     // across all users. The following flag determines whether to filter out users
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
+
     const regressionAdjustmentEnabled =
       metric.regressionAdjustmentEnabled ?? false;
     const regressionAdjustmentHours = regressionAdjustmentEnabled
@@ -788,7 +797,8 @@ export default abstract class SqlIntegration
       !isRatio &&
       !metric.aggregation;
 
-    const ignoreConversionEnd = experiment.attributionModel === "allExposures";
+    const ignoreConversionEnd =
+      experiment.attributionModel === "experimentDuration";
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
@@ -1433,48 +1443,64 @@ export default abstract class SqlIntegration
     metric: MetricInterface,
     metricTimeWindow: MetricAggregationType = "post"
   ) {
+    // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
       return `MAX(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
     }
 
-    const queryFormat = this.getMetricQueryFormat(metric);
-    if (queryFormat === "sql") {
-      let aggregation = `SUM(${this.addPrePostTimeFilter(
-        `m.value`,
-        metricTimeWindow
-      )})`;
-
-      if (metric.aggregation) {
-        if (Number(metric.aggregation)) {
-          return `MAX(${this.addPrePostTimeFilter(
-            `${aggregation}`,
-            metricTimeWindow
-          )})`;
-        }
-        aggregation = replaceCountStar(metric.aggregation, `m.timestamp`);
-      }
-
-      return this.capValue(metric.cap, aggregation);
-    }
-
-    // builder fomat
-    let aggregate = "";
-    if (metric.type === "count") {
-      if (metric.column) {
-        aggregate = `COUNT(DISTINCT (${this.addPrePostTimeFilter(
-          `m.value`,
+    // SQL editor
+    if (this.getMetricQueryFormat(metric) === "sql") {
+      // Custom aggregation that's a hardcoded number (e.g. "1")
+      if (metric.aggregation && Number(metric.aggregation)) {
+        return `MAX(${this.addPrePostTimeFilter(
+          metric.aggregation,
           metricTimeWindow
-        )}))`;
-      } else {
-        aggregate = `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
+        )})`;
       }
-    } else {
-      aggregate = `MAX(${this.addPrePostTimeFilter(
-        `m.value`,
-        metricTimeWindow
-      )})`;
+      // Other custom aggregation
+      else if (metric.aggregation) {
+        // prePostTimeFilter (and regression adjustment) not implemented for
+        // custom aggregate metrics
+        return this.capValue(
+          metric.cap,
+          replaceCountStar(metric.aggregation, `m.timestamp`)
+        );
+      }
+      // Standard aggregation (SUM)
+      else {
+        return this.capValue(
+          metric.cap,
+          `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+        );
+      }
     }
-    return this.capValue(metric.cap, aggregate);
+    // Query builder
+    else {
+      // Count metrics that specify a distinct column to count
+      if (metric.type === "count" && metric.column) {
+        return this.capValue(
+          metric.cap,
+          `COUNT(DISTINCT (${this.addPrePostTimeFilter(
+            `m.value`,
+            metricTimeWindow
+          )}))`
+        );
+      }
+      // Count metrics just do a simple count of rows by default
+      else if (metric.type === "count") {
+        return this.capValue(
+          metric.cap,
+          `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`
+        );
+      }
+      // Revenue and duration metrics use MAX by default
+      else {
+        return this.capValue(
+          metric.cap,
+          `MAX(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+        );
+      }
+    }
   }
 
   private getMetricColumns(metric: MetricInterface, alias = "m") {

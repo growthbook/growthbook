@@ -6,7 +6,6 @@ required:
   - segmentId
   - queryFilter
   - inProgressConversions
-  - multipleVariations
   - attributionModel
   - statsEngine
   - goals
@@ -26,14 +25,10 @@ properties:
     enum:
       - include
       - exclude
-  multipleVariations:
-    enum:
-      - include
-      - exclude
   attributionModel:
     enum:
       - firstExposure
-      - allExposures
+      - experimentDuration
   statsEngine:
     enum:
       - bayesian
