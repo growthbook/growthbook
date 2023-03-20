@@ -5,7 +5,7 @@ import {
 import { formatInformationSchema } from "../../src/util/informationSchemas";
 import {
   mergeStaleInformationSchemaWithUpdate,
-  removeRecentlyDeletedTables,
+  getRecentlyDeletedTables,
 } from "../../src/services/informationSchema";
 
 describe("formatInformationSchema", () => {
@@ -1053,10 +1053,7 @@ describe("removeRecentlyDeletedTables", () => {
     ];
 
     expect(
-      removeRecentlyDeletedTables(
-        staleInformationSchema,
-        updatedInformationSchema
-      )
+      getRecentlyDeletedTables(staleInformationSchema, updatedInformationSchema)
     ).toEqual(["table_id_to_be_deleted-1234"]);
   });
 });
