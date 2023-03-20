@@ -48,6 +48,7 @@ const SegmentForm: FC<{
   const userIdType = form.watch("userIdType");
 
   const datasource = getDatasourceById(form.watch("datasource"));
+  const supportsSchemaBrowser = datasource.properties.supportsInformationSchema;
 
   const informationSchema = getInformationSchemaById(
     datasource.settings.informationSchemaId
@@ -64,7 +65,7 @@ const SegmentForm: FC<{
     <Modal
       close={close}
       open={true}
-      size="max"
+      size={supportsSchemaBrowser ? "max" : "md"}
       header={current.id ? "Edit Segment" : "New Segment"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
@@ -113,7 +114,7 @@ const SegmentForm: FC<{
       )}
       {sql ? (
         <div className="row">
-          <div className="col-7">
+          <div className={supportsSchemaBrowser ? "col-7" : "col-12"}>
             <SQLInputField
               userEnteredQuery={form.watch("sql")}
               datasourceId={datasource.id}

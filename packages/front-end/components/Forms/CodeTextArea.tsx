@@ -75,9 +75,7 @@ export default function CodeTextArea({
                 theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
                 value={value}
-                onChange={(newValue) => {
-                  setValue(newValue);
-                }}
+                onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
                 minLines={minLines}
                 maxLines={maxLines}

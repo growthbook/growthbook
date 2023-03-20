@@ -9,7 +9,7 @@ export default function BuildInformationSchemaCard({
   datasourceId: string;
   mutate: () => void;
 }) {
-  const [fetching, setFetching] = useState(status === "PENDING");
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<null | string>(null);
   const { apiCall } = useAuth();
 
