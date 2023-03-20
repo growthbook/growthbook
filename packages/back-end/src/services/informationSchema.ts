@@ -56,6 +56,11 @@ export async function mergeStaleInformationSchemaWithUpdate(
   updatedInformationSchema: InformationSchema[],
   organization: string
 ): Promise<InformationSchema[]> {
+  // If there is no stale information schema, then return the updated information schema
+  // This could happen if there was an error when initially creating the informationSchema
+  if (!staleInformationSchema || staleInformationSchema.length === 0) {
+    return updatedInformationSchema;
+  }
   updatedInformationSchema.forEach((database) => {
     const correspondingIndex = staleInformationSchema.findIndex(
       (staleInformationSchemaRecord) =>
