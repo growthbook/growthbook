@@ -114,7 +114,9 @@ const SegmentForm: FC<{
       )}
       {sql ? (
         <div className="row">
-          <div className={supportsSchemaBrowser ? "col-7" : "col-12"}>
+          <div
+            className={supportsSchemaBrowser ? "col-xs-12 col-sm-7" : "col-12"}
+          >
             <SQLInputField
               userEnteredQuery={form.watch("sql")}
               datasourceId={datasource.id}
@@ -132,7 +134,7 @@ const SegmentForm: FC<{
             />
           </div>
           {datasource.properties.supportsInformationSchema && (
-            <div className="col-5">
+            <div className="d-none d-sm-block col-5">
               <SchemaBrowser
                 updateSqlInput={updateSqlInput}
                 datasource={datasource}
