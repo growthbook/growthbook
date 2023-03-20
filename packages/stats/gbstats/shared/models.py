@@ -152,6 +152,9 @@ def compute_theta(
     joint_pre_statistic = create_joint_statistic(
         a=a.pre_statistic, b=b.pre_statistic, n=n
     )
+    if joint_pre_statistic.variance == 0 or joint_post_statistic.variance == 0:
+        return 0
+
     joint = RegressionAdjustedStatistic(
         n=n,
         post_statistic=joint_post_statistic,

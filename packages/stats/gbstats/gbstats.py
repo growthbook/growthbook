@@ -165,8 +165,13 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
                 stat_a, RegressionAdjustedStatistic
             ):
                 theta = compute_theta(stat_a, stat_b)
-                stat_a.theta = theta
-                stat_b.theta = theta
+                if theta == 0:
+                    # revert to non-RA under the hood if no variance in a time period
+                    stat_a = stat_a.post_statistic
+                    stat_b = stat_b.post_statistic
+                else:
+                    stat_a.theta = theta
+                    stat_b.theta = theta
 
             s[f"v{i}_cr"] = stat_b.unadjusted_mean
             s[f"v{i}_expected"] = (
