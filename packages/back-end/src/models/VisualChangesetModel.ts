@@ -125,3 +125,8 @@ export async function findVisualChangesets(
     })
   ).map(toInterface);
 }
+
+// TODO
+// const onVisualChangeCreate = () => {};
+// const onVisualChangeUpdate = () => {};
+// const onVisualChangeDelete = () => {};
