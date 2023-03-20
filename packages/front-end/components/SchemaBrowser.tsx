@@ -1,5 +1,4 @@
 import {
-  InformationSchema,
   InformationSchemaInterface,
   InformationSchemaTablesInterface,
 } from "@/../back-end/src/types/Integration";
@@ -9,9 +8,7 @@ import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
-import { useSearch } from "@/services/search";
 import DatasourceTableData from "./DatasourceTableData";
-import Field from "./Forms/Field";
 import { CursorData } from "./Segments/SegmentForm";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import BuildInformationSchemaCard from "./BuildInformationSchemaCard";
@@ -57,16 +54,6 @@ export default function SchemaBrowser({
       existingQuery.substring(index)
     );
   }
-
-  const { items, searchInputProps } = useSearch({
-    items: (informationSchema?.databases as InformationSchema[]) || [],
-    // searchFields: ["schemas.tables.path"], //MKTODO: Figure out how to get nested search working
-    // localStorageKey: "schemas.tables.path",
-    // defaultSortField: "schemas.tables.path",
-    searchFields: ["databaseName"],
-    localStorageKey: "databaseName",
-    defaultSortField: "databaseName",
-  });
 
   const handleTableClick = async (
     e,
@@ -155,12 +142,6 @@ export default function SchemaBrowser({
           />
         ) : (
           <>
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-              className="mb-2"
-            />
             <div
               key="database"
               className="border rounded p-1"
@@ -170,7 +151,7 @@ export default function SchemaBrowser({
                 overflowY: "scroll",
               }}
             >
-              {items.map((database) => {
+              {informationSchema.databases.map((database) => {
                 return (
                   <>
                     {database.schemas.map((schema) => {
