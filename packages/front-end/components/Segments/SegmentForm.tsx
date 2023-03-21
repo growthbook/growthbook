@@ -133,7 +133,7 @@ const SegmentForm: FC<{
               queryType="segment"
             />
           </div>
-          {datasource.properties.supportsInformationSchema && (
+          {supportsSchemaBrowser && (
             <div className="d-none d-sm-block col-5">
               <SchemaBrowser
                 updateSqlInput={updateSqlInput}
