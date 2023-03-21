@@ -116,7 +116,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="max"
+      size={supportsSchemaBrowser ? "max" : "lg"}
       header={modalTitle}
       cta="Save"
       ctaEnabled={saveEnabled}
