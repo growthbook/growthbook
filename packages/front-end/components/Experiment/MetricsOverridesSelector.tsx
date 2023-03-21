@@ -255,12 +255,12 @@ export default function MetricsOverridesSelector({
                         <div className="form-inline">
                           <label
                             className="small mr-1"
-                            htmlFor="toggle-regressionAdjustmentOverride"
+                            htmlFor={`toggle-regressionAdjustmentOverride_${i}`}
                           >
                             Override metric-level settings
                           </label>
                           <Toggle
-                            id={"toggle-regressionAdjustmentOverride"}
+                            id={`toggle-regressionAdjustmentOverride_${i}`}
                             value={
                               !!form.watch(
                                 `metricOverrides.${i}.regressionAdjustmentOverride`
@@ -288,12 +288,12 @@ export default function MetricsOverridesSelector({
                           <div className="form-group mt-1 mb-2 form-inline">
                             <label
                               className="small mr-1"
-                              htmlFor="toggle-regressionAdjustmentEnabled"
+                              htmlFor={`toggle-regressionAdjustmentEnabled_${i}`}
                             >
                               Apply regression adjustment for this metric
                             </label>
                             <Toggle
-                              id={"toggle-regressionAdjustmentEnabled"}
+                              id={`toggle-regressionAdjustmentEnabled_${i}`}
                               value={
                                 !!form.watch(
                                   `metricOverrides.${i}.regressionAdjustmentEnabled`

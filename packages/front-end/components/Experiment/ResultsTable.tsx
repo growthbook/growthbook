@@ -1,12 +1,13 @@
 import clsx from "clsx";
 import React, { ReactElement } from "react";
-import { FaHeart, FaQuestionCircle } from "react-icons/fa";
+import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { GBCuped } from "@/components/Icons";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
@@ -200,26 +201,31 @@ export default function ResultsTable({
               )}
             >
               <th className="metricname">
-                {renderLabelColumn(row.label, row.metric)}
                 {row?.regressionAdjustmentStatus
                   ?.regressionAdjustmentEnabled && (
-                  <span className="ml-1">
+                  <span className="mr-1">
                     <Tooltip body="CUPED enabled">
-                      <FaHeart style={{ color: "#26be62" }} />
+                      <GBCuped />
                     </Tooltip>
                   </span>
                 )}
                 {row?.regressionAdjustmentStatus
                   ?.regressionAdjustmentEnabled === false &&
                   row?.regressionAdjustmentStatus?.reason && (
-                    <span className="ml-1">
-                      <Tooltip
-                        body={`CUPED disabled: ${row.regressionAdjustmentStatus.reason}`}
-                      >
-                        <FaHeart style={{ color: "#be2626" }} />
-                      </Tooltip>
-                    </span>
+                    <Tooltip
+                      body={`CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`}
+                    >
+                      <span className="mr-1 position-relative">
+                        <GBCuped className="position-absolute" />
+                        <FaTimes
+                          className="position-absolute"
+                          color="#ff0000"
+                          style={{ transform: "scale(0.7)", top: 0, right: -7 }}
+                        />
+                      </span>
+                    </Tooltip>
                   )}
+                {renderLabelColumn(row.label, row.metric)}
               </th>
               {hasRisk && fullStats && (
                 <RiskColumn row={row} riskVariation={riskVariation} />

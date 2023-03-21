@@ -18,7 +18,7 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBCircleArrowLeft, GBCuped, GBEdit } from "@/components/Icons";
 import ConfigureReport from "@/components/Report/ConfigureReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Toggle from "@/components/Forms/Toggle";
@@ -86,6 +86,8 @@ export default function ReportPage() {
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
+
+  const regressionAdjustmentEnabled = !!report.args.regressionAdjustmentEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">
@@ -199,14 +201,28 @@ export default function ReportPage() {
               <div className="col">
                 <h2>Results</h2>
               </div>
-              <div className="col-auto ml-auto">
+              <div className="col-auto">
+                {regressionAdjustmentEnabled && (
+                  <div className="d-flex border rounded p-2 align-items-center">
+                    <GBCuped />
+                    <span className="mx-1 font-weight-bold text-muted">Using CUPED</span>
+                  </div>
+                )}
+              </div>
+              <div className="col-auto">
                 {report.runStarted && status !== "running" ? (
-                  <small
-                    className="text-muted"
+                  <div
+                    className="text-muted text-right"
+                    style={{ width: 100, fontSize: "0.8em" }}
                     title={datetime(report.runStarted)}
                   >
-                    updated {ago(report.runStarted)}
-                  </small>
+                    <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
+                      updated
+                    </div>
+                    <div className="d-inline-block" style={{ lineHeight: 1 }}>
+                      {ago(report.runStarted)}
+                    </div>
+                  </div>
                 ) : (
                   ""
                 )}
@@ -333,6 +349,8 @@ export default function ReportPage() {
                 variations={variations}
                 key={report.args.dimension}
                 statsEngine={report.args.statsEngine}
+                regressionAdjustmentEnabled={report.args.regressionAdjustmentEnabled}
+                metricRegressionAdjustmentStatuses={report.args.metricRegressionAdjustmentStatuses}
               />
             ))}
           {report.results && !report.args.dimension && (
@@ -376,6 +394,8 @@ export default function ReportPage() {
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 statsEngine={report.args.statsEngine}
+                regressionAdjustmentEnabled={report.args.regressionAdjustmentEnabled}
+                metricRegressionAdjustmentStatuses={report.args.metricRegressionAdjustmentStatuses}
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mb-3 p-3">

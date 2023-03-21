@@ -153,6 +153,23 @@ pre {
     lighten(colors.$teal, 15%)
   );
 }
+.btn-outline-teal-disabled {
+  @include button-outline-variant(
+    #8fb3a8,
+    #fff,
+    lighten(#8fb3a8, 15%),
+    lighten(#8fb3a8, 15%)
+  );
+  border-color: #d0e1dc;
+  margin-left: 8px;
+  cursor: not-allowed !important;
+  .toggle-switch.teal + label {
+    background: #cfe6de;
+  }
+  .toggle-switch.teal input:checked + label {
+    background: #cfe6de;
+  }
+}
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
   border: 2px solid #00894f;

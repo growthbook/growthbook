@@ -1,18 +1,22 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
-import { FaTimes } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { ago, datetime } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
+import { GBCuped } from "@/components/Icons";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -29,7 +33,8 @@ function isDifferent(val1?: string | boolean, val2?: string | boolean) {
 
 function isOutdated(
   experiment: ExperimentInterfaceStringDates,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
+  statsEngine: StatsEngine
 ) {
   if (!snapshot) return false;
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
@@ -47,9 +52,13 @@ function isOutdated(
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
     return true;
   }
+  const experimentRegressionAdjustmentEnabled =
+    statsEngine === "bayesian"
+      ? false
+      : !!experiment.regressionAdjustmentEnabled;
   if (
     isDifferent(
-      !!experiment.regressionAdjustmentEnabled,
+      experimentRegressionAdjustmentEnabled,
       !!snapshot.regressionAdjustmentEnabled
     )
   ) {
@@ -93,11 +102,20 @@ export default function AnalysisSettingsBar({
   } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
+  const settings = useOrgSettings();
   const datasource = getDatasourceById(experiment.datasource);
-  const outdated = isOutdated(experiment, snapshot);
+  const outdated = isOutdated(
+    experiment,
+    snapshot,
+    settings.statsEngine || "bayesian"
+  );
   const [modalOpen, setModalOpen] = useState(false);
 
   const permissions = usePermissions();
+  const { hasCommercialFeature } = useUser();
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
 
   const { apiCall } = useAuth();
 
@@ -140,32 +158,51 @@ export default function AnalysisSettingsBar({
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          {regressionAdjustmentAvailable ? (
-            <label
-              htmlFor={"toggle-experiment-regression-adjustment"}
-              className={`d-flex btn btn-outline-${
-                regressionAdjustmentEnabled ? "teal" : "teal-off"
-              } my-0 pl-2 pr-1 py-1 form-inline`}
-            >
-              <span className="mx-1 font-weight-bold">Use CUPED</span>
-              <Toggle
-                id="toggle-experiment-regression-adjustment"
-                value={regressionAdjustmentEnabled}
-                setValue={(value) => {
-                  if (onRegressionAdjustmentChange) {
-                    onRegressionAdjustmentChange(value);
-                  }
-                }}
-                className={`teal m-0`}
-                style={{ transform: "scale(0.8)" }}
-              />
-            </label>
-          ) : (
-            <div className="d-flex btn btn-outline-teal px-2 py-1 form-inline">
-              <label className="mr-2">Regression Adjustment (CUPED)</label>
-              <FaTimes />
-            </div>
-          )}
+          <PremiumTooltip
+            commercialFeature="regression-adjustment"
+            className="form-inline"
+          >
+            {regressionAdjustmentAvailable ||
+            !hasRegressionAdjustmentFeature ? (
+              <label
+                htmlFor={"toggle-experiment-regression-adjustment"}
+                className={`d-flex btn btn-outline-${
+                  !hasRegressionAdjustmentFeature
+                    ? "teal-disabled"
+                    : regressionAdjustmentEnabled
+                    ? "teal"
+                    : "teal-off"
+                } my-0 pl-2 pr-1 py-1 form-inline`}
+              >
+                <GBCuped />
+                <span className="mx-1 font-weight-bold">Use CUPED</span>
+                <Toggle
+                  id="toggle-experiment-regression-adjustment"
+                  value={regressionAdjustmentEnabled}
+                  setValue={(value) => {
+                    if (
+                      onRegressionAdjustmentChange &&
+                      hasRegressionAdjustmentFeature
+                    ) {
+                      onRegressionAdjustmentChange(value);
+                    }
+                  }}
+                  className={`teal m-0`}
+                  style={{ transform: "scale(0.8)" }}
+                  disabled={!hasRegressionAdjustmentFeature}
+                />
+              </label>
+            ) : (
+              <div className="d-flex btn border p-2 align-items-center">
+                <GBCuped />
+                <Tooltip
+                  body={"Only available for the frequentist stats engine"}
+                >
+                  <span className="mx-1 text-muted">CUPED unavailable</span>
+                </Tooltip>
+              </div>
+            )}
+          </PremiumTooltip>
         </div>
         <div className="col-auto">
           {snapshot &&

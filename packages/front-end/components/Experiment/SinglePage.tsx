@@ -224,6 +224,10 @@ export default function SinglePage({
     if (!experiment.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = false;
     }
+    if (settings.statsEngine === "bayesian") {
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
     return [
       regressionAdjustmentAvailable,
       regressionAdjustmentEnabled,
