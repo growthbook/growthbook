@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from "react";
+import React, { FC, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -6,6 +6,9 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
+import SchemaBrowser from "@/components/SchemaBrowser";
+import { CursorData } from "@/components/Segments/SegmentForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SQLInputField from "../../../SQLInputField";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
@@ -26,6 +29,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
+  const { mutateDefinitions, getInformationSchemaById } = useDefinitions();
+  const [cursorData, setCursorData] = useState<null | CursorData>(null);
+  const updateSqlInput = (sql: string) => {
+    form.setValue("query", sql);
+  };
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
@@ -37,6 +45,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       value: userIdType,
     })
   );
+  const supportsSchemaBrowser = dataSource.properties.supportsInformationSchema;
+
+  const informationSchema = getInformationSchemaById(
+    dataSource.settings.informationSchemaId
+  );
+
   const defaultUserId = userIdTypeOptions[0]?.value || "user_id";
 
   const form = useForm<ExposureQuery>({
@@ -131,14 +145,34 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 form.setValue("dimensions", dimensions);
               }}
             />
-            <SQLInputField
-              userEnteredQuery={userEnteredQuery}
-              datasourceId={dataSource.id}
-              form={form}
-              requiredColumns={requiredColumns}
-              identityTypes={identityTypes}
-              queryType="experiment-assignment"
-            />
+            <div className="row">
+              <div
+                className={
+                  supportsSchemaBrowser ? "col-xs-12 col-md-7" : "col-12"
+                }
+              >
+                <SQLInputField
+                  userEnteredQuery={userEnteredQuery}
+                  datasourceId={dataSource.id}
+                  form={form}
+                  requiredColumns={requiredColumns}
+                  identityTypes={identityTypes}
+                  queryType="experiment-assignment"
+                  setCursorData={setCursorData}
+                />
+              </div>
+              {supportsSchemaBrowser && (
+                <div className="d-none d-md-block col-5">
+                  <SchemaBrowser
+                    updateSqlInput={updateSqlInput}
+                    datasource={dataSource}
+                    informationSchema={informationSchema}
+                    mutate={mutateDefinitions}
+                    cursorData={cursorData}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -169,11 +169,7 @@ export default function SQLInputField({
     <div className={className}>
       <label className="font-weight-bold mb-1">SQL Query</label>
       <div className="row flex-column-reverse flex-md-row">
-        <div
-          className={
-            queryType === "experiment-assignment" ? "col-md-8" : "col-12"
-          }
-        >
+        <div className={"col-12"}>
           <div className="d-flex justify-content-between align-items-center p-1 border rounded">
             <button
               className="btn btn-sm btn-primary m-1"
@@ -220,6 +216,49 @@ export default function SQLInputField({
               setCursorData={setCursorData}
             />
           )}
+          {queryType === "experiment-assignment" && (
+            <div className="">
+              <div className="font-italic">
+                Any additional columns you select can be listed as dimensions to
+                drill down into experiment results.
+              </div>
+              <div className="pt-2">
+                <strong>Required columns</strong>
+              </div>
+              <div className="d-flex flex-wrap">
+                <span className="list-group-item-danger px-2 m-1 rounded">
+                  {form.watch("userIdType")}
+                </span>
+                <span className="list-group-item-danger px-2 m-1 rounded">
+                  timestamp
+                </span>
+                <span className="list-group-item-danger px-2 m-1 rounded">
+                  experiment_id
+                </span>
+                <span className="list-group-item-danger px-2 m-1 rounded">
+                  variation_id
+                </span>
+                {userEnteredHasNameCol && (
+                  <>
+                    <span className="list-group-item-danger px-2 m-1 rounded">
+                      experiment_name
+                    </span>
+                    <span className="list-group-item-danger px-2 m-1 rounded">
+                      variation_name
+                    </span>
+                  </>
+                )}
+                {userEnteredDimensions &&
+                  userEnteredDimensions.map((dimension) => {
+                    return (
+                      <li key={dimension}>
+                        <code>{dimension}</code>
+                      </li>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
           {testQueryResults && (
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
@@ -231,49 +270,6 @@ export default function SQLInputField({
             />
           )}
         </div>
-        {queryType === "experiment-assignment" && (
-          <div className="col-sm-12 col-md-4">
-            <div>
-              Any additional columns you select can be listed as dimensions to
-              drill down into experiment results.
-            </div>
-            <div className="pt-3">
-              <strong>Required columns</strong>
-            </div>
-            <ul>
-              <li>
-                <code>{form.watch("userIdType")}</code>
-              </li>
-              <li>
-                <code>timestamp</code>
-              </li>
-              <li>
-                <code>experiment_id</code>
-              </li>
-              <li>
-                <code>variation_id</code>
-              </li>
-              {userEnteredHasNameCol && (
-                <>
-                  <li>
-                    <code>experiment_name</code>
-                  </li>
-                  <li>
-                    <code>variation_name</code>
-                  </li>
-                </>
-              )}
-              {userEnteredDimensions &&
-                userEnteredDimensions.map((dimension) => {
-                  return (
-                    <li key={dimension}>
-                      <code>{dimension}</code>
-                    </li>
-                  );
-                })}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );
