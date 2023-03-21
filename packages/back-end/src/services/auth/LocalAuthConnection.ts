@@ -10,7 +10,11 @@ import {
 } from "../../models/AuthRefreshModel";
 import { RefreshTokenCookie } from "../../util/cookie";
 import { UnauthenticatedResponse } from "../../../types/sso-connection";
-import { getUserById, trackLoginForUser } from "../users";
+import {
+  getAuditableUserPropertiesFromRequest,
+  getUserById,
+  trackLoginForUser,
+} from "../users";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 
@@ -56,7 +60,11 @@ export class LocalAuthConnection implements AuthConnection {
 
     const email = user?.email;
     if (email) {
-      trackLoginForUser({ email });
+      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+      trackLoginForUser({
+        ...trackingProperties,
+        email,
+      });
     }
 
     return { idToken, refreshToken, expiresIn: 1800 };

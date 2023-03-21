@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { promisify } from "util";
+import { Request } from "express";
 import uniqid from "uniqid";
 import { UserDocument, UserModel } from "../models/UserModel";
 import { UserLoginNotificationEvent } from "../events/base-events";
@@ -46,18 +47,56 @@ export type AuditableUserProperties = {
   id: string;
   email: string;
   name: string;
-  // userAgent: string;
-  // ip: string;
+  device: string;
+  userAgent: string;
+  ip: string;
+  os: string;
+};
+
+/**
+ * Some tracking properties exist on the request object
+ * @param req
+ */
+export const getAuditableUserPropertiesFromRequest = (
+  req: Request
+): Pick<AuditableUserProperties, "userAgent" | "device" | "ip" | "os"> => {
+  const userAgent = req.headers["user-agent"] as string;
+  const device = req.headers["sec-ch-ua"] as string;
+  const os = req.headers["sec-ch-ua-platform"] as string;
+  const ip = (req.headers["x-forwarded-for"] ||
+    req.socket.remoteAddress) as string;
+
+  return {
+    userAgent,
+    device,
+    os,
+    ip,
+  };
 };
 
 /**
  * Track a login event under each organization for a user that has just logged in.
  * @param email
+ * @param device
+ * @param userAgent
+ * @param ip
+ * @param os
+ * @param userAgent
+ * @param ip
+ * @param os
  */
 export async function trackLoginForUser({
   email,
+  device,
+  userAgent,
+  ip,
+  os,
 }: {
   email: string;
+  device: string;
+  userAgent: string;
+  ip: string;
+  os: string;
 }): Promise<void> {
   const user = await getUserByEmail(email);
   if (!user) {
@@ -75,8 +114,10 @@ export async function trackLoginForUser({
     email: user.email,
     id: user.id,
     name: user.name,
-    // ip: '',
-    // userAgent: '',
+    ip,
+    userAgent,
+    os,
+    device,
   };
 
   const event: UserLoginNotificationEvent = {
