@@ -60,11 +60,13 @@ export type AuditableUserProperties = {
 export const getAuditableUserPropertiesFromRequest = (
   req: Request
 ): Pick<AuditableUserProperties, "userAgent" | "device" | "ip" | "os"> => {
-  const userAgent = req.headers["user-agent"] as string;
-  const device = req.headers["sec-ch-ua"] as string;
-  const os = req.headers["sec-ch-ua-platform"] as string;
-  const ip = (req.headers["x-forwarded-for"] ||
-    req.socket.remoteAddress) as string;
+  const userAgent = (req.headers["user-agent"] as string) || "";
+  const device = (req.headers["sec-ch-ua"] as string) || "";
+  const os = (req.headers["sec-ch-ua-platform"] as string) || "";
+  const ip =
+    (req.headers["x-forwarded-for"] as string) ||
+    req.socket.remoteAddress ||
+    "";
 
   return {
     userAgent,
