@@ -451,8 +451,7 @@ export async function createSnapshot(
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
     reportArgsFromSnapshot(experiment, data),
-    useCache,
-    statsEngine
+    useCache
   );
 
   data.queries = queries;

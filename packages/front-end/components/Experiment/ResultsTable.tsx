@@ -203,11 +203,11 @@ export default function ResultsTable({
               <th className="metricname">
                 {row?.regressionAdjustmentStatus
                   ?.regressionAdjustmentEnabled && (
-                  <span className="mr-1">
+                  <div className="d-inline-block mr-1">
                     <Tooltip body="CUPED enabled">
                       <GBCuped />
                     </Tooltip>
-                  </span>
+                  </div>
                 )}
                 {row?.regressionAdjustmentStatus
                   ?.regressionAdjustmentEnabled === false &&
@@ -215,14 +215,17 @@ export default function ResultsTable({
                     <Tooltip
                       body={`CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`}
                     >
-                      <span className="mr-1 position-relative">
+                      <div
+                        className="d-inline-block mr-1 position-relative"
+                        style={{ width: 16, height: 16 }}
+                      >
                         <GBCuped className="position-absolute" />
                         <FaTimes
                           className="position-absolute"
                           color="#ff0000"
                           style={{ transform: "scale(0.7)", top: 0, right: -7 }}
                         />
-                      </span>
+                      </div>
                     </Tooltip>
                   )}
                 {renderLabelColumn(row.label, row.metric)}

@@ -44,8 +44,11 @@ export default function ConfigureReport({
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
-      endDate: getValidDate(report.args.endDate).toISOString().substr(0, 16),
+      endDate: report.args.endDate
+        ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
+        : undefined,
       statsEngine: report.args.statsEngine || settings.statsEngine,
+      regressionAdjustmentEnabled: !!report.args.regressionAdjustmentEnabled,
     },
   });
 
@@ -184,13 +187,15 @@ export default function ConfigureReport({
           />
         </div>
         <div className="col">
-          <Field
-            label="End Date (UTC)"
-            labelClassName="font-weight-bold"
-            type="datetime-local"
-            {...form.register("endDate")}
-            helpText="Only include users who entered the experiment on or before this date"
-          />
+          {form.watch("endDate") && (
+            <Field
+              label="End Date (UTC)"
+              labelClassName="font-weight-bold"
+              type="datetime-local"
+              {...form.register("endDate")}
+              helpText="Only include users who entered the experiment on or before this date"
+            />
+          )}
         </div>
       </div>
 
@@ -325,7 +330,7 @@ export default function ConfigureReport({
       )}
 
       <div className="d-flex flex-row no-gutters align-items-center">
-        <div className="col-2">
+        <div className="col-3">
           <SelectField
             disabled={usingStatsEngineDefault}
             label={<strong>Stats Engine</strong>}
@@ -357,6 +362,30 @@ export default function ConfigureReport({
           />
           Use Organization Default
         </label>
+      </div>
+
+      <div className="d-flex flex-row no-gutters align-items-center">
+        <div className="col-3">
+          <SelectField
+            label="Use Regression Adjustment (CUPED)"
+            labelClassName="font-weight-bold"
+            value={form.watch("regressionAdjustmentEnabled") ? "yes" : "no"}
+            onChange={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v === "yes");
+            }}
+            options={[
+              {
+                label: "Yes",
+                value: "yes",
+              },
+              {
+                label: "No",
+                value: "no",
+              },
+            ]}
+            helpText="Only applicable to frequentist analyses"
+          />
+        </div>
       </div>
 
       {datasourceProperties?.queryLanguage === "sql" && (

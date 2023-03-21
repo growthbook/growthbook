@@ -503,7 +503,7 @@ export function GBCuped({ className = "" }): React.ReactElement {
         >
           <stop
             offset="0"
-            style={{ stopColor: "rgb(56, 226, 175)", stopOpacity: 0.85 }}
+            style={{ stopColor: "rgb(56, 226, 175)", stopOpacity: 0.75 }}
           ></stop>
           <stop
             offset="1"
@@ -514,18 +514,19 @@ export function GBCuped({ className = "" }): React.ReactElement {
       <path
         style={{
           strokeLinecap: "round",
-          stroke: "rgb(114,114,114)",
-          opacity: 0.65,
+          stroke: "rgb(22,217,161)",
+          strokeWidth: 1.2,
+          fill: "url(#gradient)",
         }}
-        d="M 0.75 13.056 C 0.75 13.056 2.916 13.09 4.132 10.615 C 5.197 8.448 6.534 7.703 8.244 7.644 C 9.807 7.59 11.373 9.126 12.276 10.782 C 13.489 13.007 15.614 12.977 15.614 12.977"
+        d="M 2.873 14.6 C 3.873 14.161 6.15 14.476 6.857 6.341 C 7.234 1.992 7.877 0.66 8.811 0.636 C 9.987 0.605 10.274 2.469 10.907 6.371 C 12.289 14.877 15.309 14.534 15.309 14.534"
       ></path>
       <path
         style={{
           strokeLinecap: "round",
-          stroke: "rgb(32,201,151)",
-          fill: "url(#gradient)",
+          stroke: "rgb(166,124,0)",
+          mixBlendMode: "multiply",
         }}
-        d="M 3.173 14.6 C 4.173 14.161 6.45 14.476 7.157 6.341 C 7.534 1.992 8.177 0.66 9.111 0.636 C 10.287 0.605 10.574 2.469 11.207 6.371 C 12.589 14.877 15.609 14.534 15.609 14.534"
+        d="M 0.75 12.056 C 0.75 12.056 2.916 12.09 4.132 9.615 C 5.197 7.448 6.534 6.703 8.244 6.644 C 9.807 6.59 11.373 8.126 12.276 9.782 C 13.489 12.007 15.614 11.977 15.614 11.977"
       ></path>
     </svg>
   );

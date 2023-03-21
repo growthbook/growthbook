@@ -102,7 +102,6 @@ export default function ResultsDownloadButton({
       if (!rows) return "";
 
       const json2csvParser = new Parser();
-
       const csv = json2csvParser.parse(rows);
 
       const blob = new Blob([csv], { type: "text/csv" });

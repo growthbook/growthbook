@@ -184,7 +184,6 @@ export async function refreshReport(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
-
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -193,7 +192,13 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  await runReport(report, useCache, org);
+  const report2 = { ...report };
+  report2.args.statsEngine =
+    report2.args?.statsEngine || org.settings?.statsEngine || "bayesian";
+  report2.args.regressionAdjustmentEnabled = !!report2.args
+    ?.regressionAdjustmentEnabled;
+
+  await runReport(report, useCache);
 
   return res.status(200).json({
     status: 200,
@@ -224,7 +229,11 @@ export async function putReport(
     };
 
     updates.args.startDate = getValidDate(updates.args.startDate);
-    updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    if (!updates.args.endDate) {
+      delete updates.args.endDate;
+    } else {
+      updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    }
     needsRun = true;
   }
   if ("title" in req.body) updates.title = req.body.title;
@@ -239,8 +248,7 @@ export async function putReport(
         ...report,
         ...updates,
       },
-      true,
-      org
+      true
     );
   }
 

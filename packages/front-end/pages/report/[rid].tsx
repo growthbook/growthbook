@@ -30,6 +30,7 @@ import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function ReportPage() {
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
 
   const form = useForm({
     defaultValues: {
@@ -87,7 +89,11 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const regressionAdjustmentEnabled = !!report.args.regressionAdjustmentEnabled;
+  const statsEngine =
+    data?.report?.args?.statsEngine || settings?.statsEngine || "bayesian";
+  const regressionAdjustmentAvailable = statsEngine === "frequentist";
+  const regressionAdjustmentEnabled =
+    regressionAdjustmentAvailable && !!report.args.regressionAdjustmentEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">
@@ -205,7 +211,9 @@ export default function ReportPage() {
                 {regressionAdjustmentEnabled && (
                   <div className="d-flex border rounded p-2 align-items-center">
                     <GBCuped />
-                    <span className="mx-1 font-weight-bold text-muted">Using CUPED</span>
+                    <span className="mx-1 font-weight-bold text-muted">
+                      Using CUPED
+                    </span>
                   </div>
                 )}
               </div>
@@ -216,7 +224,10 @@ export default function ReportPage() {
                     style={{ width: 100, fontSize: "0.8em" }}
                     title={datetime(report.runStarted)}
                   >
-                    <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
+                    <div
+                      className="font-weight-bold"
+                      style={{ lineHeight: 1.5 }}
+                    >
                       updated
                     </div>
                     <div className="d-inline-block" style={{ lineHeight: 1 }}>
@@ -349,8 +360,10 @@ export default function ReportPage() {
                 variations={variations}
                 key={report.args.dimension}
                 statsEngine={report.args.statsEngine}
-                regressionAdjustmentEnabled={report.args.regressionAdjustmentEnabled}
-                metricRegressionAdjustmentStatuses={report.args.metricRegressionAdjustmentStatuses}
+                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                metricRegressionAdjustmentStatuses={
+                  report.args.metricRegressionAdjustmentStatuses
+                }
               />
             ))}
           {report.results && !report.args.dimension && (
@@ -394,8 +407,10 @@ export default function ReportPage() {
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 statsEngine={report.args.statsEngine}
-                regressionAdjustmentEnabled={report.args.regressionAdjustmentEnabled}
-                metricRegressionAdjustmentStatuses={report.args.metricRegressionAdjustmentStatuses}
+                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                metricRegressionAdjustmentStatuses={
+                  report.args.metricRegressionAdjustmentStatuses
+                }
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mb-3 p-3">
