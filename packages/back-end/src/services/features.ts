@@ -80,7 +80,7 @@ function generateVisualExperimentsPayload(
         })),
         hashVersion: 2,
         hashAttribute: e.hashAttribute,
-        urlPatterns: [v.urlPattern],
+        urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase.namespace.enabled

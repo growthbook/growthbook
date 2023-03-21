@@ -1,4 +1,5 @@
 import { FeatureDefinition } from "./api";
+import { VisualChangesetURLPattern } from "./visual-changeset";
 
 // If this changes, also increment the LATEST_SDK_PAYLOAD_SCHEMA_VERSION constant
 export type SDKPayloadContents = {
@@ -14,7 +15,7 @@ interface SDKExperiment {
   hashVersion: number;
   // From experiment.hashAttribute
   hashAttribute: string;
-  urlPatterns: string[];
+  urlPatterns: VisualChangesetURLPattern[];
   // From phases.variationWeights
   weights?: number[];
   meta?: VariationMeta[];
