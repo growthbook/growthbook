@@ -27,7 +27,7 @@ import {
 import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
-import { EventAuditUserForResponseLocals } from "../../events/base-types";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region GET /segments
 

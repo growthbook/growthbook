@@ -4,7 +4,7 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { insertAudit } from "../services/audit";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
-import { EventAuditUserApiKey } from "../events/base-types";
+import { EventAuditUserApiKey } from "../events/event-types";
 
 export default function authencateApiRequestMiddleware(
   req: Request & ApiRequestLocals,

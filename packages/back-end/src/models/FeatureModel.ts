@@ -28,7 +28,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "../util/features";
-import { EventAuditUser } from "../events/base-types";
+import { EventAuditUser } from "../events/event-types";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 

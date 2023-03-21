@@ -19,7 +19,7 @@ import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
 import { createExperiment } from "../models/ExperimentModel";
 import { createSegment } from "../models/SegmentModel";
-import { EventAuditUserForResponseLocals } from "../events/base-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
