@@ -6,7 +6,7 @@ import { UserDocument, UserModel } from "../models/UserModel";
 import { findOrganizationsByMemberId } from "../models/OrganizationModel";
 import { UserLoginNotificationEvent } from "../events/notification-events";
 import { createEvent } from "../models/EventModel";
-import { AuditableUserProperties } from "../events/events";
+import { AuditableUserProperties } from "../events/event-types";
 import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
