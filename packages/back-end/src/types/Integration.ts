@@ -10,7 +10,7 @@ import { SegmentInterface } from "../../types/segment";
 export class NoDefaultDatasetError extends Error {
   constructor() {
     super(
-      "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
+      "To view the information schema for a BigQuery datasource, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
     );
     this.name = "NoDefaultDatasetError";
   }
