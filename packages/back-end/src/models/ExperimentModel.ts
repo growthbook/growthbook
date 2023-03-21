@@ -20,10 +20,10 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
+import { EventAuditUser } from "../events/base-types";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
-import { EventAuditUser } from "../events/base-types";
 
 type FindOrganizationOptions = {
   experimentId: string;
