@@ -1,17 +1,3 @@
-// region user.login
-
-export type UserLoginAuditableProperties = {
-  id: string;
-  email: string;
-  name: string;
-  device: string;
-  userAgent: string;
-  ip: string;
-  os: string;
-};
-
-// endregion user.login
-
 // region Audit
 
 /**
