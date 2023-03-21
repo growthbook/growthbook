@@ -6,6 +6,7 @@ import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;
@@ -68,6 +69,8 @@ export type ExperimentMetricQueryParams = {
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export type PastExperimentParams = {

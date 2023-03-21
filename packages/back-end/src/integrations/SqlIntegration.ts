@@ -180,15 +180,6 @@ export default abstract class SqlIntegration
       if ("loseRisk" in metricOverride) {
         metric.loseRisk = metricOverride.loseRisk;
       }
-      // todo: need to apply overrides using logic from getRegressionAdjustmentsForMetric()
-      if ("regressionAdjustmentOverride" in metricOverride) {
-        metric.regressionAdjustmentOverride =
-          metricOverride.regressionAdjustmentOverride;
-        metric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
-        metric.regressionAdjustmentDays =
-          metricOverride.regressionAdjustmentDays ??
-          metric.regressionAdjustmentDays;
-      }
     }
     return;
   }
@@ -679,6 +670,8 @@ export default abstract class SqlIntegration
       experiment,
       phase,
       segment,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatus,
     } = params;
 
     // clone the metrics before we mutate them
@@ -693,6 +686,13 @@ export default abstract class SqlIntegration
     this.applyMetricOverrides(metric, experiment);
     activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
     denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
+
+    // Apply regression adjustments
+    metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+    if (metricRegressionAdjustmentStatus) {
+      metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled && metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
+      metric.regressionAdjustmentDays = metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+    }
 
     let dimension = params.dimension;
     if (dimension?.type === "activation" && !activationMetrics.length) {

@@ -191,6 +191,7 @@ export async function startExperimentAnalysis(
             .filter(Boolean)
         );
       }
+      const metricRegressionAdjustmentStatus = args?.metricRegressionAdjustmentStatuses?.find((mras) => mras.metric === m.id);
       queryDocs[m.id] = getExperimentMetric(
         integration,
         {
@@ -201,6 +202,8 @@ export async function startExperimentAnalysis(
           denominatorMetrics,
           phase: experimentPhaseObj,
           segment: segmentObj,
+          regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
+          metricRegressionAdjustmentStatus: metricRegressionAdjustmentStatus,
         },
         useCache
       );
