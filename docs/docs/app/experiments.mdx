@@ -64,6 +64,13 @@ There are 2 **Attribution Models** that experiments can use:
 - **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment. The conversion window runs from the exposure timestamp + the conversion delay hours and for however many hours the conversion window is set to. For example, if the delay is 12 hours, and the window is 24 hours, then we will aggregate the metric values for each user from 12-36 hours after their first experiment exposure.
 - **Experiment Duration** uses a single conversion window that extends from their first exposure + conversion delay until the end of the experiment or phase. For example, if the delay is 12 hours, then the conversion window will extend from 12 hours after each user is bucketed until the present time or the end of the experiment/phase, if specified.
 
+This table summarizes the two models:
+
+| Attribution Model   | Conversion Window Start                | Conversion Window End                              |
+| ------------------- | -------------------------------------- | -------------------------------------------------- |
+| First Exposure      | First Exposure Date + Conversion Delay | Conversion Window Start + Conversion Window Length |
+| Experiment Duration | First Exposure Date + Conversion Delay | End of Experiment                                  |
+
 Currently, all analyses will use the "First Exposure" model by default. The _Experiment Duration_ model replaced _All Exposures_ as of GrowthBook 2.0 for usability and performance improvements.
 
 ### Experiment Metrics
