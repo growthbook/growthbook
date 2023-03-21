@@ -87,7 +87,8 @@ describe("formatInformationSchema", () => {
     const date = new Date();
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "bigquery"
+      "bigquery",
+      date
     );
 
     expect(formattedResults).toEqual([
@@ -234,10 +235,11 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
-    const date = new Date();
+    const date = new Date("2023-03-21T10:40:16.043Z");
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "postgres"
+      "postgres",
+      date
     );
 
     expect(formattedResults).toEqual([
@@ -384,10 +386,11 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
-    const date = new Date();
+    const date = new Date("2023-03-21T10:40:16.043Z");
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "mysql"
+      "mysql",
+      date
     );
 
     expect(formattedResults).toEqual([

@@ -120,7 +120,11 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return {
-      informationSchema: formatInformationSchema(results, "bigquery"),
+      informationSchema: formatInformationSchema(
+        results,
+        "bigquery",
+        new Date()
+      ),
       refreshMS: queryEndTime - queryStartTime,
     };
   }
