@@ -49,7 +49,7 @@ import {
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { IS_CLOUD } from "../util/secrets";
-import { EventAuditUserForResponseLocals } from "../events/base-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 class ApiKeyError extends Error {
   constructor(message: string) {

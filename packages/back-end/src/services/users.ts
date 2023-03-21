@@ -6,7 +6,7 @@ import { UserDocument, UserModel } from "../models/UserModel";
 import { findOrganizationsByMemberId } from "../models/OrganizationModel";
 import { UserLoginNotificationEvent } from "../events/notification-events";
 import { createEvent } from "../models/EventModel";
-import { AuditableUserProperties } from "../events/event-types";
+import { UserLoginAuditableProperties } from "../events/event-types";
 import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -101,7 +101,7 @@ export async function createUser(
  */
 export const getAuditableUserPropertiesFromRequest = (
   req: Request
-): Pick<AuditableUserProperties, "userAgent" | "device" | "ip" | "os"> => {
+): Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> => {
   const userAgent = (req.headers["user-agent"] as string) || "";
   const device = (req.headers["sec-ch-ua"] as string) || "";
   const os = (req.headers["sec-ch-ua-platform"] as string) || "";
@@ -154,7 +154,7 @@ export async function trackLoginForUser({
 
   const organizationIds = organizations.map((org) => org.id);
 
-  const auditedData: AuditableUserProperties = {
+  const auditedData: UserLoginAuditableProperties = {
     email: user.email,
     id: user.id,
     name: user.name,

@@ -8,7 +8,7 @@ import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import { removeTagFromExperiments } from "../../models/ExperimentModel";
-import { EventAuditUserForResponseLocals } from "../../events/base-types";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region POST /tag
 

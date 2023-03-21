@@ -30,7 +30,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
-import { EventAuditUserForResponseLocals } from "../events/base-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,

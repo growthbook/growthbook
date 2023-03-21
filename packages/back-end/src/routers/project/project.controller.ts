@@ -15,7 +15,7 @@ import { removeProjectFromFeatures } from "../../models/FeatureModel";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 import { removeProjectFromExperiments } from "../../models/ExperimentModel";
 import { removeProjectFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { EventAuditUserForResponseLocals } from "../../events/base-types";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region POST /projects
 

@@ -68,7 +68,7 @@ import {
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { ApiErrorResponse } from "../../types/api";
-import { EventAuditUserForResponseLocals } from "../events/base-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function getExperiments(
   req: AuthRequest<

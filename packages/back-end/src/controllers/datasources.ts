@@ -37,7 +37,7 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
-import { EventAuditUserForResponseLocals } from "../events/base-types";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function postSampleData(
   req: AuthRequest,
