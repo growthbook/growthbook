@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
 import { validateSQL } from "@/services/datasources";
@@ -9,6 +9,8 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
 import SQLInputField from "@/components/SQLInputField";
+import SchemaBrowser from "../SchemaBrowser";
+import { CursorData } from "../Segments/SegmentForm";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -20,6 +22,7 @@ const DimensionForm: FC<{
     getDatasourceById,
     datasources,
     mutateDefinitions,
+    getInformationSchemaById,
   } = useDefinitions();
 
   const form = useForm({
@@ -32,10 +35,20 @@ const DimensionForm: FC<{
     },
   });
 
+  const [cursorData, setCursorData] = useState<null | CursorData>(null);
+  const updateSqlInput = (sql: string) => {
+    form.setValue("sql", sql);
+  };
+
   const datasource = form.watch("datasource");
   const userIdType = form.watch("userIdType");
 
   const dsObj = getDatasourceById(datasource);
+  const supportsSchemaBrowser = dsObj.properties.supportsInformationSchema;
+
+  const informationSchema = getInformationSchemaById(
+    dsObj.settings.informationSchemaId
+  );
   const dsProps = dsObj?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
@@ -47,6 +60,7 @@ const DimensionForm: FC<{
     <Modal
       close={close}
       open={true}
+      size={supportsSchemaBrowser ? "max" : "md"}
       header={current.id ? "Edit Dimension" : "New Dimension"}
       submit={form.handleSubmit(async (value) => {
         if (sql) {
@@ -97,20 +111,38 @@ const DimensionForm: FC<{
         />
       )}
       {sql ? (
-        <SQLInputField
-          userEnteredQuery={form.watch("sql")}
-          datasourceId={dsObj.id}
-          form={form}
-          requiredColumns={requiredColumns}
-          placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
-          helpText={
-            <>
-              Select two columns named <code>{userIdType}</code> and{" "}
-              <code>value</code>
-            </>
-          }
-          queryType="dimension"
-        />
+        <div className="row">
+          <div
+            className={supportsSchemaBrowser ? "col-xs-12 col-sm-7" : "col-12"}
+          >
+            <SQLInputField
+              userEnteredQuery={form.watch("sql")}
+              datasourceId={dsObj.id}
+              form={form}
+              requiredColumns={requiredColumns}
+              setCursorData={setCursorData}
+              placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
+              helpText={
+                <>
+                  Select two columns named <code>{userIdType}</code> and{" "}
+                  <code>value</code>
+                </>
+              }
+              queryType="dimension"
+            />
+          </div>
+          {supportsSchemaBrowser && (
+            <div className="d-none d-sm-block col-5">
+              <SchemaBrowser
+                updateSqlInput={updateSqlInput}
+                datasource={dsObj}
+                informationSchema={informationSchema}
+                mutate={mutateDefinitions}
+                cursorData={cursorData}
+              />
+            </div>
+          )}
+        </div>
       ) : (
         <Field
           label="Event Condition"
