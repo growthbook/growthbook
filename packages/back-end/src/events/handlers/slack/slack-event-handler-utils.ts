@@ -32,6 +32,9 @@ export const getDataForNotificationEvent = (
   eventId: string
 ): DataForNotificationEvent | null => {
   switch (event.event) {
+    case "user.login":
+      return null;
+
     case "feature.created":
       return {
         filterData: {
@@ -143,6 +146,9 @@ export const filterSlackIntegrationForRelevance = (
   event: NotificationEvent
 ): boolean => {
   switch (event.event) {
+    case "user.login":
+      return false;
+
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
