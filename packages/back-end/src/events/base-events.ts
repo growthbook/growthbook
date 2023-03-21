@@ -1,5 +1,18 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
+import { AuditableUserProperties } from "../services/users";
 import { NotificationEventPayload } from "./base-types";
+
+// region User
+
+export type UserLoginNotificationEvent = NotificationEventPayload<
+  "user.login",
+  "user",
+  {
+    current: AuditableUserProperties;
+  }
+>;
+
+// endregion User
 
 // region Feature
 
@@ -63,6 +76,7 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
  * All supported event types in the database
  */
 export type NotificationEvent =
+  | UserLoginNotificationEvent
   | FeatureCreatedNotificationEvent
   | FeatureUpdatedNotificationEvent
   | FeatureDeletedNotificationEvent

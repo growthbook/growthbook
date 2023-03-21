@@ -2,6 +2,9 @@ import crypto from "crypto";
 import { promisify } from "util";
 import uniqid from "uniqid";
 import { UserDocument, UserModel } from "../models/UserModel";
+import { UserLoginNotificationEvent } from "../events/base-events";
+import { createEvent } from "../models/EventModel";
+import { findOrganizationsByMemberId } from "../models/OrganizationModel";
 import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -36,6 +39,67 @@ async function hash(password: string): Promise<string> {
   ) as Promise<Buffer>);
   return salt + ":" + derivedKey.toString("hex");
 }
+
+// region Audit user login events
+
+export type AuditableUserProperties = {
+  id: string;
+  email: string;
+  name: string;
+  // userAgent: string;
+  // ip: string;
+};
+
+/**
+ * Track a login event under each organization for a user that has just logged in.
+ * @param email
+ */
+export async function trackLoginForUser({
+  email,
+}: {
+  email: string;
+}): Promise<void> {
+  const user = await getUserByEmail(email);
+  if (!user) {
+    return;
+  }
+
+  const organizations = await findOrganizationsByMemberId(user.id);
+  if (!organizations) {
+    return;
+  }
+
+  const organizationIds = organizations.map((org) => org.id);
+
+  const auditedData: AuditableUserProperties = {
+    email: user.email,
+    id: user.id,
+    name: user.name,
+    // ip: '',
+    // userAgent: '',
+  };
+
+  const event: UserLoginNotificationEvent = {
+    object: "user",
+    event: "user.login",
+    user: {
+      type: "dashboard",
+      email: user.email,
+      id: user.id,
+      name: user.name,
+    },
+    data: {
+      current: auditedData,
+    },
+  };
+
+  // Create a login event for all of a user's organizations
+  for (const organizationId of organizationIds) {
+    await createEvent(organizationId, event);
+  }
+}
+
+// endregion Audit user login events
 
 export async function verifyPassword(
   user: UserDocument,
