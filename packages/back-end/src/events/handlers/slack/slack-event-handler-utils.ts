@@ -12,7 +12,7 @@ import {
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
   NotificationEvent,
-} from "../../base-events";
+} from "../../notification-events";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { APP_ORIGIN } from "../../../util/secrets";
 import { ApiFeature } from "../../../../types/openapi";

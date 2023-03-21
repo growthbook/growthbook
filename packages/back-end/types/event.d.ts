@@ -10,7 +10,7 @@ import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
-} from "../src/events/base-events";
+} from "../src/events/notification-events";
 
 export interface EventInterface<T> {
   id: string;

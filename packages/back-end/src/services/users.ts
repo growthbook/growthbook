@@ -4,7 +4,7 @@ import uniqid from "uniqid";
 import { Request } from "express";
 import { UserDocument, UserModel } from "../models/UserModel";
 import { findOrganizationsByMemberId } from "../models/OrganizationModel";
-import { UserLoginNotificationEvent } from "../events/base-events";
+import { UserLoginNotificationEvent } from "../events/notification-events";
 import { createEvent } from "../models/EventModel";
 import { AuditableUserProperties } from "../events/events";
 import { usingOpenId, validatePasswordFormat } from "./auth";

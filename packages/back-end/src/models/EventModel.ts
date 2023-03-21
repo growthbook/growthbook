@@ -9,7 +9,7 @@ import {
 import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
-import { NotificationEvent } from "../events/base-events";
+import { NotificationEvent } from "../events/notification-events";
 
 const eventSchema = new mongoose.Schema({
   id: {

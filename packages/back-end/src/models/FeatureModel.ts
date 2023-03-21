@@ -22,7 +22,7 @@ import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
-} from "../events/base-events";
+} from "../events/notification-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import {
   getAffectedSDKPayloadKeys,
