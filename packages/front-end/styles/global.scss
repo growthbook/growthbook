@@ -142,6 +142,7 @@ pre {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
 }
+
 .badge {
   line-height: 1em;
   font-size: 85.72%; //12px
@@ -150,6 +151,15 @@ pre {
   .badge {
     margin-bottom: 0;
   }
+}
+
+.badge-red {
+  @include badge-variant(colors.$red);
+  border: 1px solid colors.$red;
+}
+.badge-green {
+  @include badge-variant(colors.$green);
+  border: 1px solid colors.$green;
 }
 .badge-primary {
   @include badge-variant(#00ace5);

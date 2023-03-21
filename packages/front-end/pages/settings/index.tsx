@@ -89,6 +89,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       multipleExposureMinPercent: 0.01,
+      confidenceLevel: 0.95,
+      pValueThreshold: 0.05,
       statsEngine: "bayesian",
     },
   });
@@ -112,9 +114,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
     updateSchedule: form.watch("updateSchedule"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
+    confidenceLevel: form.watch("confidenceLevel"),
+    pValueThreshold: form.watch("pValueThreshold"),
   };
 
   const [cronString, setCronString] = useState("");
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(
+    (settings?.confidenceLevel && settings?.confidenceLevel !== 0.95) ||
+      (settings?.pValueThreshold && settings?.pValueThreshold !== 0.05)
+  );
 
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -148,6 +156,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
+        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
+          newVal.confidenceLevel = newVal.confidenceLevel * 100;
+        }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
@@ -168,6 +179,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
+      confidenceLevel: value.confidenceLevel / 100,
     };
 
     await apiCall(`/organization`, {
@@ -186,6 +198,50 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // show the user that the settings have saved:
     setSaveMsg(true);
   };
+
+  const highlightColor =
+    value.confidenceLevel < 70
+      ? "#c73333"
+      : value.confidenceLevel < 80
+      ? "#e27202"
+      : value.confidenceLevel < 90
+      ? "#B39F01"
+      : "";
+
+  const pHighlightColor =
+    value.pValueThreshold > 0.3
+      ? "#c73333"
+      : value.pValueThreshold > 0.2
+      ? "#e27202"
+      : value.pValueThreshold > 0.1
+      ? "#B39F01"
+      : "";
+
+  const warningMsg =
+    value.confidenceLevel === 70
+      ? "This is as low as it goes"
+      : value.confidenceLevel < 75
+      ? "Confidence thresholds this low are not recommended"
+      : value.confidenceLevel < 80
+      ? "Confidence thresholds this low are not recommended"
+      : value.confidenceLevel < 90
+      ? "Use caution with values below 90%"
+      : value.confidenceLevel >= 99
+      ? "Confidence levels 99% and higher can take lots of data to achieve"
+      : "";
+
+  const pWarningMsg =
+    value.pValueThreshold === 0.5
+      ? "This is as high as it goes"
+      : value.pValueThreshold > 0.25
+      ? "P-value thresholds this high are not recommended"
+      : value.pValueThreshold > 0.2
+      ? "P-value thresholds this high are not recommended"
+      : value.pValueThreshold > 0.1
+      ? "Use caution with values above 0.1"
+      : value.pValueThreshold <= 0.01
+      ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
 
   if (!permissions.organizationSettings) {
     return (
@@ -426,118 +482,226 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
           )}
 
-          <div className="bg-white p-3 border">
+          <div className="bg-white p-3 border position-relative">
             <div className="row">
               <div className="col-sm-3">
                 <h4>Experiment Settings</h4>
               </div>
 
-              <div className="col-sm-9 form-inline flex-column align-items-start">
-                <Field
-                  label="Minimum experiment length (in days) when importing past
-                  experiments"
-                  type="number"
-                  className="ml-2"
-                  containerClassName="mb-3"
-                  append="days"
-                  step="1"
-                  min="0"
-                  max="31"
-                  disabled={hasFileConfig()}
-                  {...form.register("pastExperimentsMinLength", {
-                    valueAsNumber: true,
-                  })}
-                />
-
-                <Field
-                  label="Warn when this percent of experiment users are in multiple variations"
-                  type="number"
-                  step="any"
-                  min="0"
-                  max="1"
-                  className="ml-2"
-                  containerClassName="mb-3"
-                  disabled={hasFileConfig()}
-                  helpText={<span className="ml-2">from 0 to 1</span>}
-                  {...form.register("multipleExposureMinPercent", {
-                    valueAsNumber: true,
-                  })}
-                />
-
-                <div className="mb-3 form-group flex-column align-items-start">
+              <div className="col-sm-9">
+                <div className="form-inline flex-column align-items-start">
                   <Field
-                    label="Experiment Auto-Update Frequency"
+                    label="Minimum experiment length (in days) when importing past
+                  experiments"
+                    type="number"
                     className="ml-2"
-                    containerClassName="mb-2 mr-2"
+                    containerClassName="mb-3"
+                    append="days"
+                    step="1"
+                    min="0"
+                    max="31"
                     disabled={hasFileConfig()}
-                    options={[
-                      {
-                        display: "When results are X hours old",
-                        value: "stale",
-                      },
-                      {
-                        display: "Cron Schedule",
-                        value: "cron",
-                      },
-                      {
-                        display: "Never",
-                        value: "never",
-                      },
-                    ]}
-                    {...form.register("updateSchedule.type")}
+                    {...form.register("pastExperimentsMinLength", {
+                      valueAsNumber: true,
+                    })}
                   />
-                  {value.updateSchedule?.type === "stale" && (
-                    <div className="bg-light p-3 border">
-                      <Field
-                        label="Refresh when"
-                        append="hours old"
-                        type="number"
-                        step={1}
-                        min={1}
-                        max={168}
-                        className="ml-2"
-                        disabled={hasFileConfig()}
-                        {...form.register("updateSchedule.hours", {
-                          valueAsNumber: true,
-                        })}
-                      />
-                    </div>
-                  )}
-                  {value.updateSchedule?.type === "cron" && (
-                    <div className="bg-light p-3 border">
-                      <Field
-                        label="Cron String"
-                        className="ml-2"
-                        disabled={hasFileConfig()}
-                        {...form.register("updateSchedule.cron")}
-                        placeholder="0 */6 * * *"
-                        onFocus={(e) => {
-                          updateCronString(e.target.value);
-                        }}
-                        onBlur={(e) => {
-                          updateCronString(e.target.value);
-                        }}
-                        helpText={<span className="ml-2">{cronString}</span>}
-                      />
-                    </div>
-                  )}
-                </div>
 
-                <Field
-                  label="Statistics Engine"
-                  className="ml-2"
-                  options={[
-                    {
-                      display: "Bayesian",
-                      value: "bayesian",
-                    },
-                    {
-                      display: "Frequentist",
-                      value: "frequentist",
-                    },
-                  ]}
-                  {...form.register("statsEngine")}
-                />
+                  <Field
+                    label="Warn when this percent of experiment users are in multiple variations"
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="1"
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    disabled={hasFileConfig()}
+                    helpText={<span className="ml-2">from 0 to 1</span>}
+                    {...form.register("multipleExposureMinPercent", {
+                      valueAsNumber: true,
+                    })}
+                  />
+
+                  <div className="mb-3 form-group flex-column align-items-start">
+                    <Field
+                      label="Experiment Auto-Update Frequency"
+                      className="ml-2"
+                      containerClassName="mb-2 mr-2"
+                      disabled={hasFileConfig()}
+                      options={[
+                        {
+                          display: "When results are X hours old",
+                          value: "stale",
+                        },
+                        {
+                          display: "Cron Schedule",
+                          value: "cron",
+                        },
+                        {
+                          display: "Never",
+                          value: "never",
+                        },
+                      ]}
+                      {...form.register("updateSchedule.type")}
+                    />
+                    {value.updateSchedule?.type === "stale" && (
+                      <div className="bg-light p-3 border">
+                        <Field
+                          label="Refresh when"
+                          append="hours old"
+                          type="number"
+                          step={1}
+                          min={1}
+                          max={168}
+                          className="ml-2"
+                          disabled={hasFileConfig()}
+                          {...form.register("updateSchedule.hours", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                      </div>
+                    )}
+                    {value.updateSchedule?.type === "cron" && (
+                      <div className="bg-light p-3 border">
+                        <Field
+                          label="Cron String"
+                          className="ml-2"
+                          disabled={hasFileConfig()}
+                          {...form.register("updateSchedule.cron")}
+                          placeholder="0 */6 * * *"
+                          onFocus={(e) => {
+                            updateCronString(e.target.value);
+                          }}
+                          onBlur={(e) => {
+                            updateCronString(e.target.value);
+                          }}
+                          helpText={<span className="ml-2">{cronString}</span>}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <div className="form-group mb-2 mr-2">
+                      <Field
+                        label="Statistics Engine"
+                        className="ml-2"
+                        options={[
+                          {
+                            display: "Bayesian",
+                            value: "bayesian",
+                          },
+                          {
+                            display: "Frequentist",
+                            value: "frequentist",
+                          },
+                        ]}
+                        {...form.register("statsEngine")}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="form-check mb-2 mt-2">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    name="advanced-options"
+                    checked={showAdvancedOptions}
+                    onChange={(e) => {
+                      setShowAdvancedOptions(!!e.target?.checked);
+                    }}
+                    id="checkbox-advanced"
+                  />
+
+                  <label
+                    htmlFor="checkbox-advanced"
+                    className="form-check-label"
+                  >
+                    Show Advanced Options
+                  </label>
+                </div>
+                {showAdvancedOptions && (
+                  <div className="bg-light p-3 my-3 border rounded">
+                    <div>
+                      <h5 className="font-weight-bold mb-4">
+                        Advanced Options - use caution
+                      </h5>
+                    </div>
+                    <div>
+                      <div className="form-group mb-2 mr-2 form-inline flex-wrap">
+                        <Field
+                          label="Bayesian chance to win threshold"
+                          type="number"
+                          step="any"
+                          min="70"
+                          max="99"
+                          style={{
+                            width: "80px",
+                            borderColor: highlightColor,
+                            backgroundColor: highlightColor
+                              ? highlightColor + "15"
+                              : "",
+                          }}
+                          className={`ml-2`}
+                          containerClassName="mb-3"
+                          append="%"
+                          disabled={hasFileConfig()}
+                          helpText={
+                            <>
+                              <span className="ml-2">(95% is default)</span>
+                              <div
+                                className="ml-2"
+                                style={{
+                                  color: highlightColor,
+                                  flexBasis: "100%",
+                                }}
+                              >
+                                {warningMsg}
+                              </div>
+                            </>
+                          }
+                          {...form.register("confidenceLevel", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                      </div>
+                      <div className="form-group mb-2 mr-2 form-inline">
+                        <Field
+                          label="Frequentist p-value threshold"
+                          type="number"
+                          step="0.001"
+                          max="0.5"
+                          min="0.001"
+                          style={{
+                            borderColor: pHighlightColor,
+                            backgroundColor: pHighlightColor
+                              ? pHighlightColor + "15"
+                              : "",
+                          }}
+                          className={`ml-2`}
+                          containerClassName="mb-3"
+                          append=""
+                          disabled={hasFileConfig()}
+                          helpText={
+                            <>
+                              <span className="ml-2">(0.05 is default)</span>
+                              <div
+                                className="ml-2"
+                                style={{
+                                  color: pHighlightColor,
+                                  flexBasis: "100%",
+                                }}
+                              >
+                                {pWarningMsg}
+                              </div>
+                            </>
+                          }
+                          {...form.register("pValueThreshold", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -651,11 +815,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 {/* endregion Metrics Behavior Defaults */}
               </div>
             </div>
-            <div className="divider border-bottom mb-3 mt-3" />
+            <div className="divider border-bottom mb-5 mt-3" />
 
-            <div className="row">
+            <div
+              className="row position-sticky p-4 bg-white"
+              style={{ bottom: 0 }}
+            >
               <div className="col-12">
-                <div className=" d-flex flex-row-reverse">
+                <div className="d-flex flex-row-reverse pr-4">
                   <Button
                     color={"primary"}
                     disabled={!ctaEnabled}
