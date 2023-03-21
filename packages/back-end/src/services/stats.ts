@@ -10,7 +10,6 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
@@ -25,13 +24,8 @@ export async function analyzeExperimentMetric(
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number,
-  statsEngine: StatsEngine = "bayesian",
-  regressionAdjustmentEnabled = false,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = []
+  statsEngine: StatsEngine = "bayesian"
 ): Promise<ExperimentMetricAnalysis> {
-  // eslint-disable-next-line no-console
-  console.log(regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses);
-
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
@@ -131,9 +125,7 @@ export async function analyzeExperimentResults(
   variations: ExperimentReportVariation[],
   dimension: string | undefined,
   queryData: QueryMap,
-  statsEngine: StatsEngine = "bayesian",
-  regressionAdjustmentEnabled = false,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = []
+  statsEngine: StatsEngine = "bayesian"
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -208,9 +200,7 @@ export async function analyzeExperimentResults(
           metric,
           data.rows,
           dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
-          statsEngine,
-          regressionAdjustmentEnabled,
-          metricRegressionAdjustmentStatuses
+          statsEngine
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
