@@ -89,6 +89,7 @@ const experimentSchema = new mongoose.Schema({
   implementation: String,
   previewURL: String,
   targetURLRegex: String,
+  visualEditorUrl: String,
   variations: [
     {
       _id: false,

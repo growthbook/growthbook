@@ -1,14 +1,9 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import {
-  ExperimentInterfaceStringDates,
-  ImplementationType,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import RadioSelector from "../Forms/RadioSelector";
 import Field from "../Forms/Field";
 
 const EditInfoForm: FC<{
@@ -16,14 +11,13 @@ const EditInfoForm: FC<{
   cancel: () => void;
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
-  const { visualEditorEnabled } = useOrgSettings();
-
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       name: experiment.name || "",
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
       description: experiment.description || "",
+      visualEditorUrl: experiment.visualEditorUrl || "",
     },
   });
   const { apiCall } = useAuth();
@@ -46,33 +40,11 @@ const EditInfoForm: FC<{
       cta="Save"
     >
       <Field label="Name" {...form.register("name")} />
-      {visualEditorEnabled && (
-        <Field
-          label="Type"
-          render={() => (
-            <RadioSelector
-              value={form.watch("implementation")}
-              setValue={(val: ImplementationType) =>
-                form.setValue("implementation", val)
-              }
-              name="implementation"
-              options={[
-                {
-                  key: "code",
-                  display: "Code",
-                  description:
-                    "Using one of our SDKs (Javascript, React, PHP, Ruby, Go, Kotlin, or Python)",
-                },
-                {
-                  key: "visual",
-                  display: "Visual",
-                  description: "Using our point & click Visual Editor",
-                },
-              ]}
-            />
-          )}
-        />
-      )}
+      <Field
+        required
+        label="Visual Editor Target URL"
+        {...form.register("visualEditorUrl")}
+      />
       <Field
         label="Description"
         render={(id) => (

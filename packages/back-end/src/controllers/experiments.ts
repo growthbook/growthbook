@@ -22,6 +22,11 @@ import {
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
+  createVisualChangeset,
+  findVisualChangesetsByExperiment,
+  updateVisualChangeset,
+} from "../models/VisualChangesetModel";
+import {
   deleteSnapshotById,
   findSnapshotById,
   updateSnapshot,
@@ -64,6 +69,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -208,9 +214,15 @@ export async function getExperiment(
       })) || undefined;
   }
 
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    org.id
+  );
+
   res.status(200).json({
     status: 200,
     experiment,
+    visualChangesets,
     idea,
   });
 }
@@ -530,6 +542,7 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
+    visualEditorUrl: data.visualEditorUrl || "",
   };
 
   try {
@@ -694,6 +707,7 @@ export async function postExperiment(
     "releasedVariationId",
     "autoSnapshots",
     "project",
+    "visualEditorUrl",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -1843,4 +1857,55 @@ export async function postPastExperiments(
       },
     });
   }
+}
+
+export async function postVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.body.urlPatterns) {
+    throw new Error("urlPatterns needs to be defined");
+  }
+
+  if (!req.body.editorUrl) {
+    throw new Error("editorUrl needs to be defined");
+  }
+
+  const experiment = await getExperimentById(org.id, req.params.id);
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const visualChangeset = await createVisualChangeset({
+    experiment,
+    urlPatterns: req.body.urlPatterns,
+    editorUrl: req.body.editorUrl,
+    organization: org.id,
+  });
+
+  res.json({
+    visualChangeset,
+  });
+}
+
+export async function putVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const ret = await updateVisualChangeset({
+    changesetId: req.params.id,
+    organization: org.id,
+    updates: req.body,
+  });
+
+  res.json({
+    nModified: ret.nModified,
+    changesetId: ret.nModified > 0 ? req.params.id : undefined,
+    updates: ret.nModified > 0 ? req.body : undefined,
+  });
 }

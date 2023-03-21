@@ -6,7 +6,6 @@ import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
 import track from "@/services/track";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
@@ -37,7 +36,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     refreshOrganization,
     settings,
     organization,
-    apiKeys,
     accountPlan,
     license,
   } = useUser();
@@ -485,53 +483,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
           )}
 
           <div className="bg-white p-3 border position-relative">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>
-                  Visual Editor{" "}
-                  <span className="badge badge-warning">beta</span>
-                </h4>
-              </div>
-              <div className="col-sm-9 pb-3">
-                <p>
-                  {`The Visual Editor allows non-technical users to create and start
-                  experiments in production without writing any code. `}
-                  <DocLink docSection="visual_editor">
-                    View Documentation
-                  </DocLink>
-                </p>
-                <div>
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      disabled={hasFileConfig()}
-                      className="form-check-input "
-                      {...form.register("visualEditorEnabled")}
-                      id="checkbox-visualeditor"
-                    />
-
-                    <label
-                      htmlFor="checkbox-visualeditor"
-                      className="form-check-label"
-                    >
-                      Enable Visual Editor
-                    </label>
-                  </div>
-                </div>
-                {value.visualEditorEnabled && settings?.visualEditorEnabled && (
-                  <div className="bg-light p-3 my-3 border rounded">
-                    <h5 className="font-weight-bold">Setup Instructions</h5>
-                    <VisualEditorInstructions
-                      apiKeys={apiKeys}
-                      mutate={refreshOrganization}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="divider border-bottom mb-3 mt-3" />
-
             <div className="row">
               <div className="col-sm-3">
                 <h4>Experiment Settings</h4>

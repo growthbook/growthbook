@@ -29,7 +29,7 @@ type ModalProps = {
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
-  submit?: () => Promise<void>;
+  submit?: () => void | Promise<void>;
   secondaryCTA?: ReactElement;
   successMessage?: string;
   children: ReactNode;

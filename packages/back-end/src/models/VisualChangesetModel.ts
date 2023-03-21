@@ -1,7 +1,13 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import uniqid from "uniqid";
+import { ExperimentInterface } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+  VisualChangesetURLPattern,
+} from "../../types/visual-changeset";
 
 /**
  * VisualChangeset is a collection of visual changes that are grouped together
@@ -18,8 +24,21 @@ const visualChangesetSchema = new mongoose.Schema({
     index: true,
     required: true,
   },
-  urlPattern: {
-    type: String,
+  urlPatterns: {
+    type: [
+      {
+        include: Boolean,
+        type: {
+          type: String,
+          enum: ["simple", "exact", "regex"],
+          required: true,
+        },
+        pattern: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
     required: true,
   },
   editorUrl: {
@@ -81,7 +100,7 @@ export function toVisualChangesetApiInterface(
 ): ApiVisualChangeset {
   return {
     id: visualChangeset.id,
-    urlPattern: visualChangeset.urlPattern,
+    urlPatterns: visualChangeset.urlPatterns,
     editorUrl: visualChangeset.editorUrl,
     experiment: visualChangeset.experiment,
     visualChanges: visualChangeset.visualChanges.map((c) => ({
@@ -130,3 +149,136 @@ export async function findVisualChangesets(
 // const onVisualChangeCreate = () => {};
 // const onVisualChangeUpdate = () => {};
 // const onVisualChangeDelete = () => {};
+
+export async function createVisualChange(
+  id: string,
+  organization: string,
+  visualChange: VisualChange
+): Promise<{ nModified: number }> {
+  const visualChangeset = await VisualChangesetModel.findOne({
+    id,
+    organization,
+  });
+
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const res = await VisualChangesetModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    {
+      $set: {
+        visualChanges: [...visualChangeset.visualChanges, visualChange],
+      },
+    }
+  );
+
+  return { nModified: res.nModified };
+}
+
+export async function updateVisualChange({
+  changesetId,
+  visualChangeId,
+  organization,
+  payload,
+}: {
+  changesetId: string;
+  visualChangeId: string;
+  organization: string;
+  payload: Partial<VisualChange>;
+}): Promise<{ nModified: number }> {
+  const visualChangeset = await VisualChangesetModel.findOne({
+    id: changesetId,
+    organization,
+  });
+
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const visualChanges = visualChangeset.visualChanges.map((visualChange) => {
+    if (visualChange.id === visualChangeId) {
+      return {
+        ...visualChange,
+        ...payload,
+      };
+    }
+    return visualChange;
+  });
+
+  const res = await VisualChangesetModel.updateOne(
+    {
+      id: changesetId,
+      organization,
+    },
+    {
+      $set: { visualChanges },
+    }
+  );
+
+  return { nModified: res.nModified };
+}
+
+// TODO On creating a variation, we need to create a visual change for each
+export const createVisualChangeset = async ({
+  experiment,
+  organization,
+  urlPatterns,
+  editorUrl,
+}: {
+  experiment: ExperimentInterface;
+  organization: string;
+  urlPatterns: VisualChangesetURLPattern[];
+  editorUrl: VisualChangesetInterface["editorUrl"];
+}): Promise<VisualChangesetInterface> => {
+  const visualChangeset = await VisualChangesetModel.create({
+    id: uniqid("vcs_"),
+    experiment: experiment.id,
+    organization,
+    urlPatterns,
+    editorUrl,
+    visualChanges: experiment.variations.map((variation) => ({
+      id: uniqid("vc_"),
+      variation: variation.id,
+      description: "",
+      css: "",
+      domMutations: [],
+    })),
+  });
+  return toInterface(visualChangeset);
+};
+
+export const updateVisualChangeset = async ({
+  changesetId,
+  organization,
+  updates,
+}: {
+  changesetId: string;
+  organization: string;
+  updates: Partial<VisualChangesetInterface>;
+}) => {
+  // ensure new visual changes have ids assigned
+  const visualChanges =
+    updates.visualChanges?.map((vc) => ({
+      ...vc,
+      id: vc.id || uniqid("vc_"),
+    })) ?? [];
+
+  const res = await VisualChangesetModel.updateOne(
+    {
+      id: changesetId,
+      organization,
+    },
+    {
+      $set: {
+        ...updates,
+        visualChanges,
+      },
+    }
+  );
+
+  return { nModified: res.nModified, visualChanges };
+};

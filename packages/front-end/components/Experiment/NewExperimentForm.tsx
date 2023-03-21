@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -13,7 +12,6 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { getEqualWeights } from "@/services/utils";
 import { generateVariationId } from "@/services/features";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -114,6 +112,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       attributionModel: initialValue?.attributionModel ?? "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
+      visualEditorUrl: "",
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       guardrails: initialValue?.guardrails || [],
@@ -147,7 +146,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               variationWeights: [0.5, 0.5],
             },
       ],
-      status: initialValue?.status || "running",
+      status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
     },
   });
@@ -155,11 +154,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
-  const implementation = form.watch("implementation");
-
   const { apiCall } = useAuth();
-
-  const { visualEditorEnabled } = useOrgSettings();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
@@ -224,7 +219,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={"New Experiment Analysis"}
+      header="New Experiment Analysis"
       close={onClose}
       docSection="experiments"
       submit={onSubmit}
@@ -254,20 +249,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
         )}
-        {visualEditorEnabled && !isImport && (
-          <SelectField
-            label="Use Visual Editor"
-            options={[
-              { label: "no", value: "code" },
-              { label: "yes", value: "visual" },
-            ]}
-            value={form.watch("implementation")}
-            onChange={(v) => {
-              const impType = v as ImplementationType;
-              form.setValue("implementation", impType);
-            }}
-          />
-        )}
+
         <div className="form-group">
           <label>Tags</label>
           <TagsInput
@@ -426,18 +408,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={datasource?.id}
             />
           </div>
-          {!isImport && implementation === "visual" && (
-            <Field
-              label="URL Targeting"
-              {...form.register("targetURLRegex")}
-              helpText={
-                <>
-                  e.g. <code>https://example.com/pricing</code> or{" "}
-                  <code>^/post/[0-9]+</code>
-                </>
-              }
-            />
-          )}
         </div>
       </Page>
     </PagedModal>

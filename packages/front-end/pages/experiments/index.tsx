@@ -11,7 +11,6 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { GBAddCircle } from "@/components/Icons";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useUser } from "@/services/UserContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "@/components/Experiment/NewFeatureExperiments";
@@ -21,6 +20,7 @@ import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
 import { useAnchor } from "@/components/Tabs/ControlledTabs";
 import Toggle from "@/components/Forms/Toggle";
+import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 
 const NUM_PER_PAGE = 20;
 
@@ -348,7 +348,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <ImportExperimentModal
+        <AddExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
         />

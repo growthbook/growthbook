@@ -150,10 +150,28 @@ export interface paths {
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
     get: operations["getVisualChangeset"];
+    /** Update a visual changeset */
+    put: operations["putVisualChangeset"];
+  };
+  "/visual-changesets/{id}/visual-change": {
+    /** Create a visual change for a visual changeset */
+    post: operations["postVisualChange"];
     parameters: {
         /** @description The id of the requested resource */
       path: {
         id: string;
+      };
+    };
+  };
+  "/visual-changesets/{id}/visual-change/{visualChangeId}": {
+    /** Update a visual change for a visual changeset */
+    put: operations["putVisualChange"];
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description Specify a specific visual change */
+      path: {
+        id: string;
+        visualChangeId: string;
       };
     };
   };
@@ -813,7 +831,12 @@ export interface components {
     };
     VisualChangeset: {
       id?: string;
-      urlPattern: string;
+      urlPatterns: ({
+          include?: boolean;
+          /** @enum {string} */
+          type: "simple" | "exact" | "regex";
+          pattern: string;
+        })[];
       editorUrl: string;
       experiment: string;
       visualChanges: ({
@@ -844,6 +867,8 @@ export interface components {
     projectId: string;
     /** @description Filter by Data Source */
     datasourceId: string;
+    /** @description Specify a specific visual change */
+    visualChangeId: string;
   };
   requestBodies: never;
   headers: never;
@@ -2081,7 +2106,12 @@ export interface operations {
           "application/json": {
             visualChangesets: ({
                 id?: string;
-                urlPattern: string;
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "exact" | "regex";
+                    pattern: string;
+                  })[];
                 editorUrl: string;
                 experiment: string;
                 visualChanges: ({
@@ -2104,13 +2134,28 @@ export interface operations {
   };
   getVisualChangeset: {
     /** Get a single visual changeset */
+    parameters: {
+        /** @description Include the associated experiment in payload */
+      query: {
+        includeExperiment?: number;
+      };
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
             visualChangeset: {
               id?: string;
-              urlPattern: string;
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "exact" | "regex";
+                  pattern: string;
+                })[];
               editorUrl: string;
               experiment: string;
               visualChanges: ({
@@ -2126,6 +2171,137 @@ export interface operations {
                     })[];
                 })[];
             };
+            experiment?: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                multipleVariations: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "allExposures";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  putVisualChangeset: {
+    /** Update a visual changeset */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
+          };
+        };
+      };
+    };
+  };
+  postVisualChange: {
+    /** Create a visual change for a visual changeset */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
+          };
+        };
+      };
+    };
+  };
+  putVisualChange: {
+    /** Update a visual change for a visual changeset */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
           };
         };
       };
@@ -2175,3 +2351,6 @@ export type GetExperimentResponse = operations["getExperiment"]["responses"]["20
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
+export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
