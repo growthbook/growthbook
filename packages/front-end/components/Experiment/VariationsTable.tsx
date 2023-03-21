@@ -2,7 +2,10 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import {
+  VisualChangesetInterface,
+  VisualChangesetURLPattern,
+} from "back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Carousel from "../Carousel";
@@ -81,7 +84,7 @@ const VariationsTable: FC<Props> = ({
     urlPatterns,
   }: {
     editorUrl: string;
-    urlPatterns: string[];
+    urlPatterns: VisualChangesetURLPattern[];
   }) => {
     const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
       `/experiments/${experiment.id}/visual-changeset`,

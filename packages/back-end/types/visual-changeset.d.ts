@@ -13,10 +13,16 @@ interface VisualChange {
   domMutations: DOMMutation[];
 }
 
+export interface VisualChangesetURLPattern {
+  include?: boolean;
+  type: "simple" | "exact" | "regex";
+  pattern: string;
+}
+
 export interface VisualChangesetInterface {
   id: string;
   organization: string;
-  urlPatterns: string[];
+  urlPatterns: VisualChangesetURLPattern[];
   editorUrl: string;
   experiment: string;
   visualChanges: VisualChange[];

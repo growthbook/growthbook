@@ -1,3 +1,4 @@
+import { VisualChangesetURLPattern } from "@/../back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
@@ -5,9 +6,12 @@ import Modal from "../Modal";
 
 const VisualChangesetModal: FC<{
   onClose: () => void;
-  onSubmit: (args: { editorUrl: string; urlPatterns: string[] }) => void;
+  onSubmit: (args: {
+    editorUrl: string;
+    urlPatterns: VisualChangesetURLPattern[];
+  }) => void;
   editorUrl?: string;
-  urlPatterns?: string[];
+  urlPatterns?: VisualChangesetURLPattern[];
 }> = ({
   onClose,
   onSubmit,
@@ -15,12 +19,15 @@ const VisualChangesetModal: FC<{
   urlPatterns: _urlPatterns,
 }) => {
   const [editorUrl, setEditorUrl] = useState<string>(_editorUrl ?? "");
-  const [urlPatterns, setUrlPatterns] = useState<string[]>(
-    _urlPatterns ?? [""]
+  const [urlPatterns, setUrlPatterns] = useState<VisualChangesetURLPattern[]>(
+    _urlPatterns ?? []
   );
   const setUrlPattern = (p: string, i: number) => {
     const newUrlPatterns = [...urlPatterns];
-    newUrlPatterns[i] = p;
+    newUrlPatterns[i] = {
+      pattern: p,
+      type: "regex",
+    };
     setUrlPatterns(newUrlPatterns);
   };
   const removeUrlPattern = (i: number) => {
@@ -59,7 +66,7 @@ const VisualChangesetModal: FC<{
                   <code>^/post/[0-9]+</code>
                 </>
               }
-              value={urlPatterns[i]}
+              value={p.pattern}
               onChange={(e) => setUrlPattern(e.currentTarget.value, i)}
             />
           </div>
@@ -78,7 +85,9 @@ const VisualChangesetModal: FC<{
       ))}
       <button
         className="btn btn-primary"
-        onClick={() => setUrlPatterns([...urlPatterns, ""])}
+        onClick={() =>
+          setUrlPatterns([...urlPatterns, { pattern: "", type: "regex" }])
+        }
       >
         <GBAddCircle /> Add URL pattern
       </button>

@@ -10,7 +10,17 @@ properties:
   urlPatterns:
     type: array
     items:
-      type: string
+      type: object
+      required:
+        - type
+        - pattern
+      properties:
+        include:
+          type: boolean
+        type:
+          type: string
+          enum: [simple, exact, regex]
+        pattern: string
   editorUrl:
     type: string
   experiment:

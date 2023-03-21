@@ -881,7 +881,12 @@ export interface components {
     };
     VisualChangeset: {
       id?: string;
-      urlPatterns: (string)[];
+      urlPatterns: ({
+          include?: boolean;
+          /** @enum {string} */
+          type: "simple" | "exact" | "regex";
+          pattern: string;
+        })[];
       editorUrl: string;
       experiment: string;
       visualChanges: ({
@@ -2225,7 +2230,12 @@ export interface operations {
           "application/json": {
             visualChangesets: ({
                 id?: string;
-                urlPatterns: (string)[];
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "exact" | "regex";
+                    pattern: string;
+                  })[];
                 editorUrl: string;
                 experiment: string;
                 visualChanges: ({
@@ -2260,7 +2270,12 @@ export interface operations {
           "application/json": {
             visualChangeset: {
               id?: string;
-              urlPatterns: (string)[];
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "exact" | "regex";
+                  pattern: string;
+                })[];
               editorUrl: string;
               experiment: string;
               visualChanges: ({

@@ -6,6 +6,7 @@ import { ApiVisualChangeset } from "../../types/openapi";
 import {
   VisualChange,
   VisualChangesetInterface,
+  VisualChangesetURLPattern,
 } from "../../types/visual-changeset";
 
 /**
@@ -24,7 +25,20 @@ const visualChangesetSchema = new mongoose.Schema({
     required: true,
   },
   urlPatterns: {
-    type: [String],
+    type: [
+      {
+        include: Boolean,
+        type: {
+          type: String,
+          enum: ["simple", "exact", "regex"],
+          required: true,
+        },
+        pattern: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
     required: true,
   },
   editorUrl: {
@@ -202,8 +216,8 @@ export const createVisualChangeset = async ({
 }: {
   experiment: ExperimentInterface;
   organization: string;
-  urlPatterns: string[];
-  editorUrl: string;
+  urlPatterns: VisualChangesetURLPattern[];
+  editorUrl: VisualChangesetInterface["editorUrl"];
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = await VisualChangesetModel.create({
     id: uniqid("vcs_"),

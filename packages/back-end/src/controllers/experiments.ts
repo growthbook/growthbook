@@ -1876,13 +1876,7 @@ export async function postPastExperiments(
 }
 
 export async function postVisualChangeset(
-  req: AuthRequest<
-    {
-      urlPatterns: string[];
-      editorUrl: string;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
