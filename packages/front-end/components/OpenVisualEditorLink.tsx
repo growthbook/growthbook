@@ -6,7 +6,8 @@ const OpenVisualEditorLink: FC<{
   visualEditorUrl?: string;
   id: string;
   openSettings?: () => void;
-}> = ({ id, visualEditorUrl, openSettings }) => {
+  changeIndex: number;
+}> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
@@ -35,12 +36,13 @@ const OpenVisualEditorLink: FC<{
     const queryParams = {
       ...parsed,
       "vc-id": id,
+      "v-idx": changeIndex,
     };
 
     const root = visualEditorUrl.split("?")[0];
 
     window.location.href = `${root}?${qs.stringify(queryParams)}`;
-  }, [visualEditorUrl, id]);
+  }, [visualEditorUrl, changeIndex, id]);
 
   return (
     <>

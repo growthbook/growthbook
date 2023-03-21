@@ -20,6 +20,7 @@ export default function VisualChanges({
       <div className="my-2">
         <OpenVisualEditorLink
           id={visualChangeset.id}
+          changeIndex={changeIndex}
           visualEditorUrl={visualChangeset.editorUrl}
         />
         <div style={{ fontSize: "0.75rem" }}>{changeCount} changes</div>

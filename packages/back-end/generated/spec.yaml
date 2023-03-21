@@ -644,6 +644,11 @@ paths:
     get:
       parameters:
         - $ref: '#/components/parameters/id'
+        - in: query
+          name: includeExperiment
+          schema:
+            type: integer
+          description: Include the associated experiment in payload
       tags:
         - visual-changesets
       summary: Get a single visual changeset
@@ -664,6 +669,8 @@ paths:
                 properties:
                   visualChangeset:
                     $ref: '#/components/schemas/VisualChangeset'
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
     put:
       parameters:
         - $ref: '#/components/parameters/id'

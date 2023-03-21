@@ -1,5 +1,10 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
+  - in: query
+    name: includeExperiment
+    schema:
+      type: integer
+    description: Include the associated experiment in payload
 tags:
   - visual-changesets
 summary: Get a single visual changeset
@@ -20,3 +25,5 @@ responses:
           properties:
             visualChangeset:
               $ref: "../schemas/VisualChangeset.yaml"
+            experiment:
+              $ref: "../schemas/Experiment.yaml"

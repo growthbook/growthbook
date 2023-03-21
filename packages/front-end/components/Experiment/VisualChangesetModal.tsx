@@ -20,7 +20,12 @@ const VisualChangesetModal: FC<{
 }) => {
   const [editorUrl, setEditorUrl] = useState<string>(_editorUrl ?? "");
   const [urlPatterns, setUrlPatterns] = useState<VisualChangesetURLPattern[]>(
-    _urlPatterns ?? []
+    _urlPatterns ?? [
+      {
+        pattern: "",
+        type: "regex",
+      },
+    ]
   );
   const setUrlPattern = (p: string, i: number) => {
     const newUrlPatterns = [...urlPatterns];

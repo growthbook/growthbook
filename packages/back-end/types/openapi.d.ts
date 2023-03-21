@@ -2259,6 +2259,10 @@ export interface operations {
   getVisualChangeset: {
     /** Get a single visual changeset */
     parameters: {
+        /** @description Include the associated experiment in payload */
+      query: {
+        includeExperiment?: number;
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -2290,6 +2294,95 @@ export interface operations {
                       value?: string;
                     })[];
                 })[];
+            };
+            experiment?: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                multipleVariations: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "allExposures";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+              };
             };
           };
         };

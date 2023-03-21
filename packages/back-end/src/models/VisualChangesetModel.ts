@@ -173,7 +173,7 @@ export async function updateVisualChange({
   changesetId: string;
   visualChangeId: string;
   organization: string;
-  payload: VisualChange;
+  payload: Partial<VisualChange>;
 }): Promise<{ nModified: number }> {
   const visualChangeset = await VisualChangesetModel.findOne({
     id: changesetId,
@@ -245,14 +245,25 @@ export const updateVisualChangeset = async ({
   organization: string;
   updates: Partial<VisualChangesetInterface>;
 }) => {
+  // ensure new visual changes have ids assigned
+  const visualChanges =
+    updates.visualChanges?.map((vc) => ({
+      ...vc,
+      id: vc.id || uniqid("vc_"),
+    })) ?? [];
+
   const res = await VisualChangesetModel.updateOne(
     {
       id: changesetId,
       organization,
     },
     {
-      $set: updates,
+      $set: {
+        ...updates,
+        visualChanges,
+      },
     }
   );
-  return { nModified: res.nModified };
+
+  return { nModified: res.nModified, visualChanges };
 };

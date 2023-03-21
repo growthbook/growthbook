@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -152,7 +151,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
 
-  const isVisual = form.watch("implementation") === "visual";
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
@@ -163,11 +161,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (value.name.length < 1) {
       setStep(0);
       throw new Error("Experiment Name must not be empty");
-    }
-
-    if (isVisual && !value.visualEditorUrl) {
-      setStep(0);
-      throw new Error("Visual Editor rule must not be empty");
     }
 
     // TODO: more validation?
@@ -253,47 +246,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               ) : (
                 "Must match the experiment id in your tracking callback"
               )
-            }
-          />
-        )}
-        {!isImport && (
-          <SelectField
-            label="Use Visual Editor"
-            options={[
-              { label: "no", value: "code" },
-              { label: "yes", value: "visual" },
-            ]}
-            value={form.watch("implementation")}
-            onChange={(v) => {
-              const impType = v as ImplementationType;
-              form.setValue("implementation", impType);
-            }}
-          />
-        )}
-
-        {isVisual && (
-          <div className="form-group">
-            <Field
-              required
-              label="Visual Editor Target URL"
-              {...form.register("visualEditorUrl")}
-              helpText={
-                "The web page the Visual Editor will make changes to. These changes can be applied to any site that matches your URL targeting rule."
-              }
-            />
-          </div>
-        )}
-
-        {isVisual && (
-          <Field
-            label="URL Targeting"
-            {...form.register("targetURLRegex")}
-            helpText={
-              <>
-                Target multiple URLs using regular expression. e.g.{" "}
-                <code>https://example.com/pricing</code> or{" "}
-                <code>^/post/[0-9]+</code>
-              </>
             }
           />
         )}

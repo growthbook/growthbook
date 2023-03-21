@@ -122,7 +122,7 @@ export const listVisualChangesetsValidator = {
 
 export const getVisualChangesetValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z.object({"includeExperiment":z.coerce.number().int().optional()}).strict(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
