@@ -1039,53 +1039,30 @@ const MetricForm: FC<MetricFormProps> = ({
               {regressionAdjustmentAvailableForMetric ? (
                 <>
                   <div className="form-group mb-0 mr-0 form-inline">
-                    <div className="row w-100">
-                      <div className="d-flex col form-inline">
-                        <div className="form-inline">
-                          <label
-                            className="mr-1"
-                            htmlFor="toggle-regressionAdjustmentOverride"
-                          >
-                            Override organization-level settings
-                          </label>
-                          <Toggle
-                            id={"toggle-regressionAdjustmentOverride"}
-                            value={!!form.watch("regressionAdjustmentOverride")}
-                            setValue={(value) => {
-                              form.setValue(
-                                "regressionAdjustmentOverride",
-                                value
-                              );
-                            }}
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
-                        </div>
-                        {!!form.watch("regressionAdjustmentOverride") &&
-                          settings.statsEngine === "bayesian" && (
-                            <small className="d-block my-1 text-danger">
-                              <FaExclamationTriangle /> Your organization uses
-                              Bayesian statistics by default
-                            </small>
-                          )}
-                      </div>
-                      <div className="col-6 px-0">
-                        <div className="float-right text-muted small">
-                          <div>Organization defaults:</div>
-                          <div className="ml-2">
-                            Regression adjustment:{" "}
-                            {settings.regressionAdjustmentEnabled
-                              ? "Yes"
-                              : "No"}
-                          </div>
-                          {settings.regressionAdjustmentEnabled && (
-                            <div className="ml-2">
-                              Lookback period (days):{" "}
-                              {settings.regressionAdjustmentDays}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    <div className="form-inline">
+                      <label
+                        className="mr-1"
+                        htmlFor="toggle-regressionAdjustmentOverride"
+                      >
+                        Override organization-level settings
+                      </label>
+                      <Toggle
+                        id={"toggle-regressionAdjustmentOverride"}
+                        value={!!form.watch("regressionAdjustmentOverride")}
+                        setValue={(value) => {
+                          form.setValue("regressionAdjustmentOverride", value);
+                        }}
+                        disabled={!hasRegressionAdjustmentFeature}
+                      />
                     </div>
+                    {!!form.watch("regressionAdjustmentOverride") &&
+                      settings.statsEngine === "bayesian" && (
+                        <small className="d-block my-1 text-warning-orange">
+                          <FaExclamationTriangle /> Your organization uses
+                          Bayesian statistics by default and regression
+                          adjustment is not implemented for the Bayesian engine.
+                        </small>
+                      )}
                   </div>
                   <div
                     style={{
@@ -1110,9 +1087,13 @@ const MetricForm: FC<MetricFormProps> = ({
                         }}
                         disabled={!hasRegressionAdjustmentFeature}
                       />
+                      <small className="form-text text-muted">
+                        (organization default:{" "}
+                        {settings.regressionAdjustmentEnabled ? "Yes" : "No"})
+                      </small>
                     </div>
                     <div
-                      className="form-group mt-4 mb-1 mr-2 form-inline"
+                      className="form-group mt-3 mb-1 mr-2 form-inline"
                       style={{
                         opacity: form.watch("regressionAdjustmentEnabled")
                           ? "1"
@@ -1137,8 +1118,8 @@ const MetricForm: FC<MetricFormProps> = ({
                         helpText={
                           <>
                             <span className="ml-2">
-                              ({settings.regressionAdjustmentDays ?? 14} is
-                              organization default)
+                              (organization default:{" "}
+                              {settings.regressionAdjustmentDays ?? 14})
                             </span>
                           </>
                         }

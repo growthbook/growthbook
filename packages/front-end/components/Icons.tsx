@@ -481,15 +481,20 @@ export function GBPremiumBadge({
   );
 }
 
-export function GBCuped({ className = "" }): React.ReactElement {
+export function GBCuped({
+  className = "",
+  size = 16,
+  ...otherProps
+}): React.ReactElement {
   return (
     <svg
-      width="16"
-      height="16"
+      width={size}
+      height={size}
       viewBox="0 0 16 16"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      {...otherProps}
     >
       <defs>
         <linearGradient

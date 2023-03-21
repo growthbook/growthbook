@@ -15,7 +15,6 @@ import Toggle from "@/components/Forms/Toggle";
 import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
@@ -162,8 +161,7 @@ export default function AnalysisSettingsBar({
             commercialFeature="regression-adjustment"
             className="form-inline"
           >
-            {regressionAdjustmentAvailable ||
-            !hasRegressionAdjustmentFeature ? (
+            {regressionAdjustmentAvailable && (
               <label
                 htmlFor={"toggle-experiment-regression-adjustment"}
                 className={`d-flex btn btn-outline-${
@@ -192,15 +190,6 @@ export default function AnalysisSettingsBar({
                   disabled={!hasRegressionAdjustmentFeature}
                 />
               </label>
-            ) : (
-              <div className="d-flex btn border p-2 align-items-center">
-                <GBCuped />
-                <Tooltip
-                  body={"Only available for the frequentist stats engine"}
-                >
-                  <span className="mx-1 text-muted">CUPED unavailable</span>
-                </Tooltip>
-              </div>
             )}
           </PremiumTooltip>
         </div>

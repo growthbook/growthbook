@@ -1,13 +1,12 @@
 import clsx from "clsx";
 import React, { ReactElement } from "react";
-import { FaQuestionCircle, FaTimes } from "react-icons/fa";
+import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBCuped } from "@/components/Icons";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
@@ -28,7 +27,8 @@ export type ResultsTableProps = {
   labelHeader: string;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface
+    metric: MetricInterface,
+    row: ExperimentTableRow
   ) => string | ReactElement;
   dateCreated: Date;
   hasRisk: boolean;
@@ -59,11 +59,11 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine: _statsEngine,
+  statsEngine,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
   const orgSettings = useOrgSettings();
-  const statsEngine = _statsEngine ? _statsEngine : orgSettings.statsEngine;
+  statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
 
   return (
     <table
@@ -201,34 +201,7 @@ export default function ResultsTable({
               )}
             >
               <th className="metricname">
-                {row?.regressionAdjustmentStatus
-                  ?.regressionAdjustmentEnabled && (
-                  <div className="d-inline-block mr-1">
-                    <Tooltip body="CUPED enabled">
-                      <GBCuped />
-                    </Tooltip>
-                  </div>
-                )}
-                {row?.regressionAdjustmentStatus
-                  ?.regressionAdjustmentEnabled === false &&
-                  row?.regressionAdjustmentStatus?.reason && (
-                    <Tooltip
-                      body={`CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`}
-                    >
-                      <div
-                        className="d-inline-block mr-1 position-relative"
-                        style={{ width: 16, height: 16 }}
-                      >
-                        <GBCuped className="position-absolute" />
-                        <FaTimes
-                          className="position-absolute"
-                          color="#ff0000"
-                          style={{ transform: "scale(0.7)", top: 0, right: -7 }}
-                        />
-                      </div>
-                    </Tooltip>
-                  )}
-                {renderLabelColumn(row.label, row.metric)}
+                {renderLabelColumn(row.label, row.metric, row)}
               </th>
               {hasRisk && fullStats && (
                 <RiskColumn row={row} riskVariation={riskVariation} />

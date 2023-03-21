@@ -186,7 +186,6 @@ export default function SinglePage({
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
     ...(experiment.guardrails ?? []),
-    ...(experiment.activationMetric ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getMetricById(m)
@@ -787,7 +786,7 @@ export default function SinglePage({
             <FaLink />
           </a>
         </h3>
-        <div className="appbox">
+        <div className="appbox" style={{ overflowX: "initial" }}>
           {experiment.phases?.length > 0 ? (
             <Results
               experiment={experiment}

@@ -939,7 +939,6 @@ export async function getRegressionAdjustmentInfo(
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
     ...(experiment.guardrails ?? []),
-    ...(experiment.activationMetric ?? []),
   ]);
   const allExperimentMetrics = await getMetricsByIds(
     allExperimentMetricIds,
@@ -1007,6 +1006,9 @@ export function getRegressionAdjustmentsForMetric({
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
     regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    if (!regressionAdjustmentEnabled) {
+      reason = "set for metric";
+    }
   }
 
   // get RA settings from metric override
@@ -1016,6 +1018,11 @@ export function getRegressionAdjustmentsForMetric({
       regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
+      if (!regressionAdjustmentEnabled) {
+        reason = "set by metric override";
+      } else {
+        reason = "";
+      }
     }
   }
 

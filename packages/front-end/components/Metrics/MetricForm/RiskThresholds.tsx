@@ -26,7 +26,7 @@ const RiskThresholds: FC<{
       </small>
       <div className="p-2 border rounded">
         {settings.statsEngine === "frequentist" && (
-          <small className="d-block mb-1 text-danger">
+          <small className="d-block mb-1 text-warning-orange">
             <FaExclamationTriangle /> Your organization uses frequentist
             statistics by default
           </small>

@@ -704,9 +704,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     {!!form.watch("regressionAdjustmentEnabled") &&
                       settings.statsEngine === "bayesian" && (
                         <div className="d-flex">
-                          <small className="mb-1 text-danger">
+                          <small className="mb-1 text-warning-orange">
                             <FaExclamationTriangle /> Your organization uses
-                            Bayesian statistics by default
+                            Bayesian statistics by default and regression
+                            adjustment is not implemented for the Bayesian
+                            engine.
                           </small>
                         </div>
                       )}

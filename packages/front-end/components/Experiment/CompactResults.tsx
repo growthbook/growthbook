@@ -8,12 +8,14 @@ import {
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
+import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
+import { GBCuped } from "@/components/Icons";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -21,7 +23,6 @@ import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
-  editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
@@ -39,7 +40,6 @@ const CompactResults: FC<{
   results,
   variations,
   multipleExposures,
-  editMetrics,
   reportDate,
   startDate,
   status,
@@ -102,24 +102,9 @@ const CompactResults: FC<{
           users={users}
           multipleExposures={multipleExposures}
         />
-        <h3 className="mb-3">
-          Metrics
-          {editMetrics && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                editMetrics();
-              }}
-              className="ml-2"
-              style={{ fontSize: "0.8rem" }}
-            >
-              Adjust Metrics
-            </a>
-          )}
-        </h3>
+        <h3 className="mb-3">Metrics</h3>
       </div>
-      <div className="mb-3 experiment-compact-holder">
+      <div className="mb-1 experiment-compact-holder">
         <ResultsTable
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
@@ -131,10 +116,18 @@ const CompactResults: FC<{
           labelHeader="Metric"
           users={users}
           statsEngine={statsEngine}
-          renderLabelColumn={(label, metric) => {
+          renderLabelColumn={(label, metric, row) => {
             const metricLink = (
               <Tooltip
-                body={<MetricTooltipBody metric={metric} />}
+                body={
+                  <MetricTooltipBody
+                    metric={metric}
+                    row={row}
+                    reportRegressionAdjustmentEnabled={
+                      regressionAdjustmentEnabled
+                    }
+                  />
+                }
                 tipPosition="right"
               >
                 <Link href={`/metric/${metric.id}`}>
@@ -142,18 +135,46 @@ const CompactResults: FC<{
                 </Link>
               </Tooltip>
             );
-            if (!metric.inverse) {
-              return metricLink;
-            }
+
+            const cupedIconDisplay =
+              regressionAdjustmentEnabled &&
+              !row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled ? (
+                <Tooltip
+                  className="ml-1"
+                  body={
+                    row?.regressionAdjustmentStatus?.reason
+                      ? `CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`
+                      : `CUPED disabled`
+                  }
+                >
+                  <div
+                    className="d-inline-block mr-1 position-relative"
+                    style={{ width: 12, height: 12 }}
+                  >
+                    <GBCuped className="position-absolute" size={12} />
+                    <FaTimes
+                      className="position-absolute"
+                      color="#ff0000"
+                      style={{ transform: "scale(0.7)", top: -4, right: -8 }}
+                    />
+                  </div>
+                </Tooltip>
+              ) : null;
+
+            const metricInverseIconDisplay = metric.inverse ? (
+              <Tooltip
+                body="metric is inverse, lower is better"
+                className="inverse-indicator ml-1"
+              >
+                <MdSwapCalls />
+              </Tooltip>
+            ) : null;
+
             return (
               <>
-                {metricLink}{" "}
-                <Tooltip
-                  body="metric is inverse, lower is better"
-                  className="inverse-indicator"
-                >
-                  <MdSwapCalls />
-                </Tooltip>
+                {metricLink}
+                {metricInverseIconDisplay}
+                {cupedIconDisplay}
               </>
             );
           }}

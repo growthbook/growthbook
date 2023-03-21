@@ -16,6 +16,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
+import { GBCuped } from "@/components/Icons";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -75,6 +76,9 @@ const Results: FC<{
 
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
+  }
+  if (!snapshot) {
+    return null;
   }
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
@@ -242,7 +246,6 @@ const Results: FC<{
             startDate={phaseObj?.dateStarted}
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
-            editMetrics={editMetrics}
             statsEngine={snapshot.statsEngine}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
@@ -251,22 +254,7 @@ const Results: FC<{
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mb-3 p-3">
-              <h3 className="mb-3">
-                Guardrails
-                {editMetrics && (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editMetrics();
-                    }}
-                    className="ml-2"
-                    style={{ fontSize: "0.8rem" }}
-                  >
-                    Adjust Guardrails
-                  </a>
-                )}
-              </h3>
+              <h3 className="mb-3">Guardrails</h3>
               <div className="row mt-3">
                 {experiment.guardrails.map((g) => {
                   const metric = getMetricById(g);
@@ -302,15 +290,49 @@ const Results: FC<{
           )}
         </>
       )}
-      {permissions.check("createAnalyses", experiment.project) &&
-        experiment.metrics?.length > 0 && (
-          <div className="px-3 mb-3">
-            <span className="text-muted">
-              Click the 3 dots next to the Update button above to configure this
-              report, download as a Jupyter notebook, and more.
+      <div className="row align-items-center m-2 mt-3">
+        <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+          <div>
+            <span className="text-muted">Engine:</span>{" "}
+            <span>
+              {statsEngine === "frequentist" ? "Frequentist" : "Bayesian"}
             </span>
           </div>
-        )}
+          {statsEngine === "frequentist" && (
+            <div>
+              <span className="text-muted">
+                <GBCuped size={12} />
+                CUPED:
+              </span>{" "}
+              <span>
+                {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+          )}
+          <div>
+            <span className="text-muted">Date:</span>{" "}
+            <span>
+              {getValidDate(snapshot.dateCreated).toLocaleString([], {
+                year: "numeric",
+                month: "numeric",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        </div>
+        <div style={{ flex: "1 1 0%" }}></div>
+        <div className="col-4 small text-muted" style={{ lineHeight: 1.2 }}>
+          {permissions.check("createAnalyses", experiment.project) &&
+            experiment.metrics?.length > 0 && (
+              <>
+                Click the 3 dots next to the Update button above to configure
+                this report, download as a Jupyter notebook, and more.
+              </>
+            )}
+        </div>
+      </div>
     </>
   );
 };

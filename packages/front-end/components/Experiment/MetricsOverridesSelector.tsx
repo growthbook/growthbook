@@ -285,7 +285,7 @@ export default function MetricsOverridesSelector({
                           }}
                         >
                           <div className="d-flex my-2 border-bottom"></div>
-                          <div className="form-group mt-1 mb-2 form-inline">
+                          <div className="form-group mt-1 mb-2 mr-2 form-inline">
                             <label
                               className="small mr-1"
                               htmlFor={`toggle-regressionAdjustmentEnabled_${i}`}
@@ -307,6 +307,27 @@ export default function MetricsOverridesSelector({
                               }}
                               disabled={!hasRegressionAdjustmentFeature}
                             />
+                            <div className="small">
+                              <small className="form-text text-muted">
+                                {metricDefinition.regressionAdjustmentOverride ? (
+                                  <>
+                                    (metric default:{" "}
+                                    {metricDefinition.regressionAdjustmentEnabled
+                                      ? "Yes"
+                                      : "No"}
+                                    )
+                                  </>
+                                ) : (
+                                  <>
+                                    (organization default:{" "}
+                                    {settings.regressionAdjustmentEnabled
+                                      ? "Yes"
+                                      : "No"}
+                                    )
+                                  </>
+                                )}
+                              </small>
+                            </div>
                           </div>
                           <div
                             className="form-group mt-1 mb-1 mr-2 form-inline"
@@ -339,18 +360,18 @@ export default function MetricsOverridesSelector({
                                   <span className="ml-2">
                                     {metricDefinition.regressionAdjustmentOverride ? (
                                       <>
-                                        (
+                                        (metric default:{" "}
                                         {
                                           metricDefinition.regressionAdjustmentDays
-                                        }{" "}
-                                        is metric default)
+                                        }
+                                        )
                                       </>
                                     ) : (
                                       <>
-                                        (
+                                        (organization default:{" "}
                                         {settings.regressionAdjustmentDays ??
-                                          14}{" "}
-                                        is organization default)
+                                          14}
+                                        )
                                       </>
                                     )}
                                   </span>

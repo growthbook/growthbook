@@ -1,12 +1,15 @@
 import { MetricInterface } from "back-end/types/metric";
 import clsx from "clsx";
 import { isNullUndefinedOrEmpty } from "@/services/utils";
+import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
   metric: MetricInterface;
+  row: ExperimentTableRow;
+  reportRegressionAdjustmentEnabled: boolean;
 }
 
 interface MetricInfo {
@@ -18,6 +21,8 @@ interface MetricInfo {
 
 const MetricTooltipBody = ({
   metric,
+  row,
+  reportRegressionAdjustmentEnabled,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -53,23 +58,41 @@ const MetricTooltipBody = ({
       label: "Conversion Window Hours",
       body: metric.conversionWindowHours,
     },
-    {
-      show: validMetricDescription(metric.description),
-      label: "Description",
-      body: metric.description,
-      markdown: true,
-    },
   ];
+
+  if (reportRegressionAdjustmentEnabled) {
+    metricInfo.push({
+      show: true,
+      label: "CUPED",
+      body: row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
+        ? "Enabled"
+        : "Disabled",
+    });
+    if (row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled) {
+      metricInfo.push({
+        show: true,
+        label: "CUPED Lookback (days)",
+        body: row?.regressionAdjustmentStatus?.regressionAdjustmentDays,
+      });
+    }
+  }
+
+  metricInfo.push({
+    show: validMetricDescription(metric.description),
+    label: "Description",
+    body: metric.description,
+    markdown: true,
+  });
 
   return (
     <div className="text-left">
       {metricInfo
         .filter((i) => i.show)
         .map(({ label, body, markdown }, index) => (
-          <div key={`metricInfo${index}`}>
+          <div key={`metricInfo${index}`} className="mt-1">
             <strong>{`${label}: `}</strong>
             {markdown ? (
-              <div className={clsx("border rounded p-2", styles.markdown)}>
+              <div className={clsx("border rounded p-1", styles.markdown)}>
                 <Markdown>{body}</Markdown>
               </div>
             ) : (

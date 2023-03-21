@@ -77,6 +77,9 @@ export default function ReportPage() {
   }
 
   const report = data.report;
+  if (!report) {
+    return null;
+  }
 
   const variations = report.args.variations;
 
@@ -446,6 +449,39 @@ export default function ReportPage() {
               )}
             </>
           )}
+          <div className="row align-items-center m-2 my-3">
+            <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+              <div>
+                <span className="text-muted">Engine:</span>{" "}
+                <span>
+                  {statsEngine === "frequentist" ? "Frequentist" : "Bayesian"}
+                </span>
+              </div>
+              {statsEngine === "frequentist" && (
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={12} />
+                    CUPED:
+                  </span>{" "}
+                  <span>
+                    {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                  </span>
+                </div>
+              )}
+              <div>
+                <span className="text-muted">Date:</span>{" "}
+                <span>
+                  {getValidDate(report.dateCreated).toLocaleString([], {
+                    year: "numeric",
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
         </Tab>
         {permissions.check("createAnalyses", "") && (
           <Tab
