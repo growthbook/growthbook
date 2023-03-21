@@ -17,7 +17,6 @@ import {
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  logExperimentCreated,
   createExperiment,
   getSampleExperiment,
 } from "../models/ExperimentModel";
@@ -167,8 +166,11 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       ],
     };
 
-    const createdExperiment = await createExperiment(experiment, org);
-    await logExperimentCreated(org, createdExperiment);
+    await createExperiment({
+      data: experiment,
+      organization: org,
+      bypassWebhooks: true,
+    });
 
     await createManualSnapshot(
       experiment,

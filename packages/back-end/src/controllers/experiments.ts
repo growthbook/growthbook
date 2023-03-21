@@ -7,7 +7,6 @@ import {
   createManualSnapshot,
   createSnapshot,
   ensureWatching,
-  experimentUpdated,
   getExperimentWatchers,
   getManualSnapshotData,
   processPastExperiments,
@@ -20,7 +19,6 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
-  logExperimentUpdated,
   updateExperimentById,
 } from "../models/ExperimentModel";
 import {
@@ -70,7 +68,6 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 
@@ -566,7 +563,10 @@ export async function postExperiments(
       }
     }
 
-    const experiment = await createExperiment(obj, org);
+    const experiment = await createExperiment({
+      data: obj,
+      organization: org,
+    });
 
     await req.audit({
       event: "experiment.create",
@@ -578,8 +578,6 @@ export async function postExperiments(
     });
 
     await ensureWatching(userId, org.id, experiment.id, "experiments");
-
-    await experimentUpdated(experiment);
 
     res.status(200).json({
       status: 200,
@@ -622,8 +620,6 @@ export async function postExperiment(
     });
     return;
   }
-
-  const previousExperiment = cloneDeep(experiment);
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -757,7 +753,7 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperimentById(org, experiment, changes);
 
   await req.audit({
     event: "experiment.update",
@@ -767,16 +763,6 @@ export async function postExperiment(
     },
     details: auditDetailsUpdate(experiment, updated),
   });
-
-  try {
-    await logExperimentUpdated({
-      organization: org,
-      current: experiment,
-      previous: previousExperiment,
-    });
-  } catch (e) {
-    logger.error(e);
-  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
@@ -821,7 +807,7 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
-    await updateExperimentById(org.id, experiment, changes);
+    await updateExperimentById(org, experiment, changes);
 
     // TODO: audit
     res.status(200).json({
@@ -874,7 +860,7 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperimentById(org.id, experiment, changes);
+    await updateExperimentById(org, experiment, changes);
 
     // TODO: audit
     res.status(200).json({
@@ -939,7 +925,7 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperimentById(org, experiment, changes);
 
   await req.audit({
     event: "experiment.status",
@@ -1018,7 +1004,7 @@ export async function postExperimentStop(
   changes.releasedVariationId = releasedVariationId;
 
   try {
-    const updated = await updateExperimentById(org.id, experiment, changes);
+    const updated = await updateExperimentById(org, experiment, changes);
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -1079,7 +1065,7 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
   }
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperimentById(org, experiment, changes);
 
   await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
@@ -1137,7 +1123,7 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperimentById(org, experiment, changes);
 
   await req.audit({
     event: "experiment.phase",
@@ -1210,7 +1196,7 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    const updated = await updateExperimentById(org.id, experiment, changes);
+    const updated = await updateExperimentById(org, experiment, changes);
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -1289,8 +1275,6 @@ export async function deleteExperiment(
     },
     details: auditDetailsDelete(experiment),
   });
-
-  await experimentUpdated(experiment);
 
   res.status(200).json({
     status: 200,
@@ -1593,7 +1577,7 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperimentById(org, experiment, changes);
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1663,7 +1647,7 @@ export async function addScreenshot(
     description: description,
   });
 
-  await updateExperimentById(org.id, experiment, changes);
+  await updateExperimentById(org, experiment, changes);
 
   await req.audit({
     event: "experiment.screenshot.create",

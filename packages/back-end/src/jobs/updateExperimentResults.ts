@@ -104,16 +104,20 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  const organization = job.attrs.data?.organization;
-  if (!experimentId || !organization) return;
+  const orgId = job.attrs.data?.organization;
+  if (!experimentId || !orgId) return;
 
   const log = logger.child({
     cron: "updateSingleExperiment",
     experimentId,
   });
 
-  const experiment = await getExperimentById(organization, experimentId);
+  const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
+
+  const organization = await findOrganizationById(experiment.organization);
+  if (!organization) return;
+  if (organization?.settings?.updateSchedule?.type === "never") return;
 
   let lastSnapshot: ExperimentSnapshotInterface | null;
   let currentSnapshot: ExperimentSnapshotInterface;
@@ -129,10 +133,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.id,
       experiment.phases.length - 1
     );
-
-    const organization = await findOrganizationById(experiment.organization);
-    if (!organization) return;
-    if (organization?.settings?.updateSchedule?.type === "never") return;
 
     currentSnapshot = await createSnapshot(
       experiment,

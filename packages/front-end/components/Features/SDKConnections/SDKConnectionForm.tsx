@@ -52,6 +52,8 @@ export default function SDKConnectionForm({
       environment: initialValue.environment || environments[0]?.id || "",
       project: "project" in initialValue ? initialValue.project : project || "",
       encryptPayload: initialValue.encryptPayload || false,
+      visualExperimentsEnabled: initialValue.visualExperimentsEnabled || false,
+      includeDraftExperiments: initialValue.includeDraftExperiments || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
     },
@@ -155,6 +157,31 @@ export default function SDKConnectionForm({
         onChange={(env) => form.setValue("environment", env)}
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
+
+      <div className="mb-3">
+        <label htmlFor="sdk-connection-visual-experiments-toggle">
+          Include visual experiments
+        </label>
+        <div>
+          <Toggle
+            id="sdk-connection-visual-experiments-toggle"
+            value={form.watch("visualExperimentsEnabled")}
+            setValue={(val) => form.setValue("visualExperimentsEnabled", val)}
+          />
+        </div>
+      </div>
+      <div className="mb-3">
+        <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+          Include draft experiments
+        </label>
+        <div>
+          <Toggle
+            id="sdk-connection-include-draft-experiments-toggle"
+            value={form.watch("includeDraftExperiments")}
+            setValue={(val) => form.setValue("includeDraftExperiments", val)}
+          />
+        </div>
+      </div>
 
       {isCloud() && gb.isOn("proxy-cloud") && (
         <>

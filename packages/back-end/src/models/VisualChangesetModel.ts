@@ -135,6 +135,21 @@ export async function findVisualChangesetsByExperiment(
   return visualChangesets.map(toInterface);
 }
 
+export async function findVisualChangesets(
+  organization: string
+): Promise<VisualChangesetInterface[]> {
+  return (
+    await VisualChangesetModel.find({
+      organization,
+    })
+  ).map(toInterface);
+}
+
+// TODO
+// const onVisualChangeCreate = () => {};
+// const onVisualChangeUpdate = () => {};
+// const onVisualChangeDelete = () => {};
+
 export async function createVisualChange(
   id: string,
   organization: string,
