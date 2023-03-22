@@ -214,6 +214,7 @@ export default function SinglePage({
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
         organizationSettings: settings,
         metricOverrides: experiment.metricOverrides,
       });

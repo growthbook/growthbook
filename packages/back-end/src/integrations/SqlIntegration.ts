@@ -690,8 +690,11 @@ export default abstract class SqlIntegration
     // Apply regression adjustments
     metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
     if (metricRegressionAdjustmentStatus) {
-      metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled && metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
-      metric.regressionAdjustmentDays = metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+      metric.regressionAdjustmentEnabled =
+        regressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
+      metric.regressionAdjustmentDays =
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
     }
 
     let dimension = params.dimension;

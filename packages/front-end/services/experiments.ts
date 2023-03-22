@@ -269,11 +269,13 @@ export function applyMetricOverrides(
 export function getRegressionAdjustmentsForMetric({
   metric,
   denominatorMetrics,
+  experimentRegressionAdjustmentEnabled,
   organizationSettings,
   metricOverrides,
 }: {
   metric: MetricInterface;
   denominatorMetrics: MetricInterface[];
+  experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
@@ -283,7 +285,7 @@ export function getRegressionAdjustmentsForMetric({
   const newMetric = cloneDeep<MetricInterface>(metric);
 
   // start with default RA settings
-  let regressionAdjustmentEnabled = true;
+  let regressionAdjustmentEnabled = false;
   let regressionAdjustmentDays = 14;
   let reason = "";
 
@@ -293,6 +295,9 @@ export function getRegressionAdjustmentsForMetric({
     regressionAdjustmentDays =
       organizationSettings?.regressionAdjustmentDays ??
       regressionAdjustmentDays;
+  }
+  if (experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
   }
 
   // get RA settings from metric

@@ -958,6 +958,7 @@ export async function getRegressionAdjustmentInfo(
     } = getRegressionAdjustmentsForMetric({
       metric: metric,
       denominatorMetrics: denominatorMetrics,
+      experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
       organizationSettings: organization.settings,
       metricOverrides: experiment.metricOverrides,
     });
@@ -975,11 +976,13 @@ export async function getRegressionAdjustmentInfo(
 export function getRegressionAdjustmentsForMetric({
   metric,
   denominatorMetrics,
+  experimentRegressionAdjustmentEnabled,
   organizationSettings,
   metricOverrides,
 }: {
   metric: MetricInterface;
   denominatorMetrics: MetricInterface[];
+  experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
@@ -999,6 +1002,9 @@ export function getRegressionAdjustmentsForMetric({
     regressionAdjustmentDays =
       organizationSettings?.regressionAdjustmentDays ??
       regressionAdjustmentDays;
+  }
+  if (experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
   }
 
   // get RA settings from metric

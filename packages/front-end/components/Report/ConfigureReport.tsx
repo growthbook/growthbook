@@ -8,14 +8,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function ConfigureReport({
   report,
@@ -55,7 +55,9 @@ export default function ConfigureReport({
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
       statsEngine: report.args.statsEngine || settings.statsEngine,
-      regressionAdjustmentEnabled: hasRegressionAdjustmentFeature && !!report.args.regressionAdjustmentEnabled,
+      regressionAdjustmentEnabled:
+        hasRegressionAdjustmentFeature &&
+        !!report.args.regressionAdjustmentEnabled,
     },
   });
 
@@ -378,7 +380,7 @@ export default function ConfigureReport({
               <PremiumTooltip commercialFeature="regression-adjustment">
                 Use Regression Adjustment (CUPED)
               </PremiumTooltip>
-              }
+            }
             labelClassName="font-weight-bold"
             value={form.watch("regressionAdjustmentEnabled") ? "yes" : "no"}
             onChange={(v) => {
