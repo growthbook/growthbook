@@ -38,13 +38,13 @@ const HeaderResult: FC<{
   results: PValueGuardrailResult[];
 }> = ({ metric, results }) => {
   // remove control for determining header
-  results.shift();
-  const anyInsufficientData = results.some((r) => !r.hasEnoughData);
-  const significantNegativeDirection = results.some(
+  const newResults = results.slice(1);
+  const anyInsufficientData = newResults.some((r) => !r.hasEnoughData);
+  const significantNegativeDirection = newResults.some(
     (r) => !r.expectedDirection && r.statSig
   );
-  const anyNegativeDirection = results.some((r) => !r.expectedDirection);
-  const allSignificantPositiveDirection = results.every(
+  const anyNegativeDirection = newResults.some((r) => !r.expectedDirection);
+  const allSignificantPositiveDirection = newResults.every(
     (r) => r.expectedDirection && r.statSig
   );
 

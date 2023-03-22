@@ -252,28 +252,22 @@ export default function MetricsOverridesSelector({
                   <div className="col border mx-1 mt-1 mb-2 px-2 py-1 rounded">
                     {regressionAdjustmentAvailableForMetric ? (
                       <>
-                        <div className="form-inline">
+                        <div className="form-inline my-1">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            {...form.register(
+                              `metricOverrides.${i}.regressionAdjustmentOverride`
+                            )}
+                            id={`toggle-regressionAdjustmentOverride_${i}`}
+                            disabled={!hasRegressionAdjustmentFeature}
+                          />
                           <label
-                            className="small mr-1"
+                            className="small mr-1 cursor-pointer"
                             htmlFor={`toggle-regressionAdjustmentOverride_${i}`}
                           >
                             Override metric-level settings
                           </label>
-                          <Toggle
-                            id={`toggle-regressionAdjustmentOverride_${i}`}
-                            value={
-                              !!form.watch(
-                                `metricOverrides.${i}.regressionAdjustmentOverride`
-                              )
-                            }
-                            setValue={(value) => {
-                              form.setValue(
-                                `metricOverrides.${i}.regressionAdjustmentOverride`,
-                                value
-                              );
-                            }}
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
                         </div>
                         <div
                           style={{

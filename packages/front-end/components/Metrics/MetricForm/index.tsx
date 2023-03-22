@@ -1039,21 +1039,20 @@ const MetricForm: FC<MetricFormProps> = ({
               {regressionAdjustmentAvailableForMetric ? (
                 <>
                   <div className="form-group mb-0 mr-0 form-inline">
-                    <div className="form-inline">
+                    <div className="form-inline my-1">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        {...form.register("regressionAdjustmentOverride")}
+                        id={"toggle-regressionAdjustmentOverride"}
+                        disabled={!hasRegressionAdjustmentFeature}
+                      />
                       <label
-                        className="mr-1"
+                        className="mr-1 cursor-pointer"
                         htmlFor="toggle-regressionAdjustmentOverride"
                       >
                         Override organization-level settings
                       </label>
-                      <Toggle
-                        id={"toggle-regressionAdjustmentOverride"}
-                        value={!!form.watch("regressionAdjustmentOverride")}
-                        setValue={(value) => {
-                          form.setValue("regressionAdjustmentOverride", value);
-                        }}
-                        disabled={!hasRegressionAdjustmentFeature}
-                      />
                     </div>
                     {!!form.watch("regressionAdjustmentOverride") &&
                       settings.statsEngine === "bayesian" && (
