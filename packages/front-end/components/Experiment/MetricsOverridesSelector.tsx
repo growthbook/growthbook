@@ -392,6 +392,9 @@ export default function MetricsOverridesSelector({
                                 `metricOverrides.${i}.regressionAdjustmentDays`,
                                 {
                                   valueAsNumber: true,
+                                  validate: (v) => {
+                                    return !(v <= 0 || v > 100);
+                                  },
                                 }
                               )}
                             />

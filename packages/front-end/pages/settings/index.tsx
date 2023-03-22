@@ -180,7 +180,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const ctaEnabled = hasChanges(value, originalValue);
 
-  const saveSettings = async () => {
+  const saveSettings = form.handleSubmit(async (value) => {
     const enabledVisualEditor =
       !settings?.visualEditorEnabled && value.visualEditorEnabled;
 
@@ -209,7 +209,38 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
     // show the user that the settings have saved:
     setSaveMsg(true);
-  };
+  });
+
+  // const saveSettings = async () => {
+  //   const enabledVisualEditor =
+  //     !settings?.visualEditorEnabled && value.visualEditorEnabled;
+  //
+  //   const transformedOrgSettings = {
+  //     ...value,
+  //     metricDefaults: {
+  //       ...value.metricDefaults,
+  //       maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
+  //       minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+  //     },
+  //     confidenceLevel: value.confidenceLevel / 100,
+  //   };
+  //
+  //   await apiCall(`/organization`, {
+  //     method: "PUT",
+  //     body: JSON.stringify({
+  //       settings: transformedOrgSettings,
+  //     }),
+  //   });
+  //   refreshOrganization();
+  //
+  //   // Track usage of the Visual Editor
+  //   if (enabledVisualEditor) {
+  //     track("Enable Visual Editor");
+  //   }
+  //
+  //   // show the user that the settings have saved:
+  //   setSaveMsg(true);
+  // };
 
   const highlightColor =
     value.confidenceLevel < 70
@@ -745,6 +776,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       }
                       {...form.register("regressionAdjustmentDays", {
                         valueAsNumber: true,
+                        validate: (v) => {
+                          return !(v <= 0 || v > 100);
+                        },
                       })}
                     />
                     {regressionAdjustmentDaysWarningMsg && (

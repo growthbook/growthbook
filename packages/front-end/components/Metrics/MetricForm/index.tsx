@@ -1124,6 +1124,9 @@ const MetricForm: FC<MetricFormProps> = ({
                         }
                         {...form.register("regressionAdjustmentDays", {
                           valueAsNumber: true,
+                          validate: (v) => {
+                            return !(v <= 0 || v > 100);
+                          },
                         })}
                       />
                       {regressionAdjustmentDaysWarningMsg && (
