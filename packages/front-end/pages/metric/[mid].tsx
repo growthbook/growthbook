@@ -182,7 +182,7 @@ const MetricPage: FC = () => {
             res.experiments.forEach((e) => {
               experimentLinks.push(
                 <Link href={`/experiment/${e.id}`}>
-                  <a className="">{e.name}</a>
+                  <a>{e.name}</a>
                 </Link>
               );
             });
@@ -217,7 +217,7 @@ const MetricPage: FC = () => {
                           {experimentLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -231,7 +231,7 @@ const MetricPage: FC = () => {
                           {ideaLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}

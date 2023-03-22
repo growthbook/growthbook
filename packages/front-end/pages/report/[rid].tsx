@@ -211,16 +211,6 @@ export default function ReportPage() {
                 <h2>Results</h2>
               </div>
               <div className="col-auto">
-                {regressionAdjustmentEnabled && (
-                  <div className="d-flex border rounded p-2 align-items-center">
-                    <GBCuped />
-                    <span className="mx-1 font-weight-bold text-muted">
-                      Using CUPED
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="col-auto">
                 {report.runStarted && status !== "running" ? (
                   <div
                     className="text-muted text-right"
@@ -416,9 +406,9 @@ export default function ReportPage() {
                 }
               />
               {report.args.guardrails?.length > 0 && (
-                <div className="mb-3 p-3">
+                <div className="mt-1 px-3">
                   <h3 className="mb-3">Guardrails</h3>
-                  <div className="row mt-3">
+                  <div className="row">
                     {report.args.guardrails.map((g) => {
                       const metric = getMetricById(g);
                       if (!metric) return "";

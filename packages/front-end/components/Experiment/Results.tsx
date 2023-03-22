@@ -253,7 +253,7 @@ const Results: FC<{
             }
           />
           {experiment.guardrails?.length > 0 && (
-            <div className="mt-4 px-3">
+            <div className="mt-1 px-3">
               <h3 className="mb-3">Guardrails</h3>
               <div className="row">
                 {experiment.guardrails.map((g) => {
