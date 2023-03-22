@@ -42,7 +42,12 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
-  const { permissions, userId, getUserDisplay, hasCommercialFeature } = useUser();
+  const {
+    permissions,
+    userId,
+    getUserDisplay,
+    hasCommercialFeature,
+  } = useUser();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 
@@ -98,9 +103,12 @@ export default function ReportPage() {
 
   const statsEngine =
     data?.report?.args?.statsEngine || settings?.statsEngine || "bayesian";
-  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature && statsEngine === "frequentist";
+  const regressionAdjustmentAvailable =
+    hasRegressionAdjustmentFeature && statsEngine === "frequentist";
   const regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature && regressionAdjustmentAvailable && !!report.args.regressionAdjustmentEnabled;
+    hasRegressionAdjustmentFeature &&
+    regressionAdjustmentAvailable &&
+    !!report.args.regressionAdjustmentEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">
@@ -446,6 +454,9 @@ export default function ReportPage() {
           {hasData && (
             <div className="row align-items-center mx-2 my-3">
               <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+                <div className="text-muted mb-1">
+                  The above results were computed with:
+                </div>
                 <div>
                   <span className="text-muted">Engine:</span>{" "}
                   <span>

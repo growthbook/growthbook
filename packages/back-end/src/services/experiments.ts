@@ -989,7 +989,7 @@ export function getRegressionAdjustmentsForMetric({
   const newMetric = cloneDeep<MetricInterface>(metric);
 
   // start with default RA settings
-  let regressionAdjustmentEnabled = false;
+  let regressionAdjustmentEnabled = true;
   let regressionAdjustmentDays = 14;
   let reason = "";
 
