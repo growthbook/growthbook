@@ -226,6 +226,14 @@ export default function SinglePage({
       regressionAdjustmentAvailable = false;
       regressionAdjustmentEnabled = false;
     }
+    if (
+      datasource.type === "google_analytics" ||
+      datasource.type === "mixpanel"
+    ) {
+      // these do not implement getExperimentMetricQuery
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
     return [
       regressionAdjustmentAvailable,
       regressionAdjustmentEnabled,
@@ -237,6 +245,7 @@ export default function SinglePage({
     settings,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
+    datasource.type,
   ]);
 
   const onRegressionAdjustmentChange = async (enabled: boolean) => {
