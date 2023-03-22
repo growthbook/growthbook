@@ -163,6 +163,11 @@ const sidebars = {
           id: "statistics/aggregation",
           label: "Aggregate Data",
         },
+        {
+          type: "doc",
+          id: "statistics/cuped",
+          label: "Regression Adjustment (CUPED)",
+        },
       ],
     },
     {
