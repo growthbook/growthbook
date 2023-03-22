@@ -75,6 +75,7 @@ export async function createInformationSchemaTable(
   datasourceId: string,
   informationSchemaId: string
 ): Promise<InformationSchemaTablesInterface> {
+  //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }

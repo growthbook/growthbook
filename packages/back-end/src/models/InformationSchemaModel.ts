@@ -89,7 +89,7 @@ export async function createInformationSchema(
   organization: string,
   datasourceId: string
 ): Promise<InformationSchemaInterface> {
-  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
+  //TODO: GB-82 - Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
@@ -112,7 +112,7 @@ export async function updateInformationSchemaById(
   id: string,
   updates: Partial<InformationSchemaInterface>
 ): Promise<void> {
-  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
+  //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
