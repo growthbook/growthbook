@@ -63,9 +63,7 @@ export default class Postgres extends SqlIntegration {
     const queryEndTime = Date.now();
 
     if (!results.length) {
-      throw new Error(
-        "The query used to generate the information schema returned no results."
-      );
+      throw new Error(`No tables found.`);
     }
 
     return {
