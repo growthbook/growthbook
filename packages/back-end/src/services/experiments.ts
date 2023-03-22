@@ -298,7 +298,6 @@ export async function getManualSnapshotData(
   };
 }
 
-// todo: follow createSnapshot example?
 export async function createManualSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,

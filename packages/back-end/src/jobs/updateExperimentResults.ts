@@ -40,7 +40,7 @@ type UpdateSingleExpJob = Job<{
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
-    // Old way of queing experiments based on a fixed schedule
+    // Old way of queuing experiments based on a fixed schedule
     // Will remove in the future when it's no longer needed
     const ids = await legacyQueueExperimentUpdates();
 
@@ -69,7 +69,7 @@ export default async function (agenda: Agenda) {
     // All experiments that haven't been updated in at least UPDATE_EVERY ms
     const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
-    const experiments = await await getExperimentsToUpdateLegacy(latestDate);
+    const experiments = await getExperimentsToUpdateLegacy(latestDate);
 
     for (let i = 0; i < experiments.length; i++) {
       await queueExerimentUpdate(
@@ -168,9 +168,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
             return analyzeExperimentResults(
               experiment.organization,
               getReportVariations(experiment, phase),
-              undefined,
+              currentSnapshot.dimension || undefined,
               queryData,
-              organization.settings?.statsEngine
+              currentSnapshot.statsEngine ?? organization.settings?.statsEngine
             );
           },
           async (updates, results, error) => {

@@ -214,7 +214,6 @@ export default function SinglePage({
         metricOverrides: experiment.metricOverrides,
       });
       if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
-        // todo: this can cause derived "enabled" to drift from experiment's "enabled".
         regressionAdjustmentAvailable = true;
         regressionAdjustmentEnabled = true;
       }

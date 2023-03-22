@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,

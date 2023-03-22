@@ -1369,7 +1369,7 @@ export async function getSnapshotStatus(
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
         queryData,
-        org.settings?.statsEngine
+        snapshot.statsEngine ?? org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
