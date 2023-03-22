@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "type-check": "tsc --pretty --noEmit",
+    "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --ignoreFiles=.*stories --excludePathsFromReport=pages;",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "type-gen": "growthbook features generate-types --output ./types --profile growthbook",
     "storybook": "BROWSER=none start-storybook -p 6006",
