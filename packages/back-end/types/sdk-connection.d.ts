@@ -18,7 +18,7 @@ export type EditSDKConnectionParams = {
   environment?: string;
   project?: string;
   encryptPayload?: boolean;
-  visualExperimentsEnabled?: boolean;
+  includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
 };
 export type CreateSDKConnectionParams = {
@@ -30,7 +30,7 @@ export type CreateSDKConnectionParams = {
   environment: string;
   project: string;
   encryptPayload: boolean;
-  visualExperimentsEnabled: boolean;
+  includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
 };
 
@@ -64,7 +64,7 @@ export interface SDKConnectionInterface {
   project: string;
   encryptPayload: boolean;
   encryptionKey: string;
-  visualExperimentsEnabled?: boolean;
+  includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
 
   // URL slug for fetching features from the API

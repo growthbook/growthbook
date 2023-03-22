@@ -565,7 +565,7 @@ export interface components {
       project: string;
       encryptPayload: boolean;
       encryptionKey: string;
-      visualExperimentsEnabled?: boolean;
+      includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
       key: string;
       proxyEnabled: boolean;
@@ -1614,7 +1614,7 @@ export interface operations {
                 project: string;
                 encryptPayload: boolean;
                 encryptionKey: string;
-                visualExperimentsEnabled?: boolean;
+                includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
                 key: string;
                 proxyEnabled: boolean;
@@ -1651,7 +1651,7 @@ export interface operations {
               project: string;
               encryptPayload: boolean;
               encryptionKey: string;
-              visualExperimentsEnabled?: boolean;
+              includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
               key: string;
               proxyEnabled: boolean;
