@@ -5,6 +5,7 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
 
 export class MissingDatasourceParamsError extends Error {
@@ -84,6 +85,8 @@ export type ExperimentMetricQueryParams = {
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export type PastExperimentParams = {

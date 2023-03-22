@@ -724,6 +724,19 @@ export default abstract class SqlIntegration
     return metricEnd;
   }
 
+  private getStatisticType(
+    isRatio: boolean,
+    isRegressionAdjusted: boolean
+  ): "mean" | "ratio" | "mean_ra" {
+    if (isRatio) {
+      return "ratio";
+    }
+    if (isRegressionAdjusted) {
+      return "mean_ra";
+    }
+    return "mean";
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
@@ -732,6 +745,8 @@ export default abstract class SqlIntegration
       experiment,
       phase,
       segment,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatus,
     } = params;
 
     // clone the metrics before we mutate them
@@ -786,15 +801,24 @@ export default abstract class SqlIntegration
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
 
-    const regressionAdjustmentEnabled =
-      metric.regressionAdjustmentEnabled ?? false;
-    const regressionAdjustmentHours = regressionAdjustmentEnabled
+    // Apply regression adjustments
+    metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+    if (metricRegressionAdjustmentStatus) {
+      metric.regressionAdjustmentEnabled =
+        regressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
+      metric.regressionAdjustmentDays =
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+    }
+
+    const regressionAdjustmentHours = metric.regressionAdjustmentEnabled
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
-    // Only if hours are positive, non-ratio, non-custom aggregation, and it is enabled
+    // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
+    // where RA is actually possible
     const isRegressionAdjusted =
       regressionAdjustmentHours > 0 &&
-      regressionAdjustmentEnabled &&
+      (metric.regressionAdjustmentEnabled ?? false) &&
       !isRatio &&
       !metric.aggregation;
 
@@ -1036,8 +1060,8 @@ export default abstract class SqlIntegration
         FROM
           __distinctUsers d
           LEFT JOIN __metric m ON (
-            m.${baseIdType} = d.${baseIdType} AND
-            ${this.getMetricWindowWhereClause(
+            m.${baseIdType} = d.${baseIdType}
+            AND ${this.getMetricWindowWhereClause(
               isRegressionAdjusted,
               ignoreConversionEnd,
               "d"
@@ -1077,9 +1101,10 @@ export default abstract class SqlIntegration
         m.variation,
         m.dimension,
         COUNT(*) AS users,
-        '${
-          isRatio ? `ratio` : isRegressionAdjusted ? `mean_ra` : `mean`
-        }' as statistic_type,
+        '${this.getStatisticType(
+          isRatio,
+          isRegressionAdjusted
+        )}' as statistic_type,
         '${metric.type}' as main_metric_type,
         SUM(COALESCE(m.value, 0)) AS main_sum,
         SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
@@ -1260,12 +1285,13 @@ export default abstract class SqlIntegration
     ignoreConversionEnd: boolean,
     userAlias: string
   ): string {
-    const conversionWindowFilter = `m.timestamp >= ${userAlias}.conversion_start ${
-      ignoreConversionEnd
-        ? ""
-        : ` AND m.timestamp <= ${userAlias}.conversion_end`
-    }`;
-
+    const conversionWindowFilter = `
+      m.timestamp >= ${userAlias}.conversion_start
+      ${
+        ignoreConversionEnd
+          ? ""
+          : `AND m.timestamp <= ${userAlias}.conversion_end`
+      }`;
     if (isRegressionAdjusted) {
       return `(${conversionWindowFilter}) OR (m.timestamp >= ${userAlias}.preexposure_start AND m.timestamp < ${userAlias}.preexposure_end)`;
     }

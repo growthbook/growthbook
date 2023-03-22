@@ -304,6 +304,8 @@ engines.forEach((engine) => {
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
+        regressionAdjustmentEnabled:
+          metric.regressionAdjustmentEnabled || false,
       });
 
       testCases.push({
