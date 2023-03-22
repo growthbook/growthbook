@@ -8,7 +8,7 @@ import {
 } from "../../types/sdk-payload";
 
 // Increment this if we change the shape of the payload contents
-export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
+export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 2;
 
 const sdkPayloadSchema = new mongoose.Schema({
   organization: String,
@@ -36,7 +36,7 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
     const contents = JSON.parse(json.contents);
 
     // TODO: better validation here to make sure contents are the correct type?
-    if (!contents.features) return null;
+    if (!contents.features && !contents.experiments) return null;
 
     return {
       ...json,
@@ -55,7 +55,7 @@ export async function getSDKPayload({
   organization: string;
   project: string;
   environment: string;
-}) {
+}): Promise<SDKPayloadInterface | null> {
   const doc = await SDKPayloadModel.findOne({
     organization,
     project,

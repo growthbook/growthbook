@@ -52,7 +52,7 @@ export default function SDKConnectionForm({
       environment: initialValue.environment || environments[0]?.id || "",
       project: "project" in initialValue ? initialValue.project : project || "",
       encryptPayload: initialValue.encryptPayload || false,
-      visualExperimentsEnabled: initialValue.visualExperimentsEnabled || false,
+      includeVisualExperiments: initialValue.includeVisualExperiments || false,
       includeDraftExperiments: initialValue.includeDraftExperiments || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
@@ -165,8 +165,8 @@ export default function SDKConnectionForm({
         <div>
           <Toggle
             id="sdk-connection-visual-experiments-toggle"
-            value={form.watch("visualExperimentsEnabled")}
-            setValue={(val) => form.setValue("visualExperimentsEnabled", val)}
+            value={form.watch("includeVisualExperiments")}
+            setValue={(val) => form.setValue("includeVisualExperiments", val)}
           />
         </div>
       </div>
