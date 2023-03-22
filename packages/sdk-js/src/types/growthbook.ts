@@ -65,7 +65,7 @@ export interface FeatureResult<T = any> {
 /** @deprecated */
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
-export type UrlTargetType = "simple" | "exact" | "regex";
+export type UrlTargetType = "exact" | "regex";
 
 export type UrlTarget = {
   include: boolean;

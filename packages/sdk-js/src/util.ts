@@ -85,9 +85,17 @@ function _evalURLTarget(
   type: UrlTargetType,
   pattern: string
 ): boolean {
-  // TODO: implement
-  console.log(url, type, pattern);
-  return true;
+  const pathOnly = url.replace(/^https?:\/\//, "").replace(/^[^/]*\//, "/");
+
+  if (type === "exact") {
+    return url === pattern || url === pathOnly;
+  } else if (type === "regex") {
+    const regex = getUrlRegExp(pattern);
+    if (!regex) return false;
+    return regex.test(url) || regex.test(pathOnly);
+  }
+
+  return false;
 }
 
 export function getBucketRanges(

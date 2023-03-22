@@ -60,5 +60,8 @@
     ">0.35%",
     "not IE 11",
     "maintained node versions"
-  ]
+  ],
+  "dependencies": {
+    "dom-mutator": "^0.3.2"
+  }
 }

@@ -9029,6 +9029,11 @@ dom-helpers@^5.0.1:
     "@babel/runtime" "^7.8.7"
     csstype "^3.0.2"
 
+dom-mutator@^0.3.2:
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/dom-mutator/-/dom-mutator-0.3.2.tgz#6a5246092674efc51565846839e46c38bfc2529c"
+  integrity sha512-tQ52xFNIZJTYrsfzq87siF2gLklR3iKU7zQelSHVv6Qe0HZXtrwhXE4SMrmnsj14sTVZzKnLevW7wZS90IUhCA==
+
 dom-serializer@^1.0.1:
   version "1.4.1"
   resolved "https://registry.yarnpkg.com/dom-serializer/-/dom-serializer-1.4.1.tgz#de5d41b1aea290215dc45a6dae8adcf1d32e2d30"
