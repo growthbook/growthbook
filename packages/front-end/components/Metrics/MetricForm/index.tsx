@@ -29,6 +29,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
+import SchemaBrowser from "@/components/SchemaBrowser";
+import { CursorData } from "@/components/Segments/SegmentForm";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -145,11 +147,18 @@ const MetricForm: FC<MetricFormProps> = ({
     metrics,
     projects,
     project,
+    getInformationSchemaById,
+    mutateDefinitions,
   } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const settings = useOrgSettings();
+
+  const [cursorData, setCursorData] = useState<null | CursorData>(null);
+  const updateSqlInput = (sql: string) => {
+    form.setValue("sql", sql);
+  };
 
   const {
     getMinSampleSizeForMetric,
@@ -278,6 +287,13 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const selectedDataSource = getDatasourceById(value.datasource);
 
+  const supportsSchemaBrowser =
+    selectedDataSource.properties.supportsInformationSchema;
+
+  const informationSchema = getInformationSchemaById(
+    selectedDataSource.settings.informationSchemaId
+  );
+
   const datasourceType = selectedDataSource?.type;
 
   const datasourceSettingsSupport =
@@ -374,7 +390,7 @@ const MetricForm: FC<MetricFormProps> = ({
       cta={cta}
       closeCta={!inline && "Cancel"}
       ctaEnabled={!riskError}
-      size="lg"
+      size="max"
       docSection="metrics"
       step={step}
       setStep={setStep}
@@ -544,6 +560,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   datasourceId={value.datasource}
                   form={form}
                   requiredColumns={requiredColumns}
+                  setCursorData={setCursorData}
                   placeholder={
                     "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
                   }
@@ -759,32 +776,48 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
           </div>
           {supportsSQL && (
-            <div className="col-lg pt-2">
+            <div className="col-lg">
               {value.queryFormat === "sql" ? (
-                <div>
-                  <h4>SQL Query Instructions</h4>
-                  <p className="mt-3">
+                <div className="px-lg-3">
+                  <div className="alert alert-warning">
                     Your SELECT statement must return the following column
                     names:
-                  </p>
-                  <ol>
-                    {value.userIdTypes.map((id) => (
-                      <li key={id}>
-                        <strong>{id}</strong>
-                      </li>
-                    ))}
-                    {value.type !== "binomial" && (
+                    <ol>
+                      {value.userIdTypes.map((id) => (
+                        <li key={id}>
+                          <strong>{id}</strong>
+                        </li>
+                      ))}
+                      {value.type !== "binomial" && (
+                        <li>
+                          <strong>value</strong> -{" "}
+                          {value.type === "count"
+                            ? "The numeric value to be counted"
+                            : "The " + value.type + " amount"}
+                        </li>
+                      )}
                       <li>
-                        <strong>value</strong> -{" "}
-                        {value.type === "count"
-                          ? "The numeric value to be counted"
-                          : "The " + value.type + " amount"}
+                        <strong>timestamp</strong> - When the action was
+                        performed
                       </li>
-                    )}
-                    <li>
-                      <strong>timestamp</strong> - When the action was performed
-                    </li>
-                  </ol>
+                    </ol>
+                  </div>
+                  {supportsSchemaBrowser && (
+                    <>
+                      <label className="font-weight-bold mb-1">
+                        Schema Browser
+                      </label>
+                      <div className="p-1">
+                        <SchemaBrowser
+                          updateSqlInput={updateSqlInput}
+                          datasource={selectedDataSource}
+                          informationSchema={informationSchema}
+                          mutate={mutateDefinitions}
+                          cursorData={cursorData}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -794,6 +827,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     form={form}
                     requiredColumns={requiredColumns}
                     showPreview
+                    setCursorData={setCursorData}
                     queryType="metric"
                   />
                   {value.type !== "binomial" && (
@@ -807,6 +841,20 @@ const MetricForm: FC<MetricFormProps> = ({
                         When there are multiple metric rows for a user
                       </small>
                     </div>
+                  )}
+                  {supportsSchemaBrowser && (
+                    <>
+                      <label className="font-weight-bold mb-1">
+                        Schema Browser
+                      </label>
+                      <div className="p-1">
+                        <SchemaBrowser
+                          datasource={selectedDataSource}
+                          informationSchema={informationSchema}
+                          mutate={mutateDefinitions}
+                        />
+                      </div>
+                    </>
                   )}
                 </>
               )}

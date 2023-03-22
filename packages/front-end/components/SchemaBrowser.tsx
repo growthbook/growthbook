@@ -19,8 +19,8 @@ type Props = {
   datasource: DataSourceInterfaceWithParams;
   informationSchema: InformationSchemaInterface;
   mutate: () => void;
-  cursorData: CursorData;
-  updateSqlInput: (sql: string) => void;
+  cursorData?: CursorData;
+  updateSqlInput?: (sql: string) => void;
 };
 
 export default function SchemaBrowser({
@@ -63,7 +63,7 @@ export default function SchemaBrowser({
     path: string
   ) => {
     if (e.detail === 2) {
-      if (!inputArray) return;
+      if (!inputArray || !updateSqlInput) return;
       const updatedStr = pastePathIntoExistingQuery(
         inputArray[row] || "",
         column,
