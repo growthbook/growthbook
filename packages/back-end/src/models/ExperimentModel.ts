@@ -878,7 +878,7 @@ export const getAllVisualExperiments = async (
   return visualExperiments.filter(_isValidVisualExperiment);
 };
 
-const _getPayloadKeys = (
+export const getPayloadKeys = (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ): SDKPayloadKey[] => {
@@ -929,7 +929,7 @@ const _onExperimentCreate = async ({
   // if no visual changes, return early
   if (!(await _hasVisualChanges(organization, experiment))) return;
 
-  const payloadKeys = _getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(organization, experiment);
 
   refreshSDKPayloadCache(organization, payloadKeys);
 };
@@ -962,9 +962,9 @@ const _onExperimentUpdate = async ({
   if (isEqual(oldChanges, newChanges)) return;
 
   const oldPayloadKeys = oldExperiment
-    ? _getPayloadKeys(organization, oldExperiment)
+    ? getPayloadKeys(organization, oldExperiment)
     : [];
-  const newPayloadKeys = _getPayloadKeys(organization, newExperiment);
+  const newPayloadKeys = getPayloadKeys(organization, newExperiment);
   const payloadKeys = uniqWith([...oldPayloadKeys, ...newPayloadKeys], isEqual);
 
   refreshSDKPayloadCache(organization, payloadKeys);
@@ -979,7 +979,7 @@ const _onExperimentDelete = async (
   // if no visual changes, return early
   if (!(await _hasVisualChanges(organization, experiment))) return;
 
-  const payloadKeys = _getPayloadKeys(organization, experiment);
+  const payloadKeys = getPayloadKeys(organization, experiment);
 
   refreshSDKPayloadCache(organization, payloadKeys);
 };

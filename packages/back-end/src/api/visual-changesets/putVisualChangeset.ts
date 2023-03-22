@@ -9,7 +9,7 @@ export const putVisualChangeset = createApiRequestHandler(
   async (req): Promise<PutVisualChangesetResponse> => {
     const res = await updateVisualChangeset({
       changesetId: req.params.id,
-      organization: req.organization.id,
+      organization: req.organization,
       updates: req.body,
     });
 

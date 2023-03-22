@@ -422,6 +422,10 @@ app.post(
 
 // Visual Changesets
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
+app.delete(
+  "/visual-changesets/:id",
+  experimentsController.deleteVisualChangeset
+);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

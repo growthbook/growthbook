@@ -6,7 +6,7 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
@@ -78,6 +78,10 @@ const VariationsTable: FC<Props> = ({
   const [isEditingVisualChangeset, setIsEditingVisualChangeset] = useState(
     false
   );
+
+  useEffect(() => {
+    setVisualChangesets(_visualChangesets ?? []);
+  }, [_visualChangesets]);
 
   const createVisualChangeset = async ({
     editorUrl,

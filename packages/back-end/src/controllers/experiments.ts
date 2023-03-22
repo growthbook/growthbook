@@ -23,7 +23,9 @@ import {
 } from "../models/ExperimentModel";
 import {
   createVisualChangeset,
+  deleteVisualChangesetById,
   findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
   updateVisualChangeset,
 } from "../models/VisualChangesetModel";
 import {
@@ -754,6 +756,26 @@ export async function postExperiment(
   }
 
   const updated = await updateExperimentById(org, experiment, changes);
+
+  // if variations have changed, update the experiment's visualchangesets if they exist
+  if (changes.variations && updated) {
+    const visualChangesets = await findVisualChangesetsByExperiment(
+      experiment.id,
+      org.id
+    );
+
+    if (visualChangesets.length) {
+      await Promise.all(
+        visualChangesets.map((vc) =>
+          syncVisualChangesWithVariations({
+            visualChangeset: vc,
+            experiment: updated,
+            organization: org,
+          })
+        )
+      );
+    }
+  }
 
   await req.audit({
     event: "experiment.update",
@@ -1883,7 +1905,7 @@ export async function postVisualChangeset(
     experiment,
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
-    organization: org.id,
+    organization: org,
   });
 
   res.json({
@@ -1899,7 +1921,7 @@ export async function putVisualChangeset(
 
   const ret = await updateVisualChangeset({
     changesetId: req.params.id,
-    organization: org.id,
+    organization: org,
     updates: req.body,
   });
 
@@ -1908,4 +1930,18 @@ export async function putVisualChangeset(
     changesetId: ret.nModified > 0 ? req.params.id : undefined,
     updates: ret.nModified > 0 ? req.body : undefined,
   });
+}
+
+export async function deleteVisualChangeset(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  await deleteVisualChangesetById({
+    changesetId: req.params.id,
+    organization: org,
+  });
+
+  res.status(200).send();
 }
