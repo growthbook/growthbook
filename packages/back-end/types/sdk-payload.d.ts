@@ -10,6 +10,7 @@ export type SDKPayloadContents = {
 interface SDKExperiment {
   // From experiment.trackingKey
   key: string;
+  status: string;
   variations: VisualExperimentVariation[];
   // The hashVersion should be hard-coded to `2`
   hashVersion: number;

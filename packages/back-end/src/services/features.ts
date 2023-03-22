@@ -74,6 +74,7 @@ function generateVisualExperimentsPayload(
 
       return {
         key: e.trackingKey,
+        status: e.status,
         variations: v.visualChanges.map((vc) => ({
           css: vc.css,
           domMutations: vc.domMutations,
@@ -214,13 +215,20 @@ export async function refreshSDKPayloadCache(
 
 async function getFeatureDefinitionsResponse(
   features: Record<string, FeatureDefinition>,
+  experiments: SDKExperiment[],
   dateUpdated: Date | null,
-  encryptionKey?: string
+  encryptionKey?: string,
+  includeVisualExperiments?: boolean,
+  includeDraftExperiments?: boolean
 ) {
-  // TODO replicate in visual changeset flow
+  if (!includeDraftExperiments) {
+    experiments = experiments.filter((e) => e.status !== "draft");
+  }
+
   if (!encryptionKey) {
     return {
       features,
+      ...(includeVisualExperiments && { experiments }),
       dateUpdated,
     };
   }
@@ -229,11 +237,17 @@ async function getFeatureDefinitionsResponse(
     JSON.stringify(features),
     encryptionKey
   );
+  const encryptedExperiments = await encrypt(
+    JSON.stringify(experiments),
+    encryptionKey
+  );
 
   return {
     features: {},
+    ...(includeVisualExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
+    ...(includeVisualExperiments && { encryptedExperiments }),
   };
 }
 
@@ -241,11 +255,15 @@ export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
   project?: string,
-  encryptionKey?: string
+  encryptionKey?: string,
+  includeVisualExperiments?: boolean,
+  includeDraftExperiments?: boolean
 ): Promise<{
   features: Record<string, FeatureDefinition>;
+  experiments?: SDKExperiment[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
+  encryptedExperiments?: string;
 }> {
   // Return cached payload from Mongo if exists
   try {
@@ -255,11 +273,14 @@ export async function getFeatureDefinitions(
       project: project || "",
     });
     if (cached) {
-      const { features } = cached.contents;
+      const { features, experiments } = cached.contents;
       return await getFeatureDefinitionsResponse(
         features,
+        experiments,
         cached.dateUpdated,
-        encryptionKey
+        encryptionKey,
+        includeVisualExperiments,
+        includeDraftExperiments
       );
     }
   } catch (e) {
@@ -268,7 +289,14 @@ export async function getFeatureDefinitions(
 
   const org = await getOrganizationById(organization);
   if (!org) {
-    return await getFeatureDefinitionsResponse({}, null, encryptionKey);
+    return await getFeatureDefinitionsResponse(
+      {},
+      [],
+      null,
+      encryptionKey,
+      includeVisualExperiments,
+      includeDraftExperiments
+    );
   }
 
   // Generate the feature definitions
@@ -296,8 +324,11 @@ export async function getFeatureDefinitions(
 
   return await getFeatureDefinitionsResponse(
     featureDefinitions,
+    experimentsDefinitions,
     new Date(),
-    encryptionKey
+    encryptionKey,
+    includeVisualExperiments,
+    includeDraftExperiments
   );
 }
 
