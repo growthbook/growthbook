@@ -390,6 +390,11 @@ export function upgradeExperimentDoc(
     });
   }
 
+  // Upgrade the attribution model
+  if (experiment.attributionModel === "allExposures") {
+    experiment.attributionModel = "experimentDuration";
+  }
+
   // Add hashAttribute field
   experiment.hashAttribute = experiment.hashAttribute || "";
 
