@@ -661,9 +661,6 @@ export function toExperimentApiInterface(
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
-      multipleVariations: experiment.removeMultipleExposures
-        ? "exclude"
-        : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: organization.settings?.statsEngine || "bayesian",
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
@@ -743,9 +740,6 @@ export function toSnapshotApiInterface(
       segmentId: snapshot.segment || "",
       queryFilter: snapshot.queryFilter || "",
       inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
-      multipleVariations: experiment.removeMultipleExposures
-        ? "exclude"
-        : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: snapshot.statsEngine || "bayesian",
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),

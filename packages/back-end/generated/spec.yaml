@@ -1603,7 +1603,6 @@ components:
         - segmentId
         - queryFilter
         - inProgressConversions
-        - multipleVariations
         - attributionModel
         - statsEngine
         - goals
@@ -1623,14 +1622,10 @@ components:
           enum:
             - include
             - exclude
-        multipleVariations:
-          enum:
-            - include
-            - exclude
         attributionModel:
           enum:
             - firstExposure
-            - allExposures
+            - experimentDuration
         statsEngine:
           enum:
             - bayesian

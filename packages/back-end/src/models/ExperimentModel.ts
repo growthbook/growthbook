@@ -2,7 +2,11 @@ import { each, flatten, isEqual, omit, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { Changeset, ExperimentInterface } from "../../types/experiment";
+import {
+  Changeset,
+  ExperimentInterface,
+  LegacyExperimentInterface,
+} from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
 import {
@@ -76,7 +80,6 @@ const experimentSchema = new mongoose.Schema({
   segment: String,
   queryFilter: String,
   skipPartialData: Boolean,
-  removeMultipleExposures: Boolean,
   attributionModel: String,
   archived: Boolean,
   status: String,
@@ -155,7 +158,9 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  */
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
   const experiment = omit(doc.toJSON(), ["__v", "_id"]);
-  return upgradeExperimentDoc(experiment);
+  return upgradeExperimentDoc(
+    (experiment as unknown) as LegacyExperimentInterface
+  );
 };
 
 async function findExperiments(
@@ -746,10 +751,8 @@ export async function removeMetricFromExperiments(
     },
   });
 
-  const updatedExperimentsInterface = updatedExperiments.map(toInterface);
-
   // Populate updated experiments
-  updatedExperimentsInterface.forEach((experiment) => {
+  updatedExperiments.forEach((experiment) => {
     const changeSet = oldExperiments[experiment.id];
     if (changeSet) {
       changeSet.current = experiment;
