@@ -7,12 +7,10 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 
-export class NoDefaultDatasetError extends Error {
-  constructor() {
-    super(
-      "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
-    );
-    this.name = "NoDefaultDatasetError";
+export class MissingDatasourceParamsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingDatasourceParamsError";
   }
 }
 
@@ -212,7 +210,7 @@ export interface InformationSchema {
 }
 
 export interface InformationSchemaError {
-  errorType: "generic" | "not_supported" | "no_default_dataset";
+  errorType: "generic" | "not_supported" | "missing_params";
   message: string;
 }
 

@@ -1,6 +1,5 @@
 import Agenda, { Job } from "agenda";
 import { initializeDatasourceInformationSchema } from "../services/datasource";
-import { logger } from "../util/logger";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
@@ -9,7 +8,7 @@ import {
 import {
   DataSourceNotSupportedError,
   InformationSchemaError,
-  NoDefaultDatasetError,
+  MissingDatasourceParamsError,
 } from "../types/Integration";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
@@ -43,8 +42,8 @@ export default function (ag: Agenda) {
         if (e instanceof DataSourceNotSupportedError) {
           error.errorType = "not_supported";
         }
-        if (e instanceof NoDefaultDatasetError) {
-          error.errorType = "no_default_dataset";
+        if (e instanceof MissingDatasourceParamsError) {
+          error.errorType = "missing_params";
         }
         const informationSchema = await getInformationSchemaByDatasourceId(
           datasource.id,
@@ -61,13 +60,6 @@ export default function (ag: Agenda) {
             }
           );
         }
-        logger.error(
-          e,
-          "Unable to generate information schema for datasource: " +
-            datasource.id +
-            " Error: " +
-            error
-        );
       }
     }
   );

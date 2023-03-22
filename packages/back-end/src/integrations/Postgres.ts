@@ -58,9 +58,7 @@ export default class Postgres extends SqlIntegration {
     const results = await this.runQuery(sql);
 
     if (!results.length) {
-      throw new Error(
-        "The query used to generate the information schema returned no results."
-      );
+      throw new Error(`No tables found.`);
     }
 
     return formatInformationSchema(

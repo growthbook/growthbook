@@ -4,7 +4,10 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { InformationSchema, NoDefaultDatasetError } from "../types/Integration";
+import {
+  InformationSchema,
+  MissingDatasourceParamsError,
+} from "../types/Integration";
 import { formatInformationSchema } from "../util/integrations";
 import { DataSourceProperties } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
@@ -95,7 +98,10 @@ export default class BigQuery extends SqlIntegration {
       throw new Error(
         "No projectId provided. In order to get the information schema, you must provide a projectId."
       );
-    if (!this.params.defaultDataset) throw new NoDefaultDatasetError();
+    if (!this.params.defaultDataset)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
+      );
 
     const queryString = `SELECT
     table_name,
@@ -110,7 +116,7 @@ export default class BigQuery extends SqlIntegration {
 
     if (!results.length) {
       throw new Error(
-        `We were unable to generate the information schema for projectId: ${projectId} and dataset: ${this.params.defaultDataset}.`
+        `No tables found for projectId "${projectId}" and dataset "${this.params.defaultDataset}".`
       );
     }
 
