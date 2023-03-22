@@ -168,7 +168,10 @@ export async function createDataSource(
   const model = await DataSourceModel.create(datasource);
 
   const integration = getSourceIntegrationObject(datasource);
-  if (integration.getInformationSchema) {
+  if (
+    integration.getInformationSchema &&
+    integration.getSourceProperties().supportsInformationSchema
+  ) {
     await queueCreateInformationSchema(datasource.id, organization);
   }
 

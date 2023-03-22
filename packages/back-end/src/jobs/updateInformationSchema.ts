@@ -10,7 +10,7 @@ import {
 import {
   DataSourceNotSupportedError,
   InformationSchemaError,
-  NoDefaultDatasetError,
+  MissingDatasourceParamsError,
 } from "../types/Integration";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
@@ -58,8 +58,8 @@ export default function (ag: Agenda) {
         if (e instanceof DataSourceNotSupportedError) {
           error.errorType = "not_supported";
         }
-        if (e instanceof NoDefaultDatasetError) {
-          error.errorType = "no_default_dataset";
+        if (e instanceof MissingDatasourceParamsError) {
+          error.errorType = "missing_params";
         }
         const informationSchema = await getInformationSchemaByDatasourceId(
           datasource.id,
