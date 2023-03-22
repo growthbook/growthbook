@@ -221,7 +221,7 @@ export async function updateVisualChange({
   return { nModified: res.nModified };
 }
 
-const _genNewVisualChange = (variation: Variation): VisualChange => ({
+const genNewVisualChange = (variation: Variation): VisualChange => ({
   id: uniqid("vc_"),
   variation: variation.id,
   description: "",
@@ -247,10 +247,10 @@ export const createVisualChangeset = async ({
       organization: organization.id,
       urlPatterns,
       editorUrl,
-      visualChanges: experiment.variations.map(_genNewVisualChange),
+      visualChanges: experiment.variations.map(genNewVisualChange),
     })
   );
-  await _onVisualChangesetCreate({
+  await onVisualChangesetCreate({
     organization,
     visualChangeset,
     experiment,
@@ -307,7 +307,7 @@ export const updateVisualChangeset = async ({
     }
   );
 
-  await _onVisualChangesetUpdate({
+  await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
     newVisualChangeset: {
       ...visualChangeset,
@@ -320,10 +320,10 @@ export const updateVisualChangeset = async ({
   return { nModified: res.nModified, visualChanges };
 };
 
-const _hasVisualChanges = ({ visualChanges }: VisualChangesetInterface) =>
+const hasVisualChanges = ({ visualChanges }: VisualChangesetInterface) =>
   visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
 
-const _onVisualChangesetCreate = async ({
+const onVisualChangesetCreate = async ({
   organization,
   visualChangeset,
   experiment,
@@ -332,14 +332,14 @@ const _onVisualChangesetCreate = async ({
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface;
 }) => {
-  if (!_hasVisualChanges(visualChangeset)) return;
+  if (!hasVisualChanges(visualChangeset)) return;
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 
   await refreshSDKPayloadCache(organization, payloadKeys);
 };
 
-const _onVisualChangesetUpdate = async ({
+const onVisualChangesetUpdate = async ({
   organization,
   oldVisualChangeset,
   newVisualChangeset,
@@ -370,7 +370,7 @@ const _onVisualChangesetUpdate = async ({
   await refreshSDKPayloadCache(organization, payloadKeys);
 };
 
-const _onVisualChangesetDelete = async ({
+const onVisualChangesetDelete = async ({
   organization,
   visualChangeset,
 }: {
@@ -378,7 +378,7 @@ const _onVisualChangesetDelete = async ({
   visualChangeset: VisualChangesetInterface;
 }) => {
   // if there were no visual changes before deleting, return early
-  if (!_hasVisualChanges(visualChangeset)) return;
+  if (!hasVisualChanges(visualChangeset)) return;
 
   // get payload keys
   const experiment = await getExperimentById(
@@ -409,7 +409,7 @@ export const syncVisualChangesWithVariations = async ({
   const visualChangesByVariationId = keyBy(visualChanges, "variation");
   const newVisualChanges = variations.map((variation) => {
     const visualChange = visualChangesByVariationId[variation.id];
-    return visualChange ? visualChange : _genNewVisualChange(variation);
+    return visualChange ? visualChange : genNewVisualChange(variation);
   });
 
   await updateVisualChangeset({
@@ -441,7 +441,7 @@ export const deleteVisualChangesetById = async ({
     organization: organization.id,
   });
 
-  await _onVisualChangesetDelete({
+  await onVisualChangesetDelete({
     organization,
     visualChangeset,
   });
