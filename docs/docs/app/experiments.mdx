@@ -141,7 +141,7 @@ If you select the frequentist engine, we instead use yellow to represent a metri
 
 ### User or Experiment
 
-If you have defined dimensions for your data source, you can use the **Dimension** dropdown to drill down into your results. GrowthBook enforces one dimension per user to prevent statistical bias and to simplify analyses. For more on how GrowthBook picks a dimension when more than one are present for a user, see the [Dimensions documentation](/app/dimensions).
+If you have defined dimensions for your data source, you can use the **Dimension** dropdown to drill down into your results. For SQL integrations (e.g. non-MixPanel) GrowthBook enforces one dimension per user to prevent statistical bias and to simplify analyses. For more on how GrowthBook picks a dimension when more than one are present for a user, see the [Dimensions documentation](/app/dimensions).
 This is very useful for debugging (e.g. if Safari is down, but the other browsers are fine, you may have an implementation bug) or for better understanding your experiment effects.
 
 Be careful. The more metrics and dimensions you look at, the more likely you are to see a false positive. If you find something that looks
