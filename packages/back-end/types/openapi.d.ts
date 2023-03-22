@@ -601,9 +601,7 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /** @enum {unknown} */
-        multipleVariations: "include" | "exclude";
-        /** @enum {unknown} */
-        attributionModel: "firstExposure" | "allExposures";
+        attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         goals: ({
@@ -659,9 +657,7 @@ export interface components {
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
       /** @enum {unknown} */
-      multipleVariations: "include" | "exclude";
-      /** @enum {unknown} */
-      attributionModel: "firstExposure" | "allExposures";
+      attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       goals: ({
@@ -712,9 +708,7 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /** @enum {unknown} */
-        multipleVariations: "include" | "exclude";
-        /** @enum {unknown} */
-        attributionModel: "firstExposure" | "allExposures";
+        attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         goals: ({
@@ -1810,9 +1804,7 @@ export interface operations {
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
                   /** @enum {unknown} */
-                  multipleVariations: "include" | "exclude";
-                  /** @enum {unknown} */
-                  attributionModel: "firstExposure" | "allExposures";
+                  attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   goals: ({
@@ -1917,9 +1909,7 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /** @enum {unknown} */
-                multipleVariations: "include" | "exclude";
-                /** @enum {unknown} */
-                attributionModel: "firstExposure" | "allExposures";
+                attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 goals: ({
@@ -1994,9 +1984,7 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /** @enum {unknown} */
-                multipleVariations: "include" | "exclude";
-                /** @enum {unknown} */
-                attributionModel: "firstExposure" | "allExposures";
+                attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 goals: ({

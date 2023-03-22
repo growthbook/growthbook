@@ -5,7 +5,7 @@
   },
   {
     "id": "base_allExposures",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "activation",
@@ -15,7 +15,7 @@
   {
     "id": "activation_allExposures",
     "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "negativeconversion",
@@ -37,7 +37,7 @@
         "conversionDelayHours": -24
       }
     ],
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "activation_negativeconversion",
@@ -61,7 +61,7 @@
       }
     ],
     "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "positiveconversion",
@@ -83,7 +83,7 @@
         "conversionDelayHours": 24
       }
     ],
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "activation_positiveconversion",
@@ -107,7 +107,7 @@
       }
     ],
     "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "dimension_date",
@@ -135,10 +135,5 @@
     "id": "filter_segment",
     "attributionModel": "firstExposure",
     "segment": "chrome_only"
-  },
-  {
-    "id": "keepmultipleexposures",
-    "attributionModel": "firstExposure",
-    "removeMultipleExposures": false
   }
 ]
