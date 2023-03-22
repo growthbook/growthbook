@@ -21,7 +21,7 @@ const terserSettings = terser({
 });
 
 export default {
-  input: "src/bundle.ts",
+  input: "src/index.ts",
   external: () => false,
   output: [
     {

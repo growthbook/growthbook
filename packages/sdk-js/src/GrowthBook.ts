@@ -1,3 +1,4 @@
+import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
   Context,
   Experiment,
@@ -317,15 +318,6 @@ export class GrowthBook<
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forced?: boolean) {
-    if (!this._ctx.domMutator) {
-      process.env.NODE_ENV !== "production" &&
-        this.log(
-          "Error: Must specify context.domMutator to use visual experiments",
-          {}
-        );
-      return null;
-    }
-
     const key = experiment.key;
     const existing = this._activeAutoExperiments.get(key);
 
@@ -348,11 +340,13 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      const undo = this._ctx.domMutator.apply(result.value);
-      this._activeAutoExperiments.set(experiment.key, {
-        undo,
-        valueHash,
-      });
+      const undo = this._applyDOMChanges(result.value);
+      if (undo) {
+        this._activeAutoExperiments.set(experiment.key, {
+          undo,
+          valueHash,
+        });
+      }
     }
 
     return result;
@@ -1006,5 +1000,23 @@ export class GrowthBook<
       if (groups[expGroups[i]]) return true;
     }
     return false;
+  }
+
+  private _applyDOMChanges(changes: AutoExperimentVariation) {
+    if (!isBrowser) return;
+    const undo: (() => void)[] = [];
+    if (changes.css) {
+      const s = document.createElement("style");
+      s.innerHTML = changes.css;
+      document.head.appendChild(s);
+      undo.push(() => s.remove());
+    } else if (changes.domMutations) {
+      changes.domMutations.forEach((mutation) => {
+        undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
+      });
+    }
+    return () => {
+      undo.forEach((fn) => fn());
+    };
   }
 }

@@ -73,10 +73,6 @@ export type UrlTarget = {
   pattern: string;
 };
 
-export interface DOMMutator {
-  apply(changes: { domMutations?: DOMMutation[]; css?: string }): () => void;
-}
-
 export type Experiment<T> = {
   key: string;
   variations: [T, T, ...T[]];
@@ -150,7 +146,6 @@ export interface Context {
   url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
-  domMutator?: DOMMutator;
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
