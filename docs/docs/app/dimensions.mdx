@@ -7,15 +7,15 @@ slug: dimensions
 
 # Dimensions
 
-Dimensions let you drill down into experiment results. For example, if you define a `browser` dimension, you can
+Dimensions let you drill down into experimental results. For example, if you define a `browser` dimension, you can
 see how Safari users behaved vs Chrome.
 
 Be careful, the more dimensions and metrics you look at for an experiment, the more likely you are to see false positives -
 something that looks significant when it really isn't. For example, if you break out results by country, it's pretty likely that at least one of the 100+
-countries in your dataset will be signficantly different just by random chance.
+countries in your dataset will be significantly different just by random chance.
 
 It's best to treat dimensions as an exploratory tool and not something to directly draw conclusions from.
-The two best use cases are identfying bugs (the `browser` example) and getting ideas for dedicated follow-up experiments.
+The two best use cases are identifying bugs (the `browser` example) and getting ideas for dedicated follow-up experiments.
 
 Dimensions are supported for both Mixpanel and SQL data sources.
 
@@ -50,9 +50,9 @@ The first 4 columns are standard, but `browser` is a custom one that can be used
 
 These are attributes of your users that are relatively stable over time, and ideally, do not change over the course of an experiment. For example, `cohort`, `initial age group`, or `first client used`.
 
-A user dimension is defined by a simple SQL query that returns two columns: an identifier and `value`. The name of the identifier column depends on which identifier type the dimension is using. Remember, when using these for analysis, we will pick the `MAX(value)` for each user, and therefore it is best to only have one value per user.
+A user dimension is defined by a simple SQL query that returns two columns: an identifier and a `value`. The name of the identifier column depends on which identifier type the dimension is using. Remember, when using these for analysis, we will pick the `MAX(value)` for each user, and therefore it is best to only have one value per user.
 
-Here's an example SQL:
+Here's an example for SQL:
 
 ```sql
 -- Assumes identifier type is "user_id"
@@ -63,7 +63,7 @@ FROM
   subscriptions
 ```
 
-It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it youself if you want more control. Here's an example for a "country" dimension:
+It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it yourself if you want more control. Here's an example of a "country" dimension:
 
 ```sql
 SELECT
