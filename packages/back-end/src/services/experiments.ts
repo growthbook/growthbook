@@ -1041,6 +1041,9 @@ export function getRegressionAdjustmentsForMetric({
         regressionAdjustmentEnabled = false;
         reason = "denominator is count";
       }
+    } else if (metric?.type === "binomial" && metric?.aggregation) {
+      regressionAdjustmentEnabled = false;
+      reason = "custom aggregation";
     }
   }
 

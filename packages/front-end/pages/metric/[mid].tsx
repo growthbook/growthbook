@@ -149,10 +149,21 @@ const MetricPage: FC = () => {
   const hasQueries = metric.queries?.length > 0;
 
   let regressionAdjustmentAvailableForMetric = true;
+  let regressionAdjustmentAvailableForMetricReason = <></>;
   if (metric.denominator) {
     const denominator = metrics.find((m) => m.id === metric.denominator);
     if (denominator?.type === "count") {
       regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>
+          Not available for ratio metrics with <em>count</em> denominators.
+        </>
+      );
+    } else if (metric.type === "binomial" && metric.aggregation) {
+      regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>Not available for metrics with custom user value aggregations.</>
+      );
     }
   }
 
@@ -1153,8 +1164,8 @@ const MetricPage: FC = () => {
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">
                       <div className="text-muted small">
-                        <FaTimes className="text-danger" /> Not available for
-                        ratio metrics with <em>count</em> denominators
+                        <FaTimes className="text-danger" />{" "}
+                        {regressionAdjustmentAvailableForMetricReason}
                       </div>
                     </li>
                   ) : metric?.regressionAdjustmentOverride ? (

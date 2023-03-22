@@ -82,12 +82,29 @@ export default function MetricsOverridesSelector({
             "regression-adjustment"
           );
           let regressionAdjustmentAvailableForMetric = true;
+          let regressionAdjustmentAvailableForMetricReason = <></>;
           if (metricDefinition.denominator) {
             const denominator = metricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
             if (denominator?.type === "count") {
               regressionAdjustmentAvailableForMetric = false;
+              regressionAdjustmentAvailableForMetricReason = (
+                <>
+                  Not available for ratio metrics with <em>count</em>{" "}
+                  denominators.
+                </>
+              );
+            } else if (
+              metricDefinition.type === "binomial" &&
+              metricDefinition.aggregation
+            ) {
+              regressionAdjustmentAvailableForMetric = false;
+              regressionAdjustmentAvailableForMetricReason = (
+                <>
+                  Not available for metrics with custom user value aggregations.
+                </>
+              );
             }
           }
 
@@ -392,8 +409,8 @@ export default function MetricsOverridesSelector({
                       </>
                     ) : (
                       <div className="text-muted">
-                        <FaTimes className="text-danger" /> Not available for
-                        ratio metrics with <em>count</em> denominators
+                        <FaTimes className="text-danger" />{" "}
+                        {regressionAdjustmentAvailableForMetricReason}
                       </div>
                     )}
                   </div>
