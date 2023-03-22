@@ -42,12 +42,16 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
-  const { permissions, userId, getUserDisplay } = useUser();
+  const { permissions, userId, getUserDisplay, hasCommercialFeature } = useUser();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
 
   const form = useForm({
     defaultValues: {
@@ -94,9 +98,9 @@ export default function ReportPage() {
 
   const statsEngine =
     data?.report?.args?.statsEngine || settings?.statsEngine || "bayesian";
-  const regressionAdjustmentAvailable = statsEngine === "frequentist";
+  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature && statsEngine === "frequentist";
   const regressionAdjustmentEnabled =
-    regressionAdjustmentAvailable && !!report.args.regressionAdjustmentEnabled;
+    hasRegressionAdjustmentFeature && regressionAdjustmentAvailable && !!report.args.regressionAdjustmentEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">

@@ -169,7 +169,7 @@ export default function SinglePage({
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const settings = useOrgSettings();
-  const { users } = useUser();
+  const { users, hasCommercialFeature } = useUser();
 
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
@@ -182,6 +182,10 @@ export default function SinglePage({
   );
 
   const statsEngine = settings.statsEngine || "bayesian";
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -227,11 +231,15 @@ export default function SinglePage({
       regressionAdjustmentEnabled = false;
     }
     if (
-      datasource.type === "google_analytics" ||
-      datasource.type === "mixpanel"
+      !datasource?.type ||
+      datasource?.type === "google_analytics" ||
+      datasource?.type === "mixpanel"
     ) {
       // these do not implement getExperimentMetricQuery
       regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (!hasRegressionAdjustmentFeature) {
       regressionAdjustmentEnabled = false;
     }
     return [
@@ -245,7 +253,8 @@ export default function SinglePage({
     settings,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
-    datasource.type,
+    datasource?.type,
+    hasRegressionAdjustmentFeature,
   ]);
 
   const onRegressionAdjustmentChange = async (enabled: boolean) => {

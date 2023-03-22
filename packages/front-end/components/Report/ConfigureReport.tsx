@@ -14,6 +14,8 @@ import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function ConfigureReport({
   report,
@@ -26,9 +28,14 @@ export default function ConfigureReport({
 }) {
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
   const { metrics, segments, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
   const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
 
   const form = useForm({
     defaultValues: {
@@ -48,7 +55,7 @@ export default function ConfigureReport({
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
       statsEngine: report.args.statsEngine || settings.statsEngine,
-      regressionAdjustmentEnabled: !!report.args.regressionAdjustmentEnabled,
+      regressionAdjustmentEnabled: hasRegressionAdjustmentFeature && !!report.args.regressionAdjustmentEnabled,
     },
   });
 
@@ -367,7 +374,11 @@ export default function ConfigureReport({
       <div className="d-flex flex-row no-gutters align-items-center">
         <div className="col-3">
           <SelectField
-            label="Use Regression Adjustment (CUPED)"
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                Use Regression Adjustment (CUPED)
+              </PremiumTooltip>
+              }
             labelClassName="font-weight-bold"
             value={form.watch("regressionAdjustmentEnabled") ? "yes" : "no"}
             onChange={(v) => {
@@ -384,6 +395,7 @@ export default function ConfigureReport({
               },
             ]}
             helpText="Only applicable to frequentist analyses"
+            disabled={!hasRegressionAdjustmentFeature}
           />
         </div>
       </div>

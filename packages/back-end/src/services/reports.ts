@@ -13,10 +13,12 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { updateReport } from "../models/ReportModel";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
+import { orgHasPremiumFeature } from "../util/organization.util";
 import { analyzeExperimentResults } from "./stats";
 import { parseDimensionId } from "./experiments";
 import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
+import { getOrganizationById } from "./organizations";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -69,6 +71,10 @@ export async function startExperimentAnalysis(
   args: ExperimentReportArgs,
   useCache: boolean
 ) {
+  const org = await getOrganizationById(organization);
+  const hasRegressionAdjustmentFeature = org
+    ? orgHasPremiumFeature(org, "regression-adjustment")
+    : false;
   const metricObjs = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
   metricObjs.forEach((m) => {
@@ -204,7 +210,9 @@ export async function startExperimentAnalysis(
           denominatorMetrics,
           phase: experimentPhaseObj,
           segment: segmentObj,
-          regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
+          regressionAdjustmentEnabled:
+            hasRegressionAdjustmentFeature &&
+            !!args.regressionAdjustmentEnabled,
           metricRegressionAdjustmentStatus: metricRegressionAdjustmentStatus,
         },
         useCache

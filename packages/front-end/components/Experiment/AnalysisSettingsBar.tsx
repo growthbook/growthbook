@@ -33,7 +33,8 @@ function isDifferent(val1?: string | boolean, val2?: string | boolean) {
 function isOutdated(
   experiment: ExperimentInterfaceStringDates,
   snapshot: ExperimentSnapshotInterface,
-  statsEngine: StatsEngine
+  statsEngine: StatsEngine,
+  hasRegressionAdjustmentFeature: boolean
 ) {
   if (!snapshot) return false;
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
@@ -52,7 +53,7 @@ function isOutdated(
     return true;
   }
   const experimentRegressionAdjustmentEnabled =
-    statsEngine === "bayesian"
+    statsEngine === "bayesian" || !hasRegressionAdjustmentFeature
       ? false
       : !!experiment.regressionAdjustmentEnabled;
   if (
@@ -103,18 +104,21 @@ export default function AnalysisSettingsBar({
   const { getDatasourceById } = useDefinitions();
   const settings = useOrgSettings();
   const datasource = getDatasourceById(experiment.datasource);
-  const outdated = isOutdated(
-    experiment,
-    snapshot,
-    settings.statsEngine || "bayesian"
-  );
-  const [modalOpen, setModalOpen] = useState(false);
 
-  const permissions = usePermissions();
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+
+  const outdated = isOutdated(
+    experiment,
+    snapshot,
+    settings.statsEngine || "bayesian",
+    hasRegressionAdjustmentFeature
+  );
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const permissions = usePermissions();
 
   const { apiCall } = useAuth();
 
