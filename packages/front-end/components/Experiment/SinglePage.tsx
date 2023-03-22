@@ -205,7 +205,7 @@ export default function SinglePage({
     metricRegressionAdjustmentStatuses,
   ] = useMemo(() => {
     const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
-    let regressionAdjustmentAvailable = false;
+    let regressionAdjustmentAvailable = true;
     let regressionAdjustmentEnabled = false;
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
@@ -219,7 +219,6 @@ export default function SinglePage({
         metricOverrides: experiment.metricOverrides,
       });
       if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
-        regressionAdjustmentAvailable = true;
         regressionAdjustmentEnabled = true;
       }
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
