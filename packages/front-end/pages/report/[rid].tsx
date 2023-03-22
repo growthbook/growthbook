@@ -449,22 +449,26 @@ export default function ReportPage() {
               )}
             </>
           )}
-          <div className="row align-items-center m-2 my-3">
+          <div className="row align-items-center mx-2 my-3">
             <div className="col-auto small" style={{ lineHeight: 1.2 }}>
               <div>
                 <span className="text-muted">Engine:</span>{" "}
                 <span>
-                  {statsEngine === "frequentist" ? "Frequentist" : "Bayesian"}
+                  {report.args?.statsEngine === "frequentist"
+                    ? "Frequentist"
+                    : "Bayesian"}
                 </span>
               </div>
-              {statsEngine === "frequentist" && (
+              {report.args?.statsEngine === "frequentist" && (
                 <div>
                   <span className="text-muted">
                     <GBCuped size={12} />
                     CUPED:
                   </span>{" "}
                   <span>
-                    {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                    {report.args?.regressionAdjustmentEnabled
+                      ? "Enabled"
+                      : "Disabled"}
                   </span>
                 </div>
               )}

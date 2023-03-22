@@ -8,8 +8,8 @@ import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
   metric: MetricInterface;
-  row: ExperimentTableRow;
-  reportRegressionAdjustmentEnabled: boolean;
+  row?: ExperimentTableRow;
+  reportRegressionAdjustmentEnabled?: boolean;
 }
 
 interface MetricInfo {
@@ -60,7 +60,7 @@ const MetricTooltipBody = ({
     },
   ];
 
-  if (reportRegressionAdjustmentEnabled) {
+  if (reportRegressionAdjustmentEnabled && row) {
     metricInfo.push({
       show: true,
       label: "CUPED",

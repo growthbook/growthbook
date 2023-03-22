@@ -111,6 +111,7 @@ const CompactResults: FC<{
           startDate={startDate}
           status={status}
           variations={variations}
+          rows={rows}
           id={id}
           {...risk}
           labelHeader="Metric"
@@ -178,7 +179,6 @@ const CompactResults: FC<{
               </>
             );
           }}
-          rows={rows}
         />
       </div>
     </>

@@ -63,7 +63,7 @@ const HeaderResult: FC<{
   return (
     <div
       className={clsx(
-        "d-flex align-items-center guardrail alert m-0",
+        "d-flex align-items-center guardrail m-0 p-2",
         `alert-${status}`
       )}
     >
@@ -114,9 +114,7 @@ const PValueGuardrailResults: FC<{
       <HeaderResult metric={metric} results={results} />
 
       <div>
-        <table
-          className={clsx("rounded table table-bordered experiment-compact")}
-        >
+        <table className={clsx("table experiment-compact small-padding mb-1")}>
           <thead>
             <tr>
               <th>Variation</th>

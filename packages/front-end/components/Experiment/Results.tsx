@@ -253,9 +253,9 @@ const Results: FC<{
             }
           />
           {experiment.guardrails?.length > 0 && (
-            <div className="mb-3 p-3">
+            <div className="mt-4 px-3">
               <h3 className="mb-3">Guardrails</h3>
-              <div className="row mt-3">
+              <div className="row">
                 {experiment.guardrails.map((g) => {
                   const metric = getMetricById(g);
                   if (!metric) return "";
@@ -266,7 +266,7 @@ const Results: FC<{
                   const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
                   return (
                     <div
-                      className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
+                      className={`col-12 col-xl-${xlargeCols} col-lg-6`}
                       key={g}
                     >
                       {settings.statsEngine === "frequentist" ? (
@@ -290,22 +290,24 @@ const Results: FC<{
           )}
         </>
       )}
-      <div className="row align-items-center m-2 mt-3">
+      <div className="row align-items-center mx-2 my-3">
         <div className="col-auto small" style={{ lineHeight: 1.2 }}>
           <div>
             <span className="text-muted">Engine:</span>{" "}
             <span>
-              {statsEngine === "frequentist" ? "Frequentist" : "Bayesian"}
+              {snapshot?.statsEngine === "frequentist"
+                ? "Frequentist"
+                : "Bayesian"}
             </span>
           </div>
-          {statsEngine === "frequentist" && (
+          {snapshot?.statsEngine === "frequentist" && (
             <div>
               <span className="text-muted">
                 <GBCuped size={12} />
                 CUPED:
               </span>{" "}
               <span>
-                {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                {snapshot?.regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
               </span>
             </div>
           )}

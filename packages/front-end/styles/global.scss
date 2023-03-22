@@ -1119,6 +1119,15 @@ pre {
   .metricname:hover {
     z-index: 1060;
   }
+
+  &.small-padding {
+    &.table {
+      th,
+      td {
+        padding: 0.25rem 0.5rem;
+      }
+    }
+  }
 }
 
 .bg-purple {
