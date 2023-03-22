@@ -78,6 +78,7 @@ export default abstract class SqlIntegration
       experimentSegments: true,
       activationDimension: true,
       pastExperiments: true,
+      supportsInformationSchema: false,
     };
   }
 
