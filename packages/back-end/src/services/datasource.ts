@@ -7,12 +7,7 @@ import Databricks from "../integrations/Databricks";
 import Redshift from "../integrations/Redshift";
 import Snowflake from "../integrations/Snowflake";
 import Postgres from "../integrations/Postgres";
-import {
-  DataSourceNotSupportedError,
-  InformationSchema,
-  SourceIntegrationInterface,
-  TestQueryRow,
-} from "../types/Integration";
+import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
@@ -24,11 +19,6 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
-import {
-  createInformationSchema,
-  updateInformationSchemaById,
-} from "../models/InformationSchemaModel";
-import { updateDataSource } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -111,18 +101,6 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   return obj;
 }
 
-export async function generateInformationSchema(
-  datasource: DataSourceInterface
-): Promise<InformationSchema[]> {
-  const integration = getSourceIntegrationObject(datasource);
-
-  if (!integration.getInformationSchema) {
-    throw new DataSourceNotSupportedError();
-  }
-
-  return await integration.getInformationSchema();
-}
-
 export async function testDataSourceConnection(
   datasource: DataSourceInterface
 ) {
@@ -160,31 +138,4 @@ export async function testQuery(
       sql,
     };
   }
-}
-
-export async function initializeDatasourceInformationSchema(
-  datasource: DataSourceInterface,
-  organization: string
-): Promise<void> {
-  // Create an empty informationSchema
-  const informationSchema = await createInformationSchema(
-    [],
-    organization,
-    datasource.id
-  );
-
-  // Update the datasource with the informationSchemaId
-  await updateDataSource(datasource.id, organization, {
-    settings: {
-      ...datasource.settings,
-      informationSchemaId: informationSchema.id,
-    },
-  });
-
-  // Update the empty informationSchema record with the actual informationSchema
-  await updateInformationSchemaById(organization, informationSchema.id, {
-    ...informationSchema,
-    databases: await generateInformationSchema(datasource),
-    status: "COMPLETE",
-  });
 }
