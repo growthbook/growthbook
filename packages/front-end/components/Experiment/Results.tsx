@@ -290,51 +290,55 @@ const Results: FC<{
           )}
         </>
       )}
-      <div className="row align-items-center mx-2 my-3">
-        <div className="col-auto small" style={{ lineHeight: 1.2 }}>
-          <div>
-            <span className="text-muted">Engine:</span>{" "}
-            <span>
-              {snapshot?.statsEngine === "frequentist"
-                ? "Frequentist"
-                : "Bayesian"}
-            </span>
-          </div>
-          {snapshot?.statsEngine === "frequentist" && (
+      {hasData && (
+        <div className="row align-items-center mx-2 my-3">
+          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
             <div>
-              <span className="text-muted">
-                <GBCuped size={12} />
-                CUPED:
-              </span>{" "}
+              <span className="text-muted">Engine:</span>{" "}
               <span>
-                {snapshot?.regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                {snapshot?.statsEngine === "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"}
               </span>
             </div>
-          )}
-          <div>
-            <span className="text-muted">Date:</span>{" "}
-            <span>
-              {getValidDate(snapshot.dateCreated).toLocaleString([], {
-                year: "numeric",
-                month: "numeric",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </span>
+            {snapshot?.statsEngine === "frequentist" && (
+              <div>
+                <span className="text-muted">
+                  <GBCuped size={12} />
+                  CUPED:
+                </span>{" "}
+                <span>
+                  {snapshot?.regressionAdjustmentEnabled
+                    ? "Enabled"
+                    : "Disabled"}
+                </span>
+              </div>
+            )}
+            <div>
+              <span className="text-muted">Date:</span>{" "}
+              <span>
+                {getValidDate(snapshot.dateCreated).toLocaleString([], {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          </div>
+          <div style={{ flex: "1 1 0%" }}></div>
+          <div className="col-4 small text-muted" style={{ lineHeight: 1.2 }}>
+            {permissions.check("createAnalyses", experiment.project) &&
+              experiment.metrics?.length > 0 && (
+                <>
+                  Click the 3 dots next to the Update button above to configure
+                  this report, download as a Jupyter notebook, and more.
+                </>
+              )}
           </div>
         </div>
-        <div style={{ flex: "1 1 0%" }}></div>
-        <div className="col-4 small text-muted" style={{ lineHeight: 1.2 }}>
-          {permissions.check("createAnalyses", experiment.project) &&
-            experiment.metrics?.length > 0 && (
-              <>
-                Click the 3 dots next to the Update button above to configure
-                this report, download as a Jupyter notebook, and more.
-              </>
-            )}
-        </div>
-      </div>
+      )}
     </>
   );
 };

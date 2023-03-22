@@ -449,43 +449,45 @@ export default function ReportPage() {
               )}
             </>
           )}
-          <div className="row align-items-center mx-2 my-3">
-            <div className="col-auto small" style={{ lineHeight: 1.2 }}>
-              <div>
-                <span className="text-muted">Engine:</span>{" "}
-                <span>
-                  {report.args?.statsEngine === "frequentist"
-                    ? "Frequentist"
-                    : "Bayesian"}
-                </span>
-              </div>
-              {report.args?.statsEngine === "frequentist" && (
+          {hasData && (
+            <div className="row align-items-center mx-2 my-3">
+              <div className="col-auto small" style={{ lineHeight: 1.2 }}>
                 <div>
-                  <span className="text-muted">
-                    <GBCuped size={12} />
-                    CUPED:
-                  </span>{" "}
+                  <span className="text-muted">Engine:</span>{" "}
                   <span>
-                    {report.args?.regressionAdjustmentEnabled
-                      ? "Enabled"
-                      : "Disabled"}
+                    {report.args?.statsEngine === "frequentist"
+                      ? "Frequentist"
+                      : "Bayesian"}
                   </span>
                 </div>
-              )}
-              <div>
-                <span className="text-muted">Date:</span>{" "}
-                <span>
-                  {getValidDate(report.dateCreated).toLocaleString([], {
-                    year: "numeric",
-                    month: "numeric",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </span>
+                {report.args?.statsEngine === "frequentist" && (
+                  <div>
+                    <span className="text-muted">
+                      <GBCuped size={12} />
+                      CUPED:
+                    </span>{" "}
+                    <span>
+                      {report.args?.regressionAdjustmentEnabled
+                        ? "Enabled"
+                        : "Disabled"}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-muted">Date:</span>{" "}
+                  <span>
+                    {getValidDate(report.dateCreated).toLocaleString([], {
+                      year: "numeric",
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </Tab>
         {permissions.check("createAnalyses", "") && (
           <Tab
