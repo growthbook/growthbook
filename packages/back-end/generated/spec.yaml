@@ -135,6 +135,9 @@ tags:
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
+  - name: VisualChange_model
+    x-displayName: VisualChange
+    description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
   - name: VisualChangeset_model
     x-displayName: VisualChangeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
@@ -1420,7 +1423,7 @@ components:
           type: boolean
         encryptionKey:
           type: string
-        visualExperimentsEnabled:
+        includeVisualExperiments:
           type: boolean
         includeDraftExperiments:
           type: boolean
@@ -1997,4 +2000,5 @@ x-tagGroups:
       - Project_model
       - SdkConnection_model
       - Segment_model
+      - VisualChange_model
       - VisualChangeset_model
