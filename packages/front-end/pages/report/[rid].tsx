@@ -223,7 +223,7 @@ export default function ReportPage() {
                 <h2>Results</h2>
               </div>
               <div className="col-auto">
-                {report.runStarted && status !== "running" ? (
+                {hasData && report.runStarted && status !== "running" ? (
                   <div
                     className="text-muted text-right"
                     style={{ width: 100, fontSize: "0.8em" }}
@@ -481,7 +481,7 @@ export default function ReportPage() {
                 <div>
                   <span className="text-muted">Date:</span>{" "}
                   <span>
-                    {getValidDate(report.dateCreated).toLocaleString([], {
+                    {getValidDate(report.runStarted).toLocaleString([], {
                       year: "numeric",
                       month: "numeric",
                       day: "numeric",

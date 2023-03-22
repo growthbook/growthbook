@@ -198,7 +198,7 @@ export default function AnalysisSettingsBar({
           </PremiumTooltip>
         </div>
         <div className="col-auto">
-          {snapshot &&
+          {hasData &&
             (outdated && status !== "running" ? (
               <div
                 className="badge badge-warning d-block py-1"
