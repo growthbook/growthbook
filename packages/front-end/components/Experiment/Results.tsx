@@ -318,7 +318,7 @@ const Results: FC<{
               </div>
             )}
             <div>
-              <span className="text-muted">Date:</span>{" "}
+              <span className="text-muted">Run date:</span>{" "}
               <span>
                 {getValidDate(snapshot.dateCreated).toLocaleString([], {
                   year: "numeric",

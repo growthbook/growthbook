@@ -305,7 +305,7 @@ export function getRegressionAdjustmentsForMetric({
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
     regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
     if (!regressionAdjustmentEnabled) {
-      reason = "set for metric";
+      reason = "disabled in metric settings";
     }
   }
 
@@ -317,7 +317,7 @@ export function getRegressionAdjustmentsForMetric({
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
-        reason = "set by metric override";
+        reason = "disabled by metric override";
       } else {
         reason = "";
       }

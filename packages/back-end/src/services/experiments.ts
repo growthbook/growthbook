@@ -1006,7 +1006,7 @@ export function getRegressionAdjustmentsForMetric({
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
     regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
     if (!regressionAdjustmentEnabled) {
-      reason = "set for metric";
+      reason = "disabled in metric settings";
     }
   }
 
@@ -1018,7 +1018,7 @@ export function getRegressionAdjustmentsForMetric({
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
-        reason = "set by metric override";
+        reason = "disabled by metric override";
       } else {
         reason = "";
       }
@@ -1039,7 +1039,7 @@ export function getRegressionAdjustmentsForMetric({
   }
   if (metric?.type === "binomial" && metric?.aggregation) {
     regressionAdjustmentEnabled = false;
-    reason = "aggregation";
+    reason = "custom aggregation";
   }
 
   if (!regressionAdjustmentEnabled) {

@@ -479,7 +479,7 @@ export default function ReportPage() {
                   </div>
                 )}
                 <div>
-                  <span className="text-muted">Date:</span>{" "}
+                  <span className="text-muted">Run date:</span>{" "}
                   <span>
                     {getValidDate(report.runStarted).toLocaleString([], {
                       year: "numeric",
