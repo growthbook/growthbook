@@ -2024,18 +2024,19 @@ export interface operations {
             /** @description The main SQL to retrieve your metric */
             conversionSQL: string;
             /** @description Custom user level aggregation for your metric (default: SUM(value)) */
-            userAggregationSQL: string;
+            userAggregationSQL?: string;
             /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
-            denominatorMetricId: string;
+            denominatorMetricId?: string;
+            /** @description An alternative way to specify your metric to a full query. Using the top-level `sql.conversionSql` and `sql.identifierTypes` is preferred. */
             builder?: {
               identifierTypeColumns: ({
                   identifierType: string;
                   columnName: string;
                 })[];
               tableName: string;
-              valueColumnName: string;
+              valueColumnName?: string;
               timestampColumnName: string;
-              conditions: ({
+              conditions?: ({
                   column: string;
                   operator: string;
                   value: string;

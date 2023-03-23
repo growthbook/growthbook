@@ -737,8 +737,6 @@ paths:
                   required:
                     - identifierTypes
                     - conversionSQL
-                    - userAggregationSQL
-                    - denominatorMetricId
                   properties:
                     identifierTypes:
                       type: array
@@ -756,12 +754,11 @@ paths:
                       description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
                     builder:
                       type: object
+                      description: An alternative way to specify your metric to a full query. Using the top-level `sql.conversionSql` and `sql.identifierTypes` is preferred.
                       required:
                         - identifierTypeColumns
                         - tableName
-                        - valueColumnName
                         - timestampColumnName
-                        - conditions
                       properties:
                         identifierTypeColumns:
                           type: array
