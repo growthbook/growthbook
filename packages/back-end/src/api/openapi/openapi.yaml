@@ -100,10 +100,6 @@ paths:
     $ref: "./paths/listSegments.yaml"
   /segments/{id}:
     $ref: "./paths/getSegment.yaml"
-  /metrics:
-    $ref: "./paths/listMetrics.yaml"
-  /metrics/{id}:
-    $ref: "./paths/getMetric.yaml"
   /sdk-connections:
     $ref: "./paths/listSdkConnections.yaml"
   /sdk-connections/{id}:
@@ -119,6 +115,14 @@ paths:
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
   # PLOP_INSERT_PATHS_HERE
+  /metrics:
+    get:
+      $ref: "./paths/listMetrics.yaml"
+    post:
+      $ref: "./paths/postMetric.yaml"
+  /metrics/{id}:
+    get:
+      $ref: "./paths/getMetric.yaml"
   /experiments/{id}/visual-changesets:
     $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:

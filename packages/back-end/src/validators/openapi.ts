@@ -60,18 +60,6 @@ export const getSegmentValidator = {
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
-export const listMetricsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"datasourceId":z.string().optional()}).strict(),
-  paramsSchema: z.never(),
-};
-
-export const getMetricValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({"id":z.string()}).strict(),
-};
-
 export const listSdkConnectionsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"withProxy":z.string().optional()}).strict(),
@@ -111,6 +99,24 @@ export const getExperimentValidator = {
 export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({"phase":z.string().optional(),"dimension":z.string().optional()}).strict(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const listMetricsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"datasourceId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postMetricValidator = {
+  bodySchema: z.object({"datasourceId":z.string(),"name":z.string(),"description":z.string(),"type":z.string(),"tags":z.array(z.string()),"projects":z.array(z.string()),"archived":z.boolean(),"behavior":z.object({"goal":z.enum(["increase","decrease"]),"cap":z.number(),"conversionWindowStart":z.number(),"conversionWindowEnd":z.number(),"riskThresholdSuccess":z.number(),"riskThresholdDanger":z.number(),"minPercentChange":z.number(),"maxPercentChange":z.number(),"minSampleSize":z.number()}),"sql":z.object({"identifierTypes":z.array(z.string()),"conversionSQL":z.string(),"userAggregationSQL":z.string(),"denominatorMetricId":z.string(),"builder":z.object({"identifierTypeColumns":z.array(z.object({"identifierType":z.string(),"columnName":z.string()})),"tableName":z.string(),"valueColumnName":z.string(),"timestampColumnName":z.string(),"conditions":z.array(z.object({"column":z.string(),"operator":z.string(),"value":z.string()}))}).optional()}).optional(),"mixpanel":z.object({"eventName":z.string(),"eventValue":z.string(),"userAggregation":z.string(),"conditions":z.array(z.object({"property":z.string(),"operator":z.string(),"value":z.string()}))}).optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const getMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
