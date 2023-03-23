@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import { DataSourceInterface } from "../../types/datasource";
 import {
   createInformationSchema,
@@ -97,10 +98,12 @@ export async function mergeStaleInformationSchemaWithUpdate(
             staleInformationSchema[correspondingIndex].schemas[
               correspondingSchemaIndex
             ].tables[correspondingTableIndex].dateCreated;
-          table.id =
+          const existingId =
             staleInformationSchema[correspondingIndex].schemas[
               correspondingSchemaIndex
             ].tables[correspondingTableIndex].id;
+          // There is a change the table doesn't have an id, in that case, we should create one.
+          table.id = existingId || uniqid("tbl_");
           if (
             table.numOfColumns ===
             staleInformationSchema[correspondingIndex].schemas[
