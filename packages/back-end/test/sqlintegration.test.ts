@@ -82,13 +82,13 @@ describe("bigquery integration", () => {
     );
     expect(
       bqIntegration["getAggregateMetricColumn"](customCountAgg, "noWindow")
-    ).toEqual("COUNT(m.timestamp) / (5 + COUNT(m.timestamp))");
+    ).toEqual("COUNT(*) / (5 + COUNT(*))");
     expect(
       bqIntegration["getAggregateMetricColumn"](customCountAgg, "post")
-    ).toEqual("COUNT(m.timestamp) / (5 + COUNT(m.timestamp))");
+    ).toEqual("COUNT(*) / (5 + COUNT(*))");
     expect(
       bqIntegration["getAggregateMetricColumn"](customCountAgg, "pre")
-    ).toEqual("COUNT(m.timestamp) / (5 + COUNT(m.timestamp))");
+    ).toEqual("COUNT(*) / (5 + COUNT(*))");
     expect(
       bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "noWindow")
     ).toEqual("SUM(m.value)");
