@@ -15,6 +15,7 @@ import { removeProjectFromFeatures } from "../../models/FeatureModel";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 import { removeProjectFromExperiments } from "../../models/ExperimentModel";
 import { removeProjectFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region POST /projects
 
@@ -33,7 +34,10 @@ type CreateProjectResponse = {
  */
 export const postProject = async (
   req: CreateProjectRequest,
-  res: Response<CreateProjectResponse | ApiErrorResponse>
+  res: Response<
+    CreateProjectResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("manageProjects");
 
@@ -72,7 +76,10 @@ type PutProjectResponse = {
  */
 export const putProject = async (
   req: PutProjectRequest,
-  res: Response<PutProjectResponse | ApiErrorResponse>
+  res: Response<
+    PutProjectResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("manageProjects");
 
@@ -117,7 +124,10 @@ type DeleteProjectResponse = {
  */
 export const deleteProject = async (
   req: DeleteProjectRequest,
-  res: Response<DeleteProjectResponse | ApiErrorResponse>
+  res: Response<
+    DeleteProjectResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("manageProjects");
 
@@ -129,8 +139,8 @@ export const deleteProject = async (
   // Cleanup functions from other models
   await removeProjectFromDatasources(id, org.id);
   await removeProjectFromMetrics(id, org.id);
-  await removeProjectFromFeatures(id, org);
-  await removeProjectFromExperiments(id, org);
+  await removeProjectFromFeatures(id, org, res.locals.eventAudit);
+  await removeProjectFromExperiments(id, org, res.locals.eventAudit);
   await removeProjectFromProjectRoles(id, org);
   await removeProjectFromSlackIntegration({
     organizationId: org.id,
