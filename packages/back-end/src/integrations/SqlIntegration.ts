@@ -34,7 +34,6 @@ import {
   FormatDialect,
   replaceCountStar,
 } from "../util/sql";
-import { MetricWindow } from "aws-sdk/clients/iotsitewise";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -746,7 +745,9 @@ export default abstract class SqlIntegration
 
     const ignoreConversionEnd =
       experiment.attributionModel === "experimentDuration";
-    const postAggregationType: MetricAggregationType = ignoreConversionEnd ? "postDuration" : "postConversion"
+    const postAggregationType: MetricAggregationType = ignoreConversionEnd
+      ? "postDuration"
+      : "postConversion";
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
@@ -776,7 +777,10 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const aggregate = this.getAggregateMetricColumn(metric, postAggregationType);
+    const aggregate = this.getAggregateMetricColumn(
+      metric,
+      postAggregationType
+    );
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
@@ -987,7 +991,10 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, postAggregationType)} as value
+                ${this.getAggregateMetricColumn(
+                  denominator,
+                  postAggregationType
+                )} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
