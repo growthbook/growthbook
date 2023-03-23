@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { usingFileConfig } from "../init/config";
+import { InformationSchemaTablesInterface } from "../types/Integration";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
