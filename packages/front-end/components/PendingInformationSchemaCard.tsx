@@ -1,51 +1,34 @@
-import { useState } from "react";
-import { useAuth } from "@/services/auth";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 
 export default function PendingInformationSchemaCard({
-  datasourceId,
   mutate,
 }: {
-  datasourceId: string;
   mutate: () => void;
 }) {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<null | string>(null);
-  const { apiCall } = useAuth();
+  const [retryCount, setRetryCount] = useState(1);
 
-  let retryCount = 1;
-
-  async function pollStatus() {
-    const interval = retryCount * 1000;
-
+  useEffect(() => {
     if (fetching) {
-      if (retryCount >= 8) {
+      if (retryCount > 8) {
         setFetching(false);
         setError(
           "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
         );
-        return;
-      }
-
-      setTimeout(async () => {
-        const res = await apiCall<{ status: number; isComplete: boolean }>(
-          `/datasource/${datasourceId}/schema/status`,
-          {
-            method: "GET",
-          }
-        );
-        if (res.isComplete) {
-          setFetching(false);
+        setRetryCount(1);
+      } else {
+        const timer = setTimeout(() => {
           mutate();
-          return;
-        }
-        retryCount = retryCount * 2;
-        pollStatus();
-      }, interval);
+          setRetryCount(retryCount * 2);
+        }, retryCount * 1000);
+        return () => {
+          clearTimeout(timer);
+        };
+      }
     }
-  }
-
-  pollStatus();
+  }, [fetching, mutate, retryCount]);
   return (
     <div>
       {!error ? (

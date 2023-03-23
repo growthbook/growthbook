@@ -97,14 +97,13 @@ export default function SchemaBrowser({
     setCurrentTable(null);
   }, [datasource]);
 
-  if (informationSchema?.error) {
+  if (informationSchema?.error?.message) {
     return (
       <SchemaBrowserWrapper datasourceName={datasource.name}>
         <RetryInformationSchemaCard
           datasourceId={datasource.id}
           mutate={mutate}
-          informationSchemaError={informationSchema.error}
-          informationSchemaId={informationSchema.id}
+          informationSchema={informationSchema}
         />
       </SchemaBrowserWrapper>
     );
@@ -113,10 +112,7 @@ export default function SchemaBrowser({
   if (informationSchema?.status === "PENDING") {
     return (
       <SchemaBrowserWrapper datasourceName={datasource.name}>
-        <PendingInformationSchemaCard
-          datasourceId={datasource.id}
-          mutate={mutate}
-        />
+        <PendingInformationSchemaCard mutate={mutate} />
       </SchemaBrowserWrapper>
     );
   }
