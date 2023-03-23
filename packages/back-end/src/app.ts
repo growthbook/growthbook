@@ -68,9 +68,9 @@ const featuresController = wrapController(featuresControllerRaw);
 import * as slackControllerRaw from "./controllers/slack";
 const slackController = wrapController(slackControllerRaw);
 
-import * as informationSchemsControllerRaw from "./controllers/informationSchemas";
-const informationSchemsController = wrapController(
-  informationSchemsControllerRaw
+import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
+const informationSchemasController = wrapController(
+  informationSchemasControllerRaw
 );
 
 // End Controllers
@@ -462,20 +462,24 @@ app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 
 // Information Schemas
 app.get(
-  "/informationSchema/:id/:databaseName/:schemaName/:tableName",
-  informationSchemsController.getTableData
+  "/datasource/:datasourceId/schema/table/:tableId",
+  informationSchemasController.getTableData
 );
 app.post(
-  "/datasource/:datasourceId/informationSchema",
-  informationSchemsController.postInformationSchema
+  "/datasource/:datasourceId/schema",
+  informationSchemasController.postInformationSchema
 );
 app.put(
-  "/datasource/:datasourceId/informationSchema",
-  informationSchemsController.putInformationSchema
+  "/datasource/:datasourceId/schema",
+  informationSchemasController.putInformationSchema
 );
 app.get(
-  "/datasource/:datasourceId/informationSchema/status",
-  informationSchemsController.getInformationSchemaStatus
+  "/datasource/:datasourceId/schema/status",
+  informationSchemasController.getInformationSchemaStatus
+);
+app.get(
+  "/datasource/:datasourceId/schema",
+  informationSchemasController.getInformationSchema
 );
 
 // Events

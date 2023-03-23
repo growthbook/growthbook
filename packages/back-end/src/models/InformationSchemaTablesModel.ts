@@ -1,8 +1,6 @@
 import omit from "lodash/omit";
 import z from "zod";
 import mongoose from "mongoose";
-import uniqid from "uniqid";
-import { Column, InformationSchemaTablesInterface } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { usingFileConfig } from "../init/config";
@@ -66,15 +64,10 @@ const toInterface = (
 ): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchemaTable(
-  organization: string,
-  tableName: string,
-  schemaName: string,
-  databaseName: string,
-  columns: Column[],
-  refreshMS: number,
-  datasourceId: string,
-  informationSchemaId: string,
-  tableId: string
+  tableData: Omit<
+    InformationSchemaTablesInterface,
+    "dateCreated" | "dateUpdated"
+  >
 ): Promise<InformationSchemaTablesInterface> {
   //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
@@ -82,17 +75,9 @@ export async function createInformationSchemaTable(
   }
 
   const result = await InformationSchemaTablesModel.create({
-    id: tableId,
-    organization,
-    tableName,
-    tableSchema: schemaName,
-    databaseName,
-    columns,
-    refreshMS,
+    ...tableData,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datasourceId,
-    informationSchemaId,
   });
 
   return toInterface(result);

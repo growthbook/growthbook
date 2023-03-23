@@ -4,12 +4,12 @@ import { queueUpdateInformationSchema } from "../jobs/updateInformationSchema";
 import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
+  getInformationSchemaByDatasourceId,
   getInformationSchemaById,
-  updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
-  getInformationSchemaTableDataByPath,
+  getInformationSchemaTableById,
 } from "../models/InformationSchemaTablesModel";
 import { fetchTableData } from "../services/informationSchema";
 import { getOrgFromReq } from "../services/organizations";
@@ -17,23 +17,59 @@ import { AuthRequest } from "../types/AuthRequest";
 import { Column } from "../types/Integration";
 import { getPath } from "../util/informationSchemas";
 
+export async function getInformationSchema(
+  req: AuthRequest<null, { datasourceId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Unable to find datasource.",
+    });
+    return;
+  }
+
+  const informationSchema = await getInformationSchemaByDatasourceId(
+    datasource.id,
+    org.id
+  );
+
+  if (!informationSchema) {
+    res.status(404).json({
+      status: 404,
+      message: "Unable to find information schema.",
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+    informationSchema,
+  });
+}
+
 export async function getTableData(
   req: AuthRequest<
     null,
     {
-      databaseName: string;
-      schemaName: string;
-      tableName: string;
-      id: string;
+      datasourceId: string;
+      tableId: string;
     }
   >,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
 
-  const { databaseName, schemaName, tableName, id } = req.params;
+  const { datasourceId, tableId } = req.params;
 
-  const informationSchema = await getInformationSchemaById(org.id, id);
+  const informationSchema = await getInformationSchemaByDatasourceId(
+    datasourceId,
+    org.id
+  );
 
   if (!informationSchema) {
     res
@@ -52,13 +88,7 @@ export async function getTableData(
     return;
   }
 
-  const table = await getInformationSchemaTableDataByPath(
-    org.id,
-    databaseName,
-    schemaName,
-    tableName,
-    id
-  );
+  const table = await getInformationSchemaTableById(org.id, tableId);
 
   // If the table exists, just return it and update it in the background if it's out of date.
   if (table) {
@@ -83,11 +113,13 @@ export async function getTableData(
   }
 
   // Otherwise, the table doesn't exist yet, so we need to create it.
-  const { tableData, refreshMS } = await fetchTableData(
-    datasource,
-    informationSchema,
-    tableId
-  );
+  const {
+    tableData,
+    refreshMS,
+    databaseName,
+    tableSchema,
+    tableName,
+  } = await fetchTableData(datasource, informationSchema, tableId);
 
   if (!tableData || !refreshMS) {
     res
@@ -103,7 +135,7 @@ export async function getTableData(
         dataType: row.data_type,
         path: getPath(datasource.type, {
           tableCatalog: databaseName,
-          tableSchema: schemaName,
+          tableSchema: tableSchema,
           tableName: tableName,
           columnName: row.column_name,
         }),
@@ -112,17 +144,17 @@ export async function getTableData(
   );
 
   // Create the table record in Mongo.
-  const newTable = await createInformationSchemaTable(
-    org.id,
+  const newTable = await createInformationSchemaTable({
+    organization: org.id,
     tableName,
-    schemaName,
+    tableSchema,
     databaseName,
     columns,
     refreshMS,
-    datasource.id,
-    id,
-    tableId
-  );
+    datasourceId: datasource.id,
+    informationSchemaId: informationSchema.id,
+    id: tableId,
+  });
 
   res.status(200).json({ status: 200, table: newTable });
 }

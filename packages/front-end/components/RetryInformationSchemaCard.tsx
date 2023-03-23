@@ -33,7 +33,7 @@ export default function RetryInformationSchemaCard({
 
     setTimeout(async () => {
       const res = await apiCall<{ status: number; isComplete: boolean }>(
-        `/datasource/${datasourceId}/informationSchema/status`,
+        `/datasource/${datasourceId}/schema/status`,
         {
           method: "GET",
         }
@@ -55,7 +55,7 @@ export default function RetryInformationSchemaCard({
       await apiCall<{
         status: number;
         message?: string;
-      }>(`/datasource/${datasourceId}/informationSchema`, {
+      }>(`/datasource/${datasourceId}/schema`, {
         method: "PUT",
         body: JSON.stringify({
           informationSchemaId: informationSchemaId,

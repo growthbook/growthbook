@@ -133,7 +133,13 @@ export async function fetchTableData(
   datasource: DataSourceInterface,
   informationSchema: InformationSchemaInterface,
   tableId: string
-): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
+): Promise<{
+  tableData: null | unknown[];
+  refreshMS: number;
+  databaseName: string;
+  tableSchema: string;
+  tableName: string;
+}> {
   const integration = getSourceIntegrationObject(datasource);
 
   if (!integration.getTableData) {
@@ -161,7 +167,7 @@ export async function fetchTableData(
     tableName
   );
 
-  return { tableData, refreshMS };
+  return { tableData, refreshMS, databaseName, tableSchema, tableName };
 }
 
 export async function generateInformationSchema(

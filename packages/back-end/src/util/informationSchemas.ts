@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import { DataSourceType } from "../../types/datasource";
 import {
   InformationSchema,
@@ -86,7 +87,7 @@ export function formatInformationSchema(
         tableName: row.table_name,
         path: tablePath,
         numOfColumns: parseInt(row.column_count, 10),
-        id: "",
+        id: uniqid("tbl_"),
         dateCreated: date,
         dateUpdated: date,
       };

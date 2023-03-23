@@ -55,13 +55,7 @@ export default function SchemaBrowser({
     );
   }
 
-  const handleTableClick = async (
-    e,
-    databaseName: string,
-    schemaName: string,
-    tableName: string,
-    path: string
-  ) => {
+  const handleTableClick = async (e, path: string, tableId: string) => {
     if (e.detail === 2) {
       if (!inputArray) return;
       const updatedStr = pastePathIntoExistingQuery(
@@ -77,12 +71,7 @@ export default function SchemaBrowser({
     }
 
     // If the table is already fetched, don't fetch it again
-    if (
-      currentTable?.tableName === tableName &&
-      currentTable?.databaseName === databaseName &&
-      currentTable?.tableSchema === schemaName
-    )
-      return;
+    if (currentTable?.id === tableId) return;
 
     try {
       setLoading(true);
@@ -91,12 +80,9 @@ export default function SchemaBrowser({
       const res = await apiCall<{
         status: number;
         table?: InformationSchemaTablesInterface;
-      }>(
-        `/informationSchema/${informationSchema.id}/${databaseName}/${schemaName}/${tableName}`,
-        {
-          method: "GET",
-        }
-      );
+      }>(`/datasource/${datasource.id}/schema/table/${tableId}`, {
+        method: "GET",
+      });
       setCurrentTable(res.table);
     } catch (e) {
       setError(e.message);
@@ -233,13 +219,7 @@ export default function SchemaBrowser({
                                     table.tableName
                                   }
                                   onClick={async (e) =>
-                                    handleTableClick(
-                                      e,
-                                      database.databaseName,
-                                      schema.schemaName,
-                                      table.tableName,
-                                      table.path
-                                    )
+                                    handleTableClick(e, table.path, table.id)
                                   }
                                 >
                                   <FaTable /> {table.tableName}

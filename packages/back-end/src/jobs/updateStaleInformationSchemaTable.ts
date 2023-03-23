@@ -62,10 +62,9 @@ export default function (ag: Agenda) {
 
       try {
         const { tableData, refreshMS } = await fetchTableData(
-          informationSchemaTable.databaseName,
-          informationSchemaTable.tableSchema,
-          informationSchemaTable.tableName,
-          datasource
+          datasource,
+          informationSchema,
+          informationSchemaTableId
         );
 
         if (!tableData || !refreshMS) {

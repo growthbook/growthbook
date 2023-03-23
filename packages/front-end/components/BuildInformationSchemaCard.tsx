@@ -28,7 +28,7 @@ export default function BuildInformationSchemaCard({
 
     setTimeout(async () => {
       const res = await apiCall<{ status: number; isComplete: boolean }>(
-        `/datasource/${datasourceId}/informationSchema/status`,
+        `/datasource/${datasourceId}/schema/status`,
         {
           method: "GET",
         }
@@ -50,7 +50,7 @@ export default function BuildInformationSchemaCard({
       await apiCall<{
         status: number;
         message?: string;
-      }>(`/datasource/${datasourceId}/informationSchema`, {
+      }>(`/datasource/${datasourceId}/schema`, {
         method: "POST",
       });
       pollStatus();
