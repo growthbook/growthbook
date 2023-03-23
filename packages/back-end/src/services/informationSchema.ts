@@ -130,16 +130,36 @@ export async function mergeStaleInformationSchemaWithUpdate(
 }
 
 export async function fetchTableData(
-  databaseName: string,
-  tableSchema: string,
-  tableName: string,
-  datasource: DataSourceInterface
-): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
+  datasource: DataSourceInterface,
+  informationSchema: InformationSchemaInterface,
+  tableId: string
+): Promise<{
+  tableData: null | unknown[];
+  refreshMS: number;
+  databaseName: string;
+  tableSchema: string;
+  tableName: string;
+}> {
   const integration = getSourceIntegrationObject(datasource);
 
   if (!integration.getTableData) {
     throw new Error("Table data not supported for this data source");
   }
+
+  let databaseName = "";
+  let tableSchema = "";
+  let tableName = "";
+  informationSchema.databases.forEach((database) => {
+    database.schemas.forEach((schema) => {
+      schema.tables.forEach((table) => {
+        if (table.id === tableId) {
+          databaseName = database.databaseName;
+          tableSchema = schema.schemaName;
+          tableName = table.tableName;
+        }
+      });
+    });
+  });
 
   const { tableData, refreshMS } = await integration.getTableData(
     databaseName,
@@ -147,7 +167,7 @@ export async function fetchTableData(
     tableName
   );
 
-  return { tableData, refreshMS };
+  return { tableData, refreshMS, databaseName, tableSchema, tableName };
 }
 
 export async function generateInformationSchema(

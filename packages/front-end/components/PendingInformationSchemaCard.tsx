@@ -29,7 +29,7 @@ export default function PendingInformationSchemaCard({
 
       setTimeout(async () => {
         const res = await apiCall<{ status: number; isComplete: boolean }>(
-          `/datasource/${datasourceId}/informationSchema/status`,
+          `/datasource/${datasourceId}/schema/status`,
           {
             method: "GET",
           }

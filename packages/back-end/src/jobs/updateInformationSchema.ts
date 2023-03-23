@@ -1,6 +1,5 @@
 import Agenda, { Job } from "agenda";
 import { updateDatasourceInformationSchema } from "../services/informationSchema";
-import { logger } from "../util/logger";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
@@ -76,13 +75,6 @@ export default function (ag: Agenda) {
             }
           );
         }
-        logger.error(
-          e,
-          "Unable to generate information schema for datasource: " +
-            datasource.id +
-            " Error: " +
-            e.message
-        );
       }
     }
   );
