@@ -55,9 +55,17 @@ describe("bigquery integration", () => {
       bqIntegration["getAggregateMetricColumn"](binomialMetric, "noWindow")
     ).toEqual("MAX(1)");
     expect(
-      bqIntegration["getAggregateMetricColumn"](binomialMetric, "post")
+      bqIntegration["getAggregateMetricColumn"](binomialMetric, "postDuration")
     ).toEqual(
       "MAX((CASE WHEN m.timestamp >= d.conversion_start THEN 1 ELSE NULL END))"
+    );
+    expect(
+      bqIntegration["getAggregateMetricColumn"](
+        binomialMetric,
+        "postConversion"
+      )
+    ).toEqual(
+      "MAX((CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN 1 ELSE NULL END))"
     );
     expect(
       bqIntegration["getAggregateMetricColumn"](binomialMetric, "pre")
@@ -71,9 +79,20 @@ describe("bigquery integration", () => {
       )
     ).toEqual("MAX(33)");
     expect(
-      bqIntegration["getAggregateMetricColumn"](customNumberAggMetric, "post")
+      bqIntegration["getAggregateMetricColumn"](
+        customNumberAggMetric,
+        "postDuration"
+      )
     ).toEqual(
       "MAX((CASE WHEN m.timestamp >= d.conversion_start THEN 33 ELSE NULL END))"
+    );
+    expect(
+      bqIntegration["getAggregateMetricColumn"](
+        customNumberAggMetric,
+        "postConversion"
+      )
+    ).toEqual(
+      "MAX((CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN 33 ELSE NULL END))"
     );
     expect(
       bqIntegration["getAggregateMetricColumn"](customNumberAggMetric, "pre")
@@ -84,7 +103,13 @@ describe("bigquery integration", () => {
       bqIntegration["getAggregateMetricColumn"](customCountAgg, "noWindow")
     ).toEqual("COUNT(m.timestamp) / (5 + COUNT(m.timestamp))");
     expect(
-      bqIntegration["getAggregateMetricColumn"](customCountAgg, "post")
+      bqIntegration["getAggregateMetricColumn"](customCountAgg, "postDuration")
+    ).toEqual("COUNT(m.timestamp) / (5 + COUNT(m.timestamp))");
+    expect(
+      bqIntegration["getAggregateMetricColumn"](
+        customCountAgg,
+        "postConversion"
+      )
     ).toEqual("COUNT(m.timestamp) / (5 + COUNT(m.timestamp))");
     expect(
       bqIntegration["getAggregateMetricColumn"](customCountAgg, "pre")
@@ -93,9 +118,17 @@ describe("bigquery integration", () => {
       bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "noWindow")
     ).toEqual("SUM(m.value)");
     expect(
-      bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "post")
+      bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "postDuration")
     ).toEqual(
       "SUM((CASE WHEN m.timestamp >= d.conversion_start THEN m.value ELSE NULL END))"
+    );
+    expect(
+      bqIntegration["getAggregateMetricColumn"](
+        normalSqlMetric,
+        "postConversion"
+      )
+    ).toEqual(
+      "SUM((CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN m.value ELSE NULL END))"
     );
     expect(
       bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "pre")
