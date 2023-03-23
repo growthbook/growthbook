@@ -177,7 +177,7 @@ export default function AnalysisSettingsBar({
                 } my-0 pl-2 pr-1 py-1 form-inline`}
               >
                 <GBCuped />
-                <span className="mx-1 font-weight-bold">Use CUPED</span>
+                <span className="mx-1 font-weight-bold">CUPED</span>
                 <Toggle
                   id="toggle-experiment-regression-adjustment"
                   value={regressionAdjustmentEnabled}

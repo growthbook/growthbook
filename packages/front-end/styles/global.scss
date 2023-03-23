@@ -142,28 +142,29 @@ pre {
 }
 .btn-outline-teal {
   @include button-outline-variant(
-    colors.$teal,
+    transparent,
     #fff,
-    lighten(colors.$teal, 15%),
-    lighten(colors.$teal, 15%)
+    lighten(colors.$teal, 20%),
+    lighten(colors.$teal, 20%)
   );
+  color: colors.$teal;
 }
 .btn-outline-teal-off {
   @include button-outline-variant(
     #8fb3a8,
     #fff,
-    lighten(colors.$teal, 15%),
-    lighten(colors.$teal, 15%)
+    lighten(colors.$teal, 20%),
+    lighten(colors.$teal, 20%)
   );
 }
 .btn-outline-teal-disabled {
   @include button-outline-variant(
-    #8fb3a8,
+    transparent,
     #fff,
     lighten(#8fb3a8, 15%),
     lighten(#8fb3a8, 15%)
   );
-  border-color: #d0e1dc;
+  color: #8fb3a8;
   margin-left: 8px;
   cursor: not-allowed !important;
   .toggle-switch.teal + label {
