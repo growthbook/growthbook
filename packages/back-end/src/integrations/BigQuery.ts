@@ -91,10 +91,7 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
 
-  async getInformationSchema(): Promise<{
-    informationSchema: InformationSchema[];
-    refreshMS: number;
-  }> {
+  async getInformationSchema(): Promise<InformationSchema[]> {
     const projectId = this.params.projectId;
 
     if (!projectId)
@@ -115,9 +112,7 @@ export default class BigQuery extends SqlIntegration {
     \`${projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
     GROUP BY table_name, table_schema`;
 
-    const queryStartTime = Date.now();
     const results = await this.runQuery(queryString);
-    const queryEndTime = Date.now();
 
     if (!results.length) {
       throw new Error(
@@ -125,10 +120,7 @@ export default class BigQuery extends SqlIntegration {
       );
     }
 
-    return {
-      informationSchema: formatInformationSchema(results, "bigquery"),
-      refreshMS: queryEndTime - queryStartTime,
-    };
+    return formatInformationSchema(results, "bigquery");
   }
 
   async getTableData(

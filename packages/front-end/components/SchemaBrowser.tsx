@@ -8,6 +8,7 @@ import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import DatasourceTableData from "./DatasourceTableData";
 import { CursorData } from "./Segments/SegmentForm";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
@@ -17,19 +18,21 @@ import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
-  informationSchema: InformationSchemaInterface;
-  mutate: () => void;
   cursorData: CursorData;
   updateSqlInput: (sql: string) => void;
 };
 
 export default function SchemaBrowser({
   datasource,
-  informationSchema,
-  mutate,
   updateSqlInput,
   cursorData,
 }: Props) {
+  const { data, mutate } = useApi<{
+    informationSchema: InformationSchemaInterface;
+  }>(`/datasource/${datasource.id}/schema`);
+
+  const informationSchema = data?.informationSchema;
+
   const { apiCall } = useAuth();
   const [
     currentTable,

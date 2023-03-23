@@ -35,7 +35,6 @@ type DefinitionContextValue = Definitions & {
   getProjectById: (id: string) => null | ProjectInterface;
   getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
-  getInformationSchemaById: (id: string) => null | InformationSchemaInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -65,7 +64,6 @@ const defaultValue: DefinitionContextValue = {
   getProjectById: () => null,
   getSavedGroupById: () => null,
   getTagById: () => null,
-  getInformationSchemaById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -121,7 +119,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
-  const getInformationSchemaById = useGetById(data?.informationSchemas);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -152,7 +149,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getProjectById,
       getSavedGroupById,
       getTagById,
-      getInformationSchemaById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
