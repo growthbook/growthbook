@@ -1,3 +1,5 @@
+import { EventAuditUser } from "./event-types";
+
 /**
  * Supported events for event notifications
  */
@@ -31,4 +33,5 @@ export type NotificationEventPayload<
   event: EventName;
   object: ResourceType;
   data: DataType;
+  user: EventAuditUser;
 };

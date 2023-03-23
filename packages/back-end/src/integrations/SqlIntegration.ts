@@ -32,7 +32,6 @@ import {
   replaceSQLVars,
   format,
   FormatDialect,
-  replaceCountStar,
 } from "../util/sql";
 
 export default abstract class SqlIntegration
@@ -1059,14 +1058,15 @@ export default abstract class SqlIntegration
           }
         FROM
           __distinctUsers d
-          LEFT JOIN __metric m ON (
-            m.${baseIdType} = d.${baseIdType}
-            AND ${this.getMetricWindowWhereClause(
-              isRegressionAdjusted,
-              ignoreConversionEnd,
-              "d"
-            )}
-          )
+        JOIN __metric m ON (
+          m.${baseIdType} = d.${baseIdType}
+        )
+        WHERE
+          ${this.getMetricWindowWhereClause(
+            isRegressionAdjusted,
+            ignoreConversionEnd,
+            "d"
+          )}
         GROUP BY
           d.variation,
           d.dimension,
@@ -1077,8 +1077,13 @@ export default abstract class SqlIntegration
           ? `, __userDenominator as (
               -- Add in the aggregate denominator value for each user
               SELECT
+                d.variation,
+                d.dimension,
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, "post")} as value
+                ${this.getAggregateMetricColumn(
+                  denominator,
+                  "noWindow"
+                )} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1092,29 +1097,81 @@ export default abstract class SqlIntegration
                     : "AND m.timestamp <= d.conversion_end"
                 }
               GROUP BY
+                d.variation,
+                d.dimension,
                 d.${baseIdType}
             )`
           : ""
       }
-      -- One row per variation/dimension with aggregations
+      , __stats AS (
+        -- One row per variation/dimension with aggregations
+        SELECT
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension,
+          COUNT(*) AS count,
+          SUM(COALESCE(m.value, 0)) AS main_sum,
+          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+          ${
+            isRatio
+              ? `,
+            SUM(COALESCE(d.value, 0)) AS denominator_sum,
+            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
+            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+          `
+              : ""
+          }
+          ${
+            isRegressionAdjusted
+              ? `,
+              SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
+              SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
+              SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
+              `
+              : ""
+          }
+        FROM
+        ${
+          isRatio
+            ? `__userDenominator d
+              LEFT JOIN __userMetric m ON (
+                d.${baseIdType} = m.${baseIdType}
+              )`
+            : `__userMetric m`
+        }
+        GROUP BY
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension
+      )
+      , __overallUsers as (
+        -- Number of users in each variation/dimension
+        SELECT
+          variation,
+          dimension,
+          COUNT(*) as users
+        FROM
+          __distinctUsers
+        GROUP BY
+          variation,
+          dimension
+      )
       SELECT
-        m.variation,
-        m.dimension,
-        COUNT(*) AS users,
+        u.variation,
+        u.dimension,
+        ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS users,
         '${this.getStatisticType(
           isRatio,
           isRegressionAdjusted
         )}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        SUM(COALESCE(m.value, 0)) AS main_sum,
-        SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+        COALESCE(s.main_sum, 0) AS main_sum,
+        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
         ${
           isRatio
             ? `,
             '${denominator?.type}' as denominator_metric_type,
-          SUM(COALESCE(d.value, 0)) AS denominator_sum,
-          SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-          SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+            COALESCE(s.denominator_sum, 0) AS denominator_sum,
+            COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
+            COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
         `
             : ""
         }
@@ -1122,24 +1179,19 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
             ? `,
             '${metric.type}' as covariate_metric_type,
-            SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
-            SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
-            SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
+            COALESCE(s.covariate_sum, 0) AS covariate_sum,
+            COALESCE(s.covariate_sum_squares, 0) AS covariate_sum_squares,
+            COALESCE(s.main_covariate_sum_product, 0) AS main_covariate_sum_product
             `
             : ""
         }
       FROM
-        __userMetric m
-        ${
-          isRatio
-            ? `LEFT JOIN __userDenominator d ON (
-              m.${baseIdType} = d.${baseIdType}
-            )`
-            : ""
-        }
-      GROUP BY
-        m.variation,
-        m.dimension
+      __overallusers u
+      LEFT JOIN
+        __stats s ON (
+          u.variation = s.variation
+          AND u.dimension = s.dimension
+        )
     `,
       this.getFormatDialect()
     );
@@ -1488,10 +1540,7 @@ export default abstract class SqlIntegration
       else if (metric.aggregation) {
         // prePostTimeFilter (and regression adjustment) not implemented for
         // custom aggregate metrics
-        return this.capValue(
-          metric.cap,
-          replaceCountStar(metric.aggregation, `m.timestamp`)
-        );
+        return this.capValue(metric.cap, metric.aggregation);
       }
       // Standard aggregation (SUM)
       else {
@@ -1603,7 +1652,6 @@ export default abstract class SqlIntegration
         }
       }
     }
-
     if (settings?.queries?.pageviewsQuery) {
       const timestampColumn = this.castUserDateCol("i.timestamp");
 
