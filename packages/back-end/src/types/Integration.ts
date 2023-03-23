@@ -20,7 +20,7 @@ export class DataSourceNotSupportedError extends Error {
     this.name = "DataSourceNotSupportedError";
   }
 }
-export type MetricAggregationType = "pre" | "post" | "noWindow";
+export type MetricWindowType = "pre" | "postConversion" | "postDuration" | "noWindow";
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;

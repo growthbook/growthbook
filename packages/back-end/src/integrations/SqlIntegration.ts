@@ -17,7 +17,7 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
-  MetricAggregationType,
+  MetricWindowType,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -34,6 +34,7 @@ import {
   FormatDialect,
   replaceCountStar,
 } from "../util/sql";
+import { MetricWindow } from "aws-sdk/clients/iotsitewise";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -745,7 +746,7 @@ export default abstract class SqlIntegration
 
     const ignoreConversionEnd =
       experiment.attributionModel === "experimentDuration";
-
+    const postAggregationType: MetricAggregationType = ignoreConversionEnd ? "postDuration" : "postConversion"
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
@@ -775,7 +776,7 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const aggregate = this.getAggregateMetricColumn(metric, "post");
+    const aggregate = this.getAggregateMetricColumn(metric, postAggregationType);
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
@@ -986,7 +987,7 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, "post")} as value
+                ${this.getAggregateMetricColumn(denominator, postAggregationType)} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1309,15 +1310,22 @@ export default abstract class SqlIntegration
 
   addPrePostTimeFilter(
     col: string,
-    timePeriod: MetricAggregationType
+    metricWindowType: MetricWindowType
   ): string {
     const mcol = `m.timestamp`;
-    if (timePeriod === "pre") {
+    if (metricWindowType === "pre") {
       return `${this.ifElse(`${mcol} < d.preexposure_end`, `${col}`, `NULL`)}`;
     }
-    if (timePeriod === "post") {
+    if (metricWindowType === "postDuration") {
       return `${this.ifElse(
         `${mcol} >= d.conversion_start`,
+        `${col}`,
+        `NULL`
+      )}`;
+    }
+    if (metricWindowType === "postConversion") {
+      return `${this.ifElse(
+        `${mcol} >= d.conversion_start AND ${mcol} <= d.conversion_end`,
         `${col}`,
         `NULL`
       )}`;
@@ -1333,7 +1341,7 @@ export default abstract class SqlIntegration
 
   private getAggregateMetricColumn(
     metric: MetricInterface,
-    metricTimeWindow: MetricAggregationType = "post"
+    metricTimeWindow: MetricWindowType = "postDuration"
   ) {
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
