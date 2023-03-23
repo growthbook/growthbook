@@ -46,7 +46,6 @@ export default function ConfigureReport({
           report.args.exposureQueryId,
           report.args.userIdType
         )?.id || "",
-      removeMultipleExposures: !!report.args.removeMultipleExposures,
       attributionModel: report.args.attributionModel || "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
@@ -100,7 +99,6 @@ export default function ConfigureReport({
         const args = {
           ...value,
           skipPartialData: !!value.skipPartialData,
-          removeMultipleExposures: !!value.removeMultipleExposures,
         };
 
         await apiCall(`/report/${report.id}`, {
@@ -294,27 +292,6 @@ export default function ConfigureReport({
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Users in Multiple Variations"
-          labelClassName="font-weight-bold"
-          value={form.watch("removeMultipleExposures") ? "remove" : "keep"}
-          onChange={(v) => {
-            form.setValue("removeMultipleExposures", v === "remove");
-          }}
-          options={[
-            {
-              label: "Include in both variations",
-              value: "keep",
-            },
-            {
-              label: "Remove from analysis",
-              value: "remove",
-            },
-          ]}
-          helpText="How to treat users who were exposed to more than 1 variation"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
@@ -331,8 +308,8 @@ export default function ConfigureReport({
               value: "firstExposure",
             },
             {
-              label: "All Exposures",
-              value: "allExposures",
+              label: "Experiment Duration",
+              value: "experimentDuration",
             },
           ]}
         />

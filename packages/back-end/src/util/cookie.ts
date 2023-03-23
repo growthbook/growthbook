@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 
-export class Cookie {
+class Cookie {
   private key: string;
   private expires: number;
   constructor(key: string, expires: number) {

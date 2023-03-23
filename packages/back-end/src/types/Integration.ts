@@ -8,6 +8,21 @@ import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
+export class MissingDatasourceParamsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingDatasourceParamsError";
+  }
+}
+
+export class DataSourceNotSupportedError extends Error {
+  constructor() {
+    super("This data source is not supported yet.");
+    this.name = "DataSourceNotSupportedError";
+  }
+}
+export type MetricAggregationType = "pre" | "post" | "noWindow";
+
 export interface ExperimentMetricStats {
   metric_type: MetricType;
   count: number;
@@ -160,6 +175,72 @@ export interface TestQueryResult {
   duration: number;
 }
 
+export interface RawInformationSchema {
+  table_name: string;
+  table_catalog: string;
+  table_schema: string;
+  column_count: string;
+}
+
+export interface Column {
+  columnName: string;
+  path?: string;
+  dataType: string;
+}
+
+export interface Table {
+  tableName: string;
+  path: string;
+  id: string;
+  numOfColumns: number;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface Schema {
+  schemaName: string;
+  tables: Table[];
+  path?: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface InformationSchema {
+  databaseName: string;
+  path?: string;
+  schemas: Schema[];
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface InformationSchemaError {
+  errorType: "generic" | "not_supported" | "missing_params";
+  message: string;
+}
+
+export interface InformationSchemaInterface {
+  id: string;
+  datasourceId: string;
+  databases: InformationSchema[];
+  organization: string;
+  status: "PENDING" | "COMPLETE";
+  error?: InformationSchemaError;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface InformationSchemaTablesInterface {
+  id: string;
+  datasourceId: string;
+  organization: string;
+  tableName: string;
+  tableSchema: string;
+  databaseName: string;
+  columns: Column[];
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
@@ -184,6 +265,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
+  getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

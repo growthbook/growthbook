@@ -80,6 +80,8 @@ export default function Code({
   style['code[class*="language-"]'].fontSize = "0.85rem";
   style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;
+  style['code[class*="language-"]'].whiteSpace = "pre-wrap";
+  style['code[class*="language-"]'].wordBreak = "normal";
 
   const codeBackgrounds = {
     dark: "#212529",
@@ -157,6 +159,8 @@ export default function Code({
         <Prism
           language={language}
           style={style}
+          wrapLines
+          wrapLongLines
           className={clsx("rounded-bottom", className)}
           showLineNumbers={true}
         >
