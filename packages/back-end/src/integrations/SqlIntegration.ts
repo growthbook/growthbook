@@ -986,6 +986,8 @@ export default abstract class SqlIntegration
           ? `, __userDenominator as (
               -- Add in the aggregate denominator value for each user
               SELECT
+                d.variation,
+                d.dimension,
                 d.${baseIdType},
                 ${this.getAggregateMetricColumn(denominator, "post")} as value
               FROM
@@ -1001,6 +1003,8 @@ export default abstract class SqlIntegration
                     : "AND m.timestamp <= d.conversion_end"
                 }
               GROUP BY
+                d.variation,
+                d.dimension,
                 d.${baseIdType}
             )`
           : ""
@@ -1052,15 +1056,15 @@ export default abstract class SqlIntegration
         u.users,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        COALESCE(s.main_sum, 0),
-        COALESCE(s.main_sum_squares, 0),
+        COALESCE(s.main_sum, 0) AS main_sum,
+        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
         ${
           isRatio
             ? `,
             '${denominator?.type}' as denominator_metric_type,
-            COALESCE(s.denominator_sum, 0),
-            COALESCE(s.denominator_sum_squares, 0),
-            COALESCE(s.main_denominator_sum_product, 0)
+            COALESCE(s.denominator_sum, 0) AS denominator_sum,
+            COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
+            COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
         `
             : ""
         }
