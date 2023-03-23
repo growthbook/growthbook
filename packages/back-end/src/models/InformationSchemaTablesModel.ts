@@ -73,7 +73,8 @@ export async function createInformationSchemaTable(
   columns: Column[],
   refreshMS: number,
   datasourceId: string,
-  informationSchemaId: string
+  informationSchemaId: string,
+  tableId: string
 ): Promise<InformationSchemaTablesInterface> {
   //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
@@ -81,7 +82,7 @@ export async function createInformationSchemaTable(
   }
 
   const result = await InformationSchemaTablesModel.create({
-    id: uniqid("tbl_"),
+    id: tableId,
     organization,
     tableName,
     tableSchema: schemaName,

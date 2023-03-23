@@ -84,10 +84,9 @@ export async function getTableData(
 
   // Otherwise, the table doesn't exist yet, so we need to create it.
   const { tableData, refreshMS } = await fetchTableData(
-    databaseName,
-    schemaName,
-    tableName,
-    datasource
+    datasource,
+    informationSchema,
+    tableId
   );
 
   if (!tableData || !refreshMS) {
@@ -121,35 +120,10 @@ export async function getTableData(
     columns,
     refreshMS,
     datasource.id,
-    id
+    id,
+    tableId
   );
 
-  const databaseIndex = informationSchema.databases.findIndex(
-    (database) => database.databaseName === databaseName
-  );
-
-  // Update the nested table in the informationSchema document to reference the newly created table.id
-  // and update the dateUpdated fields on that table and on the main informationSchema document.
-  //TODO: Optimize with Maps?
-  const schemaIndex = informationSchema.databases[
-    databaseIndex
-  ].schemas.findIndex((schema) => schema.schemaName === schemaName);
-
-  const tableIndex = informationSchema.databases[databaseIndex].schemas[
-    schemaIndex
-  ].tables.findIndex((table) => table.tableName === tableName);
-
-  informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
-    tableIndex
-  ].id = newTable.id;
-
-  informationSchema.databases[databaseIndex].schemas[schemaIndex].tables[
-    tableIndex
-  ].dateUpdated = new Date();
-
-  await updateInformationSchemaById(org.id, informationSchema.id, {
-    databases: informationSchema.databases,
-  });
   res.status(200).json({ status: 200, table: newTable });
 }
 

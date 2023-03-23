@@ -130,16 +130,30 @@ export async function mergeStaleInformationSchemaWithUpdate(
 }
 
 export async function fetchTableData(
-  databaseName: string,
-  tableSchema: string,
-  tableName: string,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
+  informationSchema: InformationSchemaInterface,
+  tableId: string
 ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
   const integration = getSourceIntegrationObject(datasource);
 
   if (!integration.getTableData) {
     throw new Error("Table data not supported for this data source");
   }
+
+  let databaseName = "";
+  let tableSchema = "";
+  let tableName = "";
+  informationSchema.databases.forEach((database) => {
+    database.schemas.forEach((schema) => {
+      schema.tables.forEach((table) => {
+        if (table.id === tableId) {
+          databaseName = database.databaseName;
+          tableSchema = schema.schemaName;
+          tableName = table.tableName;
+        }
+      });
+    });
+  });
 
   const { tableData, refreshMS } = await integration.getTableData(
     databaseName,
