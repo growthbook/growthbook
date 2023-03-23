@@ -1981,38 +1981,51 @@ export interface operations {
   };
   postMetric: {
     /** Create a single metric */
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
     requestBody: {
       content: {
         "application/json": {
+          /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
+          /** @description Name of the metric */
           name: string;
-          description: string;
-          type: string;
-          tags: (string)[];
-          projects: (string)[];
-          archived: boolean;
-          behavior: {
+          /** @description Description of the metric */
+          description?: string;
+          /** @description Name of the person who owns this metric */
+          owner?: string;
+          /**
+           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @enum {string}
+           */
+          type: "binomial" | "count" | "duration" | "revenue";
+          /** @description List of tags */
+          tags?: (string)[];
+          /** @description List of project IDs for projects that can access this metric */
+          projects?: (string)[];
+          behavior?: {
             /** @enum {string} */
             goal: "increase" | "decrease";
+            /** @description This should be non-negative */
             cap: number;
+            /** @description The [Conversion Delay](/app/metrics#conversion-delay) in hours */
             conversionWindowStart: number;
+            /** @description The [Conversion Window](/app/metrics#conversion-window), in hours */
             conversionWindowEnd: number;
             riskThresholdSuccess: number;
             riskThresholdDanger: number;
+            /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             minPercentChange: number;
+            /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange: number;
             minSampleSize: number;
           };
           sql?: {
+            /** @description The [Identifier Types](/app/datasources#identifier-types) in your Data Source that are available for this metric */
             identifierTypes: (string)[];
+            /** @description The main SQL to retrieve your metric */
             conversionSQL: string;
+            /** @description Custom user level aggregation for your metric (default: SUM(value)) */
             userAggregationSQL: string;
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
             denominatorMetricId: string;
             builder?: {
               identifierTypeColumns: ({

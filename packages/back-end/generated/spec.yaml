@@ -641,8 +641,7 @@ paths:
                           $ref: '#/components/schemas/Metric'
                   - $ref: '#/components/schemas/PaginationFields'
     post:
-      parameters:
-        - $ref: '#/components/parameters/id'
+      parameters: []
       tags:
         - metrics
       summary: Create a single metric
@@ -662,32 +661,38 @@ paths:
               required:
                 - datasourceId
                 - name
-                - description
                 - type
-                - tags
-                - projects
-                - archived
-                - behavior
-                - query
               properties:
                 datasourceId:
                   type: string
+                  description: 'ID for the [DataSource](#tag/DataSource_model)'
                 name:
                   type: string
+                  description: Name of the metric
                 description:
                   type: string
+                  description: Description of the metric
+                owner:
+                  type: string
+                  description: Name of the person who owns this metric
                 type:
                   type: string
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  enum:
+                    - binomial
+                    - count
+                    - duration
+                    - revenue
                 tags:
                   type: array
+                  description: List of tags
                   items:
                     type: string
                 projects:
                   type: array
+                  description: List of project IDs for projects that can access this metric
                   items:
                     type: string
-                archived:
-                  type: boolean
                 behavior:
                   type: object
                   required:
@@ -708,18 +713,23 @@ paths:
                         - decrease
                     cap:
                       type: number
+                      description: This should be non-negative
                     conversionWindowStart:
                       type: number
+                      description: 'The [Conversion Delay](/app/metrics#conversion-delay) in hours'
                     conversionWindowEnd:
                       type: number
+                      description: 'The [Conversion Window](/app/metrics#conversion-window), in hours'
                     riskThresholdSuccess:
                       type: number
                     riskThresholdDanger:
                       type: number
                     minPercentChange:
                       type: number
+                      description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
                     maxPercentChange:
                       type: number
+                      description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
                     minSampleSize:
                       type: number
                 sql:
@@ -732,14 +742,18 @@ paths:
                   properties:
                     identifierTypes:
                       type: array
+                      description: 'The [Identifier Types](/app/datasources#identifier-types) in your Data Source that are available for this metric'
                       items:
                         type: string
                     conversionSQL:
                       type: string
+                      description: The main SQL to retrieve your metric
                     userAggregationSQL:
                       type: string
+                      description: 'Custom user level aggregation for your metric (default: SUM(value))'
                     denominatorMetricId:
                       type: string
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
                     builder:
                       type: object
                       required:
