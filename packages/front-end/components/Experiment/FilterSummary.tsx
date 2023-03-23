@@ -133,26 +133,14 @@ const FilterSummary: FC<{
           <div className="row mb-3">
             <div className="col-5">
               <strong className="text-gray">
-                Users in Multiple Variations:
-              </strong>
-            </div>
-            <div className="col">
-              {experiment.removeMultipleExposures
-                ? "Removed from analysis"
-                : "Included in analysis"}
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-5">
-              <strong className="text-gray">
                 <AttributionModelTooltip>
                   Attribution Model <FaQuestionCircle />
                 </AttributionModelTooltip>
               </strong>
             </div>
             <div className="col">
-              {experiment.attributionModel === "allExposures"
-                ? "All Exposures"
+              {experiment.attributionModel === "experimentDuration"
+                ? "Experiment Duration"
                 : "First Exposure"}
             </div>
           </div>

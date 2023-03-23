@@ -259,6 +259,7 @@ def validate(test_case):
             "L029",
             "L030",
             "L031",
+            "L035",  # allow NULL in case when
             "L034",
             "L051",  # allows JOIN instead of INNER JOIN
             "L063",
