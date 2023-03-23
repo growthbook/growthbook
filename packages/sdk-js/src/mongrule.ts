@@ -71,6 +71,11 @@ function evalConditionValue(condition: ConditionValue, value: any) {
   if (typeof condition === "boolean") {
     return !!value === condition;
   }
+
+  if(condition === null) {
+    return value === null || value === undefined;
+  }
+
   if (Array.isArray(condition) || !isOperatorObject(condition)) {
     return JSON.stringify(value) === JSON.stringify(condition);
   }
