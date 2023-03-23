@@ -27,7 +27,6 @@ const SegmentForm: FC<{
     datasources,
     getDatasourceById,
     mutateDefinitions,
-    getInformationSchemaById,
   } = useDefinitions();
   const filteredDatasources = datasources.filter((d) => d.properties?.segments);
   const form = useForm({
@@ -49,10 +48,6 @@ const SegmentForm: FC<{
 
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSchemaBrowser = datasource.properties.supportsInformationSchema;
-
-  const informationSchema = getInformationSchemaById(
-    datasource.settings.informationSchemaId
-  );
 
   const dsProps = datasource?.properties;
   const sql = dsProps?.queryLanguage === "sql";
@@ -138,8 +133,6 @@ const SegmentForm: FC<{
               <SchemaBrowser
                 updateSqlInput={updateSqlInput}
                 datasource={datasource}
-                informationSchema={informationSchema}
-                mutate={mutateDefinitions}
                 cursorData={cursorData}
               />
             </div>

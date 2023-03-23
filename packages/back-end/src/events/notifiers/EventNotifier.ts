@@ -3,7 +3,7 @@ import { getAgendaInstance } from "../../services/queueing";
 import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
 import { slackEventHandler } from "../handlers/slack/slackEventHandler";
 import { EventInterface } from "../../../types/event";
-import { NotificationEvent } from "../base-events";
+import { NotificationEvent } from "../notification-events";
 import { getEvent } from "../../models/EventModel";
 
 let jobDefined = false;

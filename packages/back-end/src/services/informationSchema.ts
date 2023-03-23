@@ -182,7 +182,14 @@ export async function generateInformationSchema(
     throw new Error("Information schema not supported for this data source");
   }
 
-  return await integration.getInformationSchema();
+  const queryStartTime = Date.now();
+  const informationSchema = await integration.getInformationSchema();
+  const queryEndTime = Date.now();
+
+  return {
+    informationSchema,
+    refreshMS: queryEndTime - queryStartTime,
+  };
 }
 
 export async function initializeDatasourceInformationSchema(

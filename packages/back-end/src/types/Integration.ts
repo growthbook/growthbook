@@ -270,10 +270,7 @@ export interface SourceIntegrationInterface {
     tableSchema: string,
     tableName: string
   ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
-  getInformationSchema?(): Promise<{
-    informationSchema: InformationSchema[];
-    refreshMS: number;
-  }>;
+  getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

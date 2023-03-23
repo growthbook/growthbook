@@ -147,8 +147,6 @@ const MetricForm: FC<MetricFormProps> = ({
     metrics,
     projects,
     project,
-    getInformationSchemaById,
-    mutateDefinitions,
   } = useDefinitions();
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -289,10 +287,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const supportsSchemaBrowser =
     selectedDataSource.properties.supportsInformationSchema;
-
-  const informationSchema = getInformationSchemaById(
-    selectedDataSource.settings.informationSchemaId
-  );
 
   const datasourceType = selectedDataSource?.type;
 
@@ -811,8 +805,6 @@ const MetricForm: FC<MetricFormProps> = ({
                         <SchemaBrowser
                           updateSqlInput={updateSqlInput}
                           datasource={selectedDataSource}
-                          informationSchema={informationSchema}
-                          mutate={mutateDefinitions}
                           cursorData={cursorData}
                         />
                       </div>
@@ -848,11 +840,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         Schema Browser
                       </label>
                       <div className="p-1">
-                        <SchemaBrowser
-                          datasource={selectedDataSource}
-                          informationSchema={informationSchema}
-                          mutate={mutateDefinitions}
-                        />
+                        <SchemaBrowser datasource={selectedDataSource} />
                       </div>
                     </>
                   )}

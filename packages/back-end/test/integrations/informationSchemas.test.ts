@@ -84,11 +84,9 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
-    const date = new Date();
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "bigquery",
-      date
+      "bigquery"
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
@@ -106,72 +104,6 @@ describe("formatInformationSchema", () => {
     expect(formattedResults[0].schemas[0].tables[0].tableName).toEqual(
       "experiment-assignments"
     );
-    //   {
-    //     databaseName: "adept-arbor-354914",
-    //     dateCreated: date,
-    //     dateUpdated: date,
-    //     path: "`adept-arbor-354914`",
-    //     schemas: [
-    //       {
-    //         dateCreated: date,
-    //         dateUpdated: date,
-    //         path: "`adept-arbor-354914.a_second_data_set`",
-    //         schemaName: "a_second_data_set",
-    //         tables: [
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path:
-    //               "`adept-arbor-354914.a_second_data_set.experiment-assignments`",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "experiment-assignments",
-    //           },
-    //         ],
-    //       },
-    //       {
-    //         dateCreated: date,
-    //         dateUpdated: date,
-    //         path: "`adept-arbor-354914.sample_data_set`",
-    //         schemaName: "sample_data_set",
-    //         tables: [
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "`adept-arbor-354914.sample_data_set.orders`",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "orders",
-    //           },
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "`adept-arbor-354914.sample_data_set.page-visitors`",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "page-visitors",
-    //           },
-    //         ],
-    //       },
-    //       {
-    //         dateCreated: date,
-    //         dateUpdated: date,
-    //         path: "`adept-arbor-354914.sample_data`",
-    //         schemaName: "sample_data",
-    //         tables: [
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "`adept-arbor-354914.sample_data.sample_table`",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "sample_table",
-    //           },
-    //         ],
-    //       },
-    //     ],
-    //   },
-    // ]);
   });
 
   it("Correctly formats a rawInformationSchema for Postgres correctly", () => {
@@ -249,11 +181,9 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
-    const date = new Date("2023-03-21T10:40:16.043Z");
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "postgres",
-      date
+      "postgres"
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
@@ -348,77 +278,10 @@ describe("formatInformationSchema", () => {
         column_count: "3",
       },
     ];
-    const date = new Date("2023-03-21T10:40:16.043Z");
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "mysql",
-      date
+      "mysql"
     );
-    //   {
-    //     dateCreated: date,
-    //     dateUpdated: date,
-    //     databaseName: "adept-arbor-354914",
-    //     path: "",
-    //     schemas: [
-    //       {
-    //         dateCreated: date,
-    //         dateUpdated: date,
-    //         path: "a_second_data_set",
-    //         schemaName: "a_second_data_set",
-    //         tables: [
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "a_second_data_set.experiment-assignments",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "experiment-assignments",
-    //           },
-    //         ],
-    //       },
-    //       {
-    //         dateCreated: date,
-    //         dateUpdated: date,
-    //         path: "sample_data_set",
-    //         schemaName: "sample_data_set",
-    //         tables: [
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "sample_data_set.orders",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "orders",
-    //           },
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "sample_data_set.page-visitors",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "page-visitors",
-    //           },
-    //         ],
-    //       },
-    //       {
-    //         dateCreated: date,
-    //         dateUpdated: date,
-    //         path: "sample_data",
-    //         schemaName: "sample_data",
-    //         tables: [
-    //           {
-    //             dateCreated: date,
-    //             dateUpdated: date,
-    //             path: "sample_data.sample_table",
-    //             id: "",
-    //             numOfColumns: 3,
-    //             tableName: "sample_table",
-    //           },
-    //         ],
-    //       },
-    //     ],
-    //   },
-    // ]);
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
     expect(formattedResults[0].path).toEqual("");

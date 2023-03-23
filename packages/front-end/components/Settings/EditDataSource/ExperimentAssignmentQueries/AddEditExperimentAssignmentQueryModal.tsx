@@ -8,7 +8,6 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import SchemaBrowser from "@/components/SchemaBrowser";
 import { CursorData } from "@/components/Segments/SegmentForm";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import SQLInputField from "../../../SQLInputField";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
@@ -29,7 +28,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const { mutateDefinitions, getInformationSchemaById } = useDefinitions();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const updateSqlInput = (sql: string) => {
     form.setValue("query", sql);
@@ -46,10 +44,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     })
   );
   const supportsSchemaBrowser = dataSource.properties.supportsInformationSchema;
-
-  const informationSchema = getInformationSchemaById(
-    dataSource.settings.informationSchemaId
-  );
 
   const defaultUserId = userIdTypeOptions[0]?.value || "user_id";
 
@@ -166,8 +160,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   <SchemaBrowser
                     updateSqlInput={updateSqlInput}
                     datasource={dataSource}
-                    informationSchema={informationSchema}
-                    mutate={mutateDefinitions}
                     cursorData={cursorData}
                   />
                 </div>

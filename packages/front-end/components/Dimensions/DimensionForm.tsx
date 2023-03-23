@@ -22,7 +22,6 @@ const DimensionForm: FC<{
     getDatasourceById,
     datasources,
     mutateDefinitions,
-    getInformationSchemaById,
   } = useDefinitions();
 
   const form = useForm({
@@ -46,9 +45,6 @@ const DimensionForm: FC<{
   const dsObj = getDatasourceById(datasource);
   const supportsSchemaBrowser = dsObj.properties.supportsInformationSchema;
 
-  const informationSchema = getInformationSchemaById(
-    dsObj.settings.informationSchemaId
-  );
   const dsProps = dsObj?.properties;
   const sql = dsProps?.queryLanguage === "sql";
 
@@ -136,8 +132,6 @@ const DimensionForm: FC<{
               <SchemaBrowser
                 updateSqlInput={updateSqlInput}
                 datasource={dsObj}
-                informationSchema={informationSchema}
-                mutate={mutateDefinitions}
                 cursorData={cursorData}
               />
             </div>

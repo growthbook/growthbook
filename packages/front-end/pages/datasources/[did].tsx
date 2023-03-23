@@ -42,17 +42,12 @@ const DataSourcePage: FC = () => {
 
   const {
     getDatasourceById,
-    getInformationSchemaById,
     mutateDefinitions,
     ready,
     error,
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
-
-  const informationSchema = getInformationSchemaById(
-    d.settings.informationSchemaId
-  );
 
   const { apiCall } = useAuth();
 
@@ -336,11 +331,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               Explore the schemas, tables, and table metadata of your connected
               datasource.
             </p>
-            <SchemaBrowser
-              datasource={d}
-              informationSchema={informationSchema}
-              mutate={mutateDefinitions}
-            />
+            <SchemaBrowser datasource={d} />
           </>
         </Modal>
       )}

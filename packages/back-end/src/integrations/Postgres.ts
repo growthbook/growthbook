@@ -42,10 +42,7 @@ export default class Postgres extends SqlIntegration {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
 
-  async getInformationSchema(): Promise<{
-    informationSchema: InformationSchema[];
-    refreshMS: number;
-  }> {
+  async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `SELECT
         table_name,
         table_catalog,
@@ -58,22 +55,16 @@ export default class Postgres extends SqlIntegration {
       NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
       GROUP BY (table_name, table_schema, table_catalog)`;
 
-    const queryStartTime = Date.now();
     const results = await this.runQuery(sql);
-    const queryEndTime = Date.now();
 
     if (!results.length) {
       throw new Error(`No tables found.`);
     }
 
-    return {
-      informationSchema: formatInformationSchema(
-        results as RawInformationSchema[],
-        "postgres",
-        new Date()
-      ),
-      refreshMS: queryEndTime - queryStartTime,
-    };
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      "postgres"
+    );
   }
 
   async getTableData(
