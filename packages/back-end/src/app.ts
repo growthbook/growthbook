@@ -474,10 +474,6 @@ app.put(
   informationSchemasController.putInformationSchema
 );
 app.get(
-  "/datasource/:datasourceId/schema/status",
-  informationSchemasController.getInformationSchemaStatus
-);
-app.get(
   "/datasource/:datasourceId/schema",
   informationSchemasController.getInformationSchema
 );
