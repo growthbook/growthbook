@@ -967,6 +967,7 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
+          COUNT(*) as count,
           ${aggregate} as value
         FROM
           __distinctUsers d
@@ -989,6 +990,7 @@ export default abstract class SqlIntegration
                 d.variation,
                 d.dimension,
                 d.${baseIdType},
+                COUNT(*) as count,
                 ${this.getAggregateMetricColumn(denominator, "post")} as value
               FROM
                 __distinctUsers d
@@ -1014,6 +1016,7 @@ export default abstract class SqlIntegration
         SELECT
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
+          ${isRatio ? `d` : `m`}.count AS count,
           SUM(COALESCE(m.value, 0)) AS main_sum,
           SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
           ${
@@ -1053,7 +1056,7 @@ export default abstract class SqlIntegration
       SELECT
         u.variation,
         u.dimension,
-        u.users,
+        ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS users,
         '${isRatio ? `ratio` : `mean`}' as statistic_type,
         '${metric.type}' as main_metric_type,
         COALESCE(s.main_sum, 0) AS main_sum,
@@ -1499,7 +1502,6 @@ export default abstract class SqlIntegration
         }
       }
     }
-
     if (settings?.queries?.pageviewsQuery) {
       const timestampColumn = this.castUserDateCol("i.timestamp");
 
