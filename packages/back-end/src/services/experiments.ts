@@ -813,6 +813,10 @@ export function toSnapshotApiInterface(
   };
 }
 
+export function fromMetricApiInterface(apiMetric: ApiMetric): MetricInterface {
+  // todo:
+}
+
 export function toMetricApiInterface(
   organization: OrganizationInterface,
   metric: MetricInterface,
