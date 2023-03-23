@@ -61,15 +61,15 @@ export default function (ag: Agenda) {
       }
 
       try {
-        const { tableData, refreshMS } = await fetchTableData(
+        const { tableData } = await fetchTableData(
           datasource,
           informationSchema,
           informationSchemaTableId
         );
 
-        if (!tableData || !refreshMS) {
+        if (!tableData) {
           logger.error(
-            "Unable to fetch table data or refreshMS in order to refresh stale data: " +
+            "Unable to fetch table data in order to refresh stale data: " +
               informationSchemaTableId
           );
           return;

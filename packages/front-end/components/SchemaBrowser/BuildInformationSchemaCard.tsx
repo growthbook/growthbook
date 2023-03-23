@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
-import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import { useAuth } from "@/services/auth";
-import LoadingSpinner from "./LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner";
 
-export default function RetryInformationSchemaCard({
+export default function BuildInformationSchemaCard({
   datasourceId,
   mutate,
-  informationSchema,
 }: {
   datasourceId: string;
   mutate: () => void;
-  informationSchema: InformationSchemaInterface;
 }) {
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<null | string>(null);
   const { apiCall } = useAuth();
-  const [fetching, setFetching] = useState(false);
   const [retryCount, setRetryCount] = useState(1);
 
   async function onClick() {
@@ -24,13 +21,11 @@ export default function RetryInformationSchemaCard({
         status: number;
         message?: string;
       }>(`/datasource/${datasourceId}/schema`, {
-        method: "PUT",
-        body: JSON.stringify({
-          informationSchemaId: informationSchema.id,
-        }),
+        method: "POST",
       });
       setFetching(true);
     } catch (e) {
+      setFetching(false);
       setError(e.message);
     }
   }
@@ -57,7 +52,7 @@ export default function RetryInformationSchemaCard({
 
   return (
     <div>
-      <div className="alert alert-warning d-flex align-items-center">
+      <div className="alert alert-info">
         <div>
           {fetching ? (
             <span>
@@ -65,15 +60,19 @@ export default function RetryInformationSchemaCard({
               This may take a minute, depending on the size of the datasource.
             </span>
           ) : (
-            <span>{informationSchema.error.message}</span>
+            <span>
+              Need help building your query? Click the button below to get
+              insight into what tables and columns are available in the
+              datasource.
+            </span>
           )}
         </div>
         <button
           disabled={fetching}
-          className="btn btn-link"
+          className="mt-2 btn btn-primary"
           onClick={async () => onClick()}
         >
-          {fetching && <LoadingSpinner />} Retry
+          {fetching && <LoadingSpinner />} Generate Information Schema
         </button>
       </div>
       {error && <div className="alert alert-danger">{error}</div>}

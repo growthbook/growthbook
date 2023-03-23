@@ -6,7 +6,6 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -18,7 +17,6 @@ type Definitions = {
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
-  informationSchemas: InformationSchemaInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -53,7 +51,6 @@ const defaultValue: DefinitionContextValue = {
   datasources: [],
   dimensions: [],
   segments: [],
-  informationSchemas: [],
   tags: [],
   savedGroups: [],
   projects: [],
@@ -140,7 +137,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       savedGroups: data.savedGroups,
       projects: data.projects,
       project: filteredProject,
-      informationSchemas: data.informationSchemas,
       setProject,
       getMetricById,
       getDatasourceById,

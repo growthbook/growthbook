@@ -118,7 +118,7 @@ export async function getTableData(
     tableName,
   } = await fetchTableData(datasource, informationSchema, tableId);
 
-  if (!tableData || !refreshMS) {
+  if (!tableData) {
     res
       .status(400)
       .json({ status: 400, message: "Unable to retrieve table data." });

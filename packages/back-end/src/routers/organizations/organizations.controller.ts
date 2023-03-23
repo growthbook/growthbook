@@ -93,7 +93,6 @@ import {
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { getInformationSchemasByOrganization } from "../../models/InformationSchemaModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -110,7 +109,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     projects,
-    informationSchemas,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
@@ -119,7 +117,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
-    getInformationSchemasByOrganization(orgId),
   ]);
 
   return res.status(200).json({
@@ -146,7 +143,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     projects,
-    informationSchemas,
   });
 }
 

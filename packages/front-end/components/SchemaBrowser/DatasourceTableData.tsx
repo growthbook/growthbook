@@ -1,7 +1,7 @@
 import { InformationSchemaTablesInterface } from "@/../back-end/src/types/Integration";
 import React from "react";
 import { FaTable } from "react-icons/fa";
-import LoadingSpinner from "./LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner";
 
 type Props = {
   table?: InformationSchemaTablesInterface;
