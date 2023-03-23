@@ -23,6 +23,7 @@ import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 
 const CompactResults: FC<{
+  editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
@@ -40,6 +41,7 @@ const CompactResults: FC<{
   results,
   variations,
   multipleExposures,
+  editMetrics,
   reportDate,
   startDate,
   status,
@@ -102,7 +104,22 @@ const CompactResults: FC<{
           users={users}
           multipleExposures={multipleExposures}
         />
-        <h3 className="mb-3">Metrics</h3>
+        <h3 className="mb-3">
+          Metrics
+          {editMetrics && (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                editMetrics();
+              }}
+              className="ml-2"
+              style={{ fontSize: "0.8rem" }}
+            >
+              Adjust Metrics
+            </a>
+          )}
+        </h3>
       </div>
       <div className="mb-1 experiment-compact-holder">
         <ResultsTable

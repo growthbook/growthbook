@@ -236,6 +236,7 @@ const Results: FC<{
             </div>
           )}
           <CompactResults
+            editMetrics={editMetrics}
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
