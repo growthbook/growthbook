@@ -1,3 +1,4 @@
+import { EventAuditUser } from "../src/events/event-types";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
@@ -45,6 +46,7 @@ export interface ErrorResponse {
 export interface ApiRequestLocals {
   apiKey: string;
   organization: OrganizationInterface;
+  eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 }
 
