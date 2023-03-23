@@ -1,8 +1,8 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
-import SqlIntegration from "./SqlIntegration";
 import { MetricAggregationType } from "../types/Integration";
+import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -81,13 +81,14 @@ export default class ClickHouse extends SqlIntegration {
   castToString(col: string): string {
     return `toString(${col})`;
   }
-  addPrePostTimeFilter(
-    col: string,
-    timePeriod: MetricAggregationType
-  ): string {
+  addPrePostTimeFilter(col: string, timePeriod: MetricAggregationType): string {
     const mcol = `m.timestamp`;
     if (timePeriod === "pre") {
-      return `${this.ifElse(`${mcol} < d.preexposure_end AND ${mcol} > d.preexposure_start`, `${col}`, `NULL`)}`;
+      return `${this.ifElse(
+        `${mcol} < d.preexposure_end AND ${mcol} > d.preexposure_start`,
+        `${col}`,
+        `NULL`
+      )}`;
     }
     if (timePeriod === "post") {
       return `${this.ifElse(
@@ -98,10 +99,12 @@ export default class ClickHouse extends SqlIntegration {
     }
     return `${col}`;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userMetricJoin(ignoreConversionEnd: boolean): string {
     // Clickhouse does not support anything other than equality in join condition
     // so we do not join on date and instead use the custom time filter above in
     // addPrePostTimeFilter
-    return '';
+    return "";
   }
 }
