@@ -774,7 +774,7 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const aggregate = this.getAggregateMetricColumn(metric, "post");
+    const aggregate = this.getAggregateMetricColumn(metric, "noWindow");
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
@@ -989,7 +989,10 @@ export default abstract class SqlIntegration
                 d.variation,
                 d.dimension,
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, "post")} as value
+                ${this.getAggregateMetricColumn(
+                  denominator,
+                  "noWindow"
+                )} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
