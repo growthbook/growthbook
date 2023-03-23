@@ -107,7 +107,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
               correspondingSchemaIndex
             ].tables[correspondingTableIndex].numOfColumns
           ) {
-            // If the number of columns hasn't changed, then we shoul set the dateUpdated to the stale date.
+            // If the number of columns hasn't changed, then we should set the dateUpdated to the stale date.
             table.dateUpdated =
               staleInformationSchema[correspondingIndex].schemas[
                 correspondingSchemaIndex

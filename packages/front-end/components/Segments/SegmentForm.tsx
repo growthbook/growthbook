@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SchemaBrowser from "../SchemaBrowser";
+import SchemaBrowser from "../SchemaBrowser/SchemaBrowser";
 
 export type CursorData = {
   row: number;

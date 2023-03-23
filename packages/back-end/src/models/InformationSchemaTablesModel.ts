@@ -84,24 +84,6 @@ export async function createInformationSchemaTable(
   return toInterface(result);
 }
 
-export async function getInformationSchemaTableDataByPath(
-  organization: string,
-  databaseName: string,
-  schemaName: string,
-  tableName: string,
-  informationSchemaId: string
-): Promise<InformationSchemaTablesInterface | null> {
-  const table = await InformationSchemaTablesModel.findOne({
-    organization,
-    databaseName: databaseName,
-    tableSchema: schemaName,
-    tableName: tableName,
-    informationSchemaId,
-  });
-
-  return table ? toInterface(table) : null;
-}
-
 export async function getInformationSchemaTableById(
   organization: string,
   id: string

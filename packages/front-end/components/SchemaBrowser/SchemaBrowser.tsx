@@ -9,12 +9,12 @@ import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import DatasourceTableData from "./DatasourceTableData";
-import { CursorData } from "./Segments/SegmentForm";
+import { CursorData } from "../Segments/SegmentForm";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
-import BuildInformationSchemaCard from "./BuildInformationSchemaCard";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
+import BuildInformationSchemaCard from "./BuildInformationSchemaCard";
+import DatasourceTableData from "./DatasourceTableData";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
