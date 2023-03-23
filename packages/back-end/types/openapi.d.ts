@@ -2006,7 +2006,7 @@ export interface operations {
             goal: "increase" | "decrease";
             /** @description This should be non-negative */
             cap: number;
-            /** @description The [Conversion Delay](/app/metrics#conversion-delay) in hours */
+            /** @description The [Conversion Delay](/app/metrics#conversion-delay), in hours */
             conversionWindowStart: number;
             /** @description The [Conversion Window](/app/metrics#conversion-window), in hours */
             conversionWindowEnd: number;

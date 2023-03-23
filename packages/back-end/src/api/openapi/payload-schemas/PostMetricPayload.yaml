@@ -57,7 +57,7 @@ properties:
         description: This should be non-negative
       conversionWindowStart:
         type: number
-        description: The [Conversion Delay](/app/metrics#conversion-delay) in hours
+        description: The [Conversion Delay](/app/metrics#conversion-delay), in hours
       conversionWindowEnd:
         type: number
         description: The [Conversion Window](/app/metrics#conversion-window), in hours
