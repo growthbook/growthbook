@@ -56,9 +56,6 @@ const AnalysisForm: FC<{
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
-      removeMultipleExposures: experiment.removeMultipleExposures
-        ? "remove"
-        : "keep",
       attributionModel: experiment.attributionModel || "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
@@ -101,13 +98,7 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const {
-          dateStarted,
-          dateEnded,
-          skipPartialData,
-          removeMultipleExposures,
-          ...values
-        } = value;
+        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -118,7 +109,6 @@ const AnalysisForm: FC<{
           currentPhase: phase,
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
-          removeMultipleExposures: removeMultipleExposures === "remove",
         };
 
         // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
@@ -302,25 +292,6 @@ const AnalysisForm: FC<{
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Users in Multiple Variations"
-          labelClassName="font-weight-bold"
-          value={form.watch("removeMultipleExposures")}
-          onChange={(value) => form.setValue("removeMultipleExposures", value)}
-          options={[
-            {
-              label: "Include in both variations",
-              value: "keep",
-            },
-            {
-              label: "Remove from analysis",
-              value: "remove",
-            },
-          ]}
-          helpText="How to treat users who were exposed to more than 1 variation"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
@@ -337,8 +308,8 @@ const AnalysisForm: FC<{
               value: "firstExposure",
             },
             {
-              label: "All Exposures",
-              value: "allExposures",
+              label: "Experiment Duration",
+              value: "experimentDuration",
             },
           ]}
         />
