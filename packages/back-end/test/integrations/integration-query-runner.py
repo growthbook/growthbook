@@ -302,11 +302,6 @@ def main():
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
 
-        if engine != 'postgres':
-            continue
-        if test_case['name'] == 'postgres > base > nonbinom__purchased_items' or test_case['name'] == 'postgres > base > ratio_nonbinom_nonbinom__purchased_value_over_purchased_items':
-            print(test_case['name'])
-            print_sql(test_case['sql'])
         key = engine + "::" + test_case["sql"]
         if key in cache:
             update_fields = ['engine', 'name']
