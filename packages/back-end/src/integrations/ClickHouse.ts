@@ -1,8 +1,8 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
-import { MetricAggregationType } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
+import { MetricAggregationType } from "../types/Integration";
 
 export default class ClickHouse extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -81,30 +81,19 @@ export default class ClickHouse extends SqlIntegration {
   castToString(col: string): string {
     return `toString(${col})`;
   }
-  addPrePostTimeFilter(col: string, timePeriod: MetricAggregationType): string {
-    const mcol = `m.timestamp`;
-    if (timePeriod === "pre") {
-      return `${this.ifElse(
-        `${mcol} < d.preexposure_end AND ${mcol} > d.preexposure_start`,
-        `${col}`,
-        `NULL`
-      )}`;
-    }
-    if (timePeriod === "post") {
-      return `${this.ifElse(
-        `${mcol} BETWEEN d.conversion_start AND d.conversion_end`,
-        `${col}`,
-        `NULL`
-      )}`;
-    }
-    return `${col}`;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userMetricJoin(ignoreConversionEnd: boolean): string {
     // Clickhouse does not support anything other than equality in join condition
-    // so we do not join on date and instead use the custom time filter above in
-    // addPrePostTimeFilter
-    return "";
+    // so we have to do additional filtering here
+    return '';
+  }
+  userMetricWhere(baseIdType: string, ignoreConversionEnd: boolean): string {
+    // keep rows in window or where no matching metric was found
+    return `WHERE
+      m.${baseIdType} IS NULL
+      OR (
+        m.timestamp >= d.conversion_start
+        ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
+      )`;
+    ``
   }
 }

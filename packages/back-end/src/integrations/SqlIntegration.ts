@@ -974,7 +974,8 @@ export default abstract class SqlIntegration
         LEFT JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
           ${this.userMetricJoin(ignoreConversionEnd)}
-        )    
+        )
+        ${this.userMetricWhere(baseIdType)}
         GROUP BY
           d.variation,
           d.dimension,
@@ -1329,6 +1330,10 @@ export default abstract class SqlIntegration
     return `AND m.timestamp >= d.conversion_start
       ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
       `;
+  }
+  userMetricWhere(baseIdType: string, ignoreConversionEnd: boolean) {
+    // only used by ClickHouse because clickhouse cannot use above join
+    return ''
   }
 
   private getAggregateMetricColumn(
