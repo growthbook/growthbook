@@ -72,7 +72,7 @@ function evalConditionValue(condition: ConditionValue, value: any) {
     return !!value === condition;
   }
 
-  if(condition === null) {
+  if (condition === null) {
     return value === null || value === undefined;
   }
 
