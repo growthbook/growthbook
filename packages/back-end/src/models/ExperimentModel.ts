@@ -20,10 +20,11 @@ import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
-} from "../events/base-events";
+} from "../events/notification-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
+import { EventAuditUser } from "../events/event-types";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -233,7 +234,8 @@ export async function getSampleExperiment(
 
 export async function createExperiment(
   data: Partial<ExperimentInterface>,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ): Promise<ExperimentInterface> {
   data.organization = organization.id;
 
@@ -268,7 +270,7 @@ export async function createExperiment(
     nextSnapshotAttempt: nextUpdate,
   });
 
-  await logExperimentCreated(organization, exp);
+  await logExperimentCreated(organization, user, exp);
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
@@ -573,16 +575,19 @@ export const findExperiment = async ({
 
 /**
  * @param organization
+ * @param user
  * @param experiment
  * @return event.id
  */
 export const logExperimentCreated = async (
   organization: OrganizationInterface,
+  user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string> => {
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
+    user,
     data: {
       current: toExperimentApiInterface(organization, experiment),
     },
@@ -594,23 +599,21 @@ export const logExperimentCreated = async (
   return emittedEvent.id;
 };
 
-/**
- * @param organization
- * @param experiment
- * @return event.id
- */
 export const logExperimentUpdated = async ({
   organization,
+  user,
   current,
   previous,
 }: {
   organization: OrganizationInterface;
+  user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }): Promise<string> => {
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
+    user,
     data: {
       previous: toExperimentApiInterface(organization, previous),
       current: toExperimentApiInterface(organization, current),
@@ -625,15 +628,17 @@ export const logExperimentUpdated = async ({
 
 /**
  * Deletes an experiment by ID and logs the event for the organization
- * @param id
+ * @param experiment
  * @param organization
+ * @param user
  */
 export async function deleteExperimentByIdForOrganization(
   experiment: ExperimentInterface,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   try {
-    await logExperimentDeleted(organization, experiment);
+    await logExperimentDeleted(organization, user, experiment);
 
     await ExperimentModel.deleteOne({
       id: experiment.id,
@@ -648,13 +653,16 @@ export async function deleteExperimentByIdForOrganization(
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
  * @param organization
+ * @param user
  * @param tag
  */
 export const removeTagFromExperiments = async ({
   organization,
+  user,
   tag,
 }: {
   organization: OrganizationInterface;
+  user: EventAuditUser;
   tag: string;
 }): Promise<void> => {
   const query = { organization: organization.id, tags: tag };
@@ -670,6 +678,7 @@ export const removeTagFromExperiments = async ({
 
     logExperimentUpdated({
       organization,
+      user,
       previous,
       current,
     });
@@ -678,7 +687,8 @@ export const removeTagFromExperiments = async ({
 
 export async function removeMetricFromExperiments(
   metricId: string,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   const oldExperiments: Record<
     string,
@@ -747,6 +757,7 @@ export async function removeMetricFromExperiments(
     if (current && previous) {
       await logExperimentUpdated({
         organization,
+        user,
         current,
         previous,
       });
@@ -756,7 +767,8 @@ export async function removeMetricFromExperiments(
 
 export async function removeProjectFromExperiments(
   project: string,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   const query = { organization: organization.id, project };
   const previousExperiments = await findExperiments(query);
@@ -769,6 +781,7 @@ export async function removeProjectFromExperiments(
 
     logExperimentUpdated({
       organization,
+      user,
       previous,
       current,
     });
@@ -784,16 +797,19 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
 
 /**
  * @param organization
+ * @param user
  * @param experiment
- * @return event.id
+ * @return experiment
  */
 export const logExperimentDeleted = async (
   organization: OrganizationInterface,
+  user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string> => {
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
+    user,
     data: {
       previous: toExperimentApiInterface(organization, experiment),
     },
