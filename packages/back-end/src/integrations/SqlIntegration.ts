@@ -745,7 +745,7 @@ export default abstract class SqlIntegration
 
     const ignoreConversionEnd =
       experiment.attributionModel === "experimentDuration";
-    const postAggregationType: MetricAggregationType = ignoreConversionEnd
+    const postAggregationType: MetricWindowType = ignoreConversionEnd
       ? "postDuration"
       : "postConversion";
     // Get rough date filter for metrics to improve performance
