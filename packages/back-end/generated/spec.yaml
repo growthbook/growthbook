@@ -1020,7 +1020,6 @@ components:
         - projects
         - archived
         - behavior
-        - query
       properties:
         id:
           type: string
