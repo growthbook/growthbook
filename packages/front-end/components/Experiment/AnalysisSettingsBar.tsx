@@ -161,11 +161,11 @@ export default function AnalysisSettingsBar({
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          <PremiumTooltip
-            commercialFeature="regression-adjustment"
-            className="form-inline"
-          >
-            {regressionAdjustmentAvailable && (
+          {regressionAdjustmentAvailable && (
+            <PremiumTooltip
+              commercialFeature="regression-adjustment"
+              className="form-inline"
+            >
               <label
                 htmlFor={"toggle-experiment-regression-adjustment"}
                 className={`d-flex btn btn-outline-${
@@ -194,8 +194,8 @@ export default function AnalysisSettingsBar({
                   disabled={!hasRegressionAdjustmentFeature}
                 />
               </label>
-            )}
-          </PremiumTooltip>
+            </PremiumTooltip>
+          )}
         </div>
         <div className="col-auto">
           {hasData &&
