@@ -12,12 +12,19 @@ const ImportExperimentModal: FC<{
   importMode?: boolean;
   source?: string;
   fromFeature?: boolean;
-}> = ({ onClose, initialValue, source, fromFeature = false }) => {
+}> = ({
+  onClose,
+  initialValue,
+  importMode = true,
+  source,
+  fromFeature = false,
+}) => {
   const { datasources } = useDefinitions();
   const [
     selected,
     setSelected,
   ] = useState<null | Partial<ExperimentInterfaceStringDates>>(initialValue);
+  const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
     if (!datasources) return null;
     return (
@@ -49,7 +56,7 @@ const ImportExperimentModal: FC<{
     getImportId();
   }, [datasourceId]);
 
-  if (selected || !datasourceId) {
+  if (selected || !importModal || !datasourceId) {
     return (
       <NewExperimentForm
         initialValue={selected}
@@ -68,6 +75,19 @@ const ImportExperimentModal: FC<{
       size="max"
       close={() => onClose()}
     >
+      <div className="alert alert-info">
+        Prefer to start with a blank experiment instead?{" "}
+        <a
+          href="#"
+          className="alert-link"
+          onClick={(e) => {
+            e.preventDefault();
+            setImportModal(false);
+          }}
+        >
+          Create From Scratch
+        </a>
+      </div>
       <h2>Import from Data source</h2>
       {importId && (
         <ImportExperimentList
