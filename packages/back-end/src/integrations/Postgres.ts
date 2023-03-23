@@ -69,8 +69,7 @@ export default class Postgres extends SqlIntegration {
     return {
       informationSchema: formatInformationSchema(
         results as RawInformationSchema[],
-        "postgres",
-        new Date()
+        "postgres"
       ),
       refreshMS: queryEndTime - queryStartTime,
     };

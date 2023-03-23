@@ -35,12 +35,13 @@ export function getPath(dataSource: DataSourceType, path: RowType): string {
 
 export function formatInformationSchema(
   results: RawInformationSchema[],
-  datasourceType: DataSourceType,
-  date: Date
+  datasourceType: DataSourceType
 ): InformationSchema[] {
   const databases = new Map<string, InformationSchema>();
   const schemas = new Map<string, Schema>();
   const tables = new Map<string, Table>();
+
+  const date = new Date();
 
   results.forEach((row) => {
     const dbPath = getPath(datasourceType, {
