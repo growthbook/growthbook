@@ -1,4 +1,4 @@
-import { Get{{pascalCase object}}Response } from "../../../types/openapi";
+import { Post{{pascalCase object}}Response } from "../../../types/openapi";
 import {
   post{{pascalCase object}},
   to{{pascalCase object}}ApiInterface
@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "../../util/handler";
 import { post{{pascalCase object}}Validator } from "../../validators/openapi";
 
 export const post{{pascalCase object}} = createApiRequestHandler(post{{pascalCase object}}Validator)(
-  async (req): Promise<Get{{pascalCase object}}Response> => {
+  async (req): Promise<Post{{pascalCase object}}Response> => {
     const {{camelCase object}} = await post{{pascalCase object}}(/* */);
 
     return {
