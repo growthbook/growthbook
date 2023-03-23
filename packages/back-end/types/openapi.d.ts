@@ -2018,6 +2018,7 @@ export interface operations {
             maxPercentChange: number;
             minSampleSize: number;
           };
+          /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
             /** @description The [Identifier Types](/app/datasources#identifier-types) in your Data Source that are available for this metric */
             identifierTypes: (string)[];
@@ -2027,28 +2028,28 @@ export interface operations {
             userAggregationSQL?: string;
             /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
-            /** @description An alternative way to specify your metric to a full query. Using the top-level `sql.conversionSql` and `sql.identifierTypes` is preferred. */
-            builder?: {
-              identifierTypeColumns: ({
-                  identifierType: string;
-                  columnName: string;
-                })[];
-              tableName: string;
-              valueColumnName?: string;
-              timestampColumnName: string;
-              conditions?: ({
-                  column: string;
-                  operator: string;
-                  value: string;
-                })[];
-            };
           };
-          /** @description Only use for MixPanel (non-SQL) Data Sources. If providing this field, omit `sql`. */
+          /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          sqlBuilder?: {
+            identifierTypeColumns: ({
+                identifierType: string;
+                columnName: string;
+              })[];
+            tableName: string;
+            valueColumnName?: string;
+            timestampColumnName: string;
+            conditions?: ({
+                column: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+          /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           mixpanel?: {
             eventName: string;
             eventValue: string;
             userAggregation: string;
-            conditions: ({
+            conditions?: ({
                 property: string;
                 operator: string;
                 value: string;

@@ -75,6 +75,7 @@ properties:
         type: number
   sql:
     type: object
+    description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
     required:
       - identifierTypes
       - conversionSQL
@@ -93,55 +94,54 @@ properties:
       denominatorMetricId:
         type: string
         description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)"
-      builder:
-        type: object
-        description: "An alternative way to specify your metric to a full query. Using the top-level `sql.conversionSql` and `sql.identifierTypes` is preferred."
-        required:
-          - identifierTypeColumns
-          - tableName
-          - timestampColumnName
-        properties:
-          identifierTypeColumns:
-            type: array
-            items:
-              type: object
-              required:
-                - identifierType
-                - columnName
-              properties:
-                identifierType:
-                  type: string
-                columnName:
-                  type: string
-          tableName:
-            type: string
-          valueColumnName:
-            type: string
-          timestampColumnName:
-            type: string
-          conditions:
-            type: array
-            items:
-              type: object
-              required:
-                - column
-                - operator
-                - value
-              properties:
-                column:
-                  type: string
-                operator:
-                  type: string
-                value:
-                  type: string
+  sqlBuilder:
+    type: object
+    description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
+    required:
+      - identifierTypeColumns
+      - tableName
+      - timestampColumnName
+    properties:
+      identifierTypeColumns:
+        type: array
+        items:
+          type: object
+          required:
+            - identifierType
+            - columnName
+          properties:
+            identifierType:
+              type: string
+            columnName:
+              type: string
+      tableName:
+        type: string
+      valueColumnName:
+        type: string
+      timestampColumnName:
+        type: string
+      conditions:
+        type: array
+        items:
+          type: object
+          required:
+            - column
+            - operator
+            - value
+          properties:
+            column:
+              type: string
+            operator:
+              type: string
+            value:
+              type: string
   mixpanel:
     type: object
-    description: Only use for MixPanel (non-SQL) Data Sources. If providing this field, omit `sql`.
+    description: Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.
     required:
       - eventName
       - eventValue
       - userAggregation
-      - conditions
     properties:
       eventName:
         type: string
