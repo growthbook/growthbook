@@ -2043,6 +2043,7 @@ export interface operations {
                 })[];
             };
           };
+          /** @description Only use for MixPanel (non-SQL) Data Sources. If providing this field, omit `sql`. */
           mixpanel?: {
             eventName: string;
             eventValue: string;

@@ -136,6 +136,7 @@ properties:
                   type: string
   mixpanel:
     type: object
+    description: Only use for MixPanel (non-SQL) Data Sources. If providing this field, omit `sql`.
     required:
       - eventName
       - eventValue
