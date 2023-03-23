@@ -288,6 +288,11 @@ function viewCheckout(data: TableData, gb: GrowthBook) {
   // (and is unaffected by experiment, which otherwise would cause bias)
   if (Math.random() < 0.9) {
     trackEvent(data, "Cart Loaded");
+    // Add correlation in data
+    // In the US, even user_id are 0.4 more likely not to bounce
+    if (data.country == "US" && Number(data.userId) % 2 == 0) {
+      res.value += 0.4;
+    }
     return Math.random() < res.value;
   }
   // bounce all those not activated
