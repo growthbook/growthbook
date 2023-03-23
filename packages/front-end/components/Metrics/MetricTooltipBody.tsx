@@ -89,7 +89,7 @@ const MetricTooltipBody = ({
       {metricInfo
         .filter((i) => i.show)
         .map(({ label, body, markdown }, index) => (
-          <div key={`metricInfo${index}`} className="mt-1">
+          <div key={`metricInfo${index}`} style={{ marginBottom: "0.2em" }}>
             <strong>{`${label}: `}</strong>
             {markdown ? (
               <div className={clsx("border rounded p-1", styles.markdown)}>

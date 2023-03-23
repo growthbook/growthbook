@@ -149,7 +149,7 @@ const CompactResults: FC<{
                 tipPosition="right"
               >
                 <Link href={`/metric/${metric.id}`}>
-                  <a className="text-dark font-weight-bold">{label}</a>
+                  <a className="metriclabel text-dark">{label}</a>
                 </Link>
               </Tooltip>
             );

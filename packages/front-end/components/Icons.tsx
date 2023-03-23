@@ -528,8 +528,8 @@ export function GBCuped({
       <path
         style={{
           strokeLinecap: "round",
-          stroke: "rgb(166,124,0)",
-          mixBlendMode: "multiply",
+          stroke: "rgb(204,153,0)",
+          // mixBlendMode: "multiply",
         }}
         d="M 0.75 12.056 C 0.75 12.056 2.916 12.09 4.132 9.615 C 5.197 7.448 6.534 6.703 8.244 6.644 C 9.807 6.59 11.373 8.126 12.276 9.782 C 13.489 12.007 15.614 11.977 15.614 11.977"
       ></path>
