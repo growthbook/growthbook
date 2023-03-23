@@ -971,11 +971,10 @@ export default abstract class SqlIntegration
           ${aggregate} as value
         FROM
           __distinctUsers d
-          LEFT JOIN __metric m ON (
-            m.${baseIdType} = d.${baseIdType}
-            AND m.timestamp >= d.conversion_start
-            ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
-          )
+        LEFT JOIN __metric m ON (
+          m.${baseIdType} = d.${baseIdType}
+          ${this.userMetricJoin(ignoreConversionEnd)}
+        )    
         GROUP BY
           d.variation,
           d.dimension,
@@ -1308,7 +1307,7 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  private addPrePostTimeFilter(
+  addPrePostTimeFilter(
     col: string,
     timePeriod: MetricAggregationType
   ): string {
@@ -1324,6 +1323,12 @@ export default abstract class SqlIntegration
       )}`;
     }
     return `${col}`;
+  }
+
+  userMetricJoin(ignoreConversionEnd: boolean): string {
+    return `AND m.timestamp >= d.conversion_start
+      ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
+      `;
   }
 
   private getAggregateMetricColumn(
