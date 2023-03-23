@@ -159,12 +159,13 @@ const MetricPage: FC = () => {
           Not available for ratio metrics with <em>count</em> denominators.
         </>
       );
-    } else if (metric.type === "binomial" && metric.aggregation) {
-      regressionAdjustmentAvailableForMetric = false;
-      regressionAdjustmentAvailableForMetricReason = (
-        <>Not available for metrics with custom user value aggregations.</>
-      );
     }
+  }
+  if (metric.aggregation) {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for metrics with custom aggregations.</>
+    );
   }
 
   const getMetricUsage = (metric: MetricInterface) => {

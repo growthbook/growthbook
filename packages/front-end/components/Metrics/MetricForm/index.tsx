@@ -316,11 +316,24 @@ const MetricForm: FC<MetricFormProps> = ({
     "regression-adjustment"
   );
   let regressionAdjustmentAvailableForMetric = true;
+  let regressionAdjustmentAvailableForMetricReason = <></>;
+
   if (form.watch("denominator")) {
     const denominator = metrics.find((m) => m.id === form.watch("denominator"));
     if (denominator?.type === "count") {
       regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>
+          Not available for ratio metrics with <em>count</em> denominators.
+        </>
+      );
     }
+  }
+  if (form.watch("aggregation")) {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for metrics with custom aggregations.</>
+    );
   }
 
   let table = "Table";
@@ -1143,8 +1156,8 @@ const MetricForm: FC<MetricFormProps> = ({
                 </>
               ) : (
                 <div className="text-muted">
-                  <FaTimes className="text-danger" /> Not available for ratio
-                  metrics with <em>count</em> denominators
+                  <FaTimes className="text-danger" />{" "}
+                  {regressionAdjustmentAvailableForMetricReason}
                 </div>
               )}
             </div>

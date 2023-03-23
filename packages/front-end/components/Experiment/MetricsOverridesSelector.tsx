@@ -95,17 +95,13 @@ export default function MetricsOverridesSelector({
                   denominators.
                 </>
               );
-            } else if (
-              metricDefinition.type === "binomial" &&
-              metricDefinition.aggregation
-            ) {
-              regressionAdjustmentAvailableForMetric = false;
-              regressionAdjustmentAvailableForMetricReason = (
-                <>
-                  Not available for metrics with custom user value aggregations.
-                </>
-              );
             }
+          }
+          if (metricDefinition.aggregation) {
+            regressionAdjustmentAvailableForMetric = false;
+            regressionAdjustmentAvailableForMetricReason = (
+              <>Not available for metrics with custom aggregations.</>
+            );
           }
 
           const loseRisk = isNaN(mo.loseRisk)
