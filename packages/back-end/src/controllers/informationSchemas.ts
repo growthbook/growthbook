@@ -35,14 +35,6 @@ export async function getInformationSchema(
     org.id
   );
 
-  if (!informationSchema) {
-    res.status(404).json({
-      status: 404,
-      message: "Unable to find information schema.",
-    });
-    return;
-  }
-
   res.status(200).json({
     status: 200,
     informationSchema,

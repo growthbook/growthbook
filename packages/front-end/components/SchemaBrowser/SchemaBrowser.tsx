@@ -10,6 +10,7 @@ import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { CursorData } from "../Segments/SegmentForm";
+import LoadingSpinner from "../LoadingSpinner";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -97,6 +98,8 @@ export default function SchemaBrowser({
     setCurrentTable(null);
   }, [datasource]);
 
+  if (!data) return <LoadingSpinner />;
+
   if (informationSchema?.error?.message) {
     return (
       <SchemaBrowserWrapper datasourceName={datasource.name}>
@@ -122,6 +125,7 @@ export default function SchemaBrowser({
       <SchemaBrowserWrapper datasourceName={datasource.name}>
         {!informationSchema || !informationSchema.databases.length ? (
           <BuildInformationSchemaCard
+            informationSchema={informationSchema}
             datasourceId={datasource.id}
             mutate={mutate}
           />
@@ -164,15 +168,12 @@ export default function SchemaBrowser({
                                 await apiCall<{
                                   status: number;
                                   message?: string;
-                                }>(
-                                  `/datasource/${datasource.id}/informationSchema`,
-                                  {
-                                    method: "PUT",
-                                    body: JSON.stringify({
-                                      informationSchemaId: informationSchema.id,
-                                    }),
-                                  }
-                                );
+                                }>(`/datasource/${datasource.id}/schema`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    informationSchemaId: informationSchema.id,
+                                  }),
+                                });
                               }
                             }}
                             trigger={

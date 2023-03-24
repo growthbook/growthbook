@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
+import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "../LoadingSpinner";
 
 export default function BuildInformationSchemaCard({
   datasourceId,
   mutate,
+  informationSchema,
 }: {
   datasourceId: string;
   mutate: () => void;
+  informationSchema: InformationSchemaInterface;
 }) {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<null | string>(null);
@@ -32,7 +35,14 @@ export default function BuildInformationSchemaCard({
 
   useEffect(() => {
     if (fetching) {
-      if (retryCount > 8) {
+      if (
+        retryCount > 1 &&
+        retryCount < 8 &&
+        informationSchema?.status === "COMPLETE"
+      ) {
+        setFetching(false);
+        setRetryCount(1);
+      } else if (retryCount > 8) {
         setFetching(false);
         setError(
           "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
@@ -48,7 +58,7 @@ export default function BuildInformationSchemaCard({
         };
       }
     }
-  }, [fetching, mutate, retryCount]);
+  }, [fetching, mutate, retryCount, informationSchema]);
 
   return (
     <div>
@@ -70,7 +80,10 @@ export default function BuildInformationSchemaCard({
         <button
           disabled={fetching}
           className="mt-2 btn btn-primary"
-          onClick={async () => onClick()}
+          onClick={async (e) => {
+            e.preventDefault();
+            onClick();
+          }}
         >
           {fetching && <LoadingSpinner />} Generate Information Schema
         </button>
